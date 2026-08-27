@@ -5,11 +5,16 @@
 ## 1. 프로젝트 소개
 
 패션 산업의 폐기물 문제를 해결하려면 폐소재의 수거부터 가공, 제품 생산, 판매까지 이어지는 이력을 신뢰할 수 있어야 합니다. 그러나 기존 시스템에서는 단계별 데이터가 분산되어 있고, 친환경·재활용 정보가 실제 이력인지 검증하기 어렵습니다.
-이 프로젝트는 폐소재를 등록하면서 ****Material Token****을 발행하고, 소재의 거래와 가공·생산 이력을 ****Hyperledger Besu**** 기반 블록체인에 기록합니다. 완성 제품에는 ****QR Passport****를 연결하여 소비자가 원재료의 출처와 전체 Material Journey를 직접 확인할 수 있도록 합니다.
+이 프로젝트는 폐소재를 등록하면서 **Material Token**을 발행하고, 소재의 거래와 가공·생산 이력을 **Hyperledger Besu** 기반 블록체인에 기록합니다. 완성 제품에는 **QR Passport**를 연결하여 소비자가 원재료의 출처와 전체 Material Journey를 직접 확인할 수 있도록 합니다.
 
 ### 핵심 목표
 
-- 폐소재의 등록부터 완제품 생산까지 추적 가능한 이력 제공 - Material Token을 이용한 소재 소유권 및 상태 관리 - Marketplace와 Escrow를 통한 안전한 소재 거래 - 위·변조가 어려운 가공·생산 증빙 기록 - QR Passport를 통한 소비자 중심의 투명한 정보 공개 - 블록체인과 관계형 데이터베이스의 역할을 분리한 실용적 하이브리드 구조
+- 폐소재의 등록부터 완제품 생산까지 추적 가능한 이력 제공
+- Material Token을 이용한 소재 소유권 및 상태 관리
+- Marketplace와 Escrow를 통한 안전한 소재 거래
+- 위·변조가 어려운 가공·생산 증빙 기록
+- QR Passport를 통한 소비자 중심의 투명한 정보 공개
+- 블록체인과 관계형 데이터베이스의 역할을 분리한 실용적 하이브리드 구조
 
 ## 2. 서비스 흐름
 
@@ -25,55 +30,110 @@ flowchart LR
     H --> I["소비자 이력 조회"]
 ```
 
-1. 공급자가 폐원단·재고 원단 등 폐소재와 증빙 자료를 등록합니다. 2. 검증된 소재에 고유한 Material Token을 발행합니다. 3. 소유자가 소재를 Marketplace에 판매 등록합니다. 4. 구매 대금은 Escrow에 예치되고 거래 조건 충족 후 정산됩니다. 5. 가공업체가 세척, 분쇄, 방적, 염색 등 Processing 이력을 기록합니다. 6. 제조업체가 가공 소재를 제품에 투입하고 Production 이력을 생성합니다. 7. 원소재부터 완제품까지의 연결 관계를 Material Journey로 구성합니다. 8. 제품별 QR Passport를 발급하고 소비자에게 검증 가능한 이력을 제공합니다.
+1. 공급자가 폐원단·재고 원단 등 폐소재와 증빙 자료를 등록합니다.
+2. 검증된 소재에 고유한 Material Token을 발행합니다.
+3. 소유자가 소재를 Marketplace에 판매 등록합니다.
+4. 구매 대금은 Escrow에 예치되고 거래 조건 충족 후 정산됩니다.
+5. 가공업체가 세척, 분쇄, 방적, 염색 등 Processing 이력을 기록합니다.
+6. 제조업체가 가공 소재를 제품에 투입하고 Production 이력을 생성합니다.
+7. 원소재부터 완제품까지의 연결 관계를 Material Journey로 구성합니다.
+8. 제품별 QR Passport를 발급하고 소비자에게 검증 가능한 이력을 제공합니다.
 
 ## 3. 주요 기능
 
-| 도메인 | 주요 기능 | | --- | --- | | User / Wallet | 회원가입, 로그인, 역할 관리, 지갑 연결, 지갑 주소 검증 | | Material | 폐소재 등록·조회·검증, 증빙 업로드, Material Token 발행 및 상태 관리 | | Marketplace / Trade | 판매 등록, 검색·필터링, 구매 요청, 거래 상태 및 소유권 관리 | | Escrow | 구매 대금 예치, 거래 승인, 정산, 취소·분쟁 상태 관리 | | Processing | 가공 공정 등록, 투입·산출 소재 연결, 공정 증빙 및 상태 기록 | | Production | 제품 생산 등록, 사용 소재와 수량 연결, 제품 이력 생성 | | Traceability | Material Journey 조회, 온체인 트랜잭션 검증, 단계별 타임라인 제공 | | QR Passport | 제품별 QR 생성, 공개 이력 페이지, 원산지·가공·생산 정보 확인 |
+| 도메인 | 주요 기능 |
+| --- | --- |
+| User / Wallet | 회원가입, 로그인, 역할 관리, 지갑 연결, 지갑 주소 검증 |
+| Material | 폐소재 등록·조회·검증, 증빙 업로드, Material Token 발행 및 상태 관리 |
+| Marketplace / Trade | 판매 등록, 검색·필터링, 구매 요청, 거래 상태 및 소유권 관리 |
+| Escrow | 구매 대금 예치, 거래 승인, 정산, 취소·분쟁 상태 관리 |
+| Processing | 가공 공정 등록, 투입·산출 소재 연결, 공정 증빙 및 상태 기록 |
+| Production | 제품 생산 등록, 사용 소재와 수량 연결, 제품 이력 생성 |
+| Traceability | Material Journey 조회, 온체인 트랜잭션 검증, 단계별 타임라인 제공 |
+| QR Passport | 제품별 QR 생성, 공개 이력 페이지, 원산지·가공·생산 정보 확인 |
 
 ## 4. 기술 스택
 
 ### Frontend
 
-- ****React + TypeScript****: 컴포넌트 기반 UI와 명확한 타입 계약을 이용한 협업 - ****Vite****: 빠른 개발 서버와 간결한 빌드 환경 - ****ethers.js****: MetaMask 연결, 서명 요청, 스마트 컨트랙트 호출 및 이벤트 조회 - ****MetaMask****: 사용자 지갑 연결과 거래 서명
+- **React + TypeScript**: 컴포넌트 기반 UI와 명확한 타입 계약을 이용한 협업
+- **Vite**: 빠른 개발 서버와 간결한 빌드 환경
+- **ethers.js**: MetaMask 연결, 서명 요청, 스마트 컨트랙트 호출 및 이벤트 조회
+- **MetaMask**: 사용자 지갑 연결과 거래 서명
 
 ### Backend
 
-- ****Java + Spring Boot****: REST API, 인증·인가, 비즈니스 로직 및 트랜잭션 처리 - ****Web3j****: 백엔드의 Besu RPC 통신, 컨트랙트 호출, 이벤트 수집 - ****MySQL****: 사용자, 검색용 데이터, 파일 메타데이터, 서비스 상태 저장
+- **Java + Spring Boot**: REST API, 인증·인가, 비즈니스 로직 및 트랜잭션 처리
+- **Web3j**: 백엔드의 Besu RPC 통신, 컨트랙트 호출, 이벤트 수집
+- **MySQL**: 사용자, 검색용 데이터, 파일 메타데이터, 서비스 상태 저장
 
 ### AI
 
-- ****Python + FastAPI****: Backend와 분리된 AI 추론 API 제공 - ****AI Model****: 소재·제품 관련 분석 등 모델 추론을 전담하며, 인증과 결과 저장은 Spring Boot가 담당
+- **Python + FastAPI**: Backend와 분리된 AI 추론 API 제공
+- **AI Model**: 소재·제품 관련 분석 등 모델 추론을 전담하며, 인증과 결과 저장은 Spring Boot가 담당
 
 ### Blockchain
 
-- ****Hyperledger Besu****: SSAFY에서 제공하는 EVM 호환 블록체인 네트워크 - ****Solidity****: Material Token, Marketplace, Escrow, Journey 관련 스마트 컨트랙트 구현 - ****Hardhat****: 컨트랙트 컴파일, 테스트, 배포 및 ABI 관리
+- **Hyperledger Besu**: SSAFY에서 제공하는 EVM 호환 블록체인 네트워크
+- **Solidity**: Material Token, Marketplace, Escrow, Journey 관련 스마트 컨트랙트 구현
+- **Hardhat**: 컨트랙트 컴파일, 테스트, 배포 및 ABI 관리
 
 ### Infrastructure / DevOps
 
-- ****AWS EC2****: 애플리케이션 실행 환경 - ****Docker / Docker Compose****: 서비스별 실행 환경 표준화 - ****Nginx****: 정적 파일 제공, HTTPS 종료, API 리버스 프록시 - ****Jenkins****: 빌드·테스트·배포 자동화
+- **AWS EC2**: 애플리케이션 실행 환경
+- **Docker / Docker Compose**: 서비스별 실행 환경 표준화
+- **Nginx**: 정적 파일 제공, HTTPS 종료, API 리버스 프록시
+- **Jenkins**: 빌드·테스트·배포 자동화
 
 ## 5. 기술 선택 이유
 
-| 기술 | 선택 이유 | | --- | --- | | React + TypeScript | 기능 도메인별 병렬 개발에 적합하고, Web3 관련 예제와 라이브러리가 풍부하며 타입으로 컴포넌트·API 계약을 명확히 관리할 수 있습니다. | | Spring Boot | 계층형 구조, 보안, 데이터 접근, 트랜잭션 관리 생태계가 안정적이며 Java 기반 팀 개발에 적합합니다. | | FastAPI | Python 기반 AI 모델을 독립 서비스로 구성하기 쉽고, 가벼운 추론 API를 빠르게 구현할 수 있습니다. | | MySQL | 목록 검색과 통계, 사용자·권한, 서비스 상태처럼 관계와 조회 성능이 중요한 데이터를 효율적으로 처리합니다. | | Hyperledger Besu | EVM 및 Solidity와 호환되고 허가형 네트워크 구성이 가능해 참여 주체가 명확한 공급망 서비스에 적합합니다. | | ethers.js / MetaMask | 브라우저에서 지갑 연결, 사용자 서명, 컨트랙트 상호작용을 표준적인 방식으로 구현할 수 있습니다. | | Web3j | Spring Boot에서 블록체인 트랜잭션과 이벤트를 Java 객체 중심으로 다룰 수 있습니다. | | Hardhat | 컨트랙트 테스트와 배포 자동화, 네트워크별 설정 및 ABI 산출물 관리가 편리합니다. | | Docker / Jenkins | 개발·운영 환경 차이를 줄이고 반복 가능한 CI/CD 파이프라인을 구축할 수 있습니다. |
+| 기술 | 선택 이유 |
+| --- | --- |
+| React + TypeScript | 기능 도메인별 병렬 개발에 적합하고, Web3 관련 예제와 라이브러리가 풍부하며 타입으로 컴포넌트·API 계약을 명확히 관리할 수 있습니다. |
+| Spring Boot | 계층형 구조, 보안, 데이터 접근, 트랜잭션 관리 생태계가 안정적이며 Java 기반 팀 개발에 적합합니다. |
+| FastAPI | Python 기반 AI 모델을 독립 서비스로 구성하기 쉽고, 가벼운 추론 API를 빠르게 구현할 수 있습니다. |
+| MySQL | 목록 검색과 통계, 사용자·권한, 서비스 상태처럼 관계와 조회 성능이 중요한 데이터를 효율적으로 처리합니다. |
+| Hyperledger Besu | EVM 및 Solidity와 호환되고 허가형 네트워크 구성이 가능해 참여 주체가 명확한 공급망 서비스에 적합합니다. |
+| ethers.js / MetaMask | 브라우저에서 지갑 연결, 사용자 서명, 컨트랙트 상호작용을 표준적인 방식으로 구현할 수 있습니다. |
+| Web3j | Spring Boot에서 블록체인 트랜잭션과 이벤트를 Java 객체 중심으로 다룰 수 있습니다. |
+| Hardhat | 컨트랙트 테스트와 배포 자동화, 네트워크별 설정 및 ABI 산출물 관리가 편리합니다. |
+| Docker / Jenkins | 개발·운영 환경 차이를 줄이고 반복 가능한 CI/CD 파이프라인을 구축할 수 있습니다. |
 
 ## 6. 블록체인 적용 범위
 
-모든 데이터를 블록체인에 저장하지 않고, ****신뢰와 검증이 필요한 핵심 사실은 온체인****, 검색·화면 표시·운영에 필요한 상세 정보는 ****오프체인****에 저장합니다.
+모든 데이터를 블록체인에 저장하지 않고, **신뢰와 검증이 필요한 핵심 사실은 온체인**, 검색·화면 표시·운영에 필요한 상세 정보는 **오프체인**에 저장합니다.
 
 ### 온체인 데이터
 
-- Material Token ID, 소유자, 상태 및 수량 - 소재 발행·이전·소각 이력 - Marketplace 판매 및 거래 상태 - Escrow 예치·승인·정산·취소 상태 - Processing의 투입 소재와 산출 소재 연결 관계 - Production의 제품과 사용 소재 연결 관계 - 증빙 원본을 검증하기 위한 해시 - 주요 상태 변경 이벤트와 타임스탬프
+- Material Token ID, 소유자, 상태 및 수량
+- 소재 발행·이전·소각 이력
+- Marketplace 판매 및 거래 상태
+- Escrow 예치·승인·정산·취소 상태
+- Processing의 투입 소재와 산출 소재 연결 관계
+- Production의 제품과 사용 소재 연결 관계
+- 증빙 원본을 검증하기 위한 해시
+- 주요 상태 변경 이벤트와 타임스탬프
 
 ### 오프체인 데이터
 
-- 사용자 프로필, 권한 및 인증 정보 - 소재·제품 설명, 검색 조건, 이미지와 문서 - 화면 표시를 위한 조회 모델과 통계 - 트랜잭션 처리 상태, 재시도 정보, 이벤트 인덱싱 결과 - QR Passport 공개 페이지용 캐시 데이터
+- 사용자 프로필, 권한 및 인증 정보
+- 소재·제품 설명, 검색 조건, 이미지와 문서
+- 화면 표시를 위한 조회 모델과 통계
+- 트랜잭션 처리 상태, 재시도 정보, 이벤트 인덱싱 결과
+- QR Passport 공개 페이지용 캐시 데이터
 
 > 이미지와 문서 원본은 별도 파일 저장소에 보관하고, 해당 파일의 해시만 블록체인에 기록하여 무결성을 검증합니다.
 
 ### 스마트 컨트랙트 구성 예시
 
-| 컨트랙트 | 책임 | | --- | --- | | `MaterialToken` | 소재 토큰 발행, 소유권 이전, 수량·상태 관리 | | `Marketplace` | 판매 등록, 구매 요청, 거래 상태 관리 | | `Escrow` | 대금 예치, 거래 승인, 정산 및 취소 | | `ProcessRegistry` | 가공 공정과 투입·산출 소재 관계 기록 | | `ProductionRegistry` | 제품 생산과 사용 소재 관계 기록 | | `JourneyRegistry` | 제품 중심의 Material Journey 기준점과 증빙 해시 관리 |
+| 컨트랙트 | 책임 |
+| --- | --- |
+| `MaterialToken` | 소재 토큰 발행, 소유권 이전, 수량·상태 관리 |
+| `Marketplace` | 판매 등록, 구매 요청, 거래 상태 관리 |
+| `Escrow` | 대금 예치, 거래 승인, 정산 및 취소 |
+| `ProcessRegistry` | 가공 공정과 투입·산출 소재 관계 기록 |
+| `ProductionRegistry` | 제품 생산과 사용 소재 관계 기록 |
+| `JourneyRegistry` | 제품 중심의 Material Journey 기준점과 증빙 해시 관리 |
 
 ## 7. 시스템 아키텍처
 
@@ -111,62 +171,70 @@ flowchart TB
 
 ### 트랜잭션 처리 원칙
 
-- 사용자의 명시적 동의가 필요한 소유권 이전과 거래는 MetaMask 서명을 우선합니다. - 서버가 수행해야 하는 운영 트랜잭션은 권한이 제한된 별도 계정을 사용합니다. - 백엔드는 트랜잭션 해시를 저장하고, receipt 확인 후 최종 상태를 반영합니다. - 컨트랙트 이벤트를 수집해 MySQL 조회 모델을 갱신합니다. - 온체인과 오프체인의 일시적 불일치를 고려해 `PENDING`, `CONFIRMED`, `FAILED` 상태를 구분합니다. - 개인키와 비밀값은 저장소에 커밋하지 않고 Jenkins Credentials 또는 운영 환경의 Secret으로 관리합니다.
+- 사용자의 명시적 동의가 필요한 소유권 이전과 거래는 MetaMask 서명을 우선합니다.
+- 서버가 수행해야 하는 운영 트랜잭션은 권한이 제한된 별도 계정을 사용합니다.
+- 백엔드는 트랜잭션 해시를 저장하고, receipt 확인 후 최종 상태를 반영합니다.
+- 컨트랙트 이벤트를 수집해 MySQL 조회 모델을 갱신합니다.
+- 온체인과 오프체인의 일시적 불일치를 고려해 `PENDING`, `CONFIRMED`, `FAILED` 상태를 구분합니다.
+- 개인키와 비밀값은 저장소에 커밋하지 않고 Jenkins Credentials 또는 운영 환경의 Secret으로 관리합니다.
 
 ## 8. 저장소 및 프로젝트 구조
 
-프로젝트는 Git Repository를 여러 개로 나누지 않습니다. ****하나의 `Circular-Fashion` Repository 안에서 영역별 Master / Develop 브랜치를 독립 프로젝트처럼 운영****합니다. 각 Master 브랜치는 서로 다른 프로젝트 루트를 가지며, 다른 영역의 Master 또는 Develop 브랜치와 직접 Merge하지 않습니다.
+프로젝트는 Git Repository를 여러 개로 나누지 않습니다. **하나의 `Circular-Fashion` Repository 안에서 영역별 Master / Develop 브랜치를 독립 프로젝트처럼 운영**합니다. 각 Master 브랜치는 서로 다른 프로젝트 루트를 가지며, 다른 영역의 Master 또는 Develop 브랜치와 직접 Merge하지 않습니다.
 
 ```text
-Circular-Fashion Repository │ ├── Backend-Master │
-└── Backend-Develop │
-└── backend/feature/\* │ ├── Frontend-Master │
-└── Frontend-Develop │
-└── frontend/feature/\* │ ├── Blockchain-Master │
-└── Blockchain-Develop │
-└── blockchain/feature/\* │ ├── AI-Master │
-└── AI-Develop │
-└── ai/feature/\* │ └── Deploy-Master
+Circular-Fashion Repository
+│
+├── Backend-Master
+│   └── Backend-Develop
+│       └── backend/feature/*
+│
+├── Frontend-Master
+│   └── Frontend-Develop
+│       └── frontend/feature/*
+│
+├── Blockchain-Master
+│   └── Blockchain-Develop
+│       └── blockchain/feature/*
+│
+├── AI-Master
+│   └── AI-Develop
+│       └── ai/feature/*
+│
+└── Deploy-Master
 ```
 
-| 브랜치 | 관리 대상 | | --- | --- | | `Backend-Master` | Spring Boot 애플리케이션 | | `Frontend-Master` | React 웹 애플리케이션 | | `Blockchain-Master` | Solidity 스마트 컨트랙트, ABI, 배포 주소 | | `AI-Master` | FastAPI 기반 AI 추론 서비스 | | `Deploy-Master` | Docker Compose, Nginx, Jenkins Pipeline, 배포 스크립트 |
+| 브랜치 | 관리 대상 |
+| --- | --- |
+| `Backend-Master` | Spring Boot 애플리케이션 |
+| `Frontend-Master` | React 웹 애플리케이션 |
+| `Blockchain-Master` | Solidity 스마트 컨트랙트, ABI, 배포 주소 |
+| `AI-Master` | FastAPI 기반 AI 추론 서비스 |
+| `Deploy-Master` | Docker Compose, Nginx, Jenkins Pipeline, 배포 스크립트 |
 
 ### Backend-Master
 
 Spring Boot 프로젝트 루트를 관리합니다.
 
 ```text
-. ├── src/ │
-├── main/ │
-│
-├── java/ │
-│
-│
-└── .../ │
-│
-│
-├── user/ │
-│
-│
-├── material/ │
-│
-│
-├── trade/ │
-│
-│
-├── processing/ │
-│
-│
-├── production/ │
-│
-│
-├── traceability/ │
-│
-│
-└── common/ │
-│
-└── resources/ │
-└── test/ ├── build.gradle ├── settings.gradle ├── Dockerfile └── README.md
+.
+├── src/
+│   ├── main/
+│   │   ├── java/
+│   │   │   └── .../
+│   │   │       ├── user/
+│   │   │       ├── material/
+│   │   │       ├── trade/
+│   │   │       ├── processing/
+│   │   │       ├── production/
+│   │   │       ├── traceability/
+│   │   │       └── common/
+│   │   └── resources/
+│   └── test/
+├── build.gradle
+├── settings.gradle
+├── Dockerfile
+└── README.md
 ```
 
 ### Frontend-Master
@@ -174,14 +242,21 @@ Spring Boot 프로젝트 루트를 관리합니다.
 React + TypeScript + Vite 프로젝트 루트를 관리합니다.
 
 ```text
-. ├── src/ │
-├── components/ │
-├── features/ │
-├── pages/ │
-├── hooks/ │
-├── services/ │
-├── types/ │
-└── utils/ ├── public/ ├── package.json ├── tsconfig.json ├── vite.config.ts ├── Dockerfile └── README.md
+.
+├── src/
+│   ├── components/
+│   ├── features/
+│   ├── pages/
+│   ├── hooks/
+│   ├── services/
+│   ├── types/
+│   └── utils/
+├── public/
+├── package.json
+├── tsconfig.json
+├── vite.config.ts
+├── Dockerfile
+└── README.md
 ```
 
 ### Blockchain-Master
@@ -189,16 +264,24 @@ React + TypeScript + Vite 프로젝트 루트를 관리합니다.
 Solidity + Hardhat 프로젝트와 다음 스마트 컨트랙트를 관리합니다.
 
 ```text
-. ├── contracts/ │
-├── MaterialToken.sol │
-├── Marketplace.sol │
-├── Escrow.sol │
-├── ProcessRegistry.sol │
-├── ProductionRegistry.sol │
-└── JourneyRegistry.sol ├── scripts/ ├── test/ ├── deployments/ ├── abi/ ├── hardhat.config.ts ├── package.json └── README.md
+.
+├── contracts/
+│   ├── MaterialToken.sol
+│   ├── Marketplace.sol
+│   ├── Escrow.sol
+│   ├── ProcessRegistry.sol
+│   ├── ProductionRegistry.sol
+│   └── JourneyRegistry.sol
+├── scripts/
+├── test/
+├── deployments/
+├── abi/
+├── hardhat.config.ts
+├── package.json
+└── README.md
 ```
 
-스마트 컨트랙트 ABI와 배포된 Contract Address의 ****Source of Truth는 `Blockchain-Master`****입니다. 공통 패키지에 복제해 관리하지 않고, 검증된 산출물을 Frontend와 Backend에 배포하거나 전달합니다.
+스마트 컨트랙트 ABI와 배포된 Contract Address의 **Source of Truth는 `Blockchain-Master`**입니다. 공통 패키지에 복제해 관리하지 않고, 검증된 산출물을 Frontend와 Backend에 배포하거나 전달합니다.
 
 ```text
 Blockchain-Master
@@ -215,12 +298,18 @@ ABI 또는 주소가 변경되면 버전과 대상 네트워크를 함께 기록
 Backend와 분리된 Python + FastAPI 기반 AI 추론 서비스를 관리합니다.
 
 ```text
-. ├── app/ │
-├── api/ │
-├── services/ │
-├── models/ │
-├── schemas/ │
-└── main.py ├── model/ ├── tests/ ├── requirements.txt ├── Dockerfile └── README.md
+.
+├── app/
+│   ├── api/
+│   ├── services/
+│   ├── models/
+│   ├── schemas/
+│   └── main.py
+├── model/
+├── tests/
+├── requirements.txt
+├── Dockerfile
+└── README.md
 ```
 
 AI Server는 외부 클라이언트의 인증이나 서비스 데이터를 직접 책임지지 않습니다. 요청 흐름은 `Frontend → Spring Boot → AI Server`이며, Spring Boot가 인증, 입력 검증, 비즈니스 로직과 결과 저장을 담당합니다.
@@ -230,16 +319,21 @@ AI Server는 외부 클라이언트의 인증이나 서비스 데이터를 직�
 별도의 Infra-Master / Infra-Develop 브랜치는 두지 않습니다. `Deploy-Master` 하나에서 각 서비스를 실제 서버에 조합하고 배포하기 위한 공통 설정을 관리합니다.
 
 ```text
-. ├── docker-compose.yml ├── nginx/ │
-└── nginx.conf ├── jenkins/ │
-├── backend.Jenkinsfile │
-├── frontend.Jenkinsfile │
-├── ai.Jenkinsfile │
-└── blockchain.Jenkinsfile ├── scripts/ │
-├── deploy-backend.sh │
-├── deploy-frontend.sh │
-├── deploy-ai.sh │
-└── health-check.sh └── README.md
+.
+├── docker-compose.yml
+├── nginx/
+│   └── nginx.conf
+├── jenkins/
+│   ├── backend.Jenkinsfile
+│   ├── frontend.Jenkinsfile
+│   ├── ai.Jenkinsfile
+│   └── blockchain.Jenkinsfile
+├── scripts/
+│   ├── deploy-backend.sh
+│   ├── deploy-frontend.sh
+│   ├── deploy-ai.sh
+│   └── health-check.sh
+└── README.md
 ```
 
 애플리케이션 이미지 빌드에 필요한 `Dockerfile`은 각각 `Backend-Master`, `Frontend-Master`, `AI-Master`에서 관리합니다. `Deploy-Master`는 Docker Compose, Nginx, Jenkins Pipeline과 배포 스크립트를 통해 해당 이미지의 실행·연결·배포 방식을 관리합니다.
@@ -247,11 +341,23 @@ AI Server는 외부 클라이언트의 인증이나 서비스 데이터를 직�
 ## 9. 기능 도메인별 역할 분담
 
 팀 규모와 일정에 맞게 한 사람이 하나의 도메인을 주도하되, 공통 규격과 핵심 컨트랙트는 함께 리뷰합니다.
-| 담당 | 주도 도메인 | 주요 작업 | | --- | --- | --- | | 팀원 1 | User / Wallet | 인증·인가, 역할 관리, MetaMask 연결, 지갑 주소 검증 | | 팀원 2 | Material | 폐소재 등록·검증, 증빙 관리, Material Token 발행 | | 팀원 3 | Marketplace / Escrow | 판매·구매 흐름, 거래 상태, Escrow 컨트랙트 연동 | | 팀원 4 | Processing | 가공 공정, 투입·산출 소재 관계, 증빙 해시 기록 | | 팀원 5 | Production | 제품 생산, 소재 투입량, 제품과 소재 연결 | | 팀원 6 | Traceability / QR | Material Journey, QR Passport, 공개 조회 화면 |
+
+| 담당 | 주도 도메인 | 주요 작업 |
+| --- | --- | --- |
+| 팀원 1 | User / Wallet | 인증·인가, 역할 관리, MetaMask 연결, 지갑 주소 검증 |
+| 팀원 2 | Material | 폐소재 등록·검증, 증빙 관리, Material Token 발행 |
+| 팀원 3 | Marketplace / Escrow | 판매·구매 흐름, 거래 상태, Escrow 컨트랙트 연동 |
+| 팀원 4 | Processing | 가공 공정, 투입·산출 소재 관계, 증빙 해시 기록 |
+| 팀원 5 | Production | 제품 생산, 소재 투입량, 제품과 소재 연결 |
+| 팀원 6 | Traceability / QR | Material Journey, QR Passport, 공개 조회 화면 |
 
 ### 공동 책임
 
-- API 명세, 데이터 모델, 이벤트 명명 규칙 합의 - 스마트 컨트랙트 권한·보안·가스 비용 리뷰 - 공통 UI 컴포넌트와 타입 정의 관리 - 온체인 이벤트와 오프체인 상태 동기화 정책 관리 - 코드 리뷰, 통합 테스트, 배포 및 장애 대응
+- API 명세, 데이터 모델, 이벤트 명명 규칙 합의
+- 스마트 컨트랙트 권한·보안·가스 비용 리뷰
+- 공통 UI 컴포넌트와 타입 정의 관리
+- 온체인 이벤트와 오프체인 상태 동기화 정책 관리
+- 코드 리뷰, 통합 테스트, 배포 및 장애 대응
 
 ## 10. 브랜치 및 협업 전략
 
@@ -262,18 +368,23 @@ AI Server는 외부 클라이언트의 인증이나 서비스 데이터를 직�
 
 ```text
 master
+
 backend/master
 └── backend/develop
-└── backend/feat/*
+    └── backend/feat/*
+
 frontend/master
 └── frontend/develop
-└── frontend/feat/*
+    └── frontend/feat/*
+
 ai/master
 └── ai/develop
-└── ai/feat/*
+    └── ai/feat/*
+
 blockchain/master
 └── blockchain/develop
-└── blockchain/feat/*
+    └── blockchain/feat/*
+
 deploy/master
 ```
 
@@ -849,28 +960,33 @@ backend/develop
 
 ```text
 master
+
 backend/master
 └── backend/develop
-├── backend/feat/auth-login
-├── backend/feat/material-register
-├── backend/feat/material-marketplace
-├── backend/feat/transaction
-├── backend/feat/processing
-└── backend/feat/production
+    ├── backend/feat/auth-login
+    ├── backend/feat/material-register
+    ├── backend/feat/material-marketplace
+    ├── backend/feat/transaction
+    ├── backend/feat/processing
+    └── backend/feat/production
+
 frontend/master
 └── frontend/develop
-├── frontend/feat/auth
-├── frontend/feat/material-marketplace
-├── frontend/feat/inventory
-└── frontend/feat/material-passport
+    ├── frontend/feat/auth
+    ├── frontend/feat/material-marketplace
+    ├── frontend/feat/inventory
+    └── frontend/feat/material-passport
+
 ai/master
 └── ai/develop
-└── ai/feat/*
+    └── ai/feat/*
+
 blockchain/master
 └── blockchain/develop
-├── blockchain/feat/material-token
-├── blockchain/feat/escrow
-└── blockchain/feat/traceability
+    ├── blockchain/feat/material-token
+    ├── blockchain/feat/escrow
+    └── blockchain/feat/traceability
+
 deploy/master
 ```
 
@@ -911,7 +1027,13 @@ backend/master
 
 ### 사전 준비
 
-- Node.js 20+ - Java 17+ - Python 3.11+ - MySQL 8+ - Docker 및 Docker Compose - MetaMask 브라우저 확장 프로그램 - SSAFY Besu 네트워크 RPC URL 및 체인 정보
+- Node.js 20+
+- Java 17+
+- Python 3.11+
+- MySQL 8+
+- Docker 및 Docker Compose
+- MetaMask 브라우저 확장 프로그램
+- SSAFY Besu 네트워크 RPC URL 및 체인 정보
 
 ### 환경 변수
 
@@ -984,7 +1106,12 @@ docker compose up -d --build
 
 ## 12. 테스트 전략
 
-- ****Frontend****: 컴포넌트, 사용자 흐름, 지갑 미연결·서명 거부 예외 테스트 - ****Backend****: 도메인 단위 테스트, API 통합 테스트, DB 트랜잭션 테스트 - ****AI Server****: 모델 입력 검증, 추론 결과 스키마, 예외·시간 초과 테스트 - ****Smart Contract****: 권한, 정상 거래, 취소·분쟁, 중복 실행, 접근 제어 테스트 - ****Integration****: 컨트랙트 이벤트와 MySQL 상태 동기화, Spring Boot와 AI Server 연동 테스트 - ****E2E****: 소재 등록 → 토큰 발행 → 거래 → 가공 → 생산 → QR 조회 전체 흐름 테스트
+- **Frontend**: 컴포넌트, 사용자 흐름, 지갑 미연결·서명 거부 예외 테스트
+- **Backend**: 도메인 단위 테스트, API 통합 테스트, DB 트랜잭션 테스트
+- **AI Server**: 모델 입력 검증, 추론 결과 스키마, 예외·시간 초과 테스트
+- **Smart Contract**: 권한, 정상 거래, 취소·분쟁, 중복 실행, 접근 제어 테스트
+- **Integration**: 컨트랙트 이벤트와 MySQL 상태 동기화, Spring Boot와 AI Server 연동 테스트
+- **E2E**: 소재 등록 → 토큰 발행 → 거래 → 가공 → 생산 → QR 조회 전체 흐름 테스트
 블록체인 연동 테스트에서는 트랜잭션이 생성되었다는 사실뿐 아니라 receipt 상태, 이벤트 파라미터, 최종 소유자와 오프체인 상태까지 함께 검증합니다.
 
 ## 13. 배포 개요
@@ -1026,25 +1153,54 @@ flowchart LR
 AWS EC2 한 대에서 Nginx, Frontend, Backend, AI Server, MySQL, Jenkins를 Docker 기반으로 운영하고, SSAFY Hyperledger Besu는 외부 네트워크로 연결합니다.
 
 ```text
-AWS EC2 │ ├── Nginx ├── Frontend │
-└── React ├── Backend │
-└── Spring Boot ├── AI Server │
-└── FastAPI / AI Model ├── MySQL └── Jenkins
-External Network └── SSAFY Hyperledger Besu
+AWS EC2
+│
+├── Nginx
+├── Frontend
+│   └── React
+├── Backend
+│   └── Spring Boot
+├── AI Server
+│   └── FastAPI / AI Model
+├── MySQL
+└── Jenkins
+
+External Network
+└── SSAFY Hyperledger Besu
 ```
 
 Nginx가 HTTPS와 정적 파일 제공, `/api` 리버스 프록시를 담당합니다. 일반 요청은 Spring Boot가 MySQL과 AI Server를 사용하고, Web3j를 통해 Besu와 통신합니다. 사용자 서명이 필요한 요청은 React에서 MetaMask를 거쳐 Besu로 전달됩니다.
 
 ### 운영 시 주의사항
 
-- 컨트랙트 배포는 일반 애플리케이션 배포와 분리하고, 반드시 수동 승인 후 주소와 ABI 버전을 함께 관리합니다. - ABI와 Contract Address는 `Blockchain-Master`를 유일한 기준으로 사용합니다. - 운영 컨트랙트 변경은 새 배포, 마이그레이션 및 이전 주소 보존 정책을 먼저 정의합니다. - DB 마이그레이션과 애플리케이션 배포 순서를 명시합니다. - Jenkins Credentials에 DB 비밀번호, JWT Secret, 배포 키 등을 저장합니다. - Nginx에 TLS 인증서, 업로드 크기 제한, 보안 헤더를 설정합니다. - 로그에 개인키, 토큰, 개인정보가 출력되지 않도록 마스킹합니다.
+- 컨트랙트 배포는 일반 애플리케이션 배포와 분리하고, 반드시 수동 승인 후 주소와 ABI 버전을 함께 관리합니다.
+- ABI와 Contract Address는 `Blockchain-Master`를 유일한 기준으로 사용합니다.
+- 운영 컨트랙트 변경은 새 배포, 마이그레이션 및 이전 주소 보존 정책을 먼저 정의합니다.
+- DB 마이그레이션과 애플리케이션 배포 순서를 명시합니다.
+- Jenkins Credentials에 DB 비밀번호, JWT Secret, 배포 키 등을 저장합니다.
+- Nginx에 TLS 인증서, 업로드 크기 제한, 보안 헤더를 설정합니다.
+- 로그에 개인키, 토큰, 개인정보가 출력되지 않도록 마스킹합니다.
 
 ## 14. 완료 기준
 
-- [ ] 폐소재 등록과 검증 후 Material Token이 정상 발행된다. - [ ] Marketplace 등록부터 Escrow 정산까지 거래가 완료된다. - [ ] 거래 완료 시 소재 소유권과 오프체인 상태가 일치한다. - [ ] Processing에서 투입·산출 소재의 연결 관계를 추적할 수 있다. - [ ] Production에서 완제품과 사용 소재를 연결할 수 있다. - [ ] Material Journey에서 전체 단계와 증빙 무결성을 확인할 수 있다. - [ ] QR Passport로 로그인 없이 공개 가능한 제품 이력을 조회할 수 있다. - [ ] Spring Boot를 통해 AI Server를 호출하고 추론 결과를 저장할 수 있다. - [ ] 실패·대기 중인 블록체인 트랜잭션을 식별하고 재처리할 수 있다. - [ ] Jenkins를 통해 애플리케이션 테스트, 빌드, EC2 배포가 자동화된다. - [ ] 운영 스마트 컨트랙트는 수동 승인 후 배포되고 ABI와 주소가 일관되게 반영된다.
+- [ ] 폐소재 등록과 검증 후 Material Token이 정상 발행된다.
+- [ ] Marketplace 등록부터 Escrow 정산까지 거래가 완료된다.
+- [ ] 거래 완료 시 소재 소유권과 오프체인 상태가 일치한다.
+- [ ] Processing에서 투입·산출 소재의 연결 관계를 추적할 수 있다.
+- [ ] Production에서 완제품과 사용 소재를 연결할 수 있다.
+- [ ] Material Journey에서 전체 단계와 증빙 무결성을 확인할 수 있다.
+- [ ] QR Passport로 로그인 없이 공개 가능한 제품 이력을 조회할 수 있다.
+- [ ] Spring Boot를 통해 AI Server를 호출하고 추론 결과를 저장할 수 있다.
+- [ ] 실패·대기 중인 블록체인 트랜잭션을 식별하고 재처리할 수 있다.
+- [ ] Jenkins를 통해 애플리케이션 테스트, 빌드, EC2 배포가 자동화된다.
+- [ ] 운영 스마트 컨트랙트는 수동 승인 후 배포되고 ABI와 주소가 일관되게 반영된다.
 
 ## 15. 기대 효과
 
-- 재활용 소재의 출처와 사용 이력을 투명하게 공개 - 참여 기업 간 데이터 신뢰 비용 절감 - 소재 거래와 정산 과정의 안전성 향상 - 소비자가 확인할 수 있는 제품 단위 친환경 근거 제공 - 순환 패션 생태계의 소재 재사용과 책임 있는 생산 촉진
+- 재활용 소재의 출처와 사용 이력을 투명하게 공개
+- 참여 기업 간 데이터 신뢰 비용 절감
+- 소재 거래와 정산 과정의 안전성 향상
+- 소비자가 확인할 수 있는 제품 단위 친환경 근거 제공
+- 순환 패션 생태계의 소재 재사용과 책임 있는 생산 촉진
 ---
-이 프로젝트는 블록체인을 모든 데이터의 저장소로 사용하기보다, 여러 참여자가 함께 검증해야 하는 ****소유권·거래·변환 관계·증빙 무결성****에 집중해 적용합니다.
+이 프로젝트는 블록체인을 모든 데이터의 저장소로 사용하기보다, 여러 참여자가 함께 검증해야 하는 **소유권·거래·변환 관계·증빙 무결성**에 집중해 적용합니다.
