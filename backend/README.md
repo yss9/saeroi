@@ -1,4 +1,4 @@
-# Git Convention
+# Branch Strategy
 
 ## 1. 전체 브랜치 구조
 
@@ -23,6 +23,8 @@ ai/master
 blockchain/master
 └── blockchain/develop
     └── blockchain/feat/*
+
+deploy/master
 ```
 
 최상위 `master`는 프로젝트 전체 기준 브랜치로 유지합니다.
@@ -159,6 +161,26 @@ Blockchain 기능의 개발 통합 브랜치입니다.
 
 ---
 
+
+### deploy/master
+
+배포 관련 설정과 운영 배포 구성을 관리하는 브랜치입니다.
+
+역할:
+
+- 배포 설정 관리
+- Docker / Docker Compose 설정
+- CI/CD 설정
+- Nginx 및 Reverse Proxy 설정
+- 운영 환경 설정
+- 배포 스크립트 관리
+
+`deploy/master`는 별도의 `develop` 또는 `feat/*` 브랜치를 두지 않습니다.
+
+배포 관련 변경은 `deploy/master`에서 직접 관리합니다.
+
+---
+
 ## 3. 최초 브랜치 생성
 
 원격 저장소의 기본 브랜치가 `master`라고 가정합니다.
@@ -230,6 +252,20 @@ git push -u origin blockchain/develop
 
 ---
 
+
+### Deploy 브랜치 생성
+
+```bash
+git checkout master
+
+git checkout -b deploy/master
+git push -u origin deploy/master
+```
+
+`deploy/master`는 별도의 `deploy/develop` 또는 `deploy/feat/*` 브랜치를 생성하지 않습니다.
+
+---
+
 ## 4. 최초 생성 후 브랜치 구조
 
 원격 저장소에는 다음 장기 브랜치가 존재합니다.
@@ -248,6 +284,8 @@ ai/develop
 
 blockchain/master
 blockchain/develop
+
+deploy/master
 ```
 
 ---
@@ -381,6 +419,17 @@ blockchain/develop
           ↑
 blockchain/feat/*
 ```
+
+---
+
+
+### Deploy
+
+```text
+deploy/master
+```
+
+Deploy 파트는 별도의 `develop` 또는 `feat/*` 브랜치를 운영하지 않습니다.
 
 ---
 
@@ -606,6 +655,8 @@ blockchain/master
     ├── blockchain/feat/material-token
     ├── blockchain/feat/escrow
     └── blockchain/feat/traceability
+
+deploy/master
 ```
 
 ---
@@ -613,6 +664,8 @@ blockchain/master
 ## 13. 정리
 
 각 파트는 다음 3단계 구조를 가집니다.
+
+Deploy 파트는 예외적으로 `deploy/master` 단일 브랜치만 사용합니다.
 
 ```text
 feat/*
