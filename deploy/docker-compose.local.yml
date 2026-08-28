@@ -1,0 +1,27 @@
+# 로컬 검증용 override.
+# 아직 존재하지 않는 frontend/backend/ai 이미지를 placeholder로 대체해
+# 프록시 라우팅 / 네트워크 / 볼륨 구성을 EC2 없이 검증한다.
+#
+# 실행 전 .env 필요 (MYSQL_* 값만 임의로 채우면 됨):
+#   cp .env.example .env
+# 실행:
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
+services:
+  frontend:
+    image: nginxdemos/hello:plain-text
+
+  backend:
+    image: traefik/whoami
+    command:
+      - --port=8080
+      - --name=backend-placeholder
+
+  ai:
+    image: traefik/whoami
+    command:
+      - --port=8000
+      - --name=ai-placeholder
+
+  mysql:
+    ports:
+      - "3306:3306"

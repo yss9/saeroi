@@ -1,0 +1,101 @@
+# Circular-Fashion 운영 구성 (AWS EC2 1대 기준)
+# - 외부 진입점은 nginx(80/443)와 jenkins(8081)뿐이며, 나머지는 내부 네트워크로만 통신한다.
+# - frontend/backend/ai 이미지는 각 파트 master 브랜치의 Dockerfile로 빌드된다. (이미지 이름 규약 고정)
+# - 실행 전 .env 파일이 필요하다: cp .env.example .env 후 실값 입력
+name: circular-fashion
+
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: cf-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - web
+    restart: unless-stopped
+
+  frontend:
+    image: circular-fashion/frontend:latest
+    container_name: cf-frontend
+    networks:
+      - web
+    restart: unless-stopped
+
+  backend:
+    image: circular-fashion/backend:latest
+    container_name: cf-backend
+    env_file: .env
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      AI_SERVER_BASE_URL: http://ai:8000
+    volumes:
+      - file-storage:/app/files
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - web
+      - internal
+    restart: unless-stopped
+
+  ai:
+    image: circular-fashion/ai:latest
+    container_name: cf-ai
+    env_file: .env
+    networks:
+      - internal
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.0
+    container_name: cf-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      TZ: Asia/Seoul
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - internal
+    restart: unless-stopped
+
+  jenkins:
+    build: ./jenkins
+    image: circular-fashion/jenkins:latest
+    container_name: cf-jenkins
+    ports:
+      - "8081:8080"
+    volumes:
+      - jenkins-home:/var/jenkins_home
+      # 호스트 Docker로 이미지 빌드/배포를 수행하기 위한 소켓 공유
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - web
+    restart: unless-stopped
+
+networks:
+  web:
+  internal:
+
+volumes:
+  mysql-data:
+  jenkins-home:
+  file-storage:
