@@ -4,7 +4,7 @@ Circular-Fashion의 배포 구성을 관리하는 브랜치입니다.
 Docker Compose, Nginx, Jenkins Pipeline, 배포 스크립트의 **Source of Truth**이며,
 GIT_CONVENTION에 따라 develop / feat 하위 브랜치 없이 이 브랜치에서 직접 관리합니다.
 
-> EC2 지급 전 체크리스트와 Day-1 런북은 `master` 브랜치의 `INFRA_SETUP.md` 참고.
+> EC2 지급 전 체크리스트와 Day-1 런북은 이 브랜치의 `INFRA_SETUP.md` 참고.
 
 ## 구성
 

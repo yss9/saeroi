@@ -32,5 +32,5 @@ cat <<'GUIDE'
   5. bash scripts/health-check.sh
   6. Jenkins 초기 세팅: http://<EC2 IP>:8081
      초기 비밀번호: docker exec cf-jenkins cat /var/jenkins_home/secrets/initialAdminPassword
-자세한 순서는 master 브랜치의 INFRA_SETUP.md 5장(EC2 Day-1 런북) 참고.
+자세한 순서는 deploy/master의 INFRA_SETUP.md 5장(EC2 Day-1 런북) 참고.
 GUIDE
