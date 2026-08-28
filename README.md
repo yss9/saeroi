@@ -185,34 +185,34 @@ flowchart TB
 ```text
 Circular-Fashion Repository
 │
-├── Backend-Master
-│   └── Backend-Develop
-│       └── backend/feature/*
+├── backend/master
+│   └── backend/develop
+│       └── backend/feat/*
 │
-├── Frontend-Master
-│   └── Frontend-Develop
-│       └── frontend/feature/*
+├── frontend/master
+│   └── frontend/develop
+│       └── frontend/feat/*
 │
-├── Blockchain-Master
-│   └── Blockchain-Develop
-│       └── blockchain/feature/*
+├── blockchain/master
+│   └── blockchain/develop
+│       └── blockchain/feat/*
 │
-├── AI-Master
-│   └── AI-Develop
-│       └── ai/feature/*
+├── ai/master
+│   └── ai/develop
+│       └── ai/feat/*
 │
-└── Deploy-Master
+└── deploy/master
 ```
 
 | 브랜치 | 관리 대상 |
 | --- | --- |
-| `Backend-Master` | Spring Boot 애플리케이션 |
-| `Frontend-Master` | React 웹 애플리케이션 |
-| `Blockchain-Master` | Solidity 스마트 컨트랙트, ABI, 배포 주소 |
-| `AI-Master` | FastAPI 기반 AI 추론 서비스 |
-| `Deploy-Master` | Docker Compose, Nginx, Jenkins Pipeline, 배포 스크립트 |
+| `backend/master` | Spring Boot 애플리케이션 |
+| `frontend/master` | React 웹 애플리케이션 |
+| `blockchain/master` | Solidity 스마트 컨트랙트, ABI, 배포 주소 |
+| `ai/master` | FastAPI 기반 AI 추론 서비스 |
+| `deploy/master` | Docker Compose, Nginx, Jenkins Pipeline, 배포 스크립트 |
 
-### Backend-Master
+### backend/master
 
 Spring Boot 프로젝트 루트를 관리합니다.
 
@@ -237,7 +237,7 @@ Spring Boot 프로젝트 루트를 관리합니다.
 └── README.md
 ```
 
-### Frontend-Master
+### frontend/master
 
 React + TypeScript + Vite 프로젝트 루트를 관리합니다.
 
@@ -259,7 +259,7 @@ React + TypeScript + Vite 프로젝트 루트를 관리합니다.
 └── README.md
 ```
 
-### Blockchain-Master
+### blockchain/master
 
 Solidity + Hardhat 프로젝트와 다음 스마트 컨트랙트를 관리합니다.
 
@@ -284,11 +284,11 @@ Solidity + Hardhat 프로젝트와 다음 스마트 컨트랙트를 관리합니
 스마트 컨트랙트 ABI와 배포된 Contract Address의 **Source of Truth는 `Blockchain-Master`**입니다. 공통 패키지에 복제해 관리하지 않고, 검증된 산출물을 Frontend와 Backend에 배포하거나 전달합니다.
 
 ```text
-Blockchain-Master
+blockchain/aster
 │
-├── ABI / Contract Address → Frontend-Master
+├── ABI / Contract Address → frontend/master
 │
-└── ABI / Contract Address → Backend-Master
+└── ABI / Contract Address → backend/master
 ```
 
 ABI 또는 주소가 변경되면 버전과 대상 네트워크를 함께 기록하고, Frontend와 Backend가 같은 배포 버전을 참조하는지 확인합니다.
@@ -314,9 +314,9 @@ Backend와 분리된 Python + FastAPI 기반 AI 추론 서비스를 관리합니
 
 AI Server는 외부 클라이언트의 인증이나 서비스 데이터를 직접 책임지지 않습니다. 요청 흐름은 `Frontend → Spring Boot → AI Server`이며, Spring Boot가 인증, 입력 검증, 비즈니스 로직과 결과 저장을 담당합니다.
 
-### Deploy-Master
+### deploy/master
 
-별도의 Infra-Master / Infra-Develop 브랜치는 두지 않습니다. `Deploy-Master` 하나에서 각 서비스를 실제 서버에 조합하고 배포하기 위한 공통 설정을 관리합니다.
+별도의 Infra-Master / Infra-Develop 브랜치는 두지 않습니다. `deploy/master` 하나에서 각 서비스를 실제 서버에 조합하고 배포하기 위한 공통 설정을 관리합니다.
 
 ```text
 .
@@ -336,7 +336,7 @@ AI Server는 외부 클라이언트의 인증이나 서비스 데이터를 직�
 └── README.md
 ```
 
-애플리케이션 이미지 빌드에 필요한 `Dockerfile`은 각각 `Backend-Master`, `Frontend-Master`, `AI-Master`에서 관리합니다. `Deploy-Master`는 Docker Compose, Nginx, Jenkins Pipeline과 배포 스크립트를 통해 해당 이미지의 실행·연결·배포 방식을 관리합니다.
+애플리케이션 이미지 빌드에 필요한 `Dockerfile`은 각각 `backend/master`, `frontend/master`, `ai/master`에서 관리합니다. `deploy/master`는 Docker Compose, Nginx, Jenkins Pipeline과 배포 스크립트를 통해 해당 이미지의 실행·연결·배포 방식을 관리합니다.
 
 ## 9. 기능 도메인별 역할 분담
 
@@ -432,7 +432,7 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
-`Deploy-Master` 작업 디렉터리의 Docker Compose 구성이 준비된 경우 다음과 같이 전체 서비스를 조합해 실행할 수 있습니다. 각 애플리케이션의 이미지는 해당 Master 브랜치가 관리하는 Dockerfile로 빌드합니다.
+`deploy/master` 작업 디렉터리의 Docker Compose 구성이 준비된 경우 다음과 같이 전체 서비스를 조합해 실행할 수 있습니다. 각 애플리케이션의 이미지는 해당 Master 브랜치가 관리하는 Dockerfile로 빌드합니다.
 
 ```bash
 docker compose up -d --build
@@ -470,7 +470,7 @@ flowchart TB
 
 ### 스마트 컨트랙트 CI/CD
 
-`Blockchain-Develop`에서는 Hardhat Compile과 Test를 자동 수행합니다. 그러나 운영 컨트랙트는 일반 애플리케이션처럼 Push마다 자동 배포하지 않습니다.
+`blockchain/develop`에서는 Hardhat Compile과 Test를 자동 수행합니다. 그러나 운영 컨트랙트는 일반 애플리케이션처럼 Push마다 자동 배포하지 않습니다.
 
 ```mermaid
 flowchart LR
@@ -482,7 +482,7 @@ flowchart LR
     UA --> BE["Backend 반영"]
 ```
 
-컨트랙트 재배포는 주소와 ABI 변경으로 Frontend와 Backend에 직접 영향을 줍니다. 따라서 운영 Besu 배포 전에 수동 승인 단계를 두고, 배포 후 `Blockchain-Master`의 ABI·Contract Address를 갱신한 다음 양쪽 애플리케이션의 참조 버전을 맞춥니다.
+컨트랙트 재배포는 주소와 ABI 변경으로 Frontend와 Backend에 직접 영향을 줍니다. 따라서 운영 Besu 배포 전에 수동 승인 단계를 두고, 배포 후 `blockchain/master`의 ABI·Contract Address를 갱신한 다음 양쪽 애플리케이션의 참조 버전을 맞춥니다.
 
 ### 최종 운영 구성
 
@@ -510,7 +510,7 @@ Nginx가 HTTPS와 정적 파일 제공, `/api` 리버스 프록시를 담당합�
 ### 운영 시 주의사항
 
 - 컨트랙트 배포는 일반 애플리케이션 배포와 분리하고, 반드시 수동 승인 후 주소와 ABI 버전을 함께 관리합니다.
-- ABI와 Contract Address는 `Blockchain-Master`를 유일한 기준으로 사용합니다.
+- ABI와 Contract Address는 `blockchain/master`를 유일한 기준으로 사용합니다.
 - 운영 컨트랙트 변경은 새 배포, 마이그레이션 및 이전 주소 보존 정책을 먼저 정의합니다.
 - DB 마이그레이션과 애플리케이션 배포 순서를 명시합니다.
 - Jenkins Credentials에 DB 비밀번호, JWT Secret, 배포 키 등을 저장합니다.
