@@ -44,6 +44,9 @@
   - `scripts/init-ec2.sh` — EC2 최초 세팅 스크립트
   - `scripts/deploy-*.sh`, `scripts/health-check.sh`
   - `.env.example` — 전체 환경변수 키 목록
+- [x] Jenkins 자동 세팅(JCasC) — 플러그인 사전 설치, admin 계정, gitlab-token Credential, Job 4개 자동 등록
+- [x] 컨테이너 로그 로테이션 (서비스별 10MB x 3) — 디스크 가득참 예방
+- [x] Nginx certbot webroot(`/.well-known/acme-challenge/`) / gzip / 프록시 버퍼 설정
 - [x] 로컬 Docker Desktop에서 전체 구성 기동 검증
   - Nginx → Frontend/Backend placeholder 프록시 동작
   - MySQL volume 영속성
@@ -63,37 +66,30 @@
 | Backend | `SPRING_DATASOURCE_*`, `JWT_SECRET`, `AI_SERVER_BASE_URL` | Infra + Backend 합의 |
 | Blockchain | `BESU_RPC_URL`, `BESU_CHAIN_ID`, `BLOCKCHAIN_SERVICE_PRIVATE_KEY` | 1번 Blockchain 담당 |
 | Frontend 빌드 | `VITE_API_BASE_URL`, `VITE_BESU_*`, `VITE_*_ADDRESS` | 빌드 시점 주입 |
+| Jenkins | `JENKINS_ADMIN_ID/PASSWORD`, `JENKINS_EXTERNAL_URL`, `GITLAB_USERNAME/TOKEN` | Infra가 생성 (JCasC에서 사용) |
 
 ## 4. Jenkins 초기 세팅 목록
 
-EC2에서 Jenkins를 띄운 뒤 해야 할 세팅. (지급 전에 목록만 확정)
+Jenkins 세팅은 JCasC(`jenkins/casc.yaml`)로 자동화되어 있다. 컨테이너가 뜨면 아래가 자동 적용된다.
 
-### 플러그인
+### 자동으로 되는 것
 
-- GitLab / GitLab API — webhook 트리거
-- Pipeline / Pipeline: Stage View
-- Git
-- Docker Pipeline
-- Credentials Binding
-- SSH Agent (원격 배포가 필요해질 경우)
+- 플러그인 설치 — `jenkins/plugins.txt` 기준으로 이미지 빌드 시 사전 설치 (초기 설치 마법사 생략)
+- admin 계정 생성 — `.env`의 `JENKINS_ADMIN_ID` / `JENKINS_ADMIN_PASSWORD`
+- `gitlab-token` Credential 등록 — `.env`의 `GITLAB_USERNAME` / `GITLAB_TOKEN`
+- Pipeline Job 4개 자동 등록 (Push 트리거 + 브랜치 필터 포함):
 
-### Credentials 등록 목록
-
-| ID(예시) | 종류 | 용도 |
+| Job | 트리거 브랜치 | Jenkinsfile (deploy/master 기준) |
 | --- | --- | --- |
-| `gitlab-token` | Username/Password 또는 Token | 리포 clone, webhook 연동 |
-| `mysql-password` | Secret text | Backend 배포 시 주입 |
-| `jwt-secret` | Secret text | Backend 배포 시 주입 |
-| `blockchain-private-key` | Secret text | 서버 운영 트랜잭션 계정 |
+| backend | `backend/master` | `jenkins/backend.Jenkinsfile` |
+| frontend | `frontend/master` | `jenkins/frontend.Jenkinsfile` |
+| ai | `ai/master` | `jenkins/ai.Jenkinsfile` |
+| blockchain | `blockchain/develop` | `jenkins/blockchain.Jenkinsfile` (컴파일·테스트만, 배포 없음) |
 
-### Pipeline Job 구성 (4개)
+### 남은 수동 작업 (EC2에서)
 
-| Job | 대상 브랜치 | Jenkinsfile 경로 | 트리거 |
-| --- | --- | --- | --- |
-| backend | `backend/master` | deploy의 `jenkins/backend.Jenkinsfile` | GitLab Push (webhook) |
-| frontend | `frontend/master` | deploy의 `jenkins/frontend.Jenkinsfile` | GitLab Push (webhook) |
-| ai | `ai/master` | deploy의 `jenkins/ai.Jenkinsfile` | GitLab Push (webhook) |
-| blockchain | `blockchain/develop` | deploy의 `jenkins/blockchain.Jenkinsfile` | GitLab Push (컴파일·테스트만, 배포 없음) |
+- `.env`에 `JENKINS_ADMIN_PASSWORD`, `GITLAB_TOKEN` 실값 입력 — 기본값(admin/changeme)은 로컬 검증용이므로 반드시 교체
+- GitLab webhook 등록: 각 Job에 `http://<EC2 IP>:8081/project/<job>` (Push events)
 
 ## 5. EC2 Day-1 런북
 
@@ -104,7 +100,7 @@ EC2에서 Jenkins를 띄운 뒤 해야 할 세팅. (지급 전에 목록만 확�
 3. **리포 clone** — `git clone -b deploy/master <repo-url> ~/deploy`
 4. **`.env` 작성** — `.env.example`을 복사해 실값 채움 (Besu 값은 1번에게 받음)
 5. **기동** — `docker compose up -d` → `bash scripts/health-check.sh`
-6. **Jenkins 세팅** — `http://<EC2 IP>:8081` 접속, 초기 비밀번호 입력 → 4장 목록대로 플러그인·Credentials·Job 등록
+6. **Jenkins 확인** — `http://<EC2 IP>:8081` 접속, `.env`의 admin 계정으로 로그인. 플러그인·계정·Credential·Job은 JCasC로 자동 세팅됨 (4장 참고)
 7. **GitLab webhook 연결** — 각 Job에 `http://<EC2 IP>:8081/project/<job>` webhook 등록, Push 테스트
 8. **도메인 / HTTPS** — SSAFY 제공 도메인(`*.p.ssafy.io`) 확인 후 certbot으로 인증서 발급, `nginx.conf`의 HTTPS 블록 활성화
 9. **보안그룹 확인** — 22, 80, 443, 8081만 오픈 (8081은 가능하면 팀 IP 대역으로 제한)

@@ -1,0 +1,10 @@
+# 이미지 빌드 시 사전 설치되는 플러그인 목록 (jenkins-plugin-cli)
+configuration-as-code
+job-dsl
+workflow-aggregator
+pipeline-stage-view
+git
+gitlab-plugin
+docker-workflow
+credentials-binding
+timestamper

@@ -13,8 +13,11 @@ GIT_CONVENTION에 따라 develop / feat 하위 브랜치 없이 이 브랜치에
 ├── docker-compose.local.yml   # 로컬 검증용 override (placeholder 이미지)
 ├── .env.example               # 환경변수 키 목록 (실값 커밋 금지)
 ├── nginx/nginx.conf           # 리버스 프록시: / → frontend, /api → backend
+├── certbot/www/               # certbot webroot (HTTPS 인증서 발급용)
 ├── jenkins/
-│   ├── Dockerfile             # Docker CLI 포함 Jenkins 이미지
+│   ├── Dockerfile             # Docker CLI + 사전 설치 플러그인 포함 Jenkins 이미지
+│   ├── plugins.txt            # 사전 설치 플러그인 목록
+│   ├── casc.yaml              # JCasC — 계정/Credential/Job 4개 자동 세팅
 │   └── *.Jenkinsfile          # backend / frontend / ai / blockchain 파이프라인
 └── scripts/
     ├── init-ec2.sh            # EC2 최초 세팅 (Docker, swap, 타임존)

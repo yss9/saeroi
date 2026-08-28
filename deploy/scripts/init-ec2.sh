@@ -30,7 +30,7 @@ cat <<'GUIDE'
   3. cd ~/deploy && cp .env.example .env && vi .env   # 실값 입력
   4. docker compose up -d --build
   5. bash scripts/health-check.sh
-  6. Jenkins 초기 세팅: http://<EC2 IP>:8081
-     초기 비밀번호: docker exec cf-jenkins cat /var/jenkins_home/secrets/initialAdminPassword
+  6. Jenkins 확인: http://<EC2 IP>:8081
+     로그인: .env의 JENKINS_ADMIN_ID / JENKINS_ADMIN_PASSWORD (JCasC 자동 세팅)
 자세한 순서는 deploy/master의 INFRA_SETUP.md 5장(EC2 Day-1 런북) 참고.
 GUIDE
