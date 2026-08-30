@@ -1,0 +1,26 @@
+{
+  "name": "circular-fashion-blockchain",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Solidity and Hardhat contracts for the Circular Fashion blockchain module.",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "abi": "hardhat run scripts/export-abi.ts",
+    "rpc:local": "hardhat run scripts/rpc-read.ts --network localhost",
+    "rpc:ssafy": "hardhat run scripts/rpc-read.ts --network ssafy",
+    "tx:local": "hardhat run scripts/send-transaction.ts --network localhost",
+    "tx:ssafy": "hardhat run scripts/send-transaction.ts --network ssafy",
+    "deploy:local": "hardhat run scripts/deploy.ts --network localhost",
+    "deploy:ssafy": "hardhat run scripts/deploy.ts --network ssafy"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-ethers": "^3.0.8",
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@openzeppelin/contracts": "5.0.2",
+    "dotenv": "^16.4.5",
+    "hardhat": "^2.22.10",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.4"
+  }
+}
