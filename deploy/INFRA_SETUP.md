@@ -41,7 +41,7 @@
 - [x] `deploy/master` 브랜치에 배포 스켈레톤 작성
   - `docker-compose.yml` (운영 구성) / `docker-compose.local.yml` (로컬 검증용 override)
   - `nginx/nginx.conf` — `/` → Frontend, `/api` → Backend 리버스 프록시
-  - `jenkins/*.Jenkinsfile` — backend / frontend / ai / blockchain 파이프라인 초안
+  - `jenkins/casc.yaml` — Multibranch Job 4개 정의 (Jenkinsfile 은 각 파트 브랜치가 소유)
   - `jenkins/Dockerfile` — Docker CLI가 포함된 Jenkins 이미지
   - `scripts/init-ec2.sh` — EC2 최초 세팅 스크립트
   - `scripts/deploy-*.sh`, `scripts/health-check.sh`
