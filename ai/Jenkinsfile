@@ -62,7 +62,7 @@ pipeline {
                     environment name: 'HAS_DOCKERFILE', value: 'true'
                 }
             }
-            steps { sh 'docker build -t $IMAGE:latest -t $IMAGE:$BUILD_NUMBER .' }
+            steps { sh 'docker build -f docker/Dockerfile -t $IMAGE:latest -t $IMAGE:$BUILD_NUMBER .' }
         }
 
         stage('Deploy') {
