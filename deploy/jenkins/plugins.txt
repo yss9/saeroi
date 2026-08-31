@@ -1,4 +1,10 @@
 # 이미지 빌드 시 사전 설치되는 플러그인 목록 (jenkins-plugin-cli)
+#
+# 이 파일은 "최소 설치 보장" 목록이지 "정확한 집합"이 아니다.
+# 여기서 줄을 지워도 jenkins-home 볼륨에 이미 설치된 플러그인은 제거되지 않는다.
+#
+# Multibranch Pipeline에 필요한 workflow-multibranch / branch-api / cloudbees-folder / scm-api는
+# workflow-aggregator의 전이 의존성으로 이미 설치된다 (EC2에서 확인함) — 별도 추가 불필요.
 configuration-as-code
 job-dsl
 workflow-aggregator
@@ -8,3 +14,5 @@ gitlab-plugin
 docker-workflow
 credentials-binding
 timestamper
+# 테스트 리포트(backend surefire). 전이 의존성으로도 들어오지만 파이프라인이 직접 쓰므로 명시한다.
+junit
