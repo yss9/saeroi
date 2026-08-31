@@ -63,7 +63,7 @@ EOF
                     [ "$#" -gt 0 ] || { echo "FAIL: .env 에 VITE_* 값이 하나도 없음"; exit 1; }
 
                     echo "주입 키: $(grep -oE '^VITE_[A-Za-z0-9_]+' "$ENV_FILE" | tr '\n' ' ')"
-                    docker build "$@" -t "$IMAGE:latest" -t "$IMAGE:$BUILD_NUMBER" .
+                    docker build -f docker/Dockerfile "$@" -t "$IMAGE:latest" -t "$IMAGE:$BUILD_NUMBER" .
                 '''
             }
         }
