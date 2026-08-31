@@ -43,9 +43,13 @@ The initial project includes only broadly applicable dependencies:
 
 Database access, JPA, security, blockchain SDKs, and environment-specific integrations are outside this scaffold because their concrete requirements have not been chosen.
 
+> **Superseded infrastructure baseline:** The paragraph above records the original minimal-scaffold decision. A later approved change added Spring Data JPA, the MySQL driver, MySQL datasource/JPA configuration, H2 test support, and JPA auditing; those current settings supersede only the original no-database/no-JPA boundary.
+
 ## Configuration and Runtime Behavior
 
 The project includes a standard `application.yml` with only the application name. No database or external-service configuration is added. Running the main application starts the embedded web server without requiring infrastructure.
+
+> **Superseded runtime baseline:** The paragraph above records the original runtime expectation. The later approved MySQL/JPA configuration now requires datasource environment values outside the test profile, while tests use the configured in-memory H2 database in MySQL compatibility mode.
 
 ## Error Handling and Data Flow
 
