@@ -110,6 +110,12 @@ services:
       - jenkins-home:/var/jenkins_home
       # 호스트 Docker로 이미지 빌드/배포를 수행하기 위한 소켓 공유
       - /var/run/docker.sock:/var/run/docker.sock
+      # 배포 스크립트 / compose 파일 / .env 접근용.
+      # 반드시 호스트와 "동일한 절대경로"에 마운트할 것 — compose는 ./nginx 같은 상대 bind 경로를
+      # 호스트 절대경로로 변환해 데몬에 넘기므로, 다른 경로에 걸면 nginx가 빈 파일을 마운트한 채 뜬다.
+      - /home/ubuntu/deploy:/home/ubuntu/deploy:ro
+      # casc.yaml을 이미지 재빌드 없이 반영 (Manage Jenkins → CasC → Reload 로 즉시 적용 가능)
+      - ./jenkins/casc.yaml:/var/jenkins_casc/casc.yaml:ro
     networks:
       - web
     logging: *default-logging
