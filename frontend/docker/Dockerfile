@@ -28,6 +28,6 @@ RUN npm run build
 FROM nginx:1.27-alpine
 # SPA fallback(react-router)은 이 이미지 내부 nginx 가 처리한다.
 # EC2 앞단 nginx 는 / → frontend 프록시만 담당한다.
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 80

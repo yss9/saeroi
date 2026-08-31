@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# 환경변수 실값 — 절대 커밋 금지
+.env
