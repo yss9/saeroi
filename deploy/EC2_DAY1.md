@@ -138,15 +138,27 @@ git push origin backend/master   # 보호 브랜치면 MR로 병합해서 테스
 ## 9. (여유 있으면) HTTPS
 
 ```bash
-sudo apt install -y certbot
-sudo certbot certonly --webroot -w ~/deploy/certbot/www -d j15e104.p.ssafy.io
+sudo apt-get install -y certbot
+sudo certbot certonly --webroot -w ~/deploy/certbot/www -d j15e104.p.ssafy.io \
+  --non-interactive --agree-tos -m <이메일> --no-eff-email
 ```
 
-발급 후:
-1. `docker-compose.yml`의 `./certbot/conf:/etc/letsencrypt:ro` 주석 해제
-2. `nginx/nginx.conf`의 443 템플릿 활성화 (80은 acme 경로만 남기고 301 리다이렉트)
-3. `.env`의 `VITE_API_BASE_URL`, `JENKINS_EXTERNAL_URL`을 도메인 기준으로 교체
-4. `docker compose up -d nginx`
+인증서는 certbot 기본 경로(`/etc/letsencrypt`)에 발급되고, compose가 이 경로를 nginx에 그대로 마운트한다
+(systemd `certbot.timer`가 자동 갱신). 갱신 후 nginx가 새 인증서를 읽도록 deploy hook 등록:
+
+```bash
+sudo tee /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh >/dev/null <<'HOOK'
+#!/bin/bash
+docker exec cf-nginx nginx -s reload
+HOOK
+sudo chmod +x /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh
+```
+
+발급 후 (nginx 443 설정은 `deploy/master`에 이미 반영됨):
+1. `cd ~/deploy && git pull`
+2. `.env`의 `VITE_API_BASE_URL`을 `https://j15e104.p.ssafy.io`로 교체 (Jenkins는 8081 http 유지)
+3. `docker compose up -d nginx` (마운트 추가로 컨테이너 재생성됨)
+4. 검증: `curl -I https://j15e104.p.ssafy.io` 200, `curl -I http://j15e104.p.ssafy.io` 301
 
 > 변경은 EC2에서 직접 수정하지 말고 `deploy/feat/*` 브랜치 → MR → EC2에서 `git pull` 순서로.
 

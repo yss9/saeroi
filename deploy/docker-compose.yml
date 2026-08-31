@@ -22,8 +22,8 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
       # certbot webroot (HTTPS 인증서 발급/갱신용) — nginx.conf의 acme-challenge location과 짝
       - ./certbot/www:/var/www/certbot:ro
-      # 인증서 발급 후 주석 해제:
-      # - ./certbot/conf:/etc/letsencrypt:ro
+      # Let's Encrypt 인증서 — certbot 기본 경로를 그대로 마운트 (systemd 자동 갱신과 호환)
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       - frontend
       - backend
