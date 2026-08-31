@@ -44,7 +44,7 @@ pipeline {
             when { branch 'backend/master' }
             steps {
                 // jar 패키징은 Dockerfile 1st stage 에서 수행한다 (빌드 환경을 Java 21 로 고정)
-                sh 'docker build -t $IMAGE:latest -t $IMAGE:$BUILD_NUMBER .'
+                sh 'docker build -f docker/Dockerfile -t $IMAGE:latest -t $IMAGE:$BUILD_NUMBER .'
             }
         }
 
