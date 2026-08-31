@@ -53,8 +53,8 @@
   - Nginx → Frontend/Backend placeholder 프록시 동작
   - MySQL volume 영속성
   - Jenkins 기동 및 초기 비밀번호 확인
-- [ ] 팀 공유: 포트 맵 / 이미지 이름 규약 / `.env` 키 목록 공지
-- [ ] GitLab Access Token(또는 Deploy Token) 발급 — Jenkins가 리포를 clone할 때 사용
+- [x] 팀 공유: 포트 맵 / 이미지 이름 규약 / `.env` 키 목록 공지 (2026-08-31, `TEAM_NOTICE_2026-08-31.md`)
+- [x] GitLab Access Token(또는 Deploy Token) 발급 — Jenkins가 리포를 clone할 때 사용
 - [ ] MetaMask/Besu 관련 값은 1번(Blockchain)에게 RPC URL·Chain ID 확인 요청
 
 ## 3. 환경변수 / 시크릿 목록
@@ -93,7 +93,7 @@ Jenkins 세팅은 JCasC(`jenkins/casc.yaml`)로 자동화되어 있다. 컨테�
 - `.env`에 `JENKINS_ADMIN_PASSWORD`, `GITLAB_TOKEN` 실값 입력 — 기본값(admin/changeme)은 로컬 검증용이므로 반드시 교체
 - GitLab webhook 등록: 각 Job에 `http://<EC2 IP>:8081/project/<job>` (Push events)
 
-## 5. EC2 Day-1 런북
+## 5. EC2 Day-1 런북 (2026-08-31 완료)
 
 지급 당일 아래 순서대로 실행한다.
 
@@ -107,18 +107,22 @@ Jenkins 세팅은 JCasC(`jenkins/casc.yaml`)로 자동화되어 있다. 컨테�
 8. **도메인 / HTTPS** — 확정 도메인 `j15e104.p.ssafy.io`로 certbot 인증서 발급, `nginx.conf`의 HTTPS 블록 활성화
 9. **UFW 확인** — 22, 80, 443, 8081만 허용 + enable 유지 (`init-ec2.sh`가 처리, `sudo ufw status`로 검증)
 
-여기까지 완료되면 DEVELOPMENT_STRATEGY.md의 6번 첫 목표
+**2026-08-31 전 단계 완료** — DEVELOPMENT_STRATEGY.md의 6번 첫 목표
 **"빈 프로젝트라도 Merge하면 Jenkins를 통해 EC2에 올라가는 상태"** 달성.
+HTTPS까지 적용되어 서비스는 `https://j15e104.p.ssafy.io`, Jenkins는 `http://j15e104.p.ssafy.io:8081`.
+상세 실행 이력과 트러블슈팅은 `EC2_DAY1.md`, 팀 공지는 `TEAM_NOTICE_2026-08-31.md` 참고.
 
-## 6. EC2 없이는 할 수 없는 작업
+## 6. 남은 작업 (EC2 지급 후)
 
-아래는 미리 준비만 해 두고, 지급 후 진행한다.
+지급 전 "EC2 없이는 할 수 없는 작업"으로 미뤄둔 항목의 현재 상태:
 
-- GitLab webhook ↔ Jenkins 연결 (공인 URL 필요)
-- HTTPS 인증서 발급 (도메인 필요)
-- 배포 스크립트의 실제 서버 경로·계정 확정
-- UFW 포트 오픈 (`init-ec2.sh`에 포함) 및 실제 접속 검증
-- 실제 애플리케이션 이미지 배포 (각 파트 스켈레톤이 나온 뒤)
+- [x] GitLab webhook ↔ Jenkins 연결 (4개 Job)
+- [x] HTTPS 인증서 발급 — Let's Encrypt, 만료 2026-11-29, `certbot.timer` 자동 갱신 + nginx reload deploy hook
+- [x] UFW 포트 오픈 및 접속 검증
+- [ ] 배포 스크립트의 실제 서버 경로·계정 확정 — 현재 `~/deploy` 기준, 첫 실배포 때 검증 필요
+- [ ] 실제 애플리케이션 이미지 배포 — 각 파트 Dockerfile이 나오면 placeholder override 제거
+  (그 전까지는 compose 명령에 `-f docker-compose.yml -f docker-compose.local.yml` 필수)
+- [ ] `BESU_RPC_URL` / `BESU_CHAIN_ID` / 컨트랙트 주소 수령 후 `.env` 반영 (1번 대기 중)
 
 ## 7. deploy/master 구성 요약
 
