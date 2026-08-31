@@ -156,6 +156,17 @@ HOOK
 sudo chmod +x /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh
 ```
 
+갱신 검증 (2026-08-31 수행 완료):
+
+```bash
+sudo certbot renew --dry-run                                  # 갱신 자체 시뮬레이션
+sudo /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh    # 훅은 따로 실행해 확인
+systemctl is-active certbot.timer                             # 자동 갱신 타이머
+```
+
+> ⚠️ `--dry-run`은 **deploy hook을 건너뛴다** (로그에 `Dry run: skipping deploy hook`).
+> 훅이 실제로 도는지는 위처럼 직접 실행해서 확인해야 한다 — nginx worker가 재기동되고 서비스가 200이면 정상.
+
 발급 후 (nginx 443 설정은 `deploy/master`에 이미 반영됨):
 1. `cd ~/deploy && git pull`
 2. `.env`의 `VITE_API_BASE_URL`을 `https://j15e104.p.ssafy.io`로 교체 (Jenkins는 8081 http 유지)
