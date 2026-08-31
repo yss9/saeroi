@@ -8,17 +8,17 @@
 
 ## 0. 시작 전 준비물 확인
 
-- [ ] EC2 접속 정보: IP, pem 키 (받으면 즉시 팀 비밀 저장소에 보관, **절대 리포에 커밋 금지**)
+- [ ] EC2 접속 정보: `J15E104T.pem` 키 (받으면 즉시 팀 비밀 저장소에 보관, **절대 리포에 커밋 금지**)
 - [ ] GitLab Personal Access Token — 본인 계정 `Preferences → Access Tokens`에서 발급
   - scope: `api`, `read_repository` / 용도: Jenkins의 리포 clone + webhook
 - [ ] 1번(Blockchain)에게 받을 값: `BESU_RPC_URL`, `BESU_CHAIN_ID` (없으면 일단 비워두고 진행 가능)
-- [ ] SSAFY 제공 도메인 확인 (`*.p.ssafy.io`) — HTTPS 단계에서 필요
+- [x] 도메인 확정: `j15e104.p.ssafy.io` (공지 기준)
 
 ## 1. SSH 접속
 
 ```bash
-chmod 400 <키파일>.pem        # Windows면 파일 속성 → 보안에서 본인만 읽기
-ssh -i <키파일>.pem ubuntu@<EC2_IP>
+chmod 400 J15E104T.pem   # Windows면 파일 속성 → 보안에서 본인만 읽기
+ssh -i J15E104T.pem ubuntu@j15e104.p.ssafy.io
 ```
 
 - [ ] 접속 성공
@@ -54,10 +54,10 @@ vi .env
 | `JWT_SECRET` | `openssl rand -hex 32` |
 | `BESU_*`, `BLOCKCHAIN_SERVICE_PRIVATE_KEY` | 1번에게 받은 값 (아직 없으면 비워둠) |
 | `JENKINS_ADMIN_ID` / `JENKINS_ADMIN_PASSWORD` | 직접 생성 — **기본값 admin 금지** |
-| `JENKINS_EXTERNAL_URL` | `http://<EC2_IP>:8081/` |
+| `JENKINS_EXTERNAL_URL` | `http://j15e104.p.ssafy.io:8081/` |
 | `GITLAB_USERNAME` | `oauth2` 그대로 |
 | `GITLAB_TOKEN` | 0번에서 발급한 토큰 |
-| `VITE_*` | `VITE_API_BASE_URL=http://<EC2_IP>` (도메인 나오면 교체), 컨트랙트 주소는 1번 배포 후 |
+| `VITE_*` | `VITE_API_BASE_URL=http://j15e104.p.ssafy.io` (HTTPS 적용 시 https로 교체), 컨트랙트 주소는 1번 배포 후 |
 
 - [ ] `.env` 작성 완료
 
@@ -75,20 +75,32 @@ bash scripts/health-check.sh
 
 - [ ] health-check 3항목 OK
 
-## 5. 보안그룹 확인 (AWS 콘솔 또는 SSAFY 제공 설정)
+## 5. UFW 방화벽 확인
 
-| 포트 | 대상 | 비고 |
+SSAFY EC2는 AWS 콘솔이 없고 **UFW로만 방화벽을 관리**한다 (기본: enable + 22번만 허용).
+`init-ec2.sh`의 [3/5] 단계가 80/443/8081을 열어주므로 여기서는 확인만 한다.
+
+```bash
+sudo ufw status verbose
+```
+
+| 포트 | 상태 | 비고 |
 | --- | --- | --- |
-| 22 | 팀 IP | SSH |
-| 80, 443 | 전체 | 서비스 |
-| 8081 | 팀 IP 권장 | Jenkins |
-| 3306 | **차단** | placeholder 기동 시 노출되므로 반드시 확인 |
+| 22 | 허용 (기본) | SSH — **절대 deny/disable 금지**, ufw도 enable 유지 (잠기면 초기화만 가능) |
+| 80, 443 | 허용 | 서비스 |
+| 8081 | 허용 | Jenkins — GitLab webhook 수신을 위해 공개 필요. 방어는 강력한 admin 비밀번호로 |
+| 3306 | 열지 않음 | 아래 주의 참고 |
 
-- [ ] 3306이 외부에서 접근 안 되는지 확인 (`nc -zv <EC2_IP> 3306` 이 실패해야 정상)
+> **주의: Docker는 UFW를 우회한다.** compose의 `ports:`로 publish된 포트는 Docker가 iptables를
+> 직접 조작해 UFW 규칙과 무관하게 외부에 노출된다. UFW에서 3306을 막아도 `3306:3306`으로 열면 뚫린다.
+> 그래서 `docker-compose.local.yml`은 `127.0.0.1:3306:3306`(루프백)으로 바인딩한다.
+
+- [ ] `sudo ufw status`에서 22/80/443/8081 허용 + `Status: active` 확인
+- [ ] 3306이 외부에서 접근 안 되는지 확인 (로컬 PC에서 `nc -zv j15e104.p.ssafy.io 3306` 이 실패해야 정상)
 
 ## 6. Jenkins 확인 (자동 세팅 검증)
 
-브라우저에서 `http://<EC2_IP>:8081` 접속:
+브라우저에서 `http://j15e104.p.ssafy.io:8081` 접속:
 
 - [ ] `.env`의 admin 계정으로 로그인 성공 (설치 마법사가 뜨면 안 됨)
 - [ ] Job 4개(`backend`, `frontend`, `ai`, `blockchain`)가 이미 등록되어 있음
@@ -102,7 +114,7 @@ Job마다 반복 (backend 예시):
 
 1. Jenkins에서 `backend` Job → `Configure` → Build Triggers의 GitLab 항목 → `Advanced` → **Secret token `Generate`** → 복사
 2. GitLab 리포 → `Settings → Webhooks → Add new webhook`
-   - URL: `http://<EC2_IP>:8081/project/backend`
+   - URL: `http://j15e104.p.ssafy.io:8081/project/backend`
    - Secret token: 방금 복사한 값
    - Trigger: **Push events**만 체크
 3. 생성 후 `Test → Push events` → HTTP 200 확인
@@ -121,13 +133,13 @@ git push origin backend/master   # 보호 브랜치면 MR로 병합해서 테스
 - [ ] push 직후 Jenkins의 `backend` Job이 자동 실행됨 (아직 gradlew가 없으면 빌드 실패는 정상 — **트리거 동작 확인이 목적**)
 
 여기까지 되면 **"Merge하면 Jenkins가 돈다"** 달성. 팀에 공지:
-서비스 `http://<EC2_IP>`, Jenkins `http://<EC2_IP>:8081`, 이미지 규약 `circular-fashion/<part>:latest`.
+서비스 `http://j15e104.p.ssafy.io`, Jenkins `http://j15e104.p.ssafy.io:8081`, 이미지 규약 `circular-fashion/<part>:latest`.
 
 ## 9. (여유 있으면) HTTPS
 
 ```bash
 sudo apt install -y certbot
-sudo certbot certonly --webroot -w ~/deploy/certbot/www -d <TEAM_DOMAIN>.p.ssafy.io
+sudo certbot certonly --webroot -w ~/deploy/certbot/www -d j15e104.p.ssafy.io
 ```
 
 발급 후:
@@ -138,7 +150,7 @@ sudo certbot certonly --webroot -w ~/deploy/certbot/www -d <TEAM_DOMAIN>.p.ssafy
 
 > 변경은 EC2에서 직접 수정하지 말고 `deploy/feat/*` 브랜치 → MR → EC2에서 `git pull` 순서로.
 
-- [ ] `https://<TEAM_DOMAIN>.p.ssafy.io` 접속 확인
+- [ ] `https://j15e104.p.ssafy.io` 접속 확인
 
 ## 트러블슈팅
 
@@ -147,5 +159,6 @@ sudo certbot certonly --webroot -w ~/deploy/certbot/www -d <TEAM_DOMAIN>.p.ssafy
 | `permission denied ... docker.sock` | 2번의 재로그인 안 한 것 — `exit` 후 재접속 |
 | Jenkins가 안 뜸 / 재시작 반복 | `docker logs cf-jenkins 2>&1 \| grep -i severe` — 대부분 casc.yaml 환경변수 누락 |
 | webhook 테스트 403 | Secret token 불일치 — Job 설정에서 재생성 후 GitLab에 다시 입력 |
-| webhook 테스트 타임아웃 | 보안그룹 8081이 GitLab 서버에서 접근 가능한지 확인 (팀 IP 제한 시 GitLab IP도 허용 필요) |
-| 컨테이너는 뜨는데 페이지 안 열림 | 보안그룹 80 오픈 여부, `docker compose ps`로 nginx 상태 확인 |
+| webhook 테스트 타임아웃 | `sudo ufw status`로 8081 허용 확인 (GitLab 서버가 접근 가능해야 함) |
+| 80/443/8081 접근 안 됨 | `sudo ufw status` 확인 — 누락 시 `init-ec2.sh`의 [3/5] UFW 단계 재실행 |
+| 컨테이너는 뜨는데 페이지 안 열림 | `sudo ufw status`로 80 허용 여부, `docker compose ps`로 nginx 상태 확인 |
