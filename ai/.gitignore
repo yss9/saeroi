@@ -1,0 +1,7 @@
+# 환경변수 실값 — 절대 커밋 금지
+.env
+
+# Python
+.venv/
+__pycache__/
+*.pyc
