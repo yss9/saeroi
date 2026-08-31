@@ -7,17 +7,26 @@
 | 서비스 | https://j15e104.p.ssafy.io | 현재 placeholder (각 파트 배포 시 교체됨), http는 https로 자동 리다이렉트 |
 | Jenkins | http://j15e104.p.ssafy.io:8081 | 계정은 팀 비밀 저장소 참고 |
 
-## 배포 방식
+## CI/CD 동작 (Multibranch 전환 완료)
 
-- **각 파트 master에 merge하면 자동 배포됩니다** (blockchain만 `develop` 브랜치 트리거, 배포 없이 컴파일·테스트만)
-- 이미지 규약: `circular-fashion/<part>:latest` — 각 파트 Dockerfile은 이 이름으로 빌드됨
+- **develop / feat 브랜치에 push하면 테스트가 자동으로 돕니다.** 새 feat 브랜치를 만들면
+  Jenkins Job이 자동 생성되고, 브랜치를 지우면 자동으로 정리됩니다. 등록 요청 불필요.
+- **각 파트 master에 merge하면 이미지 빌드 + 자동 배포됩니다.**
+- 이미지 규약: `circular-fashion/<part>:latest`
 
-| Job | 트리거 브랜치 |
-| --- | --- |
-| backend | `backend/master` |
-| frontend | `frontend/master` |
-| ai | `ai/master` |
-| blockchain | `blockchain/develop` |
+| 파트 | CI (테스트) | CD (배포) |
+| --- | --- | --- |
+| backend / frontend / ai | 해당 파트의 모든 브랜치 | `<파트>/master` 만 |
+| blockchain | `blockchain/*` (compile + test) | **없음** — 컨트랙트는 수동 배포 |
+
+### 파이프라인은 이제 각 파트가 소유합니다
+
+`Jenkinsfile`이 각 파트 브랜치 루트에 있습니다. **빌드 스텝은 직접 고치셔도 됩니다** —
+인프라에 요청할 필요 없습니다. 지켜야 할 계약은 둘뿐입니다:
+이미지 이름 `circular-fashion/<파트>:latest`, Deploy 스테이지는 `<파트>/master` 에서만.
+
+> MR을 올렸을 때 GitLab 화면에 CI 결과가 표시되지는 않습니다. 다만 MR의 소스 브랜치는
+> push 시점에 이미 테스트가 돌았으므로, Jenkins에서 해당 브랜치 결과를 확인하시면 됩니다.
 
 ## 요청 사항
 

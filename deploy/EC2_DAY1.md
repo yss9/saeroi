@@ -111,18 +111,25 @@ sudo ufw status verbose
 
 전부 JCasC 자동 세팅이므로 안 되어 있으면 `docker logs cf-jenkins`에서 SEVERE 로그 확인.
 
-## 7. GitLab Webhook 연결 (유일하게 손이 가는 부분)
+## 7. GitLab Webhook 연결
 
-Job마다 반복 (backend 예시):
+Multibranch 전환 후 **리포 단위 webhook 1개**면 된다. Job별로 등록할 필요가 없다
+(git 플러그인의 `notifyCommit` 이 인덱싱을 유발하고, head가 바뀐 브랜치만 빌드된다).
 
-1. Jenkins에서 `backend` Job → `Configure` → Build Triggers의 GitLab 항목 → `Advanced` → **Secret token `Generate`** → 복사
-2. GitLab 리포 → `Settings → Webhooks → Add new webhook`
-   - URL: `http://j15e104.p.ssafy.io:8081/project/backend`
-   - Secret token: 방금 복사한 값
-   - Trigger: **Push events**만 체크
-3. 생성 후 `Test → Push events` → HTTP 200 확인
+GitLab 리포 → `Settings → Webhooks → Add new webhook`:
 
-- [x] backend / frontend / ai / blockchain 4개 webhook 등록 + 테스트 200
+```
+URL: http://j15e104.p.ssafy.io:8081/git/notifyCommit?url=https://lab.ssafy.com/s15-blockchain-pred-sub1/S15P21E104.git
+Trigger: Push events 만 체크
+Secret token: 비움 (이 엔드포인트는 토큰을 해석하지 않음)
+```
+
+`Test → Push events` → HTTP 200 확인.
+403이면 `jenkins/Dockerfile`의 `JAVA_OPTS`에 `NOTIFY_COMMIT_ACCESS_CONTROL=disabled`가 들어갔는지 확인.
+
+- [x] webhook 1개 등록 + 테스트 200
+
+> webhook이 유실되거나 막혀도 각 Job의 5분 주기 스캔이 안전망으로 잡는다 (최대 5분 지연).
 
 ## 8. 파이프라인 트리거 검증
 

@@ -79,19 +79,40 @@ Jenkins 세팅은 JCasC(`jenkins/casc.yaml`)로 자동화되어 있다. 컨테�
 - 플러그인 설치 — `jenkins/plugins.txt` 기준으로 이미지 빌드 시 사전 설치 (초기 설치 마법사 생략)
 - admin 계정 생성 — `.env`의 `JENKINS_ADMIN_ID` / `JENKINS_ADMIN_PASSWORD`
 - `gitlab-token` Credential 등록 — `.env`의 `GITLAB_USERNAME` / `GITLAB_TOKEN`
-- Pipeline Job 4개 자동 등록 (Push 트리거 + 브랜치 필터 포함):
+- **Multibranch Pipeline Job 4개** 자동 등록 (파트당 1개, 브랜치 자동 발견)
 
-| Job | 트리거 브랜치 | Jenkinsfile (deploy/master 기준) |
-| --- | --- | --- |
-| backend | `backend/master` | `jenkins/backend.Jenkinsfile` |
-| frontend | `frontend/master` | `jenkins/frontend.Jenkinsfile` |
-| ai | `ai/master` | `jenkins/ai.Jenkinsfile` |
-| blockchain | `blockchain/develop` | `jenkins/blockchain.Jenkinsfile` (컴파일·테스트만, 배포 없음) |
+### 파이프라인 정의 위치 — deploy/master 가 아니라 각 파트 브랜치
+
+`Jenkinsfile`은 **각 파트 브랜치 루트**에 있고, 파트가 소유한다. deploy/master 는 Job 구조와
+배포 방식(compose·nginx·`scripts/deploy-*.sh`)만 관리한다. 파트원이 빌드 스텝을 고칠 때
+인프라 담당을 거치지 않아도 된다.
+
+| Job | 발견 브랜치 | CI (테스트) | CD (이미지 빌드 + 배포) |
+| --- | --- | --- | --- |
+| backend | `backend/master·develop·feat/*·fix/*·refactor/*` | 전 브랜치 | `backend/master` 만 |
+| frontend | `frontend/*` (동일 규칙) | 전 브랜치 | `frontend/master` 만 |
+| ai | `ai/*` (동일 규칙) | 전 브랜치 | `ai/master` 만 |
+| blockchain | `blockchain/develop·feat/*·fix/*·refactor/*` | 전 브랜치 | **없음** (컨트랙트는 수동 배포) |
+
+- 새 feat 브랜치를 만들면 Job이 **자동 생성**되고, 브랜치를 지우면 자동 회수된다.
+- `Jenkinsfile`이 없는 브랜치는 Job이 생기지 않는다 (실패가 아니라 미생성). 파트가 준비되는 순서대로 켜진다.
+- `includes` 필터에 없는 ref(`deploy/master`, `master`, 타 파트 브랜치)는 인덱싱 단계에서 버려진다.
+
+> **MR 파이프라인은 없다.** MR 소스 브랜치(`backend/feat/x`)가 필터에 걸리므로 MR에 올린
+> 모든 커밋은 push 시점에 이미 CI를 통과한다. 빠지는 건 MR 화면의 초록 체크뿐이다.
+> `gitlab-branch-source`를 쓰지 않은 이유: MR을 발견하면 SCM head가 `MR-12` 형태가 되어
+> 파트 필터에 걸리지 않고, 필터를 넓히면 **4개 Job이 모든 파트의 MR을 발견**해
+> frontend Job이 backend MR을 빌드하는 사고가 난다.
 
 ### 남은 수동 작업 (EC2에서)
 
 - `.env`에 `JENKINS_ADMIN_PASSWORD`, `GITLAB_TOKEN` 실값 입력 — 기본값(admin/changeme)은 로컬 검증용이므로 반드시 교체
-- GitLab webhook 등록: 각 Job에 `http://<EC2 IP>:8081/project/<job>` (Push events)
+- GitLab webhook **1개** 등록 (Job별 등록 불필요 — 리포 단위로 모든 Multibranch Job이 인덱싱된다):
+  ```
+  http://j15e104.p.ssafy.io:8081/git/notifyCommit?url=https://lab.ssafy.com/s15-blockchain-pred-sub1/S15P21E104.git
+  Push events 만 체크. Secret token 비움.
+  ```
+  webhook이 유실돼도 5분 주기 스캔이 안전망으로 잡는다.
 
 ## 5. EC2 Day-1 런북 (2026-08-31 완료)
 
@@ -134,14 +155,14 @@ deploy/master
 ├── docker-compose.local.yml   # 로컬 검증용 override (placeholder 이미지)
 ├── .env.example
 ├── nginx/nginx.conf
+├── docker-compose.placeholder.yml  # EC2에서 아직 이미지가 없는 서비스만 대체 (파트별로 졸업)
 ├── jenkins/
-│   ├── Dockerfile             # Docker CLI 포함 Jenkins 이미지
-│   ├── backend.Jenkinsfile
-│   ├── frontend.Jenkinsfile
-│   ├── ai.Jenkinsfile
-│   └── blockchain.Jenkinsfile
+│   ├── Dockerfile             # Docker CLI + Node/Python 툴체인 포함 Jenkins 이미지
+│   ├── plugins.txt
+│   └── casc.yaml              # Multibranch Job 4개 정의 (Jenkinsfile은 파트 브랜치에 있음)
 ├── scripts/
 │   ├── init-ec2.sh
+│   ├── compose.sh             # placeholder override 자동 합성 — compose 호출의 단일 경로
 │   ├── deploy-backend.sh
 │   ├── deploy-frontend.sh
 │   ├── deploy-ai.sh
@@ -149,7 +170,7 @@ deploy/master
 └── README.md                  # 로컬 검증 / EC2 배포 방법
 ```
 
-각 애플리케이션의 `Dockerfile`은 각 파트 master 브랜치(backend/frontend/ai)에서 관리하고,
+각 애플리케이션의 `Dockerfile`과 `Jenkinsfile`은 각 파트 브랜치에서 관리하고,
 deploy는 이미지의 **실행·연결·배포 방식**만 관리한다. 이미지 이름 규약:
 
 ```text
