@@ -10,7 +10,7 @@ pipeline {
     }
 
     environment {
-        REPO_URL   = 'https://lab.ssafy.com/<GROUP>/S15P21E104.git' // TODO
+        REPO_URL   = 'https://lab.ssafy.com/s15-blockchain-pred-sub1/S15P21E104.git'
         IMAGE      = 'circular-fashion/frontend'
         DEPLOY_DIR = '/home/ubuntu/deploy'
     }

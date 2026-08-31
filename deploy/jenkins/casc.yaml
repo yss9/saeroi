@@ -1,0 +1,67 @@
+# Jenkins Configuration as Code (JCasC)
+# - Jenkins 기동 시 자동 적용된다. 웹 화면에서의 초기 세팅(계정/플러그인/Job 등록)이 필요 없다.
+# - ${VAR} 값은 컨테이너 환경변수(.env → docker-compose.yml)에서 주입된다.
+# - 주의: EC2에서는 .env에 JENKINS_ADMIN_PASSWORD를 반드시 설정할 것 (기본값 admin은 로컬 검증용)
+jenkins:
+  systemMessage: "Circular-Fashion CI — 이 설정은 deploy/master의 jenkins/casc.yaml(JCasC)로 관리됩니다"
+  numExecutors: 2
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "${JENKINS_ADMIN_ID:-admin}"
+          password: "${JENKINS_ADMIN_PASSWORD:-admin}"
+  authorizationStrategy:
+    loggedInUsersCanDoAnything:
+      allowAnonymousRead: false
+
+unclassified:
+  location:
+    url: "${JENKINS_EXTERNAL_URL:-http://localhost:8081/}"
+
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - usernamePassword:
+              scope: GLOBAL
+              id: "gitlab-token"
+              username: "${GITLAB_USERNAME:-oauth2}"
+              password: "${GITLAB_TOKEN:-changeme}"
+              description: "GitLab Access Token (리포 clone용)"
+
+jobs:
+  - script: |
+      def repo = 'https://lab.ssafy.com/s15-blockchain-pred-sub1/S15P21E104.git'
+      [
+        [name: 'backend',    branch: 'backend/master',     jenkinsfile: 'jenkins/backend.Jenkinsfile'],
+        [name: 'frontend',   branch: 'frontend/master',    jenkinsfile: 'jenkins/frontend.Jenkinsfile'],
+        [name: 'ai',         branch: 'ai/master',          jenkinsfile: 'jenkins/ai.Jenkinsfile'],
+        [name: 'blockchain', branch: 'blockchain/develop', jenkinsfile: 'jenkins/blockchain.Jenkinsfile'],
+      ].each { j ->
+        pipelineJob(j.name) {
+          description("${j.branch} push 시 실행 — 정의: deploy/master의 ${j.jenkinsfile}")
+          triggers {
+            gitlabPush {
+              buildOnPushEvents(true)
+              buildOnMergeRequestEvents(false)
+              branchFilterType = 'NameBasedFilter'
+              includeBranches(j.branch)
+            }
+          }
+          definition {
+            cpsScm {
+              scm {
+                git {
+                  remote {
+                    url(repo)
+                    credentials('gitlab-token')
+                  }
+                  branch('deploy/master')
+                }
+              }
+              scriptPath(j.jenkinsfile)
+            }
+          }
+        }
+      }
