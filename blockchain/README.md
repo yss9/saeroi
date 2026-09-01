@@ -49,11 +49,12 @@ DEFAULT_ADMIN_ROLE
 SUPPLIER_ROLE
 PROCESSOR_ROLE
 BRAND_ROLE
-VERIFIER_ROLE
+STATUS_MANAGER_ROLE
 ```
 
 현재 PoC에서는 `SUPPLIER_ROLE`만 `mintMaterial` 권한에 직접 사용합니다.
-다른 역할은 Processing, Production, Verification 확장 단계에서 사용할 예정입니다.
+별도 검증자 역할은 사용하지 않으며, 발행된 Material은 `REGISTERED` 상태에서 바로 거래 등록할 수 있습니다.
+`PROCESSOR_ROLE`, `BRAND_ROLE`은 Processing과 Production 확장 단계에서 사용할 예정입니다.
 
 ## Commands
 
