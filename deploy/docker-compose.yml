@@ -45,9 +45,17 @@ services:
     container_name: cf-backend
     env_file: .env
     environment:
+      # SPRING_DATASOURCE_* 와 DB_* 를 같은 값으로 함께 넣는다.
+      # backend 의 application.yml 은 ${DB_URL}/${DB_USERNAME}/${DB_PASSWORD} 를 읽는데,
+      # 지금 동작하는 이유는 OS 환경변수가 application.yml 보다 우선이라 그 placeholder 가
+      # 아예 평가되지 않기 때문이지 설계된 동작이 아니다. DB_USERNAME/DB_PASSWORD 에는
+      # 기본값도 없어서, yml 쪽이 한 번이라도 우선하게 되는 순간 기동이 깨진다.
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
       SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+      DB_USERNAME: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
       AI_SERVER_BASE_URL: http://ai:8000
     volumes:
       - file-storage:/app/files
