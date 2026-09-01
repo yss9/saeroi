@@ -9,18 +9,16 @@ contract MaterialToken is ERC1155, AccessControl {
     bytes32 public constant SUPPLIER_ROLE = keccak256("SUPPLIER_ROLE");
     bytes32 public constant PROCESSOR_ROLE = keccak256("PROCESSOR_ROLE");
     bytes32 public constant BRAND_ROLE = keccak256("BRAND_ROLE");
-    bytes32 public constant VERIFIER_ROLE = keccak256("VERIFIER_ROLE");
     //Marketplace, Escrow 컨트랙트에 나중에 부여할 상태 변경 권한
     bytes32 public constant STATUS_MANAGER_ROLE = keccak256("STATUS_MANAGER_ROLE");
 
     //소재의 생애 주기
     enum MaterialStatus {
         NONE,        //0 등록되지 않음
-        REGISTERED,  //1 발행됨, 검증 전
-        VERIFIED,    //2 검증 완료, 거래 가능
-        LISTED,      //3 판매 등록됨
-        IN_ESCROW,   //4 거래 진행중, 이동 금지
-        PROCESSED    //5 전량 가공 투입되어 소진
+        REGISTERED,  //1 발행됨, 거래 가능
+        LISTED,      //2 판매 등록됨
+        IN_ESCROW,   //3 거래 진행중, 이동 금지
+        PROCESSED    //4 전량 가공 투입되어 소진
     }
 
     //소각 사유. 표준 이벤트만으로는 왜 없어졌는지 알 수 없어 함께 기록한다.
@@ -73,7 +71,6 @@ contract MaterialToken is ERC1155, AccessControl {
         _grantRole(SUPPLIER_ROLE, admin);
         _grantRole(PROCESSOR_ROLE, admin);
         _grantRole(BRAND_ROLE, admin);
-        _grantRole(VERIFIER_ROLE, admin);
         _grantRole(STATUS_MANAGER_ROLE, admin);
     }
 
@@ -107,8 +104,7 @@ contract MaterialToken is ERC1155, AccessControl {
             );
             //거래중이거나 소진된 소재에는 추가 발행할 수 없다.
             require(
-                material.status == MaterialStatus.REGISTERED ||
-                    material.status == MaterialStatus.VERIFIED,
+                material.status == MaterialStatus.REGISTERED,
                 "MaterialToken: status does not allow minting"
             );
         }
@@ -118,19 +114,6 @@ contract MaterialToken is ERC1155, AccessControl {
         _mint(to, tokenId, amount, "");
 
         emit MaterialMinted(_msgSender(), to, tokenId, amount, metadataUri, documentHash);
-    }
-
-    //검증자가 소재를 승인한다. 승인 전에는 거래 단계로 넘어갈 수 없다.
-    function verifyMaterial(uint256 tokenId) external onlyRole(VERIFIER_ROLE) {
-        MaterialInfo storage material = _materials[tokenId];
-
-        require(material.exists, "MaterialToken: material does not exist");
-        require(
-            material.status == MaterialStatus.REGISTERED,
-            "MaterialToken: material is not in registered status"
-        );
-
-        _setStatus(tokenId, MaterialStatus.VERIFIED);
     }
 
     //Marketplace, Escrow 가 거래 진행 상태를 반영한다.
@@ -230,21 +213,21 @@ contract MaterialToken is ERC1155, AccessControl {
         pure
         returns (bool)
     {
-        if (from == MaterialStatus.VERIFIED) {
+        if (from == MaterialStatus.REGISTERED) {
             return to == MaterialStatus.LISTED;
         }
 
         if (from == MaterialStatus.LISTED) {
             //판매 취소 또는 거래 시작
-            return to == MaterialStatus.VERIFIED || to == MaterialStatus.IN_ESCROW;
+            return to == MaterialStatus.REGISTERED || to == MaterialStatus.IN_ESCROW;
         }
 
         if (from == MaterialStatus.IN_ESCROW) {
             //거래 완료 또는 취소
-            return to == MaterialStatus.VERIFIED || to == MaterialStatus.LISTED;
+            return to == MaterialStatus.REGISTERED || to == MaterialStatus.LISTED;
         }
 
-        //REGISTERED 는 verifyMaterial 로만, PROCESSED 는 burnMaterial 로만 진입한다.
+        //PROCESSED 는 burnMaterial 로만 진입한다.
         return false;
     }
 

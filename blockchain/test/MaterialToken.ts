@@ -4,10 +4,9 @@ import { ethers } from "hardhat";
 const Status = {
   NONE: 0,
   REGISTERED: 1,
-  VERIFIED: 2,
-  LISTED: 3,
-  IN_ESCROW: 4,
-  PROCESSED: 5
+  LISTED: 2,
+  IN_ESCROW: 3,
+  PROCESSED: 4
 };
 
 const BurnReason = {
@@ -22,7 +21,7 @@ const DOCUMENT_HASH = ethers.keccak256(
 
 describe("소재 토큰(MaterialToken)", function () {
   async function deployMaterialTokenFixture() {
-    const [admin, supplier, brand, processor, verifier, outsider] =
+    const [admin, supplier, brand, processor, outsider] =
       await ethers.getSigners();
 
     const MaterialToken = await ethers.getContractFactory("MaterialToken");
@@ -36,13 +35,11 @@ describe("소재 토큰(MaterialToken)", function () {
     const supplierRole = await materialToken.SUPPLIER_ROLE();
     const brandRole = await materialToken.BRAND_ROLE();
     const processorRole = await materialToken.PROCESSOR_ROLE();
-    const verifierRole = await materialToken.VERIFIER_ROLE();
     const statusManagerRole = await materialToken.STATUS_MANAGER_ROLE();
 
     await materialToken.grantRole(supplierRole, supplier.address);
     await materialToken.grantRole(brandRole, brand.address);
     await materialToken.grantRole(processorRole, processor.address);
-    await materialToken.grantRole(verifierRole, verifier.address);
 
     return {
       materialToken,
@@ -50,12 +47,10 @@ describe("소재 토큰(MaterialToken)", function () {
       supplier,
       brand,
       processor,
-      verifier,
       outsider,
       supplierRole,
       brandRole,
       processorRole,
-      verifierRole,
       statusManagerRole
     };
   }
@@ -232,7 +227,6 @@ describe("소재 토큰(MaterialToken)", function () {
   it("판매 등록 상태를 거쳐 에스크로 상태로 전환한다", async function () {
     const { materialToken, admin, verifier, tokenId } = await mintedFixture();
 
-    await materialToken.connect(verifier).verifyMaterial(tokenId);
     await materialToken.connect(admin).setMaterialStatus(tokenId, Status.LISTED);
     await materialToken
       .connect(admin)
@@ -246,9 +240,9 @@ describe("소재 토큰(MaterialToken)", function () {
   it("허용되지 않은 상태 전환을 거부한다", async function () {
     const { materialToken, admin, tokenId } = await mintedFixture();
 
-    //REGISTERED 에서 바로 LISTED 로 갈 수 없다
+    //REGISTERED 에서 바로 IN_ESCROW 로 갈 수 없다
     await expect(
-      materialToken.connect(admin).setMaterialStatus(tokenId, Status.LISTED)
+      materialToken.connect(admin).setMaterialStatus(tokenId, Status.IN_ESCROW)
     ).to.be.revertedWith("MaterialToken: invalid status transition");
   });
 
@@ -271,7 +265,6 @@ describe("소재 토큰(MaterialToken)", function () {
     const { materialToken, admin, verifier, supplier, brand, tokenId } =
       await mintedFixture();
 
-    await materialToken.connect(verifier).verifyMaterial(tokenId);
     await materialToken.connect(admin).setMaterialStatus(tokenId, Status.LISTED);
     await materialToken
       .connect(admin)
@@ -289,14 +282,13 @@ describe("소재 토큰(MaterialToken)", function () {
     const { materialToken, admin, verifier, supplier, brand, tokenId } =
       await mintedFixture();
 
-    await materialToken.connect(verifier).verifyMaterial(tokenId);
     await materialToken.connect(admin).setMaterialStatus(tokenId, Status.LISTED);
     await materialToken
       .connect(admin)
       .setMaterialStatus(tokenId, Status.IN_ESCROW);
     await materialToken
       .connect(admin)
-      .setMaterialStatus(tokenId, Status.VERIFIED);
+      .setMaterialStatus(tokenId, Status.REGISTERED);
 
     await materialToken
       .connect(supplier)
@@ -366,7 +358,6 @@ describe("소재 토큰(MaterialToken)", function () {
     const { materialToken, admin, verifier, supplier, tokenId } =
       await mintedFixture();
 
-    await materialToken.connect(verifier).verifyMaterial(tokenId);
     await materialToken.connect(admin).setMaterialStatus(tokenId, Status.LISTED);
     await materialToken
       .connect(admin)
