@@ -43,7 +43,9 @@ services:
   backend:
     image: circular-fashion/backend:latest
     container_name: cf-backend
-    env_file: .env
+    # env_file: .env 를 쓰지 않는다. 그렇게 하면 .env 의 모든 키가 컨테이너 환경에 들어가서
+    # backend 가 쓸 일 없는 MYSQL_ROOT_PASSWORD / JENKINS_ADMIN_PASSWORD / GITLAB_TOKEN 까지
+    # 노출된다 (실제로 그랬다). 애플리케이션이 실제로 읽는 키만 명시적으로 넘긴다.
     environment:
       # SPRING_DATASOURCE_* 와 DB_* 를 같은 값으로 함께 넣는다.
       # backend 의 application.yml 은 ${DB_URL}/${DB_USERNAME}/${DB_PASSWORD} 를 읽는데,
@@ -57,6 +59,14 @@ services:
       DB_USERNAME: ${MYSQL_USER}
       DB_PASSWORD: ${MYSQL_PASSWORD}
       AI_SERVER_BASE_URL: http://ai:8000
+      # application.yml 의 app.security.jwt.*
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ISSUER: ${JWT_ISSUER:-upcycle}
+      JWT_ACCESS_TOKEN_TTL: ${JWT_ACCESS_TOKEN_TTL:-PT30M}
+      # 블록체인 연동 시 사용 (1번 산출물 나오기 전까지는 빈 값)
+      BESU_RPC_URL: ${BESU_RPC_URL:-}
+      BESU_CHAIN_ID: ${BESU_CHAIN_ID:-}
+      BLOCKCHAIN_SERVICE_PRIVATE_KEY: ${BLOCKCHAIN_SERVICE_PRIVATE_KEY:-}
     volumes:
       - file-storage:/app/files
     depends_on:
@@ -106,12 +116,17 @@ services:
     image: circular-fashion/jenkins:latest
     container_name: cf-jenkins
     ports:
-      - "8081:8080"
+      # 루프백 바인딩. Docker publish 는 UFW 를 우회하므로 "0.0.0.0:8081" 은 방화벽 규칙과
+      # 무관하게 인터넷에 열린다. 외부 접근은 nginx 의 https /jenkins/ 로만 받는다.
+      # (호스트에서 디버깅할 때는 curl http://localhost:8081/jenkins/ 로 여전히 접근 가능)
+      - "127.0.0.1:8081:8080"
     environment:
+      # nginx 가 /jenkins/ 하위로 프록시하므로 Jenkins 도 같은 prefix 로 떠야 링크·리소스가 맞는다
+      JENKINS_OPTS: --prefix=/jenkins
       # JCasC(jenkins/casc.yaml)에서 사용 — EC2에서는 .env에 실값 필수
       JENKINS_ADMIN_ID: ${JENKINS_ADMIN_ID:-admin}
       JENKINS_ADMIN_PASSWORD: ${JENKINS_ADMIN_PASSWORD:-admin}
-      JENKINS_EXTERNAL_URL: ${JENKINS_EXTERNAL_URL:-http://localhost:8081/}
+      JENKINS_EXTERNAL_URL: ${JENKINS_EXTERNAL_URL:-http://localhost:8081/jenkins/}
       GITLAB_USERNAME: ${GITLAB_USERNAME:-oauth2}
       GITLAB_TOKEN: ${GITLAB_TOKEN:-changeme}
     volumes:
