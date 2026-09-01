@@ -48,9 +48,17 @@ circular-fashion/frontend:latest
 circular-fashion/ai:latest
 ```
 
+## 접속 주소
+
+| | 주소 |
+| --- | --- |
+| 서비스 | https://j15e104.p.ssafy.io |
+| Jenkins | https://j15e104.p.ssafy.io/jenkins/ (8081 직접 접속은 루프백 전용) |
+
 ## 로컬 검증 (EC2 없이)
 
-frontend/backend/ai 실제 이미지가 없어도 placeholder 이미지로 프록시·네트워크·볼륨을 검증할 수 있습니다.
+로컬 PC에는 `circular-fashion/*` 이미지가 없으므로 placeholder 이미지로 대체해
+프록시·네트워크·볼륨 구성을 검증합니다.
 
 ```bash
 cp .env.example .env          # MYSQL_* 값만 임의로 채우면 됨
@@ -59,34 +67,41 @@ docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
 # 확인
 curl http://localhost/            # frontend placeholder 응답
 curl http://localhost/api/health  # backend placeholder(whoami) 응답
-# Jenkins: http://localhost:8081
+# Jenkins: http://localhost:8081/jenkins/
 
 # 정리
 docker compose -f docker-compose.yml -f docker-compose.local.yml down
 ```
 
-## EC2 배포
+## EC2 배포 (재구축 시)
 
 ```bash
 bash scripts/init-ec2.sh                          # 최초 1회
 git clone -b deploy/master <REPO_URL> ~/deploy
 cd ~/deploy && cp .env.example .env && vi .env    # 실값 입력
-docker compose up -d --build
+# 첫 기동 — 새 서버에는 파트 이미지가 없으므로 local override 를 함께 쓴다
+docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
 bash scripts/health-check.sh
+# 이후 Jenkins 에서 backend/frontend/ai 의 <파트>/master 빌드를 실행하면
+# deploy-*.sh 가 실제 이미지로 교체한다. DB 는 scripts/restore-mysql.sh 로 복구.
 ```
 
-이후 CI는 각 파트의 develop / feat 브랜치 push에서, 배포는 각 파트 master 브랜치 push에서
-Jenkins Multibranch Pipeline이 자동 수행합니다.
-단, **스마트 컨트랙트는 자동 배포하지 않고** 수동 승인 후 담당자가 직접 배포합니다. (README 12장)
-
-> EC2에서 compose를 직접 치지 마세요. 아직 실제 이미지가 없는 서비스가 있어
-> override가 필요합니다. `scripts/` 의 스크립트를 통하면 자동으로 처리됩니다.
+평상시 CI는 각 파트의 develop / feat 브랜치 push에서, 배포는 각 파트 master 브랜치 push에서
+Jenkins Multibranch Pipeline이 자동 수행합니다. 배포 실패(헬스체크 불통과) 시 직전 이미지로
+자동 롤백됩니다. 단, **스마트 컨트랙트는 자동 배포하지 않고** 수동 승인 후 담당자가 직접 배포합니다.
 
 ## 주의사항
 
-- `.env`, pem 키, private key는 절대 커밋하지 않습니다.
-- Jenkins(8081)는 UFW/보안그룹에서 팀 IP 대역으로 제한합니다. webhook 수신을 위해 공개가 필요하므로
-  강력한 admin 비밀번호가 사실상 유일한 방어선입니다.
+- `.env`, pem 키, private key는 절대 커밋하지 않습니다. `.env` 실값은 EC2에만 존재하므로
+  팀 비밀 저장소 백업이 필수입니다.
+- Jenkins는 8081 을 `127.0.0.1` 에만 바인딩하고 외부 접근은 nginx https `/jenkins/` 로만 받습니다.
+  **Docker publish 포트는 UFW를 우회**하므로, 포트를 막는 수단은 방화벽이 아니라 바인딩 주소입니다.
 - Jenkins 컨테이너는 root + docker.sock 을 가지므로 호스트 root 권한과 동등합니다.
   파이프라인에서 `set -x` 금지, `.env`를 `archiveArtifacts` 하지 말 것.
-- HTTPS 적용 완료 (`j15e104.p.ssafy.io`, 만료 2026-11-29, 자동 갱신).
+- **설정 파일은 디렉터리 단위로 마운트**합니다. 단일 파일 bind mount는 inode에 고정되어
+  `git pull` 후에도 컨테이너가 옛 내용을 봅니다 (2026-09-01 실사고).
+- 컨테이너는 비root(uid 10001)로 실행합니다 — backend/ai 적용, frontend는 내부 nginx가
+  80 포트를 쓰므로 예외, jenkins는 docker.sock 때문에 root(위 항목 참고).
+- HTTPS 적용 완료 (`j15e104.p.ssafy.io`, 만료 2026-11-29, `certbot.timer` 자동 갱신).
+- MySQL은 매일 03:10 자동 백업(`~/backups/mysql`, 14일 보관), 팀원 PC로의 반출은
+  `scripts/pull-backups.sh`.

@@ -1,6 +1,7 @@
 # EC2 Day-1 런북 (2026-08-31 월요일)
 
-> **✅ 2026-08-31 전 항목 완료.** 서비스 `https://j15e104.p.ssafy.io`, Jenkins `http://j15e104.p.ssafy.io:8081`.
+> **✅ 2026-08-31 전 항목 완료.** 서비스 `https://j15e104.p.ssafy.io`, Jenkins `https://j15e104.p.ssafy.io/jenkins/`.
+> (2026-09-01 보안 강화로 Jenkins 8081 직접 접속은 폐지 — 루프백 바인딩 + nginx https 경유)
 > 이 문서는 이후 **서버 재지급/초기화 시 재실행하는 런북**으로 보존한다.
 > 배경 설명은 `INFRA_SETUP.md`, 구성 설명은 `../README.md`, 팀 공지는 `notices/TEAM_NOTICE_2026-08-31.md` 참고.
 
@@ -54,20 +55,24 @@ vi .env
 | `JWT_SECRET` | `openssl rand -hex 32` |
 | `BESU_*`, `BLOCKCHAIN_SERVICE_PRIVATE_KEY` | 1번에게 받은 값 (아직 없으면 비워둠) |
 | `JENKINS_ADMIN_ID` / `JENKINS_ADMIN_PASSWORD` | 직접 생성 — **기본값 admin 금지** |
-| `JENKINS_EXTERNAL_URL` | `http://j15e104.p.ssafy.io:8081/` |
+| `JENKINS_EXTERNAL_URL` | `https://j15e104.p.ssafy.io/jenkins/` |
 | `GITLAB_USERNAME` | `oauth2` 그대로 |
 | `GITLAB_TOKEN` | 0번에서 발급한 토큰 |
-| `VITE_*` | `VITE_API_BASE_URL=https://j15e104.p.ssafy.io` (9장 HTTPS 적용 완료), 컨트랙트 주소는 1번 배포 후 |
+| `VITE_*` | `VITE_API_BASE_URL=/api` (동일 오리진이라 상대 경로면 충분), 컨트랙트 주소는 1번 배포 후 |
 
 - [x] `.env` 작성 완료
 
-## 4. 전체 스택 기동 (placeholder)
+## 4. 전체 스택 기동
 
-frontend/backend/ai 실제 이미지는 아직 없으므로 **첫 기동은 로컬 검증 때처럼 placeholder로** 올린다.
+재구축한 서버에는 `circular-fashion/*` 파트 이미지가 없으므로 **첫 기동은 placeholder(local override)로** 올린다.
 
-> ⚠️ 실제 이미지가 나오기 전까지 **모든 compose 명령에 두 `-f`를 모두 붙여야 한다.**
+> ⚠️ 파트 이미지가 생기기 전까지는 **모든 compose 명령에 두 `-f`를 모두 붙여야 한다.**
 > 빠뜨리면 존재하지 않는 `circular-fashion/*:latest`를 pull하려다 실패한다.
-> (각 파트 스켈레톤이 배포되기 시작하면 override 없이 `docker compose up -d`로 전환)
+>
+> 이후 절차: Jenkins 에서 `backend/master`·`frontend/master`·`ai/master` 빌드를 실행하면
+> 이미지가 생성되고 `deploy-*.sh` 가 실제 컨테이너로 교체한다 (dc() 는 base 만 쓰므로
+> override 로 떠 있던 placeholder 가 하나씩 실물로 바뀐다). DB 는 `scripts/restore-mysql.sh`
+> 로 마지막 백업을 복구한다 (`scripts/pull-backups.sh` 로 팀원 PC에 보관 중).
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
@@ -90,20 +95,21 @@ sudo ufw status verbose
 | 포트 | 상태 | 비고 |
 | --- | --- | --- |
 | 22 | 허용 (기본) | SSH — **절대 deny/disable 금지**, ufw도 enable 유지 (잠기면 초기화만 가능) |
-| 80, 443 | 허용 | 서비스 |
-| 8081 | 허용 | Jenkins — GitLab webhook 수신을 위해 공개 필요. 방어는 강력한 admin 비밀번호로 |
+| 80, 443 | 허용 | 서비스 (Jenkins 포함 — nginx `/jenkins/` 경유) |
+| 8081 | **열지 않음** | Jenkins 는 `127.0.0.1:8081` 루프백 바인딩. webhook 도 443 으로 들어온다 |
 | 3306 | 열지 않음 | 아래 주의 참고 |
 
 > **주의: Docker는 UFW를 우회한다.** compose의 `ports:`로 publish된 포트는 Docker가 iptables를
 > 직접 조작해 UFW 규칙과 무관하게 외부에 노출된다. UFW에서 3306을 막아도 `3306:3306`으로 열면 뚫린다.
 > 그래서 `docker-compose.local.yml`은 `127.0.0.1:3306:3306`(루프백)으로 바인딩한다.
 
-- [x] `sudo ufw status`에서 22/80/443/8081 허용 + `Status: active` 확인
+- [x] `sudo ufw status`에서 22/80/443 허용 + `Status: active` 확인 (8081 규칙이 남아 있으면 `sudo ufw delete allow 8081/tcp`)
 - [x] 3306이 외부에서 접근 안 되는지 확인 (로컬 PC에서 `nc -zv j15e104.p.ssafy.io 3306` 이 실패해야 정상)
 
 ## 6. Jenkins 확인 (자동 세팅 검증)
 
-브라우저에서 `http://j15e104.p.ssafy.io:8081` 접속:
+브라우저에서 `https://j15e104.p.ssafy.io/jenkins/` 접속
+(HTTPS 발급 전이면 EC2에서 `curl http://localhost:8081/jenkins/login` 으로 기동만 확인):
 
 - [x] `.env`의 admin 계정으로 로그인 성공 (설치 마법사가 뜨면 안 됨)
 - [x] Job 4개(`backend`, `frontend`, `ai`, `blockchain`)가 이미 등록되어 있음
@@ -119,7 +125,7 @@ Multibranch 전환 후 **리포 단위 webhook 1개**면 된다. Job별로 등�
 GitLab 리포 → `Settings → Webhooks → Add new webhook`:
 
 ```
-URL: http://j15e104.p.ssafy.io:8081/git/notifyCommit?url=https://lab.ssafy.com/s15-blockchain-pred-sub1/S15P21E104.git
+URL: https://j15e104.p.ssafy.io/jenkins/git/notifyCommit?url=https://lab.ssafy.com/s15-blockchain-pred-sub1/S15P21E104.git
 Trigger: Push events 만 체크
 Secret token: 비움 (이 엔드포인트는 토큰을 해석하지 않음)
 ```
@@ -176,7 +182,7 @@ systemctl is-active certbot.timer                             # 자동 갱신 �
 
 발급 후 (nginx 443 설정은 `deploy/master`에 이미 반영됨):
 1. `cd ~/deploy && git pull`
-2. `.env`의 `VITE_API_BASE_URL`을 `https://j15e104.p.ssafy.io`로 교체 (Jenkins는 8081 http 유지)
+2. `.env`의 `VITE_API_BASE_URL` 확인 (`/api` — 동일 오리진 상대 경로)
 3. `docker compose -f docker-compose.yml -f docker-compose.local.yml up -d nginx` (마운트 추가로 컨테이너 재생성됨)
 4. 검증: `curl -I https://j15e104.p.ssafy.io` 200, `curl -I http://j15e104.p.ssafy.io` 301
 
@@ -191,8 +197,8 @@ systemctl is-active certbot.timer                             # 자동 갱신 �
 | `permission denied ... docker.sock` | 2번의 재로그인 안 한 것 — `exit` 후 재접속 |
 | Jenkins가 안 뜸 / 재시작 반복 | `docker logs cf-jenkins 2>&1 \| grep -i severe` — 대부분 casc.yaml 환경변수 누락 |
 | webhook 테스트 403 | Secret token 불일치 — Job 설정에서 재생성 후 GitLab에 다시 입력 |
-| webhook 테스트 타임아웃 | `sudo ufw status`로 8081 허용 확인 (GitLab 서버가 접근 가능해야 함) |
-| 80/443/8081 접근 안 됨 | `sudo ufw status` 확인 — 누락 시 `init-ec2.sh`의 [3/5] UFW 단계 재실행 |
+| webhook 테스트 타임아웃 | 443 접근 가능 여부 확인 (`curl -I https://<도메인>/jenkins/login`) — webhook 은 nginx 를 경유한다 |
+| 80/443 접근 안 됨 | `sudo ufw status` 확인 — 누락 시 `init-ec2.sh`의 [3/5] UFW 단계 재실행 |
 | 컨테이너는 뜨는데 페이지 안 열림 | `sudo ufw status`로 80 허용 여부, `docker compose ps`로 nginx 상태 확인 |
 | `pull access denied for circular-fashion/...` | compose 명령에 `-f docker-compose.yml -f docker-compose.local.yml`을 빠뜨린 것 (4장 주의 참고) |
 | HTTPS 인증서 갱신 후에도 옛 인증서 | `/etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh` 실행 권한 확인 (9장) |

@@ -27,9 +27,9 @@
 | Backend (Spring Boot) | 8080 | - | X | Nginx가 `/api` 프록시 |
 | AI Server (FastAPI) | 8000 | - | X | Backend만 내부 호출 |
 | MySQL | 3306 | - (로컬 검증 시만 3306) | X | 내부 네트워크 전용 |
-| Jenkins | 8080 | 8081 | O | `http://j15e104.p.ssafy.io:8081` — webhook 수신용 공개, 강력한 admin 비밀번호 필수 |
+| Jenkins | 8080 | 127.0.0.1:8081 | X (nginx `/jenkins/` 경유) | `https://j15e104.p.ssafy.io/jenkins/` — 8081 직접 공개는 2026-09-01 폐지 |
 
-- 외부에 여는 포트는 **80 / 443 / 8081 / 22(SSH)** 만 — SSAFY EC2는 UFW로 관리(기본 22만 허용, `init-ec2.sh`가 나머지 오픈, **enable 유지 필수**).
+- 외부에 여는 포트는 **80 / 443 / 22(SSH)** 만 — SSAFY EC2는 UFW로 관리(기본 22만 허용, `init-ec2.sh`가 나머지 오픈, **enable 유지 필수**).
 - **Docker publish 포트는 UFW를 우회**하므로 호스트 전용 포트는 compose에서 `127.0.0.1:` 바인딩으로 막는다 (예: 로컬 override의 MySQL 3306).
 - (참고) GPU 서버: Jupyter `http://70.12.130.109`, 계정 `j15e104`, **Device1 지정 사용** — AI 파트 소관.
 - MySQL, Backend, AI는 Docker 내부 네트워크로만 통신한다.
@@ -109,7 +109,7 @@ Jenkins 세팅은 JCasC(`jenkins/casc.yaml`)로 자동화되어 있다. 컨테�
 - `.env`에 `JENKINS_ADMIN_PASSWORD`, `GITLAB_TOKEN` 실값 입력 — 기본값(admin/changeme)은 로컬 검증용이므로 반드시 교체
 - GitLab webhook **1개** 등록 (Job별 등록 불필요 — 리포 단위로 모든 Multibranch Job이 인덱싱된다):
   ```
-  http://j15e104.p.ssafy.io:8081/git/notifyCommit?url=https://lab.ssafy.com/s15-blockchain-pred-sub1/S15P21E104.git
+  https://j15e104.p.ssafy.io/jenkins/git/notifyCommit?url=https://lab.ssafy.com/s15-blockchain-pred-sub1/S15P21E104.git
   Push events 만 체크. Secret token 비움.
   ```
   webhook이 유실돼도 5분 주기 스캔이 안전망으로 잡는다.
@@ -122,15 +122,15 @@ Jenkins 세팅은 JCasC(`jenkins/casc.yaml`)로 자동화되어 있다. 컨테�
 2. **최초 세팅** — `deploy/master`의 `scripts/init-ec2.sh` 내용 실행 (Docker, Docker Compose, swap, 타임존)
 3. **리포 clone** — `git clone -b deploy/master <repo-url> ~/deploy`
 4. **`.env` 작성** — `.env.example`을 복사해 실값 채움 (Besu 값은 1번에게 받음)
-5. **기동** — `docker compose up -d` → `bash scripts/health-check.sh`
-6. **Jenkins 확인** — `http://<EC2 IP>:8081` 접속, `.env`의 admin 계정으로 로그인. 플러그인·계정·Credential·Job은 JCasC로 자동 세팅됨 (4장 참고)
-7. **GitLab webhook 연결** — 각 Job에 `http://<EC2 IP>:8081/project/<job>` webhook 등록, Push 테스트
+5. **기동** — 새 서버에는 파트 이미지가 없으므로 `docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build` → `bash scripts/health-check.sh`
+6. **Jenkins 확인** — `https://<도메인>/jenkins/` 접속(HTTPS 발급 전이면 `curl http://localhost:8081/jenkins/login`), `.env`의 admin 계정으로 로그인. 플러그인·계정·Credential·Job은 JCasC로 자동 세팅됨 (4장 참고)
+7. **GitLab webhook 연결** — 리포 단위 1개: `https://<도메인>/jenkins/git/notifyCommit?url=<repo>.git`, Push 테스트 (4장 참고)
 8. **도메인 / HTTPS** — 확정 도메인 `j15e104.p.ssafy.io`로 certbot 인증서 발급, `nginx.conf`의 HTTPS 블록 활성화
-9. **UFW 확인** — 22, 80, 443, 8081만 허용 + enable 유지 (`init-ec2.sh`가 처리, `sudo ufw status`로 검증)
+9. **UFW 확인** — 22, 80, 443만 허용 + enable 유지 (`init-ec2.sh`가 처리, `sudo ufw status`로 검증)
 
 **2026-08-31 전 단계 완료** — DEVELOPMENT_STRATEGY.md의 6번 첫 목표
 **"빈 프로젝트라도 Merge하면 Jenkins를 통해 EC2에 올라가는 상태"** 달성.
-HTTPS까지 적용되어 서비스는 `https://j15e104.p.ssafy.io`, Jenkins는 `http://j15e104.p.ssafy.io:8081`.
+HTTPS까지 적용되어 서비스는 `https://j15e104.p.ssafy.io`, Jenkins는 `https://j15e104.p.ssafy.io/jenkins/`.
 상세 실행 이력과 트러블슈팅은 `EC2_DAY1.md`, 팀 공지는 `notices/TEAM_NOTICE_2026-08-31.md` 참고.
 
 ## 6. 남은 작업 (EC2 지급 후)
@@ -143,7 +143,6 @@ HTTPS까지 적용되어 서비스는 `https://j15e104.p.ssafy.io`, Jenkins는 `
 - [ ] 배포 스크립트의 실제 서버 경로·계정 확정 — 현재 `~/deploy` 기준, 첫 실배포 때 검증 필요
 - [x] 실제 애플리케이션 이미지 배포 (2026-09-01) — backend/frontend/ai 모두 졸업,
       `docker-compose.placeholder.yml` 삭제됨
-  (그 전까지는 compose 명령에 `-f docker-compose.yml -f docker-compose.local.yml` 필수)
 - [ ] `BESU_RPC_URL` / `BESU_CHAIN_ID` / 컨트랙트 주소 수령 후 `.env` 반영 (1번 대기 중)
 
 ## 7. deploy/master 구성 요약
@@ -163,10 +162,11 @@ deploy/master
 ├── scripts/
 │   ├── init-ec2.sh
 │   ├── compose.sh             # compose 호출의 단일 경로 (override 가 있으면 자동 합성)
-│   ├── deploy-backend.sh
-│   ├── deploy-frontend.sh
-│   ├── deploy-ai.sh
-│   └── health-check.sh
+│   ├── deploy-service.sh      # 배포 + 헬스체크 실패 시 롤백 (본체)
+│   ├── deploy-{backend,frontend,ai}.sh   # 파트 Jenkinsfile 이 부르는 진입점
+│   ├── health-check.sh        # 2xx 만 통과, 기동 대기 최대 90초
+│   ├── backup-mysql.sh / restore-mysql.sh / install-backup-cron.sh
+│   └── pull-backups.sh        # 백업 반출 — 팀원 로컬에서 실행
 └── README.md                  # 로컬 검증 / EC2 배포 방법
 ```
 

@@ -1,5 +1,6 @@
 # Circular-Fashion 운영 구성 (AWS EC2 1대 기준)
-# - 외부 진입점은 nginx(80/443)와 jenkins(8081)뿐이며, 나머지는 내부 네트워크로만 통신한다.
+# - 외부 진입점은 nginx(80/443) 하나뿐이다. Jenkins도 nginx의 https /jenkins/ 뒤에 있다
+#   (8081은 127.0.0.1 루프백 — Docker publish가 UFW를 우회하므로 바인딩 주소로 막는다).
 # - frontend/backend/ai 이미지는 각 파트 master 브랜치의 Dockerfile로 빌드된다. (이미지 이름 규약 고정)
 # - 실행 전 .env 파일이 필요하다: cp .env.example .env 후 실값 입력
 name: circular-fashion
@@ -29,8 +30,12 @@ services:
       # Let's Encrypt 인증서 — certbot 기본 경로를 그대로 마운트 (systemd 자동 갱신과 호환)
       - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
+      # nginx.conf 의 upstream 3개(frontend/backend/jenkins)가 전부 떠 있어야 기동된다.
+      # 컨테이너 이름이 Docker DNS 에서 해석되지 않으면 nginx 는 "host not found in
+      # upstream" 으로 기동 자체가 실패한다 — 재구축처럼 아무것도 없는 상태에서 특히.
       - frontend
       - backend
+      - jenkins
     networks:
       - web
     logging: *default-logging
@@ -85,7 +90,11 @@ services:
   ai:
     image: circular-fashion/ai:latest
     container_name: cf-ai
-    env_file: .env
+    # env_file: .env 금지 — backend와 같은 이유다. .env 전체가 컨테이너 환경에 들어가면
+    # ai 가 쓸 일 없는 GITLAB_TOKEN / MYSQL_ROOT_PASSWORD / JENKINS_ADMIN_PASSWORD 까지
+    # 노출된다 (2026-09-01 점검에서 실제로 4종이 들어가 있었다). 필요한 키만 명시한다.
+    environment:
+      AI_MODEL_PATH: ${AI_MODEL_PATH:-}
     networks:
       - internal
     logging: *default-logging
