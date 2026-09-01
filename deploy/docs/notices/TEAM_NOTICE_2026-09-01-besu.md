@@ -62,8 +62,21 @@ nginx 에 외부 노드를 `upstream` 으로 걸지 않은 것도 의도적입�
 전달됩니다. `VITE_` 계열로는 절대 나가지 않습니다 — `VITE_*` 는 빌드 시점에 JS 번들로 인라인되어
 브라우저에 평문 노출됩니다.
 
-함께 확인이 필요합니다: **그 계정에 가스비로 쓸 잔액이 있는지.** 프라이빗 체인이라 가스가 0일
-수도 있지만, 아니라면 잔액 없는 계정으로는 `eth_sendRawTransaction` 이 실패합니다.
+> **업데이트 (2026-09-01)**: private key 수령·EC2 반영 완료(0x 없는 16진수 64자).
+>
+> 처음에 "가스 잔액을 확인해달라"고 적었는데, **확인해보니 필요 없었습니다.**
+> `eth_gasPrice` 가 `0x0` 이고 블록에 `baseFeePerGas` 필드가 아예 없는 **프리가스 네트워크**입니다.
+> 잔액 0 인 계정으로도 트랜잭션이 나갑니다. `PaymentToken.sol` 주석과도 일치합니다 —
+> 네이티브 코인을 안 주는 대신 가스를 안 받는 구성입니다.
+>
+> **대신 확인이 필요한 건 컨트랙트 role 입니다.** `MaterialToken` 은 `AccessControl` 기반이라
+> `mintMaterial()` 에 `SUPPLIER_ROLE`, `verifyMaterial()` 에 `VERIFIER_ROLE`,
+> `setMaterialStatus()` 에 `STATUS_MANAGER_ROLE` 이 필요하고, 생성자는 admin 에게만 전 권한을 줍니다.
+> **서버 서명 계정이 admin 이 아니면 가스가 공짜여도 `AccessControlUnauthorizedAccount` 로
+> 리버트됩니다.**
+>
+> 1번께 여쭙니다: **그 서명 계정의 주소와, 배포된 컨트랙트에서 가진 role 이 무엇인가요?**
+> 별도 계정이라면 `grantRole` 이 필요합니다. (주소는 비밀값이 아니니 편하게 공유해주셔도 됩니다.)
 
 ### 🟡 B. 실배포 후 필요 — 늦어질수록 통합 리스크가 쌓입니다
 

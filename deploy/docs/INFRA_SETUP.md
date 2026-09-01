@@ -159,8 +159,20 @@ HTTPS까지 적용되어 서비스는 `https://j15e104.p.ssafy.io`, Jenkins는 `
       `ESCROW_ADDRESS` (+ `VITE_` 접두 3종). `.env.example` 과 일치, `docker-compose.yml` 에 주입 추가 완료
 - [x] `BLOCKCHAIN_SERVICE_PRIVATE_KEY` 수령·EC2 `.env` 반영 (2026-09-01). **0x 없는 16진수 64자.**
       컨테이너 주입 확인, 기동 로그에 키 미노출 확인
-- [ ] **서명 계정 가스 잔액 확인** — 지갑 주소 미수령이라 아직 못 했다.
-      잔액이 0 이면 `eth_sendRawTransaction` 이 전부 실패한다. 실제 서명 트랜잭션 전 필수
+- [x] **가스 잔액은 문제가 아니다 — 프리가스 네트워크로 확인 (2026-09-01)**
+      `eth_gasPrice` → `0x0`, 최신 블록에 `baseFeePerGas` 필드 자체가 없음(EIP-1559 미적용),
+      `gasLimit` `0x1fffffffffffff`. 즉 **잔액 0 인 계정으로도 트랜잭션이 나간다.**
+      `PaymentToken.sol` 주석("SSAFY Besu 네트워크는 네이티브 코인을 지급받을 수 없으므로
+      결제 수단을 직접 발행한다")과도 일치한다 — 코인을 안 주는 대신 가스를 안 받는 구성이다.
+      `scripts/check-besu.sh` 가 매번 `eth_gasPrice` 를 확인하므로, SSAFY 가 나중에 유료로
+      바꾸면 그때 드러난다
+- [ ] **🔴 서명 계정의 컨트랙트 role 확인 — 가스보다 이쪽이 진짜 관문이다.**
+      `MaterialToken` 은 `AccessControl` 기반이라 `mintMaterial()` 은 `SUPPLIER_ROLE`,
+      `verifyMaterial()` 은 `VERIFIER_ROLE`, `setMaterialStatus()` 는 `STATUS_MANAGER_ROLE` 이
+      필요하다. 생성자는 **admin 에게만** 전 권한을 준다. 서버 서명 계정이 admin 이 아니면
+      가스가 공짜여도 `AccessControlUnauthorizedAccount` 로 리버트된다.
+      1번에게 확인할 것: 서명 계정 주소, 그 계정이 가진 role, 필요하면 `grantRole` 요청.
+      주소와 컨트랙트 주소를 받으면 `hasRole()` 을 직접 조회해 확인할 수 있다
 - [ ] Frontend / Backend 담당 배정 시 `docs/notices/BESU_REQUESTS_FE_BE.md` 전달
 - [ ] 컨트랙트 주소 3종 수령 (1번 실배포 전 — 미정). `.env` 에 값만 채우면 backend 는 컨테이너
       재생성으로 반영되지만, **frontend 는 이미지 재빌드가 필요하다** (`VITE_*` 는 빌드 시점 인라인)
