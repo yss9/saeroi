@@ -4,10 +4,9 @@ import { ethers } from "hardhat";
 const Status = {
   NONE: 0,
   REGISTERED: 1,
-  VERIFIED: 2,
-  LISTED: 3,
-  IN_ESCROW: 4,
-  PROCESSED: 5
+  LISTED: 2,
+  IN_ESCROW: 3,
+  PROCESSED: 4
 };
 
 const BurnReason = {
@@ -22,7 +21,7 @@ const DOCUMENT_HASH = ethers.keccak256(
 
 describe("MaterialToken", function () {
   async function deployMaterialTokenFixture() {
-    const [admin, supplier, brand, processor, verifier, outsider] =
+    const [admin, supplier, brand, processor, outsider] =
       await ethers.getSigners();
 
     const MaterialToken = await ethers.getContractFactory("MaterialToken");
@@ -36,13 +35,11 @@ describe("MaterialToken", function () {
     const supplierRole = await materialToken.SUPPLIER_ROLE();
     const brandRole = await materialToken.BRAND_ROLE();
     const processorRole = await materialToken.PROCESSOR_ROLE();
-    const verifierRole = await materialToken.VERIFIER_ROLE();
     const statusManagerRole = await materialToken.STATUS_MANAGER_ROLE();
 
     await materialToken.grantRole(supplierRole, supplier.address);
     await materialToken.grantRole(brandRole, brand.address);
     await materialToken.grantRole(processorRole, processor.address);
-    await materialToken.grantRole(verifierRole, verifier.address);
 
     return {
       materialToken,
@@ -50,12 +47,10 @@ describe("MaterialToken", function () {
       supplier,
       brand,
       processor,
-      verifier,
       outsider,
       supplierRole,
       brandRole,
       processorRole,
-      verifierRole,
       statusManagerRole
     };
   }
@@ -193,46 +188,10 @@ describe("MaterialToken", function () {
     expect(await materialToken.verifyDocument(tokenId, forged)).to.equal(false);
   });
 
-  //8. 검증자가 소재를 승인한다
-  it("lets a verifier move a material to verified status", async function () {
-    const { materialToken, verifier, tokenId } = await mintedFixture();
-
-    await expect(materialToken.connect(verifier).verifyMaterial(tokenId))
-      .to.emit(materialToken, "MaterialStatusChanged")
-      .withArgs(verifier.address, tokenId, Status.REGISTERED, Status.VERIFIED);
-
-    const material = await materialToken.materialInfo(tokenId);
-    expect(material.status).to.equal(Status.VERIFIED);
-  });
-
-  //9. 검증 권한이 없으면 승인 불가
-  it("rejects verification from an account without verifier role", async function () {
-    const { materialToken, outsider, tokenId } = await mintedFixture();
-
-    await expect(
-      materialToken.connect(outsider).verifyMaterial(tokenId)
-    ).to.be.revertedWithCustomError(
-      materialToken,
-      "AccessControlUnauthorizedAccount"
-    );
-  });
-
-  //10. 이미 검증된 소재는 다시 검증할 수 없다
-  it("rejects verifying a material twice", async function () {
-    const { materialToken, verifier, tokenId } = await mintedFixture();
-
-    await materialToken.connect(verifier).verifyMaterial(tokenId);
-
-    await expect(
-      materialToken.connect(verifier).verifyMaterial(tokenId)
-    ).to.be.revertedWith("MaterialToken: material is not in registered status");
-  });
-
-  //11. 판매 등록과 거래 시작 상태 전이
+  //8. 판매 등록과 거래 시작 상태 전이
   it("moves through listed and escrow status", async function () {
-    const { materialToken, admin, verifier, tokenId } = await mintedFixture();
+    const { materialToken, admin, tokenId } = await mintedFixture();
 
-    await materialToken.connect(verifier).verifyMaterial(tokenId);
     await materialToken.connect(admin).setMaterialStatus(tokenId, Status.LISTED);
     await materialToken
       .connect(admin)
@@ -242,21 +201,19 @@ describe("MaterialToken", function () {
     expect(material.status).to.equal(Status.IN_ESCROW);
   });
 
-  //12. 허용되지 않은 상태 전이는 실패
+  //9. 허용되지 않은 상태 전이는 실패
   it("rejects an invalid status transition", async function () {
     const { materialToken, admin, tokenId } = await mintedFixture();
 
-    //REGISTERED 에서 바로 LISTED 로 갈 수 없다
+    //REGISTERED 에서 바로 IN_ESCROW 로 갈 수 없다
     await expect(
-      materialToken.connect(admin).setMaterialStatus(tokenId, Status.LISTED)
+      materialToken.connect(admin).setMaterialStatus(tokenId, Status.IN_ESCROW)
     ).to.be.revertedWith("MaterialToken: invalid status transition");
   });
 
-  //13. 상태 변경 권한이 없으면 실패
+  //10. 상태 변경 권한이 없으면 실패
   it("rejects status change from an account without status manager role", async function () {
-    const { materialToken, verifier, outsider, tokenId } = await mintedFixture();
-
-    await materialToken.connect(verifier).verifyMaterial(tokenId);
+    const { materialToken, outsider, tokenId } = await mintedFixture();
 
     await expect(
       materialToken.connect(outsider).setMaterialStatus(tokenId, Status.LISTED)
@@ -266,12 +223,11 @@ describe("MaterialToken", function () {
     );
   });
 
-  //14. 거래중인 소재는 이동할 수 없다 (이중 판매 방지)
+  //11. 거래중인 소재는 이동할 수 없다 (이중 판매 방지)
   it("blocks transfer while the material is in escrow", async function () {
-    const { materialToken, admin, verifier, supplier, brand, tokenId } =
+    const { materialToken, admin, supplier, brand, tokenId } =
       await mintedFixture();
 
-    await materialToken.connect(verifier).verifyMaterial(tokenId);
     await materialToken.connect(admin).setMaterialStatus(tokenId, Status.LISTED);
     await materialToken
       .connect(admin)
@@ -284,19 +240,18 @@ describe("MaterialToken", function () {
     ).to.be.revertedWith("MaterialToken: material is in escrow");
   });
 
-  //15. 거래가 끝나면 다시 이동할 수 있다
+  //12. 거래가 끝나면 다시 이동할 수 있다
   it("allows transfer again after escrow is released", async function () {
-    const { materialToken, admin, verifier, supplier, brand, tokenId } =
+    const { materialToken, admin, supplier, brand, tokenId } =
       await mintedFixture();
 
-    await materialToken.connect(verifier).verifyMaterial(tokenId);
     await materialToken.connect(admin).setMaterialStatus(tokenId, Status.LISTED);
     await materialToken
       .connect(admin)
       .setMaterialStatus(tokenId, Status.IN_ESCROW);
     await materialToken
       .connect(admin)
-      .setMaterialStatus(tokenId, Status.VERIFIED);
+      .setMaterialStatus(tokenId, Status.REGISTERED);
 
     await materialToken
       .connect(supplier)
@@ -307,7 +262,7 @@ describe("MaterialToken", function () {
     );
   });
 
-  //16. 소각하면 잔량이 줄어든다
+  //13. 소각하면 잔량이 줄어든다
   it("burns part of a material and reduces the remaining supply", async function () {
     const { materialToken, supplier, tokenId } = await mintedFixture();
 
@@ -337,7 +292,7 @@ describe("MaterialToken", function () {
     expect(material.status).to.equal(Status.REGISTERED);
   });
 
-  //17. 전량 가공 투입되면 소진 상태가 된다
+  //14. 전량 가공 투입되면 소진 상태가 된다
   it("marks the material as processed when fully burned for processing", async function () {
     const { materialToken, supplier, tokenId } = await mintedFixture();
 
@@ -350,7 +305,7 @@ describe("MaterialToken", function () {
     expect(await materialToken.remainingSupply(tokenId)).to.equal(0);
   });
 
-  //18. 남의 소재는 소각할 수 없다
+  //15. 남의 소재는 소각할 수 없다
   it("rejects burning someone else's material", async function () {
     const { materialToken, supplier, outsider, tokenId } = await mintedFixture();
 
@@ -361,12 +316,11 @@ describe("MaterialToken", function () {
     ).to.be.revertedWith("MaterialToken: caller is not owner nor approved");
   });
 
-  //19. 거래중인 소재는 소각할 수 없다
+  //16. 거래중인 소재는 소각할 수 없다
   it("rejects burning while the material is in escrow", async function () {
-    const { materialToken, admin, verifier, supplier, tokenId } =
+    const { materialToken, admin, supplier, tokenId } =
       await mintedFixture();
 
-    await materialToken.connect(verifier).verifyMaterial(tokenId);
     await materialToken.connect(admin).setMaterialStatus(tokenId, Status.LISTED);
     await materialToken
       .connect(admin)
@@ -379,7 +333,7 @@ describe("MaterialToken", function () {
     ).to.be.revertedWith("MaterialToken: material is in escrow");
   });
 
-  //20. 소진된 소재에는 추가 발행할 수 없다
+  //17. 소진된 소재에는 추가 발행할 수 없다
   it("rejects minting into a processed material", async function () {
     const { materialToken, supplier, tokenId } = await mintedFixture();
 
