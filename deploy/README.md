@@ -11,7 +11,6 @@ GIT_CONVENTION에 따라 develop / feat 하위 브랜치 없이 이 브랜치에
 ```text
 ├── docker-compose.yml         # 운영 구성 (nginx, frontend, backend, ai, mysql, jenkins)
 ├── docker-compose.local.yml   # 로컬 검증용 override (placeholder 이미지)
-├── docker-compose.placeholder.yml  # EC2용 override — 아직 이미지가 없는 서비스만 대체
 ├── .env.example               # 환경변수 키 목록 (실값 커밋 금지)
 ├── nginx/nginx.conf           # 리버스 프록시: / → frontend, /api → backend
 ├── certbot/www/               # certbot webroot (HTTPS 인증서 발급용)
@@ -21,7 +20,7 @@ GIT_CONVENTION에 따라 develop / feat 하위 브랜치 없이 이 브랜치에
 │   └── casc.yaml              # JCasC — 계정/Credential/Multibranch Job 4개 자동 세팅
 ├── scripts/
 │   ├── init-ec2.sh            # EC2 최초 세팅 (Docker, swap, UFW, 타임존)
-│   ├── compose.sh             # placeholder override 자동 합성 (compose 호출의 단일 경로)
+│   ├── compose.sh             # compose 호출의 단일 경로 (override 가 있으면 자동 합성)
 │   ├── deploy-service.sh      # 배포 + 헬스체크 실패 시 롤백 (본체)
 │   ├── deploy-*.sh            # 파트 Jenkinsfile이 부르는 진입점 (deploy-service.sh 호출)
 │   ├── health-check.sh        # 컨테이너 + 엔드포인트 확인 (2xx만 통과)

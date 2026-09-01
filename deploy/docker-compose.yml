@@ -94,6 +94,11 @@ services:
   mysql:
     image: mysql:8.0
     container_name: cf-mysql
+    ports:
+      # 호스트에서 mysql 클라이언트로 붙기 위한 포트. 루프백에만 바인딩한다 —
+      # Docker publish 는 UFW 를 우회하므로 "3306:3306" 으로 열면 방화벽 규칙과 무관하게
+      # 인터넷에 DB 가 노출된다.
+      - "127.0.0.1:3306:3306"
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}

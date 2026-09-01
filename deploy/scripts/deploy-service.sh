@@ -40,15 +40,18 @@ fi
 # 3) 해당 서비스만 재기동 (--no-deps: mysql 등 의존 서비스는 건드리지 않는다)
 dc up -d --no-deps "$SERVICE"
 
-# 4) placeholder 졸업 확인.
-#    override 가 아직 이 서비스를 덮어쓰고 있으면 방금 만든 이미지가 아니라 placeholder 가 뜬다.
+# 4) 실제로 우리 이미지가 떴는지 확인.
+#    compose override 가 이 서비스를 덮어쓰고 있으면 방금 만든 이미지가 아니라 다른 것이 뜬다.
+#    (2026-09-01 이전에는 placeholder override 가 그 역할을 했다 — 지금은 모두 졸업했지만
+#     override 가 다시 생길 수 있으므로 가드는 유지한다.)
 #    조용히 잘못 배포되는 대신, 무엇을 해야 하는지 알려주며 실패한다.
 ACTUAL="$(docker inspect --format '{{.Config.Image}}' "$CONTAINER" 2>/dev/null || echo unknown)"
 if [ "$ACTUAL" != "$IMAGE" ]; then
     cat <<MSG
-FAIL: $SERVICE 가 아직 placeholder 로 실행 중입니다 (현재 이미지: $ACTUAL).
-  → deploy/master 의 docker-compose.placeholder.yml 에서 '$SERVICE:' 블록을 삭제하고 커밋한 뒤,
-    EC2 에서 'cd ~/deploy && git pull' 후 이 파이프라인을 다시 실행하세요.
+FAIL: $SERVICE 컨테이너가 $IMAGE 가 아닌 다른 이미지로 실행 중입니다 (현재: $ACTUAL).
+  → compose override 가 이 서비스를 덮어쓰고 있는지 확인하세요.
+    deploy/master 에 docker-compose.placeholder.yml 같은 override 가 있다면 '$SERVICE:' 블록을
+    삭제하고 커밋 → MR → EC2 에서 'cd ~/deploy && git pull' 후 파이프라인을 다시 실행하세요.
 MSG
     exit 1
 fi
