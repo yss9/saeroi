@@ -1,4 +1,7 @@
 .env
+# .env 를 손보기 전 만드는 백업본에도 실값이 그대로 들어간다
+.env.bak*
+.env.*.bak
 certbot/conf/
 
 # 서버 키 — 절대 커밋 금지
