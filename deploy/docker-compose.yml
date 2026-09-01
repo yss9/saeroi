@@ -19,7 +19,11 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # 파일이 아니라 디렉터리를 마운트한다. 단일 파일 bind mount 는 inode 에 고정되는데
+      # git pull 은 파일을 새 inode 로 갈아끼우므로, 컨테이너는 영원히 옛 내용을 보게 된다.
+      # 2026-09-01 에 실제로 겪었다 — nginx.conf 를 고치고 pull + reload 했는데 아무 일도
+      # 일어나지 않았고, 보안 설정 변경이 조용히 무시됐다. 디렉터리 마운트는 inode 가 안정적이다.
+      - ./nginx:/etc/nginx/conf.d:ro
       # certbot webroot (HTTPS 인증서 발급/갱신용) — nginx.conf의 acme-challenge location과 짝
       - ./certbot/www:/var/www/certbot:ro
       # Let's Encrypt 인증서 — certbot 기본 경로를 그대로 마운트 (systemd 자동 갱신과 호환)
@@ -137,8 +141,11 @@ services:
       # 반드시 호스트와 "동일한 절대경로"에 마운트할 것 — compose는 ./nginx 같은 상대 bind 경로를
       # 호스트 절대경로로 변환해 데몬에 넘기므로, 다른 경로에 걸면 nginx가 빈 파일을 마운트한 채 뜬다.
       - /home/ubuntu/deploy:/home/ubuntu/deploy:ro
-      # casc.yaml을 이미지 재빌드 없이 반영 (Manage Jenkins → CasC → Reload 로 즉시 적용 가능)
-      - ./jenkins/casc.yaml:/var/jenkins_casc/casc.yaml:ro
+      # casc 설정을 이미지 재빌드 없이 반영 (Manage Jenkins → CasC → Reload 로 즉시 적용).
+      # nginx 와 같은 이유로 파일이 아니라 디렉터리를 마운트한다 (단일 파일은 inode 에 고정된다).
+      # CASC_JENKINS_CONFIG=/var/jenkins_casc/casc.yaml 은 그대로 유효하다 (이미지 재빌드 불필요).
+      # 같은 디렉터리의 Dockerfile / plugins.txt 가 함께 올라오지만 JCasC 가 읽지 않으므로 무해하다.
+      - ./jenkins:/var/jenkins_casc:ro
     networks:
       - web
     logging: *default-logging
