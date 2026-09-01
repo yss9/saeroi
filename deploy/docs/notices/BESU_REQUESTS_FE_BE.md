@@ -128,26 +128,31 @@ VITE_ESCROW_ADDRESS=
 
 ## 2. Backend 담당자에게
 
-### 2-1. 🔴 지금 구조에 갭이 있습니다 — 컨트랙트 주소 주입 경로 없음
+### 2-1. ✅ 해결됨 (2026-09-01) — 컨트랙트 주소 주입 경로 추가
 
-`docker-compose.yml` 의 backend 가 받는 블록체인 관련 환경변수는 **3개뿐**입니다:
+이전에는 `docker-compose.yml` 의 backend 가 받는 블록체인 환경변수가 **3개뿐**이라
+Web3j 로 컨트랙트를 호출하는 데 필요한 **주소가 서버로 넘어가지 않았습니다.**
+
+이름이 확정되어 compose 에 추가했습니다. 아래 이름 그대로 읽으시면 됩니다:
 
 ```yaml
 BESU_RPC_URL: ${BESU_RPC_URL:-}
 BESU_CHAIN_ID: ${BESU_CHAIN_ID:-}
 BLOCKCHAIN_SERVICE_PRIVATE_KEY: ${BLOCKCHAIN_SERVICE_PRIVATE_KEY:-}
+MATERIAL_TOKEN_ADDRESS: ${MATERIAL_TOKEN_ADDRESS:-}
+PAYMENT_TOKEN_ADDRESS: ${PAYMENT_TOKEN_ADDRESS:-}
+ESCROW_ADDRESS: ${ESCROW_ADDRESS:-}
 ```
 
-Web3j 로 컨트랙트를 호출하려면 **컨트랙트 주소도 서버에 필요한데 넘어가는 경로가 없습니다.**
+> ⚠️ **`application.yml` 에서 읽을 때 반드시 기본값을 두세요.**
+> OS 환경변수가 `application.yml` 보다 우선합니다. `${MATERIAL_TOKEN_ADDRESS}` 를
+> **기본값 없이** 쓰면, 그 키가 빠지는 순간 **기동 자체가 실패**합니다.
+> compose 쪽에 `:-` 를 붙여 항상 정의되게 해뒀지만, yml 쪽에도
+> `${MATERIAL_TOKEN_ADDRESS:}` 처럼 방어해 두시는 편이 안전합니다.
+> (같은 함정이 `DB_USERNAME`/`DB_PASSWORD` 에 아직 남아 있습니다.)
 
-**Infra 에 알려주실 것: 어떤 환경변수 이름으로 읽으실 건가요?** 알려주시면 compose 에
-추가하겠습니다. `.env.example` 에는 일단 자리만 잡아뒀습니다:
-
-```
-MATERIAL_TOKEN_ADDRESS=
-PAYMENT_TOKEN_ADDRESS=
-ESCROW_ADDRESS=
-```
+**값은 아직 비어 있습니다** — 1번의 실배포 전이라 주소가 미정입니다. 주소가 채워지면
+backend 는 컨테이너 재생성으로 반영됩니다 (`restart` 로는 안 됩니다).
 
 ### 2-2. ⚠️ Spring 환경변수 우선순위 — 기동이 깨지는 지점
 
