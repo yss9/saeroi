@@ -22,10 +22,17 @@ WORKDIR /app
 ENV TZ=Asia/Seoul \
     JAVA_OPTS="-XX:MaxRAMPercentage=70 -Duser.timezone=Asia/Seoul"
 
-# docker-compose.yml 의 file-storage 볼륨 마운트 지점
-RUN mkdir -p /app/files
+# 컨테이너를 root 로 돌리지 않는다. 애플리케이션 취약점이 컨테이너 탈출로 이어질 때
+# root 인지 아닌지가 피해 범위를 가른다. UID 를 고정하는 이유는 file-storage 볼륨의
+# 소유권이 이 UID 에 묶이기 때문이다 — 바꾸면 기존 업로드 파일에 접근하지 못한다.
+RUN groupadd -r -g 10001 app && useradd -r -u 10001 -g app -d /app -s /usr/sbin/nologin app
 
-COPY --from=build /build/target/*.jar /app/app.jar
+# docker-compose.yml 의 file-storage 볼륨 마운트 지점
+RUN mkdir -p /app/files && chown -R app:app /app
+
+COPY --from=build --chown=app:app /build/target/*.jar /app/app.jar
+
+USER app
 
 # nginx가 /api/ 를 backend:8080 으로 프록시한다 — 포트를 바꾸지 말 것
 EXPOSE 8080
