@@ -105,27 +105,19 @@ nginx 에 외부 노드를 `upstream` 으로 걸지 않은 것도 의도적입�
 개발 PC 에서 응답이 왔으므로 allowlist 는 걸려 있지 않습니다. 별도 요청 불필요합니다.
 (EC2 에서의 재확인만 남았습니다 — 위 "실제로 찔러본 결과" 참고)
 
-## 프론트엔드 담당에게 확인 요청
+## 프론트엔드 / 백엔드 담당에게
 
-`VITE_*` 는 Jenkins frontend 파이프라인이 `--build-arg` 로 주입해야 번들에 들어갑니다.
-`deploy/master` 에는 Jenkinsfile 이 없고 **파트 브랜치가 소유**하므로, 프론트 Jenkinsfile 에
-`.env` 의 `VITE_*` 를 읽어 `--build-arg` 로 넘기는 로직이 실제로 있는지 확인이 필요합니다.
+두 파트 모두 아직 이 업무에 투입되기 전이라, 인수 문서를 따로 만들어 뒀습니다.
+**담당자가 배정되면 이 문서부터 읽어주세요:** `docs/notices/BESU_REQUESTS_FE_BE.md`
 
-없으면 `.env` 에 값을 채워도 **번들에 반영되지 않습니다.** 지금은 값이 비어 있어 증상이 같아서
-구분이 안 되니, RPC URL·Chain ID 가 채워진 지금 시점에 한 번 확인해두면 좋습니다.
+핵심만 미리 옮겨두면:
 
-## 백엔드 담당에게 확인 요청
-
-현재 `docker-compose.yml` 의 backend 는 `BESU_RPC_URL` / `BESU_CHAIN_ID` /
-`BLOCKCHAIN_SERVICE_PRIVATE_KEY` **세 개만** 전달합니다. Web3j 로 컨트랙트를 호출하려면
-**컨트랙트 주소도 서버에 필요한데 주입 경로가 없습니다.**
-
-읽을 키 이름을 알려주시면 compose 에 추가하겠습니다 (`.env.example` 에는
-`MATERIAL_TOKEN_ADDRESS` / `PAYMENT_TOKEN_ADDRESS` / `ESCROW_ADDRESS` 로 자리만 잡아뒀습니다).
-
-Spring 은 OS 환경변수가 `application.yml` 보다 우선합니다. compose 가 넘기지 않는 키를
-`application.yml` 에서 `${...}` 로 읽고 있고 기본값이 없다면 **기동 자체가 실패**하니,
-키 이름은 양쪽이 정확히 맞아야 합니다.
+- **Frontend** — 프론트 Jenkinsfile 이 `.env` 의 `VITE_*` 를 `--build-arg` 로 넘기는 로직이
+  있는지 확인이 필요합니다. 없으면 값을 채워도 번들에 안 들어갑니다. 지금까지는 값이 비어 있어
+  "로직 없음"과 "값 없음"의 증상이 같아 구분이 안 됐습니다.
+- **Backend** — 현재 compose 는 backend 에 `BESU_*` 와 private key 3개만 넘깁니다.
+  Web3j 로 컨트랙트를 호출하려면 **주소도 서버에 필요한데 주입 경로가 없습니다.**
+  읽을 환경변수 이름을 알려주시면 compose 에 추가하겠습니다.
 
 ## 당장 막혀 있지는 않습니다
 

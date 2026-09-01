@@ -155,6 +155,8 @@ HTTPS까지 적용되어 서비스는 `https://j15e104.p.ssafy.io`, Jenkins는 `
 - [ ] EC2 `.env` 에 Besu 값 반영 + EC2 에서 `bash scripts/check-besu.sh` 재실행
       (실제 호출 주체는 backend 컨테이너다 — 호스트/개발 PC 에서의 성공은 컨테이너 경로를 증명하지 않는다)
 - [ ] `BLOCKCHAIN_SERVICE_PRIVATE_KEY` 수령 후 `.env` 반영 (1번 대기 중)
+- [ ] Frontend / Backend 담당 배정 시 `docs/notices/BESU_REQUESTS_FE_BE.md` 전달
+      (FE: Jenkinsfile 의 `VITE_*` build-arg 주입 확인 / BE: 컨트랙트 주소 환경변수 이름 확정)
 - [ ] 컨트랙트 주소 3종 + ABI 수령 (1번 실배포 전 — 미정). 백엔드가 읽을 키 이름 확정 후
       `docker-compose.yml` 의 backend environment 에 주소 변수 추가 필요 (현재 주입 경로 없음).
       주소 변경 시 frontend 재빌드가 필요하다 (`VITE_*` 는 빌드 시점 인라인)
