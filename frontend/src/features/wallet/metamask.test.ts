@@ -197,9 +197,11 @@ describe('connect', () => {
 })
 
 describe('지갑이 밀어주는 이벤트', () => {
+  // 실제 사용에서는 React 가 항상 구독한 상태다. 구독이 있어야 리스너가 붙는다.
   it('계정을 바꾸면 주소가 따라 바뀐다', async () => {
     const provider = fakeProvider({ eth_requestAccounts: [LOWER], eth_chainId: '0x1' })
     const client = createWalletClient(provider)
+    client.subscribe(() => {})
     await client.connect()
 
     provider.emit('accountsChanged', [OTHER_CHECKSUM])
@@ -211,6 +213,7 @@ describe('지갑이 밀어주는 이벤트', () => {
   it('빈 배열이 오면 = 사용자가 사이트 연결을 끊은 것이므로 disconnected 로 간다', async () => {
     const provider = fakeProvider({ eth_requestAccounts: [LOWER], eth_chainId: '0x1' })
     const client = createWalletClient(provider)
+    client.subscribe(() => {})
     await client.connect()
 
     provider.emit('accountsChanged', [])
@@ -221,6 +224,7 @@ describe('지갑이 밀어주는 이벤트', () => {
   it('네트워크를 바꾸면 chainId 가 갱신된다', () => {
     const provider = fakeProvider()
     const client = createWalletClient(provider)
+    client.subscribe(() => {})
 
     provider.emit('chainChanged', '0x7a69')
 
@@ -244,17 +248,61 @@ describe('지갑이 밀어주는 이벤트', () => {
   })
 })
 
-describe('destroy — 리스너 누수 방지', () => {
-  it('등록한 이벤트 핸들러를 모두 제거한다', () => {
+describe('리스너 생명주기', () => {
+  it('생성만으로는 provider 에 아무것도 등록하지 않는다', () => {
     const provider = fakeProvider()
-    const client = createWalletClient(provider)
-    expect(provider.handlerCount('accountsChanged')).toBe(1)
-    expect(provider.handlerCount('chainChanged')).toBe(1)
-
-    client.destroy()
+    createWalletClient(provider)
 
     expect(provider.handlerCount('accountsChanged')).toBe(0)
     expect(provider.handlerCount('chainChanged')).toBe(0)
+  })
+
+  it('첫 구독에서 붙고 마지막 해제에서 떨어진다 (누수 방지)', () => {
+    const provider = fakeProvider()
+    const client = createWalletClient(provider)
+
+    const off1 = client.subscribe(() => {})
+    const off2 = client.subscribe(() => {})
+    expect(provider.handlerCount('accountsChanged')).toBe(1)
+    expect(provider.handlerCount('chainChanged')).toBe(1)
+
+    off1()
+    // 아직 구독자가 남아 있으므로 떼면 안 된다
+    expect(provider.handlerCount('accountsChanged')).toBe(1)
+
+    off2()
+    expect(provider.handlerCount('accountsChanged')).toBe(0)
+    expect(provider.handlerCount('chainChanged')).toBe(0)
+  })
+
+  // 이 테스트가 없어서 실기기 검증에서야 버그를 잡았다.
+  // React StrictMode 는 개발 모드에서 마운트→언마운트→재마운트를 흉내내므로
+  // 구독이 한 번 끊겼다가 다시 붙는다. 예전 구현은 생성 시점에 리스너를 등록하고
+  // destroy() 로 뗐기 때문에, 재마운트 후 지갑 이벤트가 영영 오지 않았다.
+  it('구독을 끊었다 다시 이어도 지갑 이벤트가 계속 전달된다 (StrictMode 재마운트)', () => {
+    const provider = fakeProvider()
+    const client = createWalletClient(provider)
+
+    const off = client.subscribe(() => {})
+    off()
+
+    const seen: (string | null)[] = []
+    client.subscribe((s) => seen.push(s.address))
+
+    provider.emit('accountsChanged', [OTHER_CHECKSUM])
+
+    expect(seen).toEqual([OTHER_CHECKSUM])
+    expect(client.getState().address).toBe(OTHER_CHECKSUM)
+  })
+
+  it('구독자가 없는 동안 발생한 이벤트는 상태를 건드리지 않는다', () => {
+    const provider = fakeProvider()
+    const client = createWalletClient(provider)
+
+    // 리스너가 붙어 있지 않으므로 emit 해도 아무 일이 없어야 한다
+    provider.emit('chainChanged', '0x1')
+
+    expect(client.getState().chainId).toBeNull()
   })
 })
 

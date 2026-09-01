@@ -26,7 +26,18 @@ export type SwitchChainResult =
 
 export interface WalletClient {
   getState(): WalletState
-  /** 상태 변화를 구독한다. 반환값을 호출하면 해제된다. */
+  /**
+   * 상태 변화를 구독한다. 반환값을 호출하면 해제된다.
+   *
+   * 지갑 이벤트(accountsChanged/chainChanged) 리스너는 **여기서** 붙고 뗀다.
+   * 첫 구독자가 생기면 붙이고 마지막 구독자가 사라지면 뗀다. 클라이언트를
+   * 만드는 것만으로는 provider 에 아무것도 등록하지 않는다.
+   *
+   * 처음에는 생성 시점에 등록하고 별도 destroy() 로 뗐는데, 그러면 한 번 뗀 뒤
+   * 다시 붙일 방법이 없었다. React StrictMode 는 개발 모드에서 마운트→언마운트→
+   * 재마운트를 흉내내므로 재마운트 이후 지갑 이벤트가 영영 오지 않았다.
+   * (연결·복원은 직접 호출이라 멀쩡해 보여서 더 잘 안 드러났다.)
+   */
   subscribe(listener: (state: WalletState) => void): () => void
   /**
    * 팝업 없이 이미 승인된 계정을 복원한다. 페이지 로드 시 한 번 부른다.
@@ -42,8 +53,6 @@ export interface WalletClient {
    */
   disconnect(): void
   switchChain(targetChainId: string, rpcUrl: string | null): Promise<SwitchChainResult>
-  /** 이벤트 리스너를 제거한다. 컴포넌트 언마운트 시 반드시 호출할 것. */
-  destroy(): void
 }
 
 /** provider 가 던진 값에서 EIP-1193 에러 코드를 꺼낸다. 코드가 없으면 null. */
@@ -120,9 +129,22 @@ export function createWalletClient(provider: EthereumProvider | null): WalletCli
     emit({ chainId: typeof chainId === 'string' ? chainId : null })
   }
 
-  if (provider) {
+  // 리스너 등록은 구독 여부에 따라 켜고 끈다. 생성만으로는 아무것도 등록하지 않으므로
+  // 클라이언트가 실수로 두 번 만들어져도 버려진 쪽이 이벤트를 가로채지 않는다.
+  let attached = false
+
+  function attach(): void {
+    if (attached || !provider) return
     provider.on('accountsChanged', onAccountsChanged)
     provider.on('chainChanged', onChainChanged)
+    attached = true
+  }
+
+  function detach(): void {
+    if (!attached || !provider) return
+    provider.removeListener('accountsChanged', onAccountsChanged)
+    provider.removeListener('chainChanged', onChainChanged)
+    attached = false
   }
 
   return {
@@ -130,8 +152,10 @@ export function createWalletClient(provider: EthereumProvider | null): WalletCli
 
     subscribe(listener) {
       listeners.add(listener)
+      if (listeners.size === 1) attach()
       return () => {
         listeners.delete(listener)
+        if (listeners.size === 0) detach()
       }
     },
 
@@ -207,14 +231,6 @@ export function createWalletClient(provider: EthereumProvider | null): WalletCli
           return errorCode(addError) === RPC_ERROR.USER_REJECTED ? 'rejected' : 'failed'
         }
       }
-    },
-
-    destroy() {
-      if (provider) {
-        provider.removeListener('accountsChanged', onAccountsChanged)
-        provider.removeListener('chainChanged', onChainChanged)
-      }
-      listeners.clear()
     },
   }
 }

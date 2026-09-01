@@ -35,8 +35,11 @@ export interface UseWalletResult extends WalletState {
 
 export function useWallet(): UseWalletResult {
   const client = useMemo(() => createWalletClient(getInjectedProvider()), [])
-  // 컴포넌트가 사라질 때 지갑 이벤트 리스너를 반드시 떼어낸다.
-  useEffect(() => () => client.destroy(), [client])
+
+  // 지갑 이벤트 리스너의 부착/해제는 client.subscribe 가 알아서 한다 —
+  // 아래 useSyncExternalStore 가 구독하는 동안만 붙어 있고, 언마운트로 구독이
+  // 풀리면 자동으로 떨어진다. 별도의 정리용 useEffect 를 두면 StrictMode 의
+  // 마운트→언마운트→재마운트에서 리스너가 떨어진 채 복구되지 않는다.
 
   // getState 는 상태가 바뀔 때만 새 객체를 만들므로 참조 비교로 안전하게 구독할 수 있다.
   const state = useSyncExternalStore(client.subscribe, client.getState, client.getState)
