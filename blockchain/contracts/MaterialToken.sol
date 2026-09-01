@@ -11,6 +11,9 @@ contract MaterialToken is ERC1155, AccessControl {
     bytes32 public constant BRAND_ROLE = keccak256("BRAND_ROLE");
     //Marketplace, Escrow 컨트랙트에 나중에 부여할 상태 변경 권한
     bytes32 public constant STATUS_MANAGER_ROLE = keccak256("STATUS_MANAGER_ROLE");
+    //Marketplace가 특정 소유자의 일부 수량만 잠글 때 사용하는 권한
+    bytes32 public constant MATERIAL_LOCK_MANAGER_ROLE =
+        keccak256("MATERIAL_LOCK_MANAGER_ROLE");
 
     //소재의 생애 주기
     enum MaterialStatus {
@@ -38,6 +41,7 @@ contract MaterialToken is ERC1155, AccessControl {
     }
 
     mapping(uint256 tokenId => MaterialInfo) private _materials;
+    mapping(address owner => mapping(uint256 tokenId => uint256 amount)) private _lockedBalances;
 
     event MaterialMinted(
         address indexed operator,
@@ -64,6 +68,20 @@ contract MaterialToken is ERC1155, AccessControl {
         uint256 remainingSupply
     );
 
+    event MaterialLocked(
+        address indexed operator,
+        address indexed owner,
+        uint256 indexed tokenId,
+        uint256 amount
+    );
+
+    event MaterialUnlocked(
+        address indexed operator,
+        address indexed owner,
+        uint256 indexed tokenId,
+        uint256 amount
+    );
+
     constructor(string memory baseUri, address admin) ERC1155(baseUri) {
         require(admin != address(0), "MaterialToken: admin is zero address");
 
@@ -72,6 +90,40 @@ contract MaterialToken is ERC1155, AccessControl {
         _grantRole(PROCESSOR_ROLE, admin);
         _grantRole(BRAND_ROLE, admin);
         _grantRole(STATUS_MANAGER_ROLE, admin);
+        _grantRole(MATERIAL_LOCK_MANAGER_ROLE, admin);
+    }
+
+    function lockMaterial(address owner, uint256 tokenId, uint256 amount)
+        external
+        onlyRole(MATERIAL_LOCK_MANAGER_ROLE)
+    {
+        require(owner != address(0), "MaterialToken: owner is zero address");
+        require(amount > 0, "MaterialToken: amount is zero");
+        require(_materials[tokenId].exists, "MaterialToken: material does not exist");
+        require(
+            availableBalance(owner, tokenId) >= amount,
+            "MaterialToken: insufficient available balance"
+        );
+
+        _lockedBalances[owner][tokenId] += amount;
+
+        emit MaterialLocked(_msgSender(), owner, tokenId, amount);
+    }
+
+    function unlockMaterial(address owner, uint256 tokenId, uint256 amount)
+        external
+        onlyRole(MATERIAL_LOCK_MANAGER_ROLE)
+    {
+        require(owner != address(0), "MaterialToken: owner is zero address");
+        require(amount > 0, "MaterialToken: amount is zero");
+        require(
+            _lockedBalances[owner][tokenId] >= amount,
+            "MaterialToken: insufficient locked balance"
+        );
+
+        _lockedBalances[owner][tokenId] -= amount;
+
+        emit MaterialUnlocked(_msgSender(), owner, tokenId, amount);
     }
 
     //소재 토큰 발행
@@ -191,6 +243,14 @@ contract MaterialToken is ERC1155, AccessControl {
         return material.totalMinted - material.totalBurned;
     }
 
+    function lockedBalanceOf(address owner, uint256 tokenId) public view returns (uint256) {
+        return _lockedBalances[owner][tokenId];
+    }
+
+    function availableBalance(address owner, uint256 tokenId) public view returns (uint256) {
+        return balanceOf(owner, tokenId) - _lockedBalances[owner][tokenId];
+    }
+
     //오프체인 증빙 파일이 위조되지 않았는지 확인한다.
     function verifyDocument(uint256 tokenId, bytes32 hashToCheck)
         external
@@ -238,7 +298,16 @@ contract MaterialToken is ERC1155, AccessControl {
         uint256[] memory ids,
         uint256[] memory values
     ) internal override {
-        //발행(from=0)과 소각(to=0)은 각 함수에서 이미 검사한다.
+        //발행(from=0)은 잠금 검사가 필요 없다. 전송과 소각은 잠긴 수량을 침범할 수 없다.
+        if (from != address(0)) {
+            for (uint256 i = 0; i < ids.length; i++) {
+                require(
+                    availableBalance(from, ids[i]) >= values[i],
+                    "MaterialToken: amount exceeds available balance"
+                );
+            }
+        }
+
         if (from != address(0) && to != address(0)) {
             for (uint256 i = 0; i < ids.length; i++) {
                 MaterialStatus status = _materials[ids[i]].status;
