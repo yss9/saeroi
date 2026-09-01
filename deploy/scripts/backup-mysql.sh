@@ -51,21 +51,24 @@ if ! docker exec -e MYSQL_PWD="$ROOT_PW" "$CONTAINER" \
 fi
 
 # 검증: 덤프가 잘려 있으면 백업이 아니라 착각이다.
-#   1) gzip 무결성  2) 최소 크기  3) mysqldump 가 끝까지 갔다는 마커
+# 잘림 판정은 mysqldump 가 끝까지 갔다는 마커로 한다. 파일 크기 하한은 쓰지 않는다 —
+# 테이블이 아직 없는 DB 의 정상 덤프는 600 바이트도 안 되므로 크기로 판단하면 오탐이 난다.
 if ! gzip -t "$TMP" 2>/dev/null; then
     log "FAIL: gzip 무결성 검사 실패"; rm -f "$TMP" "$TMP.err"; exit 1
-fi
-if [ "$(stat -c %s "$TMP")" -lt 1024 ]; then
-    log "FAIL: 덤프가 비정상적으로 작음 ($(stat -c %s "$TMP") bytes)"; rm -f "$TMP" "$TMP.err"; exit 1
 fi
 if ! gunzip -c "$TMP" | tail -5 | grep -q "Dump completed"; then
     log "FAIL: 'Dump completed' 마커 없음 — 덤프가 중간에 끊겼다"; rm -f "$TMP" "$TMP.err"; exit 1
 fi
 
+# 테이블 수는 실패 조건이 아니라 관측값이다. 0 이면 스키마가 아직 없다는 뜻이고,
+# 어제까지 있던 테이블이 오늘 0 이 되면 그건 로그에서 바로 보여야 한다.
+TABLES="$(gunzip -c "$TMP" | grep -c '^CREATE TABLE' || true)"
+[ "$TABLES" -eq 0 ] && log "WARN: 테이블 0개 — 스키마가 아직 없는 DB 입니다 (엔티티 도입 전이면 정상)"
+
 rm -f "$TMP.err"
 mv "$TMP" "$TARGET"
 chmod 600 "$TARGET"
-log "백업 완료 ($(du -h "$TARGET" | cut -f1))"
+log "백업 완료 ($(du -h "$TARGET" | cut -f1), 테이블 ${TABLES}개)"
 
 # 보관 기간 지난 백업 정리
 DELETED="$(find "$BACKUP_DIR" -maxdepth 1 -name "${DB_NAME}-*.sql.gz" -mtime "+$RETENTION_DAYS" -print -delete | wc -l)"
