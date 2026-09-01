@@ -27,7 +27,8 @@ GIT_CONVENTION에 따라 develop / feat 하위 브랜치 없이 이 브랜치에
 │   ├── health-check.sh        # 컨테이너 + 엔드포인트 확인 (2xx만 통과)
 │   ├── backup-mysql.sh        # MySQL 일일 덤프 (cron 03:10)
 │   ├── restore-mysql.sh       # 덤프로 복구
-│   └── install-backup-cron.sh # 백업 cron 등록 (멱등)
+│   ├── install-backup-cron.sh # 백업 cron 등록 (멱등)
+│   └── pull-backups.sh        # 덤프를 EC2 밖(작업용 PC)으로 반출 — 로컬에서 실행
 └── docs/
     ├── INFRA_SETUP.md         # 구축 체크리스트 / 배경
     ├── EC2_DAY1.md            # 서버 수령 첫날 런북
