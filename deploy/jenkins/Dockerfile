@@ -33,11 +33,15 @@ RUN jenkins-plugin-cli --plugin-file /usr/share/jenkins/ref/plugins.txt
 COPY casc.yaml /var/jenkins_casc/casc.yaml
 # NOTIFY_COMMIT_ACCESS_CONTROL: GitLab webhook이 /git/notifyCommit으로 인덱싱을 트리거하려면
 # 익명 접근이 필요하다 (casc.yaml의 allowAnonymousRead: false 때문에 막힘).
-# 이 엔드포인트는 빌드 파라미터를 받지 않아 위험도가 낮지만, 8081은 UFW/보안그룹으로 좁히는 게 좋다.
+# 이 엔드포인트는 빌드 파라미터를 받지 않아 위험도가 낮다. 노출면 자체는 2026-09-01에 좁혔다 —
+# 8081은 127.0.0.1 루프백 바인딩이고 외부 접근은 nginx의 https /jenkins/ 로만 들어온다.
 ENV JAVA_OPTS="-Djenkins.install.runSetupWizard=false -Dhudson.plugins.git.GitStatus.NOTIFY_COMMIT_ACCESS_CONTROL=disabled"
 ENV CASC_JENKINS_CONFIG=/var/jenkins_casc/casc.yaml
 
 # docker.sock 접근 권한 문제를 피하기 위해 root로 실행한다.
-# (호스트 docker 그룹 GID와 컨테이너 GID가 달라 jenkins 유저로는 소켓 접근이 번거로움.
-#  팀 내부 CI 용도로 한정하고, 8081 포트는 UFW/보안그룹에서 팀 IP로 제한할 것)
+# (호스트 docker 그룹 GID와 컨테이너 GID가 달라 jenkins 유저로는 소켓 접근이 번거로움)
+#
+# ⚠️ 이 조합의 의미: docker.sock + root = Jenkins를 잡으면 호스트 전체를 잡는다.
+#    그래서 노출면을 좁혔다 — 8081은 루프백 전용이고 외부는 nginx https /jenkins/ 를 거친다.
+#    익명 접근은 casc.yaml에서 차단되어 있고 CSRF 보호도 켜져 있다.
 USER root

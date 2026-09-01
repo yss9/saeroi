@@ -31,11 +31,11 @@ TIMEOUT="${HEALTHCHECK_TIMEOUT:-90}"
 if [ -f /.dockerenv ]; then
     IN_CONTAINER=1
     EDGE="https://nginx"
-    JENKINS_BASE="${HEALTHCHECK_JENKINS_BASE:-http://localhost:8080}"
+    JENKINS_BASE="${HEALTHCHECK_JENKINS_BASE:-http://localhost:8080/jenkins}"
 else
     IN_CONTAINER=0
     EDGE="https://localhost"
-    JENKINS_BASE="${HEALTHCHECK_JENKINS_BASE:-http://localhost:8081}"
+    JENKINS_BASE="${HEALTHCHECK_JENKINS_BASE:-http://localhost:8081/jenkins}"
 fi
 EDGE="${HEALTHCHECK_WEB_BASE:-$EDGE}"
 
