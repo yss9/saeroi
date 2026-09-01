@@ -99,7 +99,12 @@ Jenkins 세팅은 JCasC(`jenkins/casc.yaml`)로 자동화되어 있다. 컨테�
 - `includes` 필터에 없는 ref(`deploy/master`, `master`, 타 파트 브랜치)는 인덱싱 단계에서 버려진다.
 
 > **MR 파이프라인은 없다.** MR 소스 브랜치(`backend/feat/x`)가 필터에 걸리므로 MR에 올린
-> 모든 커밋은 push 시점에 이미 CI를 통과한다. 빠지는 건 MR 화면의 초록 체크뿐이다.
+> 모든 커밋은 push 시점에 이미 CI를 통과한다.
+>
+> 2026-09-01 부터 **GitLab 화면에도 결과가 표시된다.** 각 파트 Jenkinsfile 이
+> `scripts/gitlab-status.sh` 로 GitLab Commit Status API 에 보고하므로 커밋·브랜치·MR 에
+> 초록 체크/빨간 X 가 뜬다. GitLab CI 파이프라인을 돌리는 것이 아니라 Jenkins 결과를
+> 되돌려주는 방식이다.
 > `gitlab-branch-source`를 쓰지 않은 이유: MR을 발견하면 SCM head가 `MR-12` 형태가 되어
 > 파트 필터에 걸리지 않고, 필터를 넓히면 **4개 Job이 모든 파트의 MR을 발견**해
 > frontend Job이 backend MR을 빌드하는 사고가 난다.
