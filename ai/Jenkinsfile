@@ -21,6 +21,12 @@ pipeline {
     }
 
     stages {
+        // 빌드 결과를 GitLab 커밋 상태로 보고한다 → GitLab 화면에 초록 체크/빨간 X 가 뜬다.
+        // 스크립트는 deploy/master 소유이고 보고 실패는 빌드에 영향을 주지 않는다(항상 exit 0).
+        stage('GitLab 상태 보고') {
+            steps { sh 'bash /home/ubuntu/deploy/scripts/gitlab-status.sh running' }
+        }
+
         stage('Detect') {
             steps {
                 script {
@@ -80,8 +86,16 @@ pipeline {
     }
 
     post {
-        success { echo "ai OK — ${env.BRANCH_NAME} #${env.BUILD_NUMBER}" }
-        failure { echo "ai FAIL — ${env.BRANCH_NAME} #${env.BUILD_NUMBER}" }
+        success {
+            sh 'bash /home/ubuntu/deploy/scripts/gitlab-status.sh success'
+            echo "ai OK — ${env.BRANCH_NAME} #${env.BUILD_NUMBER}"
+        }
+        failure {
+            sh 'bash /home/ubuntu/deploy/scripts/gitlab-status.sh failed'
+            echo "ai FAIL — ${env.BRANCH_NAME} #${env.BUILD_NUMBER}"
+        }
+        aborted { sh 'bash /home/ubuntu/deploy/scripts/gitlab-status.sh canceled' }
+        // cleanup 은 선언적 파이프라인에서 항상 마지막이라 위 sh 들이 먼저 돈다
         cleanup { deleteDir() }
     }
 }
