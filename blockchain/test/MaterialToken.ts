@@ -188,44 +188,9 @@ describe("소재 토큰(MaterialToken)", function () {
     expect(await materialToken.verifyDocument(tokenId, forged)).to.equal(false);
   });
 
-  //8. 검증자가 소재를 승인한다
-  it("검증자가 소재를 검증 완료 상태로 변경할 수 있다", async function () {
-    const { materialToken, verifier, tokenId } = await mintedFixture();
-
-    await expect(materialToken.connect(verifier).verifyMaterial(tokenId))
-      .to.emit(materialToken, "MaterialStatusChanged")
-      .withArgs(verifier.address, tokenId, Status.REGISTERED, Status.VERIFIED);
-
-    const material = await materialToken.materialInfo(tokenId);
-    expect(material.status).to.equal(Status.VERIFIED);
-  });
-
-  //9. 검증 권한이 없으면 승인 불가
-  it("검증자 권한이 없는 계정의 검증을 거부한다", async function () {
-    const { materialToken, outsider, tokenId } = await mintedFixture();
-
-    await expect(
-      materialToken.connect(outsider).verifyMaterial(tokenId)
-    ).to.be.revertedWithCustomError(
-      materialToken,
-      "AccessControlUnauthorizedAccount"
-    );
-  });
-
-  //10. 이미 검증된 소재는 다시 검증할 수 없다
-  it("이미 검증된 소재의 중복 검증을 거부한다", async function () {
-    const { materialToken, verifier, tokenId } = await mintedFixture();
-
-    await materialToken.connect(verifier).verifyMaterial(tokenId);
-
-    await expect(
-      materialToken.connect(verifier).verifyMaterial(tokenId)
-    ).to.be.revertedWith("MaterialToken: material is not in registered status");
-  });
-
   //11. 판매 등록과 거래 시작 상태 전이
   it("판매 등록 상태를 거쳐 에스크로 상태로 전환한다", async function () {
-    const { materialToken, admin, verifier, tokenId } = await mintedFixture();
+    const { materialToken, admin, tokenId } = await mintedFixture();
 
     await materialToken.connect(admin).setMaterialStatus(tokenId, Status.LISTED);
     await materialToken
@@ -248,9 +213,7 @@ describe("소재 토큰(MaterialToken)", function () {
 
   //13. 상태 변경 권한이 없으면 실패
   it("상태 관리자 권한이 없는 계정의 상태 변경을 거부한다", async function () {
-    const { materialToken, verifier, outsider, tokenId } = await mintedFixture();
-
-    await materialToken.connect(verifier).verifyMaterial(tokenId);
+    const { materialToken, outsider, tokenId } = await mintedFixture();
 
     await expect(
       materialToken.connect(outsider).setMaterialStatus(tokenId, Status.LISTED)
@@ -262,7 +225,7 @@ describe("소재 토큰(MaterialToken)", function () {
 
   //14. 거래중인 소재는 이동할 수 없다 (이중 판매 방지)
   it("에스크로 진행 중인 소재의 전송을 차단한다", async function () {
-    const { materialToken, admin, verifier, supplier, brand, tokenId } =
+    const { materialToken, admin, supplier, brand, tokenId } =
       await mintedFixture();
 
     await materialToken.connect(admin).setMaterialStatus(tokenId, Status.LISTED);
@@ -279,7 +242,7 @@ describe("소재 토큰(MaterialToken)", function () {
 
   //15. 거래가 끝나면 다시 이동할 수 있다
   it("에스크로가 해제되면 소재를 다시 전송할 수 있다", async function () {
-    const { materialToken, admin, verifier, supplier, brand, tokenId } =
+    const { materialToken, admin, supplier, brand, tokenId } =
       await mintedFixture();
 
     await materialToken.connect(admin).setMaterialStatus(tokenId, Status.LISTED);
@@ -355,7 +318,7 @@ describe("소재 토큰(MaterialToken)", function () {
 
   //19. 거래중인 소재는 소각할 수 없다
   it("에스크로 진행 중인 소재를 소각할 수 없다", async function () {
-    const { materialToken, admin, verifier, supplier, tokenId } =
+    const { materialToken, admin, supplier, tokenId } =
       await mintedFixture();
 
     await materialToken.connect(admin).setMaterialStatus(tokenId, Status.LISTED);
