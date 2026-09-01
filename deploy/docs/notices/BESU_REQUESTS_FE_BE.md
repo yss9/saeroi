@@ -19,7 +19,8 @@
 | 컨트랙트 주소 | **미정** — 1번의 SSAFY 실배포 전 | ⏳ 대기 |
 | ABI 파일 | **전달 경로 미합의** | ⏳ 대기 |
 | `BLOCKCHAIN_SERVICE_PRIVATE_KEY` | 수령·EC2 반영 완료 (0x 없는 16진수 64자) | ✅ 2026-09-01 |
-| 서명 계정 가스 잔액 | **미확인** — 지갑 주소 미수령 | ⏳ 대기 |
+| 가스 | **0 — 프리가스 네트워크** (`eth_gasPrice` `0x0`) | ✅ 확인됨 |
+| 서명 계정 컨트랙트 role | **미확인** — 주소·role 미수령. 없으면 트랜잭션이 리버트된다 | ⏳ 대기 |
 
 **HTTPS 엔드포인트라는 점이 중요합니다.** 우리 서비스가 `https://j15e104.p.ssafy.io` 이므로,
 RPC 가 평문 `http://` 였다면 브라우저가 mixed content 로 **차단**해서 nginx 에 `/rpc/` 프록시를
@@ -188,14 +189,42 @@ backend 는 컨테이너 재생성으로 반영됩니다 (`restart` 로는 안 �
 - **2026-09-01 수령·반영 완료.** 형식은 **`0x` 없는 16진수 64자**입니다.
   Web3j `Credentials.create()` 는 `0x` 유무를 모두 받지만 라이브러리마다 다를 수 있어 명시해 둡니다.
   반영 후 컨테이너 안 길이 64 확인, 기동 로그에 키가 새지 않는 것(64자 hex 패턴 0건)도 확인했습니다
-- ⚠️ **가스 잔액은 아직 확인하지 못했습니다** — 지갑 주소를 받지 못해서입니다.
-  **잔액이 0 이면 `eth_sendRawTransaction` 이 전부 실패합니다.** 실제 서명 트랜잭션 전에 반드시
-  확인해야 합니다. 주소는 비밀값이 아니니 1번에게 요청하면 됩니다. 받은 뒤:
+- ✅ **가스 잔액은 신경 쓰지 않아도 됩니다 — 프리가스 네트워크입니다** (2026-09-01 실측)
+
+  ```
+  eth_gasPrice   : 0x0                  ← 가스 가격 0
+  baseFeePerGas  : 필드 자체가 없음        ← EIP-1559 미적용
+  gasLimit       : 0x1fffffffffffff     ← 사실상 무제한
+  ```
+
+  **잔액 0 인 계정으로도 트랜잭션이 나갑니다.** `PaymentToken.sol` 주석과도 맞습니다 —
+  네이티브 코인을 안 주는 대신 가스를 안 받는 구성입니다. 그래서 결제용 ERC-20 을 따로 발행합니다.
+
+  `scripts/check-besu.sh` 가 매번 `eth_gasPrice` 를 확인하므로, SSAFY 가 나중에 유료로
+  바꾸면 그때 드러납니다.
+
+- 🔴 **대신 진짜 관문은 컨트랙트 role 입니다.**
+
+  `MaterialToken` 은 `AccessControl` 기반입니다:
+
+  | 함수 | 필요한 role |
+  | --- | --- |
+  | `mintMaterial()` | `SUPPLIER_ROLE` |
+  | `verifyMaterial()` | `VERIFIER_ROLE` |
+  | `setMaterialStatus()` | `STATUS_MANAGER_ROLE` |
+  | `burnMaterial()` | 소유자 또는 approved (role 아님) |
+
+  생성자는 **admin 에게만** 전 권한을 줍니다. **서버 서명 계정이 admin 이 아니면 가스가
+  공짜여도 `AccessControlUnauthorizedAccount` 로 리버트됩니다.**
+
+  1번에게 확인할 것: 서명 계정 주소 / 그 계정이 가진 role / 없다면 `grantRole` 요청.
+  주소와 컨트랙트 주소를 받으면 조회할 수 있습니다:
 
   ```bash
+  # hasRole(SUPPLIER_ROLE, <서명계정>) 조회 예시
   docker exec cf-backend sh -c 'curl -s -X POST https://rpc.ssafy-blockchain.com \
     -H "Content-Type: application/json" \
-    -d "{\"jsonrpc\":\"2.0\",\"method\":\"eth_getBalance\",\"params\":[\"<지갑주소>\",\"latest\"],\"id\":1}"'
+    -d "{\"jsonrpc\":\"2.0\",\"method\":\"eth_call\",\"params\":[{\"to\":\"<컨트랙트주소>\",\"data\":\"<hasRole 인코딩>\"},\"latest\"],\"id\":1}"'
   ```
 
 ### 2-4. RPC 연결 검증

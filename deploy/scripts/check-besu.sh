@@ -81,6 +81,22 @@ fi
 
 echo "eth_blockNumber : $(rpc eth_blockNumber || echo '(응답 없음)')"
 
+# 가스 가격. 2026-09-01 시점 이 네트워크는 0 이다 — 잔액 없는 계정으로도 트랜잭션이 나간다.
+# PaymentToken.sol 주석("네이티브 코인을 지급받을 수 없으므로 결제 수단을 직접 발행한다")과
+# 맞물리는 구성이다. SSAFY 가 나중에 유료로 바꾸면 서버 서명 계정에 잔액이 필요해지므로
+# 여기서 매번 확인해 조용히 바뀌지 않게 한다.
+GASRESP="$(rpc eth_gasPrice || true)"
+GASHEX="$(printf '%s' "$GASRESP" | sed -n 's/.*"result"[[:space:]]*:[[:space:]]*"0x\([0-9a-fA-F]*\)".*/\1/p')"
+if [ -z "$GASHEX" ]; then
+    echo "eth_gasPrice    : (확인 불가) $GASRESP"
+elif [ "$((16#$GASHEX))" -eq 0 ]; then
+    echo "eth_gasPrice    : 0 — 프리가스 네트워크 (서명 계정 잔액 불필요)"
+else
+    echo "eth_gasPrice    : $((16#$GASHEX)) wei"
+    echo "WARN: 가스가 더 이상 무료가 아닙니다. 서버 서명 계정에 잔액이 필요합니다."
+    echo "      eth_getBalance 로 잔액을 확인하세요 (docs/notices/BESU_REQUESTS_FE_BE.md 참고)."
+fi
+
 # ADMIN namespace 노출 확인. 열려 있으면 노드를 조작당할 수 있으므로 반드시 막혀 있어야 한다.
 # 여기서는 우리 노드가 아니라 SSAFY 노드라 우리가 고칠 수 없다 — 확인해서 알리는 것이 목적이다.
 ADMIN="$(rpc admin_peers || true)"
