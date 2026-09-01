@@ -53,7 +53,7 @@
   - Nginx → Frontend/Backend placeholder 프록시 동작
   - MySQL volume 영속성
   - Jenkins 기동 및 초기 비밀번호 확인
-- [x] 팀 공유: 포트 맵 / 이미지 이름 규약 / `.env` 키 목록 공지 (2026-08-31, `TEAM_NOTICE_2026-08-31.md`)
+- [x] 팀 공유: 포트 맵 / 이미지 이름 규약 / `.env` 키 목록 공지 (2026-08-31, `notices/TEAM_NOTICE_2026-08-31.md`)
 - [x] GitLab Access Token(또는 Deploy Token) 발급 — Jenkins가 리포를 clone할 때 사용
 - [ ] MetaMask/Besu 관련 값은 1번(Blockchain)에게 RPC URL·Chain ID 확인 요청
 
@@ -131,7 +131,7 @@ Jenkins 세팅은 JCasC(`jenkins/casc.yaml`)로 자동화되어 있다. 컨테�
 **2026-08-31 전 단계 완료** — DEVELOPMENT_STRATEGY.md의 6번 첫 목표
 **"빈 프로젝트라도 Merge하면 Jenkins를 통해 EC2에 올라가는 상태"** 달성.
 HTTPS까지 적용되어 서비스는 `https://j15e104.p.ssafy.io`, Jenkins는 `http://j15e104.p.ssafy.io:8081`.
-상세 실행 이력과 트러블슈팅은 `EC2_DAY1.md`, 팀 공지는 `TEAM_NOTICE_2026-08-31.md` 참고.
+상세 실행 이력과 트러블슈팅은 `EC2_DAY1.md`, 팀 공지는 `notices/TEAM_NOTICE_2026-08-31.md` 참고.
 
 ## 6. 남은 작업 (EC2 지급 후)
 

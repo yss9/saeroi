@@ -4,7 +4,7 @@ Circular-Fashion의 배포 구성을 관리하는 브랜치입니다.
 Docker Compose, Nginx, Jenkins Job 구조, 배포 스크립트의 **Source of Truth**이며,
 GIT_CONVENTION에 따라 develop / feat 하위 브랜치 없이 이 브랜치에서 직접 관리합니다.
 
-> EC2 지급 전 체크리스트와 Day-1 런북은 이 브랜치의 `INFRA_SETUP.md` 참고.
+> EC2 지급 전 체크리스트와 Day-1 런북은 이 브랜치의 `docs/INFRA_SETUP.md` 참고.
 
 ## 구성
 
@@ -19,11 +19,20 @@ GIT_CONVENTION에 따라 develop / feat 하위 브랜치 없이 이 브랜치에
 │   ├── Dockerfile             # Docker CLI + 사전 설치 플러그인 포함 Jenkins 이미지
 │   ├── plugins.txt            # 사전 설치 플러그인 목록
 │   └── casc.yaml              # JCasC — 계정/Credential/Multibranch Job 4개 자동 세팅
-└── scripts/
-    ├── init-ec2.sh            # EC2 최초 세팅 (Docker, swap, UFW, 타임존)
-    ├── compose.sh             # placeholder override 자동 합성 (compose 호출의 단일 경로)
-    ├── deploy-*.sh            # 서비스별 재배포
-    └── health-check.sh        # 컨테이너 + 엔드포인트 확인
+├── scripts/
+│   ├── init-ec2.sh            # EC2 최초 세팅 (Docker, swap, UFW, 타임존)
+│   ├── compose.sh             # placeholder override 자동 합성 (compose 호출의 단일 경로)
+│   ├── deploy-service.sh      # 배포 + 헬스체크 실패 시 롤백 (본체)
+│   ├── deploy-*.sh            # 파트 Jenkinsfile이 부르는 진입점 (deploy-service.sh 호출)
+│   ├── health-check.sh        # 컨테이너 + 엔드포인트 확인 (2xx만 통과)
+│   ├── backup-mysql.sh        # MySQL 일일 덤프 (cron 03:10)
+│   ├── restore-mysql.sh       # 덤프로 복구
+│   └── install-backup-cron.sh # 백업 cron 등록 (멱등)
+└── docs/
+    ├── INFRA_SETUP.md         # 구축 체크리스트 / 배경
+    ├── EC2_DAY1.md            # 서버 수령 첫날 런북
+    ├── DEVELOPMENT_STRATEGY.md
+    └── notices/               # 팀 공지 (날짜순)
 
 파이프라인 정의(`Jenkinsfile`)는 이 브랜치가 아니라 **각 파트 브랜치 루트**에 있습니다.
 deploy/master 는 Job 구조(`casc.yaml`)와 배포 방식만 관리합니다.
