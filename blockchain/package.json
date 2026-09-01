@@ -7,19 +7,24 @@
     "compile": "hardhat compile",
     "test": "hardhat test",
     "abi": "hardhat run scripts/export-abi.ts",
+    "wallet:new": "ts-node scripts/generate-wallet.ts",
     "rpc:local": "hardhat run scripts/rpc-read.ts --network localhost",
     "rpc:ssafy": "hardhat run scripts/rpc-read.ts --network ssafy",
     "tx:local": "hardhat run scripts/send-transaction.ts --network localhost",
     "tx:ssafy": "hardhat run scripts/send-transaction.ts --network ssafy",
     "deploy:local": "hardhat run scripts/deploy.ts --network localhost",
-    "deploy:ssafy": "hardhat run scripts/deploy.ts --network ssafy"
+    "deploy:ssafy": "hardhat run scripts/deploy.ts --network ssafy",
+    "deploy:token:local": "hardhat run scripts/deploy-payment-token.ts --network localhost",
+    "deploy:token:ssafy": "hardhat run scripts/deploy-payment-token.ts --network ssafy",
+    "token:distribute:local": "hardhat run scripts/distribute-token.ts --network localhost",
+    "token:distribute:ssafy": "hardhat run scripts/distribute-token.ts --network ssafy"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-ethers": "^3.0.8",
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@openzeppelin/contracts": "5.0.2",
     "dotenv": "^16.4.5",
-    "hardhat": "^2.22.10",
+    "hardhat": "^2.29.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.5.4"
   }
