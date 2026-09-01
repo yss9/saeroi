@@ -72,10 +72,24 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_ISSUER: ${JWT_ISSUER:-upcycle}
       JWT_ACCESS_TOKEN_TTL: ${JWT_ACCESS_TOKEN_TTL:-PT30M}
-      # 블록체인 연동 시 사용 (1번 산출물 나오기 전까지는 빈 값)
+      # 블록체인 연동. RPC/체인 ID 는 2026-09-01 수령해 .env 에 채워져 있고,
+      # 컨테이너 안에서 scripts/check-besu.sh 로 실제 도달까지 확인했다.
       BESU_RPC_URL: ${BESU_RPC_URL:-}
       BESU_CHAIN_ID: ${BESU_CHAIN_ID:-}
       BLOCKCHAIN_SERVICE_PRIVATE_KEY: ${BLOCKCHAIN_SERVICE_PRIVATE_KEY:-}
+      # 컨트랙트 주소. 프론트가 VITE_* 로 받는 것과 별개로, 백엔드가 Web3j 로 컨트랙트를
+      # 호출하려면 서버에도 필요하다. 이 세 줄이 없어서 주입 경로가 아예 없었다.
+      #
+      # `:-` 기본값을 반드시 붙인다. 이게 없으면 .env 에 키가 없을 때 compose 가 경고를 내고
+      # 빈 값을 넣는데, 그보다 위험한 건 application.yml 쪽이다 — OS 환경변수가 yml 보다
+      # 우선하므로 yml 에서 ${MATERIAL_TOKEN_ADDRESS} 를 기본값 없이 읽으면 키가 빠지는 순간
+      # 기동 자체가 깨진다. 여기서 항상 정의되게 만들어 그 경로를 막는다.
+      #
+      # 값 자체는 1번의 실배포 후에 채운다. 주소가 바뀌면 backend 는 컨테이너 재생성으로
+      # 반영되지만(restart 로는 안 된다), frontend 는 이미지 재빌드가 필요하다.
+      MATERIAL_TOKEN_ADDRESS: ${MATERIAL_TOKEN_ADDRESS:-}
+      PAYMENT_TOKEN_ADDRESS: ${PAYMENT_TOKEN_ADDRESS:-}
+      ESCROW_ADDRESS: ${ESCROW_ADDRESS:-}
     volumes:
       - file-storage:/app/files
     depends_on:
