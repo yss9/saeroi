@@ -54,7 +54,8 @@ pipeline {
                 // VITE_* 는 번들에 그대로 박혀 브라우저로 나가는 "공개 값"이라 Credentials 로 감싸지 않는다.
                 // .env 를 통째로 source 하면 MYSQL_ROOT_PASSWORD·JWT_SECRET 까지 빌드 환경에 올라
                 // 로그로 샐 표면이 생기므로, VITE_ 로 시작하는 줄만 골라 build-arg 로 넘긴다.
-                // 키 목록을 .env 가 스스로 정하므로 VITE 키를 추가해도 이 파일을 고칠 필요가 없다.
+                // 키 목록은 .env 가 정하므로 키를 추가해도 이 파일은 고칠 필요가 없다.
+                // 다만 Dockerfile 의 ARG 선언은 반드시 따라와야 해서, 그 어긋남만 아래에서 검사한다.
                 sh '''
                     set -eu
                     ENV_FILE="$DEPLOY_DIR/.env"
@@ -67,6 +68,20 @@ pipeline {
 $(grep -E '^VITE_[A-Za-z0-9_]+=' "$ENV_FILE")
 EOF
                     [ "$#" -gt 0 ] || { echo "FAIL: .env 에 VITE_* 값이 하나도 없음"; exit 1; }
+
+                    # .env 의 VITE_ 키가 Dockerfile 에 ARG 로 선언돼 있는지 확인한다.
+                    # 선언이 없으면 docker 는 "build-args were not consumed" 경고만 내고 값을 버린다.
+                    # 빌드는 성공하고 번들에는 빈 문자열이 들어가서, "값을 안 채웠을 때"와 증상이
+                    # 똑같아 구분이 안 된다. 조용히 빈 값으로 배포하느니 여기서 세운다.
+                    MISSING=""
+                    for KEY in $(grep -oE '^VITE_[A-Za-z0-9_]+' "$ENV_FILE"); do
+                        grep -qE "^ARG[[:space:]]+$KEY([[:space:]]|=|$)" docker/Dockerfile || MISSING="$MISSING $KEY"
+                    done
+                    if [ -n "$MISSING" ]; then
+                        echo "FAIL: docker/Dockerfile 에 ARG 선언이 없는 키:$MISSING"
+                        echo "      선언이 없으면 값이 번들에 들어가지 않는다. Dockerfile 에 ARG 를 추가할 것."
+                        exit 1
+                    fi
 
                     echo "주입 키: $(grep -oE '^VITE_[A-Za-z0-9_]+' "$ENV_FILE" | tr '\n' ' ')"
                     docker build -f docker/Dockerfile "$@" -t "$IMAGE:latest" -t "$IMAGE:$BUILD_NUMBER" .
