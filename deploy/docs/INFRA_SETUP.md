@@ -55,7 +55,8 @@
   - Jenkins 기동 및 초기 비밀번호 확인
 - [x] 팀 공유: 포트 맵 / 이미지 이름 규약 / `.env` 키 목록 공지 (2026-08-31, `notices/TEAM_NOTICE_2026-08-31.md`)
 - [x] GitLab Access Token(또는 Deploy Token) 발급 — Jenkins가 리포를 clone할 때 사용
-- [ ] MetaMask/Besu 관련 값은 1번(Blockchain)에게 RPC URL·Chain ID 확인 요청
+- [x] Besu RPC URL·Chain ID 수령 (2026-09-01) — SSAFY 제공 외부 노드 `https://rpc.ssafy-blockchain.com`,
+      Chain ID `31221`. HTTPS 443 공개라 우리 쪽 방화벽·nginx 작업은 없다 (`scripts/check-besu.sh` 로 검증)
 
 ## 3. 환경변수 / 시크릿 목록
 
@@ -66,7 +67,7 @@
 | --- | --- | --- |
 | DB | `MYSQL_ROOT_PASSWORD`, `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD` | Infra가 생성 |
 | Backend | `SPRING_DATASOURCE_*`, `JWT_SECRET`, `AI_SERVER_BASE_URL` | Infra + Backend 합의 |
-| Blockchain | `BESU_RPC_URL`, `BESU_CHAIN_ID`, `BLOCKCHAIN_SERVICE_PRIVATE_KEY` | 1번 Blockchain 담당 |
+| Blockchain | `BESU_RPC_URL`, `BESU_CHAIN_ID` (수령 완료), `BLOCKCHAIN_SERVICE_PRIVATE_KEY`, `*_ADDRESS` (대기) | 1번 Blockchain 담당 |
 | Frontend 빌드 | `VITE_API_BASE_URL`, `VITE_BESU_*`, `VITE_*_ADDRESS` | 빌드 시점 주입 |
 | Jenkins | `JENKINS_ADMIN_ID/PASSWORD`, `JENKINS_EXTERNAL_URL`, `GITLAB_USERNAME/TOKEN` | Infra가 생성 (JCasC에서 사용) |
 
@@ -148,7 +149,15 @@ HTTPS까지 적용되어 서비스는 `https://j15e104.p.ssafy.io`, Jenkins는 `
 - [ ] 배포 스크립트의 실제 서버 경로·계정 확정 — 현재 `~/deploy` 기준, 첫 실배포 때 검증 필요
 - [x] 실제 애플리케이션 이미지 배포 (2026-09-01) — backend/frontend/ai 모두 졸업,
       `docker-compose.placeholder.yml` 삭제됨
-- [ ] `BESU_RPC_URL` / `BESU_CHAIN_ID` / 컨트랙트 주소 수령 후 `.env` 반영 (1번 대기 중)
+- [x] `BESU_RPC_URL` / `BESU_CHAIN_ID` 수령 및 `.env.example` 반영 (2026-09-01)
+- [x] Chain ID 실측 확인 (2026-09-01, 개발 PC) — `eth_chainId` → `0x79f5` = 31221 일치,
+      `admin_peers` 차단 확인, IP allowlist 없음 확인
+- [ ] EC2 `.env` 에 Besu 값 반영 + EC2 에서 `bash scripts/check-besu.sh` 재실행
+      (실제 호출 주체는 backend 컨테이너다 — 호스트/개발 PC 에서의 성공은 컨테이너 경로를 증명하지 않는다)
+- [ ] `BLOCKCHAIN_SERVICE_PRIVATE_KEY` 수령 후 `.env` 반영 (1번 대기 중)
+- [ ] 컨트랙트 주소 3종 + ABI 수령 (1번 실배포 전 — 미정). 백엔드가 읽을 키 이름 확정 후
+      `docker-compose.yml` 의 backend environment 에 주소 변수 추가 필요 (현재 주입 경로 없음).
+      주소 변경 시 frontend 재빌드가 필요하다 (`VITE_*` 는 빌드 시점 인라인)
 
 ## 7. deploy/master 구성 요약
 
