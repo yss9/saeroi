@@ -14,11 +14,20 @@ RUN npm ci --no-audit --no-fund
 
 # .env.example 의 VITE_* 키와 1:1 대응. 키를 추가하면 여기에도 ARG 를 추가할 것.
 # ARG 는 npm run build 보다 앞, npm ci 보다 뒤에 두어야 값이 바뀌어도 의존성 캐시가 유지된다.
+#
+# ⚠️ 이 목록이 .env 와 어긋나면 조용히 깨진다.
+# Jenkins 는 .env 의 ^VITE_ 줄을 전부 --build-arg 로 넘기지만, 여기에 ARG 선언이 없는 키는
+# Docker 가 "One or more build-args were not consumed" 경고만 내고 값을 버린다. 빌드는
+# 성공하므로 번들에는 빈 문자열이 들어간다 — "값을 안 채웠을 때"와 증상이 완전히 같아서
+# 구분이 안 된다.
+# 이 어긋남은 Jenkinsfile 의 Docker Build 스테이지가 빌드 직전에 검사해 막는다
+# (여기서는 검사할 수 없다 — 선언되지 않은 build-arg 는 빌드 안에서 보이지도 않고,
+#  .env 는 빌드 컨텍스트에 들어오지 않는다).
 ARG VITE_API_BASE_URL
 ARG VITE_BESU_RPC_URL
 ARG VITE_BESU_CHAIN_ID
 ARG VITE_MATERIAL_TOKEN_ADDRESS
-ARG VITE_MARKETPLACE_ADDRESS
+ARG VITE_PAYMENT_TOKEN_ADDRESS
 ARG VITE_ESCROW_ADDRESS
 
 COPY . .
