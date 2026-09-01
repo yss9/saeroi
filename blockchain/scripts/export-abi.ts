@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 //abi/ 로 내보낼 컨트랙트 목록. 새 컨트랙트를 만들면 여기에 추가한다.
-const CONTRACTS = ["MaterialToken", "PaymentToken"];
+const CONTRACTS = ["MaterialToken", "PaymentToken", "Marketplace"];
 
 async function main() {
   const abiDir = path.join(__dirname, "..", "abi");

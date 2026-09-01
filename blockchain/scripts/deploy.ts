@@ -12,10 +12,30 @@ async function main() {
 
   await materialToken.waitForDeployment();
 
+  const PaymentToken = await ethers.getContractFactory("PaymentToken");
+  const paymentToken = await PaymentToken.deploy(deployer.address);
+
+  await paymentToken.waitForDeployment();
+
+  const Marketplace = await ethers.getContractFactory("Marketplace");
+  const marketplace = await Marketplace.deploy(
+    await materialToken.getAddress(),
+    await paymentToken.getAddress()
+  );
+
+  await marketplace.waitForDeployment();
+
+  await materialToken.grantRole(
+    await materialToken.MATERIAL_LOCK_MANAGER_ROLE(),
+    await marketplace.getAddress()
+  );
+
   const deployment = {
     network: network.name,
     chainId: network.config.chainId,
     materialToken: await materialToken.getAddress(),
+    paymentToken: await paymentToken.getAddress(),
+    marketplace: await marketplace.getAddress(),
     deployer: deployer.address,
     deployedAt: new Date().toISOString()
   };
@@ -27,7 +47,7 @@ async function main() {
     `${JSON.stringify(deployment, null, 2)}\n`
   );
 
-  console.log("MaterialToken deployed:", deployment);
+  console.log("Blockchain contracts deployed:", deployment);
 }
 
 main().catch((error) => {
