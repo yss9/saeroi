@@ -17,7 +17,7 @@ jenkins:
 
 unclassified:
   location:
-    url: "${JENKINS_EXTERNAL_URL:-http://localhost:8081/}"
+    url: "${JENKINS_EXTERNAL_URL:-http://localhost:8081/jenkins/}"
 
 credentials:
   system:
