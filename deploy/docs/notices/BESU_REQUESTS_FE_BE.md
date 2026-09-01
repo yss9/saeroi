@@ -18,7 +18,8 @@
 | `ADMIN` namespace | 차단됨 | ✅ 확인됨 |
 | 컨트랙트 주소 | **미정** — 1번의 SSAFY 실배포 전 | ⏳ 대기 |
 | ABI 파일 | **전달 경로 미합의** | ⏳ 대기 |
-| `BLOCKCHAIN_SERVICE_PRIVATE_KEY` | **미수령** | ⏳ 대기 |
+| `BLOCKCHAIN_SERVICE_PRIVATE_KEY` | 수령·EC2 반영 완료 (0x 없는 16진수 64자) | ✅ 2026-09-01 |
+| 서명 계정 가스 잔액 | **미확인** — 지갑 주소 미수령 | ⏳ 대기 |
 
 **HTTPS 엔드포인트라는 점이 중요합니다.** 우리 서비스가 `https://j15e104.p.ssafy.io` 이므로,
 RPC 가 평문 `http://` 였다면 브라우저가 mixed content 로 **차단**해서 nginx 에 `/rpc/` 프록시를
@@ -184,7 +185,18 @@ backend 는 컨테이너 재생성으로 반영됩니다 (`restart` 로는 안 �
   `MYSQL_ROOT_PASSWORD` / `JENKINS_ADMIN_PASSWORD` / `GITLAB_TOKEN` 까지 들어가 있었습니다.
   지금은 필요한 키만 명시 전달합니다 — 그래서 **새 키가 필요하면 compose 수정이 필요합니다**
   (Infra 에 요청해주세요)
-- 아직 1번으로부터 미수령입니다. 가스비 잔액 여부도 함께 확인 요청해둔 상태입니다
+- **2026-09-01 수령·반영 완료.** 형식은 **`0x` 없는 16진수 64자**입니다.
+  Web3j `Credentials.create()` 는 `0x` 유무를 모두 받지만 라이브러리마다 다를 수 있어 명시해 둡니다.
+  반영 후 컨테이너 안 길이 64 확인, 기동 로그에 키가 새지 않는 것(64자 hex 패턴 0건)도 확인했습니다
+- ⚠️ **가스 잔액은 아직 확인하지 못했습니다** — 지갑 주소를 받지 못해서입니다.
+  **잔액이 0 이면 `eth_sendRawTransaction` 이 전부 실패합니다.** 실제 서명 트랜잭션 전에 반드시
+  확인해야 합니다. 주소는 비밀값이 아니니 1번에게 요청하면 됩니다. 받은 뒤:
+
+  ```bash
+  docker exec cf-backend sh -c 'curl -s -X POST https://rpc.ssafy-blockchain.com \
+    -H "Content-Type: application/json" \
+    -d "{\"jsonrpc\":\"2.0\",\"method\":\"eth_getBalance\",\"params\":[\"<지갑주소>\",\"latest\"],\"id\":1}"'
+  ```
 
 ### 2-4. RPC 연결 검증
 

@@ -157,8 +157,10 @@ HTTPS까지 적용되어 서비스는 `https://j15e104.p.ssafy.io`, Jenkins는 `
       backend 재생성으로 환경변수 주입까지 실증
 - [x] 컨트랙트 환경변수 **이름 확정** (2026-09-01) — `MATERIAL_TOKEN_ADDRESS` / `PAYMENT_TOKEN_ADDRESS` /
       `ESCROW_ADDRESS` (+ `VITE_` 접두 3종). `.env.example` 과 일치, `docker-compose.yml` 에 주입 추가 완료
-- [ ] `BLOCKCHAIN_SERVICE_PRIVATE_KEY` 수령 후 `.env` 반영 (1번 대기 중). 반영 후 해당 계정의
-      **가스 잔액 확인 필수** — 잔액이 없으면 `eth_sendRawTransaction` 이 실패한다
+- [x] `BLOCKCHAIN_SERVICE_PRIVATE_KEY` 수령·EC2 `.env` 반영 (2026-09-01). **0x 없는 16진수 64자.**
+      컨테이너 주입 확인, 기동 로그에 키 미노출 확인
+- [ ] **서명 계정 가스 잔액 확인** — 지갑 주소 미수령이라 아직 못 했다.
+      잔액이 0 이면 `eth_sendRawTransaction` 이 전부 실패한다. 실제 서명 트랜잭션 전 필수
 - [ ] Frontend / Backend 담당 배정 시 `docs/notices/BESU_REQUESTS_FE_BE.md` 전달
 - [ ] 컨트랙트 주소 3종 수령 (1번 실배포 전 — 미정). `.env` 에 값만 채우면 backend 는 컨테이너
       재생성으로 반영되지만, **frontend 는 이미지 재빌드가 필요하다** (`VITE_*` 는 빌드 시점 인라인)
