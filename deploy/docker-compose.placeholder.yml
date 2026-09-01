@@ -12,13 +12,6 @@
 #
 # 로컬 검증용 override 는 docker-compose.local.yml 이다 (이 파일과 별개 — 수명주기가 다르다).
 services:
-  # [졸업 예정: backend 첫 배포 시 이 블록 삭제]
-  backend:
-    image: traefik/whoami
-    command:
-      - --port=8080
-      - --name=backend-placeholder
-
   # [졸업 예정: frontend 첫 배포 시 이 블록 삭제]
   frontend:
     image: nginxdemos/hello:plain-text
