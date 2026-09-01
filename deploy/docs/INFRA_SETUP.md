@@ -141,7 +141,8 @@ HTTPS까지 적용되어 서비스는 `https://j15e104.p.ssafy.io`, Jenkins는 `
 - [x] HTTPS 인증서 발급 — Let's Encrypt, 만료 2026-11-29, `certbot.timer` 자동 갱신 + nginx reload deploy hook
 - [x] UFW 포트 오픈 및 접속 검증
 - [ ] 배포 스크립트의 실제 서버 경로·계정 확정 — 현재 `~/deploy` 기준, 첫 실배포 때 검증 필요
-- [ ] 실제 애플리케이션 이미지 배포 — 각 파트 Dockerfile이 나오면 placeholder override 제거
+- [x] 실제 애플리케이션 이미지 배포 (2026-09-01) — backend/frontend/ai 모두 졸업,
+      `docker-compose.placeholder.yml` 삭제됨
   (그 전까지는 compose 명령에 `-f docker-compose.yml -f docker-compose.local.yml` 필수)
 - [ ] `BESU_RPC_URL` / `BESU_CHAIN_ID` / 컨트랙트 주소 수령 후 `.env` 반영 (1번 대기 중)
 
@@ -155,14 +156,13 @@ deploy/master
 ├── docker-compose.local.yml   # 로컬 검증용 override (placeholder 이미지)
 ├── .env.example
 ├── nginx/nginx.conf
-├── docker-compose.placeholder.yml  # EC2에서 아직 이미지가 없는 서비스만 대체 (파트별로 졸업)
 ├── jenkins/
 │   ├── Dockerfile             # Docker CLI + Node/Python 툴체인 포함 Jenkins 이미지
 │   ├── plugins.txt
 │   └── casc.yaml              # Multibranch Job 4개 정의 (Jenkinsfile은 파트 브랜치에 있음)
 ├── scripts/
 │   ├── init-ec2.sh
-│   ├── compose.sh             # placeholder override 자동 합성 — compose 호출의 단일 경로
+│   ├── compose.sh             # compose 호출의 단일 경로 (override 가 있으면 자동 합성)
 │   ├── deploy-backend.sh
 │   ├── deploy-frontend.sh
 │   ├── deploy-ai.sh
