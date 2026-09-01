@@ -20,7 +20,7 @@ const DOCUMENT_HASH = ethers.keccak256(
   ethers.toUtf8Bytes("denim-batch-1-certificate.pdf")
 );
 
-describe("MaterialToken", function () {
+describe("소재 토큰(MaterialToken)", function () {
   async function deployMaterialTokenFixture() {
     const [admin, supplier, brand, processor, verifier, outsider] =
       await ethers.getSigners();
@@ -79,7 +79,7 @@ describe("MaterialToken", function () {
   }
 
   //1. 소재 토큰 발행 성공
-  it("mints a material token and stores material metadata", async function () {
+  it("소재 토큰을 발행하고 메타데이터를 저장한다", async function () {
     const { materialToken, supplier } = await deployMaterialTokenFixture();
     const tokenId = 1;
     const amount = 50_000;
@@ -113,7 +113,7 @@ describe("MaterialToken", function () {
   });
 
   //2. 소재 일부 전송 성공
-  it("supports partial transfer between supplier and brand", async function () {
+  it("공급자가 브랜드에 소재 일부를 전송할 수 있다", async function () {
     const { materialToken, supplier, brand, tokenId } = await mintedFixture();
 
     await materialToken
@@ -129,7 +129,7 @@ describe("MaterialToken", function () {
   });
 
   //3. 권한 없는 사용자의 발행 실패
-  it("rejects minting from an account without supplier role", async function () {
+  it("공급자 권한이 없는 계정의 발행을 거부한다", async function () {
     const { materialToken, outsider } = await deployMaterialTokenFixture();
 
     await expect(
@@ -143,7 +143,7 @@ describe("MaterialToken", function () {
   });
 
   //4. 같은 tokenId의 metadata 변경 실패
-  it("keeps metadata immutable for the same token id", async function () {
+  it("같은 토큰 ID의 메타데이터를 변경할 수 없다", async function () {
     const { materialToken, supplier, tokenId } = await mintedFixture();
 
     await expect(
@@ -160,7 +160,7 @@ describe("MaterialToken", function () {
   });
 
   //5. 증빙 해시 변경 실패
-  it("keeps the document hash immutable for the same token id", async function () {
+  it("같은 토큰 ID의 증빙 문서 해시를 변경할 수 없다", async function () {
     const { materialToken, supplier, tokenId } = await mintedFixture();
     const otherHash = ethers.keccak256(ethers.toUtf8Bytes("forged.pdf"));
 
@@ -172,7 +172,7 @@ describe("MaterialToken", function () {
   });
 
   //6. 빈 증빙 해시로는 발행 불가
-  it("rejects minting without a document hash", async function () {
+  it("증빙 문서 해시가 없으면 발행을 거부한다", async function () {
     const { materialToken, supplier } = await deployMaterialTokenFixture();
 
     await expect(
@@ -183,7 +183,7 @@ describe("MaterialToken", function () {
   });
 
   //7. 증빙 파일 위조 검증
-  it("verifies the document hash of a material", async function () {
+  it("소재의 증빙 문서 해시가 일치하는지 검증한다", async function () {
     const { materialToken, tokenId } = await mintedFixture();
     const forged = ethers.keccak256(ethers.toUtf8Bytes("forged.pdf"));
 
@@ -194,7 +194,7 @@ describe("MaterialToken", function () {
   });
 
   //8. 검증자가 소재를 승인한다
-  it("lets a verifier move a material to verified status", async function () {
+  it("검증자가 소재를 검증 완료 상태로 변경할 수 있다", async function () {
     const { materialToken, verifier, tokenId } = await mintedFixture();
 
     await expect(materialToken.connect(verifier).verifyMaterial(tokenId))
@@ -206,7 +206,7 @@ describe("MaterialToken", function () {
   });
 
   //9. 검증 권한이 없으면 승인 불가
-  it("rejects verification from an account without verifier role", async function () {
+  it("검증자 권한이 없는 계정의 검증을 거부한다", async function () {
     const { materialToken, outsider, tokenId } = await mintedFixture();
 
     await expect(
@@ -218,7 +218,7 @@ describe("MaterialToken", function () {
   });
 
   //10. 이미 검증된 소재는 다시 검증할 수 없다
-  it("rejects verifying a material twice", async function () {
+  it("이미 검증된 소재의 중복 검증을 거부한다", async function () {
     const { materialToken, verifier, tokenId } = await mintedFixture();
 
     await materialToken.connect(verifier).verifyMaterial(tokenId);
@@ -229,7 +229,7 @@ describe("MaterialToken", function () {
   });
 
   //11. 판매 등록과 거래 시작 상태 전이
-  it("moves through listed and escrow status", async function () {
+  it("판매 등록 상태를 거쳐 에스크로 상태로 전환한다", async function () {
     const { materialToken, admin, verifier, tokenId } = await mintedFixture();
 
     await materialToken.connect(verifier).verifyMaterial(tokenId);
@@ -243,7 +243,7 @@ describe("MaterialToken", function () {
   });
 
   //12. 허용되지 않은 상태 전이는 실패
-  it("rejects an invalid status transition", async function () {
+  it("허용되지 않은 상태 전환을 거부한다", async function () {
     const { materialToken, admin, tokenId } = await mintedFixture();
 
     //REGISTERED 에서 바로 LISTED 로 갈 수 없다
@@ -253,7 +253,7 @@ describe("MaterialToken", function () {
   });
 
   //13. 상태 변경 권한이 없으면 실패
-  it("rejects status change from an account without status manager role", async function () {
+  it("상태 관리자 권한이 없는 계정의 상태 변경을 거부한다", async function () {
     const { materialToken, verifier, outsider, tokenId } = await mintedFixture();
 
     await materialToken.connect(verifier).verifyMaterial(tokenId);
@@ -267,7 +267,7 @@ describe("MaterialToken", function () {
   });
 
   //14. 거래중인 소재는 이동할 수 없다 (이중 판매 방지)
-  it("blocks transfer while the material is in escrow", async function () {
+  it("에스크로 진행 중인 소재의 전송을 차단한다", async function () {
     const { materialToken, admin, verifier, supplier, brand, tokenId } =
       await mintedFixture();
 
@@ -285,7 +285,7 @@ describe("MaterialToken", function () {
   });
 
   //15. 거래가 끝나면 다시 이동할 수 있다
-  it("allows transfer again after escrow is released", async function () {
+  it("에스크로가 해제되면 소재를 다시 전송할 수 있다", async function () {
     const { materialToken, admin, verifier, supplier, brand, tokenId } =
       await mintedFixture();
 
@@ -308,7 +308,7 @@ describe("MaterialToken", function () {
   });
 
   //16. 소각하면 잔량이 줄어든다
-  it("burns part of a material and reduces the remaining supply", async function () {
+  it("소재 일부를 소각하면 잔여 공급량이 감소한다", async function () {
     const { materialToken, supplier, tokenId } = await mintedFixture();
 
     await expect(
@@ -338,7 +338,7 @@ describe("MaterialToken", function () {
   });
 
   //17. 전량 가공 투입되면 소진 상태가 된다
-  it("marks the material as processed when fully burned for processing", async function () {
+  it("가공 목적으로 전량 소각하면 소재를 가공 완료 상태로 변경한다", async function () {
     const { materialToken, supplier, tokenId } = await mintedFixture();
 
     await materialToken
@@ -351,7 +351,7 @@ describe("MaterialToken", function () {
   });
 
   //18. 남의 소재는 소각할 수 없다
-  it("rejects burning someone else's material", async function () {
+  it("다른 소유자의 소재를 소각할 수 없다", async function () {
     const { materialToken, supplier, outsider, tokenId } = await mintedFixture();
 
     await expect(
@@ -362,7 +362,7 @@ describe("MaterialToken", function () {
   });
 
   //19. 거래중인 소재는 소각할 수 없다
-  it("rejects burning while the material is in escrow", async function () {
+  it("에스크로 진행 중인 소재를 소각할 수 없다", async function () {
     const { materialToken, admin, verifier, supplier, tokenId } =
       await mintedFixture();
 
@@ -380,7 +380,7 @@ describe("MaterialToken", function () {
   });
 
   //20. 소진된 소재에는 추가 발행할 수 없다
-  it("rejects minting into a processed material", async function () {
+  it("가공 완료된 소재의 추가 발행을 거부한다", async function () {
     const { materialToken, supplier, tokenId } = await mintedFixture();
 
     await materialToken

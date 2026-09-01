@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 
-describe("PaymentToken", function () {
+describe("결제 토큰(PaymentToken)", function () {
   async function deployPaymentTokenFixture() {
     const [admin, supplier, brand, outsider] = await ethers.getSigners();
 
@@ -16,7 +16,7 @@ describe("PaymentToken", function () {
   }
 
   //1. 초기 발행량 전부가 admin 에게 있어야 한다
-  it("mints the initial supply to the admin", async function () {
+  it("초기 발행량 전부를 관리자에게 지급한다", async function () {
     const { paymentToken, admin } = await deployPaymentTokenFixture();
     const initialSupply = await paymentToken.INITIAL_SUPPLY();
 
@@ -26,7 +26,7 @@ describe("PaymentToken", function () {
   });
 
   //2. 토큰 기본 정보
-  it("exposes token metadata", async function () {
+  it("토큰 이름, 심볼, 소수점 자릿수를 조회할 수 있다", async function () {
     const { paymentToken } = await deployPaymentTokenFixture();
 
     expect(await paymentToken.name()).to.equal("Circular Fashion Token");
@@ -35,7 +35,7 @@ describe("PaymentToken", function () {
   });
 
   //3. admin 이 업체 지갑에 초기 물량을 분배한다
-  it("distributes tokens from admin to company wallets", async function () {
+  it("관리자가 업체 지갑에 토큰을 분배할 수 있다", async function () {
     const { paymentToken, admin, supplier, brand } =
       await deployPaymentTokenFixture();
     const amount = ethers.parseEther("10000");
@@ -52,7 +52,7 @@ describe("PaymentToken", function () {
   });
 
   //4. 업체 간 결제 전송
-  it("supports transfer between companies", async function () {
+  it("업체 간 결제 토큰을 전송할 수 있다", async function () {
     const { paymentToken, supplier, brand } = await deployPaymentTokenFixture();
     const funded = ethers.parseEther("10000");
     const payment = ethers.parseEther("3000");
@@ -67,7 +67,7 @@ describe("PaymentToken", function () {
   });
 
   //5. 잔액보다 많이 보내면 실패
-  it("rejects transfer over balance", async function () {
+  it("보유 잔액을 초과한 전송을 거부한다", async function () {
     const { paymentToken, brand, supplier } = await deployPaymentTokenFixture();
 
     await paymentToken.transfer(brand.address, ethers.parseEther("100"));
@@ -80,7 +80,7 @@ describe("PaymentToken", function () {
   });
 
   //6. MINTER_ROLE 이 없으면 추가 발행 불가
-  it("rejects minting from an account without minter role", async function () {
+  it("발행 권한이 없는 계정의 추가 발행을 거부한다", async function () {
     const { paymentToken, outsider } = await deployPaymentTokenFixture();
 
     await expect(
@@ -94,7 +94,7 @@ describe("PaymentToken", function () {
   });
 
   //7. admin 은 추가 발행 가능
-  it("allows the admin to mint additional supply", async function () {
+  it("관리자는 결제 토큰을 추가 발행할 수 있다", async function () {
     const { paymentToken, admin, supplier } = await deployPaymentTokenFixture();
     const amount = ethers.parseEther("5000");
     const initialSupply = await paymentToken.INITIAL_SUPPLY();
