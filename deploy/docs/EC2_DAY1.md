@@ -39,7 +39,20 @@ exit   # docker 그룹 권한 적용을 위해 재로그인
 docker version && docker compose version   # 둘 다 정상 출력되면 OK
 ```
 
+단축 명령(`cfps`/`cflog`/`cfdb` 등)을 로그인 시 자동으로 불러오도록 `~/.bashrc` 에 한 줄 추가한다.
+`~/.bashrc` 는 리포 밖이라 재구축 때 사라지므로 이 단계가 필요하다 (본체는 `scripts/shell-aliases.sh`).
+
+```bash
+printf '
+# circular-fashion shell aliases
+[ -f "$HOME/deploy/scripts/shell-aliases.sh" ] && . "$HOME/deploy/scripts/shell-aliases.sh"
+' >> ~/.bashrc
+exec bash          # 즉시 적용
+cfhelp             # 명령 목록이 나오면 성공
+```
+
 - [x] Docker 설치 및 권한 확인
+- [x] 단축 명령 로드 확인
 
 ## 3. .env 작성
 

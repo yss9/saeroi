@@ -48,6 +48,38 @@ circular-fashion/frontend:latest
 circular-fashion/ai:latest
 ```
 
+## 서버 접속 / 운영 단축 명령
+
+로컬 `~/.ssh/config` 에 별칭을 두면 짧게 접속할 수 있습니다.
+
+```
+Host e104 cf j15e104
+    HostName j15e104.p.ssafy.io
+    User ubuntu
+    IdentityFile ~/.ssh/J15E104T.pem
+    IdentitiesOnly yes
+```
+
+```bash
+ssh e104        # 세 이름 중 아무거나
+```
+
+접속하면 `scripts/shell-aliases.sh` 가 자동으로 로드됩니다 (`~/.bashrc` 에서 source).
+
+| 명령 | 설명 |
+| --- | --- |
+| `cfps` | 컨테이너 목록 |
+| `cfhealth [서비스]` | 정상 여부 — 엔드포인트 응답까지 확인 |
+| `cflog <서비스> [N]` | 로그 마지막 N줄 (기본 50) |
+| `cftail <서비스>` | 로그 실시간 (Ctrl+C 종료) |
+| `cfsh <서비스>` | 컨테이너 안으로 |
+| `cfdb` | MySQL 접속 — **비밀번호 입력 불필요** |
+| `cfpull` | `git pull` + 변경분 재기동 |
+| `cfhelp` | 위 목록 다시 보기 |
+
+`cfdb` 는 컨테이너가 이미 갖고 있는 `MYSQL_ROOT_PASSWORD` 를 `MYSQL_PWD` 로 넘깁니다.
+비밀번호를 약하게 바꾸는 대신 **칠 일이 없게** 만든 것입니다.
+
 ## 접속 주소
 
 | | 주소 |
