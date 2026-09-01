@@ -25,6 +25,12 @@ ENV TZ=Asia/Seoul \
 COPY --from=build /install/deps /usr/local
 COPY app/ app/
 
+# 컨테이너를 root 로 돌리지 않는다 (backend 와 동일한 정책, uid 10001 통일).
+# 8000 은 비특권 포트라 비root 로도 바인딩에 문제가 없다.
+# 나중에 모델 파일을 볼륨으로 마운트하면 그 볼륨 소유권도 uid 10001 로 맞출 것.
+RUN groupadd -r -g 10001 app && useradd -r -u 10001 -g app -d /app -s /usr/sbin/nologin app  && chown -R app:app /app
+USER app
+
 # backend 가 AI_SERVER_BASE_URL=http://ai:8000 으로 호출한다 — 포트를 바꾸지 말 것
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
