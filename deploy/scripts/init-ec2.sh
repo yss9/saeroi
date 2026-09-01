@@ -41,5 +41,5 @@ cat <<'GUIDE'
   5. bash scripts/health-check.sh
   6. Jenkins 확인: http://j15e104.p.ssafy.io:8081
      로그인: .env의 JENKINS_ADMIN_ID / JENKINS_ADMIN_PASSWORD (JCasC 자동 세팅)
-자세한 순서는 deploy/master의 EC2_DAY1.md 런북 참고.
+자세한 순서는 deploy/master의 docs/EC2_DAY1.md 런북 참고.
 GUIDE

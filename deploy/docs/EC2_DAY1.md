@@ -2,7 +2,7 @@
 
 > **✅ 2026-08-31 전 항목 완료.** 서비스 `https://j15e104.p.ssafy.io`, Jenkins `http://j15e104.p.ssafy.io:8081`.
 > 이 문서는 이후 **서버 재지급/초기화 시 재실행하는 런북**으로 보존한다.
-> 배경 설명은 `INFRA_SETUP.md`, 구성 설명은 `README.md`, 팀 공지는 `TEAM_NOTICE_2026-08-31.md` 참고.
+> 배경 설명은 `INFRA_SETUP.md`, 구성 설명은 `../README.md`, 팀 공지는 `notices/TEAM_NOTICE_2026-08-31.md` 참고.
 
 ---
 
@@ -142,7 +142,7 @@ git push origin backend/master   # 보호 브랜치면 MR로 병합해서 테스
 
 - [x] push 직후 Jenkins의 `backend` Job이 자동 실행됨 (아직 gradlew가 없으면 빌드 실패는 정상 — **트리거 동작 확인이 목적**)
 
-여기까지 되면 **"Merge하면 Jenkins가 돈다"** 달성. 팀 공지 내용은 `TEAM_NOTICE_2026-08-31.md` 참고.
+여기까지 되면 **"Merge하면 Jenkins가 돈다"** 달성. 팀 공지 내용은 `notices/TEAM_NOTICE_2026-08-31.md` 참고.
 
 ## 9. (여유 있으면) HTTPS
 
