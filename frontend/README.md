@@ -9,6 +9,11 @@
 - Vite
 - ESLint
 
+## 프로젝트 문서
+
+- [Frontend 디렉토리 구조](./DIRECTORY_STRUCTURE.md)
+- [Git 브랜치 및 커밋 규칙](./GIT_CONVENTION.md)
+
 ## 실행 환경
 
 - Node.js `^20.19.0` 또는 `>=22.12.0`
