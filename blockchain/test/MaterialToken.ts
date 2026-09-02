@@ -6,18 +6,38 @@ const METADATA_URI = "ipfs://material-denim-batch-1.json";
 const EVIDENCE_HASH = `0x${createHash("sha256")
   .update("denim-batch-1-manifest.json")
   .digest("hex")}`;
+const TRANSACTION_EVIDENCE_HASH = `0x${createHash("sha256")
+  .update("material-trade-1-manifest.json")
+  .digest("hex")}`;
+const PROCESSING_EVIDENCE_HASH = `0x${createHash("sha256")
+  .update("processing-job-1-manifest.json")
+  .digest("hex")}`;
 
 const RootOrigin = { VIRGIN: 0, WASTE: 1, RECOVERED: 2 };
 const GenerationType = { INITIAL: 0, PROCESSED: 1, PRODUCTION_SCRAP: 2 };
 const MaterialStatus = { NONE: 0, ACTIVE: 1, DEPLETED: 2 };
+const VerificationState = {
+  REGISTERED: 0,
+  SOURCE_VERIFIED: 1,
+  TRANSACTION_VERIFIED: 2,
+  PROCESSING_VERIFIED: 3,
+  PRODUCT_LINKED: 4
+};
 const BurnReason = { PROCESSING: 0, PRODUCTION: 1, DISCARDED: 2 };
 const LockPurpose = { MARKETPLACE: 0, PROCESSING: 1, PRODUCTION: 2 };
 const LockStatus = { NONE: 0, ACTIVE: 1, RELEASED: 2, CONSUMED: 3 };
 
 describe("소재 토큰(MaterialToken)", function () {
   async function deployFixture() {
-    const [admin, supplier, brand, lockManager, anotherLockManager, outsider] =
-      await ethers.getSigners();
+    const [
+      admin,
+      supplier,
+      brand,
+      processor,
+      lockManager,
+      anotherLockManager,
+      outsider
+    ] = await ethers.getSigners();
     const MaterialToken = await ethers.getContractFactory("MaterialToken");
     const materialToken = await MaterialToken.deploy(
       "ipfs://material/{id}.json",
@@ -34,6 +54,10 @@ describe("소재 토큰(MaterialToken)", function () {
       brand.address
     );
     await materialToken.grantRole(
+      await materialToken.PROCESSOR_ROLE(),
+      processor.address
+    );
+    await materialToken.grantRole(
       await materialToken.MATERIAL_LOCK_MANAGER_ROLE(),
       lockManager.address
     );
@@ -47,6 +71,7 @@ describe("소재 토큰(MaterialToken)", function () {
       admin,
       supplier,
       brand,
+      processor,
       lockManager,
       anotherLockManager,
       outsider
@@ -100,7 +125,9 @@ describe("소재 토큰(MaterialToken)", function () {
     expect(material.totalBurned).to.equal(0);
     expect(material.rootOrigin).to.equal(RootOrigin.RECOVERED);
     expect(material.generationType).to.equal(GenerationType.INITIAL);
+    expect(material.verificationState).to.equal(VerificationState.REGISTERED);
     expect(material.status).to.equal(MaterialStatus.ACTIVE);
+    expect(material.registrant).to.equal(supplier.address);
     expect(material.exists).to.equal(true);
   });
 
@@ -182,6 +209,132 @@ describe("소재 토큰(MaterialToken)", function () {
 
     expect(await materialToken.verifyEvidence(tokenId, EVIDENCE_HASH)).to.equal(true);
     expect(await materialToken.verifyEvidence(tokenId, otherHash)).to.equal(false);
+  });
+
+  it("최초 등록 Supplier가 원천 증빙을 서명하고 SOURCE_VERIFIED로 변경한다", async function () {
+    const { materialToken, supplier, tokenId } = await mintedFixture();
+
+    await expect(
+      materialToken.connect(supplier).verifySource(tokenId, EVIDENCE_HASH)
+    )
+      .to.emit(materialToken, "SourceVerified")
+      .withArgs(tokenId, supplier.address, EVIDENCE_HASH);
+
+    const material = await materialToken.materialInfo(tokenId);
+    const record = await materialToken.verificationRecord(
+      tokenId,
+      VerificationState.SOURCE_VERIFIED
+    );
+    expect(material.verificationState).to.equal(VerificationState.SOURCE_VERIFIED);
+    expect(record.signer).to.equal(supplier.address);
+    expect(record.evidenceHash).to.equal(EVIDENCE_HASH);
+    expect(record.referenceId).to.equal(0);
+    expect(record.verifiedAt).to.be.greaterThan(0);
+  });
+
+  it("발행하지 않은 Supplier와 중복 원천 검증을 거부한다", async function () {
+    const { materialToken, supplier, outsider, tokenId } = await mintedFixture();
+    await materialToken.grantRole(
+      await materialToken.SUPPLIER_ROLE(),
+      outsider.address
+    );
+
+    await expect(
+      materialToken.connect(outsider).verifySource(tokenId, EVIDENCE_HASH)
+    ).to.be.revertedWith("MaterialToken: caller is not registrant");
+
+    await materialToken.connect(supplier).verifySource(tokenId, EVIDENCE_HASH);
+    await expect(
+      materialToken.connect(supplier).verifySource(tokenId, EVIDENCE_HASH)
+    ).to.be.revertedWith("MaterialToken: invalid verification state");
+  });
+
+  it("소재를 인수한 Brand가 거래 증빙을 서명하고 TRANSACTION_VERIFIED로 변경한다", async function () {
+    const { materialToken, supplier, brand, tokenId } = await mintedFixture();
+    await materialToken.connect(supplier).verifySource(tokenId, EVIDENCE_HASH);
+    await materialToken
+      .connect(supplier)
+      .safeTransferFrom(supplier.address, brand.address, tokenId, 10_000, "0x");
+
+    await expect(
+      materialToken
+        .connect(brand)
+        .verifyTransaction(tokenId, 101, TRANSACTION_EVIDENCE_HASH)
+    )
+      .to.emit(materialToken, "TransactionVerified")
+      .withArgs(tokenId, 101, brand.address, TRANSACTION_EVIDENCE_HASH);
+
+    const record = await materialToken.verificationRecord(
+      tokenId,
+      VerificationState.TRANSACTION_VERIFIED
+    );
+    expect((await materialToken.materialInfo(tokenId)).verificationState).to.equal(
+      VerificationState.TRANSACTION_VERIFIED
+    );
+    expect(record.signer).to.equal(brand.address);
+    expect(record.referenceId).to.equal(101);
+  });
+
+  it("소재 잔액이 없는 Brand의 거래 검증을 거부한다", async function () {
+    const { materialToken, supplier, brand, tokenId } = await mintedFixture();
+    await materialToken.connect(supplier).verifySource(tokenId, EVIDENCE_HASH);
+
+    await expect(
+      materialToken
+        .connect(brand)
+        .verifyTransaction(tokenId, 101, TRANSACTION_EVIDENCE_HASH)
+    ).to.be.revertedWith("MaterialToken: brand has no material balance");
+  });
+
+  it("Processor가 가공 증빙을 서명하고 PROCESSING_VERIFIED로 변경한다", async function () {
+    const { materialToken, supplier, brand, processor, tokenId } =
+      await mintedFixture();
+    await materialToken.connect(supplier).verifySource(tokenId, EVIDENCE_HASH);
+    await materialToken
+      .connect(supplier)
+      .safeTransferFrom(supplier.address, brand.address, tokenId, 10_000, "0x");
+    await materialToken
+      .connect(brand)
+      .verifyTransaction(tokenId, 101, TRANSACTION_EVIDENCE_HASH);
+
+    await expect(
+      materialToken
+        .connect(processor)
+        .verifyProcessing(tokenId, 202, PROCESSING_EVIDENCE_HASH)
+    )
+      .to.emit(materialToken, "ProcessingVerified")
+      .withArgs(tokenId, 202, processor.address, PROCESSING_EVIDENCE_HASH);
+
+    const record = await materialToken.verificationRecord(
+      tokenId,
+      VerificationState.PROCESSING_VERIFIED
+    );
+    expect((await materialToken.materialInfo(tokenId)).verificationState).to.equal(
+      VerificationState.PROCESSING_VERIFIED
+    );
+    expect(record.signer).to.equal(processor.address);
+    expect(record.referenceId).to.equal(202);
+    expect(record.evidenceHash).to.equal(PROCESSING_EVIDENCE_HASH);
+  });
+
+  it("Processor 권한이 없는 계정의 가공 검증을 거부한다", async function () {
+    const { materialToken, supplier, brand, outsider, tokenId } =
+      await mintedFixture();
+    await materialToken.connect(supplier).verifySource(tokenId, EVIDENCE_HASH);
+    await materialToken
+      .connect(supplier)
+      .safeTransferFrom(supplier.address, brand.address, tokenId, 10_000, "0x");
+    await materialToken
+      .connect(brand)
+      .verifyTransaction(tokenId, 101, TRANSACTION_EVIDENCE_HASH);
+
+    await expect(
+      materialToken
+        .connect(outsider)
+        .verifyProcessing(tokenId, 202, PROCESSING_EVIDENCE_HASH)
+    )
+      .to.be.revertedWithCustomError(materialToken, "AccessControlUnauthorizedAccount")
+      .withArgs(outsider.address, await materialToken.PROCESSOR_ROLE());
   });
 
   it("업무별 잠금을 별도 ID와 용도·참조 ID로 기록한다", async function () {

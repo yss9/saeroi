@@ -109,6 +109,7 @@ contract Marketplace is AccessControl {
         bytes32 indexed paymentReferenceHash,
         address indexed operator
     );
+    event ReceiptConfirmed(uint256 indexed orderId, address indexed buyer);
     event MaterialTransferred(
         uint256 indexed orderId,
         address indexed seller,
@@ -272,6 +273,7 @@ contract Marketplace is AccessControl {
 
         Listing storage listing = _listings[order.listingId];
         _changeOrderStatus(order, OrderStatus.RECEIVED);
+        emit ReceiptConfirmed(orderId, _msgSender());
         listing.reservedQuantity -= order.quantity;
         materialToken.consumeMaterialLock(
             listing.materialLockId,

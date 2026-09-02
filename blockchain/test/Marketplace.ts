@@ -168,7 +168,9 @@ describe("마켓플레이스(Marketplace)", function () {
     expect((await marketplace.getOrder(1)).status).to.equal(OrderStatus.SHIPPED);
 
     await expect(marketplace.connect(brand).confirmReceipt(1))
-      .to.emit(marketplace, "MaterialTransferred")
+      .to.emit(marketplace, "ReceiptConfirmed")
+      .withArgs(1, brand.address)
+      .and.to.emit(marketplace, "MaterialTransferred")
       .withArgs(1, supplier.address, brand.address, tokenId, 10_000);
 
     expect((await marketplace.getOrder(1)).status).to.equal(OrderStatus.COMPLETED);
