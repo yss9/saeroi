@@ -42,34 +42,30 @@ jobs:
       //           따라서 deploy/master, master, 타 파트 브랜치는 어느 Job에도 잡히지 않는다.
       // 접두어를 전부 나열한 이유: '*'가 슬래시를 넘어 매칭되는지가 플러그인 버전마다 다를 수 있고,
       //                        GIT_CONVENTION.md의 브랜치 규약을 여기에 그대로 문서화하기 위함.
-      // label: Jenkins 대시보드에 보이는 이름. Job 4개가 모두 "(multibranch)"로 끝나면 화면에서
-      //        구분이 안 되므로, 파트명 + 이 Job이 무엇을 검증/배포하는지를 이름에 넣는다.
-      //        Job 의 내부 id(=폴더명/URL)는 첫 항목인 part 그대로다 — 바꾸면 빌드 이력이 초기화된다.
+      // 대시보드에 보이는 이름은 파트명을 대문자로 쓴 것뿐이다 (AI / BACKEND / BLOCKCHAIN / FRONTEND).
+      // 역할 설명은 이름이 아니라 아래 role — 즉 Job description 으로 넘긴다.
+      // Job 의 내부 id(=폴더명/URL)는 첫 항목인 part 그대로다 — 바꾸면 빌드 이력이 초기화된다.
       [
         [part: 'backend',
-         label: 'backend — Spring API 서버 (CI + 운영 배포)',
          role:  '운영 도메인의 /api/* 를 처리하는 Spring 서버 이미지(circular-fashion/backend)를 빌드/배포한다.',
          includes: 'backend/master backend/develop backend/feat/* backend/fix/* backend/refactor/*'],
 
         [part: 'frontend',
-         label: 'frontend — React SPA 웹 (CI + 운영 배포)',
          role:  '운영 도메인의 / 를 서비스하는 정적 SPA 이미지(circular-fashion/frontend)를 빌드/배포한다.',
          includes: 'frontend/master frontend/develop frontend/feat/* frontend/fix/* frontend/refactor/*'],
 
         [part: 'ai',
-         label: 'ai — AI 추론 서비스 (CI + 운영 배포)',
          role:  '외부에 노출되지 않는 내부 서비스 이미지(circular-fashion/ai)를 빌드/배포한다. backend 가 내부 네트워크로만 호출한다.',
          includes: 'ai/master ai/develop ai/feat/* ai/fix/* ai/refactor/*'],
 
         // blockchain은 배포가 없다. master의 Besu 배포는 수동 승인 후 담당자가 직접 수행하는
         // 팀 규칙(README 12장)이라 develop 계열만 CI 대상으로 둔다.
         [part: 'blockchain',
-         label: 'blockchain — 스마트 컨트랙트 (CI 전용, 배포 없음)',
          role:  '컨트랙트 컴파일/테스트만 수행한다. Besu 배포는 이 Job이 하지 않는다 — 담당자가 수동 승인 후 직접 실행한다.',
          includes: 'blockchain/develop blockchain/feat/* blockchain/fix/* blockchain/refactor/*'],
       ].each { p ->
         multibranchPipelineJob(p.part) {
-          displayName(p.label)
+          displayName(p.part.toUpperCase())
           description([
             // 대시보드 Description 열에는 사실상 첫 줄만 보인다. 그래서 첫 줄을 역할 설명으로 둔다.
             p.role,
