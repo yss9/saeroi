@@ -1,13 +1,6 @@
-import { WalletButton } from './features/wallet/WalletButton.tsx'
+import { RouterProvider } from 'react-router-dom'
+import { router } from './app/router.tsx'
 
-function App() {
-  return (
-    <main>
-      <h1>새로이</h1>
-      <p>Frontend project setup complete.</p>
-      <WalletButton />
-    </main>
-  )
+export default function App() {
+  return <RouterProvider router={router} />
 }
-
-export default App

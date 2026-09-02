@@ -1,14 +1,17 @@
 :root {
-  font-family:
-    Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: #1f2937;
-  background-color: #ffffff;
+  font-family: "Pretendard", "Noto Sans KR", system-ui, sans-serif;
+  color: #172033;
+  background: #fbfaf6;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
 
 * {
   box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
@@ -19,71 +22,16 @@ body {
 
 button,
 input,
-textarea,
-select {
+select,
+textarea {
   font: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
 }
 
 #root {
   min-height: 100vh;
-}
-
-main {
-  padding: 2rem;
-}
-/* ── 지갑 연결 UI ─────────────────────────────────────────
-   전역 디자인 시스템이 아직 없어 최소한의 스타일만 둔다.
-   프론트 담당이 컴포넌트 규약을 정하면 그쪽으로 옮기면 된다. */
-main {
-  max-width: 40rem;
-  margin: 0 auto;
-  padding: 2rem 1rem;
-}
-
-.wallet {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.5rem;
-  margin-top: 1.5rem;
-}
-
-.wallet__row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.wallet__button {
-  padding: 0.5rem 1rem;
-  border: 1px solid #1f2937;
-  border-radius: 0.375rem;
-  background: #1f2937;
-  color: #ffffff;
-  cursor: pointer;
-  text-decoration: none;
-}
-
-.wallet__button:disabled {
-  opacity: 0.6;
-  cursor: progress;
-}
-
-.wallet__button--ghost {
-  background: transparent;
-  color: #1f2937;
-}
-
-.wallet__address {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-
-.wallet__note {
-  margin: 0;
-  font-size: 0.875rem;
-  color: #4b5563;
-}
-
-.wallet__note--muted {
-  color: #9ca3af;
 }
