@@ -1,17 +1,8 @@
 # Circular Fashion Blockchain
 
-Solidity + Hardhat 기반 스마트 컨트랙트 프로젝트입니다.
+Solidity + Hardhat 기반 소재 이력·거래 스마트 컨트랙트 프로젝트입니다.
 
-현재 단계에서는 React, MetaMask, Spring, Web3j 연동을 제외하고 `MaterialToken` ERC-1155, `PaymentToken` ERC-20, `Marketplace` 소재 잠금 거래 흐름을 검증합니다.
-
-## Branch
-
-이 브랜치는 Git Convention의 Blockchain 전략을 따릅니다.
-
-```text
-blockchain/develop
-└── blockchain/feat/material-token
-```
+현재 구현 범위는 `MaterialToken` ERC-1155와 `Marketplace`입니다. 결제는 카카오페이 가상 결제와 백엔드에서 처리하므로 ERC-20 `PaymentToken`은 사용하지 않습니다.
 
 ## Structure
 
@@ -19,14 +10,12 @@ blockchain/develop
 .
 ├── contracts/
 │   ├── MaterialToken.sol
-│   ├── PaymentToken.sol
 │   └── Marketplace.sol
 ├── scripts/
 │   ├── deploy.ts
 │   └── export-abi.ts
 ├── test/
 │   ├── MaterialToken.ts
-│   ├── PaymentToken.ts
 │   └── Marketplace.ts
 ├── deployments/
 ├── abi/
@@ -39,41 +28,64 @@ blockchain/develop
 
 `MaterialToken`은 OpenZeppelin ERC-1155와 AccessControl을 사용합니다.
 
-검증 범위는 다음과 같습니다.
-
-- Supplier가 Material Token을 발행합니다.
-- 하나의 `tokenId`는 하나의 Material Batch를 의미합니다.
-- 수량은 정수 단위로 관리합니다. 예: 50kg = 50000g.
-- Supplier가 Brand에게 일부 수량을 전송할 수 있습니다.
-- 같은 `tokenId`의 metadata URI는 최초 발행 후 변경하지 않습니다.
-- Marketplace가 `(owner, tokenId, quantity)` 기준으로 일부 수량만 잠글 수 있습니다.
-- 잠긴 수량은 전송과 소각에 사용할 수 없습니다.
+- 하나의 `tokenId`는 하나의 소재 배치를 의미하며 컨트랙트가 순서대로 발급합니다.
+- DB의 `material.id`를 온체인 ID로 직접 사용하지 않습니다. 백엔드는 `MaterialMinted` 이벤트에서 `tokenId`를 읽어 DB에 매핑합니다.
+- 수량은 gram 정수 단위입니다. 예: 50kg = 50000g.
+- 최초 발행은 `SUPPLIER_ROLE`만 가능하며 `generationType`은 `INITIAL`로 기록됩니다.
+- `rootOrigin`은 `VIRGIN`, `WASTE`, `RECOVERED` 중 하나입니다.
+- 소재 자체 상태는 `ACTIVE`, `DEPLETED`만 관리합니다. 판매·배송 상태는 `Marketplace`에서 관리합니다.
+- 증빙 manifest는 백엔드에서 SHA-256으로 계산한 뒤 `bytes32`로 저장합니다. DB에는 `0x`를 포함한 66자 hex 문자열로 저장합니다.
+- 증빙 상태는 `REGISTERED → SOURCE_VERIFIED → TRANSACTION_VERIFIED → PROCESSING_VERIFIED` 순서로 진행합니다. `PRODUCT_LINKED`는 후속 Production 구현을 위해 예약합니다.
+- 최초 등록 Supplier가 `verifySource`, 소재를 인수해 잔액을 보유한 Brand가 `verifyTransaction`, Processor가 `verifyProcessing`을 각자 자신의 지갑으로 직접 호출합니다.
+- 각 검증 단계에는 signer, SHA-256 증빙 해시, 거래/가공 참조 ID, 블록 시간이 별도 기록됩니다.
+- 잠금은 합계만 저장하지 않고 각 업무별 `lockId`, 소유자, 소재, 수량, 용도, 참조 ID, 상태를 기록합니다.
+- 잠금 용도는 `MARKETPLACE`, `PROCESSING`, `PRODUCTION`입니다.
+- 잠긴 수량은 직접 전송하거나 소각할 수 없고, 잠금을 만든 작업 컨트랙트만 해제하거나 소비할 수 있습니다.
 
 ## Marketplace
 
-`Marketplace`는 판매글 전체 내용을 온체인에 저장하지 않고 거래에 필요한 핵심 제약만 보장합니다.
+`Marketplace`는 판매글과 거래에 필요한 핵심 상태 및 소재 잠금을 온체인에서 보장합니다. 제목, 설명, 사진, 배송지와 카카오페이 상세 데이터는 DB에서 관리합니다.
 
-- 판매 등록 시 판매자의 소재 수량을 잠급니다.
-- 부분 구매를 위해 판매글의 최초 수량과 잔여 수량을 분리합니다.
-- 구매 주문 시 `PaymentToken`을 컨트랙트에 예치합니다.
-- 구매자 수령 확인 시 소재 이전, 결제 정산, 잠금 해제를 하나의 트랜잭션으로 처리합니다.
-- 검색, 제목, 설명, 사진, 배송 정보는 오프체인 DB에서 관리하는 것을 전제로 합니다.
+- 판매 등록 시 판매글 전용 소재 잠금을 생성합니다.
+- 판매글은 `ACTIVE`, `SOLD_OUT`, `CANCELLED` 상태를 가집니다.
+- 거래는 `CREATED → PAID → SHIPPED → RECEIVED → COMPLETED` 순서로 진행합니다.
+- `DISPUTED` 값은 DB/ABI 정합성을 위해 예약되어 있으나 분쟁 처리 기능은 아직 구현하지 않았습니다.
+- 주문 생성 시 판매 잔량만 예약하고 온체인 결제를 수행하지 않습니다.
+- 카카오페이 결제가 성공하면 `PAYMENT_MANAGER_ROLE`을 가진 백엔드 지갑이 `markPaid`를 호출합니다.
+- 판매자가 `markShipped`, 구매자가 `confirmReceipt`를 호출합니다.
+- 수령 확인 시 판매글 잠금에서 주문 수량을 소비하면서 소재 소유권을 구매자에게 이전합니다.
+- 결제 전 `CREATED` 주문은 구매자 또는 판매자가 취소할 수 있습니다.
+
+### 가격 계산
+
+판매 가격은 kg당 정수 가격이고 소재 수량은 gram입니다. 총액은 아래처럼 계산하며 나머지가 있으면 1원 올림합니다.
+
+```text
+totalPrice = (quantityGram * pricePerKg + 999) / 1000
+```
 
 ## Roles
 
 ```text
-DEFAULT_ADMIN_ROLE
-SUPPLIER_ROLE
-PROCESSOR_ROLE
-BRAND_ROLE
-STATUS_MANAGER_ROLE
-MATERIAL_LOCK_MANAGER_ROLE
+MaterialToken
+├── DEFAULT_ADMIN_ROLE
+├── SUPPLIER_ROLE
+├── PROCESSOR_ROLE
+├── BRAND_ROLE
+└── MATERIAL_LOCK_MANAGER_ROLE
+
+Marketplace
+├── DEFAULT_ADMIN_ROLE
+└── PAYMENT_MANAGER_ROLE
 ```
 
-현재 PoC에서는 `SUPPLIER_ROLE`만 `mintMaterial` 권한에 직접 사용합니다.
-별도 검증자 역할은 사용하지 않으며, 발행된 Material은 `REGISTERED` 상태에서 바로 거래 등록할 수 있습니다.
-`PROCESSOR_ROLE`, `BRAND_ROLE`은 Processing과 Production 확장 단계에서 사용할 예정입니다.
-`MATERIAL_LOCK_MANAGER_ROLE`은 Marketplace에 부여해 소재 잠금과 해제를 처리합니다.
+`PROCESSOR_ROLE`, `BRAND_ROLE`은 Processing과 Production 확장 단계에서 사용할 예정입니다. 별도 검증자 역할은 사용하지 않습니다.
+
+## Deferred Scope
+
+- Processing 결과 다중 생성, 브랜드 승인, Material Lineage
+- ProductionBatch Consume, 수량 보존, Scrap 발행, 중복 확정 방지
+- 분쟁 접수 및 해결
 
 ## Commands
 
@@ -86,16 +98,14 @@ npm run abi
 
 ## RPC Checks
 
-RPC는 컨트랙트를 배포하는 기능이 아니라, 블록체인 노드와 통신하는 입구입니다.
-아래 명령은 네트워크 정보, 최신 블록 번호, 계정 잔액, 주소의 컨트랙트 여부만 조회합니다.
+아래 명령은 네트워크 정보, 최신 블록 번호, 계정 잔액, 주소의 컨트랙트 여부를 조회합니다.
 
 ```bash
 npm run rpc:local
 npm run rpc:ssafy
 ```
 
-EOA에서 EOA로 기본 송금 트랜잭션을 보내려면 `.env`에 `TRANSFER_TO_ADDRESS`를 넣은 뒤 실행합니다.
-이 명령은 컨트랙트를 배포하지 않지만, 실제 네트워크 상태를 바꾸는 트랜잭션입니다.
+EOA 기본 송금 트랜잭션은 `.env`에 `TRANSFER_TO_ADDRESS`를 설정한 뒤 실행합니다.
 
 ```bash
 npm run tx:ssafy
@@ -103,7 +113,7 @@ npm run tx:ssafy
 
 ## SSAFY Besu Draft
 
-`.env.example`을 `.env`로 복사한 뒤 SSAFY에서 받은 RPC 정보를 입력합니다.
+`.env.example`을 `.env`로 복사하고 SSAFY RPC 정보를 입력합니다.
 
 ```dotenv
 SSAFY_RPC_URL=https://<SSAFY_BESU_RPC_URL>
@@ -114,7 +124,7 @@ TRANSFER_TO_ADDRESS=<RECEIVER_ADDRESS_FOR_EOA_TRANSFER>
 TRANSFER_AMOUNT_ETH=0.001
 ```
 
-배포는 로컬 테스트 통과 후 수동으로 실행합니다.
+로컬 테스트 통과 후 아래 명령으로 `MaterialToken`과 `Marketplace`를 배포합니다. 배포 스크립트는 Marketplace에 `MATERIAL_LOCK_MANAGER_ROLE`도 부여합니다.
 
 ```bash
 npm run deploy:ssafy

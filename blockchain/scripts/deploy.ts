@@ -12,15 +12,10 @@ async function main() {
 
   await materialToken.waitForDeployment();
 
-  const PaymentToken = await ethers.getContractFactory("PaymentToken");
-  const paymentToken = await PaymentToken.deploy(deployer.address);
-
-  await paymentToken.waitForDeployment();
-
   const Marketplace = await ethers.getContractFactory("Marketplace");
   const marketplace = await Marketplace.deploy(
     await materialToken.getAddress(),
-    await paymentToken.getAddress()
+    deployer.address
   );
 
   await marketplace.waitForDeployment();
@@ -34,7 +29,6 @@ async function main() {
     network: network.name,
     chainId: network.config.chainId,
     materialToken: await materialToken.getAddress(),
-    paymentToken: await paymentToken.getAddress(),
     marketplace: await marketplace.getAddress(),
     deployer: deployer.address,
     deployedAt: new Date().toISOString()

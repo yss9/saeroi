@@ -13,11 +13,7 @@
     "tx:local": "hardhat run scripts/send-transaction.ts --network localhost",
     "tx:ssafy": "hardhat run scripts/send-transaction.ts --network ssafy",
     "deploy:local": "hardhat run scripts/deploy.ts --network localhost",
-    "deploy:ssafy": "hardhat run scripts/deploy.ts --network ssafy",
-    "deploy:token:local": "hardhat run scripts/deploy-payment-token.ts --network localhost",
-    "deploy:token:ssafy": "hardhat run scripts/deploy-payment-token.ts --network ssafy",
-    "token:distribute:local": "hardhat run scripts/distribute-token.ts --network localhost",
-    "token:distribute:ssafy": "hardhat run scripts/distribute-token.ts --network ssafy"
+    "deploy:ssafy": "hardhat run scripts/deploy.ts --network ssafy"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-ethers": "^3.0.8",

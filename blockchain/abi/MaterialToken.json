@@ -211,6 +211,56 @@
     "inputs": [
       {
         "indexed": true,
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      }
+    ],
+    "name": "MaterialDepleted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "lockId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "remainingAmount",
+        "type": "uint256"
+      }
+    ],
+    "name": "MaterialLockConsumed",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "lockId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
         "internalType": "address",
         "name": "operator",
         "type": "address"
@@ -222,7 +272,7 @@
         "type": "address"
       },
       {
-        "indexed": true,
+        "indexed": false,
         "internalType": "uint256",
         "name": "tokenId",
         "type": "uint256"
@@ -232,9 +282,46 @@
         "internalType": "uint256",
         "name": "amount",
         "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "enum MaterialToken.LockPurpose",
+        "name": "purpose",
+        "type": "uint8"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "referenceId",
+        "type": "uint256"
       }
     ],
-    "name": "MaterialLocked",
+    "name": "MaterialLockCreated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "lockId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "remainingAmount",
+        "type": "uint256"
+      }
+    ],
+    "name": "MaterialLockReleased",
     "type": "event"
   },
   {
@@ -266,6 +353,18 @@
       },
       {
         "indexed": false,
+        "internalType": "enum MaterialToken.RootOrigin",
+        "name": "rootOrigin",
+        "type": "uint8"
+      },
+      {
+        "indexed": false,
+        "internalType": "enum MaterialToken.GenerationType",
+        "name": "generationType",
+        "type": "uint8"
+      },
+      {
+        "indexed": false,
         "internalType": "string",
         "name": "metadataUri",
         "type": "string"
@@ -273,7 +372,7 @@
       {
         "indexed": false,
         "internalType": "bytes32",
-        "name": "documentHash",
+        "name": "evidenceHash",
         "type": "bytes32"
       }
     ],
@@ -285,61 +384,30 @@
     "inputs": [
       {
         "indexed": true,
-        "internalType": "address",
-        "name": "operator",
-        "type": "address"
-      },
-      {
-        "indexed": true,
         "internalType": "uint256",
         "name": "tokenId",
         "type": "uint256"
       },
       {
-        "indexed": false,
-        "internalType": "enum MaterialToken.MaterialStatus",
-        "name": "previousStatus",
-        "type": "uint8"
-      },
-      {
-        "indexed": false,
-        "internalType": "enum MaterialToken.MaterialStatus",
-        "name": "newStatus",
-        "type": "uint8"
-      }
-    ],
-    "name": "MaterialStatusChanged",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
         "indexed": true,
-        "internalType": "address",
-        "name": "operator",
-        "type": "address"
+        "internalType": "uint256",
+        "name": "processingJobId",
+        "type": "uint256"
       },
       {
         "indexed": true,
         "internalType": "address",
-        "name": "owner",
+        "name": "signer",
         "type": "address"
       },
       {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      },
-      {
         "indexed": false,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
+        "internalType": "bytes32",
+        "name": "evidenceHash",
+        "type": "bytes32"
       }
     ],
-    "name": "MaterialUnlocked",
+    "name": "ProcessingVerified",
     "type": "event"
   },
   {
@@ -415,6 +483,62 @@
       }
     ],
     "name": "RoleRevoked",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "signer",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "evidenceHash",
+        "type": "bytes32"
+      }
+    ],
+    "name": "SourceVerified",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "tradeId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "signer",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "evidenceHash",
+        "type": "bytes32"
+      }
+    ],
+    "name": "TransactionVerified",
     "type": "event"
   },
   {
@@ -564,19 +688,6 @@
   },
   {
     "inputs": [],
-    "name": "STATUS_MANAGER_ROLE",
-    "outputs": [
-      {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
     "name": "SUPPLIER_ROLE",
     "outputs": [
       {
@@ -691,6 +802,68 @@
   {
     "inputs": [
       {
+        "internalType": "uint256",
+        "name": "lockId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "consumeMaterialLock",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "enum MaterialToken.LockPurpose",
+        "name": "purpose",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint256",
+        "name": "referenceId",
+        "type": "uint256"
+      }
+    ],
+    "name": "createMaterialLock",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "lockId",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "bytes32",
         "name": "role",
         "type": "bytes32"
@@ -784,29 +957,6 @@
         "internalType": "uint256",
         "name": "tokenId",
         "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "lockMaterial",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "owner",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
       }
     ],
     "name": "lockedBalanceOf",
@@ -831,34 +981,127 @@
     "name": "materialInfo",
     "outputs": [
       {
-        "internalType": "string",
-        "name": "metadataUri",
-        "type": "string"
-      },
-      {
-        "internalType": "bytes32",
-        "name": "documentHash",
-        "type": "bytes32"
-      },
+        "components": [
+          {
+            "internalType": "string",
+            "name": "metadataUri",
+            "type": "string"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "evidenceHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalMinted",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalBurned",
+            "type": "uint256"
+          },
+          {
+            "internalType": "enum MaterialToken.RootOrigin",
+            "name": "rootOrigin",
+            "type": "uint8"
+          },
+          {
+            "internalType": "enum MaterialToken.GenerationType",
+            "name": "generationType",
+            "type": "uint8"
+          },
+          {
+            "internalType": "enum MaterialToken.VerificationState",
+            "name": "verificationState",
+            "type": "uint8"
+          },
+          {
+            "internalType": "enum MaterialToken.MaterialStatus",
+            "name": "status",
+            "type": "uint8"
+          },
+          {
+            "internalType": "address",
+            "name": "registrant",
+            "type": "address"
+          },
+          {
+            "internalType": "bool",
+            "name": "exists",
+            "type": "bool"
+          }
+        ],
+        "internalType": "struct MaterialToken.MaterialInfo",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
       {
         "internalType": "uint256",
-        "name": "totalMinted",
+        "name": "lockId",
         "type": "uint256"
-      },
+      }
+    ],
+    "name": "materialLockInfo",
+    "outputs": [
       {
-        "internalType": "uint256",
-        "name": "totalBurned",
-        "type": "uint256"
-      },
-      {
-        "internalType": "enum MaterialToken.MaterialStatus",
-        "name": "status",
-        "type": "uint8"
-      },
-      {
-        "internalType": "bool",
-        "name": "exists",
-        "type": "bool"
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "id",
+            "type": "uint256"
+          },
+          {
+            "internalType": "address",
+            "name": "operator",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "owner",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "tokenId",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "initialAmount",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "remainingAmount",
+            "type": "uint256"
+          },
+          {
+            "internalType": "enum MaterialToken.LockPurpose",
+            "name": "purpose",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint256",
+            "name": "referenceId",
+            "type": "uint256"
+          },
+          {
+            "internalType": "enum MaterialToken.LockStatus",
+            "name": "status",
+            "type": "uint8"
+          }
+        ],
+        "internalType": "struct MaterialToken.MaterialLock",
+        "name": "",
+        "type": "tuple"
       }
     ],
     "stateMutability": "view",
@@ -873,13 +1116,13 @@
       },
       {
         "internalType": "uint256",
-        "name": "tokenId",
+        "name": "amount",
         "type": "uint256"
       },
       {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
+        "internalType": "enum MaterialToken.RootOrigin",
+        "name": "rootOrigin",
+        "type": "uint8"
       },
       {
         "internalType": "string",
@@ -888,11 +1131,61 @@
       },
       {
         "internalType": "bytes32",
-        "name": "documentHash",
+        "name": "evidenceHash",
         "type": "bytes32"
       }
     ],
     "name": "mintMaterial",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "nextLockId",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "nextMaterialId",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "lockId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "releaseMaterialLock",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -1039,24 +1332,6 @@
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "enum MaterialToken.MaterialStatus",
-        "name": "newStatus",
-        "type": "uint8"
-      }
-    ],
-    "name": "setMaterialStatus",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
         "internalType": "bytes4",
         "name": "interfaceId",
         "type": "bytes4"
@@ -1071,29 +1346,6 @@
       }
     ],
     "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "owner",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "unlockMaterial",
-    "outputs": [],
-    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -1123,12 +1375,58 @@
         "type": "uint256"
       },
       {
+        "internalType": "enum MaterialToken.VerificationState",
+        "name": "state",
+        "type": "uint8"
+      }
+    ],
+    "name": "verificationRecord",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "signer",
+            "type": "address"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "evidenceHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint256",
+            "name": "referenceId",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint64",
+            "name": "verifiedAt",
+            "type": "uint64"
+          }
+        ],
+        "internalType": "struct MaterialToken.VerificationRecord",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
         "internalType": "bytes32",
         "name": "hashToCheck",
         "type": "bytes32"
       }
     ],
-    "name": "verifyDocument",
+    "name": "verifyEvidence",
     "outputs": [
       {
         "internalType": "bool",
@@ -1137,6 +1435,70 @@
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "processingJobId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "evidenceHash",
+        "type": "bytes32"
+      }
+    ],
+    "name": "verifyProcessing",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "evidenceHash",
+        "type": "bytes32"
+      }
+    ],
+    "name": "verifySource",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "tradeId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "evidenceHash",
+        "type": "bytes32"
+      }
+    ],
+    "name": "verifyTransaction",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   }
 ]
