@@ -1,0 +1,160 @@
+/*
+ * 공통 컴포넌트 스타일.
+ *
+ * UI 라이브러리가 아직 확정되지 않았으므로 의도적으로 최소한만 둔다.
+ * 나중에 Tailwind / CSS Modules / 디자인 시스템 중 무엇으로 가더라도
+ * 이 파일 하나만 걷어내면 되도록, 여기 밖으로 ui-* 클래스를 흘리지 않는다.
+ *
+ * 색상은 아래 토큰만 쓰고 컴포넌트 안에서 직접 hex 를 쓰지 않는다.
+ */
+
+:root {
+  --ui-color-primary: #1f6f4a;
+  --ui-color-primary-contrast: #ffffff;
+  --ui-color-surface: #ffffff;
+  --ui-color-border: #d8d5cb;
+  --ui-color-text: #172033;
+  --ui-color-muted: #6b7280;
+  --ui-color-danger: #b42318;
+  --ui-color-warning: #b54708;
+  --ui-color-success: #027a48;
+  --ui-color-info: #175cd3;
+  --ui-radius: 8px;
+}
+
+/* ── Button ─────────────────────────────────────────── */
+.ui-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5em;
+  border: 1px solid transparent;
+  border-radius: var(--ui-radius);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ui-button:disabled { opacity: 0.55; cursor: not-allowed; }
+.ui-button--sm { padding: 0.35em 0.8em; font-size: 0.875rem; }
+.ui-button--md { padding: 0.55em 1.1em; font-size: 1rem; }
+.ui-button--lg { padding: 0.75em 1.5em; font-size: 1.0625rem; }
+.ui-button--full { width: 100%; }
+.ui-button--primary { background: var(--ui-color-primary); color: var(--ui-color-primary-contrast); }
+.ui-button--secondary { background: transparent; color: var(--ui-color-text); border-color: var(--ui-color-border); }
+.ui-button--danger { background: var(--ui-color-danger); color: #fff; }
+
+.ui-button__spinner,
+.ui-loading__spinner {
+  width: 1em;
+  height: 1em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: ui-spin 0.7s linear infinite;
+}
+@keyframes ui-spin { to { transform: rotate(360deg); } }
+/* 애니메이션을 불편해하는 사용자를 존중한다 (WCAG 2.3.3). */
+@media (prefers-reduced-motion: reduce) {
+  .ui-button__spinner,
+  .ui-loading__spinner { animation: none; }
+}
+
+/* ── Field (Input / Select / QuantityInput / FileUploader) ── */
+.ui-field { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 1rem; }
+.ui-field__label { font-size: 0.875rem; font-weight: 600; }
+.ui-field__control {
+  padding: 0.55em 0.75em;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-color-surface);
+  font: inherit;
+  color: inherit;
+}
+.ui-field__control--error { border-color: var(--ui-color-danger); }
+.ui-field__error { margin: 0; font-size: 0.8125rem; color: var(--ui-color-danger); }
+.ui-field__hint { margin: 0; font-size: 0.8125rem; color: var(--ui-color-muted); }
+
+.ui-quantity { display: flex; align-items: center; gap: 0.5rem; }
+.ui-quantity .ui-field__control { flex: 1; }
+.ui-quantity__unit { color: var(--ui-color-muted); font-size: 0.9375rem; }
+
+/* ── Modal ──────────────────────────────────────────── */
+.ui-modal { border: none; border-radius: var(--ui-radius); padding: 0; max-width: min(32rem, 92vw); }
+.ui-modal::backdrop { background: rgb(0 0 0 / 0.4); }
+.ui-modal__panel { padding: 1.25rem; }
+.ui-modal__header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.ui-modal__title { margin: 0; font-size: 1.125rem; }
+.ui-modal__close { background: none; border: none; font-size: 1.5rem; line-height: 1; cursor: pointer; }
+.ui-modal__body { margin: 1rem 0; }
+.ui-modal__footer { display: flex; justify-content: flex-end; gap: 0.5rem; }
+
+/* ── Loading / Empty / Error ────────────────────────── */
+.ui-loading { display: inline-flex; align-items: center; gap: 0.5rem; color: var(--ui-color-muted); }
+.ui-skeleton { display: flex; flex-direction: column; gap: 0.6rem; }
+.ui-skeleton__row {
+  height: 1rem;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #ece9e1 25%, #f6f4ef 37%, #ece9e1 63%);
+  background-size: 400% 100%;
+  animation: ui-shimmer 1.4s ease infinite;
+}
+@keyframes ui-shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+@media (prefers-reduced-motion: reduce) { .ui-skeleton__row { animation: none; } }
+
+.ui-empty { padding: 2.5rem 1rem; text-align: center; color: var(--ui-color-muted); }
+.ui-empty__title { margin: 0 0 0.35rem; font-weight: 600; color: var(--ui-color-text); }
+.ui-empty__description { margin: 0 0 1rem; font-size: 0.9375rem; }
+
+.ui-error {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--ui-color-danger);
+  border-radius: var(--ui-radius);
+  background: #fef3f2;
+}
+.ui-error__message { margin: 0; color: var(--ui-color-danger); }
+
+/* ── Badge ──────────────────────────────────────────── */
+.ui-badge {
+  display: inline-block;
+  padding: 0.15em 0.6em;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid currentColor;
+}
+.ui-badge--neutral { color: var(--ui-color-muted); }
+.ui-badge--info { color: var(--ui-color-info); }
+.ui-badge--success { color: var(--ui-color-success); }
+.ui-badge--warning { color: var(--ui-color-warning); }
+.ui-badge--danger { color: var(--ui-color-danger); }
+
+/* ── Wallet / Transaction ───────────────────────────── */
+.ui-wallet-chip {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.35em 0.8em;
+  border: 1px solid var(--ui-color-border);
+  border-radius: 999px;
+  background: var(--ui-color-surface);
+  font: inherit; font-size: 0.875rem;
+  cursor: pointer;
+}
+.ui-wallet-chip--warning { border-color: var(--ui-color-warning); color: var(--ui-color-warning); }
+.ui-wallet-chip__address { font-variant-numeric: tabular-nums; }
+.ui-wallet-chip__warning { font-size: 0.75rem; }
+
+.ui-tx {
+  display: flex; flex-direction: column; gap: 0.5rem;
+  padding: 1rem;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius);
+}
+.ui-tx__message { margin: 0; }
+/* 해시는 길다. 좁은 화면에서 레이아웃을 밀어내지 않게 잘라 준다. */
+.ui-tx__hash {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+  color: var(--ui-color-muted);
+}

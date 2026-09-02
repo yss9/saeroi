@@ -1,7 +1,7 @@
 import { List, MagnifyingGlass, ShoppingBag, UserCircle, X } from '@phosphor-icons/react'
 import { useEffect, useRef, useState } from 'react'
 import { useShop } from '../../../features/shop/ShopContext.tsx'
-import { WalletButton } from '../../../features/wallet/WalletButton.tsx'
+import { WalletButton } from '../../../features/wallet/components/WalletButton.tsx'
 
 const navigation = [
   { label: '신상품', href: '#curated-picks' },
