@@ -3,19 +3,26 @@ pragma solidity ^0.8.24;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ERC1155} from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
-//MaterialToken - erc1155. 원단 무게 토큰화의 기능
-//accesscontrol - 접근 제한
+
+/// @title MaterialToken
+/// @notice 원단과 폐소재의 수량을 gram 단위로 관리하는 ERC-1155 토큰이다.
+/// @dev 하나의 tokenId는 하나의 Material을 뜻하며, 지갑별 balance가 해당 소재의 보유량이다.
+///      AccessControl로 발행·상태 변경·수량 잠금 권한을 분리한다.
 contract MaterialToken is ERC1155, AccessControl {
+    // 최초 Material 발행 권한. 현재 mintMaterial은 공급자 역할만 호출할 수 있다.
     bytes32 public constant SUPPLIER_ROLE = keccak256("SUPPLIER_ROLE");
+    // 추후 Processing 결과 등록 및 Child Material 생성에 사용할 역할이다.
     bytes32 public constant PROCESSOR_ROLE = keccak256("PROCESSOR_ROLE");
+    // 추후 Processing 승인과 Production 확정에 사용할 역할이다.
     bytes32 public constant BRAND_ROLE = keccak256("BRAND_ROLE");
-    //Marketplace, Escrow 컨트랙트에 나중에 부여할 상태 변경 권한
+    // Marketplace, Escrow 컨트랙트가 Material의 거래 상태를 변경할 때 사용한다.
     bytes32 public constant STATUS_MANAGER_ROLE = keccak256("STATUS_MANAGER_ROLE");
-    //Marketplace가 특정 소유자의 일부 수량만 잠글 때 사용하는 권한
+    // Marketplace 등 작업 컨트랙트가 특정 소유자의 일부 수량을 잠글 때 사용한다.
     bytes32 public constant MATERIAL_LOCK_MANAGER_ROLE =
         keccak256("MATERIAL_LOCK_MANAGER_ROLE");
 
-    //소재의 생애 주기
+    /// @notice Material 전체에 적용되는 현재 PoC 상태다.
+    /// @dev 수량별 사용 가능 여부는 이 상태가 아니라 _lockedBalances로 별도 관리한다.
     enum MaterialStatus {
         NONE,        //0 등록되지 않음
         REGISTERED,  //1 발행됨, 거래 가능
@@ -24,13 +31,13 @@ contract MaterialToken is ERC1155, AccessControl {
         PROCESSED    //4 전량 가공 투입되어 소진
     }
 
-    //소각 사유. 표준 이벤트만으로는 왜 없어졌는지 알 수 없어 함께 기록한다.
+    /// @notice Balance를 소각한 목적을 MaterialBurned Event에 남기기 위한 구분값이다.
     enum BurnReason {
         PROCESSED,   //0 가공에 투입
         DISCARDED    //1 폐기
     }
 
-    //토큰 기본 정보
+    /// @notice tokenId별 변경 불가능한 메타데이터와 누적 발행·소각 정보를 보관한다.
     struct MaterialInfo {
         string metadataUri;
         bytes32 documentHash;
@@ -40,7 +47,9 @@ contract MaterialToken is ERC1155, AccessControl {
         bool exists;
     }
 
+    // tokenId 단위 정보. 지갑별 실제 보유량은 ERC-1155 balanceOf가 기준이다.
     mapping(uint256 tokenId => MaterialInfo) private _materials;
+    // owner가 보유한 tokenId 중 Marketplace 등의 작업에 예약되어 전송할 수 없는 수량이다.
     mapping(address owner => mapping(uint256 tokenId => uint256 amount)) private _lockedBalances;
 
     event MaterialMinted(
@@ -93,6 +102,11 @@ contract MaterialToken is ERC1155, AccessControl {
         _grantRole(MATERIAL_LOCK_MANAGER_ROLE, admin);
     }
 
+    /// @notice owner의 Material 일부를 다른 용도로 사용할 수 없도록 예약한다.
+    /// @dev 잠금 후에도 ERC-1155 소유자는 바뀌지 않으며 availableBalance만 감소한다.
+    /// @param owner 잠글 Material을 보유한 지갑
+    /// @param tokenId 잠글 Material ID
+    /// @param amount 잠글 수량(gram)
     function lockMaterial(address owner, uint256 tokenId, uint256 amount)
         external
         onlyRole(MATERIAL_LOCK_MANAGER_ROLE)
@@ -110,6 +124,10 @@ contract MaterialToken is ERC1155, AccessControl {
         emit MaterialLocked(_msgSender(), owner, tokenId, amount);
     }
 
+    /// @notice 이전에 예약한 Material 수량을 다시 사용할 수 있도록 해제한다.
+    /// @param owner 잠금이 기록된 지갑
+    /// @param tokenId 잠금을 해제할 Material ID
+    /// @param amount 해제할 수량(gram)
     function unlockMaterial(address owner, uint256 tokenId, uint256 amount)
         external
         onlyRole(MATERIAL_LOCK_MANAGER_ROLE)
@@ -126,7 +144,13 @@ contract MaterialToken is ERC1155, AccessControl {
         emit MaterialUnlocked(_msgSender(), owner, tokenId, amount);
     }
 
-    //소재 토큰 발행
+    /// @notice 공급자가 신규 Material을 발행하고 최초 메타데이터와 증빙 해시를 저장한다.
+    /// @dev 동일 tokenId 추가 발행 시 최초 metadataUri와 documentHash를 변경할 수 없다.
+    /// @param to 발행 수량을 받을 지갑
+    /// @param tokenId Material ID
+    /// @param amount 발행 수량(gram)
+    /// @param metadataUri 상세 Metadata 위치
+    /// @param documentHash 원본 증빙 파일의 해시
     function mintMaterial(
         address to,
         uint256 tokenId,
@@ -168,7 +192,8 @@ contract MaterialToken is ERC1155, AccessControl {
         emit MaterialMinted(_msgSender(), to, tokenId, amount, metadataUri, documentHash);
     }
 
-    //Marketplace, Escrow 가 거래 진행 상태를 반영한다.
+    /// @notice 권한을 받은 작업 컨트랙트가 Material의 거래 상태를 변경한다.
+    /// @dev 허용되는 전이는 _isValidTransition에서 제한한다.
     function setMaterialStatus(uint256 tokenId, MaterialStatus newStatus)
         external
         onlyRole(STATUS_MANAGER_ROLE)
@@ -184,7 +209,9 @@ contract MaterialToken is ERC1155, AccessControl {
         _setStatus(tokenId, newStatus);
     }
 
-    //소재 소각. 가공 흐름에서 부모 소재를 없앨 때 사용한다.
+    /// @notice 보유자의 Material 수량을 소각하고 누적 소각량을 기록한다.
+    /// @dev owner 또는 위임받은 operator만 호출할 수 있고 잠긴 수량은 소각할 수 없다.
+    ///      현재는 범용 함수이며 추후 Processing/Production 흐름에서 호출하도록 확장한다.
     function burnMaterial(
         address from,
         uint256 tokenId,
@@ -237,21 +264,25 @@ contract MaterialToken is ERC1155, AccessControl {
         );
     }
 
-    //현재 유통중인 수량
+    /// @notice 전체 발행량에서 전체 소각량을 뺀 현재 유통 수량을 반환한다.
     function remainingSupply(uint256 tokenId) public view returns (uint256) {
         MaterialInfo storage material = _materials[tokenId];
         return material.totalMinted - material.totalBurned;
     }
 
+    /// @notice 특정 지갑의 잠긴 Material 수량을 반환한다.
     function lockedBalanceOf(address owner, uint256 tokenId) public view returns (uint256) {
         return _lockedBalances[owner][tokenId];
     }
 
+    /// @notice 특정 지갑이 전송·소각에 사용할 수 있는 Material 수량을 반환한다.
+    /// @dev ERC-1155 balance - locked balance로 계산한다.
     function availableBalance(address owner, uint256 tokenId) public view returns (uint256) {
         return balanceOf(owner, tokenId) - _lockedBalances[owner][tokenId];
     }
 
-    //오프체인 증빙 파일이 위조되지 않았는지 확인한다.
+    /// @notice 입력한 파일 해시가 최초 등록한 증빙 해시와 같은지 확인한다.
+    /// @dev 독립 검증자의 승인이 아니라 단순 무결성 비교 함수다.
     function verifyDocument(uint256 tokenId, bytes32 hashToCheck)
         external
         view
@@ -291,7 +322,8 @@ contract MaterialToken is ERC1155, AccessControl {
         return false;
     }
 
-    //거래중이거나 소진된 소재는 이동할 수 없다.
+    /// @dev ERC-1155의 발행·전송·소각 공통 경로를 가로채 가용 수량과 상태를 검증한다.
+    ///      from이 zero address인 발행은 잠금 검사를 생략하고, 전송과 소각은 잠긴 수량을 침범할 수 없다.
     function _update(
         address from,
         address to,
