@@ -3,6 +3,7 @@ package com.ssafy.upcycle.material.entity;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Table;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Field;
@@ -15,7 +16,9 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Set;
 import java.util.TreeSet;
-import org.junit.jupiter.api.Test;
+import java.util.stream.Stream;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * 엔티티와 schema.sql 이 어긋나는 것을 막는다.
@@ -31,18 +34,35 @@ import org.junit.jupiter.api.Test;
  * <p>{@code @DataJpaTest} + {@code ddl-auto=validate} 로 대신할 수는 없다. schema.sql 의
  * {@code ENGINE=InnoDB ...} 구문을 H2 가 받지 못해 스크립트 실행 전에 걷어내야 하기 때문이다
  * ({@code SchemaSqlTests} 도 같은 처리를 한다).
+ *
+ * <p>Material 도메인 엔티티가 늘어나면 {@link #materialDomainEntities()} 에 한 줄 추가한다.
  */
 class MaterialSchemaMappingTests {
 
-    @Test
-    void entityMapsExactlyTheColumnsSchemaSqlCreates() throws Exception {
+    @ParameterizedTest
+    @MethodSource("materialDomainEntities")
+    void entityMapsExactlyTheColumnsSchemaSqlCreates(Class<?> entityType) throws Exception {
+        String table = entityType.getAnnotation(Table.class).name();
+
         try (Connection connection = DriverManager.getConnection(
-                "jdbc:h2:mem:material-mapping;MODE=MySQL;DATABASE_TO_LOWER=TRUE", "sa", "")) {
+                "jdbc:h2:mem:material-mapping-" + table + ";MODE=MySQL;DATABASE_TO_LOWER=TRUE",
+                "sa",
+                "")) {
             executeSchema(connection, loadSchema());
 
-            assertThat(mappedColumns(Material.class))
-                    .containsExactlyInAnyOrderElementsOf(tableColumns(connection, "material"));
+            assertThat(mappedColumns(entityType))
+                    .as("%s must map exactly the columns schema.sql creates for %s",
+                            entityType.getSimpleName(), table)
+                    .containsExactlyInAnyOrderElementsOf(tableColumns(connection, table));
         }
+    }
+
+    private static Stream<Class<?>> materialDomainEntities() {
+        return Stream.of(
+                Material.class,
+                MaterialBalance.class,
+                MaterialLock.class,
+                MaterialLineage.class);
     }
 
     private Set<String> mappedColumns(Class<?> entityType) {
