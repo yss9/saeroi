@@ -19,3 +19,8 @@ app:
       secret: ${JWT_SECRET}
       issuer: ${JWT_ISSUER:upcycle}
       access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:PT30M}
+  auth:
+    wallet:
+      # 지갑 서명용 1회용 nonce 유효 시간. 사용자가 MetaMask 팝업을 확인하는 데 걸리는
+      # 시간보다 넉넉하되, 탈취된 nonce 가 살아 있는 창은 짧아야 한다.
+      nonce-ttl: ${WALLET_NONCE_TTL:PT5M}
