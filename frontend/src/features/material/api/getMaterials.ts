@@ -39,7 +39,7 @@ const MOCK_MATERIALS: MaterialSummary[] = [
     materialCode: 'MAT-2026-0002',
     materialType: 'COTTON',
     name: '재고 면 원단',
-    rootOrigin: 'RECOVERED',
+    rootOrigin: 'VIRGIN',
     generationType: 'INITIAL',
     verificationState: 'REGISTERED',
     status: 'ACTIVE',
@@ -49,7 +49,7 @@ const MOCK_MATERIALS: MaterialSummary[] = [
   {
     id: 3,
     materialCode: 'MAT-2026-0003',
-    materialType: 'POLYESTER',
+    materialType: 'MIXED',
     name: '분쇄 폴리에스터 칩',
     rootOrigin: 'WASTE',
     generationType: 'PROCESSED',

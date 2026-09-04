@@ -22,6 +22,8 @@ export type ProcessingQuoteStatus = 'SUBMITTED' | 'SELECTED' | 'REJECTED' | 'EXP
  * Brand 배송 → Processor 수령 → 가공 → 결과 제출 → Brand 승인/반려
  */
 export type ProcessingJobStatus =
+  /** 견적 선택 완료, 가공비 결제 전. 결제 실패 시 이 상태에 머문다 */
+  | 'CREATED'
   | 'PAID'
   | 'SHIPPED'
   | 'RECEIVED'

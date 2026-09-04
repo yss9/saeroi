@@ -9,11 +9,15 @@ export type ProductItemStatus = 'IN_STOCK' | 'RESERVED' | 'SOLD'
 /** `product_order.status` */
 export type ProductOrderStatus = 'CREATED' | 'PAID' | 'SHIPPED' | 'DELIVERED'
 
+/** `product_model.category` — 정책 v3 부록에서 6종으로 확정 */
+export type ProductCategory = 'BAG' | 'WALLET' | 'CLOTHING' | 'ACCESSORY' | 'HOME' | 'ETC'
+
 export interface ProductModelSummary {
   id: number
   name: string
   brandId: number
   price: number
+  category: ProductCategory
   status: ProductModelStatus
   thumbnailUrl: string | null
 }
