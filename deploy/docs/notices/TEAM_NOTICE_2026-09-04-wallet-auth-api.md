@@ -232,11 +232,12 @@ VALUES (LAST_INSERT_ID(), LOWER('0x본인MetaMask주소'), 1337, FALSE);
 | DB 스키마 v3 문서 | `user_id` UNIQUE 제거 + `is_active`/`deactivated_at` 추가 → **N개** |
 | **실제 `schema.sql`** | `uk_user_wallet_user UNIQUE (user_id)`, `is_active` 없음 → **1개** |
 
-현재 구현은 **실제 스키마에 맞춰 1:1** 입니다. N개로 가려면
-`ALTER TABLE user_wallet` (UNIQUE 제거 + 컬럼 2개 추가)가 선행되고, 등록·비활성화 API도
-그때 함께 만들어야 합니다.
+**결정됐습니다 — 활성 1개 + 교체 이력 보존.** 스키마와 등록·비활성화 API 를 함께 반영했습니다.
+자세한 내용과 운영 DB `ALTER TABLE` 은 `TEAM_NOTICE_2026-09-04-user-wallet-schema.md` 를 보세요.
 
-**결정 후 진행하겠습니다.** 스키마를 바꾸는 결정이면 별도 공지를 올리겠습니다.
+N개 동시 사용은 택하지 않았습니다. `material_balance` 의 `UNIQUE (material_id, owner_id)` 가
+소유를 사용자 기준으로 잡아서, 지갑이 여러 개면 온체인 잔액은 주소별로 갈리는데 DB 는
+사용자당 한 행만 허용해 불일치가 생깁니다.
 
 ---
 
