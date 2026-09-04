@@ -22,6 +22,9 @@ import { useWalletLogin } from '../hooks/useWalletLogin.ts'
 const LOGIN_ERROR_TEXT: Record<string, string> = {
   WALLET_NOT_LINKED:
     '이 지갑에 연결된 계정이 없습니다. 이메일로 로그인한 뒤 지갑을 연결해 주세요.',
+  // 지갑은 공급업체·브랜드·가공업체만 갖는다. 소비자는 이메일 로그인을 쓴다.
+  WALLET_ROLE_NOT_ALLOWED:
+    '지갑 로그인은 공급업체·브랜드·가공업체 계정만 사용할 수 있습니다. 이메일로 로그인해 주세요.',
   NONCE_EXPIRED: '인증 유효 시간이 지났습니다. 다시 시도해 주세요.',
   NONCE_ALREADY_USED: '이미 사용된 인증입니다. 다시 시도해 주세요.',
   SIGNATURE_MISMATCH: '서명이 지갑 주소와 일치하지 않습니다. 계정을 확인해 주세요.',

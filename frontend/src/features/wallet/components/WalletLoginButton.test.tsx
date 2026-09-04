@@ -261,6 +261,30 @@ describe('실패 흐름', () => {
     expect(api.verifyWalletSignature).not.toHaveBeenCalled()
   })
 
+  it('지갑을 쓸 수 없는 역할이면 이메일 로그인을 안내한다', async () => {
+    const provider = connectedProvider()
+    installProvider(provider)
+    markConnected()
+    api.requestWalletNonce.mockRejectedValue(
+      createAppError(ERROR_KIND.API_ERROR, {
+        code: 'WALLET_ROLE_NOT_ALLOWED',
+        status: 403,
+        message: '지갑 로그인을 사용할 수 없는 계정입니다.',
+      }),
+    )
+
+    renderWithClient(<WalletLoginButton />)
+    await userEvent.click(screen.getByRole('button', { name: '지갑으로 로그인' }))
+
+    expect(
+      await screen.findByText(
+        '지갑 로그인은 공급업체·브랜드·가공업체 계정만 사용할 수 있습니다. 이메일로 로그인해 주세요.',
+      ),
+    ).toBeInTheDocument()
+    // 서명 팝업 전에 걸러진다.
+    expect(provider.calls).not.toContain('personal_sign')
+  })
+
   it('nonce 가 만료되면 재시도를 안내한다', async () => {
     installProvider(connectedProvider())
     markConnected()
