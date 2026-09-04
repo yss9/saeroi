@@ -7,6 +7,10 @@
 //
 // TODO(6번/User·Wallet 담당): 아래 경로는 Backend 구현 전 가정값이다.
 // 실제 컨트롤러가 나오면 경로와 DTO 를 맞춘다.
+//
+// ⚠️ 지갑 로그인 경로는 walletAuthApi.ts 에 따로 있고 이미 '/v1' 로 확정됐다.
+// 여기만 무버전인 것은 실수가 아니라 아직 컨트롤러가 없기 때문이다 —
+// "통일" 하려고 한쪽만 고치지 말 것. 자세한 이유는 walletAuthApi.ts 주석 참고.
 
 import { apiClient } from '../../../services/apiClient.ts'
 import type { LoginRequest, LoginResponse, UserProfile } from '../types/auth.types.ts'

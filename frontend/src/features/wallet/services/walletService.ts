@@ -91,6 +91,26 @@ export async function getChainId(): Promise<string | null> {
 }
 
 /**
+ * 현재 체인 ID 를 10진수로 돌려준다. 실패 시 null.
+ *
+ * {@link getChainId} 와 나란히 두는 이유는 쓰임새가 다르기 때문이다 —
+ * 저쪽은 화면에 그대로 찍는 표시용 16진수이고, 이쪽은 Backend DTO 용이다.
+ * `wallet_nonce.chain_id` 가 BIGINT 라 hex 문자열을 보내면 서버가 파싱 규약을
+ * 따로 정해야 한다. 지갑이 bigint 를 주므로 여기서 숫자로 바꿔 보낸다.
+ *
+ * 체인 ID 가 2^53 을 넘는 경우는 실무상 없으므로 Number 변환으로 충분하다.
+ */
+export async function getChainIdNumber(): Promise<number | null> {
+  const provider = getBrowserProvider()
+  if (!provider) return null
+  try {
+    return Number((await provider.getNetwork()).chainId)
+  } catch {
+    return null
+  }
+}
+
+/**
  * 임의 메시지에 서명한다 (personal_sign).
  * Wallet Login 의 Nonce 서명이 이 함수를 쓴다.
  *
@@ -106,11 +126,31 @@ export async function signMessage(message: string): Promise<string> {
   }
 }
 
-/** provider 가 던진 값에서 EIP-1193 에러 코드를 꺼낸다. */
+/**
+ * 던져진 값에서 EIP-1193 에러 코드를 꺼낸다.
+ *
+ * 두 군데를 봐야 한다.
+ *
+ *   1. `error.code` 가 숫자 — provider 가 직접 던진 raw EIP-1193 에러.
+ *      walletClient.ts 의 연결 경로가 이 모양을 받는다.
+ *   2. `error.info.error.code` — **ethers 가 감싼 경우**. ethers v6 는 provider 에러를
+ *      자기 형식으로 바꾸면서 최상위 `code` 를 문자열('ACTION_REJECTED' 등)로 덮어쓰고
+ *      원본 숫자 코드를 info 아래로 밀어 넣는다. 서명·트랜잭션 경로가 전부 여기 해당한다.
+ *
+ * 1번만 보면 서명 취소(4001)가 UNKNOWN 으로 떨어져 "알 수 없는 오류가 발생했습니다" 가
+ * 뜬다. 사용자가 스스로 취소한 정상 흐름인데 장애처럼 보이게 된다.
+ */
 function errorCode(error: unknown): number | null {
   if (typeof error !== 'object' || error === null) return null
+
   const code = (error as { code?: unknown }).code
-  return typeof code === 'number' ? code : null
+  if (typeof code === 'number') return code
+
+  const nested = (error as { info?: { error?: { code?: unknown } } }).info?.error?.code
+  if (typeof nested === 'number') return nested
+
+  // ethers 가 숫자 코드를 잃어버린 경우의 마지막 보루.
+  return code === 'ACTION_REJECTED' ? RPC_ERROR.USER_REJECTED : null
 }
 
 /**
