@@ -114,9 +114,23 @@ entities were written against the older shape.
       the response, the issued token decodes to the user id with an unprefixed role, validation
       errors, and an error body that does not echo the signature.
 
-### Task 8: Full suite
+### Task 8: Role restriction (FR-005)
 
-- [x] `./mvnw -B -ntp test` — 154 tests pass.
+- [x] `UserRole.canOwnWallet()` — `SUPPLIER`, `BRAND`, `PROCESSOR` only.
+- [x] `WalletAuthErrorCode.WALLET_ROLE_NOT_ALLOWED` (403).
+- [x] `requireActiveUser` → `requireWalletCapableUser`, checking role before status and applied at
+      both endpoints. A nonce issued before the wallet moved to another account is still rejected
+      at verify.
+- [x] `UserRoleTests` pins the role list; `WalletAuthServiceTests` covers CONSUMER and ADMIN at
+      both stages; `WalletAuthControllerTests` pins HTTP 403 + the code string.
+
+The database has no constraint preventing a `CONSUMER` wallet row, so this check is the only
+boundary. Roles are the authorization model for the rest of the API — wallet login must not be
+the path that skips them.
+
+### Task 9: Full suite
+
+- [x] `./mvnw -B -ntp test` — 163 tests pass.
 
 **Note:** one repository test passed alone and failed in the full run. The `@SpringBootTest`
 classes commit to the same in-memory H2 without rolling back, so their leftover rows reached a

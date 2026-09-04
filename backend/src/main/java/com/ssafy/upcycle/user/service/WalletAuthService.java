@@ -77,7 +77,7 @@ public class WalletAuthService {
         if (request.chainId() != null && request.chainId() != wallet.getChainId()) {
             throw new BusinessException(WalletAuthErrorCode.WALLET_CHAIN_MISMATCH);
         }
-        requireActiveUser(wallet.getUserId());
+        requireWalletCapableUser(wallet.getUserId());
 
         // 지갑당 살아 있는 nonce 는 하나만 둔다. 남겨 두면 오래된 nonce 로도 로그인할 수 있고,
         // 만료 정리 작업이 따로 필요해진다.
@@ -145,17 +145,29 @@ public class WalletAuthService {
                 .orElseThrow(() -> new BusinessException(WalletAuthErrorCode.WALLET_NOT_LINKED));
         wallet.markVerified(now);
 
-        User user = requireActiveUser(wallet.getUserId());
+        User user = requireWalletCapableUser(wallet.getUserId());
         AccessToken token =
                 jwtTokenService.issueAccessToken(String.valueOf(user.getId()), List.of(user.getRole().name()));
 
         return new WalletLoginResponse(token.value(), UserSummaryResponse.from(user));
     }
 
-    private User requireActiveUser(Long userId) {
+    /**
+     * 지갑 로그인이 가능한 계정인지 확인한다.
+     *
+     * <p>역할을 먼저 보고 상태를 나중에 본다 — 정지 여부는 되돌릴 수 있지만
+     * 역할은 애초에 이 기능의 대상이 아니라는 뜻이라 더 근본적인 거절 사유다.
+     *
+     * <p>주소로 지갑을 먼저 찾은 뒤 그 소유자를 검사하므로, 등록되지 않은 주소는
+     * 여기 오기 전에 {@code WALLET_NOT_LINKED} 로 걸러진다.
+     */
+    private User requireWalletCapableUser(Long userId) {
         User user = userRepository
                 .findById(userId)
                 .orElseThrow(() -> new BusinessException(WalletAuthErrorCode.USER_NOT_FOUND));
+        if (!user.getRole().canOwnWallet()) {
+            throw new BusinessException(WalletAuthErrorCode.WALLET_ROLE_NOT_ALLOWED);
+        }
         if (!user.isActive()) {
             throw new BusinessException(WalletAuthErrorCode.USER_SUSPENDED);
         }

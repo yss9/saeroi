@@ -35,7 +35,11 @@ public enum WalletAuthErrorCode implements ErrorCode {
     SIGNATURE_MISMATCH(
             HttpStatus.UNAUTHORIZED, "SIGNATURE_MISMATCH", "서명이 지갑 주소와 일치하지 않습니다."),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "사용자를 찾을 수 없습니다."),
-    USER_SUSPENDED(HttpStatus.FORBIDDEN, "USER_SUSPENDED", "이용이 정지된 계정입니다.");
+    USER_SUSPENDED(HttpStatus.FORBIDDEN, "USER_SUSPENDED", "이용이 정지된 계정입니다."),
+    WALLET_ROLE_NOT_ALLOWED(
+            HttpStatus.FORBIDDEN,
+            "WALLET_ROLE_NOT_ALLOWED",
+            "지갑 로그인을 사용할 수 없는 계정입니다.");
 
     private final HttpStatus status;
     private final String code;

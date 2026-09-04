@@ -160,6 +160,30 @@ class WalletAuthServiceTests {
     }
 
     @Test
+    void rejectsANonceRequestFromAConsumerOwnedWallet() {
+        // user_wallet 은 SUPPLIER/BRAND/PROCESSOR 만 갖는다는 정책(FR-005)을 코드가 강제하는지.
+        // DB 에는 이걸 막는 제약이 없어서 시드가 잘못되면 여기서만 걸린다.
+        relinkWalletTo(UserRole.CONSUMER);
+        WalletNonceRequest request = nonceRequest(CHAIN_ID);
+
+        assertThatThrownBy(() -> walletAuthService.issueNonce(request))
+                .isInstanceOf(BusinessException.class)
+                .extracting(WalletAuthServiceTests::codeOf)
+                .isEqualTo(WalletAuthErrorCode.WALLET_ROLE_NOT_ALLOWED);
+    }
+
+    @Test
+    void rejectsANonceRequestFromAnAdminOwnedWallet() {
+        relinkWalletTo(UserRole.ADMIN);
+        WalletNonceRequest request = nonceRequest(CHAIN_ID);
+
+        assertThatThrownBy(() -> walletAuthService.issueNonce(request))
+                .isInstanceOf(BusinessException.class)
+                .extracting(WalletAuthServiceTests::codeOf)
+                .isEqualTo(WalletAuthErrorCode.WALLET_ROLE_NOT_ALLOWED);
+    }
+
+    @Test
     void rejectsASuspendedAccountBeforeTheWalletPopupAppears() {
         suspendOwner();
         WalletNonceRequest request = nonceRequest(CHAIN_ID);
@@ -273,6 +297,19 @@ class WalletAuthServiceTests {
     }
 
     @Test
+    void rejectsAtVerifyEvenIfTheNonceWasAlreadyIssued() {
+        // nonce 를 받아 둔 뒤 지갑이 CONSUMER 계정으로 옮겨간 경우에도 토큰을 주지 않는다.
+        WalletNonceResponse issued = walletAuthService.issueNonce(nonceRequest(CHAIN_ID));
+        relinkWalletTo(UserRole.CONSUMER);
+        WalletVerifyRequest request = verifyRequest(issued, KEY_PAIR);
+
+        assertThatThrownBy(() -> walletAuthService.verify(request))
+                .isInstanceOf(BusinessException.class)
+                .extracting(WalletAuthServiceTests::codeOf)
+                .isEqualTo(WalletAuthErrorCode.WALLET_ROLE_NOT_ALLOWED);
+    }
+
+    @Test
     void rejectsASuspendedAccountAtVerifyToo() {
         WalletNonceResponse issued = walletAuthService.issueNonce(nonceRequest(CHAIN_ID));
         suspendOwner();
@@ -320,6 +357,24 @@ class WalletAuthServiceTests {
 
     private WalletVerifyRequest verifyRequest(WalletNonceResponse issued, ECKeyPair keyPair) {
         return new WalletVerifyRequest(address, issued.nonce(), sign(issued.message(), keyPair));
+    }
+
+    /**
+     * 같은 지갑 주소를 지정한 역할의 새 계정으로 옮긴다. `wallet_address` 가 UNIQUE 라 기존 행을 지운다.
+     *
+     * <p>발급된 nonce 는 지우지 않는다 — verify 단계 검사를 확인하는 테스트가
+     * 그 nonce 를 그대로 써야 하기 때문이다. `wallet_nonce.user_id` 가 가리키는 예전 계정은
+     * 남겨 두므로 FK 도 깨지지 않는다.
+     */
+    private void relinkWalletTo(UserRole role) {
+        userWalletRepository.deleteAll();
+        User owner = userRepository.save(User.register(
+                role.name().toLowerCase(Locale.ROOT) + "@example.com",
+                "{noop}x",
+                role.name(),
+                "010-0000-0000",
+                role));
+        userWalletRepository.save(UserWallet.link(owner.getId(), address, CHAIN_ID));
     }
 
     private void suspendOwner() {

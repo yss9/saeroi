@@ -45,6 +45,21 @@ the real mitigation and is left to nginx.
 Rejecting before any write also means an unauthenticated caller cannot make the service allocate
 rows for arbitrary addresses.
 
+### Only business roles may log in with a wallet
+
+`user_wallet` rows belong to `SUPPLIER`, `BRAND`, and `PROCESSOR` only — a `CONSUMER` uses the
+service without a wallet, and `ADMIN` is not an on-chain actor. Both endpoints therefore reject
+a wallet whose owner holds any other role, before issuing a nonce and again before issuing a token.
+
+**The database does not enforce this.** Nothing stops a seed script or a future wallet-linking
+endpoint from inserting a `CONSUMER` row, and without the check this service would happily mint a
+token for that account. Since roles are the authorization boundary for the rest of the API,
+wallet login must not be the one path that bypasses it. `UserRole.canOwnWallet()` holds the list
+so a later linking endpoint applies the same rule.
+
+The check runs after the address lookup, so an unregistered address still gets
+`WALLET_NOT_LINKED` rather than a role error.
+
 ### The signed message is a cross-branch contract
 
 `WalletLoginMessage` holds the exact string. The frontend builds the same string, but the
@@ -159,6 +174,7 @@ holds the logic most prone to subtle error, so it is isolated and unit-tested on
 | `SIGNATURE_MISMATCH` | 401 | Recovered address differs from the claimed one |
 | `USER_NOT_FOUND` | 404 | Wallet points at a missing account |
 | `USER_SUSPENDED` | 403 | Account is suspended |
+| `WALLET_ROLE_NOT_ALLOWED` | 403 | Owner's role may not use wallet login |
 
 `NONCE_NOT_FOUND` carries a deliberately vague message so probing other users' nonces reveals
 nothing; the code stays precise.

@@ -152,6 +152,22 @@ class WalletAuthControllerTests {
     }
 
     @Test
+    void rejectsAConsumerOwnedWalletWithForbidden() throws Exception {
+        // 지갑은 사업자 3역할만 갖는다(FR-005). DB 제약이 없으므로 이 응답이 유일한 경계다.
+        userWalletRepository.deleteAll();
+        User consumer = userRepository.save(
+                User.register("consumer@example.com", "{noop}x", "소비자", "010-1111-1111", UserRole.CONSUMER));
+        userWalletRepository.save(UserWallet.link(consumer.getId(), address, CHAIN_ID));
+
+        mockMvc.perform(post("/api/v1/auth/wallet/nonce")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(nonceBody(address, CHAIN_ID)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("WALLET_ROLE_NOT_ALLOWED"));
+    }
+
+    @Test
     void rejectsAMalformedBodyWithValidationErrors() throws Exception {
         mockMvc.perform(post("/api/v1/auth/wallet/nonce")
                         .contentType(MediaType.APPLICATION_JSON)
