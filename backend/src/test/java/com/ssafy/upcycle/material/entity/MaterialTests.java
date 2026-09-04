@@ -8,10 +8,9 @@ import org.junit.jupiter.api.Test;
 class MaterialTests {
 
     @Test
-    void registeredMaterialStartsAsRegisteredAndActive() {
+    void registeredMaterialStartsActive() {
         Material material = registerDenim(20_000L);
 
-        assertThat(material.getVerificationState()).isEqualTo(MaterialVerificationState.REGISTERED);
         assertThat(material.getStatus()).isEqualTo(MaterialStatus.ACTIVE);
     }
 
@@ -20,22 +19,6 @@ class MaterialTests {
         Material material = registerDenim(20_000L);
 
         assertThat(material.getGenerationType()).isEqualTo(MaterialGenerationType.INITIAL);
-    }
-
-    @Test
-    void recoveredOriginCannotBeRegisteredDirectly() {
-        assertThatThrownBy(() -> Material.register(
-                        "MAT-000001",
-                        MaterialType.DENIM,
-                        MaterialRootOrigin.RECOVERED,
-                        "재생 데님",
-                        null,
-                        null,
-                        20_000L,
-                        null,
-                        null,
-                        1L))
-                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test

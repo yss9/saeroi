@@ -14,6 +14,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 /**
@@ -21,11 +22,8 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
  * 하나의 Batch 를 의미한다. Balance 방식이 이 동질성을 전제한다 — 품질이 다르면
  * 처음부터 별도 Material 로 등록해야 한다.
  *
- * <p><b>{@code BaseEntity} 를 상속하지 않는다.</b> {@code BaseEntity} 는
- * {@code updated_at} 을 {@code nullable = false} 로 매핑하는데 schema.sql 의 material 에는
- * 그 컬럼이 없다(ERD 기준). 상속하면 운영 프로파일의 {@code ddl-auto: validate} 가
- * 기동 단계에서 실패한다. 테스트 프로파일은 {@code create-drop} 이라 엔티티대로 테이블을
- * 만들어버려 이 불일치를 잡지 못하므로, {@code MaterialSchemaMappingTests} 로 따로 막는다.
+ * <p><b>{@code BaseEntity} 를 상속하지 않는다.</b> DB 내부 식별자는 Identity 전략을 사용하고
+ * 생성·수정 시각만 이 엔티티에서 직접 감사한다.
  *
  * <p><b>등록자를 연관관계로 두지 않는다.</b> {@code registrant_id} 는 users FK 지만
  * User 엔티티가 아직 없다. 지금은 FK 값만 들고, User 도메인이 들어온 뒤 승격 여부를 다시 본다.
@@ -43,6 +41,8 @@ public class Material {
     private static final int MATERIAL_CODE_MAX_LENGTH = 20;
     private static final int NAME_MAX_LENGTH = 200;
     private static final int GRADE_MAX_LENGTH = 50;
+    private static final int CONTRACT_ADDRESS_MAX_LENGTH = 42;
+    private static final int MANIFEST_URL_MAX_LENGTH = 500;
 
     @Id
     @Column(name = "id")
@@ -51,6 +51,15 @@ public class Material {
 
     @Column(name = "material_code", nullable = false, length = MATERIAL_CODE_MAX_LENGTH, unique = true)
     private String materialCode;
+
+    @Column(name = "token_id", unique = true)
+    private Long tokenId;
+
+    @Column(name = "chain_id")
+    private Long chainId;
+
+    @Column(name = "contract_address", length = CONTRACT_ADDRESS_MAX_LENGTH)
+    private String contractAddress;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "material_type", nullable = false, length = 50)
@@ -85,12 +94,14 @@ public class Material {
     @Column(name = "width_mm")
     private Long widthMm;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "verification_state", nullable = false)
-    private MaterialVerificationState verificationState;
-
     @Column(name = "registrant_id", nullable = false)
     private Long registrantId;
+
+    @Column(name = "evidence_hash", columnDefinition = "CHAR(66)")
+    private String evidenceHash;
+
+    @Column(name = "manifest_url", length = MANIFEST_URL_MAX_LENGTH)
+    private String manifestUrl;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
@@ -99,6 +110,10 @@ public class Material {
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @LastModifiedDate
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt;
 
     /**
      * schema.sql 의 CHECK 제약을 그대로 미러링한다. 등록 시점에만 성립하는 규칙은
@@ -130,7 +145,6 @@ public class Material {
         this.lengthMm = requireOptionalPositive(lengthMm, "material length");
         this.widthMm = requireOptionalPositive(widthMm, "material width");
         this.registrantId = requireNonNull(registrantId, "registrant id");
-        this.verificationState = MaterialVerificationState.REGISTERED;
         this.status = MaterialStatus.ACTIVE;
     }
 
@@ -139,8 +153,7 @@ public class Material {
      *
      * <p>{@code generation_type} 은 {@link MaterialGenerationType#INITIAL} 로 고정한다.
      * PROCESSED 와 PRODUCTION_SCRAP 은 Processing·Production 확정이 만들어내는 값이라
-     * 등록 요청이 지정할 수 있는 값이 아니다. 같은 이유로
-     * {@link MaterialRootOrigin#RECOVERED} 도 막는다 — 가공 산출물의 출처이기 때문이다.
+     * 등록 요청이 지정할 수 있는 값이 아니다.
      */
     public static Material register(
             String materialCode,
@@ -153,10 +166,6 @@ public class Material {
             Long lengthMm,
             Long widthMm,
             Long registrantId) {
-        if (rootOrigin == MaterialRootOrigin.RECOVERED) {
-            throw new IllegalArgumentException(
-                    "RECOVERED material comes from processing and must not be registered directly");
-        }
         if (totalQuantity <= 0) {
             throw new IllegalArgumentException("Material total quantity must be positive");
         }

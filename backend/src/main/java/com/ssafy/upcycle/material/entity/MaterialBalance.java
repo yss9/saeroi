@@ -2,14 +2,18 @@ package com.ssafy.upcycle.material.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.time.LocalDateTime;
 import java.util.regex.Pattern;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 /**
  * 어떤 소유자가 어떤 소재를 얼마나 들고 있는지. 소재×소유자 조합마다 한 행이다
@@ -24,9 +28,8 @@ import lombok.NoArgsConstructor;
  * 잠금 합계를 여기에 중복 저장하면 반드시 어긋난다. 잠금은 여러 도메인이 각자 만들고
  * 해제하는데, 합계 컬럼을 그때마다 정확히 맞추는 일은 결국 실패한다.
  *
- * <p><b>감사 컬럼이 없다.</b> schema.sql 의 material_balance 에는 created_at 도
- * updated_at 도 없다. 이 테이블은 "지금 얼마인가"만 답하는 현재 상태 스냅샷이고,
- * 변경 이력은 material_lock 과 blockchain_transaction 이 각자 남긴다.
+ * <p>이 테이블은 "지금 얼마인가"만 답하는 현재 상태 스냅샷이다. 일반 감사 컬럼 대신
+ * 마지막 Blockchain 동기화 시각인 {@code synced_at} 만 기록한다.
  *
  * <p>소유자와 소재를 연관관계가 아니라 FK 값으로 들고 있는 이유는 {@link Material} 참고.
  */
@@ -34,6 +37,7 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "material_balance")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@EntityListeners(AuditingEntityListener.class)
 public class MaterialBalance {
 
     private static final Pattern WALLET_ADDRESS_PATTERN =
@@ -57,6 +61,10 @@ public class MaterialBalance {
     /** 보유량 (gram). */
     @Column(name = "quantity", nullable = false)
     private long quantity;
+
+    @LastModifiedDate
+    @Column(name = "synced_at", nullable = false)
+    private LocalDateTime syncedAt;
 
     private MaterialBalance(Long materialId, Long ownerId, String walletAddress, long quantity) {
         if (materialId == null) {

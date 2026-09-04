@@ -49,6 +49,9 @@ public class MaterialLock {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "chain_lock_id", unique = true)
+    private Long chainLockId;
+
     @Column(name = "material_id", nullable = false)
     private Long materialId;
 
@@ -128,8 +131,7 @@ public class MaterialLock {
      * 잠금을 건다. 항상 ACTIVE 로 시작한다.
      *
      * <p>수량이 0 인 ACTIVE 잠금은 만들 수 없다. available 을 전혀 줄이지 않으면서
-     * 자리만 차지하는 행이고, schema 의 CHECK 도 같은 조건을 건다
-     * ({@code amount >= 0 AND (status <> 'ACTIVE' OR amount > 0)}).
+     * 자리만 차지하는 행이고, schema 의 CHECK 도 {@code amount > 0} 조건을 건다.
      */
     public static MaterialLock create(
             Long materialId,
@@ -169,8 +171,8 @@ public class MaterialLock {
      *   10kg 거래 완료 -> 잠금 20kg
      * </pre>
      *
-     * <p>남은 수량이 0 이 되면 CONSUMED 로 넘긴다. 상태 전환을 같이 하지 않으면
-     * "수량 0 인 ACTIVE 잠금"이 되어 schema 의 CHECK 를 위반한다.
+     * <p>남은 수량을 전부 소비하면 양수인 잠금 이력 수량을 보존하고 CONSUMED 로 넘긴다.
+     * {@code amount = 0} 은 상태와 관계없이 schema 의 CHECK 를 위반한다.
      */
     public void decreaseBy(long consumedAmount, LocalDateTime consumedAt) {
         requireActive("decrease");
@@ -182,11 +184,12 @@ public class MaterialLock {
                     "Material lock cannot decrease beyond its amount: amount=" + this.amount
                             + ", requested=" + consumedAmount);
         }
-        this.amount -= consumedAmount;
-        if (this.amount == 0) {
+        if (this.amount == consumedAmount) {
             this.status = MaterialLockStatus.CONSUMED;
             this.releasedAt = requireTimestamp(consumedAt);
+            return;
         }
+        this.amount -= consumedAmount;
     }
 
     /** 만료 시각이 지났는지. 만료된 잠금은 available 계산에서 빠져야 한다. */

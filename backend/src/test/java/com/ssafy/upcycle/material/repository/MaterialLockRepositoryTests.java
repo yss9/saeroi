@@ -69,7 +69,7 @@ class MaterialLockRepositoryTests {
                         MaterialLockReferenceType.LISTING, 42L))
                 .hasSize(1);
         assertThat(materialLockRepository.findAllByReferenceTypeAndReferenceId(
-                        MaterialLockReferenceType.TRADE, 42L))
+                        MaterialLockReferenceType.PROCESSING_JOB, 42L))
                 .isEmpty();
     }
 
@@ -83,7 +83,7 @@ class MaterialLockRepositoryTests {
         MaterialLock reloaded = materialLockRepository.findById(saved.getId()).orElseThrow();
 
         assertThat(reloaded.getStatus()).isEqualTo(MaterialLockStatus.CONSUMED);
-        assertThat(reloaded.getAmount()).isZero();
+        assertThat(reloaded.getAmount()).isEqualTo(30_000L);
         assertThat(reloaded.getReleasedAt()).isEqualTo(NOW);
     }
 

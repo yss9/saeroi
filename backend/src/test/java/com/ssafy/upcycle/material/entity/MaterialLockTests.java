@@ -69,13 +69,13 @@ class MaterialLockTests {
     }
 
     @Test
-    void reachingZeroFlipsTheLockToConsumed() {
+    void consumingTheRemainingAmountPreservesPositiveHistoryAndMarksConsumed() {
         MaterialLock lock = marketplaceLock(30_000L);
 
         lock.decreaseBy(10_000L, NOW);
         lock.decreaseBy(20_000L, NOW);
 
-        assertThat(lock.getAmount()).isZero();
+        assertThat(lock.getAmount()).isEqualTo(20_000L);
         assertThat(lock.getStatus()).isEqualTo(MaterialLockStatus.CONSUMED);
         assertThat(lock.getReleasedAt()).isEqualTo(NOW);
     }

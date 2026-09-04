@@ -53,13 +53,10 @@ class SchemaSqlTests {
             "material_listing",
             "material_trade",
             "trade_shipping",
-            "trade_dispute",
-            "blockchain_transaction",
-            "point_account",
-            "point_transaction");
+            "blockchain_transaction");
 
     @Test
-    void schemaCreatesEveryErdTableAndConfirmedShippingRelationships() throws Exception {
+    void schemaCreatesEveryDesignedTableAndConfirmedShippingRelationships() throws Exception {
         String schema = loadSchema();
 
         try (Connection connection = DriverManager.getConnection(
@@ -68,8 +65,14 @@ class SchemaSqlTests {
 
             assertThat(readTables(connection)).containsExactlyInAnyOrderElementsOf(EXPECTED_TABLES);
             assertThat(readColumns(connection, "processing_output"))
-                    .contains("processing_job_id")
+                    .contains("processing_job_id", "processing_input_id", "grade")
                     .doesNotContain("processing_output_id");
+            assertThat(readColumns(connection, "material"))
+                    .contains("token_id", "chain_id", "contract_address", "evidence_hash", "manifest_url")
+                    .doesNotContain("verification_state");
+            assertThat(readColumns(connection, "processing_job"))
+                    .contains("brand_reviewed_at", "manifest_url", "payment_method", "payment_amount")
+                    .doesNotContain("brand_approved_at", "brand_rejected_at");
             assertThat(readColumns(connection, "trade_shipping")).containsExactlyInAnyOrder(
                     "id",
                     "trade_id",
@@ -88,7 +91,7 @@ class SchemaSqlTests {
     }
 
     @Test
-    void consumedMaterialLockCanReachZeroButActiveLockCannot() throws Exception {
+    void materialLockRejectsZeroAmountEvenAfterConsumption() throws Exception {
         String schema = loadSchema();
 
         try (Connection connection = DriverManager.getConnection(
@@ -106,19 +109,84 @@ class SchemaSqlTests {
                     ) VALUES (1, 'MAT-000001', 'DENIM', 'WASTE', 'INITIAL', 'Denim', 30000, 1)
                     """);
 
-            statement.executeUpdate("""
-                    INSERT INTO material_lock (
-                        material_id, owner_id, amount, purpose, reference_type, reference_id, status
-                    ) VALUES (1, 1, 0, 'MARKETPLACE', 'LISTING', 1, 'CONSUMED')
-                    """);
-
             assertThatThrownBy(() -> statement.executeUpdate("""
                             INSERT INTO material_lock (
                                 material_id, owner_id, amount, purpose, reference_type, reference_id, status
-                            ) VALUES (1, 1, 0, 'MARKETPLACE', 'LISTING', 2, 'ACTIVE')
+                            ) VALUES (1, 1, 0, 'MARKETPLACE', 'LISTING', 1, 'CONSUMED')
                             """))
                     .isInstanceOf(SQLException.class);
         }
+    }
+
+    @Test
+    void processingOutputCannotReferenceInputFromAnotherJob() throws Exception {
+        String schema = loadSchema();
+
+        try (Connection connection = DriverManager.getConnection(
+                        "jdbc:h2:mem:processing-output-contract;MODE=MySQL;DATABASE_TO_LOWER=TRUE", "sa", "");
+                Statement statement = connection.createStatement()) {
+            executeSchema(connection, schema);
+            insertProcessingFixture(statement);
+
+            assertThatThrownBy(() -> statement.executeUpdate("""
+                            INSERT INTO processing_output (
+                                processing_job_id, processing_input_id, output_material_id,
+                                material_type, grade, name, quantity
+                            ) VALUES (2, 1, NULL, 'DENIM', 'A', 'Output', 100)
+                            """))
+                    .isInstanceOf(SQLException.class);
+        }
+    }
+
+    private void insertProcessingFixture(Statement statement) throws SQLException {
+        statement.executeUpdate("""
+                INSERT INTO users (id, email, password, name, phone, role)
+                VALUES
+                    (1, 'brand@example.com', 'hash', 'Brand', '010-0000-0001', 'BRAND'),
+                    (2, 'processor@example.com', 'hash', 'Processor', '010-0000-0002', 'PROCESSOR')
+                """);
+        statement.executeUpdate("""
+                INSERT INTO material (
+                    id, material_code, material_type, root_origin, generation_type,
+                    name, total_quantity, registrant_id
+                ) VALUES (1, 'MAT-000001', 'DENIM', 'WASTE', 'INITIAL', 'Denim', 30000, 1)
+                """);
+        statement.executeUpdate("""
+                INSERT INTO processing_request (id, request_code, brand_id, expires_at)
+                VALUES
+                    (1, 'REQ-000001', 1, '2099-01-01 00:00:00'),
+                    (2, 'REQ-000002', 1, '2099-01-01 00:00:00')
+                """);
+        statement.executeUpdate("""
+                INSERT INTO processing_quote (
+                    id, processing_request_id, processor_id, price, lead_days
+                ) VALUES
+                    (1, 1, 2, 1000, 1),
+                    (2, 2, 2, 1000, 1)
+                """);
+        statement.executeUpdate("""
+                INSERT INTO processing_job (
+                    id, job_code, processing_request_id, processing_quote_id,
+                    brand_id, processor_id, brand_wallet, processor_wallet,
+                    fee, payment_method, payment_amount
+                ) VALUES
+                    (1, 'JOB-000001', 1, 1, 1, 2, '0xbrand', '0xprocessor', 1000, 'MOCK', 1000),
+                    (2, 'JOB-000002', 2, 2, 1, 2, '0xbrand', '0xprocessor', 1000, 'MOCK', 1000)
+                """);
+        statement.executeUpdate("""
+                INSERT INTO material_lock (
+                    id, material_id, owner_id, amount, purpose, reference_type, reference_id
+                ) VALUES
+                    (1, 1, 1, 100, 'PROCESSING', 'PROCESSING_JOB', 1),
+                    (2, 1, 1, 100, 'PROCESSING', 'PROCESSING_JOB', 2)
+                """);
+        statement.executeUpdate("""
+                INSERT INTO processing_input (
+                    id, processing_job_id, material_id, quantity, material_lock_id
+                ) VALUES
+                    (1, 1, 1, 100, 1),
+                    (2, 2, 1, 100, 2)
+                """);
     }
 
     private String loadSchema() throws IOException {
