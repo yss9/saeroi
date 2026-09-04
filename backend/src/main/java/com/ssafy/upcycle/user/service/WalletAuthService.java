@@ -17,10 +17,8 @@ import com.ssafy.upcycle.user.entity.WalletNonce;
 import com.ssafy.upcycle.user.repository.UserRepository;
 import com.ssafy.upcycle.user.repository.UserWalletRepository;
 import com.ssafy.upcycle.user.repository.WalletNonceRepository;
-import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.LocalDateTime;
-import java.util.HexFormat;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -42,20 +40,11 @@ import org.web3j.crypto.Keys;
 @RequiredArgsConstructor
 public class WalletAuthService {
 
-    /** 16 bytes → hex 32자. {@code wallet_nonce.nonce} 가 CHAR(32) 라 길이가 정확히 맞아야 한다. */
-    private static final int NONCE_BYTES = 16;
-
-    /**
-     * {@code SecureRandom.getInstanceStrong()} 을 쓰지 않는다. 리눅스에서 엔트로피를 기다리며
-     * 블로킹할 수 있는데, 로그인 경로에서 그런 정지는 곤란하다. 기본 SecureRandom 의
-     * 128비트로 충분하다 — nonce 는 수 분만 살아 있고 지갑 주소로 범위가 한정된다.
-     */
-    private static final SecureRandom RANDOM = new SecureRandom();
-
     private final UserRepository userRepository;
     private final UserWalletRepository userWalletRepository;
     private final WalletNonceRepository walletNonceRepository;
     private final WalletSignatureVerifier signatureVerifier;
+    private final WalletNonceGenerator nonceGenerator;
     private final JwtTokenService jwtTokenService;
     private final WalletAuthProperties properties;
     private final Clock clock;
@@ -71,7 +60,7 @@ public class WalletAuthService {
     public WalletNonceResponse issueNonce(WalletNonceRequest request) {
         String address = normalize(request.walletAddress());
         UserWallet wallet = userWalletRepository
-                .findByWalletAddress(address)
+                .findByWalletAddressAndActiveTrue(address)
                 .orElseThrow(() -> new BusinessException(WalletAuthErrorCode.WALLET_NOT_LINKED));
 
         if (request.chainId() != null && request.chainId() != wallet.getChainId()) {
@@ -88,7 +77,7 @@ public class WalletAuthService {
                 wallet.getUserId(),
                 address,
                 wallet.getChainId(),
-                generateNonce(),
+                nonceGenerator.generate(),
                 now.plus(properties.nonceTtl())));
 
         String checksummed = Keys.toChecksumAddress(address);
@@ -140,8 +129,11 @@ public class WalletAuthService {
 
         // ⚠️ markUsed 가 영속성 컨텍스트를 비우므로(clearAutomatically) 지갑은 반드시
         // 그 호출 뒤에 로드해야 한다. 앞에서 읽어 두면 아래 markVerified 가 조용히 사라진다.
+        //
+        // 활성 지갑만 찾는다. nonce 를 받아 둔 뒤 지갑이 비활성화됐다면 로그인시키지 않는다 —
+        // 비활성 지갑은 없는 것과 같게 취급한다.
         UserWallet wallet = userWalletRepository
-                .findByWalletAddress(address)
+                .findByWalletAddressAndActiveTrue(address)
                 .orElseThrow(() -> new BusinessException(WalletAuthErrorCode.WALLET_NOT_LINKED));
         wallet.markVerified(now);
 
@@ -184,13 +176,5 @@ public class WalletAuthService {
         } catch (IllegalArgumentException exception) {
             throw new BusinessException(WalletAuthErrorCode.INVALID_WALLET_ADDRESS);
         }
-    }
-
-    private static String generateNonce() {
-        byte[] bytes = new byte[NONCE_BYTES];
-        RANDOM.nextBytes(bytes);
-        // hex 는 고정 길이라 CHAR(32) 를 정확히 채운다. Base64 는 '=' 패딩과 가변 길이 때문에
-        // 컬럼 길이도 안 맞고 서명 문자열에 특수문자가 섞인다.
-        return HexFormat.of().formatHex(bytes);
     }
 }

@@ -39,7 +39,12 @@ public enum WalletAuthErrorCode implements ErrorCode {
     WALLET_ROLE_NOT_ALLOWED(
             HttpStatus.FORBIDDEN,
             "WALLET_ROLE_NOT_ALLOWED",
-            "지갑 로그인을 사용할 수 없는 계정입니다.");
+            "지갑 로그인을 사용할 수 없는 계정입니다."),
+    WALLET_ALREADY_LINKED(
+            HttpStatus.CONFLICT, "WALLET_ALREADY_LINKED", "이미 다른 계정에 등록된 지갑 주소입니다."),
+    WALLET_NOT_FOUND(HttpStatus.NOT_FOUND, "WALLET_NOT_FOUND", "지갑을 찾을 수 없습니다."),
+    WALLET_ALREADY_INACTIVE(
+            HttpStatus.BAD_REQUEST, "WALLET_ALREADY_INACTIVE", "이미 비활성화된 지갑입니다.");
 
     private final HttpStatus status;
     private final String code;

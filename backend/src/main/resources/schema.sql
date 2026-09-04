@@ -21,19 +21,33 @@ CREATE TABLE users (
     CONSTRAINT uk_users_email UNIQUE (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- 지갑은 계정당 활성 1개이고, 교체하면 이전 행을 비활성으로 남긴다.
+--
+-- user_id 에 UNIQUE 를 걸지 않는 이유: 교체할 때 행을 UPDATE 하거나 지우면 이전 주소가
+-- 사라진다. material_trade.seller_wallet / processing_job.processor_wallet /
+-- production_batch.producer_wallet 등 6개 컬럼이 서명 시점 주소를 스냅샷으로 들고 있어서,
+-- 그 주소가 누구 것이었는지 역추적할 수 없게 된다.
+--
+-- 활성 단일성은 생성 컬럼으로 강제한다. MySQL 8 은 부분 UNIQUE(WHERE 절)를 지원하지 않지만,
+-- 비활성 행을 NULL 로 만들면 UNIQUE 에서 NULL 은 서로 충돌하지 않으므로 활성만 1개로 제한된다.
+-- IF() 는 H2(테스트)가 파싱하지 못하므로 표준 CASE WHEN 을 쓴다.
 CREATE TABLE user_wallet (
     id BIGINT NOT NULL AUTO_INCREMENT,
     user_id BIGINT NOT NULL,
     wallet_address VARCHAR(42) NOT NULL,
     chain_id BIGINT NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     verified BOOLEAN NOT NULL DEFAULT FALSE,
     verified_at DATETIME NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deactivated_at DATETIME NULL,
+    active_user_id BIGINT GENERATED ALWAYS AS (CASE WHEN is_active THEN user_id ELSE NULL END),
     CONSTRAINT pk_user_wallet PRIMARY KEY (id),
-    CONSTRAINT uk_user_wallet_user UNIQUE (user_id),
+    CONSTRAINT uk_user_wallet_active_user UNIQUE (active_user_id),
     CONSTRAINT uk_user_wallet_address UNIQUE (wallet_address),
     CONSTRAINT fk_user_wallet_user FOREIGN KEY (user_id) REFERENCES users (id),
-    CONSTRAINT chk_user_wallet_chain_id CHECK (chain_id > 0)
+    CONSTRAINT chk_user_wallet_chain_id CHECK (chain_id > 0),
+    INDEX idx_user_wallet_user (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE wallet_nonce (

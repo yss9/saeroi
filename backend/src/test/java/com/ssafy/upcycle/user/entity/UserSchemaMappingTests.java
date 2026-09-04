@@ -116,10 +116,21 @@ class UserSchemaMappingTests {
         }
     }
 
+    /**
+     * schema.sql 이 만든 컬럼 중 <b>엔티티가 매핑해야 하는 것</b>만 돌려준다.
+     *
+     * <p>생성 컬럼(`GENERATED ALWAYS AS`)은 제외한다. DB 가 계산하는 값이라 엔티티가
+     * 매핑하면 INSERT 가 깨지므로, 매핑되지 않은 것이 정상이다.
+     * {@code user_wallet.active_user_id} 가 그 경우다 — 활성 지갑 단일성을 강제하는
+     * UNIQUE 를 걸기 위한 컬럼이다.
+     */
     private Set<String> tableColumns(Connection connection, String table) throws SQLException {
         Set<String> columns = new TreeSet<>();
         try (ResultSet result = connection.getMetaData().getColumns(null, "public", table, "%")) {
             while (result.next()) {
+                if ("YES".equalsIgnoreCase(result.getString("IS_GENERATEDCOLUMN"))) {
+                    continue;
+                }
                 columns.add(result.getString("COLUMN_NAME").toLowerCase());
             }
         }

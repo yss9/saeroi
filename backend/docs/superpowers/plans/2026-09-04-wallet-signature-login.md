@@ -16,8 +16,8 @@ web3j-crypto 4.12.3, JUnit 5, AssertJ, MockMvc, H2, Maven Wrapper
 
 ## Global Constraints
 
-- No change to `schema.sql`, `ERD.md`, or `SecurityConfig`.
-- No signup, wallet-linking endpoint, refresh token, or rate limiting.
+- No change to `SecurityConfig`. `schema.sql` and `ERD.md` change for the wallet policy (Task 10).
+- No signup, refresh token, or rate limiting.
 - Unregistered wallets are rejected; no row is created for an unknown address.
 - The signed message is a cross-branch contract — it changes only together with the frontend.
 - Signatures, recovered addresses, and raw nonces never reach logs or responses.
@@ -131,6 +131,28 @@ the path that skips them.
 ### Task 9: Full suite
 
 - [x] `./mvnw -B -ntp test` — 163 tests pass.
+
+### Task 10: One active wallet + replacement history
+
+- [x] `schema.sql`: drop `UNIQUE (user_id)`, add `is_active` / `deactivated_at`, add the
+      `active_user_id` generated column with UNIQUE, index `user_id`. `ERD.md` synced.
+- [x] `UserWallet`: `active`, `deactivatedAt`, `deactivate`, `reactivate`. **Removed the stale
+      `unique = true` on `userId`** — it would have recreated the one-wallet limit in
+      entity-generated tables, so history would fail in tests while working in production.
+- [x] Repository: `findByWalletAddressAndActiveTrue`, `findByUserIdAndActiveTrue`,
+      `findByIdAndUserId`, history ordering.
+- [x] `WalletAuthService` looks up active wallets only.
+- [x] `WalletNonceGenerator` extracted so login and registration share one length contract.
+- [x] `WalletRegistrationService` + `WalletController`: nonce, register (deactivating the current
+      wallet in the same transaction, with an explicit flush before the insert), list, deactivate.
+      Re-registering a previously used address reactivates the row, because `wallet_address` is
+      globally unique and the inactive row still holds the slot.
+- [x] `UserWalletActiveConstraintTests` runs SQL against `schema.sql` in raw H2 — the only way to
+      verify the generated-column UNIQUE, since the test profile builds tables from entities.
+- [x] `WalletControllerTests`: 401 without a token, 403 for CONSUMER, replacement keeps the old
+      row inactive, address taken by another account, wrong signer, listing order, deactivation,
+      other users' wallet ids hidden behind 404, and **a deactivated wallet can no longer log in**.
+- [x] `./mvnw -B -ntp test` — 182 tests pass.
 
 **Note:** one repository test passed alone and failed in the full run. The `@SpringBootTest`
 classes commit to the same in-memory H2 without rolling back, so their leftover rows reached a

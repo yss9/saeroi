@@ -101,16 +101,49 @@ Wallet 주소를 여기 두지 않는다. 지갑 교체 시 이전 주소 이력
 ### user_wallet
 
 SUPPLIER / BRAND / PROCESSOR 만 갖는다. CONSUMER 는 레코드가 없다.
+역할 제한은 DB 가 아니라 애플리케이션(`UserRole.canOwnWallet()`)이 강제한다.
+
+**계정당 활성 1개이고, 교체하면 이전 행을 비활성으로 남긴다.**
 
 | 컬럼 | 타입 | 설명 |
 | --- | --- | --- |
 | id | BIGINT PK |  |
-| user_id | BIGINT FK UNIQUE |  |
-| wallet_address | VARCHAR(42) UNIQUE | 0x72A... |
-| chain_id | BIGINT |  |
-| verified | BOOLEAN |  |
-| verified_at | DATETIME | nonce 서명 검증 완료 시각 |
+| user_id | BIGINT FK | UNIQUE 아님 — 계정당 여러 행이 존재한다 |
+| wallet_address | VARCHAR(42) UNIQUE | 0x72A... 소문자로 저장 |
+| chain_id | BIGINT | CHECK > 0 |
+| **is_active** | BOOLEAN | 현재 사용 중인 지갑 여부 |
+| verified | BOOLEAN | 서명으로 소유를 증명했는가 |
+| verified_at | DATETIME NULL | nonce 서명 검증 완료 시각 |
 | created_at | DATETIME |  |
+| **deactivated_at** | DATETIME NULL | 교체로 비활성화된 시각 |
+| **active_user_id** | BIGINT 생성 컬럼 | `CASE WHEN is_active THEN user_id ELSE NULL END` |
+
+UNIQUE `wallet_address` · UNIQUE `active_user_id` · INDEX `user_id`
+
+**`user_id` 에 UNIQUE 를 걸지 않는 이유**
+
+교체할 때 행을 UPDATE 하거나 지우면 이전 주소가 사라진다. 그런데
+`material_trade.seller_wallet` · `buyer_wallet` · `processing_job.brand_wallet` ·
+`processor_wallet` · `production_batch.producer_wallet` · `blockchain_transaction.from_wallet`
+여섯 컬럼이 **서명 시점 주소를 스냅샷으로** 들고 있어서, 행이 없어지면 그 주소가
+누구 것이었는지 역추적할 수 없다. `users` 에서 지갑을 분리한 이유가 이력 보존인데
+`user_wallet` 에서 같은 일이 반복되면 분리 목적이 달성되지 않는다.
+
+**활성 단일성을 생성 컬럼으로 강제하는 이유**
+
+MySQL 8 은 부분 UNIQUE(`... WHERE is_active = TRUE`)를 지원하지 않는다. 비활성 행을
+`NULL` 로 만드는 생성 컬럼에 UNIQUE 를 걸면, UNIQUE 에서 NULL 은 서로 충돌하지 않으므로
+활성만 1개로 제한된다. `IF()` 는 H2(테스트)가 파싱하지 못해 표준 `CASE WHEN` 을 쓴다.
+
+**지갑을 N개 동시에 쓰지 않는 이유**
+
+`material_balance` 의 UNIQUE `(material_id, owner_id)` 가 소유를 **사용자 기준**으로 잡는다.
+지갑 N개를 동시에 쓰면 온체인 잔액은 주소별로 갈리는데 DB 는 사용자당 한 행만 허용해
+불일치가 생긴다. 동시 사용을 늘리려면 Balance·Lock·Trade 전반을 지갑 기준으로 재정의해야 한다.
+
+> ⚠️ **지갑을 교체해도 이전 지갑의 온체인 잔액은 자동으로 옮겨지지 않는다.**
+> `material_balance.owner_id` 는 사용자 기준이라 DB 상으로는 문제가 없지만, 온체인 잔액은
+> 예전 주소에 남는다. 이전이 필요하면 사용자가 `safeTransferFrom` 을 직접 호출해야 한다.
 
 ### wallet_nonce
 
@@ -962,7 +995,7 @@ WITH RECURSIVE lineage AS (    SELECT child_material_id, parent_material_id, rel
 10. 인덱스 정리
 테이블	인덱스
 users	UNIQUE email
-user_wallet	UNIQUE wallet_address, user_id
+user_wallet	UNIQUE wallet_address, UNIQUE active_user_id, INDEX user_id
 material	(material_type, root_origin), verification_state
 material_balance	UNIQUE (material_id, owner_id), owner_id
 material_lock	(material_id, owner_id, status), (reference_type, reference_id), expires_at

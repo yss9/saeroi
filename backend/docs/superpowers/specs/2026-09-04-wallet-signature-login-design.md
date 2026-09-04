@@ -14,12 +14,17 @@ This change includes:
 
 - `POST /api/v1/auth/wallet/nonce` — issue a single-use nonce and the canonical message to sign.
 - `POST /api/v1/auth/wallet/verify` — recover the signer address, compare, and issue a JWT.
+- `POST /api/v1/wallets/nonce`, `POST /api/v1/wallets`, `GET /api/v1/wallets/me`,
+  `DELETE /api/v1/wallets/{walletId}` — wallet registration, listing, and deactivation.
+  **Authenticated**, deliberately outside the permitted `/api/v1/auth/**` prefix so that nobody
+  can attach a wallet to somebody else's account.
 - `User`, `UserWallet`, and `WalletNonce` entities mapped to the existing `schema.sql` tables.
 - EIP-191 (`personal_sign`) signature recovery through `org.web3j:crypto`.
 - A domain error enum covering nonce, signature, wallet, and account states.
 
-This change does not include signup, wallet linking or unlinking, password login, refresh
-tokens, rate limiting, CORS, or any change to `schema.sql`, `ERD.md`, or `SecurityConfig`.
+This change does not include signup, password login, refresh tokens, rate limiting, CORS, or
+any change to `SecurityConfig`. It does change `schema.sql` and `ERD.md` — see the wallet policy
+section below.
 
 ## Chosen Approaches
 
@@ -59,6 +64,42 @@ so a later linking endpoint applies the same rule.
 
 The check runs after the address lookup, so an unregistered address still gets
 `WALLET_NOT_LINKED` rather than a role error.
+
+### One active wallet per account, with replacement history kept
+
+`user_wallet` no longer carries `UNIQUE (user_id)`. Accounts may hold several rows; exactly one
+is active. Replacing a wallet deactivates the previous row instead of updating or deleting it.
+
+The history matters because six columns snapshot the signing address —
+`material_trade.seller_wallet` / `buyer_wallet`, `processing_job.brand_wallet` /
+`processor_wallet`, `production_batch.producer_wallet`, and
+`blockchain_transaction.from_wallet` — all `NOT NULL`. Losing the row makes it impossible to
+tell whose address a snapshot was. Splitting wallets out of `users` was motivated by exactly
+this, and repeating the overwrite inside `user_wallet` would defeat it.
+
+Active singleness is enforced by the database through a generated column:
+
+```sql
+active_user_id BIGINT GENERATED ALWAYS AS (CASE WHEN is_active THEN user_id ELSE NULL END),
+CONSTRAINT uk_user_wallet_active_user UNIQUE (active_user_id)
+```
+
+MySQL 8 has no partial unique index. Mapping inactive rows to `NULL` works because `NULL`s do
+not collide in a UNIQUE index. `IF()` is avoided because H2 — which the schema tests load
+`schema.sql` into — cannot parse it inside a generated column.
+
+The entity does not map `active_user_id`; the database computes it. `UserSchemaMappingTests`
+therefore skips generated columns, and `UserWalletActiveConstraintTests` verifies the constraint
+by running SQL against `schema.sql` in raw H2. The application test profile is `create-drop`, so
+the column does not exist in entity-generated tables and no ordinary test could check it.
+
+**Wallets are not used N-at-a-time.** `material_balance` keys ownership by
+`UNIQUE (material_id, owner_id)` — by user. Concurrent wallets would split on-chain balances by
+address while the database allows one row per user. Raising that limit would mean redefining
+balance, locks, and trades around addresses.
+
+Login uses `findByWalletAddressAndActiveTrue`: a deactivated wallet is treated as absent, and a
+nonce issued before deactivation is rejected at verify.
 
 ### The signed message is a cross-branch contract
 
@@ -175,6 +216,9 @@ holds the logic most prone to subtle error, so it is isolated and unit-tested on
 | `USER_NOT_FOUND` | 404 | Wallet points at a missing account |
 | `USER_SUSPENDED` | 403 | Account is suspended |
 | `WALLET_ROLE_NOT_ALLOWED` | 403 | Owner's role may not use wallet login |
+| `WALLET_ALREADY_LINKED` | 409 | Address already belongs to another account |
+| `WALLET_NOT_FOUND` | 404 | No such wallet for this user (also hides other users' ids) |
+| `WALLET_ALREADY_INACTIVE` | 400 | Wallet is already deactivated |
 
 `NONCE_NOT_FOUND` carries a deliberately vague message so probing other users' nonces reveals
 nothing; the code stays precise.

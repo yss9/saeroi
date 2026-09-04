@@ -20,6 +20,12 @@ public interface WalletNonceRepository extends JpaRepository<WalletNonce, Long> 
     long deleteByWalletAddressAndUsedAtIsNull(String walletAddress);
 
     /**
+     * 등록 경로용. 아직 계정에 붙지 않은 주소라 주소 기준으로 정리할 수 없어 사용자 기준으로 지운다.
+     * 사용자당 살아 있는 등록 nonce 도 하나로 유지된다.
+     */
+    long deleteByUserIdAndUsedAtIsNull(Long userId);
+
+    /**
      * nonce 를 소모한다. <b>1회용 보장의 근거가 이 한 문장이다.</b>
      *
      * <p>{@code used_at is null} 조건이 붙은 UPDATE 라 InnoDB 가 행 잠금을 잡고,
