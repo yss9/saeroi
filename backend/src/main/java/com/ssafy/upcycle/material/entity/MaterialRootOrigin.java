@@ -12,8 +12,5 @@ public enum MaterialRootOrigin {
     VIRGIN,
 
     /** 최초 등록된 폐의류·폐원단·데드스톡. */
-    WASTE,
-
-    /** Processing 결과로 생성된 소재. 직접 등록할 수 없다. */
-    RECOVERED
+    WASTE
 }

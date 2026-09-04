@@ -1,5 +1,11 @@
--- Upcycle MySQL 8 schema derived from ERD.md.
+-- Upcycle MySQL 8 schema derived from DB_설계.md (DB 설계 v1).
 -- Run this script against the database selected by the connection.
+--
+-- Conventions
+--   - All material quantities are stored as gram BIGINT integers.
+--   - All monetary amounts are stored as KRW BIGINT integers.
+--   - On-chain values (material id, balance, lock, listing, trade) live on the
+--     blockchain. The matching tables here are read-optimised projections.
 
 CREATE TABLE users (
     id BIGINT NOT NULL AUTO_INCREMENT,
@@ -10,6 +16,7 @@ CREATE TABLE users (
     role ENUM('SUPPLIER', 'BRAND', 'PROCESSOR', 'CONSUMER', 'ADMIN') NOT NULL,
     status ENUM('ACTIVE', 'SUSPENDED') NOT NULL DEFAULT 'ACTIVE',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT pk_users PRIMARY KEY (id),
     CONSTRAINT uk_users_email UNIQUE (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -33,13 +40,17 @@ CREATE TABLE wallet_nonce (
     id BIGINT NOT NULL AUTO_INCREMENT,
     user_id BIGINT NOT NULL,
     wallet_address VARCHAR(42) NOT NULL,
-    chain_id BIGINT NOT NULL,
     nonce CHAR(32) NOT NULL,
+    chain_id BIGINT NOT NULL,
     expires_at DATETIME NOT NULL,
     used_at DATETIME NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT pk_wallet_nonce PRIMARY KEY (id),
+    CONSTRAINT uk_wallet_nonce_nonce UNIQUE (nonce),
     CONSTRAINT fk_wallet_nonce_user FOREIGN KEY (user_id) REFERENCES users (id),
-    CONSTRAINT chk_wallet_nonce_chain_id CHECK (chain_id > 0)
+    CONSTRAINT chk_wallet_nonce_chain_id CHECK (chain_id > 0),
+    INDEX idx_wallet_nonce_user (user_id),
+    INDEX idx_wallet_nonce_expires_at (expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE company_profile (
@@ -73,28 +84,23 @@ CREATE TABLE consumer_address (
 CREATE TABLE refresh_token (
     id BIGINT NOT NULL AUTO_INCREMENT,
     user_id BIGINT NOT NULL,
-    token VARCHAR(500) NOT NULL,
+    token_hash VARCHAR(255) NOT NULL,
     expires_at DATETIME NOT NULL,
     revoked_at DATETIME NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT pk_refresh_token PRIMARY KEY (id),
-    CONSTRAINT uk_refresh_token_token UNIQUE (token),
+    CONSTRAINT uk_refresh_token_token_hash UNIQUE (token_hash),
     CONSTRAINT fk_refresh_token_user FOREIGN KEY (user_id) REFERENCES users (id),
     INDEX idx_refresh_token_user (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- Processor -----------------------------------------------------------------
+
 CREATE TABLE processor_profile (
-    id BIGINT NOT NULL AUTO_INCREMENT,
     user_id BIGINT NOT NULL,
     region VARCHAR(100) NOT NULL,
-    min_quantity BIGINT NOT NULL,
-    max_quantity BIGINT NOT NULL,
-    CONSTRAINT pk_processor_profile PRIMARY KEY (id),
-    CONSTRAINT uk_processor_profile_user UNIQUE (user_id),
-    CONSTRAINT fk_processor_profile_user FOREIGN KEY (user_id) REFERENCES users (id),
-    CONSTRAINT chk_processor_profile_quantity CHECK (
-        min_quantity >= 0 AND max_quantity >= min_quantity
-    )
+    CONSTRAINT pk_processor_profile PRIMARY KEY (user_id),
+    CONSTRAINT fk_processor_profile_user FOREIGN KEY (user_id) REFERENCES users (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE processor_capability (
@@ -111,6 +117,8 @@ CREATE TABLE processor_capability (
         'SURFACE_FINISHING',
         'REMANUFACTURING'
     ) NOT NULL,
+    min_quantity BIGINT NOT NULL,
+    max_quantity BIGINT NOT NULL,
     CONSTRAINT pk_processor_capability PRIMARY KEY (id),
     CONSTRAINT uk_processor_capability UNIQUE (
         processor_profile_id,
@@ -118,7 +126,10 @@ CREATE TABLE processor_capability (
         process_type
     ),
     CONSTRAINT fk_processor_capability_profile FOREIGN KEY (processor_profile_id)
-        REFERENCES processor_profile (id)
+        REFERENCES processor_profile (user_id),
+    CONSTRAINT chk_processor_capability_quantity CHECK (
+        min_quantity >= 0 AND max_quantity >= min_quantity
+    )
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE processor_lead_time (
@@ -128,16 +139,21 @@ CREATE TABLE processor_lead_time (
     lead_days INT NOT NULL,
     CONSTRAINT pk_processor_lead_time PRIMARY KEY (id),
     CONSTRAINT fk_processor_lead_time_profile FOREIGN KEY (processor_profile_id)
-        REFERENCES processor_profile (id),
+        REFERENCES processor_profile (user_id),
     CONSTRAINT chk_processor_lead_time_values CHECK (max_quantity > 0 AND lead_days > 0),
     INDEX idx_processor_lead_time_profile (processor_profile_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- Material ------------------------------------------------------------------
+
 CREATE TABLE material (
     id BIGINT NOT NULL AUTO_INCREMENT,
     material_code VARCHAR(20) NOT NULL,
+    token_id BIGINT NULL,
+    chain_id BIGINT NULL,
+    contract_address VARCHAR(42) NULL,
     material_type VARCHAR(50) NOT NULL,
-    root_origin ENUM('VIRGIN', 'WASTE', 'RECOVERED') NOT NULL,
+    root_origin ENUM('VIRGIN', 'WASTE') NOT NULL,
     generation_type ENUM('INITIAL', 'PROCESSED', 'PRODUCTION_SCRAP') NOT NULL,
     name VARCHAR(200) NOT NULL,
     description TEXT NULL,
@@ -145,26 +161,24 @@ CREATE TABLE material (
     total_quantity BIGINT NOT NULL,
     length_mm BIGINT NULL,
     width_mm BIGINT NULL,
-    verification_state ENUM(
-        'REGISTERED',
-        'SOURCE_VERIFIED',
-        'TRANSACTION_VERIFIED',
-        'PROCESSING_VERIFIED',
-        'PRODUCT_LINKED'
-    ) NOT NULL DEFAULT 'REGISTERED',
     registrant_id BIGINT NOT NULL,
+    evidence_hash CHAR(66) NULL,
+    manifest_url VARCHAR(500) NULL,
     status ENUM('ACTIVE', 'DEPLETED') NOT NULL DEFAULT 'ACTIVE',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT pk_material PRIMARY KEY (id),
     CONSTRAINT uk_material_code UNIQUE (material_code),
+    CONSTRAINT uk_material_token_id UNIQUE (token_id),
     CONSTRAINT fk_material_registrant FOREIGN KEY (registrant_id) REFERENCES users (id),
     CONSTRAINT chk_material_quantity CHECK (total_quantity >= 0),
+    CONSTRAINT chk_material_chain_id CHECK (chain_id IS NULL OR chain_id > 0),
     CONSTRAINT chk_material_dimensions CHECK (
         (length_mm IS NULL OR length_mm > 0)
         AND (width_mm IS NULL OR width_mm > 0)
     ),
     INDEX idx_material_type_origin (material_type, root_origin),
-    INDEX idx_material_verification_state (verification_state)
+    INDEX idx_material_registrant (registrant_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE material_balance (
@@ -173,6 +187,7 @@ CREATE TABLE material_balance (
     owner_id BIGINT NOT NULL,
     wallet_address VARCHAR(42) NOT NULL,
     quantity BIGINT NOT NULL,
+    synced_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT pk_material_balance PRIMARY KEY (id),
     CONSTRAINT uk_material_balance_owner UNIQUE (material_id, owner_id),
     CONSTRAINT fk_material_balance_material FOREIGN KEY (material_id) REFERENCES material (id),
@@ -183,22 +198,22 @@ CREATE TABLE material_balance (
 
 CREATE TABLE material_lock (
     id BIGINT NOT NULL AUTO_INCREMENT,
+    chain_lock_id BIGINT NULL,
     material_id BIGINT NOT NULL,
     owner_id BIGINT NOT NULL,
     amount BIGINT NOT NULL,
     purpose ENUM('MARKETPLACE', 'PROCESSING', 'PRODUCTION') NOT NULL,
-    reference_type ENUM('LISTING', 'TRADE', 'PROCESSING_JOB', 'PRODUCTION_BATCH') NOT NULL,
+    reference_type ENUM('LISTING', 'PROCESSING_JOB', 'PRODUCTION_BATCH') NOT NULL,
     reference_id BIGINT NOT NULL,
-    status ENUM('ACTIVE', 'RELEASED', 'CONSUMED') NOT NULL DEFAULT 'ACTIVE',
+    status ENUM('ACTIVE', 'RELEASED', 'CONSUMED', 'EXPIRED') NOT NULL DEFAULT 'ACTIVE',
     expires_at DATETIME NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     released_at DATETIME NULL,
     CONSTRAINT pk_material_lock PRIMARY KEY (id),
+    CONSTRAINT uk_material_lock_chain_lock_id UNIQUE (chain_lock_id),
     CONSTRAINT fk_material_lock_material FOREIGN KEY (material_id) REFERENCES material (id),
     CONSTRAINT fk_material_lock_owner FOREIGN KEY (owner_id) REFERENCES users (id),
-    CONSTRAINT chk_material_lock_amount CHECK (
-        amount >= 0 AND (status <> 'ACTIVE' OR amount > 0)
-    ),
+    CONSTRAINT chk_material_lock_amount CHECK (amount > 0),
     INDEX idx_material_lock_available (material_id, owner_id, status),
     INDEX idx_material_lock_reference (reference_type, reference_id),
     INDEX idx_material_lock_expires_at (expires_at)
@@ -224,14 +239,15 @@ CREATE TABLE material_lineage (
     INDEX idx_material_lineage_parent (parent_material_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- Evidence ------------------------------------------------------------------
+
 CREATE TABLE evidence_file (
     id BIGINT NOT NULL AUTO_INCREMENT,
     reference_type ENUM(
         'MATERIAL',
         'PROCESSING_JOB',
         'PRODUCTION_BATCH',
-        'PRODUCTION_INPUT',
-        'TRADE_DISPUTE'
+        'PRODUCTION_INPUT'
     ) NOT NULL,
     reference_id BIGINT NOT NULL,
     file_url VARCHAR(500) NOT NULL,
@@ -244,10 +260,15 @@ CREATE TABLE evidence_file (
         'PROCESS_PHOTO',
         'ETC'
     ) NOT NULL,
+    uploaded_by BIGINT NOT NULL,
     uploaded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT pk_evidence_file PRIMARY KEY (id),
-    INDEX idx_evidence_file_reference (reference_type, reference_id)
+    CONSTRAINT fk_evidence_file_uploader FOREIGN KEY (uploaded_by) REFERENCES users (id),
+    INDEX idx_evidence_file_reference (reference_type, reference_id),
+    INDEX idx_evidence_file_uploader (uploaded_by)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Processing ----------------------------------------------------------------
 
 CREATE TABLE processing_request (
     id BIGINT NOT NULL AUTO_INCREMENT,
@@ -256,8 +277,6 @@ CREATE TABLE processing_request (
     status ENUM('QUOTING', 'SELECTED', 'CANCELED', 'EXPIRED') NOT NULL DEFAULT 'QUOTING',
     expires_at DATETIME NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    canceled_at DATETIME NULL,
-    cancel_reason VARCHAR(255) NULL,
     CONSTRAINT pk_processing_request PRIMARY KEY (id),
     CONSTRAINT uk_processing_request_code UNIQUE (request_code),
     CONSTRAINT fk_processing_request_brand FOREIGN KEY (brand_id) REFERENCES users (id),
@@ -292,10 +311,12 @@ CREATE TABLE processing_request_type (
         'SURFACE_FINISHING',
         'REMANUFACTURING'
     ) NOT NULL,
+    sequence_no INT NOT NULL,
     CONSTRAINT pk_processing_request_type PRIMARY KEY (id),
-    CONSTRAINT uk_processing_request_type UNIQUE (processing_request_id, process_type),
+    CONSTRAINT uk_processing_request_type_sequence UNIQUE (processing_request_id, sequence_no),
     CONSTRAINT fk_processing_request_type_request FOREIGN KEY (processing_request_id)
-        REFERENCES processing_request (id)
+        REFERENCES processing_request (id),
+    CONSTRAINT chk_processing_request_type_sequence CHECK (sequence_no > 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE processing_quote (
@@ -329,7 +350,12 @@ CREATE TABLE processing_job (
     fee BIGINT NOT NULL,
     loss_quantity BIGINT NOT NULL DEFAULT 0,
     evidence_hash CHAR(66) NULL,
+    manifest_url VARCHAR(500) NULL,
+    payment_method ENUM('MOCK', 'KAKAO_PAY') NOT NULL,
+    payment_reference VARCHAR(100) NULL,
+    payment_amount BIGINT NOT NULL DEFAULT 0,
     status ENUM(
+        'CREATED',
         'PAID',
         'SHIPPED',
         'RECEIVED',
@@ -337,11 +363,9 @@ CREATE TABLE processing_job (
         'RESULT_SUBMITTED',
         'CONFIRMED',
         'REJECTED'
-    ) NOT NULL DEFAULT 'PAID',
-    rejection_reason TEXT NULL,
+    ) NOT NULL DEFAULT 'CREATED',
     processor_submitted_at DATETIME NULL,
-    brand_approved_at DATETIME NULL,
-    brand_rejected_at DATETIME NULL,
+    brand_reviewed_at DATETIME NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     shipped_at DATETIME NULL,
     received_at DATETIME NULL,
@@ -354,7 +378,10 @@ CREATE TABLE processing_job (
     CONSTRAINT fk_processing_job_quote FOREIGN KEY (processing_quote_id) REFERENCES processing_quote (id),
     CONSTRAINT fk_processing_job_brand FOREIGN KEY (brand_id) REFERENCES users (id),
     CONSTRAINT fk_processing_job_processor FOREIGN KEY (processor_id) REFERENCES users (id),
-    CONSTRAINT chk_processing_job_amounts CHECK (fee >= 0 AND loss_quantity >= 0),
+    CONSTRAINT chk_processing_job_amounts CHECK (
+        fee >= 0 AND loss_quantity >= 0 AND payment_amount >= 0
+    ),
+    CONSTRAINT chk_processing_job_parties CHECK (brand_id <> processor_id),
     INDEX idx_processing_job_processor_status (processor_id, status),
     INDEX idx_processing_job_brand_status (brand_id, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -366,28 +393,35 @@ CREATE TABLE processing_input (
     quantity BIGINT NOT NULL,
     material_lock_id BIGINT NOT NULL,
     CONSTRAINT pk_processing_input PRIMARY KEY (id),
-    CONSTRAINT uk_processing_input_job UNIQUE (processing_job_id),
+    CONSTRAINT uk_processing_input_job_input UNIQUE (processing_job_id, id),
     CONSTRAINT fk_processing_input_job FOREIGN KEY (processing_job_id) REFERENCES processing_job (id),
     CONSTRAINT fk_processing_input_material FOREIGN KEY (material_id) REFERENCES material (id),
     CONSTRAINT fk_processing_input_lock FOREIGN KEY (material_lock_id) REFERENCES material_lock (id),
     CONSTRAINT chk_processing_input_quantity CHECK (quantity > 0),
+    INDEX idx_processing_input_job (processing_job_id),
     INDEX idx_processing_input_material (material_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE processing_output (
     id BIGINT NOT NULL AUTO_INCREMENT,
     processing_job_id BIGINT NOT NULL,
+    processing_input_id BIGINT NOT NULL,
     output_material_id BIGINT NULL,
     material_type VARCHAR(50) NOT NULL,
+    grade VARCHAR(50) NOT NULL,
     name VARCHAR(200) NOT NULL,
     quantity BIGINT NOT NULL,
     CONSTRAINT pk_processing_output PRIMARY KEY (id),
-    CONSTRAINT fk_processing_output_job FOREIGN KEY (processing_job_id) REFERENCES processing_job (id),
+    CONSTRAINT fk_processing_output_job_input FOREIGN KEY (processing_job_id, processing_input_id)
+        REFERENCES processing_input (processing_job_id, id),
     CONSTRAINT fk_processing_output_material FOREIGN KEY (output_material_id) REFERENCES material (id),
-    CONSTRAINT chk_processing_output_quantity CHECK (quantity > 0),
-    INDEX idx_processing_output_job (processing_job_id),
+    CONSTRAINT chk_processing_output_quantity CHECK (quantity >= 0),
+    INDEX idx_processing_output_job_input (processing_job_id, processing_input_id),
+    INDEX idx_processing_output_input (processing_input_id),
     INDEX idx_processing_output_material (output_material_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Product model / Production ------------------------------------------------
 
 CREATE TABLE product_model (
     id BIGINT NOT NULL AUTO_INCREMENT,
@@ -395,8 +429,8 @@ CREATE TABLE product_model (
     category VARCHAR(50) NOT NULL,
     brand_id BIGINT NOT NULL,
     price BIGINT NOT NULL,
-    description TEXT NULL,
-    thumbnail_url VARCHAR(500) NULL,
+    description TEXT NOT NULL,
+    thumbnail_url VARCHAR(500) NOT NULL,
     status ENUM('DRAFT', 'ON_SALE', 'SOLD_OUT', 'DISCONTINUED') NOT NULL DEFAULT 'DRAFT',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT pk_product_model PRIMARY KEY (id),
@@ -419,12 +453,9 @@ CREATE TABLE production_batch (
     upcycled_used_quantity BIGINT NOT NULL DEFAULT 0,
     upcycle_ratio DECIMAL(5, 2) NOT NULL DEFAULT 0.00,
     evidence_hash CHAR(66) NULL,
+    manifest_url VARCHAR(500) NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     confirmed_at DATETIME NULL,
-    canceled_at DATETIME NULL,
-    cancel_reason VARCHAR(255) NULL,
-    failed_at DATETIME NULL,
-    failure_reason VARCHAR(255) NULL,
     CONSTRAINT pk_production_batch PRIMARY KEY (id),
     CONSTRAINT uk_production_batch_code UNIQUE (batch_code),
     CONSTRAINT fk_production_batch_model FOREIGN KEY (product_model_id) REFERENCES product_model (id),
@@ -479,6 +510,8 @@ CREATE TABLE production_output (
     INDEX idx_production_output_material (new_material_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- Product sales -------------------------------------------------------------
+
 CREATE TABLE product_item (
     id BIGINT NOT NULL AUTO_INCREMENT,
     production_batch_id BIGINT NOT NULL,
@@ -505,9 +538,10 @@ CREATE TABLE product_order (
     brand_id BIGINT NOT NULL,
     total_price BIGINT NOT NULL,
     status ENUM('CREATED', 'PAID', 'SHIPPED', 'DELIVERED') NOT NULL DEFAULT 'CREATED',
-    payment_method ENUM('POINT', 'MOCK') NOT NULL,
+    payment_method ENUM('MOCK', 'KAKAO_PAY') NOT NULL,
     payment_reference VARCHAR(100) NULL,
-    payment_deadline DATETIME NOT NULL,
+    payment_amount BIGINT NOT NULL DEFAULT 0,
+    payment_deadline DATETIME NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     paid_at DATETIME NULL,
     shipped_at DATETIME NULL,
@@ -516,7 +550,7 @@ CREATE TABLE product_order (
     CONSTRAINT uk_product_order_code UNIQUE (order_code),
     CONSTRAINT fk_product_order_buyer FOREIGN KEY (buyer_id) REFERENCES users (id),
     CONSTRAINT fk_product_order_brand FOREIGN KEY (brand_id) REFERENCES users (id),
-    CONSTRAINT chk_product_order_total_price CHECK (total_price >= 0),
+    CONSTRAINT chk_product_order_amounts CHECK (total_price >= 0 AND payment_amount >= 0),
     INDEX idx_product_order_buyer_status (buyer_id, status),
     INDEX idx_product_order_brand_status (brand_id, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -559,7 +593,7 @@ CREATE TABLE canceled_product_order (
     buyer_id BIGINT NOT NULL,
     brand_id BIGINT NOT NULL,
     total_price BIGINT NOT NULL,
-    payment_method ENUM('POINT', 'MOCK') NOT NULL,
+    payment_method ENUM('MOCK', 'KAKAO_PAY') NOT NULL,
     payment_reference VARCHAR(100) NULL,
     cancel_reason VARCHAR(255) NULL,
     original_created_at DATETIME NOT NULL,
@@ -591,8 +625,11 @@ CREATE TABLE canceled_product_order_item (
     INDEX idx_canceled_product_order_item_order (canceled_product_order_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- Marketplace / Trade -------------------------------------------------------
+
 CREATE TABLE material_listing (
     id BIGINT NOT NULL AUTO_INCREMENT,
+    chain_listing_id BIGINT NULL,
     material_id BIGINT NOT NULL,
     seller_id BIGINT NOT NULL,
     total_quantity BIGINT NOT NULL,
@@ -600,9 +637,9 @@ CREATE TABLE material_listing (
     price_per_kg BIGINT NOT NULL,
     material_lock_id BIGINT NOT NULL,
     status ENUM('ON_SALE', 'SOLD_OUT', 'CANCELED') NOT NULL DEFAULT 'ON_SALE',
-    canceled_at DATETIME NULL,
-    cancel_reason VARCHAR(255) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT pk_material_listing PRIMARY KEY (id),
+    CONSTRAINT uk_material_listing_chain_listing_id UNIQUE (chain_listing_id),
     CONSTRAINT fk_material_listing_material FOREIGN KEY (material_id) REFERENCES material (id),
     CONSTRAINT fk_material_listing_seller FOREIGN KEY (seller_id) REFERENCES users (id),
     CONSTRAINT fk_material_listing_lock FOREIGN KEY (material_lock_id) REFERENCES material_lock (id),
@@ -618,6 +655,7 @@ CREATE TABLE material_listing (
 
 CREATE TABLE material_trade (
     id BIGINT NOT NULL AUTO_INCREMENT,
+    chain_trade_id BIGINT NULL,
     trade_code VARCHAR(30) NOT NULL,
     listing_id BIGINT NOT NULL,
     material_id BIGINT NOT NULL,
@@ -627,29 +665,32 @@ CREATE TABLE material_trade (
     buyer_wallet VARCHAR(42) NOT NULL,
     quantity BIGINT NOT NULL,
     total_price BIGINT NOT NULL,
+    payment_method ENUM('MOCK', 'KAKAO_PAY') NOT NULL,
+    payment_reference VARCHAR(100) NULL,
+    payment_amount BIGINT NOT NULL DEFAULT 0,
     status ENUM(
         'CREATED',
         'PAID',
         'SHIPPED',
         'RECEIVED',
         'COMPLETED',
-        'CANCELED',
-        'DISPUTED'
+        'CANCELED'
     ) NOT NULL DEFAULT 'CREATED',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     paid_at DATETIME NULL,
     shipped_at DATETIME NULL,
     received_at DATETIME NULL,
     completed_at DATETIME NULL,
-    canceled_at DATETIME NULL,
-    cancel_reason VARCHAR(255) NULL,
     CONSTRAINT pk_material_trade PRIMARY KEY (id),
     CONSTRAINT uk_material_trade_code UNIQUE (trade_code),
+    CONSTRAINT uk_material_trade_chain_trade_id UNIQUE (chain_trade_id),
     CONSTRAINT fk_material_trade_listing FOREIGN KEY (listing_id) REFERENCES material_listing (id),
     CONSTRAINT fk_material_trade_material FOREIGN KEY (material_id) REFERENCES material (id),
     CONSTRAINT fk_material_trade_seller FOREIGN KEY (seller_id) REFERENCES users (id),
     CONSTRAINT fk_material_trade_buyer FOREIGN KEY (buyer_id) REFERENCES users (id),
-    CONSTRAINT chk_material_trade_values CHECK (quantity > 0 AND total_price >= 0),
+    CONSTRAINT chk_material_trade_values CHECK (
+        quantity > 0 AND total_price >= 0 AND payment_amount >= 0
+    ),
     CONSTRAINT chk_material_trade_parties CHECK (seller_id <> buyer_id),
     INDEX idx_material_trade_listing (listing_id),
     INDEX idx_material_trade_material (material_id),
@@ -674,77 +715,29 @@ CREATE TABLE trade_shipping (
     CONSTRAINT fk_trade_shipping_trade FOREIGN KEY (trade_id) REFERENCES material_trade (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE trade_dispute (
-    id BIGINT NOT NULL AUTO_INCREMENT,
-    trade_id BIGINT NOT NULL,
-    raised_by BIGINT NOT NULL,
-    reason_type ENUM('NOT_DELIVERED', 'QUANTITY_MISMATCH', 'CONDITION_MISMATCH') NOT NULL,
-    description TEXT NOT NULL,
-    status ENUM('OPEN', 'RESOLVED') NOT NULL DEFAULT 'OPEN',
-    resolution ENUM('BUYER_WIN', 'SELLER_WIN') NULL,
-    admin_id BIGINT NULL,
-    resolved_at DATETIME NULL,
-    CONSTRAINT pk_trade_dispute PRIMARY KEY (id),
-    CONSTRAINT fk_trade_dispute_trade FOREIGN KEY (trade_id) REFERENCES material_trade (id),
-    CONSTRAINT fk_trade_dispute_raiser FOREIGN KEY (raised_by) REFERENCES users (id),
-    CONSTRAINT fk_trade_dispute_admin FOREIGN KEY (admin_id) REFERENCES users (id),
-    INDEX idx_trade_dispute_trade (trade_id),
-    INDEX idx_trade_dispute_status (status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+-- Blockchain ----------------------------------------------------------------
 
 CREATE TABLE blockchain_transaction (
     id BIGINT NOT NULL AUTO_INCREMENT,
-    tx_hash CHAR(66) NOT NULL,
-    reference_type ENUM('MATERIAL', 'TRADE', 'PROCESSING', 'PRODUCTION', 'DISPUTE') NOT NULL,
-    reference_id BIGINT NOT NULL,
     chain_id BIGINT NOT NULL,
     contract_address VARCHAR(42) NOT NULL,
+    tx_hash CHAR(66) NOT NULL,
+    reference_type ENUM('MATERIAL', 'TRADE', 'PROCESSING', 'PRODUCTION') NOT NULL,
+    reference_id BIGINT NOT NULL,
     function_name VARCHAR(100) NOT NULL,
     from_wallet VARCHAR(42) NOT NULL,
     status ENUM('PENDING', 'SUCCESS', 'FAILED') NOT NULL DEFAULT 'PENDING',
     block_number BIGINT NULL,
+    log_index INT NULL,
     error_message TEXT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     confirmed_at DATETIME NULL,
     CONSTRAINT pk_blockchain_transaction PRIMARY KEY (id),
+    CONSTRAINT uk_blockchain_transaction_event UNIQUE (chain_id, tx_hash, log_index),
     CONSTRAINT chk_blockchain_transaction_chain CHECK (chain_id > 0),
     CONSTRAINT chk_blockchain_transaction_block CHECK (block_number IS NULL OR block_number >= 0),
+    CONSTRAINT chk_blockchain_transaction_log_index CHECK (log_index IS NULL OR log_index >= 0),
     INDEX idx_blockchain_transaction_reference (reference_type, reference_id),
+    INDEX idx_blockchain_transaction_status (status),
     INDEX idx_blockchain_transaction_hash (tx_hash)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-CREATE TABLE point_account (
-    id BIGINT NOT NULL AUTO_INCREMENT,
-    user_id BIGINT NOT NULL,
-    balance BIGINT NOT NULL DEFAULT 0,
-    locked BIGINT NOT NULL DEFAULT 0,
-    CONSTRAINT pk_point_account PRIMARY KEY (id),
-    CONSTRAINT uk_point_account_user UNIQUE (user_id),
-    CONSTRAINT fk_point_account_user FOREIGN KEY (user_id) REFERENCES users (id),
-    CONSTRAINT chk_point_account_amounts CHECK (
-        balance >= 0 AND locked >= 0 AND locked <= balance
-    )
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-CREATE TABLE point_transaction (
-    id BIGINT NOT NULL AUTO_INCREMENT,
-    user_id BIGINT NOT NULL,
-    amount BIGINT NOT NULL,
-    type ENUM(
-        'CHARGE',
-        'TRADE_PAY',
-        'TRADE_SETTLE',
-        'PROCESSING_PAY',
-        'PROCESSING_SETTLE',
-        'PRODUCT_PAY',
-        'REFUND'
-    ) NOT NULL,
-    reference_type VARCHAR(50) NOT NULL,
-    reference_id BIGINT NOT NULL,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT pk_point_transaction PRIMARY KEY (id),
-    CONSTRAINT fk_point_transaction_user FOREIGN KEY (user_id) REFERENCES users (id),
-    CONSTRAINT chk_point_transaction_amount CHECK (amount <> 0),
-    INDEX idx_point_transaction_user_created (user_id, created_at),
-    INDEX idx_point_transaction_reference (reference_type, reference_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
