@@ -6,6 +6,7 @@
   "scripts": {
     "compile": "hardhat compile",
     "test": "hardhat test",
+    "demo:flow": "hardhat run scripts/demo-flow.ts",
     "abi": "hardhat run scripts/export-abi.ts",
     "wallet:new": "ts-node scripts/generate-wallet.ts",
     "rpc:local": "hardhat run scripts/rpc-read.ts --network localhost",

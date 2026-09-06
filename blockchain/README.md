@@ -93,8 +93,11 @@ Marketplace
 npm install
 npm run compile
 npm test
+npm run demo:flow
 npm run abi
 ```
+
+`npm run demo:flow`는 별도의 노드나 MetaMask 없이 Hardhat 메모리 네트워크와 가상 지갑을 사용합니다. 매 실행마다 컨트랙트를 새로 배포하고 Supplier 발행·원천 검증, Marketplace 잠금·주문·결제 확인·배송·수령, Brand 거래 검증, Processor 가공 검증까지 한 번에 출력합니다. 실행이 끝나면 메모리 네트워크의 데이터도 사라집니다.
 
 ## RPC Checks
 
