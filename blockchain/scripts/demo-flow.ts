@@ -96,8 +96,8 @@ async function main() {
       .mintMaterial(
         supplier.address,
         20_000,
-        2,
-        "ipfs://material/recovered-denim.json",
+        1,
+        "ipfs://material/waste-denim.json",
         sourceEvidenceHash
       )
   );
@@ -121,11 +121,7 @@ async function main() {
     (await materialToken.balanceOf(supplier.address, materialId)).toString(),
     "g"
   );
-  console.log(
-    "Verification: SOURCE_VERIFIED(",
-    (await materialToken.materialInfo(materialId)).verificationState.toString(),
-    ")"
-  );
+  console.log("Verification: SOURCE_VERIFIED (SourceVerified event에서 파생)");
 
   const listingReceipt = await waitForReceipt(
     marketplace.connect(supplier).createListing(materialId, 20_000, 30_000)
@@ -199,20 +195,9 @@ async function main() {
       .connect(brand)
       .verifyTransaction(materialId, orderId, sha256("trade-manifest-1.json"))
   );
-  await waitForReceipt(
-    materialToken
-      .connect(processor)
-      .verifyProcessing(materialId, 501, sha256("processing-manifest-501.json"))
-  );
-
-  console.log("\n=== 8. Brand 거래 서명 및 Processor 가공 서명 ===");
+  console.log("\n=== 8. Brand 거래 서명 ===");
   console.log("Brand signer:", brand.address);
-  console.log("Processor signer:", processor.address);
-  console.log(
-    "Final verification: PROCESSING_VERIFIED(",
-    (await materialToken.materialInfo(materialId)).verificationState.toString(),
-    ")"
-  );
+  console.log("Processing 검증은 ProcessingRegistry의 결과 제출 + Brand 승인 흐름에서 파생됩니다.");
   console.log("\n데모 완료");
 }
 

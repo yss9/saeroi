@@ -117,4 +117,15 @@ describe("Processing/Production 통합", function () {
     await expect(production.connect(brand).submitPlanAndLock(1, hash("batch"), [1], [20_000], [10_000], [2_000], [1_000], ["ipfs://scrap"], [hash("scrap")]))
       .to.be.revertedWith("Production: quantity not conserved");
   });
+
+  it("Production 온체인 처리 실패 시 모든 잠금을 해제한다", async function () {
+    const { brand, token, production } = await fixture();
+    await production.connect(brand).createBatch(1);
+    await production.connect(brand).submitPlanAndLock(
+      1, hash("batch"), [1], [20_000], [18_000], [1_000], [1_000], ["ipfs://scrap"], [hash("scrap")]
+    );
+    await production.markFailed(1);
+    expect((await production.getBatch(1)).status).to.equal(4);
+    expect(await token.availableBalance(brand.address, 1)).to.equal(20_000);
+  });
 });

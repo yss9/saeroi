@@ -13,6 +13,7 @@
     "rpc:ssafy": "hardhat run scripts/rpc-read.ts --network ssafy",
     "tx:local": "hardhat run scripts/send-transaction.ts --network localhost",
     "tx:ssafy": "hardhat run scripts/send-transaction.ts --network ssafy",
+    "receipt:ssafy": "hardhat run scripts/receipt-event.ts --network ssafy",
     "deploy:local": "hardhat run scripts/deploy.ts --network localhost",
     "deploy:ssafy": "hardhat run scripts/deploy.ts --network ssafy"
   },

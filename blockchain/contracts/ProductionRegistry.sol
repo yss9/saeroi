@@ -7,6 +7,7 @@ interface IProductionMaterialToken {
     function availableBalance(address owner, uint256 tokenId) external view returns (uint256);
     function rootOriginOf(uint256 tokenId) external view returns (uint8);
     function createMaterialLock(address owner, uint256 tokenId, uint256 amount, uint8 purpose, uint256 referenceId) external returns (uint256);
+    function releaseMaterialLock(uint256 lockId, uint256 amount) external;
     function consumeLockedMaterial(uint256 lockId, uint256 referenceId, uint8 purpose, uint8 reason) external returns (uint256, uint256);
     function mintDerivedMaterial(address to, uint256 amount, uint8 rootOrigin, uint8 generationType, string calldata metadataUri, bytes32 evidenceHash) external returns (uint256);
 }
@@ -19,7 +20,7 @@ contract ProductionRegistry is AccessControl {
     uint8 private constant PRODUCTION_REASON = 1;
     uint8 private constant SCRAP_GENERATION = 2;
 
-    enum Status { NONE, DRAFT, SIGNING, CONFIRMED, CANCELLED }
+    enum Status { NONE, DRAFT, SIGNING, CONFIRMED, FAILED, CANCELLED }
     struct MaterialUse {
         uint256 tokenId; uint256 inputAmount; uint256 productUsed; uint256 scrap; uint256 waste;
         uint256 lockId; uint8 rootOrigin; string scrapMetadataUri; bytes32 scrapEvidenceHash; uint256 scrapTokenId;
@@ -93,6 +94,17 @@ contract ProductionRegistry is AccessControl {
             }
         }
         emit ProductionConfirmed(batchId, batch.brand, batch.productQuantity, batch.evidenceHash, block.timestamp);
+    }
+
+    /// @notice 서명 이후 온체인 처리 실패 시 배치를 종료하고 모든 PRODUCTION Lock을 해제한다.
+    function markFailed(uint256 batchId) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        Batch storage batch = _batch(batchId);
+        require(batch.status == Status.SIGNING, "Production: invalid status");
+        batch.status = Status.FAILED;
+        MaterialUse[] storage uses = _uses[batchId];
+        for (uint256 i; i < uses.length; ++i) {
+            materialToken.releaseMaterialLock(uses[i].lockId, uses[i].inputAmount);
+        }
     }
 
     function linkProductItems(uint256 batchId, uint256[] calldata productItemIds) external {

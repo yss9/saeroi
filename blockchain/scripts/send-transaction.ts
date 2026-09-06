@@ -45,9 +45,15 @@ async function main() {
   if (!receipt) {
     throw new Error("Transaction receipt was not returned");
   }
+  if (receipt.status !== 1) {
+    throw new Error(`Transaction failed: ${tx.hash}`);
+  }
 
   const senderBalanceAfter = await provider.getBalance(sender.address);
   const receiverBalanceAfter = await provider.getBalance(receiver);
+  if (receiverBalanceAfter - receiverBalanceBefore !== amount) {
+    throw new Error("Receiver balance did not increase by the transfer amount");
+  }
 
   console.log("receipt.status:", receipt.status);
   console.log("receipt.blockNumber:", receipt.blockNumber);
