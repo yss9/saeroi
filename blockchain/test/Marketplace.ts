@@ -22,6 +22,7 @@ const OrderStatus = {
   DISPUTED: 7
 };
 const LockStatus = { NONE: 0, ACTIVE: 1, RELEASED: 2, CONSUMED: 3 };
+const DisputeResolution = { NONE: 0, RETURN_TO_SELLER: 1, TRANSFER_TO_BUYER: 2 };
 
 describe("마켓플레이스(Marketplace)", function () {
   async function deployFixture() {
@@ -55,7 +56,7 @@ describe("마켓플레이스(Marketplace)", function () {
       .mintMaterial(
         supplier.address,
         50_000,
-        2,
+        1,
         METADATA_URI,
         EVIDENCE_HASH
       );
@@ -234,6 +235,36 @@ describe("마켓플레이스(Marketplace)", function () {
     expect((await marketplace.getListing(1)).reservedQuantity).to.equal(5_000);
 
     await marketplace.connect(brand).cancelOrder(1);
+    expect((await materialToken.materialLockInfo(1)).status).to.equal(LockStatus.RELEASED);
+    expect(await materialToken.availableBalance(supplier.address, tokenId)).to.equal(50_000);
+  });
+
+  it("배송 후 분쟁은 관리자 판정 없이 양 당사자의 동일한 서명으로 Buyer 이전한다", async function () {
+    const { materialToken, marketplace, admin, supplier, brand, tokenId } = await deployFixture();
+    await marketplace.connect(supplier).createListing(tokenId, 10_000, 10_000);
+    await marketplace.connect(brand).createOrder(1, 5_000);
+    await marketplace.connect(admin).markPaid(1, PAYMENT_REFERENCE_HASH);
+    await marketplace.connect(supplier).markShipped(1);
+    const reasonHash = ethers.keccak256(ethers.toUtf8Bytes("delivery dispute"));
+    await marketplace.connect(brand).openDispute(1, reasonHash);
+    await marketplace.connect(supplier).signDisputeResolution(1, DisputeResolution.TRANSFER_TO_BUYER);
+    expect((await marketplace.getOrder(1)).status).to.equal(OrderStatus.DISPUTED);
+    await expect(marketplace.connect(brand).signDisputeResolution(1, DisputeResolution.TRANSFER_TO_BUYER))
+      .to.emit(marketplace, "DisputeSettled");
+    expect((await marketplace.getOrder(1)).status).to.equal(OrderStatus.COMPLETED);
+    expect(await materialToken.balanceOf(brand.address, tokenId)).to.equal(5_000);
+  });
+
+  it("분쟁 합의가 RETURN_TO_SELLER이면 주문 수량의 Lock을 해제한다", async function () {
+    const { materialToken, marketplace, admin, supplier, brand, tokenId } = await deployFixture();
+    await marketplace.connect(supplier).createListing(tokenId, 5_000, 10_000);
+    await marketplace.connect(brand).createOrder(1, 5_000);
+    await marketplace.connect(admin).markPaid(1, PAYMENT_REFERENCE_HASH);
+    await marketplace.connect(supplier).markShipped(1);
+    await marketplace.connect(supplier).openDispute(1, PAYMENT_REFERENCE_HASH);
+    await marketplace.connect(supplier).signDisputeResolution(1, DisputeResolution.RETURN_TO_SELLER);
+    await marketplace.connect(brand).signDisputeResolution(1, DisputeResolution.RETURN_TO_SELLER);
+    expect((await marketplace.getOrder(1)).status).to.equal(OrderStatus.CANCELLED);
     expect((await materialToken.materialLockInfo(1)).status).to.equal(LockStatus.RELEASED);
     expect(await materialToken.availableBalance(supplier.address, tokenId)).to.equal(50_000);
   });

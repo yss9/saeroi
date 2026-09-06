@@ -15,6 +15,10 @@ function formatOptionalAddress(address?: string) {
 async function main() {
   const provider = ethers.provider;
   const rpcNetwork = await provider.getNetwork();
+  const expectedChainId = process.env.SSAFY_CHAIN_ID;
+  if (network.name === "ssafy" && expectedChainId && rpcNetwork.chainId !== BigInt(expectedChainId)) {
+    throw new Error(`SSAFY chainId mismatch: expected ${expectedChainId}, received ${rpcNetwork.chainId}`);
+  }
   const blockNumber = await provider.getBlockNumber();
   const feeData = await provider.getFeeData();
   const signers = await ethers.getSigners();
