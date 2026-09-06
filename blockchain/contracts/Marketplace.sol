@@ -45,6 +45,8 @@ contract Marketplace is AccessControl {
         DISPUTED
     }
 
+    enum DisputeResolution { NONE, RETURN_TO_SELLER, TRANSFER_TO_BUYER }
+
     struct Listing {
         uint256 id;
         uint256 materialId;
@@ -69,6 +71,14 @@ contract Marketplace is AccessControl {
         OrderStatus status;
     }
 
+    struct Dispute {
+        bytes32 reasonHash;
+        DisputeResolution sellerChoice;
+        DisputeResolution buyerChoice;
+        uint64 openedAt;
+        uint64 settledAt;
+    }
+
     uint8 private constant LOCK_PURPOSE_MARKETPLACE = 0;
 
     IMaterialToken public immutable materialToken;
@@ -77,6 +87,7 @@ contract Marketplace is AccessControl {
 
     mapping(uint256 listingId => Listing listing) private _listings;
     mapping(uint256 orderId => Order order) private _orders;
+    mapping(uint256 orderId => Dispute dispute) private _disputes;
 
     event ListingCreated(
         uint256 indexed listingId,
@@ -117,6 +128,9 @@ contract Marketplace is AccessControl {
         uint256 materialId,
         uint256 quantity
     );
+    event DisputeOpened(uint256 indexed orderId, address indexed opener, bytes32 reasonHash, uint256 occurredAt);
+    event DisputeSigned(uint256 indexed orderId, address indexed signer, DisputeResolution resolution, uint256 occurredAt);
+    event DisputeSettled(uint256 indexed orderId, DisputeResolution resolution, address seller, address buyer, uint256 occurredAt);
 
     constructor(address materialTokenAddress, address admin) {
         require(materialTokenAddress != address(0), "Marketplace: material token is zero address");
@@ -315,6 +329,46 @@ contract Marketplace is AccessControl {
         _changeOrderStatus(order, OrderStatus.CANCELLED);
     }
 
+    /// @notice 배송 이후 거래 당사자가 증빙 Manifest 해시를 근거로 분쟁을 연다.
+    function openDispute(uint256 orderId, bytes32 reasonHash) external {
+        Order storage order = _orders[orderId];
+        require(order.status == OrderStatus.SHIPPED, "Marketplace: order is not disputable");
+        require(order.buyer == _msgSender() || order.seller == _msgSender(), "Marketplace: caller is not trade participant");
+        require(reasonHash != bytes32(0), "Marketplace: reason is empty");
+        Dispute storage dispute = _disputes[orderId];
+        require(dispute.openedAt == 0, "Marketplace: dispute already exists");
+        dispute.reasonHash = reasonHash;
+        dispute.openedAt = uint64(block.timestamp);
+        _changeOrderStatus(order, OrderStatus.DISPUTED);
+        emit DisputeOpened(orderId, _msgSender(), reasonHash, block.timestamp);
+    }
+
+    /// @notice ADMIN 판정 없이 Seller와 Buyer가 동일한 처리 결과에 각각 서명한다.
+    function signDisputeResolution(uint256 orderId, DisputeResolution resolution) external {
+        Order storage order = _orders[orderId];
+        require(order.status == OrderStatus.DISPUTED, "Marketplace: order is not disputed");
+        require(resolution != DisputeResolution.NONE, "Marketplace: resolution is empty");
+        Dispute storage dispute = _disputes[orderId];
+        if (_msgSender() == order.seller) dispute.sellerChoice = resolution;
+        else if (_msgSender() == order.buyer) dispute.buyerChoice = resolution;
+        else revert("Marketplace: caller is not trade participant");
+        emit DisputeSigned(orderId, _msgSender(), resolution, block.timestamp);
+        if (dispute.sellerChoice == resolution && dispute.buyerChoice == resolution) {
+            Listing storage listing = _listings[order.listingId];
+            listing.reservedQuantity -= order.quantity;
+            dispute.settledAt = uint64(block.timestamp);
+            if (resolution == DisputeResolution.RETURN_TO_SELLER) {
+                materialToken.releaseMaterialLock(listing.materialLockId, order.quantity);
+                _changeOrderStatus(order, OrderStatus.CANCELLED);
+            } else {
+                materialToken.consumeMaterialLock(listing.materialLockId, order.buyer, order.quantity);
+                _changeOrderStatus(order, OrderStatus.COMPLETED);
+                emit MaterialTransferred(orderId, order.seller, order.buyer, order.materialId, order.quantity);
+            }
+            emit DisputeSettled(orderId, resolution, order.seller, order.buyer, block.timestamp);
+        }
+    }
+
     function calculateTotalPrice(uint256 quantityGram, uint256 pricePerKg)
         external
         pure
@@ -342,6 +396,8 @@ contract Marketplace is AccessControl {
     function getOrder(uint256 orderId) external view returns (Order memory) {
         return _orders[orderId];
     }
+
+    function getDispute(uint256 orderId) external view returns (Dispute memory) { return _disputes[orderId]; }
 
     function _calculateTotalPrice(uint256 quantityGram, uint256 pricePerKg)
         private

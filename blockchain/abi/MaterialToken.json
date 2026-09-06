@@ -230,6 +230,61 @@
       },
       {
         "indexed": true,
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "referenceId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "enum MaterialToken.LockPurpose",
+        "name": "purpose",
+        "type": "uint8"
+      },
+      {
+        "indexed": false,
+        "internalType": "enum MaterialToken.BurnReason",
+        "name": "reason",
+        "type": "uint8"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "remainingSupply",
+        "type": "uint256"
+      }
+    ],
+    "name": "MaterialLockBurned",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "lockId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
         "internalType": "address",
         "name": "to",
         "type": "address"
@@ -377,37 +432,6 @@
       }
     ],
     "name": "MaterialMinted",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      },
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "processingJobId",
-        "type": "uint256"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "signer",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "evidenceHash",
-        "type": "bytes32"
-      }
-    ],
-    "name": "ProcessingVerified",
     "type": "event"
   },
   {
@@ -675,6 +699,19 @@
   },
   {
     "inputs": [],
+    "name": "MATERIAL_WORKFLOW_ROLE",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "PROCESSOR_ROLE",
     "outputs": [
       {
@@ -796,6 +833,45 @@
     ],
     "name": "burnMaterial",
     "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "lockId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "expectedReferenceId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "enum MaterialToken.LockPurpose",
+        "name": "expectedPurpose",
+        "type": "uint8"
+      },
+      {
+        "internalType": "enum MaterialToken.BurnReason",
+        "name": "reason",
+        "type": "uint8"
+      }
+    ],
+    "name": "consumeLockedMaterial",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
     "stateMutability": "nonpayable",
     "type": "function"
   },
@@ -1013,11 +1089,6 @@
             "type": "uint8"
           },
           {
-            "internalType": "enum MaterialToken.VerificationState",
-            "name": "verificationState",
-            "type": "uint8"
-          },
-          {
             "internalType": "enum MaterialToken.MaterialStatus",
             "name": "status",
             "type": "uint8"
@@ -1105,6 +1176,50 @@
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "enum MaterialToken.RootOrigin",
+        "name": "rootOrigin",
+        "type": "uint8"
+      },
+      {
+        "internalType": "enum MaterialToken.GenerationType",
+        "name": "generationType",
+        "type": "uint8"
+      },
+      {
+        "internalType": "string",
+        "name": "metadataUri",
+        "type": "string"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "evidenceHash",
+        "type": "bytes32"
+      }
+    ],
+    "name": "mintDerivedMaterial",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -1243,6 +1358,25 @@
     "name": "revokeRole",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      }
+    ],
+    "name": "rootOriginOf",
+    "outputs": [
+      {
+        "internalType": "enum MaterialToken.RootOrigin",
+        "name": "",
+        "type": "uint8"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -1435,29 +1569,6 @@
       }
     ],
     "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "processingJobId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "bytes32",
-        "name": "evidenceHash",
-        "type": "bytes32"
-      }
-    ],
-    "name": "verifyProcessing",
-    "outputs": [],
-    "stateMutability": "nonpayable",
     "type": "function"
   },
   {

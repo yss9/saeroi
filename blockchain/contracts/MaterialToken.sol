@@ -14,12 +14,13 @@ contract MaterialToken is ERC1155, AccessControl {
     bytes32 public constant BRAND_ROLE = keccak256("BRAND_ROLE");
     bytes32 public constant MATERIAL_LOCK_MANAGER_ROLE =
         keccak256("MATERIAL_LOCK_MANAGER_ROLE");
+    bytes32 public constant MATERIAL_WORKFLOW_ROLE =
+        keccak256("MATERIAL_WORKFLOW_ROLE");
 
     /// @notice 소재가 처음 생성된 원천이다.
     enum RootOrigin {
         VIRGIN,
-        WASTE,
-        RECOVERED
+        WASTE
     }
 
     /// @notice 소재가 플랫폼에서 생성된 방식이다.
@@ -73,7 +74,6 @@ contract MaterialToken is ERC1155, AccessControl {
         uint256 totalBurned;
         RootOrigin rootOrigin;
         GenerationType generationType;
-        VerificationState verificationState;
         MaterialStatus status;
         address registrant;
         bool exists;
@@ -140,12 +140,6 @@ contract MaterialToken is ERC1155, AccessControl {
         address indexed signer,
         bytes32 evidenceHash
     );
-    event ProcessingVerified(
-        uint256 indexed tokenId,
-        uint256 indexed processingJobId,
-        address indexed signer,
-        bytes32 evidenceHash
-    );
     event MaterialLockCreated(
         uint256 indexed lockId,
         address indexed operator,
@@ -166,6 +160,16 @@ contract MaterialToken is ERC1155, AccessControl {
         uint256 amount,
         uint256 remainingAmount
     );
+    event MaterialLockBurned(
+        uint256 indexed lockId,
+        uint256 indexed tokenId,
+        uint256 indexed referenceId,
+        address owner,
+        uint256 amount,
+        LockPurpose purpose,
+        BurnReason reason,
+        uint256 remainingSupply
+    );
 
     constructor(string memory baseUri, address admin) ERC1155(baseUri) {
         require(admin != address(0), "MaterialToken: admin is zero address");
@@ -175,6 +179,43 @@ contract MaterialToken is ERC1155, AccessControl {
         _grantRole(PROCESSOR_ROLE, admin);
         _grantRole(BRAND_ROLE, admin);
         _grantRole(MATERIAL_LOCK_MANAGER_ROLE, admin);
+        _grantRole(MATERIAL_WORKFLOW_ROLE, admin);
+    }
+
+    /// @notice Processing/Production Registry가 승인된 결과 소재를 발행한다.
+    function mintDerivedMaterial(
+        address to,
+        uint256 amount,
+        RootOrigin rootOrigin,
+        GenerationType generationType,
+        string calldata metadataUri,
+        bytes32 evidenceHash
+    ) external onlyRole(MATERIAL_WORKFLOW_ROLE) returns (uint256 tokenId) {
+        require(to != address(0), "MaterialToken: to is zero address");
+        require(amount > 0, "MaterialToken: amount is zero");
+        require(
+            generationType != GenerationType.INITIAL,
+            "MaterialToken: derived generation type required"
+        );
+        require(evidenceHash != bytes32(0), "MaterialToken: evidenceHash is empty");
+
+        tokenId = nextMaterialId++;
+        _materials[tokenId] = MaterialInfo({
+            metadataUri: metadataUri,
+            evidenceHash: evidenceHash,
+            totalMinted: amount,
+            totalBurned: 0,
+            rootOrigin: rootOrigin,
+            generationType: generationType,
+            status: MaterialStatus.ACTIVE,
+            registrant: _msgSender(),
+            exists: true
+        });
+        _mint(to, tokenId, amount, "");
+        emit MaterialMinted(
+            _msgSender(), to, tokenId, amount, rootOrigin, generationType,
+            metadataUri, evidenceHash
+        );
     }
 
     /// @notice 공급자가 최초 소재를 발행한다.
@@ -203,7 +244,6 @@ contract MaterialToken is ERC1155, AccessControl {
             totalBurned: 0,
             rootOrigin: rootOrigin,
             generationType: GenerationType.INITIAL,
-            verificationState: VerificationState.REGISTERED,
             status: MaterialStatus.ACTIVE,
             registrant: _msgSender(),
             exists: true
@@ -231,13 +271,9 @@ contract MaterialToken is ERC1155, AccessControl {
         MaterialInfo storage material = _materials[tokenId];
         require(material.exists, "MaterialToken: material does not exist");
         require(material.registrant == _msgSender(), "MaterialToken: caller is not registrant");
-        require(
-            material.verificationState == VerificationState.REGISTERED,
-            "MaterialToken: invalid verification state"
-        );
+        require(_verificationRecords[tokenId][VerificationState.SOURCE_VERIFIED].signer == address(0), "MaterialToken: source already verified");
         require(material.evidenceHash == evidenceHash, "MaterialToken: evidenceHash mismatch");
 
-        material.verificationState = VerificationState.SOURCE_VERIFIED;
         _storeVerification(
             tokenId,
             VerificationState.SOURCE_VERIFIED,
@@ -255,15 +291,12 @@ contract MaterialToken is ERC1155, AccessControl {
     ) external onlyRole(BRAND_ROLE) {
         MaterialInfo storage material = _materials[tokenId];
         require(material.exists, "MaterialToken: material does not exist");
-        require(
-            material.verificationState == VerificationState.SOURCE_VERIFIED,
-            "MaterialToken: invalid verification state"
-        );
+        require(_verificationRecords[tokenId][VerificationState.SOURCE_VERIFIED].signer != address(0), "MaterialToken: source is not verified");
+        require(_verificationRecords[tokenId][VerificationState.TRANSACTION_VERIFIED].signer == address(0), "MaterialToken: transaction already verified");
         require(balanceOf(_msgSender(), tokenId) > 0, "MaterialToken: brand has no material balance");
         require(tradeId > 0, "MaterialToken: tradeId is zero");
         require(evidenceHash != bytes32(0), "MaterialToken: evidenceHash is empty");
 
-        material.verificationState = VerificationState.TRANSACTION_VERIFIED;
         _storeVerification(
             tokenId,
             VerificationState.TRANSACTION_VERIFIED,
@@ -271,37 +304,6 @@ contract MaterialToken is ERC1155, AccessControl {
             tradeId
         );
         emit TransactionVerified(tokenId, tradeId, _msgSender(), evidenceHash);
-    }
-
-    /// @notice Processor가 가공 결과 manifest를 자신의 지갑으로 서명한다.
-    /// @dev Child Material 생성과 Brand 승인 흐름은 Processing 구현 단계에서 별도로 추가한다.
-    function verifyProcessing(
-        uint256 tokenId,
-        uint256 processingJobId,
-        bytes32 evidenceHash
-    ) external onlyRole(PROCESSOR_ROLE) {
-        MaterialInfo storage material = _materials[tokenId];
-        require(material.exists, "MaterialToken: material does not exist");
-        require(
-            material.verificationState == VerificationState.TRANSACTION_VERIFIED,
-            "MaterialToken: invalid verification state"
-        );
-        require(processingJobId > 0, "MaterialToken: processingJobId is zero");
-        require(evidenceHash != bytes32(0), "MaterialToken: evidenceHash is empty");
-
-        material.verificationState = VerificationState.PROCESSING_VERIFIED;
-        _storeVerification(
-            tokenId,
-            VerificationState.PROCESSING_VERIFIED,
-            evidenceHash,
-            processingJobId
-        );
-        emit ProcessingVerified(
-            tokenId,
-            processingJobId,
-            _msgSender(),
-            evidenceHash
-        );
     }
 
     /// @notice 작업 단위의 잠금 레코드를 만들고 owner의 가용 수량을 줄인다.
@@ -397,6 +399,46 @@ contract MaterialToken is ERC1155, AccessControl {
         emit MaterialLockConsumed(lockId, to, amount, materialLock.remainingAmount);
     }
 
+    /// @notice 업무 Registry가 Processing/Production 잠금을 전송 없이 소각한다.
+    function consumeLockedMaterial(
+        uint256 lockId,
+        uint256 expectedReferenceId,
+        LockPurpose expectedPurpose,
+        BurnReason reason
+    ) external onlyRole(MATERIAL_WORKFLOW_ROLE) returns (uint256 tokenId, uint256 amount) {
+        MaterialLock storage materialLock = _materialLocks[lockId];
+        require(materialLock.status == LockStatus.ACTIVE, "MaterialToken: lock is not active");
+        require(materialLock.operator == _msgSender(), "MaterialToken: caller is not lock operator");
+        require(materialLock.referenceId == expectedReferenceId, "MaterialToken: lock reference mismatch");
+        require(materialLock.purpose == expectedPurpose, "MaterialToken: lock purpose mismatch");
+        require(
+            (expectedPurpose == LockPurpose.PROCESSING && reason == BurnReason.PROCESSING) ||
+            (expectedPurpose == LockPurpose.PRODUCTION && reason == BurnReason.PRODUCTION),
+            "MaterialToken: purpose and reason mismatch"
+        );
+
+        tokenId = materialLock.tokenId;
+        amount = materialLock.remainingAmount;
+        address owner = materialLock.owner;
+        materialLock.remainingAmount = 0;
+        materialLock.status = LockStatus.CONSUMED;
+        _lockedBalances[owner][tokenId] -= amount;
+
+        MaterialInfo storage material = _materials[tokenId];
+        material.totalBurned += amount;
+        _burn(owner, tokenId, amount);
+        uint256 remaining = material.totalMinted - material.totalBurned;
+        if (remaining == 0) {
+            material.status = MaterialStatus.DEPLETED;
+            emit MaterialDepleted(tokenId);
+        }
+        emit MaterialBurned(_msgSender(), owner, tokenId, amount, reason, remaining);
+        emit MaterialLockBurned(
+            lockId, tokenId, expectedReferenceId, owner, amount,
+            expectedPurpose, reason, remaining
+        );
+    }
+
     /// @notice 보유자의 가용 소재를 소각하고 누적 소각량을 기록한다.
     function burnMaterial(
         address from,
@@ -455,6 +497,11 @@ contract MaterialToken is ERC1155, AccessControl {
     function remainingSupply(uint256 tokenId) public view returns (uint256) {
         MaterialInfo storage material = _materials[tokenId];
         return material.totalMinted - material.totalBurned;
+    }
+
+    function rootOriginOf(uint256 tokenId) external view returns (RootOrigin) {
+        require(_materials[tokenId].exists, "MaterialToken: material does not exist");
+        return _materials[tokenId].rootOrigin;
     }
 
     function lockedBalanceOf(address owner, uint256 tokenId)

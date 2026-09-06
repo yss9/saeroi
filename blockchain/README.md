@@ -32,11 +32,11 @@ Solidity + Hardhat 기반 소재 이력·거래 스마트 컨트랙트 프로젝
 - DB의 `material.id`를 온체인 ID로 직접 사용하지 않습니다. 백엔드는 `MaterialMinted` 이벤트에서 `tokenId`를 읽어 DB에 매핑합니다.
 - 수량은 gram 정수 단위입니다. 예: 50kg = 50000g.
 - 최초 발행은 `SUPPLIER_ROLE`만 가능하며 `generationType`은 `INITIAL`로 기록됩니다.
-- `rootOrigin`은 `VIRGIN`, `WASTE`, `RECOVERED` 중 하나입니다.
+- `rootOrigin`은 MVP 정책에 따라 `VIRGIN`, `WASTE` 중 하나입니다.
 - 소재 자체 상태는 `ACTIVE`, `DEPLETED`만 관리합니다. 판매·배송 상태는 `Marketplace`에서 관리합니다.
 - 증빙 manifest는 백엔드에서 SHA-256으로 계산한 뒤 `bytes32`로 저장합니다. DB에는 `0x`를 포함한 66자 hex 문자열로 저장합니다.
-- 증빙 상태는 `REGISTERED → SOURCE_VERIFIED → TRANSACTION_VERIFIED → PROCESSING_VERIFIED` 순서로 진행합니다. `PRODUCT_LINKED`는 후속 Production 구현을 위해 예약합니다.
-- 최초 등록 Supplier가 `verifySource`, 소재를 인수해 잔액을 보유한 Brand가 `verifyTransaction`, Processor가 `verifyProcessing`을 각자 자신의 지갑으로 직접 호출합니다.
+- 검증 단계는 상태값으로 중복 저장하지 않고 Supplier 서명, 거래 수령 서명, Processing 승인, Production 확정 기록에서 조회 시 파생합니다.
+- 최초 등록 Supplier는 `verifySource`, 소재를 인수한 Brand는 `verifyTransaction`을 직접 호출하며 Processing 검증은 Processor 제출과 Brand 승인이 모두 완료되어야 확정됩니다.
 - 각 검증 단계에는 signer, SHA-256 증빙 해시, 거래/가공 참조 ID, 블록 시간이 별도 기록됩니다.
 - 잠금은 합계만 저장하지 않고 각 업무별 `lockId`, 소유자, 소재, 수량, 용도, 참조 ID, 상태를 기록합니다.
 - 잠금 용도는 `MARKETPLACE`, `PROCESSING`, `PRODUCTION`입니다.
