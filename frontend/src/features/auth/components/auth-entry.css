@@ -375,6 +375,103 @@
   text-align: center;
 }
 
+.business-signup__roles {
+  margin: 0 0 30px;
+  padding: 0;
+  border: 0;
+}
+
+.business-signup__roles > legend,
+.business-signup__section h2 {
+  padding: 0;
+  color: var(--auth-blue-dark);
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.business-signup__roles > p {
+  margin: 7px 0 15px;
+  color: #718092;
+  font-size: 0.85rem;
+}
+
+.business-signup__role-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.business-signup__role {
+  position: relative;
+  display: flex;
+  min-height: 150px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 18px 12px;
+  border: 1px solid #dfe3e7;
+  border-radius: 13px;
+  background: #fff;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.business-signup__role:hover,
+.business-signup__role--selected {
+  border-color: var(--auth-blue);
+  background: rgb(33 106 159 / 0.055);
+  box-shadow: 0 8px 20px rgb(33 106 159 / 0.09);
+}
+
+.business-signup__role input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.business-signup__role:has(input:focus-visible) {
+  outline: 3px solid rgb(33 106 159 / 0.24);
+  outline-offset: 3px;
+}
+
+.business-signup__role svg {
+  width: 28px;
+  height: 28px;
+  margin-bottom: 10px;
+  color: var(--auth-blue);
+}
+
+.business-signup__role strong {
+  color: #283546;
+  font-size: 0.94rem;
+}
+
+.business-signup__role span {
+  margin-top: 5px;
+  color: #718092;
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.business-signup__roles .business-signup__role-error {
+  margin: 9px 0 0;
+  color: var(--ui-color-danger);
+  font-size: 0.8rem;
+}
+
+.business-signup__section {
+  margin-bottom: 24px;
+  padding-top: 26px;
+  border-top: 1px solid #eaedf0;
+}
+
+.business-signup__section h2 {
+  margin: 0 0 18px;
+}
+
 @media (max-width: 680px) {
   .auth-entry__header {
     width: min(100% - 32px, 1120px);
@@ -418,5 +515,24 @@
 
   .consumer-signup__agreements {
     padding: 18px 15px;
+  }
+
+  .business-signup__role-list {
+    grid-template-columns: 1fr;
+  }
+
+  .business-signup__role {
+    min-height: 0;
+    align-items: flex-start;
+    padding: 18px 20px 18px 58px;
+    text-align: left;
+  }
+
+  .business-signup__role svg {
+    position: absolute;
+    top: 50%;
+    left: 19px;
+    margin: 0;
+    transform: translateY(-50%);
   }
 }
