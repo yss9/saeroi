@@ -4,9 +4,13 @@ import { MaterialBalanceTable } from '../../features/material/components/Materia
 import { MaterialLineageTree } from '../../features/material/components/MaterialLineageTree.tsx'
 import { useMaterial } from '../../features/material/hooks/useMaterial.ts'
 import {
+  FIBER_TYPE_LABEL,
   GRADE_LABEL,
+  ORIGIN_REASON_LABEL,
   ROOT_ORIGIN_LABEL,
+  type MaterialCompositionItem,
   type MaterialDetail,
+  type MaterialFiberType,
 } from '../../features/material/types/material.types.ts'
 import { formatKg } from '../../utils/quantity.ts'
 
@@ -72,6 +76,19 @@ export function MaterialDetailPage() {
             <dt>규격</dt>
             <dd>{formatDimensions(data)}</dd>
           </div>
+          {/*
+            신소재면 발생 사유 자체가 없는 개념이라 줄을 그리지 않는다.
+            "미지정" 으로 두면 입력을 빠뜨린 것처럼 보인다.
+          */}
+          {data.rootOrigin === 'WASTE' && (
+            <div>
+              <dt>발생 사유</dt>
+              <dd>
+                {data.originReason ? ORIGIN_REASON_LABEL[data.originReason] : '미지정'}
+                {data.originReasonNote && ` · ${data.originReasonNote}`}
+              </dd>
+            </div>
+          )}
           <div>
             <dt>등록일</dt>
             <dd>{formatDate(data.createdAt)}</dd>
@@ -99,6 +116,34 @@ export function MaterialDetailPage() {
               <dd>{data.chainId}</dd>
             </div>
           </dl>
+        )}
+      </section>
+
+      <section aria-labelledby="material-composition">
+        <h2 id="material-composition">구성</h2>
+        {data.composition.length === 0 ? (
+          <EmptyState
+            title="구성 정보가 없습니다"
+            description="등록 시 혼방 비율을 입력하면 여기에 표시됩니다."
+          />
+        ) : (
+          <>
+            <dl className="material-detail__info">
+              {/* 서버가 비율 내림차순으로 정렬해 준다. 여기서 다시 정렬하지 않는다 —
+                  양쪽에서 정렬하면 같은 소재의 줄 순서가 화면마다 달라 보인다. */}
+              {data.composition.map((row) => (
+                <div key={row.fiberType}>
+                  <dt>{fiberLabel(row.fiberType)}</dt>
+                  <dd>{row.percentage}%</dd>
+                </div>
+              ))}
+            </dl>
+            {/* 합계가 100 미만인 것은 정상이다. 모르는 부분을 지어내지 않은 결과이므로
+                "나머지 미확인" 이라고 밝힌다 — 밝히지 않으면 데이터 누락으로 읽힌다. */}
+            {compositionTotal(data.composition) < 100 && (
+              <p>나머지 {100 - compositionTotal(data.composition)}% 는 확인되지 않았습니다.</p>
+            )}
+          </>
         )}
       </section>
 
@@ -166,6 +211,19 @@ function formatDimensions(material: MaterialDetail): string {
     return `${lengthMm.toLocaleString('ko-KR')} × ${widthMm.toLocaleString('ko-KR')} mm`
   }
   return `${(lengthMm ?? widthMm)!.toLocaleString('ko-KR')} mm`
+}
+
+/**
+ * 서버가 주는 `fiberType` 은 문자열이다 — 컬럼이 `VARCHAR(50)` 이라 허용 목록 밖의 값이
+ * 이미 저장돼 있을 수 있다. 라벨이 없으면 <b>원본을 그대로</b> 보여준다.
+ * 빈칸으로 두면 성분이 하나 사라진 것처럼 보인다.
+ */
+function fiberLabel(fiberType: string): string {
+  return FIBER_TYPE_LABEL[fiberType as MaterialFiberType] ?? fiberType
+}
+
+function compositionTotal(composition: MaterialCompositionItem[]): number {
+  return composition.reduce((sum, row) => sum + row.percentage, 0)
 }
 
 function formatDate(value: string): string {
