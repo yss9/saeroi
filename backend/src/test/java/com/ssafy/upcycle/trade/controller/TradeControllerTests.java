@@ -1,13 +1,22 @@
 package com.ssafy.upcycle.trade.controller;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.ssafy.upcycle.common.security.jwt.JwtTokenService;
+import com.ssafy.upcycle.material.entity.MaterialBalance;
+import com.ssafy.upcycle.material.entity.MaterialLock;
+import com.ssafy.upcycle.material.entity.MaterialLockPurpose;
+import com.ssafy.upcycle.material.entity.MaterialLockReferenceType;
+import com.ssafy.upcycle.material.repository.MaterialBalanceRepository;
+import com.ssafy.upcycle.material.repository.MaterialLockRepository;
+import com.ssafy.upcycle.trade.entity.MaterialListing;
 import com.ssafy.upcycle.trade.entity.MaterialTrade;
 import com.ssafy.upcycle.trade.entity.PaymentMethod;
 import com.ssafy.upcycle.trade.entity.TradeShipping;
+import com.ssafy.upcycle.trade.repository.MaterialListingRepository;
 import com.ssafy.upcycle.trade.repository.MaterialTradeRepository;
 import com.ssafy.upcycle.trade.repository.TradeShippingRepository;
 import com.ssafy.upcycle.user.entity.User;
@@ -35,6 +44,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 class TradeControllerTests {
 
+    private static final long MATERIAL_ID = 2L;
     private static final String SELLER_WALLET = "0x1111111111111111111111111111111111111111";
     private static final String BUYER_WALLET = "0x2222222222222222222222222222222222222222";
     private static final String WAYBILL_BODY = """
@@ -56,6 +66,15 @@ class TradeControllerTests {
     @Autowired
     private TradeShippingRepository shippingRepository;
 
+    @Autowired
+    private MaterialListingRepository listingRepository;
+
+    @Autowired
+    private MaterialBalanceRepository balanceRepository;
+
+    @Autowired
+    private MaterialLockRepository lockRepository;
+
     private User seller;
     private User buyer;
     private MaterialTrade trade;
@@ -67,12 +86,28 @@ class TradeControllerTests {
         buyer = userRepository.save(User.register(
                 "buyer@example.com", "{noop}x", "브랜드", "010-1111-1111", UserRole.BRAND));
 
+        MaterialLock lock = lockRepository.save(MaterialLock.create(
+                MATERIAL_ID, seller.getId(), 30_000L,
+                MaterialLockPurpose.MARKETPLACE, MaterialLockReferenceType.LISTING, 1L, null));
+        MaterialListing listing = listingRepository.save(MaterialListing.open(
+                MATERIAL_ID, seller.getId(), 30_000L, 10_000L, lock.getId()));
+        balanceRepository.save(MaterialBalance.of(
+                MATERIAL_ID, seller.getId(), SELLER_WALLET, 30_000L));
+
         trade = tradeRepository.save(MaterialTrade.create(
-                "TRD-000001", 1L, 2L, seller.getId(), buyer.getId(),
+                "TRD-000001", listing.getId(), MATERIAL_ID, seller.getId(), buyer.getId(),
                 SELLER_WALLET, BUYER_WALLET, 20_000L, 200_000L, PaymentMethod.MOCK));
         trade.markPaid("T1234", 200_000L, LocalDateTime.now());
         shippingRepository.save(TradeShipping.of(
                 trade.getId(), "김구매", "010-1111-1111", "04766", "서울시 성동구", "101동"));
+    }
+
+    private void shipTrade() throws Exception {
+        mockMvc.perform(patch("/api/v1/trades/{tradeId}/ship", trade.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(seller, UserRole.SUPPLIER))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(WAYBILL_BODY))
+                .andExpect(status().isOk());
     }
 
     @Test
@@ -193,6 +228,60 @@ class TradeControllerTests {
                         .content(body))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void buyerConfirmsReceipt() throws Exception {
+        shipTrade();
+
+        mockMvc.perform(post("/api/v1/trades/{tradeId}/receive/confirm", trade.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(buyer, UserRole.BRAND)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.data.transferredQuantity").value(20000))
+                .andExpect(jsonPath("$.data.sellerQuantity").value(10000))
+                .andExpect(jsonPath("$.data.buyerQuantity").value(20000))
+                .andExpect(jsonPath("$.data.buyerSignedAt").isNotEmpty());
+    }
+
+    /** 받는 쪽은 구매자다. 판매자가 대신 확인하면 2-Track 이 성립하지 않는다. */
+    @Test
+    void sellerCannotConfirmReceipt() throws Exception {
+        shipTrade();
+
+        mockMvc.perform(post("/api/v1/trades/{tradeId}/receive/confirm", trade.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(seller, UserRole.SUPPLIER)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    void unshippedTradeCannotBeConfirmed() throws Exception {
+        mockMvc.perform(post("/api/v1/trades/{tradeId}/receive/confirm", trade.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(buyer, UserRole.BRAND)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("TRADE_NOT_RECEIVABLE"));
+    }
+
+    @Test
+    void confirmingReceiptTwiceConflicts() throws Exception {
+        shipTrade();
+
+        mockMvc.perform(post("/api/v1/trades/{tradeId}/receive/confirm", trade.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(buyer, UserRole.BRAND)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/trades/{tradeId}/receive/confirm", trade.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(buyer, UserRole.BRAND)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("TRADE_ALREADY_RECEIVED"));
+    }
+
+    @Test
+    void anonymousReceiptRequestIsRejected() throws Exception {
+        mockMvc.perform(post("/api/v1/trades/{tradeId}/receive/confirm", trade.getId()))
+                .andExpect(status().isUnauthorized());
     }
 
     private String bearer(User user, UserRole role) {

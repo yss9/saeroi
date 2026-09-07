@@ -1,8 +1,10 @@
 package com.ssafy.upcycle.trade.controller;
 
 import com.ssafy.upcycle.common.response.ApiResponse;
+import com.ssafy.upcycle.trade.dto.TradeReceiptResponse;
 import com.ssafy.upcycle.trade.dto.TradeShipRequest;
 import com.ssafy.upcycle.trade.dto.TradeShipResponse;
+import com.ssafy.upcycle.trade.service.TradeReceiptService;
 import com.ssafy.upcycle.trade.service.TradeShipmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +13,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -30,6 +33,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class TradeController {
 
     private final TradeShipmentService tradeShipmentService;
+    private final TradeReceiptService tradeReceiptService;
 
     /**
      * 판매자 발송 처리. 송장 정보는 선택이다.
@@ -43,6 +47,21 @@ public class TradeController {
             @PathVariable Long tradeId,
             @Valid @RequestBody TradeShipRequest request) {
         return ApiResponse.success(tradeShipmentService.ship(userId(jwt), tradeId, request));
+    }
+
+    /**
+     * 구매자 수령 확인. 소유권이 실제로 넘어가는 자리다.
+     *
+     * <p>요청 바디가 없다. API 명세는 프론트가 온체인 {@code confirmReceipt()} 를
+     * 서명·전송한 뒤 {@code txHash} 를 넘기도록 정의하지만, 지금은 그 해시를 남길
+     * {@code blockchain_transaction} 매핑이 없다. 받아서 버리면 기록된 것처럼 보이므로
+     * 온체인 연동이 붙을 때 파라미터를 추가한다.
+     */
+    @PostMapping("/{tradeId}/receive/confirm")
+    @PreAuthorize("hasRole('BRAND')")
+    public ApiResponse<TradeReceiptResponse> confirmReceipt(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable Long tradeId) {
+        return ApiResponse.success(tradeReceiptService.confirmReceipt(userId(jwt), tradeId));
     }
 
     /**
