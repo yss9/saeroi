@@ -10,15 +10,19 @@ export type LockPurpose = 'MARKETPLACE' | 'PROCESSING' | 'PRODUCTION'
 /**
  * `material_lock.status`.
  *
- * ⚠️ **`EXPIRED` 동작 정정 (2026-09-07).** 이전 주석은 *"배치가 상태를 전환하지만
- * 전환 전이라도 available 계산에서는 제외한다"* 였는데, **Backend 는 반대로 동작한다**
- * (MR !106). `expires_at` 이 지난 `ACTIVE` 잠금도 그대로 차감한다 —
- * EXPIRED 로 전환해 주는 배치가 **어디에도 없어서** 과소 계산을 택했다.
- * 실제보다 적게 보여 판매를 못 하는 편이 초과 판매보다 안전하다.
+ * `EXPIRED` 는 기한 경과로 자동 해제된 Lock 이다. 배치가 상태를 전환하지만,
+ * **전환 전이라도 available 계산에서는 제외**한다
+ * (`.harness/reference/02-domain-rules.md` Lock 상태 표).
  *
- * 그리고 **`available` 은 서버가 계산해 내려준다.** 클라이언트에서 다시 계산하지 않는다.
+ * ⚠️ **이 문장을 한 번 잘못 덮었다 (2026-09-07).** MR !106 의 Backend 구현이
+ * `status = ACTIVE` 만 보고 만료된 잠금까지 차감했고, 나는 그 구현이 맞다고 보고
+ * 위 주석이 틀렸다고 고쳤다. 규칙이 정본이고 구현이 틀렸다 — MR !114 로 정정했다.
+ * 상태를 전환해 주는 배치가 없어 만료된 잠금은 DB 에 `ACTIVE` 로 남으므로,
+ * 서버 쿼리가 `expires_at` 을 직접 본다.
+ *
+ * **`available` 은 서버가 계산해 내려준다.** 클라이언트에서 다시 계산하지 않는다.
  * 이 enum 은 잠금 내역을 화면에 보여줄 때 쓸 값이고, 그 조회 API
- * (`GET /materials/{id}/locks`)는 아직 티켓조차 없다.
+ * (`GET /materials/{id}/locks`)는 아직 Jira 티켓조차 없다 (MR !94 요청 4번).
  */
 export type LockStatus = 'ACTIVE' | 'RELEASED' | 'CONSUMED' | 'EXPIRED'
 
