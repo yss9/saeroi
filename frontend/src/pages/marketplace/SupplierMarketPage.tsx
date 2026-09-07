@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import { Button, ConfirmModal } from '../../components/common/index.ts'
+import { Button, ConfirmModal, EmptyState } from '../../components/common/index.ts'
 import { ListingForm } from '../../features/marketplace/components/ListingForm.tsx'
 import { ListingList } from '../../features/marketplace/components/ListingList.tsx'
+import { MaterialSelect } from '../../features/marketplace/components/MaterialSelect.tsx'
 import { useCancelListing } from '../../features/marketplace/hooks/useCancelListing.ts'
+import type { InventoryItem } from '../../features/inventory/types/inventory.types.ts'
 import { useAuthStore } from '../../stores/authStore.ts'
 
 /**
@@ -12,19 +14,14 @@ import { useAuthStore } from '../../stores/authStore.ts'
  * "등록됐나?" 를 확인하러 다른 화면으로 갈 필요가 없다 —
  * useCreateListing 이 목록 캐시를 무효화하므로 자동으로 갱신된다.
  *
- * TODO(2번/Material 담당과 협의): 지금은 판매할 소재를 고르는 UI 가 없다.
- * 내 보유 소재 목록(`GET /materials/me`)이 나오면 선택 UI 를 붙이고
- * materialId·가용 수량을 거기서 가져온다. 그때까지는 고정값으로 폼을 보여준다.
+ * 소재 선택 상태를 페이지가 들고 있는 이유 — 고른 소재의 **가용 수량**이 폼의 최대값이
+ * 되어야 하고, 등록에 성공하면 그 수량이 줄어들어 선택을 초기화해야 한다. 폼 안에 두면
+ * 폼이 보유 목록까지 알아야 한다.
  */
-const PLACEHOLDER_MATERIAL = {
-  id: 1,
-  name: '세척된 폐데님',
-  availableQuantity: 18_000,
-} as const
-
 export function SupplierMarketPage() {
   const [cancelTarget, setCancelTarget] = useState<number | null>(null)
   const [page, setPage] = useState(0)
+  const [selected, setSelected] = useState<InventoryItem | null>(null)
   const { mutate: cancel, isPending: isCanceling } = useCancelListing()
 
   // 내 판매글만 본다. 서버가 이 필터를 강제하지 않는 것은 의도적이다 — 판매자별 보기는
@@ -40,11 +37,28 @@ export function SupplierMarketPage() {
 
       <section className="page__section">
         <h2>판매 등록</h2>
-        <ListingForm
-          materialId={PLACEHOLDER_MATERIAL.id}
-          materialName={PLACEHOLDER_MATERIAL.name}
-          availableQuantity={PLACEHOLDER_MATERIAL.availableQuantity}
-        />
+        <MaterialSelect value={selected?.materialId ?? null} onChange={setSelected} />
+
+        {/* 소재를 고르기 전에는 폼을 띄우지 않는다. 수량 입력의 최대값이 고른 소재의
+            가용량이라, 소재 없이 먼저 입력하게 하면 그 값을 검증할 기준이 없다. */}
+        {selected === null ? (
+          <EmptyState
+            title="판매할 소재를 먼저 선택하세요"
+            description="선택한 소재의 판매 가능 수량 안에서 등록할 수 있습니다."
+          />
+        ) : (
+          <ListingForm
+            // key 로 소재를 넣어 소재를 바꾸면 폼이 새로 마운트된다. 그러지 않으면
+            // 이전 소재에 맞춰 입력한 수량이 남아 새 소재의 가용량을 넘길 수 있다.
+            key={selected.materialId}
+            materialId={selected.materialId}
+            materialName={selected.name}
+            availableQuantity={selected.available}
+            // 등록하면 그 소재의 가용량이 줄어든다. 선택을 비워 사용자가 갱신된 목록에서
+            // 다시 고르게 한다 — 낡은 가용량으로 연속 등록하면 두 번째가 서버에서 막힌다.
+            onCreated={() => setSelected(null)}
+          />
+        )}
       </section>
 
       <section className="page__section">
