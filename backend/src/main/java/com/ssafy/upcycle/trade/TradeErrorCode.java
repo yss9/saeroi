@@ -34,7 +34,52 @@ public enum TradeErrorCode implements ErrorCode {
     TRADE_CARRIER_REQUIRED(
             HttpStatus.BAD_REQUEST,
             "TRADE_CARRIER_REQUIRED",
-            "운송장 번호를 입력하려면 택배사도 함께 입력해야 합니다.");
+            "운송장 번호를 입력하려면 택배사도 함께 입력해야 합니다."),
+
+    NOT_TRADE_BUYER(
+            HttpStatus.FORBIDDEN,
+            "NOT_TRADE_BUYER",
+            "구매자만 처리할 수 있는 거래입니다."),
+
+    TRADE_NOT_RECEIVABLE(
+            HttpStatus.BAD_REQUEST,
+            "TRADE_NOT_RECEIVABLE",
+            "발송된 거래만 수령 확인할 수 있습니다."),
+
+    TRADE_ALREADY_RECEIVED(
+            HttpStatus.CONFLICT,
+            "TRADE_ALREADY_RECEIVED",
+            "이미 수령 확인된 거래입니다."),
+
+    TRADE_LISTING_NOT_FOUND(
+            HttpStatus.NOT_FOUND,
+            "TRADE_LISTING_NOT_FOUND",
+            "거래에 연결된 판매 등록을 찾을 수 없습니다."),
+
+    TRADE_LOCK_NOT_FOUND(
+            HttpStatus.NOT_FOUND,
+            "TRADE_LOCK_NOT_FOUND",
+            "거래에 연결된 소재 잠금을 찾을 수 없습니다."),
+
+    TRADE_LOCK_NOT_ACTIVE(
+            HttpStatus.CONFLICT,
+            "TRADE_LOCK_NOT_ACTIVE",
+            "이미 해제되었거나 소비된 잠금입니다."),
+
+    TRADE_LOCK_AMOUNT_INSUFFICIENT(
+            HttpStatus.UNPROCESSABLE_ENTITY,
+            "TRADE_LOCK_AMOUNT_INSUFFICIENT",
+            "잠긴 수량이 거래 수량보다 적습니다."),
+
+    SELLER_BALANCE_NOT_FOUND(
+            HttpStatus.NOT_FOUND,
+            "SELLER_BALANCE_NOT_FOUND",
+            "판매자의 소재 보유 내역을 찾을 수 없습니다."),
+
+    SELLER_BALANCE_INSUFFICIENT(
+            HttpStatus.UNPROCESSABLE_ENTITY,
+            "SELLER_BALANCE_INSUFFICIENT",
+            "판매자의 보유 수량이 거래 수량보다 적습니다.");
 
     private final HttpStatus status;
     private final String code;
