@@ -26,7 +26,11 @@ echo "OK: $(du -h "$DUMP" | cut -f1), $(gunzip -c "$DUMP" | grep -c '^CREATE TAB
 [ "$MODE" = "--dry-run" ] && { echo "--dry-run 이므로 여기서 종료"; exit 0; }
 [ "$MODE" = "--yes" ] || { echo; echo "실제로 복구하려면 --yes 를 붙이세요. 대상 DB 의 현재 데이터가 덮어씌워집니다."; exit 1; }
 
-ROOT_PW="$(awk -F= '/^MYSQL_ROOT_PASSWORD=/{print $2}' "$ENV_FILE")"
+# 첫 '=' 뒤 전체를 값으로 본다. 예전에는 awk -F= '{print $2}' 였는데 값 안의 '=' 에서
+# 잘렸다. base64 비밀번호는 보통 '=' 로 끝나므로(openssl rand -base64) 잘린 값으로
+# 접속해 조용히 실패할 수 있었다.
+env_value() { sed -n "s/^$1=//p" "$ENV_FILE" | head -1; }
+ROOT_PW="$(env_value MYSQL_ROOT_PASSWORD)"
 [ -n "$ROOT_PW" ] || { echo "FAIL: MYSQL_ROOT_PASSWORD 가 비어 있음"; exit 1; }
 
 # 복구 중 backend 가 쓰기를 계속하면 상태가 섞인다. 먼저 내린다.

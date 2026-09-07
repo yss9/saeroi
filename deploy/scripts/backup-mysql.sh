@@ -21,8 +21,12 @@ log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 [ -f "$ENV_FILE" ] || { log "FAIL: $ENV_FILE 없음"; exit 1; }
 
 # .env 를 통째로 source 하지 않는다 — 필요한 두 값만 뽑는다.
-DB_NAME="$(awk -F= '/^MYSQL_DATABASE=/{print $2}' "$ENV_FILE")"
-ROOT_PW="$(awk -F= '/^MYSQL_ROOT_PASSWORD=/{print $2}' "$ENV_FILE")"
+# 첫 '=' 뒤 전체를 값으로 본다. 예전에는 awk -F= '{print $2}' 였는데 값 안의 '=' 에서
+# 잘렸다. base64 비밀번호는 보통 '=' 로 끝나므로(openssl rand -base64) 잘린 값으로
+# 접속해 조용히 실패할 수 있었다.
+env_value() { sed -n "s/^$1=//p" "$ENV_FILE" | head -1; }
+DB_NAME="$(env_value MYSQL_DATABASE)"
+ROOT_PW="$(env_value MYSQL_ROOT_PASSWORD)"
 [ -n "$DB_NAME" ] && [ -n "$ROOT_PW" ] || { log "FAIL: MYSQL_DATABASE / MYSQL_ROOT_PASSWORD 가 비어 있음"; exit 1; }
 
 docker inspect -f '{{.State.Running}}' "$CONTAINER" 2>/dev/null | grep -q true \

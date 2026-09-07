@@ -25,6 +25,7 @@ GIT_CONVENTION에 따라 develop / feat 하위 브랜치 없이 이 브랜치에
 │   ├── deploy-*.sh            # 파트 Jenkinsfile이 부르는 진입점 (deploy-service.sh 호출)
 │   ├── health-check.sh        # 컨테이너 + 엔드포인트 확인 (2xx만 통과)
 │   ├── check-schema.sh        # 배포 전 스키마 검증 — DB가 엔티티보다 오래되면 앱이 기동에 실패한다
+│   │                          #   테이블 0개(빈 DB)와 접속 실패를 구분해 보고한다
 │   ├── gitlab-status.sh       # 빌드 결과를 GitLab 커밋 상태로 보고 (초록 체크/빨간 X)
 │   ├── shell-aliases.sh       # 서버 단축 명령 (~/.bashrc 가 source)
 │   ├── backup-mysql.sh        # MySQL 일일 덤프 (cron 03:10)
