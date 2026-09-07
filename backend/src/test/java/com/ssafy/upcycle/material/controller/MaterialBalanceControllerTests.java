@@ -18,6 +18,7 @@ import com.ssafy.upcycle.material.repository.MaterialRepository;
 import com.ssafy.upcycle.user.entity.User;
 import com.ssafy.upcycle.user.entity.UserRole;
 import com.ssafy.upcycle.user.repository.UserRepository;
+import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -138,6 +139,21 @@ class MaterialBalanceControllerTests {
     }
 
     @Test
+    void balanceIgnoresAnExpiredLock() throws Exception {
+        // 도메인 규칙: EXPIRED 는 "전환 전이라도 available 계산에서 제외".
+        // 상태 전환 배치가 없어 만료된 잠금이 ACTIVE 로 남아 있는데, 그걸 차감하면
+        // 이미 끝난 거래가 판매 가능량을 계속 깎는다. 엔드포인트까지 통과해 확인한다.
+        materialBalanceRepository.save(MaterialBalance.of(materialId, myId, MY_ADDRESS, 1_000L));
+        materialLockRepository.save(expiringLock(myId, 300L, LocalDateTime.now().minusDays(1)));
+
+        mockMvc.perform(get("/api/materials/" + materialId + "/balance")
+                        .header(HttpHeaders.AUTHORIZATION, bearer()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].lockedQuantity").value(0))
+                .andExpect(jsonPath("$.data[0].available").value(1_000));
+    }
+
+    @Test
     void balanceListsEveryHolder() throws Exception {
         materialBalanceRepository.save(MaterialBalance.of(materialId, myId, MY_ADDRESS, 700L));
         materialBalanceRepository.save(MaterialBalance.of(materialId, otherId, OTHER_ADDRESS, 300L));
@@ -212,6 +228,10 @@ class MaterialBalanceControllerTests {
     // ── helpers ─────────────────────────────────────────────
 
     private MaterialLock lock(Long ownerId, long amount) {
+        return expiringLock(ownerId, amount, null);
+    }
+
+    private MaterialLock expiringLock(Long ownerId, long amount, LocalDateTime expiresAt) {
         return MaterialLock.create(
                 materialId,
                 ownerId,
@@ -219,7 +239,7 @@ class MaterialBalanceControllerTests {
                 MaterialLockPurpose.MARKETPLACE,
                 MaterialLockReferenceType.LISTING,
                 7_001L,
-                null);
+                expiresAt);
     }
 
     private String bearer() {
