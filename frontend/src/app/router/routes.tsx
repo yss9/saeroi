@@ -11,6 +11,7 @@ import { SupplierMarketPage } from '../../pages/marketplace/SupplierMarketPage.t
 import { MaterialDetailPage } from '../../pages/material/MaterialDetailPage.tsx'
 import { MaterialListPage } from '../../pages/material/MaterialListPage.tsx'
 import { MaterialRegisterPage } from '../../pages/material/MaterialRegisterPage.tsx'
+import { ConsumerMyPage } from '../../pages/mypage/ConsumerMyPage.tsx'
 import { BrandProcessingPage } from '../../pages/processing/BrandProcessingPage.tsx'
 import { ProcessingPage } from '../../pages/processing/ProcessingPage.tsx'
 import { ProductDetailPage } from '../../pages/product/ProductDetailPage.tsx'
@@ -63,6 +64,12 @@ export const routes: RouteObject[] = [
       { path: '/inventory', element: <InventoryPage /> },
       { path: '/trades', element: <TradeListPage /> },
       { path: '/trades/:tradeId', element: <TradeDetailPage /> },
+
+      // ── CONSUMER ──
+      {
+        element: <RoleGuard allow={['CONSUMER']} />,
+        children: [{ path: '/mypage', element: <ConsumerMyPage /> }],
+      },
 
       // ── SUPPLIER ──
       {
