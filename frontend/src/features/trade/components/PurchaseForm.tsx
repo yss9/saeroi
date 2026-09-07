@@ -2,11 +2,11 @@ import { useState } from 'react'
 import { Button, ErrorMessage } from '../../../components/common/index.ts'
 import { QuantityInput } from '../../../components/common/QuantityInput.tsx'
 import { calculateTotalPrice, formatKg, formatWon, kgToGram } from '../../../utils/quantity.ts'
-import type { ListingDetail } from '../../marketplace/types/marketplace.types.ts'
+import type { Listing } from '../../marketplace/types/marketplace.types.ts'
 import { useCreateTrade } from '../hooks/useCreateTrade.ts'
 
 export interface PurchaseFormProps {
-  listing: ListingDetail
+  listing: Listing
   onCreated?: (tradeId: number) => void
 }
 
@@ -36,8 +36,11 @@ export function PurchaseForm({ listing, onCreated }: PurchaseFormProps) {
   function submit() {
     if (!canSubmit) return
     mutate(
-      { listingId: listing.id, quantity: quantityGram },
-      { onSuccess: (trade) => onCreated?.(trade.id) },
+      // 단위를 함께 보낸다. 서버가 gram 으로 환산하므로 여기서 이미 gram 인 값에는 'G' 다.
+      // 결제 수단은 PG 연동 전이라 MOCK 이다 — 스키마의 ENUM 에 있는 값이고,
+      // 연동되면 KAKAO_PAY 로 바뀐다.
+      { listingId: listing.listingId, quantity: quantityGram, unit: 'G', paymentMethod: 'MOCK' },
+      { onSuccess: (trade) => onCreated?.(trade.tradeId) },
     )
   }
 

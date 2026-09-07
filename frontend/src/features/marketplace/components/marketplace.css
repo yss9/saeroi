@@ -246,3 +246,19 @@
   color: #6b7280;
 }
 .payment-panel__mock p { margin: 0 0 0.6rem; }
+
+/* ── 페이지 이동 ─────────────────────────────────────── */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+.pagination__status {
+  font-size: 0.875rem;
+  color: #4b5563;
+  /* 페이지를 넘길 때 숫자 폭이 달라져 버튼이 흔들리는 것을 막는다. */
+  font-variant-numeric: tabular-nums;
+}
+.pagination__total { color: #9ca3af; }

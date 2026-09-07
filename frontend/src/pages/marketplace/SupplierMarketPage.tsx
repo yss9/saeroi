@@ -3,6 +3,7 @@ import { Button, ConfirmModal } from '../../components/common/index.ts'
 import { ListingForm } from '../../features/marketplace/components/ListingForm.tsx'
 import { ListingList } from '../../features/marketplace/components/ListingList.tsx'
 import { useCancelListing } from '../../features/marketplace/hooks/useCancelListing.ts'
+import { useAuthStore } from '../../stores/authStore.ts'
 
 /**
  * Supplier Market — 소재를 파는 쪽.
@@ -23,7 +24,12 @@ const PLACEHOLDER_MATERIAL = {
 
 export function SupplierMarketPage() {
   const [cancelTarget, setCancelTarget] = useState<number | null>(null)
+  const [page, setPage] = useState(0)
   const { mutate: cancel, isPending: isCanceling } = useCancelListing()
+
+  // 내 판매글만 본다. 서버가 이 필터를 강제하지 않는 것은 의도적이다 — 판매자별 보기는
+  // 권한이 아니라 필터이고, 어차피 전체 목록에 다 나와 있는 정보다.
+  const sellerId = useAuthStore((state) => state.user?.id)
 
   return (
     <main className="page">
@@ -44,6 +50,8 @@ export function SupplierMarketPage() {
       <section className="page__section">
         <h2>등록한 판매글</h2>
         <ListingList
+          params={{ sellerId, page }}
+          onPageChange={setPage}
           emptyTitle="등록한 판매글이 없습니다"
           emptyDescription="위에서 보유 소재를 판매 등록할 수 있습니다."
           renderActions={(listingId) => (
@@ -64,10 +72,8 @@ export function SupplierMarketPage() {
         loading={isCanceling}
         onConfirm={() => {
           if (cancelTarget === null) return
-          cancel(
-            { listingId: cancelTarget, reason: '판매자 취소' },
-            { onSettled: () => setCancelTarget(null) },
-          )
+          // 취소 사유를 보내지 않는다 — material_listing 에 사유 컬럼이 없다.
+          cancel(cancelTarget, { onSettled: () => setCancelTarget(null) })
         }}
         onClose={() => setCancelTarget(null)}
       />

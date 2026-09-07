@@ -61,14 +61,16 @@ export function ListingForm({
     mutate(
       {
         materialId,
+        // kg 을 gram 으로 바꿔 'G' 로 보낸다. kgToGram 이 Math.round 를 쓰는 것이
+        // 중요하다 — 20.3 * 1000 은 20299.999... 라 그냥 곱하면 1g 이 사라진다.
         quantity: kgToGram(values.quantityKg),
+        unit: 'G',
         pricePerKg: values.pricePerKg,
-        description: values.description,
       },
       {
         onSuccess: (created) => {
           reset()
-          onCreated?.(created.id)
+          onCreated?.(created.listingId)
         },
       },
     )
@@ -110,7 +112,8 @@ export function ListingForm({
         })}
       />
 
-      <Input label="설명 (선택)" {...register('description')} />
+      {/* 설명 입력이 없다. 판매글에는 설명 컬럼이 없고 소재의 설명을 그대로 보여준다 —
+          같은 소재를 두 번 올리면 설명이 갈라져 어느 쪽이 그 소재의 사실인지 알 수 없게 된다. */}
 
       {previewTotal !== null && (
         <p className="listing-form__preview">

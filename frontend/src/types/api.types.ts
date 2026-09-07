@@ -24,13 +24,19 @@ export interface ValidationError {
 /**
  * 목록 조회 응답.
  *
- * TODO(backend 협의): 페이지네이션 규격이 아직 확정되지 않았다. Spring Data 의
- * Page 를 그대로 쓸지, 커서 기반으로 갈지 정해지면 이 타입을 맞춘다.
+ * Spring 쪽 원본: `common` 이 아니라 `trade/dto/PageResponse.java` 다. Spring Data 의
+ * `Page` 를 그대로 직렬화하지 않고 화면이 쓰는 여섯 가지만 고정한 것이라, 서버 구현이
+ * 바뀌어도 이 모양은 유지된다.
+ *
+ * `page` 는 **0부터** 다. 서버 기준을 그대로 쓴다 — 한쪽에서 1을 더하면 다른 쪽에서
+ * 빼야 하고, 그 규칙은 언젠가 반드시 한 군데서 빠진다.
  */
 export interface PageResponse<T> {
   content: T[]
+  /** 0-based */
   page: number
   size: number
   totalElements: number
   totalPages: number
+  hasNext: boolean
 }

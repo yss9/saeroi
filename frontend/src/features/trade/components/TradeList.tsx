@@ -1,18 +1,21 @@
 import { Link } from 'react-router-dom'
 import { EmptyState, ErrorMessage, Loading, StatusBadge } from '../../../components/common/index.ts'
 import { formatKg, formatWon } from '../../../utils/quantity.ts'
-import type { TradeFilters } from '../api/getTrades.ts'
 import { useTrades } from '../hooks/useTrades.ts'
-import { BUYER_ACTION_REQUIRED, TRADE_STATUS_LABEL, type TradeStatus } from '../types/trade.types.ts'
+import {
+  BUYER_ACTION_REQUIRED,
+  TRADE_STATUS_LABEL,
+  type TradeFilters,
+  type TradeStatus,
+} from '../types/trade.types.ts'
 
-const TONE: Record<TradeStatus, 'neutral' | 'info' | 'warning' | 'success' | 'danger'> = {
+const TONE: Record<TradeStatus, 'neutral' | 'info' | 'warning' | 'success'> = {
   CREATED: 'warning',
   PAID: 'info',
   SHIPPED: 'info',
   RECEIVED: 'info',
   COMPLETED: 'success',
   CANCELED: 'neutral',
-  DISPUTED: 'danger',
 }
 
 export interface TradeListProps {
@@ -24,7 +27,7 @@ export function TradeList({ filters }: TradeListProps) {
 
   if (isPending) return <Loading variant="skeleton" rows={3} label="거래 내역을 불러오는 중" />
   if (isError) return <ErrorMessage error={error} onRetry={() => void refetch()} />
-  if (data.length === 0) {
+  if (data.content.length === 0) {
     return (
       <EmptyState
         title="거래 내역이 없습니다"
@@ -35,9 +38,9 @@ export function TradeList({ filters }: TradeListProps) {
 
   return (
     <ul className="trade-list">
-      {data.map((trade) => (
-        <li key={trade.id} className="trade-list__item">
-          <Link to={`/trades/${trade.id}`} className="trade-list__link">
+      {data.content.map((trade) => (
+        <li key={trade.tradeId} className="trade-list__item">
+          <Link to={`/trades/${trade.tradeId}`} className="trade-list__link">
             <div className="trade-list__main">
               <span className="trade-list__code">{trade.tradeCode}</span>
               <strong className="trade-list__name">{trade.materialName}</strong>

@@ -5,11 +5,11 @@ import { ROOT_ORIGIN_LABEL } from '../../material/types/material.types.ts'
 import {
   LISTING_STATUS_LABEL,
   type ListingStatus,
-  type ListingSummary,
+  type Listing,
 } from '../types/marketplace.types.ts'
 
 export interface ListingCardProps {
-  listing: ListingSummary
+  listing: Listing
   /** 판매자 화면에서는 취소 버튼 등 다른 동작이 붙는다 */
   actions?: React.ReactNode
 }
@@ -34,7 +34,7 @@ export function ListingCard({ listing, actions }: ListingCardProps) {
     <article className="listing-card">
       <header className="listing-card__header">
         <h3 className="listing-card__name">
-          <Link to={`/marketplace/${listing.id}`}>{listing.materialName}</Link>
+          <Link to={`/marketplace/${listing.listingId}`}>{listing.materialName}</Link>
         </h3>
         <StatusBadge tone={STATUS_TONE[listing.status]}>
           {LISTING_STATUS_LABEL[listing.status]}
