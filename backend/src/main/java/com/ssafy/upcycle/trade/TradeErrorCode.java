@@ -76,6 +76,10 @@ public enum TradeErrorCode implements ErrorCode {
             HttpStatus.BAD_REQUEST, "PAYMENT_AMOUNT_MISMATCH", "승인 금액이 거래 금액과 다릅니다."),
     PAYMENT_STATE_INVALID(
             HttpStatus.CONFLICT, "PAYMENT_STATE_INVALID", "지금 상태에서는 처리할 수 없습니다."),
+    PAYMENT_NOT_PREPARED(
+            HttpStatus.CONFLICT, "PAYMENT_NOT_PREPARED", "결제를 먼저 시작해야 합니다."),
+    PAYMENT_GATEWAY_FAILED(
+            HttpStatus.BAD_GATEWAY, "PAYMENT_GATEWAY_FAILED", "결제 처리 중 오류가 발생했습니다."),
 
     // ── 발송 ────────────────────────────────────────────
     NOT_TRADE_SELLER(

@@ -6,6 +6,7 @@ import com.ssafy.upcycle.trade.TradeErrorCode;
 import com.ssafy.upcycle.trade.dto.TradeResponse;
 import com.ssafy.upcycle.trade.entity.MaterialListing;
 import com.ssafy.upcycle.trade.entity.MaterialTrade;
+import com.ssafy.upcycle.trade.entity.TradeShipping;
 import com.ssafy.upcycle.trade.repository.TradeSearchRepository;
 import com.ssafy.upcycle.user.entity.User;
 import java.util.List;
@@ -43,8 +44,11 @@ public class TradeResponseAssembler {
     }
 
     /**
-     * {@code [MaterialTrade, Material, MaterialListing, 판매자, 구매자]} 순서는 쿼리의
-     * select 절이 정한 계약이다. 쿼리를 고칠 때 이 메서드도 함께 본다.
+     * {@code [MaterialTrade, Material, MaterialListing, 판매자, 구매자, TradeShipping]} 순서는
+     * 쿼리의 select 절이 정한 계약이다. 쿼리를 고칠 때 이 메서드도 함께 본다.
+     *
+     * <p>마지막 자리는 {@code left join} 이라 {@code null} 일 수 있다 — 배송지를 함께 받기
+     * 이전에 만들어진 거래가 그렇다.
      */
     public static TradeResponse fromDetailRow(Object[] row) {
         return TradeResponse.of(
@@ -52,12 +56,13 @@ public class TradeResponseAssembler {
                 (Material) row[1],
                 (MaterialListing) row[2],
                 (User) row[3],
-                (User) row[4]);
+                (User) row[4],
+                (TradeShipping) row[5]);
     }
 
     /**
      * 목록 쿼리는 상대방 한 명만 조인한다 —
-     * {@code [MaterialTrade, Material, MaterialListing, 상대방]}.
+     * {@code [MaterialTrade, Material, MaterialListing, 상대방, TradeShipping]}.
      *
      * <p>내 이름은 이미 알고 있으므로 조인을 하나 줄인다. 목록은 행 수만큼 곱해지는 자리라
      * 조인 하나의 차이가 상세보다 크다.
@@ -72,6 +77,7 @@ public class TradeResponseAssembler {
                 (Material) row[1],
                 (MaterialListing) row[2],
                 meIsSeller ? me : counterparty,
-                meIsSeller ? counterparty : me);
+                meIsSeller ? counterparty : me,
+                (TradeShipping) row[4]);
     }
 }

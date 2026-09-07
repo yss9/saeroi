@@ -3,7 +3,8 @@ package com.ssafy.upcycle.trade.controller;
 import com.ssafy.upcycle.common.response.ApiResponse;
 import com.ssafy.upcycle.material.dto.MaterialQuantityUnit;
 import com.ssafy.upcycle.trade.dto.PageResponse;
-import com.ssafy.upcycle.trade.dto.PaymentConfirmRequest;
+import com.ssafy.upcycle.trade.dto.PaymentApproveRequest;
+import com.ssafy.upcycle.trade.dto.PaymentReadyResponse;
 import com.ssafy.upcycle.trade.dto.TradeCreateRequest;
 import com.ssafy.upcycle.trade.dto.TradeQuoteResponse;
 import com.ssafy.upcycle.trade.dto.TradeReceiptResponse;
@@ -105,17 +106,31 @@ public class TradeController {
     }
 
     /**
-     * 결제 승인 통보. 구매자만 가능하며 승인 금액이 거래 금액과 같아야 한다.
+     * 결제 준비. 구매자만 가능하다. <b>아직 청구되지 않는다.</b>
      *
-     * <p>PG 연동 전이라 클라이언트가 결과를 알려주는 구조다. 그래서 금액 대조가 필수이며,
-     * 서버가 PG 를 직접 부르게 되면 이 엔드포인트의 요청 바디만 바뀐다.
+     * <p>응답의 {@code redirectUrl} 로 사용자를 보내면 카카오페이 결제창이 열린다. 그 값이
+     * 비어 있으면 결제 키가 설정되지 않아 Mock 게이트웨이가 붙은 것이고, 화면은 이동 없이
+     * 바로 승인 단계로 갈 수 있다 ({@code live} 로 판단한다).
      */
-    @PostMapping("/{tradeId}/payment")
-    public ApiResponse<TradeResponse> confirmPayment(
+    @PostMapping("/{tradeId}/payment/ready")
+    public ApiResponse<PaymentReadyResponse> readyPayment(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable Long tradeId) {
+        return ApiResponse.success(paymentService.ready(userId(jwt), tradeId));
+    }
+
+    /**
+     * 결제 승인. <b>이 시점에 실제로 청구된다.</b> 구매자만 가능하다.
+     *
+     * <p>결제창이 복귀 URL 로 돌려준 {@code pgToken} 만 받는다. 금액과 {@code tid} 는 받지
+     * 않는다 — 금액은 서버가 PG 응답에서 확인하고 거래 금액과 대조하며, tid 는 준비 단계에서
+     * 거래에 저장해 두었다. 둘 다 클라이언트가 말하게 두면 조작 경로가 된다.
+     */
+    @PostMapping("/{tradeId}/payment/approve")
+    public ApiResponse<TradeResponse> approvePayment(
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable Long tradeId,
-            @Valid @RequestBody PaymentConfirmRequest request) {
-        return ApiResponse.success(paymentService.confirm(userId(jwt), tradeId, request));
+            @Valid @RequestBody PaymentApproveRequest request) {
+        return ApiResponse.success(paymentService.approve(userId(jwt), tradeId, request.pgToken()));
     }
 
     /**

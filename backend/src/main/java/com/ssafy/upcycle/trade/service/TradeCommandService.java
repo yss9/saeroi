@@ -9,9 +9,11 @@ import com.ssafy.upcycle.trade.dto.TradeResponse;
 import com.ssafy.upcycle.trade.entity.ListingStatus;
 import com.ssafy.upcycle.trade.entity.MaterialListing;
 import com.ssafy.upcycle.trade.entity.MaterialTrade;
+import com.ssafy.upcycle.trade.entity.TradeShipping;
 import com.ssafy.upcycle.trade.repository.ListingSearchRepository;
 import com.ssafy.upcycle.trade.repository.MaterialListingRepository;
 import com.ssafy.upcycle.trade.repository.MaterialTradeRepository;
+import com.ssafy.upcycle.trade.repository.TradeShippingRepository;
 import com.ssafy.upcycle.user.entity.User;
 import com.ssafy.upcycle.user.entity.UserRole;
 import com.ssafy.upcycle.user.repository.UserRepository;
@@ -39,6 +41,7 @@ public class TradeCommandService {
     private final MaterialListingRepository listingRepository;
     private final ListingSearchRepository listingSearchRepository;
     private final MaterialTradeRepository tradeRepository;
+    private final TradeShippingRepository tradeShippingRepository;
     private final UserRepository userRepository;
     private final UserWalletRepository walletRepository;
     private final TradeCodeGenerator tradeCodeGenerator;
@@ -123,6 +126,16 @@ public class TradeCommandService {
                 quantity,
                 totalPrice,
                 request.paymentMethod()));
+
+        // 배송지를 거래와 같은 트랜잭션에서 만든다. 나중에 채우는 구조로 두면 그 사이의
+        // 거래는 발송도 수령도 할 수 없는 상태가 된다 — 양쪽 모두 배송 행을 필수로 읽는다.
+        tradeShippingRepository.save(TradeShipping.of(
+                trade.getId(),
+                request.receiverName(),
+                request.receiverPhone(),
+                request.zipCode(),
+                request.address(),
+                request.addressDetail()));
 
         return tradeResponseAssembler.of(trade);
     }

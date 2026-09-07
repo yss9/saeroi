@@ -3,9 +3,11 @@ package com.ssafy.upcycle.material.controller;
 import com.ssafy.upcycle.common.response.ApiResponse;
 import com.ssafy.upcycle.material.dto.MaterialBalanceResponse;
 import com.ssafy.upcycle.material.dto.MaterialDetailResponse;
+import com.ssafy.upcycle.material.dto.MaterialLineageResponse;
 import com.ssafy.upcycle.material.dto.MaterialRegisterRequest;
 import com.ssafy.upcycle.material.dto.MaterialRegisterResponse;
 import com.ssafy.upcycle.material.dto.MyMaterialResponse;
+import com.ssafy.upcycle.material.service.MaterialLineageQueryService;
 import com.ssafy.upcycle.material.service.MaterialQueryService;
 import com.ssafy.upcycle.material.service.MaterialRegistrationService;
 import jakarta.validation.Valid;
@@ -45,6 +47,7 @@ public class MaterialController {
 
     private final MaterialRegistrationService materialRegistrationService;
     private final MaterialQueryService materialQueryService;
+    private final MaterialLineageQueryService materialLineageQueryService;
 
     /**
      * 소재 등록. {@code SUPPLIER}·{@code BRAND} 만 가능하다.
@@ -97,6 +100,22 @@ public class MaterialController {
     @GetMapping("/{materialId}/balance")
     public ApiResponse<List<MaterialBalanceResponse>> findBalances(@PathVariable Long materialId) {
         return ApiResponse.success(materialQueryService.findBalances(materialId));
+    }
+
+    /**
+     * 소재 혈통. 위로 조상, 아래로 자손을 한 번에 돌려준다.
+     *
+     * <p>스토리 {@code -23} 이 부모 조회·자식 조회·<b>최초 Source 까지 역추적</b> 셋을
+     * 요구하므로 방향을 나누지 않았다. 두 엔드포인트로 쪼개면 화면이 두 번 부르고
+     * 그 사이 상한 계산이 서로 어긋난다.
+     *
+     * <p><b>응답의 {@code truncated} 를 반드시 확인할 것.</b> 상한(깊이 5 · 노드 200)에
+     * 걸리면 일부만 담기고 {@code message} 에 안내 문구가 온다. 그걸 표시하지 않으면
+     * 잘린 이력이 전체로 보인다 — 추적성 기능에서 가장 나쁜 거짓이다.
+     */
+    @GetMapping("/{materialId}/lineage")
+    public ApiResponse<MaterialLineageResponse> findLineage(@PathVariable Long materialId) {
+        return ApiResponse.success(materialLineageQueryService.findLineage(materialId));
     }
 
     /**

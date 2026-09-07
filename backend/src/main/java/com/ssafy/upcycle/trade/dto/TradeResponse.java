@@ -4,6 +4,7 @@ import com.ssafy.upcycle.material.entity.Material;
 import com.ssafy.upcycle.trade.entity.MaterialListing;
 import com.ssafy.upcycle.trade.entity.MaterialTrade;
 import com.ssafy.upcycle.trade.entity.PaymentMethod;
+import com.ssafy.upcycle.trade.entity.TradeShipping;
 import com.ssafy.upcycle.trade.entity.TradeStatus;
 import com.ssafy.upcycle.user.entity.User;
 import java.time.LocalDateTime;
@@ -57,14 +58,23 @@ public record TradeResponse(
         LocalDateTime shippedAt,
         LocalDateTime receivedAt,
         LocalDateTime buyerSignedAt,
-        LocalDateTime completedAt) {
+        LocalDateTime completedAt,
+
+        /**
+         * 배송지와 송장. 이 변경 이전에 만들어진 거래에는 배송 행이 없어 {@code null} 이다.
+         *
+         * <p>판매자는 발송 화면에서 수취인·주소를 봐야 하고, 발송 뒤 상세를 다시 열면
+         * 송장이 여기 있어야 한다. 발송 응답으로 한 번 주는 것만으로는 새로고침하면 사라진다.
+         */
+        TradeShippingResponse shipping) {
 
     public static TradeResponse of(
             MaterialTrade trade,
             Material material,
             MaterialListing listing,
             User seller,
-            User buyer) {
+            User buyer,
+            TradeShipping shipping) {
         return new TradeResponse(
                 trade.getId(),
                 trade.getTradeCode(),
@@ -91,6 +101,7 @@ public record TradeResponse(
                 trade.getShippedAt(),
                 trade.getReceivedAt(),
                 trade.getBuyerSignedAt(),
-                trade.getCompletedAt());
+                trade.getCompletedAt(),
+                TradeShippingResponse.from(shipping));
     }
 }

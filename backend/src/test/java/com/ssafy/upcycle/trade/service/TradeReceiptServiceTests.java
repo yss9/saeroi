@@ -101,9 +101,24 @@ class TradeReceiptServiceTests {
 
         assertThat(response.status()).isEqualTo(TradeStatus.COMPLETED);
         assertThat(response.transferredQuantity()).isEqualTo(TRADE_QUANTITY);
-        assertThat(response.sellerQuantity()).isEqualTo(LISTING_QUANTITY - TRADE_QUANTITY);
         assertThat(response.buyerQuantity()).isEqualTo(TRADE_QUANTITY);
         assertThat(response.buyerSignedAt()).isNotNull();
+    }
+
+    /**
+     * 판매자 차감은 응답이 아니라 저장된 값으로 확인한다. 응답에서 판매자 보유량을 뺐지만
+     * 차감 자체는 여전히 일어나야 한다.
+     */
+    @Test
+    void sellerBalanceIsReducedEvenThoughItIsNotReported() {
+        tradeReceiptService.confirmReceipt(BUYER_ID, trade.getId());
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(balanceRepository.findByMaterialIdAndOwnerId(MATERIAL_ID, SELLER_ID))
+                .get()
+                .extracting(MaterialBalance::getQuantity)
+                .isEqualTo(LISTING_QUANTITY - TRADE_QUANTITY);
     }
 
     /** 처음 사는 소재라 보유 행이 없다. 거래 시점 스냅샷 주소로 만들어져야 한다. */
