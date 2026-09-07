@@ -28,6 +28,7 @@ public class MaterialQueryService {
     private final MaterialRepository materialRepository;
     private final MaterialBalanceRepository materialBalanceRepository;
     private final MaterialBalanceQueryRepository materialBalanceQueryRepository;
+    private final MaterialVerificationStateResolver verificationStateResolver;
 
     /**
      * 소재 상세.
@@ -48,7 +49,9 @@ public class MaterialQueryService {
                 .findById(materialId)
                 .orElseThrow(() -> new BusinessException(MaterialErrorCode.MATERIAL_NOT_FOUND));
         return MaterialDetailResponse.of(
-                material, materialBalanceRepository.findAllByMaterialId(materialId));
+                material,
+                materialBalanceRepository.findAllByMaterialId(materialId),
+                verificationStateResolver.resolve(materialId));
     }
 
     /**

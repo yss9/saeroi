@@ -25,6 +25,14 @@ public interface MaterialTradeRepository extends JpaRepository<MaterialTrade, Lo
     List<MaterialTrade> findAllByListingId(Long listingId);
 
     /**
+     * 이 소재에 구매자가 서명한 거래가 있는지. 소재의 검증 단계 판정에 쓴다.
+     *
+     * <p>거래를 다 읽어와 자바에서 거르지 않고 존재 여부만 묻는다. 한 소재에 거래가 수백
+     * 건 쌓여도 비용이 같고, 판정에 필요한 것은 "하나라도 있는가" 뿐이다.
+     */
+    boolean existsByMaterialIdAndBuyerSignedAtIsNotNull(Long materialId);
+
+    /**
      * 수령 확인처럼 보유량을 옮기는 경로에서 쓴다.
      *
      * <p>같은 거래에 수령 확인이 동시에 두 번 들어오면, 둘 다 SHIPPED 를 읽고 각자
