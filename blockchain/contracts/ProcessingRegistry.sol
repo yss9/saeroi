@@ -22,7 +22,19 @@ contract ProcessingRegistry is AccessControl {
     uint8 private constant PROCESSING_REASON = 0;
     uint8 private constant PROCESSED_GENERATION = 1;
 
-    enum Status { NONE, CREATED, SHIPPED, RECEIVED, PROCESSING, RESULT_SUBMITTED, CONFIRMED, REJECTED, CANCELED }
+    enum Status {
+        NONE,
+        REQUESTED,
+        ACCEPTED,
+        SHIPPED,
+        RECEIVED,
+        PROCESSING,
+        RESULT_SUBMITTED,
+        CONFIRMED,
+        RESULT_REJECTED,
+        DECLINED,
+        CANCELED
+    }
     enum ProcessingType { CLEANING, DISASSEMBLY, SORTING, CUTTING, SHREDDING, COLOR_PROCESSING, SURFACE_FINISHING, REMANUFACTURING }
     enum Grade { NONE, A, B, C }
     struct Input { uint256 tokenId; uint256 amount; uint256 lockId; uint8 rootOrigin; }
@@ -38,6 +50,8 @@ contract ProcessingRegistry is AccessControl {
     mapping(uint256 => uint256[]) private _parentsByChild;
 
     event ProcessingJobCreated(uint256 indexed jobId, address indexed brand, address indexed processor, uint256 inputAmount, uint256 occurredAt);
+    event ProcessingJobAccepted(uint256 indexed jobId, address indexed processor, uint256 occurredAt);
+    event ProcessingJobDeclined(uint256 indexed jobId, address indexed processor, uint256 occurredAt);
     event ProcessingShipped(uint256 indexed jobId, address indexed brand, bytes32 evidenceHash, uint256 occurredAt);
     event ProcessingReceived(uint256 indexed jobId, address indexed processor, uint256 occurredAt);
     event ProcessingResultSubmitted(uint256 indexed jobId, address indexed processor, bytes32 evidenceHash, uint256 outputAmount, uint256 occurredAt);
@@ -56,6 +70,7 @@ contract ProcessingRegistry is AccessControl {
 
     function createJob(address processor, uint256[] calldata tokenIds, uint256[] calldata amounts, ProcessingType[] calldata processingTypes) external onlyRole(BRAND_ROLE) returns (uint256 jobId) {
         require(processor != address(0), "Processing: processor is zero");
+        require(hasRole(PROCESSOR_ROLE, processor), "Processing: processor role required");
         require(tokenIds.length > 0 && tokenIds.length == amounts.length, "Processing: invalid inputs");
         require(processingTypes.length > 0, "Processing: process type is empty");
         jobId = nextJobId++;
@@ -72,13 +87,37 @@ contract ProcessingRegistry is AccessControl {
             for (uint256 j; j < i; ++j) require(processingTypes[j] != processingTypes[i], "Processing: duplicate process type");
             _processingTypes[jobId].push(processingTypes[i]);
         }
-        _jobs[jobId] = Job(msg.sender, processor, bytes32(0), bytes32(0), Status.CREATED, uint64(block.timestamp), uint64(block.timestamp));
+        _jobs[jobId] = Job(msg.sender, processor, bytes32(0), bytes32(0), Status.REQUESTED, uint64(block.timestamp), uint64(block.timestamp));
         emit ProcessingJobCreated(jobId, msg.sender, processor, total, block.timestamp);
+    }
+
+    /// @notice 지정된 Processor가 가공 요청을 수락해야 Brand가 소재를 발송할 수 있다.
+    function acceptJob(uint256 jobId) external onlyRole(PROCESSOR_ROLE) {
+        Job storage job = _job(jobId);
+        require(msg.sender == job.processor, "Processing: caller is not processor");
+        require(job.status == Status.REQUESTED, "Processing: invalid status");
+        job.status = Status.ACCEPTED;
+        job.updatedAt = uint64(block.timestamp);
+        emit ProcessingJobAccepted(jobId, msg.sender, block.timestamp);
+    }
+
+    /// @notice 지정된 Processor가 요청을 거절하면 Job을 종료하고 입력 소재 잠금을 해제한다.
+    function rejectJob(uint256 jobId) external onlyRole(PROCESSOR_ROLE) {
+        Job storage job = _job(jobId);
+        require(msg.sender == job.processor, "Processing: caller is not processor");
+        require(job.status == Status.REQUESTED, "Processing: invalid status");
+        job.status = Status.DECLINED;
+        job.updatedAt = uint64(block.timestamp);
+        _releaseInputs(jobId);
+        emit ProcessingJobDeclined(jobId, msg.sender, block.timestamp);
     }
 
     function cancelJob(uint256 jobId) external {
         Job storage job = _job(jobId);
-        require(job.status == Status.CREATED, "Processing: invalid status");
+        require(
+            job.status == Status.REQUESTED || job.status == Status.ACCEPTED,
+            "Processing: invalid status"
+        );
         require(msg.sender == job.brand || hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Processing: caller cannot cancel");
         job.status = Status.CANCELED; job.updatedAt = uint64(block.timestamp);
         _releaseInputs(jobId);
@@ -87,7 +126,7 @@ contract ProcessingRegistry is AccessControl {
     function markShipped(uint256 jobId, bytes32 evidenceHash) external {
         Job storage job = _job(jobId);
         require(msg.sender == job.brand, "Processing: caller is not brand");
-        require(job.status == Status.CREATED, "Processing: invalid status");
+        require(job.status == Status.ACCEPTED, "Processing: invalid status");
         require(evidenceHash != bytes32(0), "Processing: evidence is empty");
         job.shippingEvidenceHash = evidenceHash; job.status = Status.SHIPPED; job.updatedAt = uint64(block.timestamp);
         emit ProcessingShipped(jobId, msg.sender, evidenceHash, block.timestamp);
@@ -152,7 +191,7 @@ contract ProcessingRegistry is AccessControl {
         Job storage job = _job(jobId);
         require(msg.sender == job.brand, "Processing: caller is not brand");
         require(job.status == Status.RESULT_SUBMITTED, "Processing: invalid status");
-        job.status = Status.REJECTED; job.updatedAt = uint64(block.timestamp);
+        job.status = Status.RESULT_REJECTED; job.updatedAt = uint64(block.timestamp);
         _releaseInputs(jobId);
         emit ProcessingRejected(jobId, job.brand, block.timestamp);
     }

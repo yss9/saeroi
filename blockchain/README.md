@@ -61,7 +61,9 @@ Solidity + Hardhat 기반 소재 이력·거래 스마트 컨트랙트 프로젝
 
 ## Processing / Production
 
-- 가공 Job은 공정 유형을 하나 이상 기록하고 `CREATED → SHIPPED → RECEIVED → PROCESSING → RESULT_SUBMITTED → CONFIRMED`로 진행합니다.
+- 가공 Job은 공정 유형을 하나 이상 기록하고 `REQUESTED → ACCEPTED → SHIPPED → RECEIVED → PROCESSING → RESULT_SUBMITTED → CONFIRMED`로 진행합니다.
+- Brand가 요청을 생성하면 지정 Processor가 `acceptJob` 또는 `rejectJob`으로 응답합니다. 수락 전에는 배송할 수 없으며, 거절 시 입력 소재 잠금이 해제됩니다.
+- Brand 또는 관리자는 배송 전 `REQUESTED`·`ACCEPTED` Job을 취소할 수 있고 입력 소재 잠금은 해제됩니다.
 - 출력별로 하나의 입력 소재를 지정하므로 MVP에서 N→1 혼합은 허용하지 않고 1→N 분할만 허용합니다.
 - Brand 승인 시 입력 무게 토큰을 소각하고 가공 등급과 원천 계보를 유지한 자식 무게 토큰을 발행합니다.
 - WASTE 원재료(`INITIAL`)는 생산에 직접 투입할 수 없고, 반드시 가공된 소재(`PROCESSED`)여야 합니다.
