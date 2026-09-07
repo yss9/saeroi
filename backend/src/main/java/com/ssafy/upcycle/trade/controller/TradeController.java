@@ -2,17 +2,21 @@ package com.ssafy.upcycle.trade.controller;
 
 import com.ssafy.upcycle.common.response.ApiResponse;
 import com.ssafy.upcycle.material.dto.MaterialQuantityUnit;
+import com.ssafy.upcycle.trade.dto.PageResponse;
 import com.ssafy.upcycle.trade.dto.PaymentConfirmRequest;
 import com.ssafy.upcycle.trade.dto.TradeCreateRequest;
 import com.ssafy.upcycle.trade.dto.TradeQuoteResponse;
 import com.ssafy.upcycle.trade.dto.TradeResponse;
+import com.ssafy.upcycle.trade.dto.TradeSearchCondition;
 import com.ssafy.upcycle.trade.service.PaymentService;
 import com.ssafy.upcycle.trade.service.TradeCommandService;
+import com.ssafy.upcycle.trade.service.TradeQueryService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -36,6 +40,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class TradeController {
 
     private final TradeCommandService tradeCommandService;
+    private final TradeQueryService tradeQueryService;
     private final PaymentService paymentService;
 
     /**
@@ -69,11 +74,24 @@ public class TradeController {
         return ApiResponse.success(tradeCommandService.create(userId(jwt), request));
     }
 
+    /**
+     * 내 거래 목록. <b>남의 목록은 볼 수 없다</b> — 사용자 id 를 파라미터로 받지 않고
+     * JWT 에서 강제한다.
+     *
+     * <p>{@code side=BUY}(기본)는 내가 산 것, {@code side=SELL}은 내가 판 것이다.
+     * 결제 후 상태를 확인하는 브랜드와 발송 대기 건을 보는 판매자가 같은 엔드포인트를 쓴다.
+     */
+    @GetMapping
+    public ApiResponse<PageResponse<TradeResponse>> findMyTrades(
+            @AuthenticationPrincipal Jwt jwt, @ModelAttribute TradeSearchCondition condition) {
+        return ApiResponse.success(tradeQueryService.findMyTrades(userId(jwt), condition));
+    }
+
     /** 거래 상세. 당사자(판매자·구매자)만 볼 수 있다. */
     @GetMapping("/{tradeId}")
     public ApiResponse<TradeResponse> findDetail(
             @AuthenticationPrincipal Jwt jwt, @PathVariable Long tradeId) {
-        return ApiResponse.success(tradeCommandService.findDetail(userId(jwt), tradeId));
+        return ApiResponse.success(tradeQueryService.findDetail(userId(jwt), tradeId));
     }
 
     /**

@@ -42,6 +42,7 @@ public class TradeCommandService {
     private final UserRepository userRepository;
     private final UserWalletRepository walletRepository;
     private final TradeCodeGenerator tradeCodeGenerator;
+    private final TradeResponseAssembler tradeResponseAssembler;
 
     /**
      * 구매 전 금액과 구매 가능 여부를 미리 계산한다. <b>아무것도 바꾸지 않는다.</b>
@@ -123,27 +124,7 @@ public class TradeCommandService {
                 totalPrice,
                 request.paymentMethod()));
 
-        return TradeResponse.from(trade);
-    }
-
-    /**
-     * 거래 단건. <b>당사자만 볼 수 있다.</b>
-     *
-     * <p>거래에는 양쪽의 지갑 주소와 금액이 들어 있다. 소재 상세와 달리 공개 정보가 아니다.
-     */
-    @Transactional(readOnly = true)
-    public TradeResponse findDetail(Long userId, Long tradeId) {
-        MaterialTrade trade = tradeRepository
-                .findById(tradeId)
-                .orElseThrow(() -> new BusinessException(TradeErrorCode.TRADE_NOT_FOUND));
-        requireParticipant(trade, userId);
-        return TradeResponse.from(trade);
-    }
-
-    private void requireParticipant(MaterialTrade trade, Long userId) {
-        if (!trade.getSellerId().equals(userId) && !trade.getBuyerId().equals(userId)) {
-            throw new BusinessException(TradeErrorCode.TRADE_NOT_PARTICIPANT);
-        }
+        return tradeResponseAssembler.of(trade);
     }
 
     /**

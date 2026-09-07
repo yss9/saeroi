@@ -40,6 +40,7 @@ public class PaymentService {
 
     private final MaterialTradeRepository tradeRepository;
     private final ListingSearchRepository listingSearchRepository;
+    private final TradeResponseAssembler tradeResponseAssembler;
     private final Clock clock;
 
     /**
@@ -69,7 +70,7 @@ public class PaymentService {
 
         trade.markPaid(
                 request.paymentReference(), request.paymentAmount(), LocalDateTime.now(clock));
-        return TradeResponse.from(trade);
+        return tradeResponseAssembler.of(trade);
     }
 
     /**
@@ -104,7 +105,7 @@ public class PaymentService {
         trade.cancel();
         restoreListingQuantity(trade);
 
-        return TradeResponse.from(trade);
+        return tradeResponseAssembler.of(trade);
     }
 
     /**

@@ -652,6 +652,76 @@ class MarketplaceApiTests {
                 .andExpect(jsonPath("$.code").value("TRADE_NOT_PARTICIPANT"));
     }
 
+    // ── 내 거래 목록 ─────────────────────────────────────────
+
+    @Test
+    void listsWhatIBought() throws Exception {
+        Long listingId = registerListing(20_000L);
+        purchase(listingId, 3_000L);
+
+        mockMvc.perform(get("/api/trades")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].materialName").value("폐데님 원단"))
+                .andExpect(jsonPath("$.data.content[0].sellerName").value("공급자"))
+                .andExpect(jsonPath("$.data.content[0].buyerName").value("브랜드"))
+                .andExpect(jsonPath("$.data.content[0].pricePerKg").value(PRICE_PER_KG));
+    }
+
+    @Test
+    void listsWhatISold() throws Exception {
+        Long listingId = registerListing(20_000L);
+        purchase(listingId, 3_000L);
+
+        mockMvc.perform(get("/api/trades")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + sellerToken)
+                        .param("side", "SELL"))
+                .andExpect(jsonPath("$.data.content.length()").value(1));
+
+        // 판매자에게 구매 목록은 비어 있어야 한다.
+        mockMvc.perform(get("/api/trades")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + sellerToken))
+                .andExpect(jsonPath("$.data.content.length()").value(0));
+    }
+
+    @Test
+    void filtersMyTradesByStatus() throws Exception {
+        Long listingId = registerListing(20_000L);
+        Long tradeId = jsonLong(purchase(listingId, 3_000L), "tradeId");
+        purchase(listingId, 1_000L);
+        payFor(tradeId, 42_000L);
+
+        mockMvc.perform(get("/api/trades")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
+                        .param("status", "PAID"))
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].tradeId").value(tradeId));
+    }
+
+    @Test
+    void neverShowsSomeoneElsesTrades() throws Exception {
+        // 사용자 id 를 파라미터로 받지 않는 것이 이 테스트의 요지다.
+        Long listingId = registerListing(20_000L);
+        purchase(listingId, 3_000L);
+        User outsider = userRepository.save(User.register(
+                "market-outsider2@example.com", "{noop}x", "제3자", "010-7777-7777", UserRole.BRAND));
+
+        mockMvc.perform(get("/api/trades")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor(outsider)))
+                .andExpect(jsonPath("$.data.content.length()").value(0));
+    }
+
+    @Test
+    void carriesMaterialDescriptionOnTheListing() throws Exception {
+        // 판매 글에는 설명이 없다. 소재의 설명을 그대로 내려보낸다.
+        Long listingId = registerListing(20_000L);
+
+        mockMvc.perform(get("/api/listings/" + listingId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken))
+                .andExpect(jsonPath("$.data.materialDescription").value("수거된 청바지"));
+    }
+
     // ── helpers ─────────────────────────────────────────────
 
     private Map<String, Object> listingRequest(long quantity) {

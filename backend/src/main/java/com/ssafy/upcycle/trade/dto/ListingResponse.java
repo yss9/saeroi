@@ -18,6 +18,10 @@ import java.time.LocalDateTime;
  * 불러야 한다 — 목록에서 그게 바로 N+1 이다. 조회 쿼리가 이미 {@code material} 을 조인하므로
  * 여기서 함께 내려보내는 것이 추가 비용이 없다.
  *
+ * <p><b>판매 글 자체에는 설명이 없다.</b> {@code materialDescription} 은 소재의 설명이다.
+ * {@code material_listing} 에 설명 컬럼을 두지 않은 이유는, 같은 소재를 두 번 올리면 설명이
+ * 갈라져 어느 쪽이 그 소재의 사실인지 알 수 없게 되기 때문이다. 소재 정보는 소재가 소유한다.
+ *
  * <p>{@code totalQuantity}·{@code availableQuantity} 는 <b>gram 정수</b>다. kg 변환은 화면이
  * 한다 — 서버가 소수로 내려보내면 부동소수 오차가 응답 자체에 박힌다.
  */
@@ -27,6 +31,7 @@ public record ListingResponse(
         Long materialId,
         String materialCode,
         String materialName,
+        String materialDescription,
         MaterialType materialType,
         MaterialRootOrigin rootOrigin,
         String grade,
@@ -44,6 +49,7 @@ public record ListingResponse(
                 listing.getMaterialId(),
                 material.getMaterialCode(),
                 material.getName(),
+                material.getDescription(),
                 material.getMaterialType(),
                 material.getRootOrigin(),
                 material.getGrade(),
