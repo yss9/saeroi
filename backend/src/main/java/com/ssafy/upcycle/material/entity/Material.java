@@ -38,7 +38,21 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @EntityListeners(AuditingEntityListener.class)
 public class Material {
 
-    private static final int MATERIAL_CODE_MAX_LENGTH = 20;
+    /** {@code material_code} 컬럼 길이. 임시 코드도 이 안에 들어가야 한다. */
+    public static final int MATERIAL_CODE_MAX_LENGTH = 20;
+
+    /**
+     * 아직 정식 코드가 붙지 않은 소재의 코드 접두어.
+     *
+     * <p>{@code material_code} 가 {@code NOT NULL} UNIQUE 라 INSERT 시점에 값이 필요한데
+     * 정식 코드는 저장 후 확정되는 {@code id} 에서 파생한다. 그 사이를 메우는 값이며
+     * {@link #assignCode} 가 교체 가능 여부를 이 접두어로 판정한다.
+     *
+     * <p>불변식이 엔티티에 있으므로 접두어도 여기 둔다 — 코드를 만드는 쪽
+     * ({@code MaterialCodeGenerator})이 이 상수를 참조한다.
+     */
+    public static final String TEMPORARY_CODE_PREFIX = "TMP-";
+
     private static final int NAME_MAX_LENGTH = 200;
     private static final int GRADE_MAX_LENGTH = 50;
     private static final int CONTRACT_ADDRESS_MAX_LENGTH = 42;
@@ -181,6 +195,26 @@ public class Material {
                 lengthMm,
                 widthMm,
                 registrantId);
+    }
+
+    /**
+     * 저장으로 {@code id} 가 확정된 뒤 정식 {@code material_code} 를 부여한다.
+     *
+     * <p><b>왜 등록 시점에 못 정하는가.</b> 코드는 DB 가 매기는 {@code id} 에서 파생하는데
+     * {@code material_code} 는 {@code NOT NULL} UNIQUE 라 INSERT 시점에 이미 값이 있어야 한다.
+     * 그래서 임시 코드로 INSERT 하고 여기서 교체한다 ({@code MaterialCodeGenerator} 참고).
+     *
+     * <p><b>이미 정식 코드가 붙은 소재는 거부한다.</b> 코드는 사람이 부르는 식별자여서
+     * 한 번 나간 뒤 바뀌면 서류·QR·대화가 전부 어긋난다. 임시 코드일 때만 교체를 허용해
+     * 재채번 경로를 원천적으로 막는다.
+     */
+    public void assignCode(String materialCode) {
+        String assigned = requireText(materialCode, "material code", MATERIAL_CODE_MAX_LENGTH);
+        if (!this.materialCode.startsWith(TEMPORARY_CODE_PREFIX)) {
+            throw new IllegalStateException(
+                    "Material code is already assigned and must not change: " + this.materialCode);
+        }
+        this.materialCode = assigned;
     }
 
     private static <T> T requireNonNull(T value, String field) {
