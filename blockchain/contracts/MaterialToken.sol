@@ -31,6 +31,13 @@ contract MaterialToken is ERC1155, AccessControl {
         PRODUCTION_SCRAP
     }
 
+    enum Grade {
+        NONE,
+        A,
+        B,
+        C
+    }
+
     /// @notice 소재 증빙의 단계별 확인 상태다.
     /// @dev 독립 Verifier는 두지 않는다. 각 단계의 실제 업무 주체가 자신의 지갑으로 직접 호출한다.
     enum VerificationState {
@@ -64,7 +71,8 @@ contract MaterialToken is ERC1155, AccessControl {
         NONE,
         ACTIVE,
         RELEASED,
-        CONSUMED
+        CONSUMED,
+        EXPIRED
     }
 
     struct MaterialInfo {
@@ -74,6 +82,7 @@ contract MaterialToken is ERC1155, AccessControl {
         uint256 totalBurned;
         RootOrigin rootOrigin;
         GenerationType generationType;
+        Grade grade;
         MaterialStatus status;
         address registrant;
         bool exists;
@@ -98,6 +107,9 @@ contract MaterialToken is ERC1155, AccessControl {
         LockPurpose purpose;
         uint256 referenceId;
         LockStatus status;
+        uint64 createdAt;
+        uint64 releasedAt;
+        uint64 expiresAt;
     }
 
     uint256 public nextMaterialId = 1;
@@ -109,6 +121,8 @@ contract MaterialToken is ERC1155, AccessControl {
         private _verificationRecords;
     mapping(address owner => mapping(uint256 tokenId => uint256 amount))
         private _lockedBalances;
+    mapping(address owner => mapping(uint256 tokenId => uint256[] lockIds))
+        private _lockIdsByOwnerToken;
 
     event MaterialMinted(
         address indexed operator,
@@ -170,6 +184,13 @@ contract MaterialToken is ERC1155, AccessControl {
         BurnReason reason,
         uint256 remainingSupply
     );
+    event MaterialLockExpired(
+        uint256 indexed lockId,
+        address indexed owner,
+        uint256 indexed tokenId,
+        uint256 releasedAmount,
+        uint256 occurredAt
+    );
 
     constructor(string memory baseUri, address admin) ERC1155(baseUri) {
         require(admin != address(0), "MaterialToken: admin is zero address");
@@ -188,6 +209,7 @@ contract MaterialToken is ERC1155, AccessControl {
         uint256 amount,
         RootOrigin rootOrigin,
         GenerationType generationType,
+        Grade grade,
         string calldata metadataUri,
         bytes32 evidenceHash
     ) external onlyRole(MATERIAL_WORKFLOW_ROLE) returns (uint256 tokenId) {
@@ -207,6 +229,7 @@ contract MaterialToken is ERC1155, AccessControl {
             totalBurned: 0,
             rootOrigin: rootOrigin,
             generationType: generationType,
+            grade: grade,
             status: MaterialStatus.ACTIVE,
             registrant: _msgSender(),
             exists: true
@@ -244,6 +267,7 @@ contract MaterialToken is ERC1155, AccessControl {
             totalBurned: 0,
             rootOrigin: rootOrigin,
             generationType: GenerationType.INITIAL,
+            grade: Grade.NONE,
             status: MaterialStatus.ACTIVE,
             registrant: _msgSender(),
             exists: true
@@ -315,6 +339,29 @@ contract MaterialToken is ERC1155, AccessControl {
         LockPurpose purpose,
         uint256 referenceId
     ) external onlyRole(MATERIAL_LOCK_MANAGER_ROLE) returns (uint256 lockId) {
+        return _createMaterialLock(owner, tokenId, amount, purpose, referenceId, 0);
+    }
+
+    function createMaterialLockWithExpiry(
+        address owner,
+        uint256 tokenId,
+        uint256 amount,
+        LockPurpose purpose,
+        uint256 referenceId,
+        uint64 expiresAt
+    ) external onlyRole(MATERIAL_LOCK_MANAGER_ROLE) returns (uint256 lockId) {
+        require(expiresAt > block.timestamp, "MaterialToken: expiry is not future");
+        return _createMaterialLock(owner, tokenId, amount, purpose, referenceId, expiresAt);
+    }
+
+    function _createMaterialLock(
+        address owner,
+        uint256 tokenId,
+        uint256 amount,
+        LockPurpose purpose,
+        uint256 referenceId,
+        uint64 expiresAt
+    ) private returns (uint256 lockId) {
         require(owner != address(0), "MaterialToken: owner is zero address");
         require(amount > 0, "MaterialToken: amount is zero");
         require(referenceId > 0, "MaterialToken: referenceId is zero");
@@ -338,9 +385,13 @@ contract MaterialToken is ERC1155, AccessControl {
             remainingAmount: amount,
             purpose: purpose,
             referenceId: referenceId,
-            status: LockStatus.ACTIVE
+            status: LockStatus.ACTIVE,
+            createdAt: uint64(block.timestamp),
+            releasedAt: 0,
+            expiresAt: expiresAt
         });
         _lockedBalances[owner][tokenId] += amount;
+        _lockIdsByOwnerToken[owner][tokenId].push(lockId);
 
         emit MaterialLockCreated(
             lockId,
@@ -369,6 +420,7 @@ contract MaterialToken is ERC1155, AccessControl {
         _lockedBalances[materialLock.owner][materialLock.tokenId] -= amount;
         if (materialLock.remainingAmount == 0) {
             materialLock.status = LockStatus.RELEASED;
+            materialLock.releasedAt = uint64(block.timestamp);
         }
 
         emit MaterialLockReleased(lockId, amount, materialLock.remainingAmount);
@@ -397,6 +449,18 @@ contract MaterialToken is ERC1155, AccessControl {
         _safeTransferFrom(materialLock.owner, to, materialLock.tokenId, amount, "");
 
         emit MaterialLockConsumed(lockId, to, amount, materialLock.remainingAmount);
+    }
+
+    function expireMaterialLock(uint256 lockId) external {
+        MaterialLock storage materialLock = _materialLocks[lockId];
+        require(materialLock.status == LockStatus.ACTIVE, "MaterialToken: lock is not active");
+        require(materialLock.expiresAt != 0 && materialLock.expiresAt <= block.timestamp, "MaterialToken: lock is not expired");
+        uint256 releasedAmount = materialLock.remainingAmount;
+        materialLock.remainingAmount = 0;
+        materialLock.status = LockStatus.EXPIRED;
+        materialLock.releasedAt = uint64(block.timestamp);
+        _lockedBalances[materialLock.owner][materialLock.tokenId] -= releasedAmount;
+        emit MaterialLockExpired(lockId, materialLock.owner, materialLock.tokenId, releasedAmount, block.timestamp);
     }
 
     /// @notice 업무 Registry가 Processing/Production 잠금을 전송 없이 소각한다.
@@ -504,12 +568,31 @@ contract MaterialToken is ERC1155, AccessControl {
         return _materials[tokenId].rootOrigin;
     }
 
+    function generationTypeOf(uint256 tokenId) external view returns (GenerationType) {
+        require(_materials[tokenId].exists, "MaterialToken: material does not exist");
+        return _materials[tokenId].generationType;
+    }
+
+    function gradeOf(uint256 tokenId) external view returns (Grade) {
+        require(_materials[tokenId].exists, "MaterialToken: material does not exist");
+        return _materials[tokenId].grade;
+    }
+
     function lockedBalanceOf(address owner, uint256 tokenId)
         public
         view
         returns (uint256)
     {
-        return _lockedBalances[owner][tokenId];
+        uint256[] storage lockIds = _lockIdsByOwnerToken[owner][tokenId];
+        uint256 total;
+        for (uint256 i; i < lockIds.length; ++i) {
+            MaterialLock storage materialLock = _materialLocks[lockIds[i]];
+            if (
+                materialLock.status == LockStatus.ACTIVE &&
+                (materialLock.expiresAt == 0 || materialLock.expiresAt > block.timestamp)
+            ) total += materialLock.remainingAmount;
+        }
+        return total;
     }
 
     function availableBalance(address owner, uint256 tokenId)
@@ -517,7 +600,7 @@ contract MaterialToken is ERC1155, AccessControl {
         view
         returns (uint256)
     {
-        return balanceOf(owner, tokenId) - _lockedBalances[owner][tokenId];
+        return balanceOf(owner, tokenId) - lockedBalanceOf(owner, tokenId);
     }
 
     /// @notice 전달받은 SHA-256 값이 발행 당시 저장한 증빙 해시와 같은지 확인한다.
@@ -538,6 +621,7 @@ contract MaterialToken is ERC1155, AccessControl {
     {
         materialLock = _materialLocks[lockId];
         require(materialLock.status == LockStatus.ACTIVE, "MaterialToken: lock is not active");
+        require(materialLock.expiresAt == 0 || materialLock.expiresAt > block.timestamp, "MaterialToken: lock is expired");
         require(materialLock.operator == _msgSender(), "MaterialToken: caller is not lock operator");
     }
 

@@ -10,7 +10,7 @@ interface IProcessingMaterialToken {
     function createMaterialLock(address owner, uint256 tokenId, uint256 amount, uint8 purpose, uint256 referenceId) external returns (uint256);
     function releaseMaterialLock(uint256 lockId, uint256 amount) external;
     function consumeLockedMaterial(uint256 lockId, uint256 referenceId, uint8 purpose, uint8 reason) external returns (uint256, uint256);
-    function mintDerivedMaterial(address to, uint256 amount, uint8 rootOrigin, uint8 generationType, string calldata metadataUri, bytes32 evidenceHash) external returns (uint256);
+    function mintDerivedMaterial(address to, uint256 amount, uint8 rootOrigin, uint8 generationType, uint8 grade, string calldata metadataUri, bytes32 evidenceHash) external returns (uint256);
 }
 
 /// @title ProcessingRegistry
@@ -22,9 +22,11 @@ contract ProcessingRegistry is AccessControl {
     uint8 private constant PROCESSING_REASON = 0;
     uint8 private constant PROCESSED_GENERATION = 1;
 
-    enum Status { NONE, CREATED, PAID, SHIPPED, RECEIVED, PROCESSING, RESULT_SUBMITTED, CONFIRMED, REJECTED, CANCELED, FAILED }
+    enum Status { NONE, CREATED, SHIPPED, RECEIVED, PROCESSING, RESULT_SUBMITTED, CONFIRMED, REJECTED, CANCELED }
+    enum ProcessingType { CLEANING, DISASSEMBLY, SORTING, CUTTING, SHREDDING, COLOR_PROCESSING, SURFACE_FINISHING, REMANUFACTURING }
+    enum Grade { NONE, A, B, C }
     struct Input { uint256 tokenId; uint256 amount; uint256 lockId; uint8 rootOrigin; }
-    struct Output { uint256 inputIndex; uint256 amount; string metadataUri; bytes32 evidenceHash; uint256 tokenId; }
+    struct Output { uint256 inputIndex; uint256 amount; Grade grade; string metadataUri; bytes32 evidenceHash; uint256 tokenId; }
     struct Job { address brand; address processor; bytes32 shippingEvidenceHash; bytes32 resultEvidenceHash; Status status; uint64 createdAt; uint64 updatedAt; }
 
     IProcessingMaterialToken public immutable materialToken;
@@ -32,6 +34,7 @@ contract ProcessingRegistry is AccessControl {
     mapping(uint256 => Job) private _jobs;
     mapping(uint256 => Input[]) private _inputs;
     mapping(uint256 => Output[]) private _outputs;
+    mapping(uint256 => ProcessingType[]) private _processingTypes;
     mapping(uint256 => uint256[]) private _parentsByChild;
 
     event ProcessingJobCreated(uint256 indexed jobId, address indexed brand, address indexed processor, uint256 inputAmount, uint256 occurredAt);
@@ -51,9 +54,10 @@ contract ProcessingRegistry is AccessControl {
         _grantRole(PROCESSOR_ROLE, admin);
     }
 
-    function createJob(address processor, uint256[] calldata tokenIds, uint256[] calldata amounts) external onlyRole(BRAND_ROLE) returns (uint256 jobId) {
+    function createJob(address processor, uint256[] calldata tokenIds, uint256[] calldata amounts, ProcessingType[] calldata processingTypes) external onlyRole(BRAND_ROLE) returns (uint256 jobId) {
         require(processor != address(0), "Processing: processor is zero");
         require(tokenIds.length > 0 && tokenIds.length == amounts.length, "Processing: invalid inputs");
+        require(processingTypes.length > 0, "Processing: process type is empty");
         jobId = nextJobId++;
         uint256 total;
         for (uint256 i; i < tokenIds.length; ++i) {
@@ -64,28 +68,26 @@ contract ProcessingRegistry is AccessControl {
             _inputs[jobId].push(Input(tokenIds[i], amounts[i], lockId, materialToken.rootOriginOf(tokenIds[i])));
             total += amounts[i];
         }
+        for (uint256 i; i < processingTypes.length; ++i) {
+            for (uint256 j; j < i; ++j) require(processingTypes[j] != processingTypes[i], "Processing: duplicate process type");
+            _processingTypes[jobId].push(processingTypes[i]);
+        }
         _jobs[jobId] = Job(msg.sender, processor, bytes32(0), bytes32(0), Status.CREATED, uint64(block.timestamp), uint64(block.timestamp));
         emit ProcessingJobCreated(jobId, msg.sender, processor, total, block.timestamp);
     }
 
-    /// @notice PG 결제 결과는 DB가 관리한다. 온체인에는 다음 업무 단계 진입 사실만 기록한다.
-    function markPaid(uint256 jobId) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function cancelJob(uint256 jobId) external {
         Job storage job = _job(jobId);
         require(job.status == Status.CREATED, "Processing: invalid status");
-        job.status = Status.PAID; job.updatedAt = uint64(block.timestamp);
-    }
-
-    function cancelPaymentFailed(uint256 jobId) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        Job storage job = _job(jobId);
-        require(job.status == Status.CREATED, "Processing: invalid status");
-        job.status = Status.FAILED; job.updatedAt = uint64(block.timestamp);
+        require(msg.sender == job.brand || hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Processing: caller cannot cancel");
+        job.status = Status.CANCELED; job.updatedAt = uint64(block.timestamp);
         _releaseInputs(jobId);
     }
 
     function markShipped(uint256 jobId, bytes32 evidenceHash) external {
         Job storage job = _job(jobId);
         require(msg.sender == job.brand, "Processing: caller is not brand");
-        require(job.status == Status.PAID, "Processing: invalid status");
+        require(job.status == Status.CREATED, "Processing: invalid status");
         require(evidenceHash != bytes32(0), "Processing: evidence is empty");
         job.shippingEvidenceHash = evidenceHash; job.status = Status.SHIPPED; job.updatedAt = uint64(block.timestamp);
         emit ProcessingShipped(jobId, msg.sender, evidenceHash, block.timestamp);
@@ -106,27 +108,27 @@ contract ProcessingRegistry is AccessControl {
         job.status = Status.PROCESSING; job.updatedAt = uint64(block.timestamp);
     }
 
-    function submitResult(uint256 jobId, uint256[] calldata inputIndexes, uint256[] calldata amounts, string[] calldata metadataUris, bytes32[] calldata evidenceHashes, bytes32 resultEvidenceHash) external onlyRole(PROCESSOR_ROLE) {
+    function submitProcessingResult(uint256 jobId, uint256[] calldata inputIndexes, uint256[] calldata amounts, Grade[] calldata grades, string[] calldata metadataUris, bytes32[] calldata evidenceHashes, bytes32 resultEvidenceHash) external onlyRole(PROCESSOR_ROLE) {
         Job storage job = _job(jobId);
         require(msg.sender == job.processor, "Processing: caller is not processor");
         require(job.status == Status.PROCESSING, "Processing: invalid status");
-        require(amounts.length > 0 && amounts.length == inputIndexes.length && amounts.length == metadataUris.length && amounts.length == evidenceHashes.length, "Processing: invalid outputs");
+        require(amounts.length > 0 && amounts.length == inputIndexes.length && amounts.length == grades.length && amounts.length == metadataUris.length && amounts.length == evidenceHashes.length, "Processing: invalid outputs");
         require(resultEvidenceHash != bytes32(0), "Processing: evidence is empty");
         uint256[] memory totals = new uint256[](_inputs[jobId].length);
         uint256 submittedTotal;
         for (uint256 i; i < amounts.length; ++i) {
-            require(amounts[i] > 0 && evidenceHashes[i] != bytes32(0), "Processing: invalid output");
+            require(amounts[i] > 0 && grades[i] != Grade.NONE && evidenceHashes[i] != bytes32(0), "Processing: invalid output");
             require(inputIndexes[i] < _inputs[jobId].length, "Processing: invalid input reference");
             totals[inputIndexes[i]] += amounts[i];
             require(totals[inputIndexes[i]] <= _inputs[jobId][inputIndexes[i]].amount, "Processing: output exceeds input");
-            _outputs[jobId].push(Output(inputIndexes[i], amounts[i], metadataUris[i], evidenceHashes[i], 0));
+            _outputs[jobId].push(Output(inputIndexes[i], amounts[i], grades[i], metadataUris[i], evidenceHashes[i], 0));
             submittedTotal += amounts[i];
         }
         job.resultEvidenceHash = resultEvidenceHash; job.status = Status.RESULT_SUBMITTED; job.updatedAt = uint64(block.timestamp);
         emit ProcessingResultSubmitted(jobId, msg.sender, resultEvidenceHash, submittedTotal, block.timestamp);
     }
 
-    function approve(uint256 jobId) external {
+    function approveProcessingResult(uint256 jobId) external {
         Job storage job = _job(jobId);
         require(msg.sender == job.brand, "Processing: caller is not brand");
         require(job.status == Status.RESULT_SUBMITTED, "Processing: invalid status");
@@ -137,7 +139,7 @@ contract ProcessingRegistry is AccessControl {
         Output[] storage outputs = _outputs[jobId];
         for (uint256 i; i < outputs.length; ++i) {
             Input storage parent = inputs[outputs[i].inputIndex];
-            uint256 childId = materialToken.mintDerivedMaterial(job.brand, outputs[i].amount, parent.rootOrigin, PROCESSED_GENERATION, outputs[i].metadataUri, outputs[i].evidenceHash);
+            uint256 childId = materialToken.mintDerivedMaterial(job.brand, outputs[i].amount, parent.rootOrigin, PROCESSED_GENERATION, uint8(outputs[i].grade), outputs[i].metadataUri, outputs[i].evidenceHash);
             outputs[i].tokenId = childId;
             _parentsByChild[childId].push(parent.tokenId);
             emit MaterialProcessed(jobId, parent.tokenId, childId, outputs[i].amount, job.processor, job.brand, block.timestamp);
@@ -146,7 +148,7 @@ contract ProcessingRegistry is AccessControl {
         emit ProcessingConfirmed(jobId, job.processor, job.brand, job.resultEvidenceHash, block.timestamp);
     }
 
-    function reject(uint256 jobId) external {
+    function rejectProcessingResult(uint256 jobId) external {
         Job storage job = _job(jobId);
         require(msg.sender == job.brand, "Processing: caller is not brand");
         require(job.status == Status.RESULT_SUBMITTED, "Processing: invalid status");
@@ -160,6 +162,7 @@ contract ProcessingRegistry is AccessControl {
     function getJob(uint256 jobId) external view returns (Job memory) { return _jobs[jobId]; }
     function getInputs(uint256 jobId) external view returns (Input[] memory) { return _inputs[jobId]; }
     function getOutputs(uint256 jobId) external view returns (Output[] memory) { return _outputs[jobId]; }
+    function getProcessingTypes(uint256 jobId) external view returns (ProcessingType[] memory) { return _processingTypes[jobId]; }
     function parentsOf(uint256 childId) external view returns (uint256[] memory) { return _parentsByChild[childId]; }
     function _releaseInputs(uint256 jobId) private { Input[] storage inputs = _inputs[jobId]; for (uint256 i; i < inputs.length; ++i) materialToken.releaseMaterialLock(inputs[i].lockId, inputs[i].amount); }
     function _job(uint256 jobId) private view returns (Job storage job) { job = _jobs[jobId]; require(job.status != Status.NONE, "Processing: job does not exist"); }

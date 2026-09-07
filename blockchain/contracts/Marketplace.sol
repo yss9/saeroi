@@ -6,6 +6,7 @@ import {IERC1155} from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 
 /// @dev Marketplace가 사용하는 MaterialToken 기능만 선언한 최소 인터페이스다.
 interface IMaterialToken is IERC1155 {
+    function hasRole(bytes32 role, address account) external view returns (bool);
     function createMaterialLock(
         address owner,
         uint256 tokenId,
@@ -23,8 +24,8 @@ interface IMaterialToken is IERC1155 {
 /// @notice 소재 판매 잠금과 거래 상태, 수령 완료 후 소유권 이전을 관리한다.
 /// @dev 결제 승인·취소·환불·정산은 백엔드와 카카오페이가 담당한다. 컨트랙트는 결제 토큰을 보유하지 않는다.
 contract Marketplace is AccessControl {
-    bytes32 public constant PAYMENT_MANAGER_ROLE =
-        keccak256("PAYMENT_MANAGER_ROLE");
+    bytes32 private constant SUPPLIER_ROLE = keccak256("SUPPLIER_ROLE");
+    bytes32 private constant BRAND_ROLE = keccak256("BRAND_ROLE");
 
     enum ListingStatus {
         NONE,
@@ -37,7 +38,6 @@ contract Marketplace is AccessControl {
     enum OrderStatus {
         NONE,
         CREATED,
-        PAID,
         SHIPPED,
         RECEIVED,
         COMPLETED,
@@ -55,7 +55,6 @@ contract Marketplace is AccessControl {
         uint256 initialQuantity;
         uint256 remainingQuantity;
         uint256 reservedQuantity;
-        uint256 pricePerKg;
         ListingStatus status;
     }
 
@@ -66,8 +65,6 @@ contract Marketplace is AccessControl {
         address buyer;
         uint256 materialId;
         uint256 quantity;
-        uint256 totalPrice;
-        bytes32 paymentReferenceHash;
         OrderStatus status;
     }
 
@@ -94,8 +91,7 @@ contract Marketplace is AccessControl {
         uint256 indexed materialId,
         uint256 indexed materialLockId,
         address seller,
-        uint256 quantity,
-        uint256 pricePerKg
+        uint256 quantity
     );
     event ListingCancelled(
         uint256 indexed listingId,
@@ -106,18 +102,12 @@ contract Marketplace is AccessControl {
         uint256 indexed orderId,
         uint256 indexed listingId,
         address indexed buyer,
-        uint256 quantity,
-        uint256 totalPrice
+        uint256 quantity
     );
     event OrderStatusChanged(
         uint256 indexed orderId,
         OrderStatus previousStatus,
         OrderStatus newStatus,
-        address indexed operator
-    );
-    event PaymentConfirmed(
-        uint256 indexed orderId,
-        bytes32 indexed paymentReferenceHash,
         address indexed operator
     );
     event ReceiptConfirmed(uint256 indexed orderId, address indexed buyer);
@@ -138,18 +128,19 @@ contract Marketplace is AccessControl {
 
         materialToken = IMaterialToken(materialTokenAddress);
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
-        _grantRole(PAYMENT_MANAGER_ROLE, admin);
     }
 
     /// @notice 보유 소재 일부를 판매 등록하고 판매글 전용 잠금을 만든다.
-    /// @param pricePerKg 1kg(1000g)당 정수 가격
     function createListing(
         uint256 materialId,
-        uint256 quantity,
-        uint256 pricePerKg
+        uint256 quantity
     ) external returns (uint256 listingId) {
+        require(
+            materialToken.hasRole(SUPPLIER_ROLE, _msgSender()) ||
+                materialToken.hasRole(BRAND_ROLE, _msgSender()),
+            "Marketplace: seller role required"
+        );
         require(quantity > 0, "Marketplace: quantity is zero");
-        require(pricePerKg > 0, "Marketplace: price per kg is zero");
         require(
             materialToken.availableBalance(_msgSender(), materialId) >= quantity,
             "Marketplace: insufficient available balance"
@@ -172,7 +163,6 @@ contract Marketplace is AccessControl {
             initialQuantity: quantity,
             remainingQuantity: quantity,
             reservedQuantity: 0,
-            pricePerKg: pricePerKg,
             status: ListingStatus.ACTIVE
         });
 
@@ -181,8 +171,7 @@ contract Marketplace is AccessControl {
             materialId,
             lockId,
             _msgSender(),
-            quantity,
-            pricePerKg
+            quantity
         );
     }
 
@@ -213,11 +202,11 @@ contract Marketplace is AccessControl {
     }
 
     /// @notice 구매 주문을 CREATED 상태로 만들고 판매글 잔량을 예약한다.
-    /// @dev 총액은 gram 수량 × kg당 가격 ÷ 1000이며, 나머지가 있으면 1원 올림한다.
     function createOrder(uint256 listingId, uint256 quantity)
         external
         returns (uint256 orderId)
     {
+        require(materialToken.hasRole(BRAND_ROLE, _msgSender()), "Marketplace: buyer role required");
         Listing storage listing = _listings[listingId];
         require(listing.status == ListingStatus.ACTIVE, "Marketplace: listing is not active");
         require(listing.seller != _msgSender(), "Marketplace: seller cannot buy own listing");
@@ -227,7 +216,6 @@ contract Marketplace is AccessControl {
             "Marketplace: insufficient listing quantity"
         );
 
-        uint256 totalPrice = _calculateTotalPrice(quantity, listing.pricePerKg);
         listing.remainingQuantity -= quantity;
         listing.reservedQuantity += quantity;
         if (listing.remainingQuantity == 0) {
@@ -242,8 +230,6 @@ contract Marketplace is AccessControl {
             buyer: _msgSender(),
             materialId: listing.materialId,
             quantity: quantity,
-            totalPrice: totalPrice,
-            paymentReferenceHash: bytes32(0),
             status: OrderStatus.CREATED
         });
 
@@ -251,30 +237,15 @@ contract Marketplace is AccessControl {
             orderId,
             listingId,
             _msgSender(),
-            quantity,
-            totalPrice
+            quantity
         );
     }
 
-    /// @notice 백엔드 결제 확인 계정이 외부 결제 성공을 온체인 거래 상태에 반영한다.
-    function markPaid(uint256 orderId, bytes32 paymentReferenceHash)
-        external
-        onlyRole(PAYMENT_MANAGER_ROLE)
-    {
-        require(paymentReferenceHash != bytes32(0), "Marketplace: payment reference is empty");
-        Order storage order = _orders[orderId];
-        require(order.status == OrderStatus.CREATED, "Marketplace: order is not created");
-
-        order.paymentReferenceHash = paymentReferenceHash;
-        _changeOrderStatus(order, OrderStatus.PAID);
-        emit PaymentConfirmed(orderId, paymentReferenceHash, _msgSender());
-    }
-
-    /// @notice 판매자가 결제 완료 주문을 발송 처리한다.
+    /// @notice 오프체인 결제를 마친 주문을 판매자가 발송 처리한다. 금액과 결제 정보는 온체인에 저장하지 않는다.
     function markShipped(uint256 orderId) external {
         Order storage order = _orders[orderId];
         require(order.seller == _msgSender(), "Marketplace: caller is not seller");
-        require(order.status == OrderStatus.PAID, "Marketplace: order is not paid");
+        require(order.status == OrderStatus.CREATED, "Marketplace: order is not shippable");
 
         _changeOrderStatus(order, OrderStatus.SHIPPED);
     }
@@ -305,7 +276,7 @@ contract Marketplace is AccessControl {
         );
     }
 
-    /// @notice 결제 전 주문을 구매자 또는 판매자가 취소한다.
+    /// @notice 발송 전 주문을 구매자 또는 판매자가 취소한다.
     function cancelOrder(uint256 orderId) external {
         Order storage order = _orders[orderId];
         require(order.status == OrderStatus.CREATED, "Marketplace: order is not cancellable");
@@ -344,7 +315,7 @@ contract Marketplace is AccessControl {
     }
 
     /// @notice ADMIN 판정 없이 Seller와 Buyer가 동일한 처리 결과에 각각 서명한다.
-    function signDisputeResolution(uint256 orderId, DisputeResolution resolution) external {
+    function settleDispute(uint256 orderId, DisputeResolution resolution) external {
         Order storage order = _orders[orderId];
         require(order.status == OrderStatus.DISPUTED, "Marketplace: order is not disputed");
         require(resolution != DisputeResolution.NONE, "Marketplace: resolution is empty");
@@ -369,14 +340,6 @@ contract Marketplace is AccessControl {
         }
     }
 
-    function calculateTotalPrice(uint256 quantityGram, uint256 pricePerKg)
-        external
-        pure
-        returns (uint256)
-    {
-        return _calculateTotalPrice(quantityGram, pricePerKg);
-    }
-
     function availableBalance(address owner, uint256 materialId)
         external
         view
@@ -398,16 +361,6 @@ contract Marketplace is AccessControl {
     }
 
     function getDispute(uint256 orderId) external view returns (Dispute memory) { return _disputes[orderId]; }
-
-    function _calculateTotalPrice(uint256 quantityGram, uint256 pricePerKg)
-        private
-        pure
-        returns (uint256)
-    {
-        require(quantityGram > 0, "Marketplace: quantity is zero");
-        require(pricePerKg > 0, "Marketplace: price per kg is zero");
-        return (quantityGram * pricePerKg + 999) / 1000;
-    }
 
     function _changeOrderStatus(Order storage order, OrderStatus newStatus)
         private

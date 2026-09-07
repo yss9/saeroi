@@ -44,7 +44,7 @@ async function main() {
   const [admin, supplier, brand, processor] = await ethers.getSigners();
 
   console.log("\n=== 1. Hardhat 가상 지갑 ===");
-  console.log("Admin/결제확인:", admin.address);
+  console.log("Admin:", admin.address);
   console.log("Supplier:", supplier.address);
   console.log("Brand:", brand.address);
   console.log("Processor:", processor.address);
@@ -124,7 +124,7 @@ async function main() {
   console.log("Verification: SOURCE_VERIFIED (SourceVerified event에서 파생)");
 
   const listingReceipt = await waitForReceipt(
-    marketplace.connect(supplier).createListing(materialId, 20_000, 30_000)
+    marketplace.connect(supplier).createListing(materialId, 20_000)
   );
   const listingEvent = findEventArgs(
     listingReceipt,
@@ -158,24 +158,19 @@ async function main() {
   console.log("\n=== 5. Brand 주문 ===");
   console.log("Order ID:", orderId.toString());
   console.log("Order status: CREATED(1)");
-  console.log("Total price:", orderEvent.totalPrice.toString());
+  console.log("Payment: 백엔드/PG와 DB에서만 처리하며 온체인에는 기록하지 않음");
 
-  // 실제 서비스에서는 카카오페이 성공 Webhook을 검증한 백엔드 지갑이 이 Tx를 보낸다.
-  await waitForReceipt(
-    marketplace
-      .connect(admin)
-      .markPaid(orderId, sha256("kakaopay-test-payment-1"))
-  );
+  // 실제 서비스에서는 백엔드가 오프체인 결제 완료를 확인한 뒤 발송 절차를 진행한다.
   await waitForReceipt(marketplace.connect(supplier).markShipped(orderId));
 
-  console.log("\n=== 6. 외부 결제 확인 및 Supplier 발송 ===");
-  console.log("Order status: SHIPPED(3)");
+  console.log("\n=== 6. 오프체인 결제 확인 후 Supplier 발송 ===");
+  console.log("Order status: SHIPPED(2)");
   console.log("이 시점까지 소재 소유자는 Supplier이고 Lock도 유지됩니다.");
 
   await waitForReceipt(marketplace.connect(brand).confirmReceipt(orderId));
 
   console.log("\n=== 7. Brand 수령 확인 ===");
-  console.log("Order status: COMPLETED(5)");
+  console.log("Order status: COMPLETED(4)");
   console.log(
     "Supplier balance:",
     (await materialToken.balanceOf(supplier.address, materialId)).toString(),
