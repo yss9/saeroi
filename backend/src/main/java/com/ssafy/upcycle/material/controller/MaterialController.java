@@ -1,12 +1,15 @@
 package com.ssafy.upcycle.material.controller;
 
 import com.ssafy.upcycle.common.response.ApiResponse;
+import com.ssafy.upcycle.material.dto.MaterialBalanceResponse;
 import com.ssafy.upcycle.material.dto.MaterialDetailResponse;
 import com.ssafy.upcycle.material.dto.MaterialRegisterRequest;
 import com.ssafy.upcycle.material.dto.MaterialRegisterResponse;
+import com.ssafy.upcycle.material.dto.MyMaterialResponse;
 import com.ssafy.upcycle.material.service.MaterialQueryService;
 import com.ssafy.upcycle.material.service.MaterialRegistrationService;
 import jakarta.validation.Valid;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -65,6 +68,33 @@ public class MaterialController {
     @GetMapping("/{materialId}")
     public ApiResponse<MaterialDetailResponse> findDetail(@PathVariable Long materialId) {
         return ApiResponse.success(materialQueryService.findDetail(materialId));
+    }
+
+    /**
+     * 내가 보유한 소재 목록. My Materials 화면이 쓴다.
+     *
+     * <p><b>이 매핑이 {@code /{materialId}} 보다 먼저 선언되어 있어야 하는 것은 아니다</b> —
+     * Spring MVC 는 리터럴 경로를 경로 변수보다 우선한다. 그래도 {@code /me} 가
+     * {@code materialId} 로 잘못 바인딩되면 400 이 되므로 테스트로 고정한다.
+     *
+     * <p>보유자는 JWT {@code sub} 에서 얻는다 — 경로나 쿼리로 받으면 남의 보유 현황을
+     * 들여다볼 수 있다.
+     */
+    @GetMapping("/me")
+    public ApiResponse<List<MyMaterialResponse>> findMyMaterials(@AuthenticationPrincipal Jwt jwt) {
+        return ApiResponse.success(materialQueryService.findMyMaterials(userId(jwt)));
+    }
+
+    /**
+     * 한 소재의 보유자별 잔량.
+     *
+     * <p>응답의 {@code available} 은 {@code quantity} 에서 <b>ACTIVE 잠금만</b> 뺀 값이다.
+     * {@code syncedAt} 은 이 값이 언제 기준인지 알려준다 — 온체인 잔액 동기화가 아직
+     * 없어서, 시각이 없으면 "보유자 없음" 과 "동기화 전" 을 구분할 수 없다.
+     */
+    @GetMapping("/{materialId}/balance")
+    public ApiResponse<List<MaterialBalanceResponse>> findBalances(@PathVariable Long materialId) {
+        return ApiResponse.success(materialQueryService.findBalances(materialId));
     }
 
     /**
