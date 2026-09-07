@@ -19,6 +19,7 @@ import com.ssafy.upcycle.trade.entity.TradeStatus;
 import com.ssafy.upcycle.trade.repository.MaterialListingRepository;
 import com.ssafy.upcycle.trade.repository.MaterialTradeRepository;
 import com.ssafy.upcycle.user.entity.User;
+import com.ssafy.upcycle.user.entity.UserRole;
 import com.ssafy.upcycle.user.repository.UserRepository;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -204,10 +205,20 @@ public class ListingCommandService {
      * <p>JWT 의 {@code roles} 클레임을 믿지 않고 DB 를 다시 읽는다 — 토큰은 발급 시점의
      * 스냅샷이라 정지된 계정이 만료 전까지 계속 판매를 올릴 수 있다.
      *
-     * <p>자격은 {@code canRegisterMaterial()} 을 그대로 쓴다 ({@code SUPPLIER}·{@code BRAND}).
-     * 온체인 {@code Marketplace.createListing} 이 요구하는 역할과 같다 —
-     * {@code SUPPLIER_ROLE || BRAND_ROLE}. 두 곳이 어긋나면 DB 에는 올라갔는데 체인 등록만
-     * 실패하는 판매 글이 생긴다.
+     * <p><b>{@code SUPPLIER} 만이다.</b> {@code BRAND} 는 소재를 사서 제품을 만드는 쪽이며
+     * 판매자가 되지 않는다. {@code canRegisterMaterial()}
+     * ({@code SUPPLIER}·{@code BRAND})을 쓰지 않는 이유가 여기 있다 — <b>소재를 등록하는 것과
+     * 파는 것은 다른 권한</b>이고, 브랜드는 자기 소재를 등록해 제품에 쓸 수는 있어도
+     * 마켓에 내놓을 수는 없다.
+     *
+     * <p>이 판정이 발송 처리({@code TradeController#ship} 의
+     * {@code hasRole('SUPPLIER')})와 같은 목록이어야 한다. 어긋나면 <b>팔리고 결제까지 됐는데
+     * 발송이 막히는 거래</b>가 생긴다 — 판매자가 그 거래를 끝낼 방법이 없어진다.
+     *
+     * <p>⚠️ 온체인 {@code Marketplace.createListing} 은 아직
+     * {@code SUPPLIER_ROLE || BRAND_ROLE} 둘 다 허용한다. 서버가 좁으므로 지금 당장 잘못된
+     * 데이터가 생기지는 않지만, 컨트랙트를 직접 부르면 서버가 모르는 판매 글이 체인에만
+     * 생긴다. 컨트랙트도 좁혀야 한다 (Blockchain 담당 공유 필요).
      *
      * @return 확인된 판매자. 응답에 이름이 들어가므로 호출부가 다시 읽지 않게 돌려준다
      */
@@ -218,7 +229,7 @@ public class ListingCommandService {
         if (!user.isActive()) {
             throw new BusinessException(TradeErrorCode.LISTING_SELLER_SUSPENDED);
         }
-        if (!user.getRole().canRegisterMaterial()) {
+        if (user.getRole() != UserRole.SUPPLIER) {
             throw new BusinessException(TradeErrorCode.LISTING_ROLE_NOT_ALLOWED);
         }
         return user;
