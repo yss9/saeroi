@@ -44,6 +44,20 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @EntityListeners(AuditingEntityListener.class)
 public class MaterialLock {
 
+    /**
+     * 참조 대상이 아직 저장되지 않았음을 뜻하는 자리값.
+     *
+     * <p><b>왜 필요한가.</b> {@code material_listing.material_lock_id} 에 FK 가 걸려 있어
+     * 잠금 행이 먼저 INSERT 되어야 하는데, 그 잠금의 {@code reference_id} 는 아직 없는
+     * 판매 글의 id 다. 순환이라 한쪽은 나중에 채울 수밖에 없다. 자리값으로 저장한 뒤
+     * <b>같은 트랜잭션 안에서</b> {@link #assignReference} 로 교체한다.
+     *
+     * <p>{@code reference_id} 에는 DB FK 가 없어 0 을 넣어도 INSERT 는 통과한다.
+     * 그래서 이 자리값이 커밋까지 살아남으면 조용히 잘못된 데이터가 된다 —
+     * 채우는 것은 호출부의 책임이고, 실패하면 트랜잭션째 롤백되어야 한다.
+     */
+    public static final long PENDING_REFERENCE_ID = 0L;
+
     @Id
     @Column(name = "id")
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -143,6 +157,23 @@ public class MaterialLock {
             LocalDateTime expiresAt) {
         return new MaterialLock(
                 materialId, ownerId, amount, purpose, referenceType, referenceId, expiresAt);
+    }
+
+    /**
+     * 저장으로 확정된 참조 대상의 id 를 채운다.
+     *
+     * <p>{@link #PENDING_REFERENCE_ID} 로 만들어 둔 잠금에만 쓸 수 있다. 이미 실제 대상을
+     * 가리키는 잠금의 참조를 바꾸는 것은 다른 거래의 잠금을 훔쳐오는 것과 같아서 막는다.
+     */
+    public void assignReference(Long referenceId) {
+        if (this.referenceId == null || this.referenceId != PENDING_REFERENCE_ID) {
+            throw new IllegalStateException(
+                    "Material lock reference is already assigned: " + this.referenceId);
+        }
+        if (referenceId == null || referenceId <= 0) {
+            throw new IllegalArgumentException("Material lock reference id must be positive");
+        }
+        this.referenceId = referenceId;
     }
 
     /** 취소·실패로 잠금을 푼다. 수량은 available 로 그대로 돌아간다. */
