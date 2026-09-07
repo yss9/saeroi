@@ -67,6 +67,14 @@ Solidity + Hardhat 기반 소재 이력·거래 스마트 컨트랙트 프로젝
 - WASTE 원재료(`INITIAL`)는 생산에 직접 투입할 수 없고, 반드시 가공된 소재(`PROCESSED`)여야 합니다.
 - 생산 확정 시 `productUsed + scrap + waste = inputAmount`를 강제하고, WASTE 원천 제품 투입량 비율을 basis point로 저장합니다.
 
+## Shop / Product Passport
+
+- Shop 판매 상품의 이름, 이미지, 가격, 재고, 주문, 배송, 결제와 추측 불가능한 `qrToken`은 DB/Object Storage에서 관리합니다.
+- 블록체인은 확정된 `ProductionBatch`와 생성된 `ProductItem ID`의 연결만 저장하고 `ProductLinked` 이벤트를 기록합니다.
+- `getProductPassportProof(productItemId)`는 Batch ID, Brand, 업사이클 비율 스냅샷, Evidence Hash, 확정 시각을 공개 조회합니다. `view` 호출이므로 Consumer Wallet이나 서명이 필요하지 않습니다.
+- Passport의 소재 구성은 반환된 Batch ID로 `getMaterialUses(batchId)`를 조회해 확인합니다.
+- Shop 주문·결제·배송에서는 Material Token을 다시 차감하거나 Product 소유권 토큰을 전송하지 않습니다.
+
 ## Roles
 
 ```text

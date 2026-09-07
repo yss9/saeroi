@@ -566,6 +566,57 @@
   {
     "inputs": [
       {
+        "internalType": "uint256",
+        "name": "productItemId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getProductPassportProof",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "productItemId",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "batchId",
+            "type": "uint256"
+          },
+          {
+            "internalType": "address",
+            "name": "brand",
+            "type": "address"
+          },
+          {
+            "internalType": "uint16",
+            "name": "upcycledRatioBps",
+            "type": "uint16"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "evidenceHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint64",
+            "name": "confirmedAt",
+            "type": "uint64"
+          }
+        ],
+        "internalType": "struct ProductionRegistry.ProductPassportProof",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "bytes32",
         "name": "role",
         "type": "bytes32"

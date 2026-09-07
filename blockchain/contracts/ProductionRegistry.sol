@@ -33,6 +33,14 @@ contract ProductionRegistry is AccessControl {
         address brand; uint256 productQuantity; bytes32 evidenceHash; Status status;
         uint64 createdAt; uint64 confirmedAt; uint16 upcycledRatioBps;
     }
+    struct ProductPassportProof {
+        uint256 productItemId;
+        uint256 batchId;
+        address brand;
+        uint16 upcycledRatioBps;
+        bytes32 evidenceHash;
+        uint64 confirmedAt;
+    }
 
     IProductionMaterialToken public immutable materialToken;
     uint256 public nextBatchId = 1;
@@ -140,8 +148,9 @@ contract ProductionRegistry is AccessControl {
         require(_productItems[batchId].length == 0, "Production: products already linked");
         require(productItemIds.length == batch.productQuantity, "Production: product count mismatch");
         for (uint256 i; i < productItemIds.length; ++i) {
-            require(productItemIds[i] > 0 && productItemBatch[productItemIds[i]] == 0, "Production: product already linked");
+            require(productItemIds[i] > 0, "Production: invalid product");
             for (uint256 j; j < i; ++j) require(productItemIds[j] != productItemIds[i], "Production: duplicate product");
+            require(productItemBatch[productItemIds[i]] == 0, "Production: product already linked");
             productItemBatch[productItemIds[i]] = batchId; _productItems[batchId].push(productItemIds[i]);
             emit ProductLinked(batchId, productItemIds[i], batch.brand, block.timestamp);
         }
@@ -150,6 +159,24 @@ contract ProductionRegistry is AccessControl {
     function getBatch(uint256 batchId) external view returns (Batch memory) { return _batches[batchId]; }
     function getMaterialUses(uint256 batchId) external view returns (MaterialUse[] memory) { return _uses[batchId]; }
     function getProductItems(uint256 batchId) external view returns (uint256[] memory) { return _productItems[batchId]; }
+
+    /// @notice QR Passport 조회에 필요한 변경 불가능한 온체인 증명만 반환한다.
+    /// @dev 제품명·이미지·가격·주문·결제·qrToken은 오프체인 데이터이며 이 구조에 포함하지 않는다.
+    ///      public view 호출이므로 Consumer Wallet 서명은 필요하지 않다.
+    function getProductPassportProof(uint256 productItemId) external view returns (ProductPassportProof memory) {
+        uint256 batchId = productItemBatch[productItemId];
+        require(batchId != 0, "Production: product is not linked");
+        Batch storage batch = _batches[batchId];
+        return ProductPassportProof(
+            productItemId,
+            batchId,
+            batch.brand,
+            batch.upcycledRatioBps,
+            batch.evidenceHash,
+            batch.confirmedAt
+        );
+    }
+
     function parentsOfScrap(uint256 scrapId) external view returns (uint256[] memory) { return _parentsByScrap[scrapId]; }
     function _batch(uint256 batchId) private view returns (Batch storage batch) { batch = _batches[batchId]; require(batch.status != Status.NONE, "Production: batch does not exist"); }
 }
