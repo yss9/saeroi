@@ -66,7 +66,8 @@
 | 분류 | 키 | 출처 |
 | --- | --- | --- |
 | DB | `MYSQL_ROOT_PASSWORD`, `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD` | Infra가 생성 |
-| Backend | `SPRING_DATASOURCE_*`, `JWT_SECRET`, `AI_SERVER_BASE_URL` | Infra + Backend 합의 |
+| Backend | `SPRING_DATASOURCE_*`, `JWT_SECRET`, `JWT_ISSUER`, `JWT_ACCESS_TOKEN_TTL`, `AI_SERVER_BASE_URL` | Infra + Backend 합의 |
+| Backend (지갑 인증) | `WALLET_NONCE_TTL` — 서명 nonce 유효시간(ISO-8601 Duration, 기본 `PT5M`) | Backend `app.auth.wallet.nonce-ttl` |
 | Blockchain | `BESU_RPC_URL`, `BESU_CHAIN_ID` (수령 완료), `BLOCKCHAIN_SERVICE_PRIVATE_KEY`, `*_ADDRESS` (대기) | 1번 Blockchain 담당 |
 | Frontend 빌드 | `VITE_API_BASE_URL`, `VITE_BESU_*`, `VITE_*_ADDRESS` | 빌드 시점 주입 |
 | Jenkins | `JENKINS_ADMIN_ID/PASSWORD`, `JENKINS_EXTERNAL_URL`, `GITLAB_USERNAME/TOKEN` | Infra가 생성 (JCasC에서 사용) |
