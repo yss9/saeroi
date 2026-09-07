@@ -1,6 +1,7 @@
 import { useParams } from 'react-router-dom'
 import { EmptyState, ErrorMessage, Loading, StatusBadge } from '../../components/common/index.ts'
 import { MaterialBalanceTable } from '../../features/material/components/MaterialBalanceTable.tsx'
+import { EvidenceUpload } from '../../features/evidence/components/EvidenceUpload.tsx'
 import { MaterialLineageTree } from '../../features/material/components/MaterialLineageTree.tsx'
 import { useMaterial } from '../../features/material/hooks/useMaterial.ts'
 import {
@@ -159,19 +160,16 @@ export function MaterialDetailPage() {
 
       <section aria-labelledby="material-evidence">
         <h2 id="material-evidence">증빙</h2>
-        {data.evidenceHash === null ? (
-          <EmptyState
-            title="등록된 증빙이 없습니다"
-            description="증빙 업로드 기능은 준비 중입니다."
-          />
-        ) : (
-          <dl className="material-detail__info">
-            <div>
-              <dt>증빙 해시</dt>
-              <dd className="material-detail__hash">{data.evidenceHash}</dd>
-            </div>
-          </dl>
-        )}
+        {/*
+          업로드와 목록을 EvidenceUpload 가 함께 맡는다. 페이지가 조회를 대신하지 않는
+          이유는 다른 블록과 같다 — 증빙 조회가 실패해도 소재 정보는 보여야 한다.
+
+          material.evidenceHash 는 여기서 쓰지 않는다. 그 컬럼은 **manifest 해시**
+          (여러 증빙을 묶은 JSON 의 해시)를 담을 자리이고 개별 파일 해시가 아니다.
+          아직 manifest 를 만드는 경로가 없어 늘 null 이며, 개별 파일 해시는
+          evidence_file 이 갖는다. 둘을 섞으면 "증빙 없음" 인데 파일은 있는 상태가 된다.
+        */}
+        <EvidenceUpload referenceType="MATERIAL" referenceId={id} />
       </section>
 
       {/*
