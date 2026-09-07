@@ -31,3 +31,6 @@ dist-ssr
 
 # Codex 격리 작업공간
 .worktrees/
+
+# Local integration preview (generated, never deployed)
+/processing-preview.html
