@@ -10,7 +10,7 @@ import com.ssafy.upcycle.trade.entity.ListingStatus;
 import com.ssafy.upcycle.trade.entity.MaterialListing;
 import com.ssafy.upcycle.trade.entity.MaterialTrade;
 import com.ssafy.upcycle.trade.entity.TradeShipping;
-import com.ssafy.upcycle.trade.repository.ListingSearchRepository;
+import com.ssafy.upcycle.trade.repository.ListingLockRepository;
 import com.ssafy.upcycle.trade.repository.MaterialListingRepository;
 import com.ssafy.upcycle.trade.repository.MaterialTradeRepository;
 import com.ssafy.upcycle.trade.repository.TradeShippingRepository;
@@ -39,7 +39,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class TradeCommandService {
 
     private final MaterialListingRepository listingRepository;
-    private final ListingSearchRepository listingSearchRepository;
+    private final ListingLockRepository listingLockRepository;
     private final MaterialTradeRepository tradeRepository;
     private final TradeShippingRepository tradeShippingRepository;
     private final UserRepository userRepository;
@@ -93,7 +93,7 @@ public class TradeCommandService {
     public TradeResponse create(Long buyerId, TradeCreateRequest request) {
         requireBuyingCapableUser(buyerId);
 
-        MaterialListing listing = listingSearchRepository
+        MaterialListing listing = listingLockRepository
                 .findByIdForUpdate(request.listingId())
                 .orElseThrow(() -> new BusinessException(TradeErrorCode.LISTING_NOT_FOUND));
 

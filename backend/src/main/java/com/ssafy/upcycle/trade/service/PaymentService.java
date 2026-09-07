@@ -17,7 +17,7 @@ import com.ssafy.upcycle.trade.payment.PaymentCancelCommand;
 import com.ssafy.upcycle.trade.payment.PaymentGateway;
 import com.ssafy.upcycle.trade.payment.PaymentReady;
 import com.ssafy.upcycle.trade.payment.PaymentReadyCommand;
-import com.ssafy.upcycle.trade.repository.ListingSearchRepository;
+import com.ssafy.upcycle.trade.repository.ListingLockRepository;
 import com.ssafy.upcycle.trade.repository.MaterialTradeRepository;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -51,7 +51,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class PaymentService {
 
     private final MaterialTradeRepository tradeRepository;
-    private final ListingSearchRepository listingSearchRepository;
+    private final ListingLockRepository listingLockRepository;
     private final MaterialRepository materialRepository;
     private final TradeResponseAssembler tradeResponseAssembler;
     private final PaymentGateway paymentGateway;
@@ -183,7 +183,7 @@ public class PaymentService {
      */
     private void restoreListingQuantity(MaterialTrade trade) {
         Optional<MaterialListing> listing =
-                listingSearchRepository.findByIdForUpdate(trade.getListingId());
+                listingLockRepository.findByIdForUpdate(trade.getListingId());
         listing.filter(row -> row.getStatus() != ListingStatus.CANCELED)
                 .ifPresent(row -> row.restoreAvailable(trade.getQuantity()));
     }
