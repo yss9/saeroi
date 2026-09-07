@@ -10,6 +10,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
@@ -121,9 +122,18 @@ public class KakaoPayGateway implements PaymentGateway {
                 throw new RestClientException("empty body");
             }
             return response;
+        } catch (HttpStatusCodeException rejected) {
+            // 카카오가 무엇을 거부했는지는 응답 본문에만 있다. 스택 트레이스에 묻히면
+            // 진단이 불가능하므로 **상태코드와 본문을 한 줄로** 남긴다.
+            // 본문에 cid 가 섞여 나올 수 있으나 cid 는 비밀값이 아니다. 시크릿 키는
+            // 요청 헤더에만 있고 응답에는 실리지 않는다.
+            log.error("KakaoPay {} rejected: status={} body={}",
+                    operation, rejected.getStatusCode(), rejected.getResponseBodyAsString());
+            throw new BusinessException(TradeErrorCode.PAYMENT_GATEWAY_FAILED);
         } catch (RestClientException failure) {
-            // 원문에는 cid 등 내부 값이 섞여 나올 수 있어 로그에만 남긴다.
-            log.error("KakaoPay {} failed", operation, failure);
+            // 응답 자체가 없는 경우 — 네트워크·타임아웃·호스트 오류.
+            log.error("KakaoPay {} failed to reach the gateway: {}",
+                    operation, failure.getMessage());
             throw new BusinessException(TradeErrorCode.PAYMENT_GATEWAY_FAILED);
         }
     }
