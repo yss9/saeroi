@@ -28,6 +28,7 @@
 | AI Server (FastAPI) | 8000 | - | X | Backend만 내부 호출 |
 | MySQL | 3306 | - (로컬 검증 시만 3306) | X | 내부 네트워크 전용 |
 | Jenkins | 8080 | 127.0.0.1:8081 | X (nginx `/jenkins/` 경유) | `https://j15e104.p.ssafy.io/jenkins/` — 8081 직접 공개는 2026-09-01 폐지 |
+| MinIO (Object Storage) | 9000, 9001 | - | X | Backend만 내부 호출. 콘솔(9001)도 열지 않는다 — 루트 키 하나로 모든 증빙에 닿는다 |
 
 - 외부에 여는 포트는 **80 / 443 / 22(SSH)** 만 — SSAFY EC2는 UFW로 관리(기본 22만 허용, `init-ec2.sh`가 나머지 오픈, **enable 유지 필수**).
 - **Docker publish 포트는 UFW를 우회**하므로 호스트 전용 포트는 compose에서 `127.0.0.1:` 바인딩으로 막는다 (예: 로컬 override의 MySQL 3306).

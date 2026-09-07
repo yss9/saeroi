@@ -151,6 +151,15 @@ Jenkins Multibranch Pipeline이 자동 수행합니다. 배포 실패(헬스체�
 - HTTPS 적용 완료 (`j15e104.p.ssafy.io`, 만료 2026-11-29, `certbot.timer` 자동 갱신).
 - MySQL은 매일 03:10 자동 백업(`~/backups/mysql`, 14일 보관), 팀원 PC로의 반출은
   `scripts/pull-backups.sh`.
+- **Object Storage(MinIO)는 포트를 열지 않습니다.** Backend만 내부 네트워크로 붙습니다.
+  콘솔(9001)도 상시 노출하지 않습니다 — 루트 자격증명 하나로 모든 증빙 파일에 닿는
+  창구가 생깁니다. 필요하면 SSH 터널로 봅니다.
+  버킷은 `minio-init` 잡이 만듭니다. MinIO는 기동만으로 버킷을 만들지 않고, 없는 버킷에
+  업로드하면 `NoSuchBucket`이 되는데 그 실패는 사용자가 파일을 고른 뒤에 드러납니다.
+  **버킷 공개 읽기를 켜지 않습니다** — 저장 키를 아는 누구나 받아 갈 수 있게 됩니다.
+- **`STORAGE_TYPE`을 넣지 않으면 Backend는 로컬 파일시스템을 씁니다**(`/app/files`,
+  `file-storage` 볼륨). MinIO 컨테이너는 떠 있지만 쓰이지 않습니다. `s3`로 바꾸기 전에
+  **기존 파일 이관**이 필요합니다 — 바꾸기만 하면 이전 증빙의 저장 키를 찾지 못합니다.
 - **배포 스크립트에서 `docker image prune` 을 부르지 않습니다** (2026-09-07 실사고).
   네 파트가 하나의 Docker 데몬을 공유하는데, prune 이 부르는 containerd content GC 가
   다른 파트의 진행 중인 빌드 ingest 블롭을 지워 `failed to export layer` 로 죽였습니다
