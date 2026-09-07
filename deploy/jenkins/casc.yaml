@@ -93,10 +93,14 @@ jobs:
           }
 
           // 삭제된 브랜치의 Job과 빌드 이력을 회수한다. feat 브랜치가 쌓여 디스크를 먹는 것을 방지.
+          // 대상은 "원격에서 사라진 브랜치"의 Job 뿐이다 — 살아 있는 브랜치는 아무리 오래돼도
+          // 여기서 지워지지 않는다 (지워도 다음 인덱싱에서 되살아난다).
+          // daysToKeep: MR 병합 후 브랜치를 지우면 그 Job 을 2일만 남긴다. 7일은 너무 길어
+          // feat 브랜치 회전이 빠른 지금은 대시보드가 죽은 Job 으로 덮인다 (2026-09-07 변경).
           orphanedItemStrategy {
             discardOldItems {
               numToKeep(10)
-              daysToKeep(7)
+              daysToKeep(2)
             }
           }
 

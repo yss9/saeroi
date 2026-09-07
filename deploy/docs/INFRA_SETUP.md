@@ -109,6 +109,11 @@ Jenkins 세팅은 JCasC(`jenkins/casc.yaml`)로 자동화되어 있다. 컨테�
 | blockchain | `blockchain/develop·feat/*·fix/*·refactor/*` | 전 브랜치 | **없음** (컨트랙트는 수동 배포) |
 
 - 새 feat 브랜치를 만들면 Job이 **자동 생성**되고, 브랜치를 지우면 자동 회수된다.
+  회수는 즉시가 아니라 **브랜치가 원격에서 사라진 뒤 2일**이다 (`orphanedItemStrategy`,
+  2026-09-07에 7일 → 2일). 원격에 살아 있는 브랜치의 Job은 오래돼도 지워지지 않는다 —
+  UI에서 지워도 다음 인덱싱(최대 5분)에 되살아난다.
+- 컨테이너 시간대는 **Asia/Seoul**이다 (`docker-compose.yml`의 `TZ`). 이걸 안 주면 호스트가
+  KST여도 컨테이너는 UTC로 떠서 빌드 시각이 9시간 어긋난다.
 - `Jenkinsfile`이 없는 브랜치는 Job이 생기지 않는다 (실패가 아니라 미생성). 파트가 준비되는 순서대로 켜진다.
 - `includes` 필터에 없는 ref(`deploy/master`, `master`, 타 파트 브랜치)는 인덱싱 단계에서 버려진다.
 
