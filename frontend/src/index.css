@@ -1,14 +1,21 @@
+/* 공통 컴포넌트 스타일. @import 는 CSS 규칙상 반드시 최상단이어야 한다. */
+@import "./components/common/common.css";
+@import "./features/marketplace/components/marketplace.css";
+
 :root {
-  font-family:
-    Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: #1f2937;
-  background-color: #ffffff;
+  font-family: "Pretendard", "Noto Sans KR", system-ui, sans-serif;
+  color: #172033;
+  background: #fbfaf6;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
 
 * {
   box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
@@ -19,15 +26,16 @@ body {
 
 button,
 input,
-textarea,
-select {
+select,
+textarea {
   font: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
 }
 
 #root {
   min-height: 100vh;
-}
-
-main {
-  padding: 2rem;
 }

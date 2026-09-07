@@ -9,6 +9,13 @@
 - Vite
 - ESLint
 
+## 프로젝트 문서
+
+- [Frontend 아키텍처](./docs/ARCHITECTURE.md)
+- [Frontend 디렉토리 구조](./docs/DIRECTORY_STRUCTURE.md)
+- [Git 브랜치 및 커밋 규칙](./docs/GIT_CONVENTION.md)
+- [랜딩 페이지 디자인 QA](./docs/design-qa.md)
+
 ## 실행 환경
 
 - Node.js `^20.19.0` 또는 `>=22.12.0`
