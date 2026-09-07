@@ -71,6 +71,18 @@
 | Frontend 빌드 | `VITE_API_BASE_URL`, `VITE_BESU_*`, `VITE_*_ADDRESS` | 빌드 시점 주입 |
 | Jenkins | `JENKINS_ADMIN_ID/PASSWORD`, `JENKINS_EXTERNAL_URL`, `GITLAB_USERNAME/TOKEN` | Infra가 생성 (JCasC에서 사용) |
 
+## 3-1. nginx rate limit
+
+`/api/v1/auth/` 하위 전체가 **IP 당 분당 10회**(버스트 20, `nodelay`)로 제한된다.
+초과하면 백엔드까지 가지 않고 nginx 가 **429** 를 `ApiResponse` 봉투 모양 JSON 으로 돌려준다
+(`code: TOO_MANY_REQUESTS`).
+
+이유: `POST /api/v1/auth/wallet/nonce` 는 인증 없이 열려 있고 미등록 지갑을 즉시 거절해서
+**지갑 등록 여부 오라클**이 된다. `/verify` 는 서명 대입 반복이 가능하다.
+
+`/api/v1/auth/` 아래에 엔드포인트를 추가하면 자동으로 이 제한을 받는다.
+공지: `docs/notices/TEAM_NOTICE_2026-09-07-auth-rate-limit.md`
+
 ## 4. Jenkins 초기 세팅 목록
 
 Jenkins 세팅은 JCasC(`jenkins/casc.yaml`)로 자동화되어 있다. 컨테이너가 뜨면 아래가 자동 적용된다.
