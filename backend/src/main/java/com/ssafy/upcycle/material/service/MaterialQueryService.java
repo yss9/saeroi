@@ -2,10 +2,14 @@ package com.ssafy.upcycle.material.service;
 
 import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.material.MaterialErrorCode;
+import com.ssafy.upcycle.material.dto.MaterialBalanceResponse;
 import com.ssafy.upcycle.material.dto.MaterialDetailResponse;
+import com.ssafy.upcycle.material.dto.MyMaterialResponse;
 import com.ssafy.upcycle.material.entity.Material;
+import com.ssafy.upcycle.material.repository.MaterialBalanceQueryRepository;
 import com.ssafy.upcycle.material.repository.MaterialBalanceRepository;
 import com.ssafy.upcycle.material.repository.MaterialRepository;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +27,7 @@ public class MaterialQueryService {
 
     private final MaterialRepository materialRepository;
     private final MaterialBalanceRepository materialBalanceRepository;
+    private final MaterialBalanceQueryRepository materialBalanceQueryRepository;
 
     /**
      * 소재 상세.
@@ -44,5 +49,33 @@ public class MaterialQueryService {
                 .orElseThrow(() -> new BusinessException(MaterialErrorCode.MATERIAL_NOT_FOUND));
         return MaterialDetailResponse.of(
                 material, materialBalanceRepository.findAllByMaterialId(materialId));
+    }
+
+    /**
+     * 한 소재의 보유자별 잔량.
+     *
+     * <p><b>소재가 없으면 404 지만, 보유자가 없으면 빈 목록이다.</b> 둘은 다른 상황이고
+     * 같은 응답으로 묶으면 화면이 "없는 소재" 라고 잘못 말한다.
+     *
+     * <p>사용 가능 수량은 {@code MaterialBalanceQueryRepository} 가 ACTIVE 잠금 합계를
+     * 빼서 한 번의 쿼리로 계산한다 — 여기서 다시 계산하지 않는다.
+     */
+    @Transactional(readOnly = true)
+    public List<MaterialBalanceResponse> findBalances(Long materialId) {
+        if (!materialRepository.existsById(materialId)) {
+            throw new BusinessException(MaterialErrorCode.MATERIAL_NOT_FOUND);
+        }
+        return materialBalanceQueryRepository.findBalancesByMaterialId(materialId);
+    }
+
+    /**
+     * 내가 보유한 소재 목록.
+     *
+     * <p>보유 행이 없으면 빈 목록이다. 계정이 아직 아무 소재도 갖고 있지 않은 것이
+     * 오류는 아니다 — 화면은 이 경우 안내 문구를 보여주면 된다.
+     */
+    @Transactional(readOnly = true)
+    public List<MyMaterialResponse> findMyMaterials(Long ownerId) {
+        return materialBalanceQueryRepository.findMyMaterials(ownerId);
     }
 }
