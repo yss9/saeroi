@@ -41,7 +41,7 @@ import org.springframework.boot.test.context.SpringBootTest;
  * <p>행 잠금이 없으면 둘 다 "12kg 남았다" 를 읽고 각자 검사를 통과한 뒤 각자 차감해서
  * 잔여가 음수가 된다. {@code chk_material_listing_quantities} 위반으로 <b>나중 한 건만</b>
  * 설명할 수 없는 500 이 되고, 사용자에게는 아무 설명이 안 된다.
- * {@code ListingSearchRepository#findByIdForUpdate} 가 그것을 막는다.
+ * {@code ListingLockRepository#findByIdForUpdate} 가 그것을 막는다.
  *
  * <p><b>{@code MarketplaceApiTests} 와 분리한 이유.</b> 저쪽은 HTTP 로 관통시키는 테스트고
  * 여기는 스레드를 직접 다룬다. MockMvc 를 여러 스레드에서 동시에 쓰면 실패 원인이 잠금인지
