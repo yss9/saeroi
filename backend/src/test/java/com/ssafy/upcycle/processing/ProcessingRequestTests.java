@@ -2,6 +2,7 @@ package com.ssafy.upcycle.processing;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -48,7 +49,7 @@ class ProcessingRequestTests {
     void fixture() {
         // Real persisted fixtures: missing reservation writes and transaction errors are observable.
         for (String table : List.of("material_lock", "processing_request_type", "processing_request_input",
-                "processing_request", "processor_capability", "processor_profile", "material_balance", "material", "users")) {
+                "processing_request", "processor_capability", "processor_lead_time", "processor_profile", "material_balance", "material", "users")) {
             jdbc.update("delete from " + table);
         }
         brandId = users.save(User.register("brand@test.com", "hash", "brand", "010", UserRole.BRAND)).getId();
@@ -259,6 +260,83 @@ class ProcessingRequestTests {
         assertThat(persisted.getReferenceType()).isEqualTo(MaterialLockReferenceType.PROCESSING_JOB);
         assertThat(persisted.getReferenceId()).isEqualTo(999);
         assertThat(persisted.getExpiresAt()).isNull();
+    }
+
+    @Test
+    void processorSearchMatchesEveryPurposeAndReturnsCombinedQuantityBounds() throws Exception {
+        jdbc.update("update processor_capability set min_quantity=100,max_quantity=900 where process_type='CUTTING'");
+        mvc.perform(get("/processors/search").with(jwt().jwt(j -> j.subject(brandId.toString())))
+                        .param("materialType", "DENIM").param("quantity", "500")
+                        .param("processTypes", "CLEANING", "CUTTING"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("data.items[0].processorId").value(processorId))
+                .andExpect(jsonPath("data.items[0].minQuantity").value(100))
+                .andExpect(jsonPath("data.items[0].maxQuantity").value(900))
+                .andExpect(jsonPath("data.items[0].region").value("Seoul"));
+    }
+
+    @Test
+    void searchUsesTheSmallestCoveringWeightBandAndRejectsPartialMatches() throws Exception {
+        jdbc.update("insert into processor_lead_time(processor_profile_id,max_quantity,lead_days) values (?,100,2),(?,1000,5)", processorId, processorId);
+        search("100").andExpect(jsonPath("data.items[0].estimatedLeadDays").value(2));
+        search("101").andExpect(jsonPath("data.items[0].estimatedLeadDays").value(5));
+        search("1000").andExpect(jsonPath("data.items[0].estimatedLeadDays").value(5));
+        search("1001").andExpect(jsonPath("data.items").isEmpty());
+        jdbc.update("delete from processor_capability where process_type='CUTTING'");
+        search("100").andExpect(jsonPath("data.items").isEmpty()).andExpect(jsonPath("data.total").value(0));
+    }
+
+    org.springframework.test.web.servlet.ResultActions search(String amount) throws Exception {
+        return mvc.perform(get("/api/v1/processors/search").with(jwt().jwt(j -> j.subject(brandId.toString())))
+                .param("materialType", "DENIM").param("quantity", amount)
+                .param("processTypes", "CLEANING,CUTTING"));
+    }
+
+    @Test
+    void searchValidatesInputsAndActiveBrandPermission() throws Exception {
+        for (String amount : List.of("0", "-1", "1.2", "9223372036854775808")) search(amount).andExpect(status().isBadRequest());
+        mvc.perform(get("/processors/search").with(jwt().jwt(j -> j.subject(processorId.toString())))
+                        .param("materialType", "DENIM").param("quantity", "100").param("processTypes", "CLEANING"))
+                .andExpect(status().isForbidden());
+        var processor = users.findById(processorId).orElseThrow(); processor.suspend(); users.save(processor);
+        search("100").andExpect(jsonPath("data.items").isEmpty());
+    }
+
+    @Test
+    void searchPaginationIsStableAndMissingLeadTimeIsNotInvented() throws Exception {
+        Long second=users.save(User.register("second@test.com","hash","second","010",UserRole.PROCESSOR)).getId();
+        jdbc.update("insert into processor_profile(user_id,region) values (?,'Busan')",second);
+        jdbc.update("insert into processor_capability(processor_profile_id,material_type,process_type,min_quantity,max_quantity) values (?,'DENIM','CLEANING',1,1000),(?,'DENIM','CUTTING',1,1000)",second,second);
+        mvc.perform(get("/processors/search").with(jwt().jwt(j -> j.subject(brandId.toString())))
+                        .param("materialType","DENIM").param("quantity","100").param("processTypes","CLEANING,CUTTING")
+                        .param("page","1").param("size","1"))
+                .andExpect(status().isOk()).andExpect(jsonPath("data.total").value(2))
+                .andExpect(jsonPath("data.items.length()").value(1))
+                .andExpect(jsonPath("data.items[0].processorId").value(second))
+                .andExpect(jsonPath("data.items[0].estimatedLeadDays").value(org.hamcrest.Matchers.nullValue()));
+    }
+
+    @Test
+    void searchRejectsDuplicatePurposesAndExcessivePageSize() throws Exception {
+        mvc.perform(get("/processors/search").with(jwt().jwt(j -> j.subject(brandId.toString())))
+                        .param("materialType","DENIM").param("quantity","100").param("processTypes","CLEANING,CLEANING"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(get("/processors/search").with(jwt().jwt(j -> j.subject(brandId.toString())))
+                        .param("materialType","DENIM").param("quantity","100").param("processTypes","CLEANING").param("size","51"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void ownedMaterialsReturnOnlyOwnBalanceAndSubtractAllActiveLocks() throws Exception {
+        locks.save(MaterialLock.create(materialId,brandId,300,MaterialLockPurpose.MARKETPLACE,MaterialLockReferenceType.LISTING,1L,null));
+        mvc.perform(get("/api/v1/processing-requests/materials").with(jwt().jwt(j -> j.subject(brandId.toString()))))
+                .andExpect(status().isOk()).andExpect(jsonPath("data[0].materialId").value(materialId))
+                .andExpect(jsonPath("data[0].quantity").value(1000))
+                .andExpect(jsonPath("data[0].lockedQuantity").value(300))
+                .andExpect(jsonPath("data[0].availableQuantity").value(700));
+        Long other = users.save(User.register("empty@test.com","hash","other","010",UserRole.BRAND)).getId();
+        mvc.perform(get("/api/v1/processing-requests/materials").with(jwt().jwt(j -> j.subject(other.toString()))))
+                .andExpect(jsonPath("data").isEmpty());
     }
 
     @Test
