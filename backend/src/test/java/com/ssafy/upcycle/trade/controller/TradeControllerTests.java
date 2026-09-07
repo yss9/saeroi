@@ -1,0 +1,203 @@
+package com.ssafy.upcycle.trade.controller;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import com.ssafy.upcycle.common.security.jwt.JwtTokenService;
+import com.ssafy.upcycle.trade.entity.MaterialTrade;
+import com.ssafy.upcycle.trade.entity.PaymentMethod;
+import com.ssafy.upcycle.trade.entity.TradeShipping;
+import com.ssafy.upcycle.trade.repository.MaterialTradeRepository;
+import com.ssafy.upcycle.trade.repository.TradeShippingRepository;
+import com.ssafy.upcycle.user.entity.User;
+import com.ssafy.upcycle.user.entity.UserRole;
+import com.ssafy.upcycle.user.repository.UserRepository;
+import java.time.LocalDateTime;
+import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * {@code @Transactional} 이 붙은 이유는 격리 때문이다. {@code @SpringBootTest} 는
+ * 롤백하지 않아서 거래가 커밋된 채 남고, 테스트들이 같은 인메모리 H2 를 공유하므로
+ * trade_code UNIQUE 제약과 부딪힌다.
+ */
+@SpringBootTest
+@AutoConfigureMockMvc
+@Transactional
+class TradeControllerTests {
+
+    private static final String SELLER_WALLET = "0x1111111111111111111111111111111111111111";
+    private static final String BUYER_WALLET = "0x2222222222222222222222222222222222222222";
+    private static final String WAYBILL_BODY = """
+            { "carrier": "CJ대한통운", "trackingNumber": "123456789012" }
+            """;
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private JwtTokenService jwtTokenService;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private MaterialTradeRepository tradeRepository;
+
+    @Autowired
+    private TradeShippingRepository shippingRepository;
+
+    private User seller;
+    private User buyer;
+    private MaterialTrade trade;
+
+    @BeforeEach
+    void setUp() {
+        seller = userRepository.save(User.register(
+                "seller@example.com", "{noop}x", "공급자", "010-0000-0000", UserRole.SUPPLIER));
+        buyer = userRepository.save(User.register(
+                "buyer@example.com", "{noop}x", "브랜드", "010-1111-1111", UserRole.BRAND));
+
+        trade = tradeRepository.save(MaterialTrade.create(
+                "TRD-000001", 1L, 2L, seller.getId(), buyer.getId(),
+                SELLER_WALLET, BUYER_WALLET, 20_000L, 200_000L, PaymentMethod.MOCK));
+        trade.markPaid("T1234", 200_000L, LocalDateTime.now());
+        shippingRepository.save(TradeShipping.of(
+                trade.getId(), "김구매", "010-1111-1111", "04766", "서울시 성동구", "101동"));
+    }
+
+    @Test
+    void sellerShipsTheTrade() throws Exception {
+        mockMvc.perform(patch("/api/v1/trades/{tradeId}/ship", trade.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(seller, UserRole.SUPPLIER))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(WAYBILL_BODY))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.status").value("SHIPPED"))
+                .andExpect(jsonPath("$.data.carrier").value("CJ대한통운"))
+                .andExpect(jsonPath("$.data.trackingNumber").value("123456789012"))
+                .andExpect(jsonPath("$.data.shippedAt").isNotEmpty());
+    }
+
+    @Test
+    void waybillIsOptional() throws Exception {
+        mockMvc.perform(patch("/api/v1/trades/{tradeId}/ship", trade.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(seller, UserRole.SUPPLIER))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("SHIPPED"));
+    }
+
+    /** 파는 쪽은 SUPPLIER 뿐이다. 구매자인 BRAND 는 역할 단계에서 막힌다. */
+    @Test
+    void buyerCannotShip() throws Exception {
+        mockMvc.perform(patch("/api/v1/trades/{tradeId}/ship", trade.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(buyer, UserRole.BRAND))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(WAYBILL_BODY))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    void consumerRoleIsRejected() throws Exception {
+        User consumer = userRepository.save(User.register(
+                "consumer@example.com", "{noop}x", "소비자", "010-2222-2222", UserRole.CONSUMER));
+
+        mockMvc.perform(patch("/api/v1/trades/{tradeId}/ship", trade.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(consumer, UserRole.CONSUMER))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(WAYBILL_BODY))
+                .andExpect(status().isForbidden());
+    }
+
+    /**
+     * 역할 검사만으로는 부족하다는 것을 고정한다. 이 요청자는 SUPPLIER 라 역할 단계는
+     * 통과하지만 이 거래의 판매자가 아니다.
+     */
+    @Test
+    void anotherSupplierCannotShipSomeoneElsesTrade() throws Exception {
+        User otherSupplier = userRepository.save(User.register(
+                "other@example.com", "{noop}x", "다른공급자", "010-3333-3333", UserRole.SUPPLIER));
+
+        mockMvc.perform(patch("/api/v1/trades/{tradeId}/ship", trade.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(otherSupplier, UserRole.SUPPLIER))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(WAYBILL_BODY))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("NOT_TRADE_SELLER"));
+    }
+
+    @Test
+    void anonymousRequestIsRejected() throws Exception {
+        mockMvc.perform(patch("/api/v1/trades/{tradeId}/ship", trade.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(WAYBILL_BODY))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void unknownTradeReturnsNotFound() throws Exception {
+        mockMvc.perform(patch("/api/v1/trades/{tradeId}/ship", 9_999L)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(seller, UserRole.SUPPLIER))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(WAYBILL_BODY))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("TRADE_NOT_FOUND"));
+    }
+
+    @Test
+    void shippingTwiceConflicts() throws Exception {
+        mockMvc.perform(patch("/api/v1/trades/{tradeId}/ship", trade.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(seller, UserRole.SUPPLIER))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(WAYBILL_BODY))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(patch("/api/v1/trades/{tradeId}/ship", trade.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(seller, UserRole.SUPPLIER))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(WAYBILL_BODY))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("TRADE_ALREADY_SHIPPED"));
+    }
+
+    @Test
+    void trackingNumberWithoutCarrierIsRejected() throws Exception {
+        mockMvc.perform(patch("/api/v1/trades/{tradeId}/ship", trade.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(seller, UserRole.SUPPLIER))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{ \"trackingNumber\": \"123456789012\" }"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("TRADE_CARRIER_REQUIRED"));
+    }
+
+    @Test
+    void tooLongCarrierIsRejected() throws Exception {
+        String body = "{ \"carrier\": \"" + "가".repeat(51) + "\" }";
+
+        mockMvc.perform(patch("/api/v1/trades/{tradeId}/ship", trade.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(seller, UserRole.SUPPLIER))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    private String bearer(User user, UserRole role) {
+        return "Bearer " + jwtTokenService
+                .issueAccessToken(String.valueOf(user.getId()), List.of(role.name()))
+                .value();
+    }
+}
