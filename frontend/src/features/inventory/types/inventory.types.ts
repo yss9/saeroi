@@ -8,7 +8,13 @@ export type BalanceStatus = 'ACTIVE' | 'DEPLETED'
 export type LockPurpose = 'MARKETPLACE' | 'PROCESSING' | 'PRODUCTION'
 
 /** `material_lock.status` */
-export type LockStatus = 'ACTIVE' | 'RELEASED' | 'CONSUMED'
+/**
+ * `material_lock.status`.
+ *
+ * `EXPIRED` 는 기한 경과로 자동 해제된 Lock 이다. 배치가 상태를 전환하지만,
+ * **전환 전이라도 available 계산에서는 제외**한다.
+ */
+export type LockStatus = 'ACTIVE' | 'RELEASED' | 'CONSUMED' | 'EXPIRED'
 
 export interface InventoryItem {
   materialId: number

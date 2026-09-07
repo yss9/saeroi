@@ -1,31 +1,44 @@
 import { useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useBlockchainTransaction } from '../../../hooks/useBlockchainTransaction.ts'
+import { readEventArg } from '../../../services/blockchain/contractFactory.ts'
 import { materialKeys } from '../api/materialKeys.ts'
-import { mintMaterialToken } from '../services/materialContractService.ts'
+import { mintMaterial, type MintMaterialParams } from '../services/materialContractService.ts'
 
 /**
- * Material Token 발행 훅 — 온체인 쓰기 + 오프체인 캐시 갱신을 잇는 예시.
+ * Material Token 발행 — 공통 Blockchain 모듈을 재사용하는 표준 예시.
  *
- * 여기서 보여주려는 패턴:
- *   1) 트랜잭션 상태 기계는 공통 훅(useBlockchainTransaction)이 관리한다
- *   2) 도메인은 "무엇을 보낼지"(contractService 호출)만 넘긴다
- *   3) CONFIRMED 이후에 서버 조회를 무효화한다 — Backend 가 이벤트를 수집해
- *      MySQL 조회 모델을 갱신하므로, 확정 전에 다시 조회해도 옛 값이 온다
+ * 이 훅이 보여주려는 것
+ *   1) 트랜잭션 상태 기계는 공통 훅(useBlockchainTransaction)이 관리한다.
+ *      SIGNING / PENDING / CONFIRMED / FAILED 를 도메인마다 다시 짜지 않는다.
+ *   2) 도메인은 "무엇을 보낼지"(contractService 호출)만 넘긴다.
+ *      Provider·Signer·Contract 생성은 전부 공통 모듈 안에서 끝난다.
+ *   3) 새로 채번된 tokenId 는 **이벤트에서** 꺼낸다.
+ *      `mintMaterial` 이 tokenId 를 반환하도록 선언돼 있어도, 트랜잭션으로 부르면
+ *      그 반환값은 받을 수 없다. 영수증에 남는 건 로그뿐이다.
+ *   4) 서버 조회 무효화는 CONFIRMED 이후에만 한다.
+ *      Backend 가 이벤트를 수집해 DB 를 갱신하므로, 확정 전에 조회하면 옛 값이 온다.
  */
 export function useMintMaterial(materialId: number) {
   const queryClient = useQueryClient()
 
   const transaction = useBlockchainTransaction({
-    onConfirmed: () => {
+    onConfirmed: (receipt) => {
+      // 발행된 tokenId. 서버에 알려 오프체인 레코드와 연결할 때 쓴다.
+      const tokenId = readEventArg<bigint>(receipt, 'materialToken', 'MaterialMinted', 'tokenId')
+
+      // TODO(2번/Material 담당): tokenId 를 Backend 에 전달하는 API 가 정해지면 연결한다.
+      //   POST /materials/{materialId}/confirm  ← API 목록에 이미 있는 "서명 결과 기록"
+      void tokenId
+
       void queryClient.invalidateQueries({ queryKey: materialKeys.detail(materialId) })
       void queryClient.invalidateQueries({ queryKey: materialKeys.lists() })
     },
   })
 
   const mint = useCallback(
-    (quantity: number) => transaction.execute(() => mintMaterialToken(materialId, quantity)),
-    [transaction, materialId],
+    (params: MintMaterialParams) => transaction.execute(() => mintMaterial(params)),
+    [transaction],
   )
 
   return { ...transaction, mint }
