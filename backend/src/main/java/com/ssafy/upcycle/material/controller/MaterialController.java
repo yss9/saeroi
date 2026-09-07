@@ -88,7 +88,9 @@ public class MaterialController {
     /**
      * 한 소재의 보유자별 잔량.
      *
-     * <p>응답의 {@code available} 은 {@code quantity} 에서 <b>ACTIVE 잠금만</b> 뺀 값이다.
+     * <p>응답의 {@code available} 은 {@code quantity} 에서 <b>기한이 남은 ACTIVE 잠금만</b>
+     * 뺀 값이다. 만료된 잠금은 상태가 아직 {@code ACTIVE} 여도 차감하지 않는다
+     * (도메인 규칙: *"전환 전이라도 available 계산에서 제외"*).
      * {@code syncedAt} 은 이 값이 언제 기준인지 알려준다 — 온체인 잔액 동기화가 아직
      * 없어서, 시각이 없으면 "보유자 없음" 과 "동기화 전" 을 구분할 수 없다.
      */

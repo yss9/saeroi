@@ -14,12 +14,15 @@ import com.ssafy.upcycle.material.entity.MaterialLockReferenceType;
 import com.ssafy.upcycle.material.entity.MaterialRootOrigin;
 import com.ssafy.upcycle.material.entity.MaterialType;
 import jakarta.persistence.EntityManager;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 
 /**
@@ -33,8 +36,27 @@ import org.springframework.context.annotation.Import;
  * 단언한다 ({@code .harness/parts/backend.md} 경고).
  */
 @DataJpaTest
-@Import({QuerydslConfig.class, JpaAuditingConfig.class, MaterialBalanceQueryRepository.class})
+@Import({
+    QuerydslConfig.class,
+    JpaAuditingConfig.class,
+    MaterialBalanceQueryRepository.class,
+    MaterialBalanceQueryRepositoryTests.ClockConfig.class
+})
 class MaterialBalanceQueryRepositoryTests {
+
+    /**
+     * {@code Clock} 은 {@code JwtSecurityConfig} 가 제공하는데 {@code @DataJpaTest} 는
+     * 그 설정을 불러오지 않는다. 잔량 쿼리가 잠금 만료를 판정하려면 시각이 필요하므로
+     * 같은 구현({@code systemUTC})을 테스트에도 넣는다 — 운영과 다른 시계를 쓰면
+     * 만료 경계 테스트가 여기서만 통과할 수 있다.
+     */
+    @TestConfiguration
+    static class ClockConfig {
+        @Bean
+        Clock clock() {
+            return Clock.systemUTC();
+        }
+    }
 
     private static final String OWNER_ADDRESS = "0x1111111111111111111111111111111111111111";
     private static final String OTHER_ADDRESS = "0x2222222222222222222222222222222222222222";
@@ -119,11 +141,38 @@ class MaterialBalanceQueryRepositoryTests {
     }
 
     @Test
-    void subtractsAnExpiredActiveLockOnPurpose() {
-        // expires_at 이 지난 ACTIVE 도 그대로 뺀다. EXPIRED 로 전환해 주는 배치가 없어서다.
-        // 과소 계산이 초과 판매보다 안전하다 — 이 단언이 그 결정을 고정한다.
+    void doesNotSubtractAnExpiredLockEvenWhileStillActive() {
+        // 도메인 규칙: EXPIRED 는 "배치가 전환하며, 전환 전이라도 available 계산에서 제외".
+        // 상태를 전환해 주는 배치가 없어 만료된 잠금은 DB 에 ACTIVE 로 남는다.
+        // status 만 보면 이미 끝난 잠금이 사용 가능 수량을 계속 깎는다.
         persistBalance(materialId, OWNER_ID, OWNER_ADDRESS, 1_000L);
         persistLock(materialId, OWNER_ID, 300L, LocalDateTime.now().minusDays(1));
+        flush();
+
+        assertThat(only(queryRepository.findBalancesByMaterialId(materialId)))
+                .satisfies(row -> {
+                    assertThat(row.lockedQuantity()).isZero();
+                    assertThat(row.available()).isEqualTo(1_000L);
+                });
+    }
+
+    @Test
+    void subtractsALockThatHasNotExpiredYet() {
+        // 기한이 남아 있으면 차감한다. 위 테스트와 짝을 이뤄 경계를 고정한다.
+        persistBalance(materialId, OWNER_ID, OWNER_ADDRESS, 1_000L);
+        persistLock(materialId, OWNER_ID, 300L, LocalDateTime.now().plusDays(1));
+        flush();
+
+        assertThat(only(queryRepository.findBalancesByMaterialId(materialId)).available())
+                .isEqualTo(700L);
+    }
+
+    @Test
+    void subtractsALockWithNoExpiry() {
+        // expires_at 이 NULL 이면 만료 개념이 없으므로 차감한다.
+        // isNull() 조건을 빠뜨리면 기한 없는 잠금이 전부 무시되어 available 이 과대 계산된다.
+        persistBalance(materialId, OWNER_ID, OWNER_ADDRESS, 1_000L);
+        persistLock(materialId, OWNER_ID, 300L, null);
         flush();
 
         assertThat(only(queryRepository.findBalancesByMaterialId(materialId)).available())
