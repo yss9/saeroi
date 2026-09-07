@@ -24,10 +24,12 @@ import org.springframework.stereotype.Component;
  * ({@code trade_code} 는 {@code VARCHAR(30)}). 날짜를 앞에 두는 것은 CS 대응 때 사람이
  * 눈으로 시점을 알아보기 위해서고, 유일성은 전적으로 뒤쪽 무작위 48비트가 담당한다.
  *
- * <p><b>날짜는 주입된 {@link Clock} 기준이며 지금 그 빈은 {@code Clock.systemUTC()} 다</b>
- * ({@code JwtSecurityConfig#jwtClock}). 즉 한국 시간 오전 9시 이전에 만들어진 거래는 코드에
- * 전날 날짜가 찍힌다. 여기서만 KST 로 바꾸면 이 클래스 안에 시간 기준이 둘이 되므로 그러지
- * 않았다 — 서버 전체의 시간대 기준을 정하는 것이 맞는 해결이고, 그때 이 클래스는 따라온다.
+ * <p><b>날짜는 주입된 {@link Clock} 기준이다.</b> 예전에 그 빈이 {@code Clock.systemUTC()} 여서
+ * 한국 시간 오전 9시 이전에 만들어진 거래는 코드에 전날 날짜가 찍혔다. 이 클래스에서만
+ * KST 로 바꾸지 않고 "서버 전체의 시간대 기준을 정하는 것이 맞는 해결" 로 남겨 둔 판단은
+ * 옳았다 — <b>2026-09-07 에 그 기준을 정해 해소했다.</b>
+ * {@code common.config.ClockConfig} 가 {@code Clock.systemDefaultZone()} 을 제공하고,
+ * 컨테이너 JVM 이 {@code Asia/Seoul} 로 고정돼 있어 결과는 KST 다. 이 클래스는 그대로 따라왔다.
  *
  * <p>{@link SecureRandom} 은 비밀이 필요해서가 아니라 같은 밀리초의 두 요청이 같은 값을
  * 뽑지 않게 하려는 것이다. 그래도 충돌하면 {@code uk_material_trade_code} 가 잡아낸다 —

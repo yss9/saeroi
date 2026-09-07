@@ -54,7 +54,9 @@ class MaterialBalanceQueryRepositoryTests {
     static class ClockConfig {
         @Bean
         Clock clock() {
-            return Clock.systemUTC();
+            // 운영과 같은 시계를 쓴다. systemUTC 를 두면 KST 로 만든 테스트 데이터와
+            // 9시간 어긋나 여기서만 통과하는 테스트가 된다 (ClockConfig 참고).
+            return Clock.systemDefaultZone();
         }
     }
 
