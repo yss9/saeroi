@@ -1,3 +1,15 @@
+# 공통 설정. 비밀값은 여기에 적지 않고 ${...} 로 외부에서 받는다.
+#
+# 로컬에서 값을 넣는 방법 두 가지 — 둘 다 동작하고, 환경변수가 우선한다.
+#
+#   1) application-local.yml (권장)
+#      application-local.yml.example 를 복사해 값을 채우고
+#      ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+#      그 파일은 .gitignore 에 들어 있다.
+#
+#   2) 환경변수
+#      DB_URL / DB_USERNAME / DB_PASSWORD / JWT_SECRET / KAKAOPAY_SECRET_KEY ...
+#
 spring:
   application:
     name: upcycle
