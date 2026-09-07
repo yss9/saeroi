@@ -77,7 +77,7 @@ public class TradeReceiptService {
         buyerBalance.increase(trade.getQuantity());
         trade.complete(now);
 
-        return TradeReceiptResponse.of(trade, sellerBalance, buyerBalance);
+        return TradeReceiptResponse.of(trade, buyerBalance);
     }
 
     /** 받는 쪽은 구매자다. 판매자가 대신 확인하면 2-Track 이 성립하지 않는다. */
