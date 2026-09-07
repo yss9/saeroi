@@ -72,6 +72,9 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_ISSUER: ${JWT_ISSUER:-upcycle}
       JWT_ACCESS_TOKEN_TTL: ${JWT_ACCESS_TOKEN_TTL:-PT30M}
+      # application.yml 의 app.auth.wallet.nonce-ttl. yml 쪽에 PT5M 기본값이 있지만
+      # 여기서도 `:-` 를 붙여 .env 에 키가 없을 때 compose 경고가 나지 않게 한다.
+      WALLET_NONCE_TTL: ${WALLET_NONCE_TTL:-PT5M}
       # 블록체인 연동. RPC/체인 ID 는 2026-09-01 수령해 .env 에 채워져 있고,
       # 컨테이너 안에서 scripts/check-besu.sh 로 실제 도달까지 확인했다.
       BESU_RPC_URL: ${BESU_RPC_URL:-}
