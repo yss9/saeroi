@@ -3,9 +3,11 @@ import { MaterialList } from '../../features/material/components/MaterialList.ts
 import { Select } from '../../components/common/index.ts'
 import type { MaterialRootOrigin } from '../../features/material/types/material.types.ts'
 
+// RECOVERED 는 뺐다. 정책 v3에서 회수 소재 재순환이 MVP 범위에서 제외됐고
+// Backend material.root_origin ENUM 도 VIRGIN/WASTE 두 값뿐이다.
+// 필터로 남겨 두면 서버가 거절하는 값을 사용자가 고를 수 있다.
 const ORIGIN_OPTIONS = [
   { value: 'WASTE', label: '폐기물' },
-  { value: 'RECOVERED', label: '회수 소재' },
   { value: 'VIRGIN', label: '신소재' },
 ] as const
 
