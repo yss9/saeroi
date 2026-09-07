@@ -1,13 +1,17 @@
 package com.ssafy.upcycle.material.controller;
 
 import com.ssafy.upcycle.common.response.ApiResponse;
+import com.ssafy.upcycle.material.dto.MaterialDetailResponse;
 import com.ssafy.upcycle.material.dto.MaterialRegisterRequest;
 import com.ssafy.upcycle.material.dto.MaterialRegisterResponse;
+import com.ssafy.upcycle.material.service.MaterialQueryService;
 import com.ssafy.upcycle.material.service.MaterialRegistrationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -37,6 +41,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class MaterialController {
 
     private final MaterialRegistrationService materialRegistrationService;
+    private final MaterialQueryService materialQueryService;
 
     /**
      * 소재 등록. {@code SUPPLIER}·{@code BRAND} 만 가능하다.
@@ -48,6 +53,18 @@ public class MaterialController {
     public ApiResponse<MaterialRegisterResponse> register(
             @AuthenticationPrincipal Jwt jwt, @Valid @RequestBody MaterialRegisterRequest request) {
         return ApiResponse.success(materialRegistrationService.register(userId(jwt), request));
+    }
+
+    /**
+     * 소재 상세. <b>인증만 요구하고 역할은 보지 않는다</b> — 소재 정보는 추적성이 목적이라
+     * 누가 보든 같은 값이어야 한다.
+     *
+     * <p>응답의 {@code verificationState} 는 항상 {@code REGISTERED} 다. 판정 근거가 DB 에
+     * 없어서이며 소재의 사실이 아니다 — {@link MaterialDetailResponse} 주석 참고.
+     */
+    @GetMapping("/{materialId}")
+    public ApiResponse<MaterialDetailResponse> findDetail(@PathVariable Long materialId) {
+        return ApiResponse.success(materialQueryService.findDetail(materialId));
     }
 
     /**
