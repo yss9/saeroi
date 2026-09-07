@@ -132,6 +132,11 @@ export async function getOnChainBalance(
 /**
  * 증빙 해시가 온체인 기록과 일치하는지 확인한다.
  * QR Passport 의 "증빙 무결성 확인" 이 이 함수를 쓴다.
+ *
+ * 📌 가공 검증(`verifyProcessing`)은 **MaterialToken 에 없다.**
+ * 처음에는 있다고 보고 서비스에 넣었는데, blockchain 저장소의 실제 artifact 를 대조해 보니
+ * 그 기능은 `ProcessingRegistry` 로 분리되어 있었다. 가공 도메인(4번 담당)이
+ * 그쪽 컨트랙트로 구현한다.
  */
 export async function verifyEvidence(tokenId: number, hash: string): Promise<boolean> {
   const contract = getReadContract('materialToken')
