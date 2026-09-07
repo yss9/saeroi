@@ -83,12 +83,14 @@ class MaterialSchemaMappingTests {
                 Material.class,
                 MaterialBalance.class,
                 MaterialLock.class,
-                MaterialLineage.class);
+                MaterialLineage.class,
+                MaterialComposition.class);
     }
 
     private static Stream<Arguments> materialEnumColumns() {
         return Stream.of(
                 Arguments.of("material", "root_origin", MaterialRootOrigin.class),
+                Arguments.of("material", "origin_reason", MaterialOriginReason.class),
                 Arguments.of(
                         "material_lock",
                         "reference_type",

@@ -40,6 +40,22 @@ public enum MaterialErrorCode implements ErrorCode {
             HttpStatus.BAD_REQUEST,
             "MATERIAL_LINEAGE_ROOT_ORIGIN_MISMATCH",
             "자식 소재의 출처가 부모 소재와 다릅니다."),
+    MATERIAL_COMPOSITION_DUPLICATE(
+            HttpStatus.BAD_REQUEST,
+            "MATERIAL_COMPOSITION_DUPLICATE",
+            "같은 섬유 종류를 두 번 입력할 수 없습니다."),
+    MATERIAL_COMPOSITION_TOTAL_EXCEEDED(
+            HttpStatus.BAD_REQUEST,
+            "MATERIAL_COMPOSITION_TOTAL_EXCEEDED",
+            "구성 비율의 합은 100%를 넘을 수 없습니다."),
+    MATERIAL_FIBER_TYPE_NOT_SUPPORTED(
+            HttpStatus.BAD_REQUEST,
+            "MATERIAL_FIBER_TYPE_NOT_SUPPORTED",
+            "지원하지 않는 섬유 종류입니다."),
+    MATERIAL_ORIGIN_REASON_INVALID(
+            HttpStatus.BAD_REQUEST,
+            "MATERIAL_ORIGIN_REASON_INVALID",
+            "발생 사유가 소재 출처와 맞지 않습니다."),
     MATERIAL_UNIT_NOT_SUPPORTED(
             HttpStatus.BAD_REQUEST, "MATERIAL_UNIT_NOT_SUPPORTED", "지원하지 않는 단위입니다.");
 
