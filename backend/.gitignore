@@ -8,3 +8,8 @@ target/
 # 환경변수 실값 — 절대 커밋 금지
 .env
 .env.local
+
+# 로컬 개발 설정. DB 비밀번호·JWT 시크릿·결제 키가 들어가므로 커밋하지 않는다.
+# 템플릿은 application-local.yml.example 로 커밋되어 있다.
+src/main/resources/application-local.yml
+application-local.yml
