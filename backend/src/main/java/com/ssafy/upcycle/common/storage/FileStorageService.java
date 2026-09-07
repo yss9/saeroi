@@ -1,0 +1,70 @@
+package com.ssafy.upcycle.common.storage;
+
+import java.io.InputStream;
+
+/**
+ * 파일 저장의 공통 계약. Material 증빙, Processing 증빙, Product 이미지, 분쟁 첨부가 함께 쓴다.
+ *
+ * <h2>왜 인터페이스를 먼저 두는가</h2>
+ *
+ * <p>지금 구현체는 로컬 파일시스템({@link LocalFileStorageService})이고, MinIO/S3 는
+ * 뒤에 온다. 도메인이 저장 방식을 알면 백엔드를 바꿀 때 도메인마다 고쳐야 하고,
+ * 무엇보다 <b>도메인마다 경로 규칙과 검증이 따로 생긴다.</b> 같은 사진이 한 화면에서는
+ * 통과하고 다른 화면에서는 거부되는 것이 그렇게 시작된다.
+ *
+ * <h2>경로를 인자로 받지 않는다</h2>
+ *
+ * <p>호출부는 <b>무엇에 딸린 파일인지</b>만 말하고 경로는 구현체가 만든다
+ * ({@code 2026-09-07-file-upload-policy.md}).
+ *
+ * <pre>
+ *   {reference_type}/{reference_id}/{yyyy}/{MM}/{uuid}.{ext}
+ * </pre>
+ *
+ * <p>클라이언트가 경로에 관여하면 {@code ..} 나 선행 {@code /} 로 디렉터리를 벗어날 수 있고,
+ * 그 검사는 틀리기 쉽다. 전체 경로를 파생시키면 <b>막는 것이 아니라 불가능해진다.</b>
+ *
+ * <h2>해시는 저장하면서 계산한다</h2>
+ *
+ * <p>{@link StoredFile#hash()} 는 실제로 기록된 바이트의 SHA-256 이다
+ * ({@code 0x} + 64자, {@code evidence_file.file_hash CHAR(66)} 과 온체인
+ * {@code MaterialToken.verifyEvidence} 가 비교하는 형식). 저장 후 다시 읽어 계산하면
+ * 그 사이 내용이 달라질 여지가 생기고, 무엇보다 <b>기록된 것과 다른 해시</b>가 나올 수 있다.
+ */
+public interface FileStorageService {
+
+    /**
+     * 파일을 저장하고 저장 결과를 돌려준다.
+     *
+     * <p>{@code originalFilename} 은 <b>메타데이터로만</b> 쓴다. 저장 이름은 UUID 다 —
+     * 원본 이름은 충돌하고({@code IMG_0001.jpg}), 한글·공백·따옴표를 파일시스템·HTTP 헤더·
+     * S3 키가 각각 다르게 escape 한다.
+     *
+     * @param reference 무엇에 딸린 파일인지 (경로 파생에 쓰인다)
+     * @param originalFilename 사용자가 올린 이름. 확장자 검증과 표시용
+     * @param contentType 선언된 미디어 타입. 확장자와 일치해야 한다
+     * @param content 파일 내용. 이 메서드가 닫지 않는다 — 연 쪽이 닫는다
+     * @param size 바이트 수. 크기 상한 검증용
+     * @throws com.ssafy.upcycle.common.exception.BusinessException 정책 위반 또는 저장 실패
+     */
+    StoredFile store(
+            FileReference reference,
+            String originalFilename,
+            String contentType,
+            InputStream content,
+            long size);
+
+    /**
+     * 저장된 파일을 지운다.
+     *
+     * <p>없는 키를 지우는 것은 <b>오류가 아니다.</b> 호출부는 트랜잭션이 롤백될 때 이 메서드를
+     * 부르는데, 그 시점에 파일이 이미 없을 수 있고(저장 자체가 실패한 경우) 그때 예외가 나면
+     * 원래 실패 원인을 덮어쓴다.
+     *
+     * @return 실제로 지웠으면 {@code true}, 없어서 지울 것이 없었으면 {@code false}
+     */
+    boolean delete(String storageKey);
+
+    /** 저장된 파일이 있는지. */
+    boolean exists(String storageKey);
+}
