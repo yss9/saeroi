@@ -1,6 +1,7 @@
 import { expect } from "chai";
 import { createHash } from "node:crypto";
 import { ethers } from "hardhat";
+import { time } from "@nomicfoundation/hardhat-network-helpers";
 
 const METADATA_URI = "ipfs://material-denim-batch-1.json";
 const EVIDENCE_HASH = `0x${createHash("sha256")
@@ -15,6 +16,7 @@ const PROCESSING_EVIDENCE_HASH = `0x${createHash("sha256")
 
 const RootOrigin = { VIRGIN: 0, WASTE: 1 };
 const GenerationType = { INITIAL: 0, PROCESSED: 1, PRODUCTION_SCRAP: 2 };
+const Grade = { NONE: 0, A: 1, B: 2, C: 3 };
 const MaterialStatus = { NONE: 0, ACTIVE: 1, DEPLETED: 2 };
 const VerificationState = {
   REGISTERED: 0,
@@ -25,7 +27,7 @@ const VerificationState = {
 };
 const BurnReason = { PROCESSING: 0, PRODUCTION: 1, DISCARDED: 2 };
 const LockPurpose = { MARKETPLACE: 0, PROCESSING: 1, PRODUCTION: 2 };
-const LockStatus = { NONE: 0, ACTIVE: 1, RELEASED: 2, CONSUMED: 3 };
+const LockStatus = { NONE: 0, ACTIVE: 1, RELEASED: 2, CONSUMED: 3, EXPIRED: 4 };
 
 describe("소재 토큰(MaterialToken)", function () {
   async function deployFixture() {
@@ -125,6 +127,7 @@ describe("소재 토큰(MaterialToken)", function () {
     expect(material.totalBurned).to.equal(0);
     expect(material.rootOrigin).to.equal(RootOrigin.WASTE);
     expect(material.generationType).to.equal(GenerationType.INITIAL);
+    expect(material.grade).to.equal(Grade.NONE);
     expect(material.status).to.equal(MaterialStatus.ACTIVE);
     expect(material.registrant).to.equal(supplier.address);
     expect(material.exists).to.equal(true);
@@ -356,6 +359,20 @@ describe("소재 토큰(MaterialToken)", function () {
     await materialToken.connect(lockManager).releaseMaterialLock(1, 6_000);
     expect((await materialToken.materialLockInfo(1)).status).to.equal(LockStatus.RELEASED);
     expect(await materialToken.availableBalance(supplier.address, tokenId)).to.equal(50_000);
+  });
+
+  it("만료 시간이 지난 잠금은 가용 수량에서 자동 제외하고 EXPIRED로 확정한다", async function () {
+    const { materialToken, supplier, lockManager, tokenId } = await mintedFixture();
+    const expiresAt = (await time.latest()) + 60;
+    await materialToken.connect(lockManager).createMaterialLockWithExpiry(
+      supplier.address, tokenId, 10_000, LockPurpose.MARKETPLACE, 1, expiresAt
+    );
+    expect(await materialToken.availableBalance(supplier.address, tokenId)).to.equal(40_000);
+
+    await time.increaseTo(expiresAt);
+    expect(await materialToken.availableBalance(supplier.address, tokenId)).to.equal(50_000);
+    await expect(materialToken.expireMaterialLock(1)).to.emit(materialToken, "MaterialLockExpired");
+    expect((await materialToken.materialLockInfo(1)).status).to.equal(LockStatus.EXPIRED);
   });
 
   it("잠금을 소비하면 잠금 수량 감소와 소유권 이전이 함께 처리된다", async function () {

@@ -192,12 +192,6 @@
         "internalType": "uint256",
         "name": "quantity",
         "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "pricePerKg",
-        "type": "uint256"
       }
     ],
     "name": "ListingCreated",
@@ -266,12 +260,6 @@
         "internalType": "uint256",
         "name": "quantity",
         "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "totalPrice",
-        "type": "uint256"
       }
     ],
     "name": "OrderCreated",
@@ -306,31 +294,6 @@
       }
     ],
     "name": "OrderStatusChanged",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "orderId",
-        "type": "uint256"
-      },
-      {
-        "indexed": true,
-        "internalType": "bytes32",
-        "name": "paymentReferenceHash",
-        "type": "bytes32"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "operator",
-        "type": "address"
-      }
-    ],
-    "name": "PaymentConfirmed",
     "type": "event"
   },
   {
@@ -441,19 +404,6 @@
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "PAYMENT_MANAGER_ROLE",
-    "outputs": [
-      {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
     "inputs": [
       {
         "internalType": "address",
@@ -475,30 +425,6 @@
       }
     ],
     "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "quantityGram",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "pricePerKg",
-        "type": "uint256"
-      }
-    ],
-    "name": "calculateTotalPrice",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "pure",
     "type": "function"
   },
   {
@@ -550,11 +476,6 @@
       {
         "internalType": "uint256",
         "name": "quantity",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "pricePerKg",
         "type": "uint256"
       }
     ],
@@ -687,11 +608,6 @@
             "type": "uint256"
           },
           {
-            "internalType": "uint256",
-            "name": "pricePerKg",
-            "type": "uint256"
-          },
-          {
             "internalType": "enum Marketplace.ListingStatus",
             "name": "status",
             "type": "uint8"
@@ -746,16 +662,6 @@
             "internalType": "uint256",
             "name": "quantity",
             "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "totalPrice",
-            "type": "uint256"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "paymentReferenceHash",
-            "type": "bytes32"
           },
           {
             "internalType": "enum Marketplace.OrderStatus",
@@ -830,24 +736,6 @@
       }
     ],
     "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "orderId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "bytes32",
-        "name": "paymentReferenceHash",
-        "type": "bytes32"
-      }
-    ],
-    "name": "markPaid",
-    "outputs": [],
-    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -969,7 +857,7 @@
         "type": "uint8"
       }
     ],
-    "name": "signDisputeResolution",
+    "name": "settleDispute",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

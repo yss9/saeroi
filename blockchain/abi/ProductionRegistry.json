@@ -159,6 +159,31 @@
       {
         "indexed": false,
         "internalType": "uint256",
+        "name": "occurredAt",
+        "type": "uint256"
+      }
+    ],
+    "name": "ProductionCanceled",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "batchId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "brand",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
         "name": "productQuantity",
         "type": "uint256"
       },
@@ -355,7 +380,20 @@
         "type": "uint256"
       }
     ],
-    "name": "confirm",
+    "name": "cancelProduction",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "batchId",
+        "type": "uint256"
+      }
+    ],
+    "name": "confirmProduction",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -420,6 +458,11 @@
             "internalType": "uint64",
             "name": "confirmedAt",
             "type": "uint64"
+          },
+          {
+            "internalType": "uint16",
+            "name": "upcycledRatioBps",
+            "type": "uint16"
           }
         ],
         "internalType": "struct ProductionRegistry.Batch",
