@@ -1,0 +1,59 @@
+package com.ssafy.upcycle.material.dto;
+
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.ssafy.upcycle.material.entity.MaterialRootOrigin;
+import com.ssafy.upcycle.material.entity.MaterialType;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
+
+/**
+ * 소재 등록 요청. <b>서명 전</b>이라 온체인 값은 받지 않는다.
+ *
+ * <p>{@code generationType} 이 없는 것이 의도적이다. 등록은 항상 {@code INITIAL} 이고
+ * {@code PROCESSED}·{@code PRODUCTION_SCRAP} 은 가공·생산 확정이 만들어내는 값이다.
+ * 요청이 지정할 수 있게 하면 <b>가공을 거치지 않은 소재를 "가공됨" 으로 올릴 수 있다</b> —
+ * 신뢰 모델의 근거가 바로 그 지점이다. {@code Material.register} 가 값을 고정한다.
+ *
+ * <p>{@code registrantId} 도 받지 않는다. JWT {@code sub} 에서 얻는다 — 바디로 받으면
+ * 남의 계정 이름으로 등록할 수 있다.
+ *
+ * <p><b>수량은 {@code quantity} + {@code unit} 두 필드다.</b> 저장·응답은 gram 정수
+ * ({@code totalQuantity})이므로 이름이 다르다.
+ *
+ * <p>{@code quantity} 에 {@link IntegralLongDeserializer} 를 붙인 것이 핵심이다.
+ * Jackson 은 기본 설정에서 {@code 50.5} 를 {@code Long} 50 으로 <b>조용히 버린다</b> —
+ * 소재 수량에서 그 0.5 는 500g 이고, 요청은 200 으로 성공하면서 등록된 값만 달라진다.
+ * 기본 동작에 맡기면 검증을 통과해 버리므로 역직렬화 단계에서 막는다.
+ */
+public record MaterialRegisterRequest(
+        @NotNull(message = "소재 종류는 필수입니다.")
+        MaterialType materialType,
+
+        @NotNull(message = "소재 출처는 필수입니다.")
+        MaterialRootOrigin rootOrigin,
+
+        @NotBlank(message = "소재 이름은 필수입니다.")
+        @Size(max = 200, message = "소재 이름은 200자를 넘을 수 없습니다.")
+        String name,
+
+        String description,
+
+        @Size(max = 50, message = "등급은 50자를 넘을 수 없습니다.")
+        String grade,
+
+        @NotNull(message = "수량은 필수입니다.")
+        @Positive(message = "수량은 양수여야 합니다.")
+        @JsonDeserialize(using = IntegralLongDeserializer.class)
+        Long quantity,
+
+        @NotNull(message = "수량 단위는 필수입니다.")
+        MaterialQuantityUnit unit,
+
+        @Positive(message = "길이는 양수여야 합니다.")
+        Long lengthMm,
+
+        @Positive(message = "너비는 양수여야 합니다.")
+        Long widthMm) {
+}

@@ -27,4 +27,20 @@ public enum UserRole {
     public boolean canOwnWallet() {
         return this == SUPPLIER || this == BRAND || this == PROCESSOR;
     }
+
+    /**
+     * 소재를 등록할 수 있는 역할인가.
+     *
+     * <p>{@code SUPPLIER} 와 {@code BRAND} 만이다. <b>{@code PROCESSOR} 가 빠진 것이 핵심이다</b> —
+     * 가공업체가 만드는 소재는 가공 확정의 산출물({@code PROCESSED})이지 직접 등록하는 대상이
+     * 아니다. 등록을 열어 주면 가공 이력 없는 소재를 가공업체 이름으로 올릴 수 있게 되고,
+     * 그러면 "모든 폐소재는 등록 가공업체를 거쳐 상태·수량이 검증된다" 는 전제가 무너진다.
+     * {@code CONSUMER}·{@code ADMIN} 은 공급 주체가 아니다.
+     *
+     * <p>{@link #canOwnWallet} 과 목록이 <b>다르다</b>. 지갑을 가질 수 있다는 것과 소재를
+     * 올릴 수 있다는 것은 별개 권한이며, 한 판정으로 합치면 둘 중 하나가 조용히 넓어진다.
+     */
+    public boolean canRegisterMaterial() {
+        return this == SUPPLIER || this == BRAND;
+    }
 }
