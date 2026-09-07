@@ -31,7 +31,15 @@ import org.springframework.transaction.annotation.Transactional;
  * 검증이라 단건 조회 두 번이고, 목록용 집계는 Balance 조회 티켓의 몫이다.
  *
  * <p>{@code trade} 패키지에 둔 것은 지금 유일한 사용처가 판매 등록이기 때문이다.
- * 가공·생산이 같은 계산을 필요로 하면 그때 {@code material} 쪽으로 옮긴다.
+ *
+ * <p>⚠️ <b>같은 계산이 {@code MaterialBalanceQueryRepository} 에도 있다.</b> 그쪽은
+ * {@code GET /api/materials/me} 가 화면에 보여줄 값을 SQL 로 집계하고, 여기는 판매 등록
+ * 검증이 쓴다. 두 구현은 현재 <b>같은 값을 답하며</b>
+ * {@code MaterialAvailabilityConsistencyTests} 가 그것을 고정한다.
+ *
+ * <p>구현이 둘인 것은 그 자체로 위험이다 — 잠금 정책이 바뀔 때 한쪽만 고치면 화면은
+ * 팔 수 있다고 하는데 등록은 거절되는 상태가 된다. 한 곳으로 모으는 것은 {@code material}
+ * 도메인 파일을 건드리는 일이라 담당자 협의가 필요하고, 그때까지는 위 테스트가 안전망이다.
  */
 @Component
 @RequiredArgsConstructor
@@ -44,13 +52,22 @@ public class MaterialAvailability {
     /**
      * 가용 수량 (gram). 보유 행이 아예 없으면 0 이다 — "보유하지 않음" 과 "0 을 보유함" 을
      * 구분해야 하는 호출부는 {@link #owns} 를 함께 본다.
+     *
+     * <p><b>음수를 그대로 돌려준다.</b> 잠금 합이 보유량을 넘었다는 뜻이고, 그것은 온체인
+     * 잔액 동기화가 어긋났다는 신호다. 0 으로 접으면 그 신호가 사라진다 —
+     * {@code GET /api/materials/me} 는 같은 값을 음수로 노출하며
+     * ({@code MaterialBalanceQueryRepository#findMyMaterials}, {@code InventoryItem} 주석의
+     * *"음수 가능 — 데이터 파손 신호다"*) 두 경로가 같은 답을 해야 한다.
+     *
+     * <p>음수가 판매 등록을 망가뜨리지 않는다. 호출부의 비교는
+     * {@code availableQuantity(...) < quantity} 이고 요청 수량은 항상 양수이므로,
+     * 음수든 0 이든 거절이라는 결과는 같다. 달라지는 것은 <b>진단 정보가 남는지</b>뿐이다.
      */
     @Transactional(readOnly = true)
     public long availableQuantity(Long materialId, Long ownerId) {
         return balanceRepository
                 .findByMaterialIdAndOwnerId(materialId, ownerId)
                 .map(balance -> balance.getQuantity() - lockedQuantity(materialId, ownerId))
-                .map(available -> Math.max(available, 0L))
                 .orElse(0L);
     }
 
@@ -63,9 +80,14 @@ public class MaterialAvailability {
     /**
      * 만료되지 않은 ACTIVE 잠금의 합.
      *
-     * <p>음수 가용량이 나오는 경우({@code Math.max} 로 접는 지점)는 데이터가 이미 어긋난
-     * 것이다 — 잠금 합이 보유량을 넘었다는 뜻이다. 여기서 예외를 던지면 판매·구매가 통째로
-     * 막히므로 0 으로 접고, 바로잡는 것은 동기화 쪽 책임으로 둔다.
+     * <p><b>만료 판정이 {@code MaterialBalanceQueryRepository#activeLockedAmount} 와 같아야
+     * 한다.</b> 그쪽은 SQL 로 {@code expires_at IS NULL OR expires_at > now} 를 쓰고 여기는
+     * {@code MaterialLock#isExpiredAt} 을 쓴다 — 지금 두 식은 동일하다.
+     *
+     * <p>만료된 잠금을 빼는 근거는 도메인 규칙이다 — {@code EXPIRED} 는
+     * *"전환 전이라도 available 계산에서 제외"*. 상태를 전환해 주는 배치가 없어서 만료된
+     * 잠금이 DB 에는 {@code ACTIVE} 로 남아 있고, 이 조건이 없으면 이미 끝난 잠금이 사용
+     * 가능 수량을 계속 깎는다.
      */
     private long lockedQuantity(Long materialId, Long ownerId) {
         LocalDateTime now = LocalDateTime.now(clock);
