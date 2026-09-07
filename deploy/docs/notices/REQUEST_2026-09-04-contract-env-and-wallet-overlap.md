@@ -9,18 +9,105 @@
 
 ---
 
+## 0-A. 2026-09-07 갱신 — 상황이 바뀌었습니다 (Infra 6번)
+
+9/4 이후 원격을 다시 대조했습니다. **세 항목의 상태가 바뀌었고, 우선순위가 뒤집혔습니다.**
+
+| 항목 | 9/4 | 9/7 | 근거 |
+| --- | --- | --- | --- |
+| 1번 BC `RootOrigin.RECOVERED` | 🔴 차단 | 🟢 정리 항목 | BE·FE 가 각자 이미 제외 처리 |
+| 1번 BC ABI 전달 경로 | 🟡 전체 대기 | ✅ 해소 | FE 가 소스에 ABI 커밋 |
+| 2번 FE 컨트랙트 env 키 | 🟡 (가려져 있음) | 🔴 **유일한 차단 요인** | ABI 가 채워져 문제가 드러남 |
+
+### RECOVERED — 더 이상 막지 않습니다 (§4-1 대체)
+
+`RECOVERED` 로 mint 할 경로가 **양쪽에서 이미 사라졌습니다.**
+
+| 파트 | 근거 | 상태 |
+| --- | --- | --- |
+| 4번 BE | `backend/develop` `f3ab04e` — `MaterialRootOrigin` enum 에서 삭제, `schema.sql` 이 `ENUM('VIRGIN','WASTE')` | ✅ 반영됨 |
+| 2번 FE | `frontend/feat/blockchain-contract-layer` `b8f70ba:src/config/abi/onchainEnums.ts` — `ROOT_ORIGIN_ON_CHAIN` 이 VIRGIN/WASTE 2종 | ✅ 반영됨 (미병합) |
+| 1번 BC | `blockchain/develop:contracts/MaterialToken.sol:22` — **RECOVERED 그대로** | ❌ 미처리 |
+
+**사실상 B안으로 굳었습니다.** 백엔드 enum 에 값 자체가 없으니 DB INSERT 실패 시나리오는
+발생하지 않습니다. §4-1 의 "4번에게 차단 요청" 도 불필요합니다 — 이미 되어 있습니다.
+
+1번께 남는 건 **"쓸 수 없는 값이 ABI 에 남는다"** 는 위생 문제뿐입니다.
+재배포 계획이 있으면 그때 빼 주시고, 없으면 `MaterialToken.sol` 의 `RECOVERED` 옆에
+"MVP 미사용" 주석만 남겨 주셔도 됩니다. **급하지 않습니다.**
+
+### ABI — 받았습니다 (§4-2 부분 해소)
+
+2번 FE 가 `frontend/feat/blockchain-contract-layer` (`b8f70ba`, **아직 미병합**) 에서
+ABI 를 소스로 직접 커밋했습니다.
+
+```
+src/config/abi/materialToken.abi.ts   function 25개
+src/config/abi/marketplace.abi.ts
+src/config/abi/onchainEnums.ts        RootOrigin / LockPurpose / BurnReason
+src/config/abi/abi.test.ts            ABI 시그니처 검증 테스트
+```
+
+전달 방식은 **"FE 브랜치에 복사 커밋"** 으로 결정된 것으로 보겠습니다. 다만 두 가지가 남습니다:
+
+- **배포 주소 2개** (`MaterialToken`, `Marketplace`) — 아직 못 받았습니다. 주시면 EC2 `.env` 에 넣겠습니다
+- **재배포 시 ABI·주소 갱신 통보 방침** — 복사본이 생겼으므로 이제 **동기화가 깨질 수 있습니다.**
+  컨트랙트를 재배포하면 반드시 알려 주세요
+
+### env 키 — 이제 이것만 남았습니다 (§2-1·§2-2 갱신, 🔴 승격)
+
+ABI 가 채워지면서 `requireAbi()` 가 먼저 막아 주던 가림막이 사라졌습니다.
+**지금은 세 칸의 키 이름이 서로 다릅니다.**
+
+| 위치 | 소유 | 키 |
+| --- | --- | --- |
+| `.env.example` / EC2 `.env` | 6번(저) | `VITE_MATERIAL_TOKEN_ADDRESS` `VITE_PAYMENT_TOKEN_ADDRESS` `VITE_ESCROW_ADDRESS` |
+| `b8f70ba:docker/Dockerfile` ARG | 2번 | `VITE_MATERIAL_TOKEN_ADDRESS` `VITE_PAYMENT_TOKEN_ADDRESS` `VITE_ESCROW_ADDRESS` |
+| `b8f70ba:src/config/contracts.ts` | 2번 | `VITE_MATERIAL_CONTRACT_ADDRESS` `VITE_MARKETPLACE_CONTRACT_ADDRESS` |
+
+**2번께 — 같은 브랜치 안에서 한쪽만 고치셨습니다.**
+`contracts.ts` 에서 `escrow` 를 지우고 `marketplace` 를 남기신 건 §2-2 의 "확정 3건" 과 맞습니다.
+그런데 **`docker/Dockerfile` 의 `ARG` 는 그대로**입니다. 결과:
+
+- `VITE_MARKETPLACE_CONTRACT_ADDRESS` — **`ARG` 선언이 아예 없습니다.**
+  Jenkins 가 `--build-arg` 로 넘겨도 docker 가 `"build-args were not consumed"` 경고만 내고 **값을 버립니다**
+- `VITE_MATERIAL_CONTRACT_ADDRESS` — `ARG` 는 `..._TOKEN_ADDRESS` 라 이름이 어긋나 **주입되지 않습니다**
+- `VITE_PAYMENT_TOKEN_ADDRESS` `VITE_ESCROW_ADDRESS` — 소스에서 안 쓰는데 `ARG` 에 남아 있습니다
+
+즉 **주소를 받아도 두 컨트랙트 모두 `null` 이 되어 `isContractConfigured()` 가 false** 입니다.
+
+§2-2 의 A안/B안 결정을 주세요. `contracts.ts` 현재 상태는 **A안**(`*_CONTRACT_ADDRESS`) 쪽입니다.
+A안으로 확정하시면 `docker/Dockerfile` 의 `ARG` 를 아래 2개로 바꿔 주시면 됩니다:
+
+```dockerfile
+ARG VITE_MATERIAL_CONTRACT_ADDRESS
+ARG VITE_MARKETPLACE_CONTRACT_ADDRESS
+```
+
+**결정을 주시면 같은 배포 주기에 맞춰 제 쪽(`.env.example`·EC2 `.env`·`INFRA_SETUP.md` §3)을
+반영하겠습니다.** 제가 먼저 올릴지 나중에 올릴지도 알려 주세요.
+
+> 참고 — 제 Jenkins 가드는 `.env` → `Dockerfile ARG` 누락만 검사하고
+> `Dockerfile` → **소스 코드**는 검사하지 않습니다. 이번에도 그 틈에서 어긋났습니다.
+> 키 이름이 확정되면 소스까지 검사하도록 가드를 넓히겠습니다.
+
+---
+
 ## 0. 요약 — 담당자별 첫 액션
+
+> 아래는 **9/4 작성 시점** 기준입니다. 상태가 바뀐 3건은 §0-A 를 먼저 보세요.
 
 | 대상 | 해야 할 것 | 막혀 있나 |
 | --- | --- | --- |
-| **2번 Frontend** | `src/config/contracts.ts` 의 env 키 이름이 실제 주입되는 이름과 **셋 다 다릅니다.** 고쳐야 컨트랙트 주소가 들어갑니다 | 🟡 지금은 ABI 도 비어 있어 가려져 있음. **ABI 가 오는 순간 드러남** |
+| **2번 Frontend** | `src/config/contracts.ts` 의 env 키 이름이 실제 주입되는 이름과 다릅니다. 고쳐야 컨트랙트 주소가 들어갑니다 | 🔴 **9/7 승격 — ABI 가 채워져 드러났습니다.** §0-A 참고 |
 | **2번 Frontend** | `docker/Dockerfile` 의 `ARG` 를 위 결정에 맞춰 조정 | 🟡 위와 같은 건 |
 | **2번 Frontend** | **ethers Provider/Signer 공통 모듈은 이미 `frontend/develop` 에 있습니다.** 새로 만들지 마세요 | 🟢 중복 방지 |
 | **4번 Backend** | **로그인 nonce 발급 API 는 이미 구현됐습니다** (MR !85). 새로 만들지 마세요 | 🟢 중복 방지 |
-| **1번 Blockchain** | `MaterialToken.RootOrigin` 에 `RECOVERED` 가 남아 있어 DB ENUM 과 어긋납니다 | 🔴 Material 등록 시 **DB INSERT 실패** |
-| **1번 Blockchain** | ABI 산출물 전달 경로 (`abi/*.json` → FE) | 🟡 컨트랙트 호출 전체가 대기 중 |
+| **1번 Blockchain** | `MaterialToken.RootOrigin` 에 `RECOVERED` 가 남아 있어 DB ENUM 과 어긋납니다 | 🟢 **9/7 하향 — BE·FE 가 이미 제외 처리.** 위생 문제만 남음 |
+| **1번 Blockchain** | ABI 산출물 전달 경로 (`abi/*.json` → FE) | ✅ **9/7 해소 — FE 가 소스에 커밋.** 배포 주소 2개만 대기 |
 
-**지금 당장 개발이 멈추는 것은 1번의 `RECOVERED` 하나뿐입니다.** 나머지는 순서만 맞추면 됩니다.
+~~지금 당장 개발이 멈추는 것은 1번의 `RECOVERED` 하나뿐입니다.~~
+**9/7 정정 — 지금 막는 것은 2번의 env 키 이름 결정과 1번의 배포 주소 2개입니다.**
 
 ---
 
