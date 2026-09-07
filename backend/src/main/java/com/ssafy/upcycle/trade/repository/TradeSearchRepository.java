@@ -12,7 +12,7 @@ import org.springframework.data.repository.query.Param;
 /**
  * 내 거래 목록·상세 조회.
  *
- * <p>{@link MaterialTradeRepository} 와 나눈 이유는 {@link ListingSearchRepository} 와 같다 —
+ * <p>{@link MaterialTradeRepository} 와 나눈 이유는 {@link ListingSearchQueryRepository} 와 같다 —
  * 그쪽은 인덱스에 대응하는 단순 조회, 여기는 화면이 필요로 하는 값을 모아 오는 조인 쿼리다.
  *
  * <p><b>거래 한 줄을 보여주려면 네 테이블이 필요하다.</b> 거래 자체(수량·금액·상태),

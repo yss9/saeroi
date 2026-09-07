@@ -6,6 +6,8 @@ import com.ssafy.upcycle.material.entity.MaterialGenerationType;
 import com.ssafy.upcycle.material.entity.MaterialRootOrigin;
 import com.ssafy.upcycle.material.entity.MaterialStatus;
 import com.ssafy.upcycle.material.entity.MaterialType;
+import com.ssafy.upcycle.material.entity.MaterialComposition;
+import com.ssafy.upcycle.material.entity.MaterialOriginReason;
 import com.ssafy.upcycle.material.entity.MaterialVerificationState;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -59,6 +61,14 @@ public record MaterialDetailResponse(
         // Owner
         List<MaterialOwnerResponse> owners,
 
+        // 왜 폐기물이 되었나. 신소재면 둘 다 null 이다 — 그 상태가 정상이다
+        MaterialOriginReason originReason,
+        String originReasonNote,
+
+        // 구성 성분. 정보가 없으면 **빈 배열**이고 null 이 아니다 —
+        // 화면이 "없음" 과 "모름" 을 두 번 분기하지 않게 한다
+        List<MaterialCompositionResponse> composition,
+
         // Evidence
         String evidenceHash,
         String manifestUrl,
@@ -77,6 +87,7 @@ public record MaterialDetailResponse(
     public static MaterialDetailResponse of(
             Material material,
             List<MaterialBalance> balances,
+            List<MaterialComposition> composition,
             MaterialVerificationState verificationState) {
         return new MaterialDetailResponse(
                 material.getId(),
@@ -93,6 +104,9 @@ public record MaterialDetailResponse(
                 material.getCreatedAt(),
                 material.getTotalQuantity(),
                 balances.stream().map(MaterialOwnerResponse::from).toList(),
+                material.getOriginReason(),
+                material.getOriginReasonNote(),
+                composition.stream().map(MaterialCompositionResponse::from).toList(),
                 material.getEvidenceHash(),
                 material.getManifestUrl(),
                 verificationState,

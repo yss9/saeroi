@@ -28,6 +28,8 @@ users ──┬── company_profile
 material_listing ──< material_trade ──┬── trade_shipping
                                       └── trade_dispute
 
+material ──< material_composition
+
 blockchain_transaction   evidence_file   point_account ──< point_transaction
 ```
 
@@ -220,19 +222,40 @@ UNIQUE `(processor_profile_id, material_type, process_type)`
 | id | BIGINT PK |  |
 | material_code | VARCHAR(20) UNIQUE | MAT-000001 |
 | material_type | ENUM | DENIM / COTTON / LINING / METAL / ... |
-| **root_origin** | ENUM | VIRGIN / WASTE / RECOVERED |
+| **root_origin** | ENUM | VIRGIN / WASTE (정책 v3에서 RECOVERED 제외) |
 | **generation_type** | ENUM | INITIAL / PROCESSED / PRODUCTION_SCRAP |
 | name | VARCHAR(200) | 세척된 데님 |
 | description | TEXT |  |
 | grade | VARCHAR(50) NULL | 등급·품질 표기 |
 | total_quantity | BIGINT | 총 발행 수량 (g) |
 | length_mm / width_mm | BIGINT NULL | 참고 Metadata |
-| verification_state | ENUM | REGISTERED / SOURCE_VERIFIED / TRANSACTION_VERIFIED / PROCESSING_VERIFIED / PRODUCT_LINKED |
+| ~~verification_state~~ | — | **컬럼 없음.** 조회 시점 파생 계산이다 (아래 참고) |
 | registrant_id | BIGINT FK | 최초 등록자 |
+| origin_reason | ENUM NULL | DEADSTOCK / DEFECT / OFFCUT / END_OF_LIFE / COLLECTED / ETC |
+| origin_reason_note | VARCHAR(200) NULL | `ETC` 일 때 필수 |
 | status | ENUM | ACTIVE / DEPLETED |
 | created_at | DATETIME |  |
 
 **`parent_material_id` 컬럼이 없다.** 혈통은 `material_lineage` 로 표현한다. (9장)
+
+**`verification_state` 컬럼도 없다.** 정책 v3가 컬럼을 없애고 파생 계산으로 바꿨다.
+`MaterialVerificationStateResolver` 가 조회할 때마다 도메인별 창구에 물어 판정한다.
+
+| 단계 | 판정 근거 |
+| --- | --- |
+| `TRANSACTION_VERIFIED` | `material_trade.buyer_signed_at` |
+| `SOURCE_VERIFIED` | `blockchain_transaction` 의 `verifySource` 성공 Tx |
+| `REGISTERED` | 그 외 |
+
+`PROCESSING_VERIFIED`(`processing_job.brand_reviewed_at`)와
+`PRODUCT_LINKED`(`production_input` + 배치 `CONFIRMED`)는 근거 컬럼은 있지만 아직
+엔티티가 없어 판정하지 않는다. 근거:
+`docs/superpowers/specs/2026-09-07-material-verification-state.md`
+
+**`origin_reason` 과 `generation_type` 은 다른 축이다.**
+`generation_type` 은 "어떻게 생겼나"(최초 등록 / 가공 산출 / 생산 자투리),
+`origin_reason` 은 "왜 폐기물이 되었나" 다. 그래서 `origin_reason` 목록에
+`PRODUCTION_SCRAP` 을 넣지 않았다 — 같은 사실을 두 컬럼에 적으면 어긋난다.
 
 **`root_origin` / `generation_type` 을 분리한 이유**
 
@@ -334,6 +357,37 @@ Listing 30kg → Lock 30kg
 
 잔여 판매 수량이 0이 되면 해당 Lock을 CONSUMED 처리한다.
 
+### material_composition
+
+구성 성분. 혼방 비율을 담는다.
+
+| 컬럼 | 타입 | 설명 |
+| --- | --- | --- |
+| id | BIGINT PK |  |
+| material_id | BIGINT FK |  |
+| fiber_type | VARCHAR(50) | COTTON / POLYESTER / NYLON / ... (코드가 허용 목록을 강제) |
+| percentage | DECIMAL(5,2) | 0 초과 100 이하 |
+
+UNIQUE `(material_id, fiber_type)`
+INDEX `material_id`
+
+**왜 별도 테이블인가.** "면 60% / 폴리 40%" 처럼 한 소재에 여러 값이 붙는다.
+`JSON` 컬럼이 더 간단해 보이지만 이 값은 조회 조건이 된다 — "면 50% 이상" 검색과
+Upcycle Ratio 집계가 예정돼 있고, MySQL JSON 은 인덱스를 붙이려면 generated column 을
+또 만들어야 한다.
+
+**합계 100 을 요구하지 않는다.** 각 행이 0 초과 100 이하이고 합계는 100 이하면 된다.
+정확히 100 을 요구하면 모르는 부분을 지어내게 된다 — 수거 소재는 "면 60% 는 확실하고
+나머지는 모른다" 가 흔한데, 그때 "기타 40%" 를 넣게 만들면 없는 정보가 집계로 흘러간다.
+
+**합계 검사는 DB 가 못 한다.** 여러 행에 걸친 조건이라 `CHECK` 로 표현되지 않는다.
+`MaterialCompositionRegistrar` 가 본다. 근거:
+`docs/superpowers/specs/2026-09-07-material-composition-and-origin-reason.md`
+
+**`fiber_type` 이 ENUM 이 아닌 이유.** 섬유 종류는 계속 늘어나고 ENUM 이면 값 추가마다
+DDL 이다. 대신 `MaterialFiberType` 이 허용 목록을 강제한다 — 강제하지 않으면 `grade`
+(`VARCHAR(50)`)에서 이미 안고 있는 문제("면 · 코튼 · COTTON")가 반복된다.
+
 ### material_lineage
 
 혈통 간선. Processing 과 Production 이 확정될 때 생성한다.
@@ -373,14 +427,27 @@ Journey 를 한 단계씩 거슬러 올라갈 때마다 Processing 과 Productio
 | 컬럼 | 타입 | 설명 |
 | --- | --- | --- |
 | id | BIGINT PK |  |
-| reference_type | ENUM | MATERIAL / PROCESSING_JOB / PRODUCTION_BATCH / PRODUCTION_INPUT / TRADE_DISPUTE |
-| reference_id | BIGINT |  |
-| file_url | VARCHAR(500) | Object Storage |
-| file_hash | CHAR(66) | 개별 파일 SHA-256 |
+| reference_type | ENUM | MATERIAL / PROCESSING_JOB / PRODUCTION_BATCH / PRODUCTION_INPUT |
+| reference_id | BIGINT | **FK 없음** — 대상 테이블이 넷이라 걸 수 없다 |
+| file_url | VARCHAR(500) | **저장 키**다. 이름과 담는 값이 다르다 (아래 참고) |
+| file_hash | CHAR(66) | 개별 파일 SHA-256. `0x` + 64자 |
 | evidence_type | ENUM | BEFORE_PHOTO / AFTER_PHOTO / WEIGHT_SLIP / INVOICE / PROCESS_PHOTO / ETC |
+| uploaded_by | BIGINT FK | 올린 사용자. JWT `sub` 에서 얻는다 |
 | uploaded_at | DATETIME |  |
 
-INDEX `(reference_type, reference_id)`
+INDEX `(reference_type, reference_id)`, `uploaded_by`
+
+**`file_url` 은 URL 이 아니라 저장 키다.**
+저장소 루트 기준 상대 경로(`MATERIAL/1024/2026/09/<uuid>.jpg`)를 담는다.
+절대 URL 을 넣으면 도메인이나 버킷이 바뀔 때 모든 행을 고쳐야 하고, MinIO/S3 로 옮길 때
+(S15P21E104-162) 그 이관이 실패하면 파일을 찾을 수 없다. 공개 URL 은 조회 시점에 조립한다.
+
+**`reference_id` 에 FK 가 없다 = DB 가 대상 존재를 막아 주지 않는다.**
+`EvidenceReferenceValidator` 가 확인한다. 확인하지 않으면 없는 소재를 가리키는 증빙 행이
+남고, 그 파일의 해시는 온체인에 올라갈 수 있다 — 그 뒤에는 무엇의 증빙인지 알 방법이 없다.
+
+**증빙 행은 지우지 않는다.** `file_hash` 가 온체인에 기록되므로, 지우면 온체인에는 해시가
+남아 있는데 무엇의 해시인지 알 수 없는 상태가 된다. 잘못 올린 파일은 새로 올린다.
 
 **Evidence Manifest 방식**
 

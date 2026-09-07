@@ -18,12 +18,43 @@
     <description>Upcycle domain service</description>
 
     <properties>
+        <aws.sdk.version>2.29.52</aws.sdk.version>
         <java.version>21</java.version>
         <querydsl.version>5.1.0</querydsl.version>
         <web3j.version>4.12.3</web3j.version>
     </properties>
 
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <version>${aws.sdk.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
+        <!--
+            Object Storage (S15P21E104-162 / -248).
+
+            MinIO 전용 SDK 가 아니라 AWS SDK v2 를 쓴다. MinIO 는 S3 호환 API 라
+            endpoint 만 바꿔 붙고, 나중에 실제 S3 로 옮길 때 코드가 그대로다.
+            MinIO SDK 를 쓰면 그 이관이 코드 변경을 부른다.
+
+            apache-client 를 명시하는 이유: SDK 는 HTTP 클라이언트 구현을 런타임에
+            찾는데, 클래스패스에 하나도 없으면 기동이 아니라 **첫 업로드에서** 실패한다.
+        -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>apache-client</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>

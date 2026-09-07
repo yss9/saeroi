@@ -1,12 +1,15 @@
 package com.ssafy.upcycle.material.dto;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.ssafy.upcycle.material.entity.MaterialOriginReason;
 import com.ssafy.upcycle.material.entity.MaterialRootOrigin;
 import com.ssafy.upcycle.material.entity.MaterialType;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
+import java.util.List;
 
 /**
  * 소재 등록 요청. <b>서명 전</b>이라 온체인 값은 받지 않는다.
@@ -55,5 +58,27 @@ public record MaterialRegisterRequest(
         Long lengthMm,
 
         @Positive(message = "너비는 양수여야 합니다.")
-        Long widthMm) {
+        Long widthMm,
+
+        /**
+         * 왜 폐기물이 되었나. {@code rootOrigin=WASTE} 이면 필수다.
+         *
+         * <p>짝 검사를 Bean Validation 으로 하지 않는다 — 두 필드에 걸친 조건이라
+         * 필드 애노테이션으로 표현되지 않고, 클래스 수준 제약을 만들면 규칙이 엔티티와
+         * DTO 두 곳에 생긴다. {@code Material.register} 가 유일한 문이다.
+         */
+        MaterialOriginReason originReason,
+
+        @Size(max = 200, message = "발생 사유 설명은 200자를 넘을 수 없습니다.")
+        String originReasonNote,
+
+        /**
+         * 구성 성분. <b>선택</b>이다 — 모르는 소재를 등록하지 못하게 만들면 사용자가
+         * 아무 값이나 채워 넣고, 그건 빈칸보다 나쁘다.
+         *
+         * <p>{@code @Valid} 가 있어야 목록 안쪽 제약이 검사된다. 없으면 비율 100 초과가
+         * 그대로 통과해 DB {@code CHECK} 위반 500 이 된다.
+         */
+        @Valid
+        List<MaterialCompositionRequest> composition) {
 }

@@ -57,6 +57,7 @@ public class Material {
     private static final int GRADE_MAX_LENGTH = 50;
     private static final int CONTRACT_ADDRESS_MAX_LENGTH = 42;
     private static final int MANIFEST_URL_MAX_LENGTH = 500;
+    private static final int ORIGIN_REASON_NOTE_MAX_LENGTH = 200;
 
     @Id
     @Column(name = "id")
@@ -110,6 +111,25 @@ public class Material {
 
     @Column(name = "registrant_id", nullable = false)
     private Long registrantId;
+
+    /**
+     * 왜 폐기물이 되었나. {@code root_origin=WASTE} 일 때만 의미가 있다.
+     *
+     * <p>{@code generation_type}("어떻게 생겼나")과 역할이 다르다 —
+     * {@link MaterialOriginReason} 주석 참고.
+     *
+     * <p><b>{@code register} 파라미터가 아니라 {@link #describeOrigin} 으로 따로 받는다.</b>
+     * 컬럼이 나중에 추가되어 값이 없는 소재가 이미 존재하고, {@code register} 에 필수
+     * 파라미터로 넣으면 소재를 만드는 모든 자리(다른 도메인 테스트 포함)가 이 값을 알아야
+     * 한다. 파라미터가 12개가 되면서 nullable 인자가 늘어나는 것도 위치를 헷갈리게 만든다.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "origin_reason")
+    private MaterialOriginReason originReason;
+
+    /** {@link MaterialOriginReason#ETC} 일 때 필수. 다른 값에서도 부가 설명으로 쓸 수 있다. */
+    @Column(name = "origin_reason_note", length = ORIGIN_REASON_NOTE_MAX_LENGTH)
+    private String originReasonNote;
 
     @Column(name = "evidence_hash", columnDefinition = "CHAR(66)")
     private String evidenceHash;
@@ -208,6 +228,35 @@ public class Material {
      * 한 번 나간 뒤 바뀌면 서류·QR·대화가 전부 어긋난다. 임시 코드일 때만 교체를 허용해
      * 재채번 경로를 원천적으로 막는다.
      */
+    /**
+     * 발생 사유를 기록한다. {@code assignCode} 와 같이 저장 직후 같은 트랜잭션에서 부른다.
+     *
+     * <p><b>여기서 막는 것은 출처와의 모순이다.</b> 두 값이 따로 들어오면
+     * "신소재인데 재고 소진" 같은 행이 조용히 저장된다. DB 로는 막지 못한다 — 두 컬럼에
+     * 걸친 조건이라 {@code CHECK} 가 필요하고, 값이 없는 기존 행이 있는 상태에서 제약을
+     * 추가하려면 별도 절차가 붙는다.
+     *
+     * <p><b>폐기물에 사유가 없는 것은 여기서 막지 않는다.</b> 컬럼이 나중에 추가되어
+     * 사유 없는 폐기물 소재가 이미 존재하고, 엔티티가 그걸 거절하면 기존 데이터를 다루는
+     * 모든 경로가 깨진다. "등록 시에는 필수" 라는 규칙은 API 계약이므로
+     * {@code MaterialRegistrationService} 가 본다.
+     */
+    public void describeOrigin(MaterialOriginReason originReason, String originReasonNote) {
+        if (originReason == null && originReasonNote == null) {
+            return;
+        }
+        if (rootOrigin != MaterialRootOrigin.WASTE && originReason != null) {
+            throw new IllegalArgumentException("Only waste material can have an origin reason");
+        }
+        String note =
+                requireOptionalText(originReasonNote, "origin reason note", ORIGIN_REASON_NOTE_MAX_LENGTH);
+        if (originReason != null && originReason.requiresNote() && (note == null || note.isBlank())) {
+            throw new IllegalArgumentException("ETC origin reason requires a note");
+        }
+        this.originReason = originReason;
+        this.originReasonNote = note;
+    }
+
     public void assignCode(String materialCode) {
         String assigned = requireText(materialCode, "material code", MATERIAL_CODE_MAX_LENGTH);
         if (!this.materialCode.startsWith(TEMPORARY_CODE_PREFIX)) {

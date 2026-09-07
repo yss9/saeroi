@@ -32,7 +32,7 @@ import com.ssafy.upcycle.trade.payment.PaymentCancelCommand;
 import com.ssafy.upcycle.trade.payment.PaymentGateway;
 import com.ssafy.upcycle.trade.payment.PaymentReady;
 import com.ssafy.upcycle.trade.payment.PaymentReadyCommand;
-import com.ssafy.upcycle.trade.repository.ListingSearchRepository;
+import com.ssafy.upcycle.trade.repository.ListingLockRepository;
 import com.ssafy.upcycle.trade.repository.MaterialListingRepository;
 import com.ssafy.upcycle.trade.repository.MaterialTradeRepository;
 import com.ssafy.upcycle.trade.repository.TradeShippingRepository;
@@ -116,7 +116,7 @@ class MarketplaceApiTests {
     private TradeShippingRepository shippingRepository;
 
     @Autowired
-    private ListingSearchRepository listingSearchRepository;
+    private ListingLockRepository listingLockRepository;
 
     @Autowired
     private TradeResponseAssembler tradeResponseAssembler;
@@ -127,6 +127,8 @@ class MarketplaceApiTests {
     private User seller;
     private User buyer;
     private Material material;
+    private Material cotton;
+    private Material leather;
     private String sellerToken;
     private String buyerToken;
 
@@ -153,6 +155,37 @@ class MarketplaceApiTests {
                 seller.getId()));
         balanceRepository.save(MaterialBalance.of(
                 material.getId(), seller.getId(), SELLER_WALLET, OWNED_QUANTITY));
+
+        // 필터 조합을 시험할 소재 두 개를 더 둔다. 종류·등급·가격을 데님과 다르게 잡아
+        // "여러 개 중 하나만 남는" 것을 볼 수 있게 한다 — 판매글이 하나뿐이면 필터가
+        // 걸렀는지 애초에 아무것도 없었는지 구분되지 않는다.
+        cotton = materialRepository.save(Material.register(
+                "MAT-900002",
+                MaterialType.COTTON,
+                MaterialRootOrigin.WASTE,
+                "폐면 자투리",
+                "봉제 공장 재단 잔여",
+                "B",
+                OWNED_QUANTITY,
+                null,
+                null,
+                seller.getId()));
+        balanceRepository.save(MaterialBalance.of(
+                cotton.getId(), seller.getId(), SELLER_WALLET, OWNED_QUANTITY));
+
+        leather = materialRepository.save(Material.register(
+                "MAT-900003",
+                MaterialType.LEATHER,
+                MaterialRootOrigin.VIRGIN,
+                "미사용 소가죽",
+                "재고 소진분",
+                "A",
+                OWNED_QUANTITY,
+                null,
+                null,
+                seller.getId()));
+        balanceRepository.save(MaterialBalance.of(
+                leather.getId(), seller.getId(), SELLER_WALLET, OWNED_QUANTITY));
 
         sellerToken = tokenFor(seller);
         buyerToken = tokenFor(buyer);
@@ -252,8 +285,10 @@ class MarketplaceApiTests {
 
     @Test
     void rejectsListingAMaterialTheSellerDoesNotHold() throws Exception {
+        // setUp 이 900001~900003 을 쓴다. 개별 테스트가 만드는 소재는 900009 부터 —
+        // material_code 가 UNIQUE 라 겹치면 테스트가 서로를 깨뜨린다.
         Material other = materialRepository.save(Material.register(
-                "MAT-900002",
+                "MAT-900009",
                 MaterialType.COTTON,
                 MaterialRootOrigin.VIRGIN,
                 "남의 소재",
@@ -383,6 +418,110 @@ class MarketplaceApiTests {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
                         .param("size", "100000"))
                 .andExpect(jsonPath("$.data.size").value(100));
+    }
+
+    // ── 필터 조합 (-302) ─────────────────────────────────────
+    //
+    // 위 테스트들은 필터를 하나씩만 건다. 조건이 전부 AND 라 구조적으로는 조합도 동작하지만,
+    // 누가 조건 하나를 OR 로 바꾸거나 파라미터 이름을 잘못 적으면 **단일 필터 테스트는 모두
+    // 통과하고 조합만 깨진다.** 그래서 교집합이 실제로 나오는지 따로 고정한다.
+    //
+    // 판매글 세 개를 서로 다른 조건으로 등록한다.
+    //   데님 / A / 14,000원
+    //   폐면 / B /  4,200원
+    //   가죽 / A / 52,000원
+
+    @Test
+    void listsEveryOnSaleListingWithoutFilters() throws Exception {
+        // 기준선. 이것이 없으면 아래 조합 테스트가 0 건을 반환해도 "잘 걸러졌다" 인지
+        // "애초에 데이터가 없었다" 인지 알 수 없다.
+        registerThreeListings();
+
+        mockMvc.perform(get("/api/v1/listings")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(3))
+                .andExpect(jsonPath("$.data.totalElements").value(3));
+    }
+
+    @Test
+    void combinesMaterialTypeAndGrade() throws Exception {
+        registerThreeListings();
+
+        // 등급 A 는 데님·가죽 둘인데 종류까지 걸면 데님만 남는다.
+        mockMvc.perform(get("/api/v1/listings")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
+                        .param("materialType", "DENIM")
+                        .param("grade", "A"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].materialName").value("폐데님 원단"));
+    }
+
+    @Test
+    void combinesGradeAndPriceCeiling() throws Exception {
+        registerThreeListings();
+
+        // 등급 A 둘 중 가죽(52,000원)이 상한에 걸려 떨어진다.
+        mockMvc.perform(get("/api/v1/listings")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
+                        .param("grade", "A")
+                        .param("maxPricePerKg", "20000"))
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].materialName").value("폐데님 원단"));
+    }
+
+    @Test
+    void combinesKeywordAndOrigin() throws Exception {
+        registerThreeListings();
+
+        // 이름에 "폐" 가 들어가는 것은 데님·폐면 둘. 출처가 WASTE 인 것도 그 둘이라
+        // 교집합은 2 건이다 — 조건이 서로를 잘라내지 않는 경우도 확인한다.
+        mockMvc.perform(get("/api/v1/listings")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
+                        .param("keyword", "폐")
+                        .param("rootOrigin", "WASTE"))
+                .andExpect(jsonPath("$.data.content.length()").value(2));
+
+        // 출처를 VIRGIN 으로 바꾸면 교집합이 비어야 한다 — 가죽은 이름에 "폐" 가 없다.
+        mockMvc.perform(get("/api/v1/listings")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
+                        .param("keyword", "폐")
+                        .param("rootOrigin", "VIRGIN"))
+                .andExpect(jsonPath("$.data.content.length()").value(0));
+    }
+
+    @Test
+    void combinesThreeFiltersAtOnce() throws Exception {
+        registerThreeListings();
+
+        mockMvc.perform(get("/api/v1/listings")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
+                        .param("materialType", "COTTON")
+                        .param("rootOrigin", "WASTE")
+                        .param("grade", "B")
+                        .param("maxPricePerKg", "5000"))
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].materialName").value("폐면 자투리"));
+    }
+
+    @Test
+    void keepsTotalCountConsistentWithTheFilteredList() throws Exception {
+        // 목록과 총 개수가 **같은 조건**을 쓰는지 확인한다. JPQL 시절에는 where 절이
+        // value 와 countQuery 에 두 벌로 적혀 있어서, 한쪽만 고치면 "총 3건" 이라고
+        // 표시하면서 2건만 보여주는 상태가 될 수 있었다.
+        registerThreeListings();
+
+        mockMvc.perform(get("/api/v1/listings")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
+                        .param("grade", "A")
+                        // size 를 1 로 줄여 count 쿼리가 실제로 나가게 만든다. 결과가 한
+                        // 페이지에 다 들어가면 PageableExecutionUtils 가 count 를 생략한다.
+                        .param("size", "1"))
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.totalElements").value(2))
+                .andExpect(jsonPath("$.data.totalPages").value(2))
+                .andExpect(jsonPath("$.data.hasNext").value(true));
     }
 
     // ── 금액 계산·부분 구매 ──────────────────────────────────
@@ -637,7 +776,7 @@ class MarketplaceApiTests {
 
         PaymentService service = new PaymentService(
                 tradeRepository,
-                listingSearchRepository,
+                listingLockRepository,
                 materialRepository,
                 tradeResponseAssembler,
                 new WrongAmountGateway(),
@@ -922,6 +1061,32 @@ class MarketplaceApiTests {
         Map<String, Object> request = new HashMap<>();
         // Mock 게이트웨이는 토큰을 검사하지 않는다. 실제 PG 에서는 결제창이 돌려준 값이다.
         request.put("pgToken", "TEST-PG-TOKEN");
+        return request;
+    }
+
+    /**
+     * 필터 조합용 판매글 세 개.
+     *
+     * <p>종류·출처·등급·가격을 서로 다르게 잡아 조건이 실제로 교집합을 만드는지 볼 수 있게 한다.
+     *
+     * <pre>
+     *   데님 / WASTE  / A / 14,000원
+     *   폐면 / WASTE  / B /  4,200원
+     *   가죽 / VIRGIN / A / 52,000원
+     * </pre>
+     */
+    private void registerThreeListings() throws Exception {
+        registerListing(10_000L);
+        createdListingId(listingRequestFor(cotton.getId(), 10_000L, 4_200L));
+        createdListingId(listingRequestFor(leather.getId(), 10_000L, 52_000L));
+    }
+
+    private Map<String, Object> listingRequestFor(Long materialId, long quantity, long pricePerKg) {
+        Map<String, Object> request = new HashMap<>();
+        request.put("materialId", materialId);
+        request.put("quantity", quantity);
+        request.put("unit", "G");
+        request.put("pricePerKg", pricePerKg);
         return request;
     }
 
