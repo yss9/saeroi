@@ -122,6 +122,33 @@ export interface CreateMaterialResponse {
   materialCode: string
 }
 
+/**
+ * `GET /api/materials/{materialId}/balance` 의 항목.
+ *
+ * **{@link MaterialOwner} 와 합치지 않는다.** 상세 조회(`-178`)의 `owners[]` 는
+ * `available` 을 주지 않는다 — 그 계산은 별도 티켓(`-378`) 소관이라 상세 응답에
+ * 섞지 않았다. 한 타입으로 합치면 상세 응답에서 `available` 이 `undefined` 가 되고
+ * 화면이 `0` 으로 렌더해 **"판매 가능량 0" 이라는 거짓**을 보여준다.
+ *
+ * `available` 은 **서버가 계산해 준다.** 클라이언트에서 다시 계산하지 않는다 —
+ * 어떤 잠금 상태를 빼는지(ACTIVE 만)가 서버 규칙이고, 양쪽에서 계산하면 값이 갈라진다.
+ *
+ * 음수가 올 수 있다. 잠금 합계가 보유량을 넘었다는 데이터 파손 신호이므로
+ * **0 으로 깎지 말고 그대로 보여준다.**
+ */
+export interface MaterialBalance {
+  ownerId: number
+  walletAddress: string
+  /** 보유량 (gram) */
+  quantity: number
+  /** ACTIVE 잠금 합계 (gram) */
+  lockedQuantity: number
+  /** quantity − lockedQuantity (gram). 음수 가능 */
+  available: number
+  /** 이 값이 언제 기준인지. 온체인 잔액 Projection 동기화 전에는 특히 중요하다 */
+  syncedAt: string
+}
+
 /** 소재 보유자 한 명. `material_balance` 기준이며 등록자와 다르다. */
 export interface MaterialOwner {
   ownerId: number

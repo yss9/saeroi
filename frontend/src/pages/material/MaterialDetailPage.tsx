@@ -1,6 +1,7 @@
 import { useParams } from 'react-router-dom'
 import { ErrorMessage, Loading, VerificationBadge } from '../../components/common/index.ts'
 import { useMaterial } from '../../features/material/hooks/useMaterial.ts'
+import { formatKg } from '../../utils/quantity.ts'
 
 export function MaterialDetailPage() {
   const { materialId } = useParams<{ materialId: string }>()
@@ -27,7 +28,8 @@ export function MaterialDetailPage() {
         <dt>소재 코드</dt>
         <dd>{data.materialCode}</dd>
         <dt>총 수량</dt>
-        <dd>{data.totalQuantity.toLocaleString('ko-KR')}</dd>
+        {/* gram 을 단위 없이 보여주면 1.2kg 인지 1200kg 인지 알 수 없다. */}
+        <dd>{formatKg(data.totalQuantity)}</dd>
       </dl>
     </main>
   )
