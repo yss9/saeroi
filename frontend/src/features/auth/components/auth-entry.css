@@ -472,6 +472,121 @@
   margin: 0 0 18px;
 }
 
+.signup-complete {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.signup-complete__check {
+  display: grid;
+  width: 84px;
+  height: 84px;
+  margin-bottom: 22px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgb(33 106 159 / 0.09);
+  color: var(--auth-blue);
+}
+
+.signup-complete__check svg {
+  width: 54px;
+  height: 54px;
+}
+
+.signup-complete__account {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 14px;
+  padding: 7px 13px;
+  border: 1px solid rgb(33 106 159 / 0.18);
+  border-radius: 999px;
+  background: rgb(33 106 159 / 0.06);
+  color: var(--auth-blue-dark);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.signup-complete__account svg {
+  width: 17px;
+  height: 17px;
+}
+
+.signup-complete__description {
+  max-width: 390px;
+  margin: 0;
+  color: #657283;
+  font-size: 0.95rem;
+  line-height: 1.7;
+}
+
+.signup-complete__wallet-note {
+  width: 100%;
+  margin-top: 26px;
+  padding: 18px 20px;
+  border: 1px solid rgb(229 215 189 / 0.9);
+  border-radius: 12px;
+  background: rgb(229 215 189 / 0.3);
+  text-align: left;
+}
+
+.signup-complete__wallet-note strong {
+  color: var(--auth-blue-dark);
+  font-size: 0.87rem;
+}
+
+.signup-complete__wallet-note p {
+  margin: 6px 0 0;
+  color: #657283;
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+.signup-complete__actions {
+  display: grid;
+  width: 100%;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 30px;
+}
+
+.signup-complete__button {
+  display: inline-flex;
+  min-height: 50px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 20px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  font-size: 0.93rem;
+  font-weight: 800;
+  text-decoration: none;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.signup-complete__button--primary {
+  background: var(--auth-orange);
+  color: #472510;
+}
+
+.signup-complete__button--primary:hover {
+  background: var(--auth-orange-dark);
+  color: #fff;
+}
+
+.signup-complete__button--secondary {
+  border-color: #d6dce2;
+  background: #fff;
+  color: #4e5c6d;
+}
+
+.signup-complete__button--secondary:hover {
+  border-color: var(--auth-blue);
+  color: var(--auth-blue);
+}
+
 @media (max-width: 680px) {
   .auth-entry__header {
     width: min(100% - 32px, 1120px);
@@ -534,5 +649,9 @@
     left: 19px;
     margin: 0;
     transform: translateY(-50%);
+  }
+
+  .signup-complete__actions {
+    grid-template-columns: 1fr;
   }
 }
