@@ -17,3 +17,6 @@ app:
       secret: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
       issuer: upcycle-test
       access-token-ttl: PT30M
+  auth:
+    wallet:
+      nonce-ttl: PT5M
