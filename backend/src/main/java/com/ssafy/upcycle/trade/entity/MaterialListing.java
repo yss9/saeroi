@@ -139,6 +139,32 @@ public class MaterialListing {
         }
     }
 
+    /**
+     * 판매자가 판매를 내린다. <b>남아 있는 수량만 회수된다.</b>
+     *
+     * <p>이미 팔린 몫은 되돌릴 수 없다 — 그 수량은 각자 거래로 넘어가 배송·수령을 기다리는
+     * 중이고, 판매 글을 내렸다고 남의 거래가 사라지면 안 된다. 그래서 취소는
+     * {@code availableQuantity} 만 0 으로 만들고 {@code totalQuantity} 는 그대로 둔다
+     * (얼마를 걸었었는지는 이력이다).
+     *
+     * <p>{@link ListingStatus#SOLD_OUT} 도 취소할 수 있다. 잔량이 0 이라 회수할 것이 없으므로
+     * 판매 글을 닫는 의미만 갖는다. 이미 취소된 글을 다시 취소하는 것만 막는다.
+     *
+     * <p>잠금 해제는 여기서 하지 않는다. 다른 테이블이라 한 메서드로 묶을 수 없고,
+     * 같은 트랜잭션에서 반환값만큼 잠금을 줄이는 것이 호출부의 책임이다.
+     *
+     * @return 회수된 수량 (gram). 0 이면 잠금에서 뺄 것이 없다
+     */
+    public long cancel() {
+        if (status == ListingStatus.CANCELED) {
+            throw new IllegalStateException("Material listing is already canceled");
+        }
+        long released = this.availableQuantity;
+        this.availableQuantity = 0L;
+        this.status = ListingStatus.CANCELED;
+        return released;
+    }
+
     /** 거래가 취소되어 잔여 수량이 되돌아온다. 소진으로 닫혔던 판매도 다시 열린다. */
     public void restoreAvailable(long quantity) {
         if (status == ListingStatus.CANCELED) {

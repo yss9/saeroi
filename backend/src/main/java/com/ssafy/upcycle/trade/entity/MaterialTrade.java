@@ -217,6 +217,27 @@ public class MaterialTrade {
         this.status = TradeStatus.COMPLETED;
     }
 
+    /**
+     * 거래가 취소된다. <b>발송 전까지만 가능하다.</b>
+     *
+     * <p>{@link TradeStatus#CREATED} 는 결제 전 이탈(결제창을 닫았거나 PG 가 실패)이고,
+     * {@link TradeStatus#PAID} 는 결제 후 배송 전 취소다. 후자는 환불이 따라야 하지만
+     * 그 처리는 PG 쪽이라 여기서는 상태만 남긴다.
+     *
+     * <p>{@link TradeStatus#SHIPPED} 부터는 막는다. 물건이 이미 나갔는데 거래만 없애면
+     * 수량이 어디에도 속하지 않게 된다. 그 이후의 되돌리기는 분쟁 절차다.
+     *
+     * <p>판매 글의 잔여 수량 복구와 잠금 처리는 여기서 하지 않는다 — 다른 테이블이고,
+     * 같은 트랜잭션에서 함께 처리하는 것이 호출부의 책임이다.
+     */
+    public void cancel() {
+        if (this.status != TradeStatus.CREATED && this.status != TradeStatus.PAID) {
+            throw new IllegalStateException(
+                    "Material trade can only cancel while CREATED or PAID but was " + this.status);
+        }
+        this.status = TradeStatus.CANCELED;
+    }
+
     /** 온체인 주문 번호를 연결한다. 한 번 정해지면 바뀌지 않는다. */
     public void assignChainTradeId(Long chainTradeId) {
         if (this.chainTradeId != null) {
