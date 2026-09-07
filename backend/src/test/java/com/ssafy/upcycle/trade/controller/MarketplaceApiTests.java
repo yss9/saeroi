@@ -1,6 +1,7 @@
 package com.ssafy.upcycle.trade.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -9,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.common.security.jwt.JwtTokenService;
 import com.ssafy.upcycle.material.entity.Material;
 import com.ssafy.upcycle.material.entity.MaterialBalance;
@@ -21,15 +23,27 @@ import com.ssafy.upcycle.material.repository.MaterialLockRepository;
 import com.ssafy.upcycle.material.repository.MaterialRepository;
 import com.ssafy.upcycle.trade.entity.ListingStatus;
 import com.ssafy.upcycle.trade.entity.MaterialListing;
+import com.ssafy.upcycle.trade.entity.MaterialTrade;
 import com.ssafy.upcycle.trade.entity.TradeStatus;
+import com.ssafy.upcycle.trade.payment.KakaoPayProperties;
+import com.ssafy.upcycle.trade.payment.PaymentApproval;
+import com.ssafy.upcycle.trade.payment.PaymentApproveCommand;
+import com.ssafy.upcycle.trade.payment.PaymentCancelCommand;
+import com.ssafy.upcycle.trade.payment.PaymentGateway;
+import com.ssafy.upcycle.trade.payment.PaymentReady;
+import com.ssafy.upcycle.trade.payment.PaymentReadyCommand;
+import com.ssafy.upcycle.trade.repository.ListingSearchRepository;
 import com.ssafy.upcycle.trade.repository.MaterialListingRepository;
 import com.ssafy.upcycle.trade.repository.MaterialTradeRepository;
 import com.ssafy.upcycle.trade.repository.TradeShippingRepository;
+import com.ssafy.upcycle.trade.service.PaymentService;
+import com.ssafy.upcycle.trade.service.TradeResponseAssembler;
 import com.ssafy.upcycle.user.entity.User;
 import com.ssafy.upcycle.user.entity.UserRole;
 import com.ssafy.upcycle.user.entity.UserWallet;
 import com.ssafy.upcycle.user.repository.UserRepository;
 import com.ssafy.upcycle.user.repository.UserWalletRepository;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -100,6 +114,15 @@ class MarketplaceApiTests {
 
     @Autowired
     private TradeShippingRepository shippingRepository;
+
+    @Autowired
+    private ListingSearchRepository listingSearchRepository;
+
+    @Autowired
+    private TradeResponseAssembler tradeResponseAssembler;
+
+    @Autowired
+    private KakaoPayProperties kakaoPayProperties;
 
     private User seller;
     private User buyer;
@@ -428,7 +451,7 @@ class MarketplaceApiTests {
     void tradeDetailKeepsTheWaybillAfterShipping() throws Exception {
         Long listingId = registerListing(20_000L);
         Long tradeId = jsonLong(purchase(listingId, 8_000L), "tradeId");
-        payFor(tradeId, 112_000L);
+        payFor(tradeId);
 
         mockMvc.perform(patch("/api/v1/trades/" + tradeId + "/ship")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + sellerToken)
@@ -545,46 +568,98 @@ class MarketplaceApiTests {
     }
 
     // ── 결제 ────────────────────────────────────────────────
+    //
+    // 카카오페이 키가 없는 환경이라 MockPaymentGateway 가 붙는다. 그래도 검증 대상은
+    // 그대로다 — 금액 대조, 중복 승인 차단, 당사자 확인, 준비 없는 승인 차단은 전부
+    // PaymentService 의 코드이고 실제 PG 에서도 같은 경로가 실행된다.
 
     @Test
-    void confirmsPaymentAndRecordsTheApprovalReference() throws Exception {
+    void preparesPaymentAndStoresTheTid() throws Exception {
         Long listingId = registerListing(20_000L);
         Long tradeId = jsonLong(purchase(listingId, 3_000L), "tradeId");
 
-        mockMvc.perform(post("/api/v1/trades/" + tradeId + "/payment")
+        String response = mockMvc.perform(post("/api/v1/trades/" + tradeId + "/payment/ready")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalPrice").value(42_000))
+                // 키가 없으므로 Mock 이다. 화면은 이 값으로 결제창 이동 여부를 정한다.
+                .andExpect(jsonPath("$.data.live").value(false))
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(jsonText(response, "tid")).isNotBlank();
+
+        // 준비만으로는 결제된 것이 아니다. tid 는 남지만 상태는 그대로여야 한다.
+        MaterialTrade prepared = tradeRepository.findById(tradeId).orElseThrow();
+        assertThat(prepared.getStatus()).isEqualTo(TradeStatus.CREATED);
+        assertThat(prepared.getPaidAt()).isNull();
+        assertThat(prepared.getPaymentReference()).isNotBlank();
+    }
+
+    @Test
+    void approvesPaymentAfterReady() throws Exception {
+        Long listingId = registerListing(20_000L);
+        Long tradeId = jsonLong(purchase(listingId, 3_000L), "tradeId");
+        readyPayment(tradeId);
+
+        mockMvc.perform(post("/api/v1/trades/" + tradeId + "/payment/approve")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(body(paymentRequest("TID-0001", 42_000L))))
+                        .content(body(approveRequest())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("PAID"))
-                .andExpect(jsonPath("$.data.paymentReference").value("TID-0001"))
+                .andExpect(jsonPath("$.data.paymentAmount").value(42_000))
                 .andExpect(jsonPath("$.data.paidAt").isNotEmpty());
     }
 
     @Test
-    void rejectsAnApprovalForTheWrongAmount() throws Exception {
-        // 이 검사가 없으면 클라이언트가 1원 승인을 알려도 거래가 PAID 가 된다.
+    void refusesToApproveWithoutReady() throws Exception {
+        // 준비를 건너뛰고 승인을 부르면 서버가 쓸 tid 가 없다. 클라이언트가 tid 를 보내게
+        // 두었다면 남의 결제 번호로 승인을 시도할 수 있었다.
         Long listingId = registerListing(20_000L);
         Long tradeId = jsonLong(purchase(listingId, 3_000L), "tradeId");
 
-        mockMvc.perform(post("/api/v1/trades/" + tradeId + "/payment")
+        mockMvc.perform(post("/api/v1/trades/" + tradeId + "/payment/approve")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(body(paymentRequest("TID-0002", 1L))))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("PAYMENT_AMOUNT_MISMATCH"));
+                        .content(body(approveRequest())))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PAYMENT_NOT_PREPARED"));
+    }
+
+    @Test
+    void rejectsAnApprovalForTheWrongAmount() throws Exception {
+        // PG 가 거래 금액과 다른 금액을 승인해 돌려주는 경우.
+        // Mock 은 요청 금액을 그대로 돌려주므로 이 상황은 게이트웨이를 직접 흉내 내야 만들어진다.
+        // 이 검사가 없으면 금액이 어긋난 승인이 정상 결제로 남는다.
+        Long listingId = registerListing(20_000L);
+        Long tradeId = jsonLong(purchase(listingId, 3_000L), "tradeId");
+        readyPayment(tradeId);
+
+        PaymentService service = new PaymentService(
+                tradeRepository,
+                listingSearchRepository,
+                materialRepository,
+                tradeResponseAssembler,
+                new WrongAmountGateway(),
+                kakaoPayProperties);
+
+        assertThatThrownBy(() -> service.approve(buyer.getId(), tradeId, "TOKEN"))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(thrown -> assertThat(
+                        ((BusinessException) thrown).getErrorCode().code())
+                        .isEqualTo("PAYMENT_AMOUNT_MISMATCH"));
     }
 
     @Test
     void rejectsADuplicatePayment() throws Exception {
         Long listingId = registerListing(20_000L);
         Long tradeId = jsonLong(purchase(listingId, 3_000L), "tradeId");
-        payFor(tradeId, 42_000L);
+        payFor(tradeId);
 
-        mockMvc.perform(post("/api/v1/trades/" + tradeId + "/payment")
+        mockMvc.perform(post("/api/v1/trades/" + tradeId + "/payment/approve")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(body(paymentRequest("TID-0003", 42_000L))))
+                        .content(body(approveRequest())))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("PAYMENT_STATE_INVALID"));
     }
@@ -594,12 +669,33 @@ class MarketplaceApiTests {
         Long listingId = registerListing(20_000L);
         Long tradeId = jsonLong(purchase(listingId, 3_000L), "tradeId");
 
-        mockMvc.perform(post("/api/v1/trades/" + tradeId + "/payment")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + sellerToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body(paymentRequest("TID-0004", 42_000L))))
+        mockMvc.perform(post("/api/v1/trades/" + tradeId + "/payment/ready")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + sellerToken))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("TRADE_NOT_PARTICIPANT"));
+    }
+
+    /** 승인 금액을 1원으로 돌려주는 가짜 PG. 금액 대조가 실제로 도는지 확인하는 데만 쓴다. */
+    private static final class WrongAmountGateway implements PaymentGateway {
+
+        @Override
+        public PaymentReady ready(PaymentReadyCommand command) {
+            return new PaymentReady("TID-WRONG", "");
+        }
+
+        @Override
+        public PaymentApproval approve(PaymentApproveCommand command) {
+            return new PaymentApproval(command.tid(), 1L, LocalDateTime.now());
+        }
+
+        @Override
+        public void cancel(PaymentCancelCommand command) {
+        }
+
+        @Override
+        public boolean isLive() {
+            return true;
+        }
     }
 
     // ── 취소 ────────────────────────────────────────────────
@@ -636,7 +732,7 @@ class MarketplaceApiTests {
     void letsTheSellerCancelAPaidTradeBeforeShipping() throws Exception {
         Long listingId = registerListing(20_000L);
         Long tradeId = jsonLong(purchase(listingId, 3_000L), "tradeId");
-        payFor(tradeId, 42_000L);
+        payFor(tradeId);
 
         mockMvc.perform(post("/api/v1/trades/" + tradeId + "/cancel")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + sellerToken))
@@ -764,7 +860,7 @@ class MarketplaceApiTests {
         Long listingId = registerListing(20_000L);
         Long tradeId = jsonLong(purchase(listingId, 3_000L), "tradeId");
         purchase(listingId, 1_000L);
-        payFor(tradeId, 42_000L);
+        payFor(tradeId);
 
         mockMvc.perform(get("/api/v1/trades")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
@@ -822,10 +918,10 @@ class MarketplaceApiTests {
         return request;
     }
 
-    private Map<String, Object> paymentRequest(String reference, long amount) {
+    private Map<String, Object> approveRequest() {
         Map<String, Object> request = new HashMap<>();
-        request.put("paymentReference", reference);
-        request.put("paymentAmount", amount);
+        // Mock 게이트웨이는 토큰을 검사하지 않는다. 실제 PG 에서는 결제창이 돌려준 값이다.
+        request.put("pgToken", "TEST-PG-TOKEN");
         return request;
     }
 
@@ -864,11 +960,19 @@ class MarketplaceApiTests {
                 .getContentAsString();
     }
 
-    private void payFor(Long tradeId, long amount) throws Exception {
-        mockMvc.perform(post("/api/v1/trades/" + tradeId + "/payment")
+    /** 준비 → 승인 두 단계를 한 번에. 결제 이후 상태가 필요한 테스트가 쓴다. */
+    private void payFor(Long tradeId) throws Exception {
+        readyPayment(tradeId);
+        mockMvc.perform(post("/api/v1/trades/" + tradeId + "/payment/approve")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(body(paymentRequest("TID-PAID-" + tradeId, amount))))
+                        .content(body(approveRequest())))
+                .andExpect(status().isOk());
+    }
+
+    private void readyPayment(Long tradeId) throws Exception {
+        mockMvc.perform(post("/api/v1/trades/" + tradeId + "/payment/ready")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken))
                 .andExpect(status().isOk());
     }
 

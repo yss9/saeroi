@@ -176,6 +176,24 @@ public class MaterialTrade {
                 paymentMethod);
     }
 
+    /**
+     * 결제창으로 보내기 직전에 PG 거래 번호({@code tid})를 남긴다. <b>아직 청구되지 않았다.</b>
+     *
+     * <p>카카오페이는 준비 단계에서 tid 를 발급하고 승인·취소에 계속 그 값을 쓴다. 사용자가
+     * 결제창에서 돌아왔을 때 서버가 그 tid 를 알고 있어야 승인을 요청할 수 있으므로 여기서
+     * 저장한다. 사용자가 창을 닫으면 tid 만 남고 거래는 {@code CREATED} 그대로다.
+     *
+     * <p><b>그래서 {@code paymentReference} 만으로 "결제됨" 을 판단하면 안 된다.</b>
+     * 준비 단계에서도 값이 채워지기 때문이다. 결제 여부는 {@code status}·{@code paidAt} 이
+     * 답한다.
+     *
+     * <p>결제창을 다시 열면 새 tid 로 덮어쓴다 — 이전 tid 는 승인되지 않은 채 만료된다.
+     */
+    public void preparePayment(String paymentReference) {
+        requireStatus(TradeStatus.CREATED, "prepare payment for");
+        this.paymentReference = requireText(paymentReference, "payment reference", 100);
+    }
+
     /** 결제가 승인되었다. PG 승인 tid 와 실제 승인 금액을 남긴다. */
     public void markPaid(String paymentReference, long paymentAmount, LocalDateTime paidAt) {
         requireStatus(TradeStatus.CREATED, "pay");
