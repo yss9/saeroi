@@ -450,6 +450,104 @@
   font-weight: 700;
 }
 
+.company-wallet__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.company-wallet__actions > p,
+.company-wallet__network-warning p {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--company-muted);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.company-wallet__actions .ui-error {
+  flex-basis: 100%;
+}
+
+.company-wallet__install-link {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  padding: 0 16px;
+  border-radius: 7px;
+  color: #fff !important;
+  background: var(--company-blue);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.company-wallet__install-link:hover,
+.company-wallet__install-link:focus-visible {
+  background: var(--company-blue-dark);
+}
+
+.company-wallet__connected-address {
+  display: flex;
+  flex-basis: 100%;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--company-line);
+  border-radius: 9px;
+  background: #f8fafb;
+}
+
+.company-wallet__connected-address > svg {
+  width: 22px;
+  height: 22px;
+  color: var(--company-blue);
+}
+
+.company-wallet__connected-address div {
+  display: grid;
+  gap: 3px;
+}
+
+.company-wallet__connected-address span {
+  color: var(--company-muted);
+  font-size: 0.72rem;
+}
+
+.company-wallet__connected-address code {
+  margin: 0;
+  color: var(--company-ink);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.company-wallet__verified {
+  display: flex;
+  flex-basis: 100%;
+  align-items: center;
+  gap: 6px;
+  color: #027a48 !important;
+  font-weight: 700;
+}
+
+.company-wallet__network-warning {
+  display: flex;
+  flex-basis: 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+  padding: 12px;
+  border: 1px solid #f3c88f;
+  border-radius: 9px;
+  background: #fff9ef;
+}
+
+.company-wallet__network-warning span {
+  color: #9a5b13;
+  font-size: 0.75rem;
+}
+
 @media (max-width: 900px) {
   .company-dashboard__header {
     grid-template-columns: 1fr auto;

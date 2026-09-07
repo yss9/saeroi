@@ -22,34 +22,13 @@ import { useAuthStore, type AuthUser } from '../../../stores/authStore.ts'
 import { createAppError, ERROR_KIND, type AppError } from '../../../utils/errors.ts'
 import { requestWalletNonce, verifyWalletSignature } from '../../auth/api/walletAuthApi.ts'
 import type { UserProfile } from '../../auth/types/auth.types.ts'
+import { buildLoginMessage } from '../services/walletMessage.ts'
 import { getChainIdNumber, getWalletAddress, signMessage } from '../services/walletService.ts'
 
 /** 서명 검증 성공 시 Backend 가 돌려주는 것. */
 export interface WalletLoginResult {
   user: AuthUser
   accessToken: string
-}
-
-/**
- * 서명할 메시지를 만든다.
- *
- * 사람이 읽고 무엇에 서명하는지 판단할 수 있어야 한다 (MetaMask 가 이 문자열을 그대로 보여준다).
- * nonce 를 포함해 같은 서명을 재사용하는 replay 공격을 막는다.
- *
- * ⚠️ Backend 의 `WalletLoginMessage.build()` 와 **한 글자도 달라선 안 된다**.
- * 다만 실제로 서명하는 값은 서버가 내려준 `message` 다 — 이 함수는 그 값이 우리가 아는
- * 형식과 같은지 **검산**하는 용도로 쓴다. 어긋나면 서명하기 전에 멈춘다.
- * 바꿔야 하면 Backend 와 같은 시점에 바꾸고 양쪽 테스트를 함께 고친다.
- */
-export function buildLoginMessage(address: string, nonce: string): string {
-  return [
-    'SAEROI 로그인 요청',
-    '',
-    `지갑 주소: ${address}`,
-    `Nonce: ${nonce}`,
-    '',
-    '이 서명은 로그인 용도로만 사용되며 자산이 이동하지 않습니다.',
-  ].join('\n')
 }
 
 /** 이메일 로그인(useLogin)과 달리 방금 검증한 주소를 그대로 채운다. */

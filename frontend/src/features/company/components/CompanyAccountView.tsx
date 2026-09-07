@@ -1,5 +1,6 @@
 import { Buildings, CheckCircle, Envelope, MapPin, Phone, Wallet } from '@phosphor-icons/react'
 import { ErrorMessage, StatusBadge } from '../../../components/common/index.ts'
+import { WalletRegistrationPanel } from '../../wallet/components/WalletRegistrationPanel.tsx'
 import {
   BUSINESS_ROLE_LABEL,
   type CompanyAccountData,
@@ -110,9 +111,10 @@ export function CompanyAccountView({ state }: CompanyAccountViewProps) {
           ) : (
             <>
               <p>아직 연결된 지갑이 없습니다.</p>
-              <span>지갑 연결 기능은 다음 단계에서 제공됩니다.</span>
+              <span>MetaMask를 연결하고 서명하여 회사 계정의 지갑을 등록해 주세요.</span>
             </>
           )}
+          <WalletRegistrationPanel registeredAddress={data.walletAddress} />
         </div>
       </article>
     </section>
