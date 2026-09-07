@@ -81,7 +81,7 @@ class EvidenceUploadServiceTests {
         FileStorageService fileStorageService() {
             storageRoot = tempDir;
             return new LocalFileStorageService(
-                    new FileStorageProperties(tempDir.toString()), Clock.systemDefaultZone());
+                    FileStorageProperties.local(tempDir.toString()), Clock.systemDefaultZone());
         }
     }
 

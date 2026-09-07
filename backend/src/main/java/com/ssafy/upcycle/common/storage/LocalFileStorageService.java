@@ -9,15 +9,10 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.security.DigestOutputStream;
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.HexFormat;
-import java.util.Locale;
-import java.util.Set;
 import java.util.UUID;
-import org.springframework.stereotype.Service;
 
 /**
  * 로컬 파일시스템 구현. MinIO/S3 구현체가 오기 전까지의 정본이다.
@@ -47,16 +42,9 @@ import org.springframework.stereotype.Service;
  * <p>바로 최종 경로에 쓰면 중간에 실패했을 때 <b>깨진 파일이 정상 경로에 남는다.</b>
  * 임시 파일에 다 쓰고 원자적으로 옮긴다. 옮기기 전에 실패하면 임시 파일만 지운다.
  */
-@Service
 public class LocalFileStorageService implements FileStorageService {
 
-    /** 정책 문서의 화이트리스트. 확장자 → 허용 미디어 타입. */
-    private static final Set<String> IMAGE_EXTENSIONS = Set.of("jpg", "jpeg", "png", "webp");
-    private static final Set<String> DOCUMENT_EXTENSIONS = Set.of("pdf");
 
-    private static final Set<String> IMAGE_CONTENT_TYPES =
-            Set.of("image/jpeg", "image/png", "image/webp");
-    private static final String PDF_CONTENT_TYPE = "application/pdf";
 
     private static final DateTimeFormatter YEAR = DateTimeFormatter.ofPattern("yyyy");
     private static final DateTimeFormatter MONTH = DateTimeFormatter.ofPattern("MM");
@@ -76,11 +64,9 @@ public class LocalFileStorageService implements FileStorageService {
             String contentType,
             InputStream content,
             long size) {
-        if (size <= 0) {
-            throw new BusinessException(FileStorageErrorCode.FILE_EMPTY);
-        }
-        String extension = requireAllowedExtension(originalFilename);
-        requireContentTypeMatches(extension, contentType);
+        // 형식 규칙은 FileContentPolicy 가 갖는다 — S3 구현과 같은 규칙을 써야 한다.
+        // 각자 화이트리스트를 들고 있으면 한쪽에서만 svg 가 통과하는 상태가 만들어진다.
+        String extension = FileContentPolicy.requireAcceptable(originalFilename, contentType, size);
 
         String key = deriveKey(reference, extension);
         Path target = root.resolve(key);
@@ -91,7 +77,7 @@ public class LocalFileStorageService implements FileStorageService {
             // move 가 원자적이지 않고 복사로 떨어진다.
             temporary = Files.createTempFile(target.getParent(), ".upload-", ".part");
 
-            MessageDigest digest = sha256();
+            MessageDigest digest = FileHash.sha256();
             long written;
             try (OutputStream out = Files.newOutputStream(temporary);
                     DigestOutputStream digesting = new DigestOutputStream(out, digest)) {
@@ -105,7 +91,7 @@ public class LocalFileStorageService implements FileStorageService {
                     originalFilename,
                     contentType,
                     written,
-                    "0x" + HexFormat.of().formatHex(digest.digest()));
+                    FileHash.format(digest));
         } catch (IOException e) {
             throw new BusinessException(FileStorageErrorCode.FILE_STORAGE_FAILED);
         } finally {
@@ -146,48 +132,6 @@ public class LocalFileStorageService implements FileStorageService {
                 UUID.randomUUID() + "." + extension);
     }
 
-    private static String requireAllowedExtension(String originalFilename) {
-        if (originalFilename == null || originalFilename.isBlank()) {
-            throw new BusinessException(FileStorageErrorCode.FILE_TYPE_NOT_ALLOWED);
-        }
-        int dot = originalFilename.lastIndexOf('.');
-        if (dot < 0 || dot == originalFilename.length() - 1) {
-            throw new BusinessException(FileStorageErrorCode.FILE_TYPE_NOT_ALLOWED);
-        }
-        String extension = originalFilename.substring(dot + 1).toLowerCase(Locale.ROOT);
-        if (!IMAGE_EXTENSIONS.contains(extension) && !DOCUMENT_EXTENSIONS.contains(extension)) {
-            throw new BusinessException(FileStorageErrorCode.FILE_TYPE_NOT_ALLOWED);
-        }
-        return extension;
-    }
-
-    /**
-     * 확장자와 선언된 미디어 타입이 일치해야 한다.
-     *
-     * <p>확장자만 보면 {@code photo.jpg} 라는 이름의 무엇이든 통과한다. 두 값이 서로를
-     * 지지해야 하고, 어긋나면 {@code FILE_TYPE_NOT_ALLOWED} 와 다른 코드를 준다 —
-     * "받지 않는 종류" 와 "이름이 내용과 다름" 은 사용자에게 다른 안내가 필요하다.
-     */
-    private static void requireContentTypeMatches(String extension, String contentType) {
-        String declared = contentType == null ? "" : contentType.toLowerCase(Locale.ROOT).trim();
-        boolean matches = DOCUMENT_EXTENSIONS.contains(extension)
-                ? PDF_CONTENT_TYPE.equals(declared)
-                : IMAGE_CONTENT_TYPES.contains(declared) && imageMatches(extension, declared);
-        if (!matches) {
-            throw new BusinessException(FileStorageErrorCode.FILE_TYPE_MISMATCH);
-        }
-    }
-
-    /** {@code jpg}·{@code jpeg} 는 같은 타입이다. 나머지는 이름과 타입이 1:1 이다. */
-    private static boolean imageMatches(String extension, String contentType) {
-        return switch (extension) {
-            case "jpg", "jpeg" -> "image/jpeg".equals(contentType);
-            case "png" -> "image/png".equals(contentType);
-            case "webp" -> "image/webp".equals(contentType);
-            default -> false;
-        };
-    }
-
     /**
      * 키를 루트 아래 경로로 바꾼다.
      *
@@ -202,15 +146,6 @@ public class LocalFileStorageService implements FileStorageService {
             throw new BusinessException(FileStorageErrorCode.FILE_STORAGE_FAILED);
         }
         return resolved;
-    }
-
-    private static MessageDigest sha256() {
-        try {
-            return MessageDigest.getInstance("SHA-256");
-        } catch (NoSuchAlgorithmException e) {
-            // SHA-256 은 모든 JVM 이 제공한다. 없으면 환경이 깨진 것이라 복구 대상이 아니다.
-            throw new IllegalStateException("SHA-256 is required but unavailable", e);
-        }
     }
 
     private static void deleteQuietly(Path path) {
