@@ -17,6 +17,7 @@ import { ProductDetailPage } from '../../pages/product/ProductDetailPage.tsx'
 import { ProductListPage } from '../../pages/product/ProductListPage.tsx'
 import { ProductionPage } from '../../pages/production/ProductionPage.tsx'
 import { PassportPage } from '../../pages/traceability/PassportPage.tsx'
+import { PaymentReturnPage } from '../../pages/trade/PaymentReturnPage.tsx'
 import { TradeDetailPage } from '../../pages/trade/TradeDetailPage.tsx'
 import { TradeListPage } from '../../pages/trade/TradeListPage.tsx'
 import { ProtectedRoute } from './guards/ProtectedRoute.tsx'
@@ -63,6 +64,9 @@ export const routes: RouteObject[] = [
       { path: '/inventory', element: <InventoryPage /> },
       { path: '/trades', element: <TradeListPage /> },
       { path: '/trades/:tradeId', element: <TradeDetailPage /> },
+      // 카카오페이 결제창이 돌아오는 자리. 승인·취소·실패가 모두 이 주소로 오고
+      // pg_token 유무로 갈린다 (PaymentReturnPage 주석 참고).
+      { path: '/trades/:tradeId/payment/return', element: <PaymentReturnPage /> },
 
       // ── SUPPLIER ──
       {
