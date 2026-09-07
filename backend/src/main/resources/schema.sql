@@ -176,6 +176,18 @@ CREATE TABLE material (
     length_mm BIGINT NULL,
     width_mm BIGINT NULL,
     registrant_id BIGINT NOT NULL,
+    -- 왜 폐기물이 되었나. generation_type("어떻게 생겼나")과 역할이 다르므로
+    -- PRODUCTION_SCRAP 을 여기 넣지 않는다 — 같은 사실을 두 컬럼에 적으면 어긋난다.
+    -- root_origin='WASTE' 일 때만 필수이고 그 검사는 서비스가 한다.
+    origin_reason ENUM(
+        'DEADSTOCK',
+        'DEFECT',
+        'OFFCUT',
+        'END_OF_LIFE',
+        'COLLECTED',
+        'ETC'
+    ) NULL,
+    origin_reason_note VARCHAR(200) NULL,
     evidence_hash CHAR(66) NULL,
     manifest_url VARCHAR(500) NULL,
     status ENUM('ACTIVE', 'DEPLETED') NOT NULL DEFAULT 'ACTIVE',
@@ -252,6 +264,21 @@ CREATE TABLE material_lineage (
     INDEX idx_material_lineage_child (child_material_id),
     INDEX idx_material_lineage_parent (parent_material_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE material_composition (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    material_id BIGINT NOT NULL,
+    fiber_type VARCHAR(50) NOT NULL,
+    percentage DECIMAL(5, 2) NOT NULL,
+    CONSTRAINT pk_material_composition PRIMARY KEY (id),
+    CONSTRAINT uk_material_composition_fiber UNIQUE (material_id, fiber_type),
+    CONSTRAINT fk_material_composition_material FOREIGN KEY (material_id) REFERENCES material (id),
+    CONSTRAINT chk_material_composition_percentage CHECK (percentage > 0 AND percentage <= 100),
+    INDEX idx_material_composition_material (material_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- 합계는 CHECK 로 표현되지 않는다 (여러 행에 걸친 조건). 서비스가 100 이하만 확인하고
+-- 정확히 100 을 요구하지 않는다 — 요구하면 모르는 부분을 지어내게 된다.
 
 -- Evidence ------------------------------------------------------------------
 

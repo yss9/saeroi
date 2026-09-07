@@ -7,6 +7,7 @@ import com.ssafy.upcycle.material.dto.MaterialDetailResponse;
 import com.ssafy.upcycle.material.dto.MyMaterialResponse;
 import com.ssafy.upcycle.material.entity.Material;
 import com.ssafy.upcycle.material.repository.MaterialBalanceQueryRepository;
+import com.ssafy.upcycle.material.repository.MaterialCompositionRepository;
 import com.ssafy.upcycle.material.repository.MaterialBalanceRepository;
 import com.ssafy.upcycle.material.repository.MaterialRepository;
 import java.util.List;
@@ -29,12 +30,14 @@ public class MaterialQueryService {
     private final MaterialBalanceRepository materialBalanceRepository;
     private final MaterialBalanceQueryRepository materialBalanceQueryRepository;
     private final MaterialVerificationStateResolver verificationStateResolver;
+    private final MaterialCompositionRepository materialCompositionRepository;
 
     /**
      * 소재 상세.
      *
      * <p>보유자를 {@code material_balance} 에서 따로 읽는다 — {@code registrant_id} 는 누가
-     * 올렸는지일 뿐이고, 거래가 일어나면 보유자는 바뀐다. 단건 조회라 쿼리는 2번으로 끝난다.
+     * 올렸는지일 뿐이고, 거래가 일어나면 보유자는 바뀐다. 구성도 별도 테이블이라 단건
+     * 조회의 쿼리 수는 소재 · 보유자 · 구성 · 검증 근거로 늘어난다. 단건이라 N+1 이 아니다.
      *
      * <p>보유 행이 없으면 <b>404 가 아니라 빈 목록</b>이다. 소재는 존재하는데 아직 아무도
      * 들고 있지 않은 상태(또는 Projection 동기화 전)와 소재가 없는 것은 다른 상황이며,
@@ -51,6 +54,8 @@ public class MaterialQueryService {
         return MaterialDetailResponse.of(
                 material,
                 materialBalanceRepository.findAllByMaterialId(materialId),
+                materialCompositionRepository
+                        .findByMaterialIdOrderByPercentageDescFiberTypeAsc(materialId),
                 verificationStateResolver.resolve(materialId));
     }
 

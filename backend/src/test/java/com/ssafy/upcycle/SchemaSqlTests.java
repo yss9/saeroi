@@ -32,6 +32,7 @@ class SchemaSqlTests {
             "material_balance",
             "material_lock",
             "material_lineage",
+            "material_composition",
             "evidence_file",
             "processing_request",
             "processing_request_input",

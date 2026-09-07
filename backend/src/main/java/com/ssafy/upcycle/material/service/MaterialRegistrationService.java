@@ -5,6 +5,7 @@ import com.ssafy.upcycle.material.MaterialErrorCode;
 import com.ssafy.upcycle.material.dto.MaterialRegisterRequest;
 import com.ssafy.upcycle.material.dto.MaterialRegisterResponse;
 import com.ssafy.upcycle.material.entity.Material;
+import com.ssafy.upcycle.material.entity.MaterialRootOrigin;
 import com.ssafy.upcycle.material.repository.MaterialRepository;
 import com.ssafy.upcycle.user.entity.User;
 import com.ssafy.upcycle.user.repository.UserRepository;
@@ -29,6 +30,7 @@ public class MaterialRegistrationService {
     private final MaterialRepository materialRepository;
     private final UserRepository userRepository;
     private final MaterialCodeGenerator codeGenerator;
+    private final MaterialCompositionRegistrar compositionRegistrar;
 
     /**
      * 소재를 등록한다.
@@ -58,7 +60,37 @@ public class MaterialRegistrationService {
                 registrantId));
 
         saved.assignCode(codeGenerator.of(saved.getId()));
+        describeOrigin(saved, request);
+        // 구성은 소재 id 가 확정된 뒤에만 저장할 수 있다 (FK). 같은 트랜잭션이라
+        // 구성 검증이 실패하면 소재 행도 함께 롤백된다 — 구성 없는 소재가 남지 않는다.
+        compositionRegistrar.register(saved.getId(), request.composition());
         return MaterialRegisterResponse.from(saved);
+    }
+
+    /**
+     * 발생 사유를 기록한다.
+     *
+     * <p><b>폐기물에 사유가 없는 것을 아직 거절하지 않는다.</b> 명세는 "{@code WASTE} 이면
+     * 필수" 로 정했지만, 지금 그렇게 만들면 <b>배포된 등록 폼이 400 을 받는다</b> —
+     * 프론트엔드(S15P21E104-152)는 이 필드를 보내지 않고, 입력칸은 S15P21E104-437 에서
+     * 붙는다. 서버를 먼저 조이면 그 사이 소재 등록이 전부 막힌다.
+     *
+     * <p>그래서 순서는 이렇다: 이 커밋(선택) → -437 이 입력칸 추가 → 그때 필수로 전환.
+     * 전환은 이 메서드 한 곳만 고치면 된다.
+     *
+     * <p>값이 <b>들어온 경우</b>의 규칙은 지금부터 지킨다 — 신소재에 사유가 붙거나
+     * {@code ETC} 에 설명이 없으면 거절한다. 그건 기존 요청을 깨지 않는다.
+     *
+     * <p>{@code IllegalArgumentException} 을 도메인 오류로 바꾸는 것이 이 메서드의 존재
+     * 이유다. 엔티티는 출처와의 모순(신소재에 사유가 붙음)과 {@code ETC} 의 설명 누락을
+     * 막는데, 그 실패를 그대로 흘리면 사용자에게 <b>설명할 수 없는 500</b> 이 된다.
+     */
+    private void describeOrigin(Material material, MaterialRegisterRequest request) {
+        try {
+            material.describeOrigin(request.originReason(), request.originReasonNote());
+        } catch (IllegalArgumentException invalid) {
+            throw new BusinessException(MaterialErrorCode.MATERIAL_ORIGIN_REASON_INVALID);
+        }
     }
 
     /**
