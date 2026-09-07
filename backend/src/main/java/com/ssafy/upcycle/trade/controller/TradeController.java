@@ -141,12 +141,9 @@ public class TradeController {
      * <p>역할 검사만으로는 부족하다 — 그 역할이면 누구나 남의 거래를 발송 처리할 수 있게
      * 되기 때문이다. 실제 판매자인지는 서비스가 거래의 {@code seller_id} 와 대조한다.
      *
-     * <p>⚠️ {@code hasRole('SUPPLIER')} 라 <b>{@code BRAND} 판매자는 발송할 수 없다.</b>
-     * 그런데 판매 등록은 {@code SUPPLIER}·{@code BRAND} 둘 다 가능하고
-     * (온체인 {@code createListing} 도 두 역할을 허용한다), 생산 스크랩을 되파는 브랜드가
-     * 실제로 생긴다. 즉 <b>브랜드가 올린 판매 글은 팔리고 결제까지 되는데 발송이 막힌다.</b>
-     * 어느 쪽이 정책인지 정해야 하고, 판매를 두 역할에 열어둘 거라면 이 조건도 넓혀야 한다.
-     * 남의 거래를 건드리지 못하게 하는 것은 어차피 서비스의 판매자 대조가 담당한다.
+     * <p>{@code SUPPLIER} 만인 것이 {@link ListingController} 의 판매 등록 자격과 같다.
+     * 두 목록은 <b>항상 같아야 한다</b> — 어긋나면 팔리고 결제까지 됐는데 발송이 막히는
+     * 거래가 생기고, 판매자가 그 거래를 끝낼 방법이 없어진다.
      */
     @PatchMapping("/{tradeId}/ship")
     @PreAuthorize("hasRole('SUPPLIER')")

@@ -47,7 +47,10 @@ public class ListingController {
     private final ListingQueryService listingQueryService;
 
     /**
-     * 판매 등록. {@code SUPPLIER}·{@code BRAND} 만 가능하다.
+     * 판매 등록. <b>{@code SUPPLIER} 만 가능하다.</b>
+     *
+     * <p>{@code BRAND} 는 소재를 사서 제품을 만드는 쪽이라 판매자가 되지 않는다.
+     * 소재를 등록하는 것({@code SUPPLIER}·{@code BRAND})과 파는 것은 다른 권한이다.
      *
      * <p>판매자는 JWT {@code sub} 에서 얻는다 — 요청 바디로 받으면 남의 이름으로 남의 소재를
      * 올릴 수 있다.

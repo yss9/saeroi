@@ -425,26 +425,28 @@ class MarketplaceApiTests {
     }
 
     @Test
-    void rejectsBuyingOwnListing() throws Exception {
-        Long listingId = registerListing(20_000L);
-        User brandSeller = userRepository.save(User.register(
-                "market-brand-seller@example.com", "{noop}x", "브랜드셀러", "010-4444-4444", UserRole.BRAND));
-        walletRepository.save(UserWallet.link(
-                brandSeller.getId(), "0xdddddddddddddddddddddddddddddddddddddddd", SSAFY_CHAIN_ID));
-        // 판매자가 BRAND 여야 구매 자격 검사를 통과해 자기 글 구매 검사까지 도달한다.
-        MaterialListing listing = listingRepository.findById(listingId).orElseThrow();
-        MaterialBalance balance = balanceRepository.save(MaterialBalance.of(
-                listing.getMaterialId(), brandSeller.getId(), "0xdddddddddddddddddddddddddddddddddddddddd", 5_000L));
-        Long ownListingId = createdListingId(
-                listingRequest(5_000L), tokenFor(brandSeller), balance.getMaterialId());
+    void rejectsABrandFromListing() throws Exception {
+        // BRAND 는 소재를 사서 제품을 만드는 쪽이라 판매자가 되지 않는다.
+        // 소재를 등록할 수는 있으므로(canRegisterMaterial) 등록 권한과 판매 권한이 다르다는 것이
+        // 이 테스트의 요지다.
+        //
+        // 발송 처리도 hasRole('SUPPLIER') 다. 여기를 넓히면 팔리고 결제까지 됐는데 발송이
+        // 막히는 거래가 생기므로 두 목록은 항상 같아야 한다.
+        balanceRepository.save(MaterialBalance.of(
+                material.getId(), buyer.getId(), BUYER_WALLET, 5_000L));
 
-        mockMvc.perform(post("/api/v1/trades")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor(brandSeller))
+        mockMvc.perform(post("/api/v1/listings")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(body(tradeRequest(ownListingId, 1_000L))))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("TRADE_SELF_PURCHASE"));
+                        .content(body(listingRequest(1_000L))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("LISTING_ROLE_NOT_ALLOWED"));
     }
+
+    // 자기 글 구매(TRADE_SELF_PURCHASE)는 HTTP 로 만들 수 없다 — 판매자는 SUPPLIER, 구매자는
+    // BRAND 라 두 집합이 겹치지 않는다. 서비스의 검사는 역할 정책이 바뀔 때를 대비한
+    // 방어로 남아 있고, 그 자체를 여기서 재현할 수는 없다.
+
 
     @Test
     void snapshotsBothWalletAddresses() throws Exception {
