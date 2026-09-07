@@ -31,6 +31,7 @@ describe("Processing/Production 통합", function () {
   it("배송·인수·결과 제출·Brand 승인 후 입력을 소각하고 여러 Child와 lineage를 만든다", async function () {
     const { brand, processor, token, processing } = await fixture();
     await processing.connect(brand).createJob(processor.address, [1], [20_000], [0]);
+    await processing.connect(processor).acceptJob(1);
     await processing.connect(brand).markShipped(1, hash("shipping"));
     await processing.connect(processor).confirmReceipt(1);
     await processing.connect(processor).startProcessing(1);
@@ -45,7 +46,7 @@ describe("Processing/Production 통합", function () {
     );
 
     await expect(processing.connect(brand).approveProcessingResult(1)).to.emit(processing, "ProcessingApproved");
-    expect((await processing.getJob(1)).status).to.equal(6);
+    expect((await processing.getJob(1)).status).to.equal(7);
     expect(await token.balanceOf(brand.address, 1)).to.equal(0);
     expect(await token.balanceOf(brand.address, 3)).to.equal(14_000);
     expect(await token.balanceOf(brand.address, 4)).to.equal(3_000);
@@ -58,6 +59,7 @@ describe("Processing/Production 통합", function () {
   it("출력 수량 초과를 막고 반려 시 입력 잠금을 해제한다", async function () {
     const { brand, processor, token, processing } = await fixture();
     await processing.connect(brand).createJob(processor.address, [1], [20_000], [0]);
+    await processing.connect(processor).acceptJob(1);
     await processing.connect(brand).markShipped(1, hash("shipping"));
     await processing.connect(processor).confirmReceipt(1);
     await processing.connect(processor).startProcessing(1);
@@ -71,6 +73,7 @@ describe("Processing/Production 통합", function () {
   it("각 Output을 특정 Input에 귀속시켜 N대1 혼합을 막는다", async function () {
     const { supplier, brand, processor, token, processing } = await fixture();
     await processing.connect(brand).createJob(processor.address, [1, 2], [20_000, 10_000], [1, 2]);
+    await processing.connect(processor).acceptJob(1);
     await processing.connect(brand).markShipped(1, hash("shipping"));
     await processing.connect(processor).confirmReceipt(1);
     await processing.connect(processor).startProcessing(1);
@@ -85,11 +88,57 @@ describe("Processing/Production 통합", function () {
     expect(await processing.parentsOf(4)).to.deep.equal([2n]);
   });
 
-  it("오프체인 가공 계약이 취소되면 CREATED Job을 CANCELED로 닫고 Lock을 해제한다", async function () {
+  it("배송 전 가공 요청이 취소되면 Job을 CANCELED로 닫고 Lock을 해제한다", async function () {
     const { brand, processor, token, processing } = await fixture();
     await processing.connect(brand).createJob(processor.address, [1], [20_000], [0]);
     await processing.connect(brand).cancelJob(1);
-    expect((await processing.getJob(1)).status).to.equal(8);
+    expect((await processing.getJob(1)).status).to.equal(10);
+    expect(await token.availableBalance(brand.address, 1)).to.equal(20_000);
+  });
+
+  it("지정 Processor가 수락해야만 Brand가 소재를 발송할 수 있다", async function () {
+    const { admin, brand, processor, outsider, processing } = await fixture();
+    await expect(
+      processing.connect(brand).createJob(outsider.address, [1], [20_000], [0])
+    ).to.be.revertedWith("Processing: processor role required");
+    await processing.connect(brand).createJob(processor.address, [1], [20_000], [0]);
+
+    await expect(
+      processing.connect(brand).markShipped(1, hash("shipping"))
+    ).to.be.revertedWith("Processing: invalid status");
+    await expect(processing.connect(admin).acceptJob(1)).to.be.revertedWith(
+      "Processing: caller is not processor"
+    );
+    await expect(processing.connect(processor).acceptJob(1)).to.emit(
+      processing,
+      "ProcessingJobAccepted"
+    );
+    expect((await processing.getJob(1)).status).to.equal(2);
+    await processing.connect(brand).markShipped(1, hash("shipping"));
+  });
+
+  it("지정 Processor가 요청을 거절하면 Job을 종료하고 입력 잠금을 해제한다", async function () {
+    const { brand, processor, token, processing } = await fixture();
+    await processing.connect(brand).createJob(processor.address, [1], [20_000], [0]);
+
+    await expect(processing.connect(processor).rejectJob(1)).to.emit(
+      processing,
+      "ProcessingJobDeclined"
+    );
+    expect((await processing.getJob(1)).status).to.equal(9);
+    expect(await token.availableBalance(brand.address, 1)).to.equal(20_000);
+    await expect(processing.connect(processor).acceptJob(1)).to.be.revertedWith(
+      "Processing: invalid status"
+    );
+  });
+
+  it("Processor 수락 후에도 배송 전이면 Brand가 취소하고 잠금을 해제할 수 있다", async function () {
+    const { brand, processor, token, processing } = await fixture();
+    await processing.connect(brand).createJob(processor.address, [1], [20_000], [0]);
+    await processing.connect(processor).acceptJob(1);
+
+    await processing.connect(brand).cancelJob(1);
+    expect((await processing.getJob(1)).status).to.equal(10);
     expect(await token.availableBalance(brand.address, 1)).to.equal(20_000);
   });
 
@@ -128,6 +177,7 @@ describe("Processing/Production 통합", function () {
   it("가공된 WASTE와 VIRGIN의 제품 투입량으로 업사이클 비율을 계산한다", async function () {
     const { brand, processor, processing, production } = await fixture();
     await processing.connect(brand).createJob(processor.address, [1], [10_000], [0]);
+    await processing.connect(processor).acceptJob(1);
     await processing.connect(brand).markShipped(1, hash("shipping"));
     await processing.connect(processor).confirmReceipt(1);
     await processing.connect(processor).startProcessing(1);

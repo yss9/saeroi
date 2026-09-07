@@ -12,6 +12,8 @@
 
 - 소재 잠금에 생성·해제·만료 시각과 `EXPIRED` 상태를 추가했다.
 - 가공 Job에 공정 유형을 기록하고 출력별 품질 등급 `A/B/C`를 저장한다.
+- 가공 Job은 Brand 요청 후 `REQUESTED`로 생성되며, 지정 Processor의 `acceptJob` 수락 후에만 배송할 수 있다.
+- Processor가 `rejectJob`으로 요청을 거절하거나 Brand/Admin이 배송 전에 취소하면 `PROCESSING` Lock을 해제한다.
 - 가공 출력은 입력 하나에 귀속되어 1→N만 지원하며 N→1 혼합은 지원하지 않는다.
 - WASTE 원재료는 생산에 직접 사용할 수 없고 `PROCESSED` 단계를 거쳐야 한다.
 - 생산 배치는 WASTE 원천 제품 투입량을 전체 제품 투입량으로 나눈 업사이클 비율을 basis point로 저장한다.
@@ -23,6 +25,8 @@
 - `Marketplace.markPaid`, `calculateTotalPrice`, 결제 이벤트와 결제 필드를 제거했다.
 - 분쟁 합의 함수는 `settleDispute`를 사용한다.
 - `ProcessingRegistry.createJob`에 공정 유형 배열이 추가됐다.
+- `ProcessingRegistry.createJob` 이후 지정 Processor가 `acceptJob` 또는 `rejectJob`을 호출해야 한다.
+- Processing 상태는 `REQUESTED → ACCEPTED → SHIPPED → RECEIVED → PROCESSING → RESULT_SUBMITTED → CONFIRMED` 순서다.
 - 가공 결과 함수는 `submitProcessingResult`, `approveProcessingResult`, `rejectProcessingResult`를 사용한다.
 - 생산 확정 함수는 `confirmProduction`을 사용한다.
 - 배포 후 백엔드는 새 `abi/*.json`으로 교체해야 하며, 기존 결제 트랜잭션 호출 코드는 제거해야 한다.
