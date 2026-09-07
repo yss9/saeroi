@@ -28,6 +28,18 @@ public enum MaterialErrorCode implements ErrorCode {
             "소재를 등록할 수 없는 계정입니다."),
     MATERIAL_QUANTITY_INVALID(
             HttpStatus.BAD_REQUEST, "MATERIAL_QUANTITY_INVALID", "수량이 올바르지 않습니다."),
+    MATERIAL_LINEAGE_MULTIPLE_PARENTS(
+            HttpStatus.CONFLICT,
+            "MATERIAL_LINEAGE_MULTIPLE_PARENTS",
+            "이 소재에는 이미 다른 부모 소재가 연결되어 있습니다."),
+    MATERIAL_LINEAGE_DUPLICATE(
+            HttpStatus.CONFLICT,
+            "MATERIAL_LINEAGE_DUPLICATE",
+            "같은 작업으로 이미 연결된 소재입니다."),
+    MATERIAL_LINEAGE_ROOT_ORIGIN_MISMATCH(
+            HttpStatus.BAD_REQUEST,
+            "MATERIAL_LINEAGE_ROOT_ORIGIN_MISMATCH",
+            "자식 소재의 출처가 부모 소재와 다릅니다."),
     MATERIAL_UNIT_NOT_SUPPORTED(
             HttpStatus.BAD_REQUEST, "MATERIAL_UNIT_NOT_SUPPORTED", "지원하지 않는 단위입니다.");
 
