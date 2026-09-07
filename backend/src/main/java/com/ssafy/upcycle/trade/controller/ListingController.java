@@ -23,8 +23,12 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * Marketplace 판매 글. <b>인증이 필요하다.</b>
  *
- * <p>경로에 {@code /v1} 이 없다 — 소재 계열과 같은 관례를 따른다
- * ({@code MaterialController} 주석 참고). 전체 표면의 버전 통일은 프론트와 같은 주기에 한 번에 한다.
+ * <p><b>경로에 {@code /v1} 이 있다.</b> 같은 도메인인 {@code TradeController} 가
+ * {@code /api/v1/trades} 라 맞췄다 — 판매 글과 거래가 한 화면에서 오가는데 경로 관례가
+ * 갈리면 프론트가 매번 어느 쪽인지 확인해야 한다.
+ *
+ * <p>{@code MaterialController} 는 {@code /api/materials} 로 무버전이다.
+ * <b>프로젝트 전체가 아직 한 관례로 통일되지 않았다</b> — 통일은 프론트와 같은 주기에 한 번에 한다.
  *
  * <p>{@code SecurityConfig} 를 고치지 않았다. permitAll 목록에 없으므로
  * {@code anyRequest().authenticated()} 로 떨어져 <b>아무것도 하지 않아도 토큰이 필요하다.</b>
@@ -35,7 +39,7 @@ import org.springframework.web.bind.annotation.RestController;
  * 상태코드는 {@code GlobalExceptionHandler} 한 곳에서 정한다.
  */
 @RestController
-@RequestMapping("/api/listings")
+@RequestMapping("/api/v1/listings")
 @RequiredArgsConstructor
 public class ListingController {
 

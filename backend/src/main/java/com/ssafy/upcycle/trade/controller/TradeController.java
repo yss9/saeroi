@@ -6,17 +6,24 @@ import com.ssafy.upcycle.trade.dto.PageResponse;
 import com.ssafy.upcycle.trade.dto.PaymentConfirmRequest;
 import com.ssafy.upcycle.trade.dto.TradeCreateRequest;
 import com.ssafy.upcycle.trade.dto.TradeQuoteResponse;
+import com.ssafy.upcycle.trade.dto.TradeReceiptResponse;
 import com.ssafy.upcycle.trade.dto.TradeResponse;
 import com.ssafy.upcycle.trade.dto.TradeSearchCondition;
+import com.ssafy.upcycle.trade.dto.TradeShipRequest;
+import com.ssafy.upcycle.trade.dto.TradeShipResponse;
 import com.ssafy.upcycle.trade.service.PaymentService;
 import com.ssafy.upcycle.trade.service.TradeCommandService;
 import com.ssafy.upcycle.trade.service.TradeQueryService;
+import com.ssafy.upcycle.trade.service.TradeReceiptService;
+import com.ssafy.upcycle.trade.service.TradeShipmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -25,23 +32,26 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 소재 거래와 결제. <b>인증이 필요하다.</b>
+ * 소재 거래 — 구매 요청부터 수령 확인까지. <b>인증이 필요하다.</b>
  *
  * <p>결제를 별도 컨트롤러로 나누지 않았다. 결제는 거래의 <b>상태 전이</b>이지 독립된 리소스가
  * 아니다 — 결제만 조회하거나 목록으로 볼 일이 없고, 항상 "어떤 거래의 결제" 다.
- * 그래서 {@code /trades/{id}/payment} 하위 경로로 둔다.
  *
- * <p>배송 처리와 수령 확인({@code /ship}, {@code /receipt})은 여기 없다. 스토리 -30·-31 의
- * 범위이고 담당이 다르다. 같은 컨트롤러에 붙게 되겠지만 지금 빈 메서드를 만들어 두지는 않는다.
+ * <p><b>경로에 {@code /v1} 이 있다.</b> 발송·수령이 먼저 {@code /api/v1/trades} 로 자리를
+ * 잡았고, 같은 리소스를 두 버전으로 쪼갤 수 없어 구매·결제도 여기로 맞췄다.
+ * 다만 {@code MaterialController} 는 {@code /api/materials} 로 무버전이다 —
+ * <b>프로젝트 전체가 아직 한 관례로 통일되지 않았다.</b> 통일은 프론트와 같은 주기에 한 번에 한다.
  */
 @RestController
-@RequestMapping("/api/trades")
+@RequestMapping("/api/v1/trades")
 @RequiredArgsConstructor
 public class TradeController {
 
     private final TradeCommandService tradeCommandService;
     private final TradeQueryService tradeQueryService;
     private final PaymentService paymentService;
+    private final TradeShipmentService tradeShipmentService;
+    private final TradeReceiptService tradeReceiptService;
 
     /**
      * 구매 전 금액 미리보기. <b>아무것도 바꾸지 않는다.</b>
@@ -123,6 +133,49 @@ public class TradeController {
         return ApiResponse.success(paymentService.cancel(userId(jwt), tradeId));
     }
 
+    /**
+     * 판매자 발송 처리. 송장 정보는 선택이다.
+     *
+     * <p>잠금과 보유량은 여기서 바뀌지 않는다. 소유권은 구매자 수령 확인 시점에 넘어간다.
+     *
+     * <p>역할 검사만으로는 부족하다 — 그 역할이면 누구나 남의 거래를 발송 처리할 수 있게
+     * 되기 때문이다. 실제 판매자인지는 서비스가 거래의 {@code seller_id} 와 대조한다.
+     *
+     * <p>⚠️ {@code hasRole('SUPPLIER')} 라 <b>{@code BRAND} 판매자는 발송할 수 없다.</b>
+     * 그런데 판매 등록은 {@code SUPPLIER}·{@code BRAND} 둘 다 가능하고
+     * (온체인 {@code createListing} 도 두 역할을 허용한다), 생산 스크랩을 되파는 브랜드가
+     * 실제로 생긴다. 즉 <b>브랜드가 올린 판매 글은 팔리고 결제까지 되는데 발송이 막힌다.</b>
+     * 어느 쪽이 정책인지 정해야 하고, 판매를 두 역할에 열어둘 거라면 이 조건도 넓혀야 한다.
+     * 남의 거래를 건드리지 못하게 하는 것은 어차피 서비스의 판매자 대조가 담당한다.
+     */
+    @PatchMapping("/{tradeId}/ship")
+    @PreAuthorize("hasRole('SUPPLIER')")
+    public ApiResponse<TradeShipResponse> ship(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long tradeId,
+            @Valid @RequestBody TradeShipRequest request) {
+        return ApiResponse.success(tradeShipmentService.ship(userId(jwt), tradeId, request));
+    }
+
+    /**
+     * 구매자 수령 확인. 소유권이 실제로 넘어가는 자리다.
+     *
+     * <p>요청 바디가 없다. API 명세는 프론트가 온체인 {@code confirmReceipt()} 를
+     * 서명·전송한 뒤 {@code txHash} 를 넘기도록 정의하지만, 지금은 그 해시를 남길
+     * {@code blockchain_transaction} 매핑이 없다. 받아서 버리면 기록된 것처럼 보이므로
+     * 온체인 연동이 붙을 때 파라미터를 추가한다.
+     */
+    @PostMapping("/{tradeId}/receive/confirm")
+    @PreAuthorize("hasRole('BRAND')")
+    public ApiResponse<TradeReceiptResponse> confirmReceipt(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable Long tradeId) {
+        return ApiResponse.success(tradeReceiptService.confirmReceipt(userId(jwt), tradeId));
+    }
+
+    /**
+     * JWT {@code sub} 는 {@code JwtTokenService} 가 {@code String.valueOf(user.getId())} 로 넣는다.
+     * 형식이 깨진 토큰은 여기 오기 전에 {@code JwtDecoder} 가 거부한다.
+     */
     private static Long userId(Jwt jwt) {
         return Long.valueOf(jwt.getSubject());
     }

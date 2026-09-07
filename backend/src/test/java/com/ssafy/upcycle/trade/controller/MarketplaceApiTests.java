@@ -140,7 +140,7 @@ class MarketplaceApiTests {
     @Test
     void requiresAuthentication() throws Exception {
         // SecurityConfig 의 permitAll 목록에 /api/listings 가 들어가면 이 테스트가 깨진다.
-        mockMvc.perform(get("/api/listings")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/listings")).andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -148,7 +148,7 @@ class MarketplaceApiTests {
         User consumer = userRepository.save(User.register(
                 "market-consumer@example.com", "{noop}x", "소비자", "010-2222-2222", UserRole.CONSUMER));
 
-        mockMvc.perform(post("/api/listings")
+        mockMvc.perform(post("/api/v1/listings")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor(consumer))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(listingRequest(OWNED_QUANTITY))))
@@ -166,7 +166,7 @@ class MarketplaceApiTests {
         walletRepository.save(UserWallet.link(
                 otherSupplier.getId(), "0xcccccccccccccccccccccccccccccccccccccccc", SSAFY_CHAIN_ID));
 
-        mockMvc.perform(post("/api/trades")
+        mockMvc.perform(post("/api/v1/trades")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor(otherSupplier))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(tradeRequest(listingId, 1_000L))))
@@ -201,7 +201,7 @@ class MarketplaceApiTests {
 
     @Test
     void rejectsListingMoreThanIsOwned() throws Exception {
-        mockMvc.perform(post("/api/listings")
+        mockMvc.perform(post("/api/v1/listings")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + sellerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(listingRequest(OWNED_QUANTITY + 1))))
@@ -214,7 +214,7 @@ class MarketplaceApiTests {
         // 보유량만 보면 같은 30kg 을 여러 판매 글에 걸 수 있다. 이 테스트가 그것을 막는다.
         registerListing(20_000L);
 
-        mockMvc.perform(post("/api/listings")
+        mockMvc.perform(post("/api/v1/listings")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + sellerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(listingRequest(15_000L))))
@@ -239,7 +239,7 @@ class MarketplaceApiTests {
         Map<String, Object> request = listingRequest(1_000L);
         request.put("materialId", other.getId());
 
-        mockMvc.perform(post("/api/listings")
+        mockMvc.perform(post("/api/v1/listings")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + sellerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(request)))
@@ -265,7 +265,7 @@ class MarketplaceApiTests {
         request.put("quantity", 12.5);
         request.put("unit", "KG");
 
-        mockMvc.perform(post("/api/listings")
+        mockMvc.perform(post("/api/v1/listings")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + sellerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(request)))
@@ -278,7 +278,7 @@ class MarketplaceApiTests {
     void listsOnSaleListingsWithMaterialInformation() throws Exception {
         registerListing(20_000L);
 
-        mockMvc.perform(get("/api/listings")
+        mockMvc.perform(get("/api/v1/listings")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content.length()").value(1))
@@ -293,7 +293,7 @@ class MarketplaceApiTests {
     void filtersByMaterialType() throws Exception {
         registerListing(20_000L);
 
-        mockMvc.perform(get("/api/listings")
+        mockMvc.perform(get("/api/v1/listings")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
                         .param("materialType", "COTTON"))
                 .andExpect(status().isOk())
@@ -304,12 +304,12 @@ class MarketplaceApiTests {
     void filtersByPriceRange() throws Exception {
         registerListing(20_000L);
 
-        mockMvc.perform(get("/api/listings")
+        mockMvc.perform(get("/api/v1/listings")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
                         .param("maxPricePerKg", String.valueOf(PRICE_PER_KG - 1)))
                 .andExpect(jsonPath("$.data.content.length()").value(0));
 
-        mockMvc.perform(get("/api/listings")
+        mockMvc.perform(get("/api/v1/listings")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
                         .param("minPricePerKg", String.valueOf(PRICE_PER_KG)))
                 .andExpect(jsonPath("$.data.content.length()").value(1));
@@ -319,12 +319,12 @@ class MarketplaceApiTests {
     void searchesByMaterialName() throws Exception {
         registerListing(20_000L);
 
-        mockMvc.perform(get("/api/listings")
+        mockMvc.perform(get("/api/v1/listings")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
                         .param("keyword", "데님"))
                 .andExpect(jsonPath("$.data.content.length()").value(1));
 
-        mockMvc.perform(get("/api/listings")
+        mockMvc.perform(get("/api/v1/listings")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
                         .param("keyword", "면"))
                 .andExpect(jsonPath("$.data.content.length()").value(0));
@@ -335,12 +335,12 @@ class MarketplaceApiTests {
         // Supplier Market 은 sellerId 필터 하나로 같은 엔드포인트를 쓴다.
         registerListing(20_000L);
 
-        mockMvc.perform(get("/api/listings")
+        mockMvc.perform(get("/api/v1/listings")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + sellerToken)
                         .param("sellerId", String.valueOf(seller.getId())))
                 .andExpect(jsonPath("$.data.content.length()").value(1));
 
-        mockMvc.perform(get("/api/listings")
+        mockMvc.perform(get("/api/v1/listings")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + sellerToken)
                         .param("sellerId", String.valueOf(buyer.getId())))
                 .andExpect(jsonPath("$.data.content.length()").value(0));
@@ -351,7 +351,7 @@ class MarketplaceApiTests {
         // size=100000 한 번으로 전체 테이블을 끌어오지 못해야 한다.
         registerListing(20_000L);
 
-        mockMvc.perform(get("/api/listings")
+        mockMvc.perform(get("/api/v1/listings")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
                         .param("size", "100000"))
                 .andExpect(jsonPath("$.data.size").value(100));
@@ -363,7 +363,7 @@ class MarketplaceApiTests {
     void quotesThePriceWithoutChangingAnything() throws Exception {
         Long listingId = registerListing(20_000L);
 
-        mockMvc.perform(get("/api/trades/quote")
+        mockMvc.perform(get("/api/v1/trades/quote")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
                         .param("listingId", String.valueOf(listingId))
                         .param("quantity", "3")
@@ -380,7 +380,7 @@ class MarketplaceApiTests {
     void marksAnOversizedQuoteAsNotPurchasable() throws Exception {
         Long listingId = registerListing(20_000L);
 
-        mockMvc.perform(get("/api/trades/quote")
+        mockMvc.perform(get("/api/v1/trades/quote")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
                         .param("listingId", String.valueOf(listingId))
                         .param("quantity", "25")
@@ -416,7 +416,7 @@ class MarketplaceApiTests {
         Long listingId = registerListing(20_000L);
         purchase(listingId, 15_000L);
 
-        mockMvc.perform(post("/api/trades")
+        mockMvc.perform(post("/api/v1/trades")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(tradeRequest(listingId, 6_000L))))
@@ -438,7 +438,7 @@ class MarketplaceApiTests {
         Long ownListingId = createdListingId(
                 listingRequest(5_000L), tokenFor(brandSeller), balance.getMaterialId());
 
-        mockMvc.perform(post("/api/trades")
+        mockMvc.perform(post("/api/v1/trades")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor(brandSeller))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(tradeRequest(ownListingId, 1_000L))))
@@ -463,7 +463,7 @@ class MarketplaceApiTests {
         User walletless = userRepository.save(User.register(
                 "market-nowallet@example.com", "{noop}x", "지갑없음", "010-5555-5555", UserRole.BRAND));
 
-        mockMvc.perform(post("/api/trades")
+        mockMvc.perform(post("/api/v1/trades")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor(walletless))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(tradeRequest(listingId, 1_000L))))
@@ -478,7 +478,7 @@ class MarketplaceApiTests {
         Long listingId = registerListing(20_000L);
         Long tradeId = jsonLong(purchase(listingId, 3_000L), "tradeId");
 
-        mockMvc.perform(post("/api/trades/" + tradeId + "/payment")
+        mockMvc.perform(post("/api/v1/trades/" + tradeId + "/payment")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(paymentRequest("TID-0001", 42_000L))))
@@ -494,7 +494,7 @@ class MarketplaceApiTests {
         Long listingId = registerListing(20_000L);
         Long tradeId = jsonLong(purchase(listingId, 3_000L), "tradeId");
 
-        mockMvc.perform(post("/api/trades/" + tradeId + "/payment")
+        mockMvc.perform(post("/api/v1/trades/" + tradeId + "/payment")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(paymentRequest("TID-0002", 1L))))
@@ -508,7 +508,7 @@ class MarketplaceApiTests {
         Long tradeId = jsonLong(purchase(listingId, 3_000L), "tradeId");
         payFor(tradeId, 42_000L);
 
-        mockMvc.perform(post("/api/trades/" + tradeId + "/payment")
+        mockMvc.perform(post("/api/v1/trades/" + tradeId + "/payment")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(paymentRequest("TID-0003", 42_000L))))
@@ -521,7 +521,7 @@ class MarketplaceApiTests {
         Long listingId = registerListing(20_000L);
         Long tradeId = jsonLong(purchase(listingId, 3_000L), "tradeId");
 
-        mockMvc.perform(post("/api/trades/" + tradeId + "/payment")
+        mockMvc.perform(post("/api/v1/trades/" + tradeId + "/payment")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + sellerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(paymentRequest("TID-0004", 42_000L))))
@@ -537,7 +537,7 @@ class MarketplaceApiTests {
         Long listingId = registerListing(20_000L);
         Long tradeId = jsonLong(purchase(listingId, 8_000L), "tradeId");
 
-        mockMvc.perform(post("/api/trades/" + tradeId + "/cancel")
+        mockMvc.perform(post("/api/v1/trades/" + tradeId + "/cancel")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("CANCELED"));
@@ -551,7 +551,7 @@ class MarketplaceApiTests {
         Long listingId = registerListing(20_000L);
         Long tradeId = jsonLong(purchase(listingId, 20_000L), "tradeId");
 
-        mockMvc.perform(post("/api/trades/" + tradeId + "/cancel")
+        mockMvc.perform(post("/api/v1/trades/" + tradeId + "/cancel")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken))
                 .andExpect(status().isOk());
 
@@ -565,7 +565,7 @@ class MarketplaceApiTests {
         Long tradeId = jsonLong(purchase(listingId, 3_000L), "tradeId");
         payFor(tradeId, 42_000L);
 
-        mockMvc.perform(post("/api/trades/" + tradeId + "/cancel")
+        mockMvc.perform(post("/api/v1/trades/" + tradeId + "/cancel")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + sellerToken))
                 .andExpect(status().isOk());
 
@@ -578,7 +578,7 @@ class MarketplaceApiTests {
         Long listingId = registerListing(20_000L);
         MaterialListing listing = listingRepository.findById(listingId).orElseThrow();
 
-        mockMvc.perform(delete("/api/listings/" + listingId)
+        mockMvc.perform(delete("/api/v1/listings/" + listingId)
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + sellerToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("CANCELED"));
@@ -592,12 +592,12 @@ class MarketplaceApiTests {
     void freesTheQuantityForANewListingAfterCancelling() throws Exception {
         Long listingId = registerListing(OWNED_QUANTITY);
 
-        mockMvc.perform(delete("/api/listings/" + listingId)
+        mockMvc.perform(delete("/api/v1/listings/" + listingId)
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + sellerToken))
                 .andExpect(status().isOk());
 
         // 잠금이 실제로 풀렸다면 같은 수량을 다시 걸 수 있다.
-        mockMvc.perform(post("/api/listings")
+        mockMvc.perform(post("/api/v1/listings")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + sellerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(listingRequest(OWNED_QUANTITY))))
@@ -610,7 +610,7 @@ class MarketplaceApiTests {
         Long listingId = registerListing(20_000L);
         purchase(listingId, 3_000L);
 
-        mockMvc.perform(delete("/api/listings/" + listingId)
+        mockMvc.perform(delete("/api/v1/listings/" + listingId)
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + sellerToken))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("LISTING_HAS_ONGOING_TRADE"));
@@ -620,7 +620,7 @@ class MarketplaceApiTests {
     void refusesToCancelSomeoneElsesListing() throws Exception {
         Long listingId = registerListing(20_000L);
 
-        mockMvc.perform(delete("/api/listings/" + listingId)
+        mockMvc.perform(delete("/api/v1/listings/" + listingId)
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("LISTING_NOT_OWNED"));
@@ -629,11 +629,11 @@ class MarketplaceApiTests {
     @Test
     void hidesCancelledListingsFromTheDefaultList() throws Exception {
         Long listingId = registerListing(20_000L);
-        mockMvc.perform(delete("/api/listings/" + listingId)
+        mockMvc.perform(delete("/api/v1/listings/" + listingId)
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + sellerToken))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(get("/api/listings")
+        mockMvc.perform(get("/api/v1/listings")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken))
                 .andExpect(jsonPath("$.data.content.length()").value(0));
     }
@@ -647,7 +647,7 @@ class MarketplaceApiTests {
         User outsider = userRepository.save(User.register(
                 "market-outsider@example.com", "{noop}x", "제3자", "010-6666-6666", UserRole.BRAND));
 
-        mockMvc.perform(get("/api/trades/" + tradeId)
+        mockMvc.perform(get("/api/v1/trades/" + tradeId)
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor(outsider)))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("TRADE_NOT_PARTICIPANT"));
@@ -660,7 +660,7 @@ class MarketplaceApiTests {
         Long listingId = registerListing(20_000L);
         purchase(listingId, 3_000L);
 
-        mockMvc.perform(get("/api/trades")
+        mockMvc.perform(get("/api/v1/trades")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content.length()").value(1))
@@ -675,13 +675,13 @@ class MarketplaceApiTests {
         Long listingId = registerListing(20_000L);
         purchase(listingId, 3_000L);
 
-        mockMvc.perform(get("/api/trades")
+        mockMvc.perform(get("/api/v1/trades")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + sellerToken)
                         .param("side", "SELL"))
                 .andExpect(jsonPath("$.data.content.length()").value(1));
 
         // 판매자에게 구매 목록은 비어 있어야 한다.
-        mockMvc.perform(get("/api/trades")
+        mockMvc.perform(get("/api/v1/trades")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + sellerToken))
                 .andExpect(jsonPath("$.data.content.length()").value(0));
     }
@@ -693,7 +693,7 @@ class MarketplaceApiTests {
         purchase(listingId, 1_000L);
         payFor(tradeId, 42_000L);
 
-        mockMvc.perform(get("/api/trades")
+        mockMvc.perform(get("/api/v1/trades")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
                         .param("status", "PAID"))
                 .andExpect(jsonPath("$.data.content.length()").value(1))
@@ -708,7 +708,7 @@ class MarketplaceApiTests {
         User outsider = userRepository.save(User.register(
                 "market-outsider2@example.com", "{noop}x", "제3자", "010-7777-7777", UserRole.BRAND));
 
-        mockMvc.perform(get("/api/trades")
+        mockMvc.perform(get("/api/v1/trades")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor(outsider)))
                 .andExpect(jsonPath("$.data.content.length()").value(0));
     }
@@ -718,7 +718,7 @@ class MarketplaceApiTests {
         // 판매 글에는 설명이 없다. 소재의 설명을 그대로 내려보낸다.
         Long listingId = registerListing(20_000L);
 
-        mockMvc.perform(get("/api/listings/" + listingId)
+        mockMvc.perform(get("/api/v1/listings/" + listingId)
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken))
                 .andExpect(jsonPath("$.data.materialDescription").value("수거된 청바지"));
     }
@@ -763,7 +763,7 @@ class MarketplaceApiTests {
         if (materialId != null) {
             request.put("materialId", materialId);
         }
-        String response = mockMvc.perform(post("/api/listings")
+        String response = mockMvc.perform(post("/api/v1/listings")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(request)))
@@ -775,7 +775,7 @@ class MarketplaceApiTests {
     }
 
     private String purchase(Long listingId, long quantity) throws Exception {
-        return mockMvc.perform(post("/api/trades")
+        return mockMvc.perform(post("/api/v1/trades")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(tradeRequest(listingId, quantity))))
@@ -786,7 +786,7 @@ class MarketplaceApiTests {
     }
 
     private void payFor(Long tradeId, long amount) throws Exception {
-        mockMvc.perform(post("/api/trades/" + tradeId + "/payment")
+        mockMvc.perform(post("/api/v1/trades/" + tradeId + "/payment")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(paymentRequest("TID-PAID-" + tradeId, amount))))
