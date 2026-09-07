@@ -1,12 +1,18 @@
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { ShopProvider } from '../../features/shop/ShopContext.tsx'
+import { useAuthStore, type AuthUser } from '../../stores/authStore.ts'
 import { LandingPage } from './LandingPage.tsx'
+
+beforeEach(() => {
+  useAuthStore.getState().signOut()
+})
 
 afterEach(() => {
   cleanup()
+  useAuthStore.getState().signOut()
   window.history.replaceState(null, '', '/')
 })
 
@@ -75,21 +81,82 @@ describe('LandingPage', () => {
     }
   })
 
-  it('opens the wallet disclosure and renders its unavailable state', async () => {
+  it('shows login and signup links in the account menu when signed out', async () => {
     const user = userEvent.setup()
     renderLandingPage()
 
-    const trigger = screen.getByRole('button', { name: '계정 및 지갑' })
+    const trigger = screen.getByRole('button', { name: '계정 메뉴' })
     expect(trigger).toHaveAttribute('aria-expanded', 'false')
 
     await user.click(trigger)
 
     expect(trigger).toHaveAttribute('aria-expanded', 'true')
-    expect(screen.getByRole('link', { name: 'MetaMask 설치하기' })).toHaveAttribute(
-      'href',
-      'https://metamask.io/download/',
+    expect(screen.getByRole('link', { name: '로그인' })).toHaveAttribute('href', '/login')
+    expect(screen.getByRole('link', { name: '회원가입' })).toHaveAttribute('href', '/signup')
+    expect(screen.queryByText(/MetaMask/)).not.toBeInTheDocument()
+  })
+
+  it.each([
+    [{ role: 'CONSUMER', name: '김새로이' }, '개인회원', '마이페이지', '/mypage'],
+    [{ role: 'BRAND', name: '새로이 브랜드' }, '사업자회원', '회사 대시보드', '/company/account'],
+    [{ role: 'ADMIN', name: '새로이 운영자' }, '관리자', '관리자 페이지', '/admin'],
+  ] as const)(
+    'shows the correct destination for a signed-in $role account',
+    async (account, accountType, destinationLabel, destinationPath) => {
+      const signedInUser: AuthUser = {
+        id: 1,
+        email: 'member@saeroi.kr',
+        name: account.name,
+        role: account.role,
+        walletAddress: null,
+      }
+      useAuthStore.getState().signIn(signedInUser, 'access-token')
+      const user = userEvent.setup()
+      renderLandingPage()
+
+      await user.click(screen.getByRole('button', { name: '계정 메뉴' }))
+
+      expect(screen.getByText(account.name)).toBeInTheDocument()
+      expect(screen.getByText(accountType)).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: destinationLabel })).toHaveAttribute(
+        'href',
+        destinationPath,
+      )
+      expect(screen.getByRole('button', { name: '로그아웃' })).toBeInTheDocument()
+    },
+  )
+
+  it('signs out from the account menu', async () => {
+    useAuthStore.getState().signIn(
+      {
+        id: 1,
+        email: 'member@saeroi.kr',
+        name: '김새로이',
+        role: 'CONSUMER',
+        walletAddress: null,
+      },
+      'access-token',
     )
-    expect(screen.getByText('지갑 확장 프로그램이 감지되지 않았습니다.')).toBeInTheDocument()
+    const user = userEvent.setup()
+    renderLandingPage()
+
+    await user.click(screen.getByRole('button', { name: '계정 메뉴' }))
+    await user.click(screen.getByRole('button', { name: '로그아웃' }))
+
+    expect(useAuthStore.getState().isAuthenticated).toBe(false)
+    expect(screen.getByRole('button', { name: '계정 메뉴' })).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('closes the account menu with Escape and restores trigger focus', async () => {
+    const user = userEvent.setup()
+    renderLandingPage()
+
+    const trigger = screen.getByRole('button', { name: '계정 메뉴' })
+    await user.click(trigger)
+    await user.keyboard('{Escape}')
+
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    expect(trigger).toHaveFocus()
   })
 
   it('opens and closes the mobile navigation menu', async () => {

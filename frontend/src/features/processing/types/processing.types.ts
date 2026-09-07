@@ -12,7 +12,7 @@ export type ProcessType =
   | 'REMANUFACTURING'
 
 /** `processing_request.status` */
-export type ProcessingRequestStatus = 'QUOTING' | 'SELECTED' | 'CANCELED' | 'EXPIRED'
+export type ProcessingRequestStatus = 'QUOTING' | 'SELECTED' | 'CANCELED' | 'REJECTED' | 'EXPIRED'
 
 /** `processing_quote.status` */
 export type ProcessingQuoteStatus = 'SUBMITTED' | 'SELECTED' | 'REJECTED' | 'EXPIRED'
