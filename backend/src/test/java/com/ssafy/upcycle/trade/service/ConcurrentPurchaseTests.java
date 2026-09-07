@@ -146,9 +146,7 @@ class ConcurrentPurchaseTests {
             attempts.add(() -> {
                 start.await();
                 try {
-                    tradeCommandService.create(buyerId, new TradeCreateRequest(
-                            listingId, PURCHASE_QUANTITY, MaterialQuantityUnit.G,
-                            PaymentMethod.MOCK));
+                    tradeCommandService.create(buyerId, purchaseRequest());
                     return Outcome.SUCCEEDED;
                 } catch (RuntimeException rejected) {
                     return Outcome.of(rejected);
@@ -197,6 +195,27 @@ class ConcurrentPurchaseTests {
                     ? REJECTED_AS_OVER_QUANTITY
                     : REJECTED_OTHERWISE;
         }
+    }
+
+    /**
+     * 구매 요청. <b>배송 정보는 이 테스트의 관심사가 아니다</b> — 두 스레드가 같은 값을 써도
+     * 경합 재현에 아무 영향이 없다. 그래서 호출부에 늘어놓지 않고 여기 모아 둔다.
+     *
+     * <p>다섯 칸 모두 {@code @NotBlank} 라 비워 둘 수 없다. 값은
+     * {@code MarketplaceApiTests} 가 쓰는 것과 같게 맞췄다 — 같은 도메인의 테스트가
+     * 서로 다른 가짜 주소를 쓰면 실패 로그를 볼 때 어느 쪽 데이터인지 헷갈린다.
+     */
+    private TradeCreateRequest purchaseRequest() {
+        return new TradeCreateRequest(
+                listingId,
+                PURCHASE_QUANTITY,
+                MaterialQuantityUnit.G,
+                PaymentMethod.MOCK,
+                "김구매",
+                "010-1111-1111",
+                "04766",
+                "서울 성동구 아차산로 17길 48",
+                "20층");
     }
 
     private static String buyerWallet(int index) {
