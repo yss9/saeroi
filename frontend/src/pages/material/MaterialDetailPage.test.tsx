@@ -23,6 +23,8 @@ const api = vi.hoisted(() => ({
   getMaterial: vi.fn(),
   getMaterialBalances: vi.fn(),
   getMaterialLineage: vi.fn(),
+  // 증빙 블록이 EvidenceUpload 로 위임되면서 이 페이지가 네 번째 엔드포인트를 쓴다.
+  getEvidence: vi.fn(),
 }))
 vi.mock('../../features/material/api/getMaterial.ts', () => ({
   getMaterial: api.getMaterial,
@@ -32,6 +34,9 @@ vi.mock('../../features/material/api/getMaterialBalances.ts', () => ({
 }))
 vi.mock('../../features/material/api/getMaterialLineage.ts', () => ({
   getMaterialLineage: api.getMaterialLineage,
+}))
+vi.mock('../../features/evidence/api/getEvidence.ts', () => ({
+  getEvidence: api.getEvidence,
 }))
 
 function detail(overrides: Partial<MaterialDetail> = {}): MaterialDetail {
@@ -99,6 +104,7 @@ beforeEach(() => {
   api.getMaterial.mockReset()
   api.getMaterialBalances.mockReset().mockResolvedValue([BALANCE])
   api.getMaterialLineage.mockReset().mockResolvedValue(EMPTY_LINEAGE)
+  api.getEvidence.mockReset().mockResolvedValue([])
 })
 
 afterEach(cleanup)
@@ -179,19 +185,24 @@ describe('근거 없는 값을 확정으로 보여주지 않는다', () => {
     expect(screen.queryByText('온체인 미확정')).not.toBeInTheDocument()
   })
 
-  it('증빙이 없으면 준비 중임을 밝힌다', async () => {
-    api.getMaterial.mockResolvedValue(detail({ evidenceHash: null }))
+  it('증빙은 EvidenceUpload 에 위임하고 소재 id 로 조회한다', async () => {
+    api.getMaterial.mockResolvedValue(detail())
     renderPage()
 
+    await waitFor(() => expect(api.getEvidence).toHaveBeenCalledWith('MATERIAL', 12))
     expect(await screen.findByText('등록된 증빙이 없습니다')).toBeInTheDocument()
   })
 
-  it('증빙 해시가 있으면 그대로 보여준다', async () => {
-    const hash = '0x' + 'ab'.repeat(32)
-    api.getMaterial.mockResolvedValue(detail({ evidenceHash: hash }))
+  it('material.evidenceHash 를 증빙 해시로 보여주지 않는다', async () => {
+    // 그 컬럼은 **manifest 해시**(여러 증빙을 묶은 JSON 의 해시) 자리이고 개별 파일
+    // 해시가 아니다. 개별 해시는 evidence_file 이 갖는다. 둘을 섞으면 "증빙 없음" 인데
+    // 파일은 있는 상태(또는 그 반대)가 화면에 그려진다.
+    const manifestHash = '0x' + 'cd'.repeat(32)
+    api.getMaterial.mockResolvedValue(detail({ evidenceHash: manifestHash }))
     renderPage()
 
-    expect(await screen.findByText(hash)).toBeInTheDocument()
+    await screen.findByText('MAT-000012')
+    expect(screen.queryByText(manifestHash)).not.toBeInTheDocument()
   })
 
   it('아직 없는 블록은 자리만 두고 이유를 밝힌다', async () => {
