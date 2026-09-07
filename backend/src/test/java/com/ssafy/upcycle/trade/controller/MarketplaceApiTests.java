@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -34,6 +35,7 @@ import com.ssafy.upcycle.trade.payment.PaymentReadyCommand;
 import com.ssafy.upcycle.trade.repository.ListingSearchRepository;
 import com.ssafy.upcycle.trade.repository.MaterialListingRepository;
 import com.ssafy.upcycle.trade.repository.MaterialTradeRepository;
+import com.ssafy.upcycle.trade.repository.TradeShippingRepository;
 import com.ssafy.upcycle.trade.service.PaymentService;
 import com.ssafy.upcycle.trade.service.TradeResponseAssembler;
 import com.ssafy.upcycle.user.entity.User;
@@ -109,6 +111,9 @@ class MarketplaceApiTests {
 
     @Autowired
     private MaterialTradeRepository tradeRepository;
+
+    @Autowired
+    private TradeShippingRepository shippingRepository;
 
     @Autowired
     private ListingSearchRepository listingSearchRepository;
@@ -409,6 +414,72 @@ class MarketplaceApiTests {
                         .param("quantity", "25")
                         .param("unit", "KG"))
                 .andExpect(jsonPath("$.data.purchasable").value(false));
+    }
+
+    /**
+     * 구매가 배송 행을 함께 만들지 않으면 발송·수령이 둘 다 404 로 막힌다. 프론트에서
+     * 실제로 보고된 블로커이고, 우회할 방법이 없어 거래 흐름 전체가 멈춘다.
+     */
+    @Test
+    void purchaseCreatesTheShippingAddress() throws Exception {
+        Long listingId = registerListing(20_000L);
+
+        String response = purchase(listingId, 8_000L);
+        Long tradeId = jsonLong(response, "tradeId");
+
+        assertThat(shippingRepository.findByTradeId(tradeId)).isPresent();
+        assertThat(objectMapper.readTree(response).path("data").path("shipping").path("address")
+                .asText()).isEqualTo("서울시 성동구");
+    }
+
+    @Test
+    void purchaseWithoutAShippingAddressIsRejected() throws Exception {
+        Long listingId = registerListing(20_000L);
+        Map<String, Object> request = tradeRequest(listingId, 8_000L);
+        request.remove("address");
+
+        mockMvc.perform(post("/api/v1/trades")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    /** 발송 응답으로 한 번 받는 것만으로는 새로고침하면 송장이 사라진다. */
+    @Test
+    void tradeDetailKeepsTheWaybillAfterShipping() throws Exception {
+        Long listingId = registerListing(20_000L);
+        Long tradeId = jsonLong(purchase(listingId, 8_000L), "tradeId");
+        payFor(tradeId);
+
+        mockMvc.perform(patch("/api/v1/trades/" + tradeId + "/ship")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + sellerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{ \"carrier\": \"CJ대한통운\", \"trackingNumber\": \"123456789012\" }"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/trades/" + tradeId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + sellerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.shipping.carrier").value("CJ대한통운"))
+                .andExpect(jsonPath("$.data.shipping.trackingNumber").value("123456789012"))
+                .andExpect(jsonPath("$.data.shipping.shippedAt").isNotEmpty())
+                .andExpect(jsonPath("$.data.shipping.deliveredAt").doesNotExist());
+    }
+
+    /** 판매자는 발송 화면에서 어디로 보낼지를 봐야 한다. */
+    @Test
+    void tradeListCarriesTheShippingAddress() throws Exception {
+        Long listingId = registerListing(20_000L);
+        purchase(listingId, 8_000L);
+
+        mockMvc.perform(get("/api/v1/trades")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + sellerToken)
+                        .param("side", "SELL"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].shipping.receiverName").value("김구매"))
+                .andExpect(jsonPath("$.data.content[0].shipping.zipCode").value("04766"));
     }
 
     @Test
@@ -838,6 +909,12 @@ class MarketplaceApiTests {
         request.put("quantity", quantity);
         request.put("unit", "G");
         request.put("paymentMethod", "MOCK");
+        // 배송지는 필수다. 없으면 판매자가 어디로 보낼지 알 수 없어 발송이 막힌다
+        request.put("receiverName", "김구매");
+        request.put("receiverPhone", "010-1111-1111");
+        request.put("zipCode", "04766");
+        request.put("address", "서울시 성동구");
+        request.put("addressDetail", "101동 1001호");
         return request;
     }
 
