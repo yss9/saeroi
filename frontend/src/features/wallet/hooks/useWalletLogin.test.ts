@@ -5,7 +5,7 @@
 // 이 파일과 Backend 의 WalletLoginMessageTests 가 같은 값을 지키는 한 쌍이다.
 
 import { describe, expect, it } from 'vitest'
-import { buildLoginMessage } from './useWalletLogin.ts'
+import { buildLoginMessage } from '../services/walletMessage.ts'
 
 const CHECKSUM = '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'
 const NONCE = '0123456789abcdef0123456789abcdef'
