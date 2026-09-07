@@ -152,10 +152,10 @@ class SchemaSqlTests {
                 ) VALUES (1, 'MAT-000001', 'DENIM', 'WASTE', 'INITIAL', 'Denim', 30000, 1)
                 """);
         statement.executeUpdate("""
-                INSERT INTO processing_request (id, request_code, brand_id, expires_at)
+                INSERT INTO processing_request (id, request_code, brand_id, processor_id, expires_at)
                 VALUES
-                    (1, 'REQ-000001', 1, '2099-01-01 00:00:00'),
-                    (2, 'REQ-000002', 1, '2099-01-01 00:00:00')
+                    (1, 'REQ-000001', 1, 2, '2099-01-01 00:00:00'),
+                    (2, 'REQ-000002', 1, 2, '2099-01-01 00:00:00')
                 """);
         statement.executeUpdate("""
                 INSERT INTO processing_quote (

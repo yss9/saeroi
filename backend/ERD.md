@@ -296,7 +296,7 @@ Lock 마다 ID 를 부여한다. 합계 컬럼만 두면 해제·만료·추적�
 | owner_id | BIGINT FK | 잠긴 주체 |
 | amount | BIGINT | 잠금 수량 (g) |
 | purpose | ENUM | MARKETPLACE / PROCESSING / PRODUCTION |
-| reference_type | ENUM | LISTING / TRADE / PROCESSING_JOB / PRODUCTION_BATCH |
+| reference_type | ENUM | LISTING / TRADE / PROCESSING_REQUEST / PROCESSING_JOB / PRODUCTION_BATCH |
 | reference_id | BIGINT | 해당 도메인 PK |
 | status | ENUM | ACTIVE / RELEASED / CONSUMED |
 | expires_at | DATETIME NULL | 만료 기준 |
@@ -315,10 +315,10 @@ INDEX `(material_id, owner_id, status)`, `(reference_type, reference_id)`
 | 도메인 | 생성 | 해제(RELEASED) | 소비(CONSUMED) |
 | --- | --- | --- | --- |
 | Marketplace | 판매 등록 | 판매 취소 | Buyer 수령 확인 |
-| Processing | **견적 선택** | 거래 취소 | Processing 확정 |
+| Processing | **요청 생성** | 요청 취소·거절·만료 | Processing 확정 |
 | Production | DRAFT 저장 | 배치 취소·FAILED 만료 | Production 확정 |
 
-견적 요청 단계에서는 Lock 하지 않는다. 견적 선택 시점부터다.
+가공 요청은 업체 한 곳을 지정하고 생성 즉시 PROCESSING_REQUEST Lock을 만든다. 생성 후 7일에 만료된다. 견적 확정·Job 생성 시 같은 Lock을 PROCESSING_JOB에 연결하고 배송 중에도 유지한다. 온체인 기록 시점은 Brand의 견적 확정이다.
 
 **배송 중 Lock 유지가 중요하다.** Seller 가 배송 중인 20kg 을 다른 곳에 또 팔 수 있으면 안 된다.
 Marketplace Lock 은 Buyer 수령 확인까지 유지되고, 그 시점에 CONSUMED 로 바뀌며 Balance 가 이전된다.
@@ -406,8 +406,9 @@ json
 | id | BIGINT PK |  |
 | request_code | VARCHAR(30) UNIQUE |  |
 | brand_id | BIGINT FK |  |
-| status | ENUM | QUOTING / SELECTED / CANCELED / EXPIRED |
-| expires_at | DATETIME | 견적 마감 |
+| processor_id | BIGINT FK | 요청을 받는 업체 한 곳 (users.id) |
+| status | ENUM | QUOTING / SELECTED / CANCELED / REJECTED / EXPIRED |
+| expires_at | DATETIME | 생성 후 7일, UTC 기준 |
 | created_at | DATETIME |  |
 | canceled_at | DATETIME |  |
 | cancel_reason | VARCHAR(255) NULL |  |

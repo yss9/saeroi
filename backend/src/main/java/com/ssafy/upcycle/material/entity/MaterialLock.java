@@ -26,12 +26,12 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
  *
  * <pre>
  *   Marketplace  생성: 판매 등록    해제: 판매 취소       소비: 구매자 수령 확인
- *   Processing   생성: 견적 선택    해제: 거래 취소       소비: Processing 확정
+ *   Processing   생성: 요청 생성    해제: 요청 취소·거절·만료       소비: Processing 확정
  *   Production   생성: DRAFT 저장   해제: 배치 취소·실패  소비: Production 확정
  * </pre>
  *
- * <p>견적 <b>요청</b> 단계에서는 잠그지 않는다. 여러 업체에 동시에 견적을 넣는 것이
- * 정상 흐름인데 그때마다 잠기면 같은 소재로 비교 견적을 받을 수 없다.
+ * <p>가공 요청은 업체 한 곳을 지정하며 생성 즉시 잠근다. 견적 선택 시 같은 잠금을
+ * Job에 연결하고 배송 중에도 유지한다. 실제 보유 토큰 수량은 요청 단계에서 차감하지 않는다.
  *
  * <p>배송 중에도 잠금이 유지되는 것이 중요하다. 그러지 않으면 판매자가 배송 중인 20kg 을
  * 다른 곳에 또 팔 수 있다. Marketplace 잠금은 구매자 수령 확인까지 살아 있다가
@@ -181,6 +181,28 @@ public class MaterialLock {
         requireActive("release");
         this.status = MaterialLockStatus.RELEASED;
         this.releasedAt = requireTimestamp(releasedAt);
+    }
+
+    /** Expiry releases availability without decreasing the owner's token balance. */
+    public void expire(LocalDateTime now) {
+        requireActive("expire");
+        if (!isExpiredAt(now)) throw new IllegalStateException("Material lock is not due");
+        status = MaterialLockStatus.EXPIRED;
+        releasedAt = now;
+    }
+
+    /** Quote selection must verify Job ownership and call this within its Job creation transaction. */
+    public void attachToProcessingJob(Long requestId, Long jobId) {
+        requireActive("attach to processing job");
+        if (purpose != MaterialLockPurpose.PROCESSING
+                || referenceType != MaterialLockReferenceType.PROCESSING_REQUEST
+                || !referenceId.equals(requestId) || jobId == null || jobId <= 0) {
+            throw new IllegalArgumentException("An active lock of this processing request and a valid Job are required");
+        }
+        referenceType = MaterialLockReferenceType.PROCESSING_JOB;
+        referenceId = jobId;
+        // The seven-day quote deadline must not release a selected Job's material in transit.
+        expiresAt = null;
     }
 
     /**
