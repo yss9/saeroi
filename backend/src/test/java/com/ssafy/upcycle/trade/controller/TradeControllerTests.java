@@ -1,17 +1,22 @@
 package com.ssafy.upcycle.trade.controller;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.ssafy.upcycle.common.security.jwt.JwtTokenService;
+import com.ssafy.upcycle.material.entity.Material;
 import com.ssafy.upcycle.material.entity.MaterialBalance;
 import com.ssafy.upcycle.material.entity.MaterialLock;
 import com.ssafy.upcycle.material.entity.MaterialLockPurpose;
 import com.ssafy.upcycle.material.entity.MaterialLockReferenceType;
+import com.ssafy.upcycle.material.entity.MaterialRootOrigin;
+import com.ssafy.upcycle.material.entity.MaterialType;
 import com.ssafy.upcycle.material.repository.MaterialBalanceRepository;
 import com.ssafy.upcycle.material.repository.MaterialLockRepository;
+import com.ssafy.upcycle.material.repository.MaterialRepository;
 import com.ssafy.upcycle.trade.entity.MaterialListing;
 import com.ssafy.upcycle.trade.entity.MaterialTrade;
 import com.ssafy.upcycle.trade.entity.PaymentMethod;
@@ -44,7 +49,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 class TradeControllerTests {
 
-    private static final long MATERIAL_ID = 2L;
     private static final String SELLER_WALLET = "0x1111111111111111111111111111111111111111";
     private static final String BUYER_WALLET = "0x2222222222222222222222222222222222222222";
     private static final String WAYBILL_BODY = """
@@ -75,9 +79,13 @@ class TradeControllerTests {
     @Autowired
     private MaterialLockRepository lockRepository;
 
+    @Autowired
+    private MaterialRepository materialRepository;
+
     private User seller;
     private User buyer;
     private MaterialTrade trade;
+    private long materialId;
 
     @BeforeEach
     void setUp() {
@@ -86,16 +94,21 @@ class TradeControllerTests {
         buyer = userRepository.save(User.register(
                 "buyer@example.com", "{noop}x", "브랜드", "010-1111-1111", UserRole.BRAND));
 
+        materialId = materialRepository.save(Material.register(
+                        "MAT-000001", MaterialType.DENIM, MaterialRootOrigin.WASTE,
+                        "폐데님", null, null, 30_000L, null, null, seller.getId()))
+                .getId();
+
         MaterialLock lock = lockRepository.save(MaterialLock.create(
-                MATERIAL_ID, seller.getId(), 30_000L,
+                materialId, seller.getId(), 30_000L,
                 MaterialLockPurpose.MARKETPLACE, MaterialLockReferenceType.LISTING, 1L, null));
         MaterialListing listing = listingRepository.save(MaterialListing.open(
-                MATERIAL_ID, seller.getId(), 30_000L, 10_000L, lock.getId()));
+                materialId, seller.getId(), 30_000L, 10_000L, lock.getId()));
         balanceRepository.save(MaterialBalance.of(
-                MATERIAL_ID, seller.getId(), SELLER_WALLET, 30_000L));
+                materialId, seller.getId(), SELLER_WALLET, 30_000L));
 
         trade = tradeRepository.save(MaterialTrade.create(
-                "TRD-000001", listing.getId(), MATERIAL_ID, seller.getId(), buyer.getId(),
+                "TRD-000001", listing.getId(), materialId, seller.getId(), buyer.getId(),
                 SELLER_WALLET, BUYER_WALLET, 20_000L, 200_000L, PaymentMethod.MOCK));
         trade.markPaid("T1234", 200_000L, LocalDateTime.now());
         shippingRepository.save(TradeShipping.of(
@@ -282,6 +295,41 @@ class TradeControllerTests {
     void anonymousReceiptRequestIsRejected() throws Exception {
         mockMvc.perform(post("/api/v1/trades/{tradeId}/receive/confirm", trade.getId()))
                 .andExpect(status().isUnauthorized());
+    }
+
+    /**
+     * 수령 확인이 소재의 검증 단계를 실제로 끌어올리는지 끝에서 끝까지 확인한다.
+     *
+     * <p>서비스 단위 테스트로는 판정 로직만 보게 되어, 조회 경로가 그 값을 실제로 내려보내는지가
+     * 빠진다. 응답이 여전히 REGISTERED 로 굳어 있어도 아무도 모른다.
+     */
+    @Test
+    void receiptRaisesTheMaterialToTransactionVerified() throws Exception {
+        mockMvc.perform(get("/api/materials/{materialId}", materialId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(buyer, UserRole.BRAND)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.verificationState").value("REGISTERED"));
+
+        shipTrade();
+        mockMvc.perform(post("/api/v1/trades/{tradeId}/receive/confirm", trade.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(buyer, UserRole.BRAND)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/materials/{materialId}", materialId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(buyer, UserRole.BRAND)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.verificationState").value("TRANSACTION_VERIFIED"));
+    }
+
+    /** 배송까지만으로는 올라가지 않는다. 서명이 판정 근거다. */
+    @Test
+    void shippingAloneDoesNotVerifyTheMaterial() throws Exception {
+        shipTrade();
+
+        mockMvc.perform(get("/api/materials/{materialId}", materialId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(seller, UserRole.SUPPLIER)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.verificationState").value("REGISTERED"));
     }
 
     private String bearer(User user, UserRole role) {

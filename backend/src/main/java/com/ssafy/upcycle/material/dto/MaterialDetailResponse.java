@@ -13,20 +13,18 @@ import java.util.List;
 /**
  * 소재 상세. 티켓이 요구한 6블록 — 기본정보 · 수량 · Owner · Evidence · Verification · 상태.
  *
- * <h2>{@code verificationState} 를 믿지 말 것</h2>
+ * <h2>{@code verificationState} 가 판정하는 범위</h2>
  *
- * <p><b>이 값은 항상 {@link MaterialVerificationState#REGISTERED} 다.</b> 소재의 사실이 아니라
- * 현재 구현의 한계다.
+ * <p>저장 컬럼이 아니라 {@code MaterialVerificationStateResolver} 가 조회 시점에 계산한
+ * 값이다. 다만 <b>지금 판정되는 단계는 {@code TRANSACTION_VERIFIED} 와
+ * {@code REGISTERED} 둘뿐이다.</b>
  *
- * <p>{@link MaterialVerificationState} enum 은 5단계를 갖고 있지만 {@code material} 테이블에
- * 그걸 담을 컬럼이 없고, 파생 판정의 근거로 설계된 {@code signed_at}·{@code signer_wallet} 도
- * {@code schema.sql} 에 없다. 진짜 판정에는 온체인
- * {@code MaterialToken.verificationRecord(tokenId, SOURCE_VERIFIED)} 조회나
- * {@code blockchain_transaction} 의 {@code verifySource} 성공 Tx 검색이 필요하고,
- * 둘 다 이 티켓 범위 밖이다.
+ * <p>나머지 세 단계는 판정 근거가 아직 없다 — {@code material.signed_at} 컬럼이 없고,
+ * 승인 시각을 남길 {@code processing_job} 도, {@code production_input} 엔티티도 없다.
+ * 그래서 <b>결과 자체는 오늘 기준으로 정확하다.</b> 도달할 수 없는 단계를 놓치는 것이지
+ * 틀리게 보고하는 것이 아니다.
  *
- * <p>그래서 <b>이 필드로 검증 배지를 그리면 화면이 조용히 거짓말을 한다.</b>
- * 판정 근거가 확보되면 이 주석과 함께 사라질 제약이다.
+ * <p>화면에서 검증 배지를 그린다면 이 범위를 넘는 표현은 쓰지 않는다.
  *
  * <h2>null 이 정상인 필드들</h2>
  *
@@ -65,7 +63,7 @@ public record MaterialDetailResponse(
         String evidenceHash,
         String manifestUrl,
 
-        // Verification — 위 주석 참고. 항상 REGISTERED 다
+        // Verification — 조회 시점 계산값. 판정 범위는 위 주석 참고
         MaterialVerificationState verificationState,
 
         // 상태
@@ -76,7 +74,10 @@ public record MaterialDetailResponse(
         Long chainId,
         String contractAddress) {
 
-    public static MaterialDetailResponse of(Material material, List<MaterialBalance> balances) {
+    public static MaterialDetailResponse of(
+            Material material,
+            List<MaterialBalance> balances,
+            MaterialVerificationState verificationState) {
         return new MaterialDetailResponse(
                 material.getId(),
                 material.getMaterialCode(),
@@ -94,7 +95,7 @@ public record MaterialDetailResponse(
                 balances.stream().map(MaterialOwnerResponse::from).toList(),
                 material.getEvidenceHash(),
                 material.getManifestUrl(),
-                MaterialVerificationState.REGISTERED,
+                verificationState,
                 material.getStatus(),
                 material.getTokenId(),
                 material.getChainId(),
