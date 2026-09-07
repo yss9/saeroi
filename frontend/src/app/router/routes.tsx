@@ -2,6 +2,7 @@ import { type RouteObject } from 'react-router-dom'
 import { ShopProvider } from '../../features/shop/ShopContext.tsx'
 import { LandingPage } from '../../pages/landing/LandingPage.tsx'
 import { AdminPage } from '../../pages/auth/AdminPage.tsx'
+import { ConsumerSignupPage } from '../../pages/auth/ConsumerSignupPage.tsx'
 import { LoginPage } from '../../pages/auth/LoginPage.tsx'
 import { NotFoundPage } from '../../pages/auth/NotFoundPage.tsx'
 import { SignupPendingPage } from '../../pages/auth/SignupPendingPage.tsx'
@@ -48,7 +49,7 @@ export const routes: RouteObject[] = [
   { path: '/', element: landingPageElement },
   { path: '/login', element: <LoginPage /> },
   { path: '/signup', element: <SignupTypePage /> },
-  { path: '/signup/consumer', element: <SignupPendingPage accountType="consumer" /> },
+  { path: '/signup/consumer', element: <ConsumerSignupPage /> },
   { path: '/signup/business', element: <SignupPendingPage accountType="business" /> },
 
   // QR Passport: 비회원 공개. 절대 ProtectedRoute 안으로 옮기지 말 것.
