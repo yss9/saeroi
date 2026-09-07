@@ -34,14 +34,16 @@ public interface TradeSearchRepository extends Repository<MaterialTrade, Long> {
      * {@code (:side = 'SELL' and t.sellerId = :userId) or ...} 같은 조건이 되어 두 인덱스를
      * 모두 못 타기 때문이다.
      *
-     * @return {@code [MaterialTrade, Material, MaterialListing, 상대방 User]} 순서가 계약이다
+     * @return {@code [MaterialTrade, Material, MaterialListing, 상대방 User, TradeShipping]}
+     *         순서가 계약이다. 배송은 {@code left join} 이라 마지막 자리가 {@code null} 일 수 있다
      */
     @Query(value = """
-            select t, m, l, buyer
+            select t, m, l, buyer, s
             from MaterialTrade t
             join Material m on m.id = t.materialId
             join MaterialListing l on l.id = t.listingId
             join User buyer on buyer.id = t.buyerId
+            left join TradeShipping s on s.tradeId = t.id
             where t.sellerId = :userId
               and (:status is null or t.status = :status)
             order by t.createdAt desc, t.id desc
@@ -59,11 +61,12 @@ public interface TradeSearchRepository extends Repository<MaterialTrade, Long> {
 
     /** 내가 산 거래. {@code (buyer_id, status)} 인덱스를 탄다. 상대방은 판매자다. */
     @Query(value = """
-            select t, m, l, seller
+            select t, m, l, seller, s
             from MaterialTrade t
             join Material m on m.id = t.materialId
             join MaterialListing l on l.id = t.listingId
             join User seller on seller.id = t.sellerId
+            left join TradeShipping s on s.tradeId = t.id
             where t.buyerId = :userId
               and (:status is null or t.status = :status)
             order by t.createdAt desc, t.id desc
@@ -85,15 +88,16 @@ public interface TradeSearchRepository extends Repository<MaterialTrade, Long> {
      * <p>여기서는 양쪽 이름이 모두 필요하므로 {@code users} 를 두 번 조인한다 — 목록과 달리
      * 상세는 "누가 누구에게" 를 다 보여준다.
      *
-     * @return {@code [MaterialTrade, Material, MaterialListing, 판매자, 구매자]}
+     * @return {@code [MaterialTrade, Material, MaterialListing, 판매자, 구매자, TradeShipping]}
      */
     @Query("""
-            select t, m, l, seller, buyer
+            select t, m, l, seller, buyer, s
             from MaterialTrade t
             join Material m on m.id = t.materialId
             join MaterialListing l on l.id = t.listingId
             join User seller on seller.id = t.sellerId
             join User buyer on buyer.id = t.buyerId
+            left join TradeShipping s on s.tradeId = t.id
             where t.id = :tradeId
             """)
     List<Object[]> findDetailById(@Param("tradeId") Long tradeId);
