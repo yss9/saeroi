@@ -9,6 +9,6 @@ import type { CreateListingRequest, Listing } from '../types/marketplace.types.t
  * 보유량만 보는 것이 아니라는 점이 중요하다 — 그랬다면 같은 30kg 을 여러 번 팔 수 있다.
  */
 export async function createListing(payload: CreateListingRequest): Promise<Listing> {
-  const { data } = await apiClient.post<Listing>('/listings', payload)
+  const { data } = await apiClient.post<Listing>('/v1/listings', payload)
   return data
 }

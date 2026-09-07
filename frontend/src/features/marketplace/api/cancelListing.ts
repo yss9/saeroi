@@ -14,6 +14,6 @@ import type { Listing } from '../types/marketplace.types.ts'
  * 취소 사유는 서버가 받지 않는다. `material_listing` 에 사유 컬럼이 없다.
  */
 export async function cancelListing(listingId: number): Promise<Listing> {
-  const { data } = await apiClient.delete<Listing>(`/listings/${listingId}`)
+  const { data } = await apiClient.delete<Listing>(`/v1/listings/${listingId}`)
   return data
 }

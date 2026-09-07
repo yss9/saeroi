@@ -17,6 +17,6 @@ export interface GetListingsParams extends ListingFilters {
 export async function getListings(
   params: GetListingsParams = {},
 ): Promise<PageResponse<Listing>> {
-  const { data } = await apiClient.get<PageResponse<Listing>>('/listings', { params })
+  const { data } = await apiClient.get<PageResponse<Listing>>('/v1/listings', { params })
   return data
 }

@@ -13,7 +13,7 @@ export async function getTradeQuote(
   quantity: number,
   unit: QuantityUnit = 'G',
 ): Promise<TradeQuote> {
-  const { data } = await apiClient.get<TradeQuote>('/trades/quote', {
+  const { data } = await apiClient.get<TradeQuote>('/v1/trades/quote', {
     params: { listingId, quantity, unit },
   })
   return data

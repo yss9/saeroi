@@ -11,6 +11,6 @@ import type { Trade, TradeFilters } from '../types/trade.types.ts'
  * 기본은 `side=BUY`(내가 산 것)다. 판매자는 `SELL` 로 발송 대기 건을 본다.
  */
 export async function getTrades(params: TradeFilters = {}): Promise<PageResponse<Trade>> {
-  const { data } = await apiClient.get<PageResponse<Trade>>('/trades', { params })
+  const { data } = await apiClient.get<PageResponse<Trade>>('/v1/trades', { params })
   return data
 }

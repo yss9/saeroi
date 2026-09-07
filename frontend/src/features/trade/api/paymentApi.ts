@@ -18,7 +18,7 @@ import { apiClient } from '../../../services/apiClient.ts'
 import type { PaymentConfirmRequest, Trade } from '../types/trade.types.ts'
 
 /**
- * 결제 승인 — `POST /trades/{tradeId}/payment`
+ * 결제 승인 — `POST /v1/trades/{tradeId}/payment`
  *
  * 성공하면 거래가 PAID 로 넘어간다. 이때 Material 은 아직 이동하지 않는다 —
  * 소유권 이전은 Buyer 수령 확인 시점이다 (정책 07.2).
@@ -30,12 +30,12 @@ export async function confirmPayment(
   tradeId: number,
   payload: PaymentConfirmRequest,
 ): Promise<Trade> {
-  const { data } = await apiClient.post<Trade>(`/trades/${tradeId}/payment`, payload)
+  const { data } = await apiClient.post<Trade>(`/v1/trades/${tradeId}/payment`, payload)
   return data
 }
 
 /**
- * 거래 취소 — `POST /trades/{tradeId}/cancel`
+ * 거래 취소 — `POST /v1/trades/{tradeId}/cancel`
  *
  * 당사자 양쪽 모두 부를 수 있고 **발송 전까지만** 가능하다. 배송이 시작된 뒤의 되돌리기는
  * 분쟁 절차(정책 09)다.
@@ -49,6 +49,6 @@ export async function confirmPayment(
  * 취소 사유는 서버가 받지 않는다 — `material_trade` 에 사유 컬럼이 없다.
  */
 export async function cancelTrade(tradeId: number): Promise<Trade> {
-  const { data } = await apiClient.post<Trade>(`/trades/${tradeId}/cancel`)
+  const { data } = await apiClient.post<Trade>(`/v1/trades/${tradeId}/cancel`)
   return data
 }

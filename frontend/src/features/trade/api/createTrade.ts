@@ -15,6 +15,6 @@ import type { CreateTradeRequest, Trade } from '../types/trade.types.ts'
  * 동시 구매를 막지 못한다.
  */
 export async function createTrade(payload: CreateTradeRequest): Promise<Trade> {
-  const { data } = await apiClient.post<Trade>('/trades', payload)
+  const { data } = await apiClient.post<Trade>('/v1/trades', payload)
   return data
 }

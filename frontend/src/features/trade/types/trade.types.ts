@@ -126,7 +126,7 @@ export interface TradeFilters {
 // ── 결제 ────────────────────────────────────────────────
 
 /**
- * 구매 전 금액 미리보기 (`GET /trades/quote`).
+ * 구매 전 금액 미리보기 (`GET /v1/trades/quote`).
  *
  * 화면도 `calculateTotalPrice` 로 같은 계산을 한다. 그런데도 이 호출이 있는 이유는
  * **단가와 잔여 수량이 그 사이에 바뀔 수 있기 때문**이다 — 목록을 읽은 뒤 다른 구매자가
@@ -145,7 +145,7 @@ export interface TradeQuote {
 }
 
 /**
- * 결제 승인 통보 (`POST /trades/{tradeId}/payment`).
+ * 결제 승인 통보 (`POST /v1/trades/{tradeId}/payment`).
  *
  * ⚠️ **지금은 클라이언트가 승인 결과를 알려주는 구조다.** PG 연동 전이라 그렇고,
  * 그래서 서버가 `paymentAmount` 를 거래 금액과 반드시 대조한다
