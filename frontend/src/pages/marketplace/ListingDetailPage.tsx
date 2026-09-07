@@ -35,7 +35,9 @@ export function ListingDetailPage() {
         </StatusBadge>
       </header>
 
-      {data.description && <p className="listing-detail__description">{data.description}</p>}
+      {data.materialDescription && (
+        <p className="listing-detail__description">{data.materialDescription}</p>
+      )}
 
       <dl className="listing-detail__meta">
         <div>

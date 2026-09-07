@@ -4,11 +4,11 @@ import { usePayment } from '../hooks/usePayment.ts'
 import {
   TRADE_STATUS_LABEL,
   type PaymentPhase,
-  type TradeDetail,
+  type Trade,
 } from '../types/trade.types.ts'
 
 export interface PaymentPanelProps {
-  trade: TradeDetail
+  trade: Trade
 }
 
 const PHASE_MESSAGE: Record<PaymentPhase, string> = {
@@ -38,9 +38,12 @@ const PHASE_TONE: Record<PaymentPhase, 'neutral' | 'info' | 'success' | 'danger'
  * "지금 어디까지 왔는지" 를 보여줄 수 없다. usePayment 의 PaymentPhase 가
  * 그 구간을 채운다.
  *
- * TODO(3번): 실제 카카오페이 연동 시 결제창 복귀 처리를 붙인다.
- * 복귀 URL 로 돌아오면 `pg_token` 쿼리를 읽어 `confirm(tradeId, pgToken)` 을 호출한다.
- * 라우트는 `/trades/:tradeId/payment/return` 정도가 적당하다.
+ * TODO(결제 API 연동): 실제 카카오페이 연동 시 결제창 복귀 처리를 붙인다.
+ * 복귀 URL 로 돌아오면 `pg_token` 쿼리를 읽어 승인을 호출한다. 라우트는
+ * `/trades/:tradeId/payment/return` 정도가 적당하다.
+ *
+ * 취소 사유를 받지 않는다 — `material_trade` 에 사유 컬럼이 없다. 사유가 필요하면
+ * 스키마부터 정해야 하고, 그 전에 화면에서 받으면 입력한 값이 그대로 버려진다.
  */
 export function PaymentPanel({ trade }: PaymentPanelProps) {
   const payment = usePayment()
@@ -62,23 +65,17 @@ export function PaymentPanel({ trade }: PaymentPanelProps) {
           <dt>결제 금액</dt>
           <dd className="payment-panel__total">{formatWon(trade.totalPrice)}</dd>
         </div>
-        {trade.paymentMethod && (
-          <div>
-            <dt>결제 수단</dt>
-            <dd>카카오페이</dd>
-          </div>
-        )}
+        <div>
+          <dt>결제 수단</dt>
+          {/* MOCK 은 PG 연동 전 경로다. "카카오페이" 로 표시하면 실제로 결제된 것처럼
+              읽히므로 값을 그대로 구분해 보여준다. */}
+          <dd>{trade.paymentMethod === 'KAKAO_PAY' ? '카카오페이' : '테스트 결제'}</dd>
+        </div>
         {/* 결제 참조(tid)는 문의·정산 대조에 쓰인다. 결제 후에만 존재한다. */}
         {trade.paymentReference && (
           <div>
             <dt>결제 번호</dt>
             <dd className="payment-panel__reference">{trade.paymentReference}</dd>
-          </div>
-        )}
-        {trade.cancelReference && (
-          <div>
-            <dt>취소 번호</dt>
-            <dd className="payment-panel__reference">{trade.cancelReference}</dd>
           </div>
         )}
       </dl>
@@ -93,8 +90,8 @@ export function PaymentPanel({ trade }: PaymentPanelProps) {
       <div className="payment-panel__actions">
         {!alreadyPaid && (
           <Button
-            onClick={() => void payment.start(trade.id)}
-            loading={payment.isBusy}
+            onClick={() => payment.start(trade.tradeId)}
+            disabled={payment.isBusy}
             fullWidth
           >
             결제하기
@@ -105,7 +102,7 @@ export function PaymentPanel({ trade }: PaymentPanelProps) {
         {(trade.status === 'CREATED' || trade.status === 'PAID') && (
           <Button
             variant="secondary"
-            onClick={() => void payment.cancel(trade.id, '구매자 요청')}
+            onClick={() => void payment.cancel(trade.tradeId)}
             disabled={payment.isBusy}
           >
             거래 취소
@@ -113,15 +110,17 @@ export function PaymentPanel({ trade }: PaymentPanelProps) {
         )}
       </div>
 
-      {/* Mock 구간 안내. 실제 연동 전까지 결제창이 뜨지 않는다는 것을 명시한다 —
-          없으면 "버튼을 눌렀는데 아무 일도 안 난다" 로 읽힌다. */}
+      {/* PG 연동 전 안내. 결제창이 뜨지 않는다는 것을 명시한다 —
+          없으면 "버튼을 눌렀는데 아무 일도 안 난다" 로 읽힌다.
+          이 버튼이 보내는 금액은 화면이 지어낸 값이 아니라 서버가 계산해 둔 거래
+          금액이다. 어긋나면 서버가 PAYMENT_AMOUNT_MISMATCH 로 거절한다. */}
       {payment.phase === 'AWAITING_PG' && (
         <div className="payment-panel__mock">
           <p>결제 API가 아직 연결되지 않아 결제창이 열리지 않습니다.</p>
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => void payment.confirm(trade.id, 'MOCK-PG-TOKEN')}
+            onClick={() => void payment.confirm(trade.tradeId, trade.totalPrice)}
           >
             결제 완료로 처리 (테스트)
           </Button>

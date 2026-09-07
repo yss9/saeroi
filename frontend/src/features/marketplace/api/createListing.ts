@@ -1,17 +1,14 @@
 import { apiClient } from '../../../services/apiClient.ts'
-import type { CreateListingRequest, ListingDetail } from '../types/marketplace.types.ts'
-import { insertListing } from './mock/marketplaceMockStore.ts'
+import type { CreateListingRequest, Listing } from '../types/marketplace.types.ts'
 
 /**
  * 판매 등록 (Supplier Market).
  *
- * 서버는 이 요청을 받아 Material 의 가용 수량을 확인하고 MARKETPLACE Lock 을 만든다
- * (정책 06.3). 즉 등록에 성공하면 그 수량은 즉시 다른 용도로 쓸 수 없다.
- *
- * TODO(3번): `apiClient.post<ListingDetail>('/listings', payload)` 로 교체.
+ * 서버가 소재의 **가용 수량**(보유량 − 잠금 합계)을 확인하고 MARKETPLACE 잠금을 만든다.
+ * 즉 등록에 성공하면 그 수량은 즉시 다른 판매글이나 가공에 쓸 수 없다.
+ * 보유량만 보는 것이 아니라는 점이 중요하다 — 그랬다면 같은 30kg 을 여러 번 팔 수 있다.
  */
-export async function createListing(payload: CreateListingRequest): Promise<ListingDetail> {
-  void apiClient
-  await new Promise((resolve) => setTimeout(resolve, 300))
-  return insertListing(payload)
+export async function createListing(payload: CreateListingRequest): Promise<Listing> {
+  const { data } = await apiClient.post<Listing>('/v1/listings', payload)
+  return data
 }

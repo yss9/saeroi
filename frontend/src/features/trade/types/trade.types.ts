@@ -1,16 +1,24 @@
-// Trade 도메인 타입. Backend `material_trade` / `trade_dispute` ENUM 과 일치한다.
+// Trade 도메인 타입.
+//
+// Backend 원본: backend/src/main/java/com/ssafy/upcycle/trade/dto/TradeResponse.java
+// 필드 이름을 서버 응답과 정확히 같게 둔다 (marketplace.types.ts 와 같은 이유).
 //
 // 수량은 gram 정수, 금액은 원이다 (정책 03·08절).
+
+import type { QuantityUnit } from '../../marketplace/types/marketplace.types.ts'
 
 /**
  * `material_trade.status` — 2-Track 확정 정책을 따른다.
  *
  *   CREATED → PAID → SHIPPED → RECEIVED → COMPLETED
- *                                      ↘ DISPUTED
- *   (배송 전 취소는 어느 단계에서든 CANCELED)
+ *   (발송 전까지는 어느 단계에서든 CANCELED)
  *
  * ⚠️ 소유권은 **RECEIVED 시점** 에 이전된다. 배송(SHIPPED)이 아니다.
- * 배송 중에도 Seller 의 MARKETPLACE Lock 이 유지되어 재판매를 막는다 (정책 07.2).
+ * 배송 중에도 Seller 의 MARKETPLACE 잠금이 유지되어 재판매를 막는다 (정책 07.2).
+ *
+ * ⚠️ `DISPUTED` 가 없다. 정책 v3 의 상태 목록에는 있지만 `schema.sql` 의 ENUM 에는
+ * 아직 들어가지 않았다 — 서버가 돌려줄 수 없는 값을 화면 타입에 두면 도달하지 않는
+ * 분기가 생긴다. 분쟁 스키마가 들어오면 여기와 서버 enum 을 같은 커밋에서 바꾼다.
  */
 export type TradeStatus =
   | 'CREATED'
@@ -19,7 +27,6 @@ export type TradeStatus =
   | 'RECEIVED'
   | 'COMPLETED'
   | 'CANCELED'
-  | 'DISPUTED'
 
 export const TRADE_STATUS_LABEL: Record<TradeStatus, string> = {
   CREATED: '결제 대기',
@@ -28,7 +35,6 @@ export const TRADE_STATUS_LABEL: Record<TradeStatus, string> = {
   RECEIVED: '수령 확인',
   COMPLETED: '거래 완료',
   CANCELED: '거래 취소',
-  DISPUTED: '분쟁 진행 중',
 }
 
 /** 구매자가 다음에 할 수 있는 행동이 있는 단계인지. 목록에서 강조 표시에 쓴다. */
@@ -38,101 +44,119 @@ export const BUYER_ACTION_REQUIRED: readonly TradeStatus[] = ['CREATED', 'SHIPPE
 export const SELLER_ACTION_REQUIRED: readonly TradeStatus[] = ['PAID']
 
 /**
- * 결제 수단. 정책 08절에서 **포인트 시스템이 폐지**되고 카카오페이 PG 직접 결제로 확정됐다.
- * 금액 단위도 포인트(P)가 아니라 원이다.
+ * 결제 수단. `material_trade.payment_method` ENUM 과 같다.
+ *
+ * 정책 08절에서 포인트 시스템이 폐지되고 카카오페이 PG 직접 결제로 확정됐다.
+ * `MOCK` 은 PG 연동 전 시연·테스트 경로다 — 정책 문서에는 없지만 스키마에 있고,
+ * 지금 화면이 실제로 쓰는 값이다.
  */
-export type PaymentMethod = 'KAKAOPAY'
-
-/** `trade_dispute.reason_type` */
-export type DisputeReason = 'NOT_DELIVERED' | 'QUANTITY_MISMATCH' | 'CONDITION_MISMATCH'
-
-export const DISPUTE_REASON_LABEL: Record<DisputeReason, string> = {
-  NOT_DELIVERED: '소재 미수령',
-  QUANTITY_MISMATCH: '수량 불일치',
-  CONDITION_MISMATCH: '상태 불일치',
-}
-
-/** `trade_dispute.status` */
-export type DisputeStatus = 'OPEN' | 'RESOLVED'
+export type PaymentMethod = 'MOCK' | 'KAKAO_PAY'
 
 /**
- * 분쟁 결과. 정책 09.3절에서 **ADMIN 판정이 폐지**되고 당사자 합의 + 양측 서명 방식이 됐다.
- * 대금 예치가 없으므로 승패가 아니라 **Material 을 어디로 보낼지** 만 정한다.
+ * 거래 한 건. 목록과 상세가 같은 모양이다.
+ *
+ * 소재 이름과 양쪽 이름, kg 단가는 `material_trade` 에 없는 값이지만 서버가 조인해서
+ * 함께 내려보낸다 — 없으면 화면이 행마다 소재와 사용자를 다시 조회하게 된다.
  */
-export type DisputeResolution = 'RETURN_TO_SELLER' | 'TRANSFER_TO_BUYER'
-
-export interface TradeSummary {
-  id: number
+export interface Trade {
+  tradeId: number
   tradeCode: string
+  /** 온체인 주문 번호. 체인 등록 전에는 null */
+  chainTradeId: number | null
   listingId: number
   materialId: number
   materialCode: string
   materialName: string
-  /** 구매 수량 (gram) */
-  quantity: number
-  /** 거래 금액 (원). 주문 시점 스냅샷이다 */
-  totalPrice: number
-  status: TradeStatus
   sellerId: number
   sellerName: string
   buyerId: number
   buyerName: string
-  createdAt: string
-}
-
-export interface TradeDetail extends TradeSummary {
-  /** kg당 단가 (원). 주문 시점 스냅샷 */
+  /** 거래 시점 지갑 주소 스냅샷. 지갑을 교체해도 이 값은 바뀌지 않는다 */
+  sellerWallet: string
+  buyerWallet: string
+  /** 구매 수량 (gram) */
+  quantity: number
+  /** kg당 단가 (원) */
   pricePerKg: number
-  paymentMethod: PaymentMethod | null
-  /** PG 승인 tid. 결제 전에는 null */
+  /** 거래 금액 (원). 서버가 계산한 값이다 */
+  totalPrice: number
+  paymentMethod: PaymentMethod
+  /**
+   * PG 승인 tid. 결제 전에는 null.
+   *
+   * 이 필드가 채워졌는지가 "결제가 실제로 승인되었는가" 의 답이다 —
+   * `status` 만 보면 Mock 결제와 실제 승인을 구분할 수 없다.
+   */
   paymentReference: string | null
-  /** PG 취소 tid */
-  cancelReference: string | null
-  /** 거래 시점 지갑 주소 스냅샷 */
-  sellerWallet: string | null
-  buyerWallet: string | null
+  /** 실제 승인된 금액 (원). 결제 전에는 0 */
+  paymentAmount: number
+  status: TradeStatus
+  createdAt: string
   paidAt: string | null
   shippedAt: string | null
   receivedAt: string | null
   /** Buyer 수령 서명 시각. 이게 있어야 TRANSACTION_VERIFIED 가 된다 */
   buyerSignedAt: string | null
   completedAt: string | null
-  canceledAt: string | null
-  cancelReason: string | null
 }
 
 /**
  * 구매 요청.
  *
- * 금액을 클라이언트가 보내지 않는다 — 서버가 Listing 의 `pricePerKg` 로 계산한다.
- * 보내게 하면 값을 조작해 싸게 살 수 있다. 화면에 보여주는 금액은 어디까지나 미리보기다.
+ * 금액을 보내지 않는다 — 서버가 판매글의 `pricePerKg` 로 계산한다. 보내게 하면 값을
+ * 조작해 싸게 살 수 있다. 화면에 보여주는 금액은 어디까지나 미리보기다.
  */
 export interface CreateTradeRequest {
   listingId: number
-  /** 구매 수량 (gram). 판매 가능 수량을 넘을 수 없다 */
   quantity: number
+  unit: QuantityUnit
+  paymentMethod: PaymentMethod
+}
+
+/** 내 거래 목록 필터. */
+export interface TradeFilters {
+  /** BUY = 내가 산 것(기본), SELL = 내가 판 것 */
+  side?: 'BUY' | 'SELL'
+  status?: TradeStatus
+  /** 0-based */
+  page?: number
+  size?: number
 }
 
 // ── 결제 ────────────────────────────────────────────────
 
 /**
- * 결제 준비 응답 (`POST /trades/{tradeId}/payment`).
+ * 구매 전 금액 미리보기 (`GET /v1/trades/quote`).
  *
- * 카카오페이는 2단계다 — `ready` 로 결제창 URL 을 받고, 사용자가 인증한 뒤
- * `approve` 로 승인한다. 이 응답이 1단계 결과다.
+ * 화면도 `calculateTotalPrice` 로 같은 계산을 한다. 그런데도 이 호출이 있는 이유는
+ * **단가와 잔여 수량이 그 사이에 바뀔 수 있기 때문**이다 — 목록을 읽은 뒤 다른 구매자가
+ * 먼저 사면 화면의 계산은 이미 없는 수량에 대한 금액이다.
+ *
+ * 이 응답도 약속은 아니다. 실제 금액은 구매 요청 시점에 다시 계산된다.
  */
-export interface PaymentReadyResponse {
-  /** 카카오페이가 발급한 거래 식별자 */
-  tid: string
-  /** 사용자를 보낼 결제창 주소 */
-  redirectUrl: string
+export interface TradeQuote {
+  listingId: number
+  /** gram */
+  quantity: number
+  pricePerKg: number
+  totalPrice: number
+  availableQuantity: number
+  purchasable: boolean
 }
 
-/** 결제 승인 요청 (`POST /trades/{tradeId}/payment/confirm`). */
+/**
+ * 결제 승인 통보 (`POST /v1/trades/{tradeId}/payment`).
+ *
+ * ⚠️ **지금은 클라이언트가 승인 결과를 알려주는 구조다.** PG 연동 전이라 그렇고,
+ * 그래서 서버가 `paymentAmount` 를 거래 금액과 반드시 대조한다
+ * (`PAYMENT_AMOUNT_MISMATCH`). 실제 카카오페이를 붙이면 서버가 PG 에 직접 물어보고
+ * 이 요청은 `pgToken` 하나로 줄어든다 — 바뀌는 것은 서버 안쪽이고 화면 흐름은 그대로다.
+ */
 export interface PaymentConfirmRequest {
-  tid: string
-  /** 결제창이 돌려주는 인증 토큰 */
-  pgToken: string
+  /** PG 승인 tid. Mock 결제도 값을 채운다 */
+  paymentReference: string
+  /** 승인 금액 (원). 거래 금액과 같아야 한다 */
+  paymentAmount: number
 }
 
 /**
@@ -144,7 +168,7 @@ export interface PaymentConfirmRequest {
 export type PaymentPhase =
   /** 아직 시작하지 않음 */
   | 'IDLE'
-  /** 결제 준비 요청 중 (redirectUrl 을 받는 중) */
+  /** 결제 준비 중 */
   | 'PREPARING'
   /** 결제창으로 이동함. 사용자가 돌아오기를 기다린다 */
   | 'AWAITING_PG'

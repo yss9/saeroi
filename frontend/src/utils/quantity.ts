@@ -54,13 +54,16 @@ export function formatWon(amount: number | bigint): string {
 }
 
 /**
- * kg당 단가와 수량(gram)으로 총액을 구한다.
+ * kg당 단가와 수량(gram)으로 총액을 구한다. **미리보기 전용이다.**
  *
- * 컨트랙트의 `calculateTotalPrice(quantityGram, pricePerKg)` 와 **같은 결과** 여야 한다.
- * 화면에 미리 보여주는 금액과 실제 체결 금액이 다르면 사용자가 신뢰하지 않는다.
+ * 기준은 서버의 `TradePricing` 이다. 컨트랙트가 아니다 — `Marketplace.sol` 은 가격을
+ * 아예 저장하지 않는다 (`createListing` 에 가격 인자가 없고 `Order` 에 금액 필드가 없다).
+ * 결제가 전적으로 오프체인이라 온체인에는 수량과 소유권만 남는다.
  *
- * TODO(3번/Marketplace 담당): 컨트랙트가 내림·반올림 중 무엇을 쓰는지 확인해 맞춘다.
- * 지금은 내림(정수 나눗셈)으로 가정했다 — Solidity 의 기본 동작이다.
+ * 그래서 여기와 맞춰야 하는 상대는 **서버 하나**다. 화면이 보여준 금액과 결제 승인 금액이
+ * 다르면 서버가 `PAYMENT_AMOUNT_MISMATCH` 로 거절한다.
+ *
+ * 버림을 쓴다. 바꿔야 한다면 `TradePricing.totalPrice` 와 같은 커밋에서 바꾼다.
  */
 export function calculateTotalPrice(quantityGram: number, pricePerKg: number): number {
   return Math.floor((quantityGram * pricePerKg) / 1000)

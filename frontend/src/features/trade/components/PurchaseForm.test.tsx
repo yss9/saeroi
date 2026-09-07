@@ -11,31 +11,29 @@ import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it } from 'vitest'
-import type { ListingDetail } from '../../marketplace/types/marketplace.types.ts'
+import type { Listing } from '../../marketplace/types/marketplace.types.ts'
 import { PurchaseForm } from './PurchaseForm.tsx'
 
-const LISTING: ListingDetail = {
-  id: 1,
+const LISTING: Listing = {
+  listingId: 1,
+  chainListingId: null,
   materialId: 1,
   materialCode: 'MAT-000001',
   materialName: '세척된 폐데님',
+  materialDescription: null,
   materialType: 'DENIM',
   rootOrigin: 'WASTE',
   grade: 'A',
+  sellerId: 2,
+  sellerName: '수거업체 A',
   totalQuantity: 30_000,
   availableQuantity: 12_000, // 12kg 남음
   pricePerKg: 4_200,
   status: 'ON_SALE',
-  sellerId: 2,
-  sellerName: '수거업체 A',
   createdAt: '2026-09-01T00:00:00.000Z',
-  description: null,
-  materialLockId: 9001,
-  canceledAt: null,
-  cancelReason: null,
 }
 
-function renderForm(listing: ListingDetail = LISTING) {
+function renderForm(listing: Listing = LISTING) {
   // 테스트마다 새 QueryClient 를 쓴다. 캐시가 테스트 사이에 새면 순서에 따라 결과가 달라진다.
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(

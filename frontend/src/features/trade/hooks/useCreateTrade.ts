@@ -3,7 +3,7 @@ import type { AppError } from '../../../utils/errors.ts'
 import { marketplaceKeys } from '../../marketplace/api/marketplaceKeys.ts'
 import { createTrade } from '../api/createTrade.ts'
 import { tradeKeys } from '../api/tradeKeys.ts'
-import type { CreateTradeRequest, TradeDetail } from '../types/trade.types.ts'
+import type { CreateTradeRequest, Trade } from '../types/trade.types.ts'
 
 /**
  * 구매 요청.
@@ -17,12 +17,12 @@ import type { CreateTradeRequest, TradeDetail } from '../types/trade.types.ts'
 export function useCreateTrade() {
   const queryClient = useQueryClient()
 
-  return useMutation<TradeDetail, AppError, CreateTradeRequest>({
+  return useMutation<Trade, AppError, CreateTradeRequest>({
     mutationFn: createTrade,
     onSuccess: (trade) => {
       void queryClient.invalidateQueries({ queryKey: marketplaceKeys.all })
       void queryClient.invalidateQueries({ queryKey: tradeKeys.lists() })
-      queryClient.setQueryData(tradeKeys.detail(trade.id), trade)
+      queryClient.setQueryData(tradeKeys.detail(trade.tradeId), trade)
     },
   })
 }

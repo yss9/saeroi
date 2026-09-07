@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { AppError } from '../../../utils/errors.ts'
 import { createListing } from '../api/createListing.ts'
 import { marketplaceKeys } from '../api/marketplaceKeys.ts'
-import type { CreateListingRequest, ListingDetail } from '../types/marketplace.types.ts'
+import type { CreateListingRequest, Listing } from '../types/marketplace.types.ts'
 
 /**
  * 판매 등록 (Supplier Market).
@@ -16,11 +16,11 @@ import type { CreateListingRequest, ListingDetail } from '../types/marketplace.t
 export function useCreateListing() {
   const queryClient = useQueryClient()
 
-  return useMutation<ListingDetail, AppError, CreateListingRequest>({
+  return useMutation<Listing, AppError, CreateListingRequest>({
     mutationFn: createListing,
     onSuccess: (created) => {
       void queryClient.invalidateQueries({ queryKey: marketplaceKeys.lists() })
-      queryClient.setQueryData(marketplaceKeys.detail(created.id), created)
+      queryClient.setQueryData(marketplaceKeys.detail(created.listingId), created)
     },
   })
 }
