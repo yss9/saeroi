@@ -24,6 +24,7 @@ GIT_CONVENTION에 따라 develop / feat 하위 브랜치 없이 이 브랜치에
 │   ├── deploy-service.sh      # 배포 + 헬스체크 실패 시 롤백 (본체)
 │   ├── deploy-*.sh            # 파트 Jenkinsfile이 부르는 진입점 (deploy-service.sh 호출)
 │   ├── health-check.sh        # 컨테이너 + 엔드포인트 확인 (2xx만 통과)
+│   ├── check-schema.sh        # 배포 전 스키마 검증 — DB가 엔티티보다 오래되면 앱이 기동에 실패한다
 │   ├── gitlab-status.sh       # 빌드 결과를 GitLab 커밋 상태로 보고 (초록 체크/빨간 X)
 │   ├── shell-aliases.sh       # 서버 단축 명령 (~/.bashrc 가 source)
 │   ├── backup-mysql.sh        # MySQL 일일 덤프 (cron 03:10)
@@ -116,6 +117,13 @@ cd ~/deploy && cp .env.example .env && vi .env    # 실값 입력
 # 첫 기동 — 새 서버에는 파트 이미지가 없으므로 local override 를 함께 쓴다
 docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
 bash scripts/health-check.sh
+
+# ── backend 배포 전에 반드시 ─────────────────────────────
+# application.yml 이 ddl-auto: validate 라서 스키마를 자동으로 만들지 않는다.
+# 엔티티가 기대하는 컬럼이 DB에 없으면 Hibernate 검증이 실패해 컨테이너가 죽는다.
+bash scripts/check-schema.sh          # 부족한 테이블·컬럼 보고 (읽기만 함)
+bash scripts/check-schema.sh --ddl    # 적용할 DDL 출력
+# → OK 를 확인한 뒤에 <파트>/master 로 올려 배포를 트리거한다
 # 이후 Jenkins 에서 backend/frontend/ai 의 <파트>/master 빌드를 실행하면
 # deploy-*.sh 가 실제 이미지로 교체한다. DB 는 scripts/restore-mysql.sh 로 복구.
 ```
