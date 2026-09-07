@@ -17,6 +17,11 @@
 import { Interface } from 'ethers'
 import { describe, expect, it } from 'vitest'
 import { abis, type ContractName } from '../contracts.ts'
+import {
+  LISTING_STATUS_ON_CHAIN,
+  ORDER_STATUS_ON_CHAIN,
+  decodeEnum,
+} from './onchainEnums.ts'
 
 /** 서비스 계층이 실제로 호출하는 함수와 인자 개수. */
 const REQUIRED: Record<ContractName, ReadonlyArray<readonly [string, number]>> = {
@@ -30,7 +35,8 @@ const REQUIRED: Record<ContractName, ReadonlyArray<readonly [string, number]>> =
     ['verifyEvidence', 2],
   ],
   marketplace: [
-    ['createListing', 3],
+    // 가격 인자가 없다. 컨트랙트는 대금을 모른다 (정책 08절, 결제는 전적으로 오프체인).
+    ['createListing', 2],
     ['cancelListing', 1],
     ['createOrder', 2],
     ['cancelOrder', 1],
@@ -38,7 +44,7 @@ const REQUIRED: Record<ContractName, ReadonlyArray<readonly [string, number]>> =
     ['confirmReceipt', 1],
     ['getListing', 1],
     ['getOrder', 1],
-    ['calculateTotalPrice', 2],
+    ['availableBalance', 2],
   ],
   // 가공·생산 서비스는 각 도메인 담당이 만든다. 여기서는 ABI 가 실려 있는지만 확인한다.
   processingRegistry: [],
@@ -100,11 +106,57 @@ describe('Marketplace 분쟁', () => {
   })
 })
 
-describe('결제는 서버가 기록한다', () => {
-  // markPaid 는 ABI 에는 있지만 PAYMENT_MANAGER_ROLE 이 필요한 서버 전용이다.
-  // 프론트 서비스가 이걸 export 하면 화면에서 부르게 되고, 권한 오류로만 막히는 건 늦다.
-  it('marketplace 서비스가 markPaid 를 노출하지 않는다', async () => {
-    const service = await import('../../features/marketplace/services/marketplaceContractService.ts')
-    expect(Object.keys(service)).not.toContain('markPaid')
+describe('결제는 온체인에 없다', () => {
+  const iface = new Interface(abis.marketplace)
+
+  // 한때 ABI 에 markPaid / PaymentConfirmed / calculateTotalPrice 가 있었고 Listing 과
+  // Order 구조체가 금액을 들고 있었다. 정책 v3 정합화로 전부 빠졌다 — 대금은 카카오페이
+  // PG 로 오프체인 처리하고 온체인에는 수량과 소유권만 남는다.
+  //
+  // 이것들이 다시 생기면 "체인이 결제를 안다" 는 뜻이라 설계를 다시 봐야 한다.
+  it.each(['markPaid', 'calculateTotalPrice'])('%s 는 컨트랙트에 없다', (fn) => {
+    expect(iface.getFunction(fn)).toBeNull()
+  })
+
+  it('Listing 과 Order 구조체에 금액 필드가 없다', () => {
+    const fieldsOf = (fn: string) =>
+      iface.getFunction(fn)!.outputs[0].components?.map((component) => component.name) ?? []
+
+    expect(fieldsOf('getListing')).not.toContain('pricePerKg')
+    expect(fieldsOf('getOrder')).not.toContain('totalPrice')
+  })
+})
+
+// enum 은 ABI 에 이름이 남지 않는다 — 전부 uint8 이다. 그래서 위치가 어긋나도
+// 컴파일도 트랜잭션도 통과하고 **의미만 조용히 뒤바뀐다.**
+//
+// 실제로 두 곳 다 틀려 있었다. ListingStatus 는 0번 NONE 을 빼먹어 전부 한 칸씩 밀렸고
+// (ACTIVE 를 SOLD_OUT 으로 읽었다), OrderStatus 에는 온체인에 없는 PAID 가 끼어 있어
+// 결제하지 않은 주문이 결제됨으로 읽혔다.
+//
+// ABI 로는 이걸 검증할 수 없으므로 Solidity 원본의 선언 순서를 여기 적어 고정한다.
+// `blockchain/contracts/Marketplace.sol` 을 고칠 때 이 배열도 같이 고쳐야 한다.
+describe('온체인 enum 위치', () => {
+  it('ListingStatus 는 NONE 으로 시작한다', () => {
+    expect([...LISTING_STATUS_ON_CHAIN]).toEqual([null, 'ON_SALE', 'SOLD_OUT', 'CANCELED'])
+  })
+
+  it('OrderStatus 에 PAID 가 없다', () => {
+    expect([...ORDER_STATUS_ON_CHAIN]).toEqual([
+      null,
+      'CREATED',
+      'SHIPPED',
+      'RECEIVED',
+      'COMPLETED',
+      'CANCELED',
+      'DISPUTED',
+    ])
+    expect(ORDER_STATUS_ON_CHAIN).not.toContain('PAID')
+  })
+
+  it('존재하지 않는 레코드(0)와 모르는 값을 모두 null 로 준다', () => {
+    expect(decodeEnum(LISTING_STATUS_ON_CHAIN, 0)).toBeNull()
+    expect(decodeEnum(LISTING_STATUS_ON_CHAIN, 1)).toBe('ON_SALE')
+    expect(decodeEnum(ORDER_STATUS_ON_CHAIN, 99)).toBeNull()
   })
 })
