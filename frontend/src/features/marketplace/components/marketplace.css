@@ -164,6 +164,20 @@
 .purchase-form__summary dd { margin: 0; font-variant-numeric: tabular-nums; }
 .purchase-form__total { font-size: 1.1rem; font-weight: 700; }
 
+/* 배송지. 수량·금액과 성격이 다른 입력 묶음이라 테두리로 묶어 구분한다. */
+.purchase-form__shipping {
+  margin: 0 0 1rem;
+  padding: 0.85rem 1rem 0.4rem;
+  border: 1px solid #ddd9cd;
+  border-radius: 6px;
+}
+.purchase-form__shipping legend {
+  padding: 0 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #6b7280;
+}
+
 /* ── 거래 ────────────────────────────────────────────── */
 .trade-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.6rem; }
 .trade-list__link {

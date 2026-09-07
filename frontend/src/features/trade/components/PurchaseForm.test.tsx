@@ -5,14 +5,20 @@
 // 실패하는 일이 없다.
 //
 // 금액 계산도 함께 본다. 화면에 보인 금액과 실제 결제 금액이 다르면 신뢰가 깨진다.
+//
+// 배송지도 이 폼의 책임이다. **배송지 없이 만들어진 거래는 발송·수령이 서버에서 404 로
+// 막혀 판매자도 구매자도 끝낼 수 없다** — 그래서 빠뜨린 채 요청이 나가지 않아야 한다.
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Listing } from '../../marketplace/types/marketplace.types.ts'
 import { PurchaseForm } from './PurchaseForm.tsx'
+
+const api = vi.hoisted(() => ({ createTrade: vi.fn() }))
+vi.mock('../api/createTrade.ts', () => api)
 
 const LISTING: Listing = {
   listingId: 1,
@@ -35,7 +41,9 @@ const LISTING: Listing = {
 
 function renderForm(listing: Listing = LISTING) {
   // 테스트마다 새 QueryClient 를 쓴다. 캐시가 테스트 사이에 새면 순서에 따라 결과가 달라진다.
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
@@ -45,7 +53,21 @@ function renderForm(listing: Listing = LISTING) {
   )
 }
 
-afterEach(cleanup)
+beforeEach(() => {
+  api.createTrade.mockResolvedValue({ tradeId: 42 })
+})
+afterEach(() => {
+  cleanup()
+  vi.resetAllMocks()
+})
+
+/** 배송지를 모두 채운다. 이 폼은 배송지가 없으면 요청을 보내지 않는다. */
+async function fillAddress(user: ReturnType<typeof userEvent.setup>) {
+  await user.type(screen.getByLabelText('수취인'), '브랜드 B 자재팀')
+  await user.type(screen.getByLabelText('연락처'), '010-0000-0000')
+  await user.type(screen.getByLabelText('우편번호'), '06236')
+  await user.type(screen.getByLabelText('주소'), '서울 강남구 테헤란로 1')
+}
 
 describe('PurchaseForm', () => {
   it('수량을 입력하기 전에는 구매할 수 없다', () => {
@@ -94,6 +116,56 @@ describe('PurchaseForm', () => {
     await user.type(screen.getByLabelText('구매 수량'), '2.3')
 
     expect(screen.getByText('9,660원')).toBeInTheDocument()
+  })
+
+  // 배송지를 빠뜨린 거래는 아무도 끝낼 수 없다. 서버도 400 으로 막지만, 그 전에
+  // 어느 칸이 비었는지 화면이 알려줘야 한다.
+  it('배송지를 비운 채로는 구매를 요청하지 않는다', async () => {
+    const user = userEvent.setup()
+    renderForm()
+
+    await user.type(screen.getByLabelText('구매 수량'), '10')
+    await user.click(screen.getByRole('button', { name: '구매 요청' }))
+
+    expect(await screen.findByText('수취인 이름을 입력해 주세요.')).toBeInTheDocument()
+    expect(screen.getByText('주소를 입력해 주세요.')).toBeInTheDocument()
+    expect(api.createTrade).not.toHaveBeenCalled()
+  })
+
+  it('수량과 배송지를 함께 보낸다', async () => {
+    const user = userEvent.setup()
+    renderForm()
+
+    await user.type(screen.getByLabelText('구매 수량'), '10')
+    await fillAddress(user)
+    await user.click(screen.getByRole('button', { name: '구매 요청' }))
+
+    // 첫 인자만 본다. useCreateTrade 가 createTrade 를 mutationFn 으로 그대로 넘기므로
+    // TanStack Query 가 두 번째 인자로 자기 컨텍스트({ client, meta, mutationKey })를 준다.
+    expect(api.createTrade.mock.calls[0][0]).toEqual({
+      listingId: 1,
+      // 10kg → 10,000g. 금액은 보내지 않는다 — 서버가 계산한다.
+      quantity: 10_000,
+      unit: 'G',
+      paymentMethod: 'MOCK',
+      receiverName: '브랜드 B 자재팀',
+      receiverPhone: '010-0000-0000',
+      zipCode: '06236',
+      address: '서울 강남구 테헤란로 1',
+      // 상세 주소는 비웠으므로 필드 자체가 없다.
+    })
+  })
+
+  it('상세 주소를 채우면 함께 보낸다', async () => {
+    const user = userEvent.setup()
+    renderForm()
+
+    await user.type(screen.getByLabelText('구매 수량'), '10')
+    await fillAddress(user)
+    await user.type(screen.getByLabelText('상세 주소'), '3층')
+    await user.click(screen.getByRole('button', { name: '구매 요청' }))
+
+    expect(api.createTrade.mock.calls[0][0]).toMatchObject({ addressDetail: '3층' })
   })
 
   it('판매가 끝난 소재는 구매 버튼이 잠긴다', () => {
