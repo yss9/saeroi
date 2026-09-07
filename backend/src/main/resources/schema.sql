@@ -694,6 +694,9 @@ CREATE TABLE material_trade (
     paid_at DATETIME NULL,
     shipped_at DATETIME NULL,
     received_at DATETIME NULL,
+    -- Buyer 가 수령 확인과 함께 Wallet 으로 서명한 시각.
+    -- received_at 은 수령 확인 시각이라 서명 사실을 대신하지 못한다.
+    buyer_signed_at DATETIME NULL,
     completed_at DATETIME NULL,
     CONSTRAINT pk_material_trade PRIMARY KEY (id),
     CONSTRAINT uk_material_trade_code UNIQUE (trade_code),
