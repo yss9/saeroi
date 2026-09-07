@@ -1,6 +1,7 @@
 package com.ssafy.upcycle.common.exception;
 
 import com.ssafy.upcycle.common.response.ApiResponse;
+import com.ssafy.upcycle.common.storage.FileStorageErrorCode;
 import com.ssafy.upcycle.common.response.ValidationError;
 import jakarta.validation.ConstraintViolationException;
 import java.util.List;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
@@ -87,6 +89,24 @@ public class GlobalExceptionHandler {
             NoResourceFoundException exception) {
         log.warn("Resource not found: path={}", exception.getResourcePath());
         return error(CommonErrorCode.RESOURCE_NOT_FOUND);
+    }
+
+    /**
+     * 업로드 크기 초과.
+     *
+     * <p><b>번역하지 않으면 500 이 나간다.</b> Spring 의 {@code max-file-size} /
+     * {@code max-request-size} 는 우리 검증에 닿기 <b>전에</b> 걸러내므로,
+     * {@code EvidenceUploadService} 의 {@code FILE_TOO_LARGE} 검사가 실행되지 않는다.
+     * 사용자에게는 "서버 오류" 로 보이고, 사진을 줄이면 된다는 것을 알 방법이 없다.
+     *
+     * <p>파일 하나 초과와 요청 전체 초과를 구분하지 않는다. Spring 이 두 경우에 같은
+     * 예외를 던지고, 사용자가 할 일도 같다 — 파일을 줄이거나 나눠 올린다.
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMaxUploadSizeExceededException(
+            MaxUploadSizeExceededException exception) {
+        log.warn("Upload exceeded the configured limit: max={}", exception.getMaxUploadSize());
+        return error(FileStorageErrorCode.FILE_TOO_LARGE);
     }
 
     @ExceptionHandler(Exception.class)

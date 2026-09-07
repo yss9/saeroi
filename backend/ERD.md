@@ -427,14 +427,27 @@ Journey 를 한 단계씩 거슬러 올라갈 때마다 Processing 과 Productio
 | 컬럼 | 타입 | 설명 |
 | --- | --- | --- |
 | id | BIGINT PK |  |
-| reference_type | ENUM | MATERIAL / PROCESSING_JOB / PRODUCTION_BATCH / PRODUCTION_INPUT / TRADE_DISPUTE |
-| reference_id | BIGINT |  |
-| file_url | VARCHAR(500) | Object Storage |
-| file_hash | CHAR(66) | 개별 파일 SHA-256 |
+| reference_type | ENUM | MATERIAL / PROCESSING_JOB / PRODUCTION_BATCH / PRODUCTION_INPUT |
+| reference_id | BIGINT | **FK 없음** — 대상 테이블이 넷이라 걸 수 없다 |
+| file_url | VARCHAR(500) | **저장 키**다. 이름과 담는 값이 다르다 (아래 참고) |
+| file_hash | CHAR(66) | 개별 파일 SHA-256. `0x` + 64자 |
 | evidence_type | ENUM | BEFORE_PHOTO / AFTER_PHOTO / WEIGHT_SLIP / INVOICE / PROCESS_PHOTO / ETC |
+| uploaded_by | BIGINT FK | 올린 사용자. JWT `sub` 에서 얻는다 |
 | uploaded_at | DATETIME |  |
 
-INDEX `(reference_type, reference_id)`
+INDEX `(reference_type, reference_id)`, `uploaded_by`
+
+**`file_url` 은 URL 이 아니라 저장 키다.**
+저장소 루트 기준 상대 경로(`MATERIAL/1024/2026/09/<uuid>.jpg`)를 담는다.
+절대 URL 을 넣으면 도메인이나 버킷이 바뀔 때 모든 행을 고쳐야 하고, MinIO/S3 로 옮길 때
+(S15P21E104-162) 그 이관이 실패하면 파일을 찾을 수 없다. 공개 URL 은 조회 시점에 조립한다.
+
+**`reference_id` 에 FK 가 없다 = DB 가 대상 존재를 막아 주지 않는다.**
+`EvidenceReferenceValidator` 가 확인한다. 확인하지 않으면 없는 소재를 가리키는 증빙 행이
+남고, 그 파일의 해시는 온체인에 올라갈 수 있다 — 그 뒤에는 무엇의 증빙인지 알 방법이 없다.
+
+**증빙 행은 지우지 않는다.** `file_hash` 가 온체인에 기록되므로, 지우면 온체인에는 해시가
+남아 있는데 무엇의 해시인지 알 수 없는 상태가 된다. 잘못 올린 파일은 새로 올린다.
 
 **Evidence Manifest 방식**
 
