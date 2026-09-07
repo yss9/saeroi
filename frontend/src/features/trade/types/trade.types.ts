@@ -145,18 +145,25 @@ export interface TradeQuote {
 }
 
 /**
- * 결제 승인 통보 (`POST /v1/trades/{tradeId}/payment`).
+ * 결제 준비 결과 (`POST /v1/trades/{tradeId}/payment/ready`).
  *
- * ⚠️ **지금은 클라이언트가 승인 결과를 알려주는 구조다.** PG 연동 전이라 그렇고,
- * 그래서 서버가 `paymentAmount` 를 거래 금액과 반드시 대조한다
- * (`PAYMENT_AMOUNT_MISMATCH`). 실제 카카오페이를 붙이면 서버가 PG 에 직접 물어보고
- * 이 요청은 `pgToken` 하나로 줄어든다 — 바뀌는 것은 서버 안쪽이고 화면 흐름은 그대로다.
+ * `redirectUrl` 이 비어 있으면 **보낼 결제창이 없다**는 뜻이다. 서버에 카카오페이 키가
+ * 없어 Mock 게이트웨이가 붙은 경우이며, 그때는 이동하지 않고 바로 승인으로 넘어간다.
+ *
+ * 그 판단을 `redirectUrl` 의 빈 문자열로 하지 않고 `live` 로 한다 — "비어 있으면 Mock"
+ * 같은 규칙은 언젠가 서버·화면 한쪽에서만 바뀐다.
+ *
+ * `tid` 는 다시 보내라는 값이 아니다. 승인에는 `pgToken` 만 필요하고 tid 는 서버가
+ * 거래에서 읽는다. 결제 문의 때 사용자가 말할 수 있도록 화면에 노출하는 용도다.
  */
-export interface PaymentConfirmRequest {
-  /** PG 승인 tid. Mock 결제도 값을 채운다 */
-  paymentReference: string
-  /** 승인 금액 (원). 거래 금액과 같아야 한다 */
-  paymentAmount: number
+export interface PaymentReady {
+  tradeId: number
+  tid: string
+  /** 카카오페이 결제창 주소. Mock 이면 빈 문자열 */
+  redirectUrl: string
+  totalPrice: number
+  /** 실제 PG 가 붙어 있는가. false 면 청구가 일어나지 않는다 */
+  live: boolean
 }
 
 /**
@@ -168,13 +175,18 @@ export interface PaymentConfirmRequest {
 export type PaymentPhase =
   /** 아직 시작하지 않음 */
   | 'IDLE'
-  /** 결제 준비 중 */
+  /** ready 호출 중. tid 와 결제창 주소를 받는 구간 */
   | 'PREPARING'
-  /** 결제창으로 이동함. 사용자가 돌아오기를 기다린다 */
+  /**
+   * 결제창으로 이동함. 사용자가 돌아오기를 기다린다.
+   *
+   * 실제 PG 라면 이 상태에서 브라우저가 카카오페이로 떠나므로 화면이 사라진다.
+   * Mock 이면 떠나지 않고 이 상태에 머물며 "승인" 버튼을 기다린다.
+   */
   | 'AWAITING_PG'
-  /** 승인 요청 중 */
+  /** approve 호출 중. 이 구간에서 실제 청구가 일어난다 */
   | 'CONFIRMING'
   | 'SUCCEEDED'
-  /** 사용자가 결제창에서 취소 */
+  /** 사용자가 결제창에서 취소했거나 거래를 취소함 */
   | 'CANCELED'
   | 'FAILED'
