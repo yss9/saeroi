@@ -24,7 +24,11 @@ ENV_FILE="$DEPLOY_DIR/.env"
 
 TOKEN="${GITLAB_TOKEN:-}"
 if [ -z "$TOKEN" ] && [ -f "$ENV_FILE" ]; then
-    TOKEN="$(awk -F= '/^GITLAB_TOKEN=/{print $2}' "$ENV_FILE")"
+    # 첫 '=' 뒤 전체를 값으로 본다. 예전에는 awk -F= '{print $2}' 였는데 값 안의 '=' 에서
+    # 잘렸다. base64 비밀번호는 보통 '=' 로 끝나므로(openssl rand -base64) 잘린 값으로
+    # 접속해 조용히 실패할 수 있었다.
+    env_value() { sed -n "s/^$1=//p" "$ENV_FILE" | head -1; }
+    TOKEN="$(env_value GITLAB_TOKEN)"
 fi
 [ -n "$TOKEN" ] || { echo "gitlab-status: GITLAB_TOKEN 없음 — 보고를 건너뜁니다."; exit 0; }
 

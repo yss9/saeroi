@@ -40,8 +40,12 @@ fail() { printf 'FAIL: %s\n' "$*" >&2; }
 
 # ── 실행 조건 ────────────────────────────────────────────────────────
 [ -f "$ENV_FILE" ] || { fail ".env 가 없다: $ENV_FILE"; exit 2; }
-DB_NAME="$(awk -F= '/^MYSQL_DATABASE=/{print $2}' "$ENV_FILE")"
-ROOT_PW="$(awk -F= '/^MYSQL_ROOT_PASSWORD=/{print $2}' "$ENV_FILE")"
+# 첫 '=' 뒤 전체를 값으로 본다. awk -F= '{print $2}' 는 값 안의 '=' 에서 잘리는데,
+# base64 로 만든 비밀번호는 보통 '=' 로 끝난다 (openssl rand -base64). 그러면 잘린
+# 비밀번호로 접속해 인증에 실패하고, 원인은 "DB 접속 실패" 로만 보인다.
+env_value() { sed -n "s/^$1=//p" "$ENV_FILE" | head -1; }
+DB_NAME="$(env_value MYSQL_DATABASE)"
+ROOT_PW="$(env_value MYSQL_ROOT_PASSWORD)"
 [ -n "$DB_NAME" ] && [ -n "$ROOT_PW" ] || { fail "MYSQL_DATABASE / MYSQL_ROOT_PASSWORD 가 비어 있음"; exit 2; }
 docker ps --format '{{.Names}}' | grep -qx "$CONTAINER" || { fail "$CONTAINER 컨테이너가 실행 중이 아니다"; exit 2; }
 
@@ -53,9 +57,14 @@ SCHEMA_SQL="$(git show "$SCHEMA_REF:$SCHEMA_PATH" 2>/dev/null)" || {
 }
 
 # 비밀번호는 MYSQL_PWD 로 넘긴다. -p<암호> 는 컨테이너 프로세스 목록에 그대로 노출된다.
+#
+# stderr 를 버리지 않는다. 처음에는 2>/dev/null 로 삼켰는데, 인증 실패든 DB 부재든
+# 전부 "빈 출력" 이 되어 원인을 알 수 없었다. 에러는 파일에 받아 두고 실패 시 보여준다.
+MYSQL_ERR="$(mktemp)"
+trap 'rm -f "$MYSQL_ERR"' EXIT
 mysql_q() {
     docker exec -e MYSQL_PWD="$ROOT_PW" -i "$CONTAINER" \
-        mysql -uroot -N -B -D "$DB_NAME" -e "$1" 2>/dev/null
+        mysql -uroot -N -B -D "$DB_NAME" -e "$1" 2>"$MYSQL_ERR"
 }
 
 # ── 기대 스키마 추출 ────────────────────────────────────────────────
@@ -90,8 +99,34 @@ create_statement() {
 }
 
 # ── 대조 ────────────────────────────────────────────────────────────
+# 종료 코드로 "접속 실패" 와 "테이블 0개" 를 구분한다. 빈 출력만 보고 판단하면
+# 테이블이 하나도 없는 새 DB 를 접속 실패로 오진한다 — 실제로 그렇게 오진했다.
 LIVE_TABLES="$(mysql_q 'SHOW TABLES;')"
-[ -n "$LIVE_TABLES" ] || { fail "라이브 테이블 목록을 읽지 못했다 (DB 접속 실패?)"; exit 2; }
+MYSQL_RC=$?
+if [ $MYSQL_RC -ne 0 ]; then
+    fail "MySQL 질의 실패 (exit $MYSQL_RC). mysql 이 돌려준 원문:"
+    sed 's/^/  /' "$MYSQL_ERR" >&2
+    {
+        printf '\n힌트\n'
+        printf '  - Access denied    → .env 의 MYSQL_ROOT_PASSWORD 확인\n'
+        printf '  - Unknown database → .env 의 MYSQL_DATABASE 확인 (현재: %s)\n' "$DB_NAME"
+    } >&2
+    exit 2
+fi
+if [ -z "$LIVE_TABLES" ]; then
+    log "라이브 테이블: 0 개 — DB 가 비어 있다 (접속은 성공했다)."
+    log ""
+    log "지금 배포된 backend 는 엔티티가 없던 초기 버전이라 validate 가 통과했을 수 있다."
+    log "현재 $SCHEMA_REF 는 엔티티가 15개이므로 schema.sql 전체를 적용해야 한다."
+    log ""
+    log "적용 순서:"
+    log "  1) bash scripts/backup-mysql.sh                       # 먼저 백업"
+    log "  2) git show $SCHEMA_REF:$SCHEMA_PATH \\"
+    log "       | docker exec -i -e MYSQL_PWD=\"\$(sed -n 's/^MYSQL_ROOT_PASSWORD=//p' .env)\" \\"
+    log "         $CONTAINER mysql -uroot $DB_NAME"
+    log "  3) bash scripts/check-schema.sh                       # OK 확인"
+    exit 1
+fi
 
 MISSING_TABLES=()
 MISSING_COLUMNS=()
