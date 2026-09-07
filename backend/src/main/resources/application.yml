@@ -19,6 +19,16 @@ app:
       secret: ${JWT_SECRET}
       issuer: ${JWT_ISSUER:upcycle}
       access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:PT30M}
+  payment:
+    kakaopay:
+      # 시크릿이 비어 있으면 MockPaymentGateway 가 붙는다. 실제 청구가 일어나지 않으며
+      # 시작 로그에 경고가 남는다. 키를 저장소에 적지 않는다 — 환경변수로만 받는다.
+      secret-key: ${KAKAOPAY_SECRET_KEY:}
+      # 테스트 가맹점 코드. 실제 가맹점을 받으면 이 값을 바꾼다.
+      cid: ${KAKAOPAY_CID:TC0ONETIME}
+      base-url: ${KAKAOPAY_BASE_URL:https://open-api.kakaopay.com}
+      # 결제창에서 돌아올 프론트 주소. {tradeId} 는 거래별로 치환된다.
+      return-url: ${KAKAOPAY_RETURN_URL:http://localhost:5173/trades/{tradeId}/payment/return}
   auth:
     wallet:
       # 지갑 서명용 1회용 nonce 유효 시간. 사용자가 MetaMask 팝업을 확인하는 데 걸리는
