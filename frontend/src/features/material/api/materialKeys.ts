@@ -21,4 +21,10 @@ export const materialKeys = {
    * "상세는 새 값, 잔량은 옛 값" 인 화면이 나온다.
    */
   balance: (materialId: string | number) => [...keys.detail(materialId), 'balance'] as const,
+
+  /**
+   * 소재 혈통. `balance` 와 같은 이유로 `detail(id)` 아래에 둔다 —
+   * 가공·생산으로 혈통이 늘어나면 상세 무효화 한 번으로 함께 갱신된다.
+   */
+  lineage: (materialId: string | number) => [...keys.detail(materialId), 'lineage'] as const,
 } as const

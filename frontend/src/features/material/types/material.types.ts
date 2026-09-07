@@ -80,6 +80,55 @@ export interface MaterialDetail extends MaterialSummary {
   contractAddress: string | null
 }
 
+/** `material_lineage.relation_type` — 자식 소재가 만들어진 경위 */
+export type MaterialLineageRelationType = 'PROCESSING' | 'PRODUCTION_SCRAP'
+
+export const LINEAGE_RELATION_LABEL: Record<MaterialLineageRelationType, string> = {
+  PROCESSING: '가공',
+  PRODUCTION_SCRAP: '생산 자투리',
+}
+
+/** 혈통에 등장하는 소재 하나. 같은 소재는 응답에 한 번만 담긴다. */
+export interface MaterialLineageNode {
+  materialId: number
+  materialCode: string
+  materialType: MaterialType
+  rootOrigin: MaterialRootOrigin
+  generationType: MaterialGenerationType
+  name: string
+  status: MaterialStatus
+  /** 조회 대상은 0, 조상은 음수, 자손은 양수 */
+  depth: number
+}
+
+/** 부모 → 자식 간선 하나. */
+export interface MaterialLineageEdge {
+  parentMaterialId: number
+  childMaterialId: number
+  relationType: MaterialLineageRelationType
+  referenceId: number
+}
+
+/**
+ * `GET /api/materials/{materialId}/lineage` 응답.
+ *
+ * ⚠️ **`truncated` 를 반드시 화면에 반영할 것.** 서버는 재귀 상한(깊이 5 · 노드 200)에
+ * 걸리면 일부만 담고 `message` 에 안내 문구를 준다. 그걸 표시하지 않으면 잘린 이력이
+ * 전체로 보이는데, 추적성 기능에서 그건 가장 나쁜 종류의 거짓이다.
+ *
+ * 트리가 아니라 노드 + 간선인 이유는 혈통이 트리가 아니기 때문이다 — 1:N 해체,
+ * 자투리 재투입으로 같은 소재가 두 경로에 나타난다. 중첩 트리면 복제되어 화면이
+ * 같은 것을 다르게 보여준다.
+ */
+export interface MaterialLineage {
+  materialId: number
+  materialCode: string
+  nodes: MaterialLineageNode[]
+  edges: MaterialLineageEdge[]
+  truncated: boolean
+  message: string | null
+}
+
 /** 목록 조회 필터. Query Key 에 그대로 들어가므로 직렬화 가능해야 한다. */
 export interface MaterialListFilters {
   materialType?: string

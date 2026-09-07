@@ -2,8 +2,12 @@ import { type RouteObject } from 'react-router-dom'
 import { ShopProvider } from '../../features/shop/ShopContext.tsx'
 import { LandingPage } from '../../pages/landing/LandingPage.tsx'
 import { AdminPage } from '../../pages/auth/AdminPage.tsx'
+import { BusinessSignupPage } from '../../pages/auth/BusinessSignupPage.tsx'
+import { ConsumerSignupPage } from '../../pages/auth/ConsumerSignupPage.tsx'
 import { LoginPage } from '../../pages/auth/LoginPage.tsx'
 import { NotFoundPage } from '../../pages/auth/NotFoundPage.tsx'
+import { SignupCompletePage } from '../../pages/auth/SignupCompletePage.tsx'
+import { SignupTypePage } from '../../pages/auth/SignupTypePage.tsx'
 import { InventoryPage } from '../../pages/inventory/InventoryPage.tsx'
 import { ListingDetailPage } from '../../pages/marketplace/ListingDetailPage.tsx'
 import { MarketplacePage } from '../../pages/marketplace/MarketplacePage.tsx'
@@ -18,6 +22,7 @@ import { ProductDetailPage } from '../../pages/product/ProductDetailPage.tsx'
 import { ProductListPage } from '../../pages/product/ProductListPage.tsx'
 import { ProductionPage } from '../../pages/production/ProductionPage.tsx'
 import { PassportPage } from '../../pages/traceability/PassportPage.tsx'
+import { PaymentReturnPage } from '../../pages/trade/PaymentReturnPage.tsx'
 import { SupplierTradePage } from '../../pages/trade/SupplierTradePage.tsx'
 import { TradeDetailPage } from '../../pages/trade/TradeDetailPage.tsx'
 import { TradeListPage } from '../../pages/trade/TradeListPage.tsx'
@@ -46,6 +51,10 @@ export const routes: RouteObject[] = [
   // ── Public ────────────────────────────────────────────
   { path: '/', element: landingPageElement },
   { path: '/login', element: <LoginPage /> },
+  { path: '/signup', element: <SignupTypePage /> },
+  { path: '/signup/consumer', element: <ConsumerSignupPage /> },
+  { path: '/signup/business', element: <BusinessSignupPage /> },
+  { path: '/signup/complete', element: <SignupCompletePage /> },
 
   // QR Passport: 비회원 공개. 절대 ProtectedRoute 안으로 옮기지 말 것.
   { path: '/passport/:productId', element: <PassportPage /> },
@@ -65,6 +74,9 @@ export const routes: RouteObject[] = [
       { path: '/inventory', element: <InventoryPage /> },
       { path: '/trades', element: <TradeListPage /> },
       { path: '/trades/:tradeId', element: <TradeDetailPage /> },
+      // 카카오페이 결제창이 돌아오는 자리. 승인·취소·실패가 모두 이 주소로 오고
+      // pg_token 유무로 갈린다 (PaymentReturnPage 주석 참고).
+      { path: '/trades/:tradeId/payment/return', element: <PaymentReturnPage /> },
 
       // ── CONSUMER ──
       {

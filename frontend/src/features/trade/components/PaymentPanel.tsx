@@ -90,7 +90,7 @@ export function PaymentPanel({ trade }: PaymentPanelProps) {
       <div className="payment-panel__actions">
         {!alreadyPaid && (
           <Button
-            onClick={() => payment.start(trade.tradeId)}
+            onClick={() => void payment.start(trade.tradeId)}
             disabled={payment.isBusy}
             fullWidth
           >
@@ -110,19 +110,15 @@ export function PaymentPanel({ trade }: PaymentPanelProps) {
         )}
       </div>
 
-      {/* PG 연동 전 안내. 결제창이 뜨지 않는다는 것을 명시한다 —
-          없으면 "버튼을 눌렀는데 아무 일도 안 난다" 로 읽힌다.
-          이 버튼이 보내는 금액은 화면이 지어낸 값이 아니라 서버가 계산해 둔 거래
-          금액이다. 어긋나면 서버가 PAYMENT_AMOUNT_MISMATCH 로 거절한다. */}
-      {payment.phase === 'AWAITING_PG' && (
+      {/* 서버에 카카오페이 키가 없으면 결제창이 열리지 않는다. 그 사실을 알려주지 않으면
+          "버튼을 눌렀는데 아무 일도 안 난다" 로 읽힌다.
+          live 가 true 면 이 블록은 뜨지 않는다 — 브라우저가 이미 카카오페이로 떠났기 때문에
+          이 화면 자체가 없다. */}
+      {payment.phase === 'AWAITING_PG' && payment.live === false && (
         <div className="payment-panel__mock">
-          <p>결제 API가 아직 연결되지 않아 결제창이 열리지 않습니다.</p>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => void payment.confirm(trade.tradeId, trade.totalPrice)}
-          >
-            결제 완료로 처리 (테스트)
+          <p>결제 키가 설정되지 않아 결제창이 열리지 않습니다. 실제로 청구되지 않습니다.</p>
+          <Button variant="secondary" size="sm" onClick={() => void payment.approve(trade.tradeId)}>
+            결제 완료로 처리 (시연)
           </Button>
         </div>
       )}
