@@ -130,14 +130,13 @@ contract Marketplace is AccessControl {
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
     }
 
-    /// @notice 보유 소재 일부를 판매 등록하고 판매글 전용 잠금을 만든다.
+    /// @notice 공급자가 보유 소재 일부를 판매 등록하고 판매글 전용 잠금을 만든다.
     function createListing(
         uint256 materialId,
         uint256 quantity
     ) external returns (uint256 listingId) {
         require(
-            materialToken.hasRole(SUPPLIER_ROLE, _msgSender()) ||
-                materialToken.hasRole(BRAND_ROLE, _msgSender()),
+            materialToken.hasRole(SUPPLIER_ROLE, _msgSender()),
             "Marketplace: seller role required"
         );
         require(quantity > 0, "Marketplace: quantity is zero");

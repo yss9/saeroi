@@ -94,6 +94,14 @@ describe("마켓플레이스(Marketplace)", function () {
     expect(await materialToken.availableBalance(supplier.address, tokenId)).to.equal(30_000);
   });
 
+  it("브랜드의 판매 등록을 거부한다", async function () {
+    const { marketplace, brand, tokenId } = await deployFixture();
+
+    await expect(
+      marketplace.connect(brand).createListing(tokenId, 20_000)
+    ).to.be.revertedWith("Marketplace: seller role required");
+  });
+
   it("판매글마다 서로 다른 잠금 ID를 발급한다", async function () {
     const { marketplace, supplier, tokenId } = await deployFixture();
 
