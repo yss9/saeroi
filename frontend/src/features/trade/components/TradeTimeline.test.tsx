@@ -50,6 +50,23 @@ function trade(overrides: Partial<Trade> = {}): Trade {
   }
 }
 
+const PAID_AT = '2026-09-02T11:30:00'
+
+/**
+ * 기대하는 표기를 **런타임에 계산한다.**
+ *
+ * `'26. 9. 2. 오전 11:30'` 처럼 박아 두면 ICU 데이터에 묶인 테스트가 된다 — Node 가
+ * small-icu 로 빌드된 환경(CI 에이전트가 그럴 수 있다)에서는 ko-KR 표기가 나오지 않고,
+ * ICU 버전이 올라가면 구분점 사이의 공백 같은 세부가 바뀐다. 로컬에서만 초록인 테스트가
+ * 된다.
+ *
+ * 그래서 형식이 아니라 **"변환을 거쳤는가"** 를 본다. 형식 자체는
+ * `formatTradeDateTime` 의 책임이다 (BrandProcessingRequest.test 도 같은 방식이다).
+ */
+function localized(value: string): string {
+  return new Date(value).toLocaleString('ko-KR', { dateStyle: 'short', timeStyle: 'short' })
+}
+
 function renderTimeline(value: Trade, viewer?: TradeViewer) {
   render(<TradeTimeline trade={value} viewer={viewer} />)
 }
@@ -83,12 +100,15 @@ describe('TradeTimeline', () => {
   })
 
   it('끝난 단계의 시각을 사용자 시간대로 보여준다', () => {
-    renderTimeline(trade({ status: 'PAID', paidAt: '2026-09-02T11:30:00' }))
+    renderTimeline(trade({ status: 'PAID', paidAt: PAID_AT }))
 
-    // 원본 문자열을 그대로 노출하지 않는다. dateTime 속성에만 남긴다.
     const paid = within(step('결제 완료'))
-    expect(paid.getByText('26. 9. 2. 오전 11:30')).toBeInTheDocument()
-    expect(paid.getByText('26. 9. 2. 오전 11:30').tagName).toBe('TIME')
+    const rendered = paid.getByText(localized(PAID_AT))
+
+    expect(rendered.tagName).toBe('TIME')
+    // 기계가 읽는 값은 원본으로 남기고, 사람이 읽는 자리에만 변환된 값을 둔다.
+    expect(rendered).toHaveAttribute('dateTime', PAID_AT)
+    expect(paid.queryByText(PAID_AT)).not.toBeInTheDocument()
   })
 
   it('발송 단계에 송장을 함께 보여준다', () => {
@@ -163,7 +183,7 @@ describe('TradeTimeline', () => {
       renderTimeline(trade({ status: 'CANCELED', paidAt: '2026-09-02T11:30:00' }))
 
       expect(step('결제 완료').className).toContain('--done')
-      expect(within(step('결제 완료')).getByText('26. 9. 2. 오전 11:30')).toBeInTheDocument()
+      expect(within(step('결제 완료')).getByText(localized(PAID_AT))).toBeInTheDocument()
     })
 
     it('다음 할 일을 안내하지 않는다', () => {
