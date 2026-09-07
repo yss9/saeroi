@@ -78,6 +78,11 @@ class ProcessingRequestTests {
                 .contentType(MediaType.APPLICATION_JSON).content(body);
     }
 
+    MockHttpServletRequestBuilder listRequests(Long user, String role) {
+        return get("/processing-requests").with(jwt().jwt(j -> j.subject(user.toString()))
+                .authorities(new SimpleGrantedAuthority("ROLE_" + role)));
+    }
+
     long create(long amount) throws Exception {
         var result = mvc.perform(request("/processing-requests", brandId, "BRAND", body("" + amount)))
                 .andExpect(status().isCreated()).andReturn();
@@ -349,5 +354,72 @@ class ProcessingRequestTests {
                                 {"materialId":1,"processorId":2,"quantity":1.5,"processTypes":["CLEANING"]}
                                 """))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void processorListsOnlyRequestsAssignedToItWithMaterialBrandAndPurposes() throws Exception {
+        long assigned = create(300);
+        long notAssigned = create(200);
+        Long otherProcessor = users.save(User.register(
+                "other-processor@test.com", "hash", "other processor", "010", UserRole.PROCESSOR)).getId();
+        jdbc.update("update processing_request set processor_id=? where id=?", otherProcessor, notAssigned);
+        jdbc.update("update processing_request set created_at=dateadd('SECOND', -1, created_at) where id=?", assigned);
+
+        mvc.perform(listRequests(processorId, "PROCESSOR").param("page", "0").param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("data.total").value(1))
+                .andExpect(jsonPath("data.page").value(0))
+                .andExpect(jsonPath("data.size").value(20))
+                .andExpect(jsonPath("data.items.length()").value(1))
+                .andExpect(jsonPath("data.items[0].requestId").value(assigned))
+                .andExpect(jsonPath("data.items[0].brandId").value(brandId))
+                .andExpect(jsonPath("data.items[0].brandName").value("brand"))
+                .andExpect(jsonPath("data.items[0].processorId").value(processorId))
+                .andExpect(jsonPath("data.items[0].processorName").value("processor"))
+                .andExpect(jsonPath("data.items[0].materialId").value(materialId))
+                .andExpect(jsonPath("data.items[0].materialCode").value("M1"))
+                .andExpect(jsonPath("data.items[0].materialName").value("denim"))
+                .andExpect(jsonPath("data.items[0].materialType").value("DENIM"))
+                .andExpect(jsonPath("data.items[0].quantity").value(300))
+                .andExpect(jsonPath("data.items[0].processTypes[0]").value("CLEANING"))
+                .andExpect(jsonPath("data.items[0].processTypes[1]").value("CUTTING"))
+                .andExpect(jsonPath("data.items[0].status").value("QUOTING"))
+                .andExpect(jsonPath("data.items[0].createdAt").exists())
+                .andExpect(jsonPath("data.items[0].expiresAt").exists());
+    }
+
+    @Test
+    void authenticatedBrandListsItsOwnRequestsAndCanFilterStatus() throws Exception {
+        long canceled = create(100);
+        create(200);
+        mvc.perform(request("/processing-requests/" + canceled + "/cancel", brandId, "BRAND", ""))
+                .andExpect(status().isOk());
+
+        mvc.perform(listRequests(brandId, "BRAND").param("status", "CANCELED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("data.total").value(1))
+                .andExpect(jsonPath("data.items[0].requestId").value(canceled))
+                .andExpect(jsonPath("data.items[0].status").value("CANCELED"));
+    }
+
+    @Test
+    void requestListRequiresActiveAuthenticationAndValidFilters() throws Exception {
+        mvc.perform(get("/processing-requests")).andExpect(status().isUnauthorized());
+        Long supplier = users.save(User.register(
+                "supplier@test.com", "hash", "supplier", "010", UserRole.SUPPLIER)).getId();
+        mvc.perform(listRequests(supplier, "SUPPLIER")).andExpect(status().isOk())
+                .andExpect(jsonPath("data.items").isEmpty())
+                .andExpect(jsonPath("data.total").value(0));
+        mvc.perform(listRequests(processorId, "PROCESSOR").param("status", "UNKNOWN"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(listRequests(processorId, "PROCESSOR").param("page", "-1"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(listRequests(processorId, "PROCESSOR").param("size", "51"))
+                .andExpect(status().isBadRequest());
+
+        var processor = users.findById(processorId).orElseThrow();
+        processor.suspend();
+        users.save(processor);
+        mvc.perform(listRequests(processorId, "PROCESSOR")).andExpect(status().isForbidden());
     }
 }

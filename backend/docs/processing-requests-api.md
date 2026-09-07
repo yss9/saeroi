@@ -1,5 +1,46 @@
 # Processing 요청 API
 
+## 요청 목록
+
+`GET /processing-requests` (`/api/v1/processing-requests`도 지원) — AUTH
+
+인증된 활성 사용자의 역할에 따라 관계있는 요청을 최신순으로 반환한다. BRAND는 자신이 생성한 요청, PROCESSOR는 자신에게 지정된 요청을 조회한다. 그 밖의 인증 역할은 관계있는 Processing 요청이 없으므로 빈 목록을 받는다.
+
+| 파라미터 | 필수 | 설명 |
+| --- | --- | --- |
+| `status` | 아니오 | QUOTING, SELECTED, CANCELED, REJECTED, EXPIRED |
+| `page` | 아니오 | 0부터 시작, 기본 0 |
+| `size` | 아니오 | 1~50, 기본 20 |
+
+응답 `ApiResponse.data` 예시:
+
+```json
+{
+  "items": [{
+    "requestId": 10,
+    "requestCode": "PR0123456789abcdef0123456789ab",
+    "brandId": 1,
+    "brandName": "새로이 스튜디오",
+    "processorId": 2,
+    "processorName": "리뉴 텍스타일",
+    "materialId": 3,
+    "materialCode": "MAT-0001",
+    "materialName": "폐데님",
+    "materialType": "DENIM",
+    "quantity": 700,
+    "processTypes": ["CLEANING", "CUTTING"],
+    "status": "QUOTING",
+    "createdAt": "2026-09-07T02:00:00",
+    "expiresAt": "2026-09-14T02:00:00"
+  }],
+  "total": 1,
+  "page": 0,
+  "size": 20
+}
+```
+
+페이지는 요청 단위로 계산하므로 복수 가공 목적이 있어도 한 요청이 여러 건으로 계산되지 않는다. 잘못된 상태·페이지·크기는 `PROCESSING_INVALID_QUERY`(400)를 반환한다.
+
 ## 요청 생성
 
 `POST /processing-requests` (`/api/v1/processing-requests`도 지원)
@@ -68,6 +109,7 @@ Bearer JWT가 필요하다. JWT `sub`의 DB 사용자가 활성 BRAND여야 한�
 | --- | --- | --- |
 | 400 | VALIDATION_ERROR / INVALID_REQUEST | 필수값, JSON 타입, 양의 정수 검증 실패(공통 오류 계약) |
 | 400 | PROCESSING_INVALID_REQUEST | 중복 목적 등 도메인 입력 오류 |
+| 400 | PROCESSING_INVALID_QUERY | 목록 상태·페이지·크기 오류 |
 | 400 | PROCESSING_CAPABILITY_MISMATCH | 소재·모든 목적·수량 조건 불일치 |
 | 401 | 기존 인증 오류 | 토큰 없음/유효하지 않음 |
 | 403 | PROCESSING_FORBIDDEN | 역할, 계정 상태 또는 당사자 불일치 |
