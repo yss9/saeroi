@@ -153,6 +153,11 @@ services:
       # (호스트에서 디버깅할 때는 curl http://localhost:8081/jenkins/ 로 여전히 접근 가능)
       - "127.0.0.1:8081:8080"
     environment:
+      # 컨테이너 시간대. 호스트는 init-ec2.sh 가 Asia/Seoul 로 맞추지만 컨테이너는 그 설정을
+      # 물려받지 않아 기본 UTC 로 뜬다 (2026-09-07 확인 — 호스트 10:38 KST, 컨테이너 01:38 UTC).
+      # 그러면 빌드 시각·로그 타임스탬프가 9시간 어긋나 GitLab 커밋 시각과 대조가 안 된다.
+      # JVM 도 이 TZ 를 기본 시간대로 읽으므로 화면 표시까지 함께 KST 가 된다.
+      TZ: Asia/Seoul
       # nginx 가 /jenkins/ 하위로 프록시하므로 Jenkins 도 같은 prefix 로 떠야 링크·리소스가 맞는다
       JENKINS_OPTS: --prefix=/jenkins
       # JCasC(jenkins/casc.yaml)에서 사용 — EC2에서는 .env에 실값 필수
