@@ -431,12 +431,12 @@ git commit -m "style: match landing page reference"
 ### Task 5: Browser verification and design QA
 
 **Files:**
-- Create: `design-qa.md`
+- Create: `docs/design-qa.md`
 - Modify: any landing source or asset files needed to resolve P0, P1, or P2 findings
 
 **Interfaces:**
 - Consumes: source image and local browser capture at the same 1280-pixel viewport/state
-- Produces: `design-qa.md` containing `final result: passed`
+- Produces: `docs/design-qa.md` containing `final result: passed`
 
 - [ ] **Step 1: Start the local Vite app**
 
@@ -454,7 +454,7 @@ Capture the page at 1280 pixels wide for the source comparison and at 390 pixels
 
 - [ ] **Step 4: Run the blocking design QA comparison**
 
-Open `screens/landing_page.png` and the latest 1280-pixel prototype capture together. Write `design-qa.md` with severity-ranked findings for layout, crop, spacing, typography, color, responsiveness, accessibility, and interactions. Set `final result: blocked` until every P0, P1, and P2 item is fixed.
+Open `screens/landing_page.png` and the latest 1280-pixel prototype capture together. Write `docs/design-qa.md` with severity-ranked findings for layout, crop, spacing, typography, color, responsiveness, accessibility, and interactions. Set `final result: blocked` until every P0, P1, and P2 item is fixed.
 
 - [ ] **Step 5: Fix and repeat until passed**
 
@@ -474,11 +474,11 @@ npm run lint
 npm run build
 ```
 
-Expected: all tests pass, ESLint reports no errors, TypeScript/Vite build exits 0, and `design-qa.md` says `final result: passed`.
+Expected: all tests pass, ESLint reports no errors, TypeScript/Vite build exits 0, and `docs/design-qa.md` says `final result: passed`.
 
 - [ ] **Step 7: Commit verified QA fixes**
 
 ```powershell
-git add design-qa.md src public/images/landing
+git add docs/design-qa.md src public/images/landing
 git commit -m "test: verify landing page design"
 ```
