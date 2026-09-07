@@ -1,0 +1,540 @@
+.company-dashboard {
+  --company-blue: #216a9f;
+  --company-blue-dark: #174b72;
+  --company-orange: #ff9b69;
+  --company-cream: #e5d7bd;
+  --company-ink: #172033;
+  --company-muted: #687586;
+  --company-line: #e2e7eb;
+  min-height: 100vh;
+  color: var(--company-ink);
+  background: #f5f7f8;
+}
+
+.company-dashboard a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.company-dashboard__skip-link {
+  position: fixed;
+  z-index: 100;
+  top: 10px;
+  left: 10px;
+  padding: 10px 14px;
+  border-radius: 7px;
+  background: var(--company-blue-dark);
+  color: #fff !important;
+  transform: translateY(-150%);
+}
+
+.company-dashboard__skip-link:focus {
+  transform: translateY(0);
+}
+
+.company-dashboard__header {
+  position: sticky;
+  z-index: 40;
+  top: 0;
+  display: grid;
+  grid-template-columns: 250px 1fr auto;
+  min-height: 72px;
+  align-items: center;
+  padding: 0 28px;
+  border-bottom: 1px solid var(--company-line);
+  background: rgb(255 255 255 / 0.96);
+  backdrop-filter: blur(12px);
+}
+
+.company-dashboard__logo {
+  display: inline-flex;
+  width: 110px;
+  min-height: 44px;
+  align-items: center;
+}
+
+.company-dashboard__logo img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.company-dashboard__identity {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 9px;
+}
+
+.company-dashboard__identity span {
+  overflow: hidden;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.company-dashboard__identity small {
+  flex: 0 0 auto;
+  color: var(--company-blue);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.company-dashboard__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.company-dashboard__header-actions a,
+.company-dashboard__header-actions button {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #596777;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.company-dashboard__header-actions a:hover,
+.company-dashboard__header-actions button:hover {
+  background: rgb(33 106 159 / 0.08);
+  color: var(--company-blue);
+}
+
+.company-dashboard__header-actions svg {
+  width: 19px;
+  height: 19px;
+}
+
+.company-dashboard__menu-button {
+  display: none !important;
+}
+
+.company-dashboard__body {
+  display: grid;
+  min-height: calc(100vh - 72px);
+  grid-template-columns: 250px minmax(0, 1fr);
+}
+
+.company-dashboard__sidebar {
+  position: sticky;
+  top: 72px;
+  display: flex;
+  height: calc(100vh - 72px);
+  flex-direction: column;
+  padding: 28px 18px 22px;
+  border-right: 1px solid var(--company-line);
+  background: #fff;
+}
+
+.company-dashboard__sidebar-heading {
+  padding: 0 12px 22px;
+  border-bottom: 1px solid #edf0f2;
+}
+
+.company-dashboard__sidebar-heading span {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--company-orange);
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.company-dashboard__sidebar-heading strong {
+  display: block;
+  overflow: hidden;
+  color: var(--company-blue-dark);
+  font-size: 1.05rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.company-dashboard__sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 22px;
+}
+
+.company-dashboard__sidebar nav a {
+  display: flex;
+  min-height: 46px;
+  align-items: center;
+  gap: 12px;
+  padding: 0 13px;
+  border-radius: 9px;
+  color: #5f6c7c;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.company-dashboard__sidebar nav a:hover,
+.company-dashboard__sidebar nav .company-dashboard__nav-link--active {
+  background: rgb(33 106 159 / 0.09);
+  color: var(--company-blue-dark);
+}
+
+.company-dashboard__sidebar nav svg {
+  width: 20px;
+  height: 20px;
+  color: var(--company-blue);
+}
+
+.company-dashboard__wallet-summary {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-top: auto;
+  padding: 14px;
+  border: 1px solid rgb(229 215 189 / 0.85);
+  border-radius: 11px;
+  background: rgb(229 215 189 / 0.24);
+}
+
+.company-dashboard__wallet-summary > svg {
+  width: 24px;
+  height: 24px;
+  color: var(--company-blue);
+}
+
+.company-dashboard__wallet-summary div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.company-dashboard__wallet-summary strong {
+  font-size: 0.8rem;
+}
+
+.company-dashboard__wallet-summary span {
+  color: var(--company-muted);
+  font-size: 0.72rem;
+}
+
+.company-dashboard__content {
+  min-width: 0;
+  padding: 44px clamp(24px, 5vw, 72px) 72px;
+}
+
+.company-dashboard__overlay {
+  display: none;
+}
+
+.company-account {
+  width: min(100%, 1080px);
+  margin: 0 auto;
+}
+
+.company-account__page-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 28px;
+}
+
+.company-account__page-heading p {
+  margin: 0 0 7px;
+  color: var(--company-orange);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.company-account__page-heading h1 {
+  margin: 0;
+  color: var(--company-blue-dark);
+  font-size: clamp(1.8rem, 3vw, 2.35rem);
+  letter-spacing: -0.04em;
+}
+
+.company-account__page-heading div > span {
+  display: block;
+  margin-top: 10px;
+  color: var(--company-muted);
+  font-size: 0.9rem;
+}
+
+.company-account__summary,
+.company-account__card,
+.company-account__wallet-card {
+  border: 1px solid var(--company-line);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 10px 30px rgb(24 47 66 / 0.045);
+}
+
+.company-account__summary {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 25px 28px;
+}
+
+.company-account__company-icon,
+.company-account__wallet-icon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 14px;
+  background: rgb(33 106 159 / 0.1);
+  color: var(--company-blue);
+}
+
+.company-account__company-icon {
+  width: 56px;
+  height: 56px;
+}
+
+.company-account__company-icon svg {
+  width: 29px;
+  height: 29px;
+}
+
+.company-account__summary-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.company-account__summary h2 {
+  margin: 0;
+  color: #263547;
+  font-size: 1.25rem;
+}
+
+.company-account__summary p {
+  margin: 7px 0 0;
+  color: var(--company-muted);
+  font-size: 0.86rem;
+}
+
+.company-account__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.company-account__card {
+  position: relative;
+  overflow: hidden;
+  padding: 25px 28px;
+}
+
+.company-account__card-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.company-account__card-heading > svg {
+  width: 23px;
+  height: 23px;
+  color: var(--company-blue);
+}
+
+.company-account__card-heading h2,
+.company-account__wallet-card h2 {
+  margin: 0;
+  color: var(--company-blue-dark);
+  font-size: 1rem;
+}
+
+.company-account__card-heading p {
+  margin: 5px 0 0;
+  color: var(--company-muted);
+  font-size: 0.78rem;
+}
+
+.company-account__card dl {
+  margin: 0;
+}
+
+.company-account__detail {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 14px;
+  padding: 13px 0;
+  border-top: 1px solid #edf0f2;
+  font-size: 0.84rem;
+}
+
+.company-account__detail dt {
+  color: var(--company-muted);
+}
+
+.company-account__detail dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #334154;
+  font-weight: 700;
+}
+
+.company-account__detail .company-account__empty-value {
+  color: #939ba5;
+  font-weight: 500;
+}
+
+.company-account__contact-icons {
+  position: absolute;
+  right: 20px;
+  bottom: 16px;
+  display: flex;
+  gap: 6px;
+  color: rgb(33 106 159 / 0.08);
+}
+
+.company-account__contact-icons svg {
+  width: 38px;
+  height: 38px;
+}
+
+.company-account__wallet-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  margin-top: 18px;
+  padding: 25px 28px;
+}
+
+.company-account__wallet-icon {
+  width: 48px;
+  height: 48px;
+}
+
+.company-account__wallet-icon svg {
+  width: 25px;
+  height: 25px;
+}
+
+.company-account__wallet-card p {
+  margin: 8px 0 0;
+  color: #4f5d6e;
+  font-size: 0.86rem;
+}
+
+.company-account__wallet-card > div > span {
+  display: block;
+  margin-top: 4px;
+  color: var(--company-muted);
+  font-size: 0.78rem;
+}
+
+.company-account__wallet-card code {
+  display: block;
+  max-width: 100%;
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+  color: var(--company-muted);
+  font-size: 0.8rem;
+}
+
+.company-account__wallet-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #027a48 !important;
+  font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  .company-dashboard__header {
+    grid-template-columns: 1fr auto;
+    padding: 0 18px;
+  }
+
+  .company-dashboard__identity,
+  .company-dashboard__header-actions > a,
+  .company-dashboard__header-actions > button:not(.company-dashboard__menu-button) {
+    display: none;
+  }
+
+  .company-dashboard__menu-button {
+    display: inline-flex !important;
+  }
+
+  .company-dashboard__body {
+    grid-template-columns: 1fr;
+  }
+
+  .company-dashboard__sidebar {
+    position: fixed;
+    z-index: 60;
+    top: 72px;
+    left: 0;
+    width: min(290px, 86vw);
+    transform: translateX(-105%);
+    transition: transform 180ms ease;
+  }
+
+  .company-dashboard__sidebar--open {
+    transform: translateX(0);
+  }
+
+  .company-dashboard__overlay {
+    position: fixed;
+    z-index: 50;
+    inset: 72px 0 0;
+    display: block;
+    border: 0;
+    background: rgb(16 25 38 / 0.42);
+  }
+
+  .company-dashboard__content {
+    padding: 32px 20px 56px;
+  }
+}
+
+@media (max-width: 680px) {
+  .company-account__page-heading,
+  .company-account__summary,
+  .company-account__wallet-card {
+    align-items: flex-start;
+  }
+
+  .company-account__page-heading {
+    flex-direction: column;
+  }
+
+  .company-account__summary {
+    padding: 22px;
+  }
+
+  .company-account__summary-title {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .company-account__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .company-account__card,
+  .company-account__wallet-card {
+    padding: 22px;
+  }
+
+  .company-account__detail {
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .company-dashboard__sidebar {
+    transition: none;
+  }
+}

@@ -1,0 +1,120 @@
+import { Buildings, CheckCircle, Envelope, MapPin, Phone, Wallet } from '@phosphor-icons/react'
+import { ErrorMessage, StatusBadge } from '../../../components/common/index.ts'
+import {
+  BUSINESS_ROLE_LABEL,
+  type CompanyAccountData,
+} from '../types/companyAccount.types.ts'
+
+export type CompanyAccountViewState =
+  | { status: 'error'; error: unknown }
+  | { status: 'ready'; data: CompanyAccountData }
+
+interface CompanyAccountViewProps {
+  state: CompanyAccountViewState
+}
+
+function displayValue(value: string | null) {
+  return value || '등록된 정보가 없습니다.'
+}
+
+function DetailItem({ label, value }: { label: string; value: string | null }) {
+  return (
+    <div className="company-account__detail">
+      <dt>{label}</dt>
+      <dd className={value ? undefined : 'company-account__empty-value'}>{displayValue(value)}</dd>
+    </div>
+  )
+}
+
+export function CompanyAccountView({ state }: CompanyAccountViewProps) {
+  if (state.status === 'error') {
+    return (
+      <section className="company-account" aria-labelledby="company-account-title">
+        <h1 id="company-account-title">회사 정보</h1>
+        <ErrorMessage error={state.error} />
+      </section>
+    )
+  }
+
+  const { data } = state
+
+  return (
+    <section className="company-account" aria-labelledby="company-account-title">
+      <div className="company-account__page-heading">
+        <div>
+          <p>COMPANY ACCOUNT</p>
+          <h1 id="company-account-title">회사 정보</h1>
+          <span>사업자 계정과 등록된 회사 정보를 확인할 수 있습니다.</span>
+        </div>
+        <StatusBadge tone={data.status === 'ACTIVE' ? 'success' : 'neutral'}>
+          {data.status === 'ACTIVE' ? '활성 계정' : '상태 확인 필요'}
+        </StatusBadge>
+      </div>
+
+      <article className="company-account__summary">
+        <span className="company-account__company-icon" aria-hidden="true"><Buildings /></span>
+        <div>
+          <div className="company-account__summary-title">
+            <h2>{data.companyName}</h2>
+            <StatusBadge tone="info">{BUSINESS_ROLE_LABEL[data.role]}</StatusBadge>
+          </div>
+          <p>{data.email}</p>
+        </div>
+      </article>
+
+      <div className="company-account__grid">
+        <article className="company-account__card">
+          <div className="company-account__card-heading">
+            <Buildings aria-hidden="true" />
+            <div>
+              <h2>사업자 정보</h2>
+              <p>가입 시 등록한 회사 기본 정보입니다.</p>
+            </div>
+          </div>
+          <dl>
+            <DetailItem label="업체명" value={data.companyName} />
+            <DetailItem label="업체 유형" value={BUSINESS_ROLE_LABEL[data.role]} />
+            <DetailItem label="사업자등록번호" value={data.businessNumber} />
+            <DetailItem label="대표자명" value={data.representativeName} />
+          </dl>
+        </article>
+
+        <article className="company-account__card">
+          <div className="company-account__card-heading">
+            <Envelope aria-hidden="true" />
+            <div>
+              <h2>연락처 정보</h2>
+              <p>회사 계정의 연락 및 위치 정보입니다.</p>
+            </div>
+          </div>
+          <dl>
+            <DetailItem label="이메일" value={data.email} />
+            <DetailItem label="업체 연락처" value={data.companyPhone} />
+            <DetailItem label="업체 주소" value={data.companyAddress} />
+          </dl>
+          <div className="company-account__contact-icons" aria-hidden="true">
+            <Phone /><MapPin />
+          </div>
+        </article>
+      </div>
+
+      <article className="company-account__wallet-card">
+        <span className="company-account__wallet-icon" aria-hidden="true"><Wallet /></span>
+        <div>
+          <h2>블록체인 지갑</h2>
+          {data.walletAddress ? (
+            <>
+              <p className="company-account__wallet-status"><CheckCircle weight="fill" /> 연결된 지갑</p>
+              <code>{data.walletAddress}</code>
+            </>
+          ) : (
+            <>
+              <p>아직 연결된 지갑이 없습니다.</p>
+              <span>지갑 연결 기능은 다음 단계에서 제공됩니다.</span>
+            </>
+          )}
+        </div>
+      </article>
+    </section>
+  )
+}

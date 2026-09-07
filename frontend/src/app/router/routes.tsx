@@ -8,6 +8,7 @@ import { LoginPage } from '../../pages/auth/LoginPage.tsx'
 import { NotFoundPage } from '../../pages/auth/NotFoundPage.tsx'
 import { SignupCompletePage } from '../../pages/auth/SignupCompletePage.tsx'
 import { SignupTypePage } from '../../pages/auth/SignupTypePage.tsx'
+import { CompanyAccountPage } from '../../pages/company/CompanyAccountPage.tsx'
 import { InventoryPage } from '../../pages/inventory/InventoryPage.tsx'
 import { ListingDetailPage } from '../../pages/marketplace/ListingDetailPage.tsx'
 import { MarketplacePage } from '../../pages/marketplace/MarketplacePage.tsx'
@@ -81,6 +82,12 @@ export const routes: RouteObject[] = [
       {
         element: <RoleGuard allow={['CONSUMER']} />,
         children: [{ path: '/mypage', element: <ConsumerMyPage /> }],
+      },
+
+      // ── BUSINESS 공통 ──
+      {
+        element: <RoleGuard allow={['SUPPLIER', 'BRAND', 'PROCESSOR']} />,
+        children: [{ path: '/company/account', element: <CompanyAccountPage /> }],
       },
 
       // ── SUPPLIER ──
