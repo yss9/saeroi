@@ -285,6 +285,7 @@ class MarketplaceApiTests {
                 .andExpect(jsonPath("$.data.content[0].materialName").value("폐데님 원단"))
                 .andExpect(jsonPath("$.data.content[0].materialType").value("DENIM"))
                 .andExpect(jsonPath("$.data.content[0].pricePerKg").value(PRICE_PER_KG))
+                .andExpect(jsonPath("$.data.content[0].sellerName").value("공급자"))
                 .andExpect(jsonPath("$.data.totalElements").value(1));
     }
 

@@ -80,7 +80,7 @@ public class ListingCommandService {
      */
     @Transactional
     public ListingResponse register(Long sellerId, ListingRegisterRequest request) {
-        requireSellingCapableUser(sellerId);
+        User seller = requireSellingCapableUser(sellerId);
 
         Material material = materialRepository
                 .findById(request.materialId())
@@ -102,7 +102,7 @@ public class ListingCommandService {
                 material.getId(), sellerId, quantity, request.pricePerKg(), lock.getId()));
 
         lock.assignReference(listing.getId());
-        return ListingResponse.of(listing, material);
+        return ListingResponse.of(listing, material, seller);
     }
 
     /**
@@ -132,7 +132,10 @@ public class ListingCommandService {
         Material material = materialRepository
                 .findById(listing.getMaterialId())
                 .orElseThrow(() -> new BusinessException(TradeErrorCode.LISTING_MATERIAL_NOT_FOUND));
-        return ListingResponse.of(listing, material);
+        User seller = userRepository
+                .findById(sellerId)
+                .orElseThrow(() -> new BusinessException(TradeErrorCode.LISTING_SELLER_NOT_FOUND));
+        return ListingResponse.of(listing, material, seller);
     }
 
     /**
@@ -205,8 +208,10 @@ public class ListingCommandService {
      * 온체인 {@code Marketplace.createListing} 이 요구하는 역할과 같다 —
      * {@code SUPPLIER_ROLE || BRAND_ROLE}. 두 곳이 어긋나면 DB 에는 올라갔는데 체인 등록만
      * 실패하는 판매 글이 생긴다.
+     *
+     * @return 확인된 판매자. 응답에 이름이 들어가므로 호출부가 다시 읽지 않게 돌려준다
      */
-    private void requireSellingCapableUser(Long sellerId) {
+    private User requireSellingCapableUser(Long sellerId) {
         User user = userRepository
                 .findById(sellerId)
                 .orElseThrow(() -> new BusinessException(TradeErrorCode.LISTING_SELLER_NOT_FOUND));
@@ -216,5 +221,6 @@ public class ListingCommandService {
         if (!user.getRole().canRegisterMaterial()) {
             throw new BusinessException(TradeErrorCode.LISTING_ROLE_NOT_ALLOWED);
         }
+        return user;
     }
 }

@@ -8,6 +8,7 @@ import com.ssafy.upcycle.trade.dto.ListingSearchCondition;
 import com.ssafy.upcycle.trade.dto.PageResponse;
 import com.ssafy.upcycle.trade.entity.MaterialListing;
 import com.ssafy.upcycle.trade.repository.ListingSearchRepository;
+import com.ssafy.upcycle.user.entity.User;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -71,10 +72,10 @@ public class ListingQueryService {
     }
 
     /**
-     * {@code [MaterialListing, Material]} 순서는 쿼리의 select 절이 정한 계약이다.
+     * {@code [MaterialListing, Material, 판매자]} 순서는 쿼리의 select 절이 정한 계약이다.
      * 쿼리를 고칠 때 이 메서드도 함께 본다.
      */
     private static ListingResponse toResponse(Object[] row) {
-        return ListingResponse.of((MaterialListing) row[0], (Material) row[1]);
+        return ListingResponse.of((MaterialListing) row[0], (Material) row[1], (User) row[2]);
     }
 }

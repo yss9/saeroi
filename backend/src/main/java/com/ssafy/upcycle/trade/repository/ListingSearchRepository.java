@@ -4,6 +4,7 @@ import com.ssafy.upcycle.material.entity.MaterialRootOrigin;
 import com.ssafy.upcycle.material.entity.MaterialType;
 import com.ssafy.upcycle.trade.entity.ListingStatus;
 import com.ssafy.upcycle.trade.entity.MaterialListing;
+import com.ssafy.upcycle.user.entity.User;
 import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;
@@ -22,10 +23,11 @@ import org.springframework.data.repository.query.Param;
  * 검색 쿼리다. 성격이 달라 같이 두면 파일이 두 종류의 이유로 자란다. 한 엔티티에 여러
  * Repository 인터페이스를 두는 것은 Spring Data 가 지원하는 구성이다.
  *
- * <p><b>{@code Material} 을 함께 가져오는 것이 핵심이다.</b> 필터 조건(소재 종류·출처·등급·
- * 이름)이 전부 {@code material} 쪽에 있고, 목록 카드도 그 값들을 보여준다. 판매 글만 읽고
- * 카드마다 소재를 다시 조회하면 그게 정확히 N+1 이다. 두 테이블 사이에 JPA 연관이 없어
- * ({@code materialId} 가 그냥 {@code Long} 이다) 명시적 entity join 으로 묶는다.
+ * <p><b>{@code Material} 과 판매자를 함께 가져오는 것이 핵심이다.</b> 필터 조건(소재 종류·
+ * 출처·등급·이름)이 전부 {@code material} 쪽에 있고, 목록 카드는 그 값들에 더해 판매자
+ * 이름을 보여준다. 판매 글만 읽고 카드마다 소재와 사용자를 다시 조회하면 그게 정확히
+ * N+1 이다. 테이블 사이에 JPA 연관이 없어 ({@code materialId} 가 그냥 {@code Long} 이다)
+ * 명시적 entity join 으로 묶는다.
  *
  * <p><b>Verification 필터는 없다.</b> 티켓 -298 이 요구하지만 판정 결과를 담는 컬럼이 아직
  * DB 에 없다 — {@code MaterialDetailResponse} 가 항상 {@code REGISTERED} 를 내려보내는 것과
@@ -44,12 +46,13 @@ public interface ListingSearchRepository extends Repository<MaterialListing, Lon
      * 것을 알고 있다. 판매 글 수가 인덱스를 논할 규모가 아니고, 검색 품질이 필요해지면
      * 전문 검색으로 바꿔야 하지 컬럼 인덱스로 해결되지 않는다.
      *
-     * @return {@code [MaterialListing, Material]} 쌍. 순서가 계약이다
+     * @return {@code [MaterialListing, Material, 판매자 User]}. 순서가 계약이다
      */
     @Query(value = """
-            select l, m
+            select l, m, seller
             from MaterialListing l
             join Material m on m.id = l.materialId
+            join User seller on seller.id = l.sellerId
             where l.status = :status
               and (:sellerId is null or l.sellerId = :sellerId)
               and (:materialType is null or m.materialType = :materialType)
@@ -114,9 +117,10 @@ public interface ListingSearchRepository extends Repository<MaterialListing, Lon
      * 받는 편이 호출부에서 다루기 쉽다.
      */
     @Query("""
-            select l, m
+            select l, m, seller
             from MaterialListing l
             join Material m on m.id = l.materialId
+            join User seller on seller.id = l.sellerId
             where l.id = :listingId
             """)
     List<Object[]> findWithMaterial(@Param("listingId") Long listingId);

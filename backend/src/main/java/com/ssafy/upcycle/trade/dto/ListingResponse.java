@@ -5,6 +5,7 @@ import com.ssafy.upcycle.material.entity.MaterialRootOrigin;
 import com.ssafy.upcycle.material.entity.MaterialType;
 import com.ssafy.upcycle.trade.entity.ListingStatus;
 import com.ssafy.upcycle.trade.entity.MaterialListing;
+import com.ssafy.upcycle.user.entity.User;
 import java.time.LocalDateTime;
 
 /**
@@ -36,13 +37,14 @@ public record ListingResponse(
         MaterialRootOrigin rootOrigin,
         String grade,
         Long sellerId,
+        String sellerName,
         long totalQuantity,
         long availableQuantity,
         long pricePerKg,
         ListingStatus status,
         LocalDateTime createdAt) {
 
-    public static ListingResponse of(MaterialListing listing, Material material) {
+    public static ListingResponse of(MaterialListing listing, Material material, User seller) {
         return new ListingResponse(
                 listing.getId(),
                 listing.getChainListingId(),
@@ -54,6 +56,7 @@ public record ListingResponse(
                 material.getRootOrigin(),
                 material.getGrade(),
                 listing.getSellerId(),
+                seller.getName(),
                 listing.getTotalQuantity(),
                 listing.getAvailableQuantity(),
                 listing.getPricePerKg(),
