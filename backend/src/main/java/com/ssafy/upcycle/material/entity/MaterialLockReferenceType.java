@@ -9,6 +9,7 @@ package com.ssafy.upcycle.material.entity;
 public enum MaterialLockReferenceType {
 
     LISTING,
+    PROCESSING_REQUEST,
     PROCESSING_JOB,
     PRODUCTION_BATCH
 }

@@ -217,7 +217,7 @@ CREATE TABLE material_lock (
     owner_id BIGINT NOT NULL,
     amount BIGINT NOT NULL,
     purpose ENUM('MARKETPLACE', 'PROCESSING', 'PRODUCTION') NOT NULL,
-    reference_type ENUM('LISTING', 'PROCESSING_JOB', 'PRODUCTION_BATCH') NOT NULL,
+    reference_type ENUM('LISTING', 'PROCESSING_REQUEST', 'PROCESSING_JOB', 'PRODUCTION_BATCH') NOT NULL,
     reference_id BIGINT NOT NULL,
     status ENUM('ACTIVE', 'RELEASED', 'CONSUMED', 'EXPIRED') NOT NULL DEFAULT 'ACTIVE',
     expires_at DATETIME NULL,
@@ -288,13 +288,17 @@ CREATE TABLE processing_request (
     id BIGINT NOT NULL AUTO_INCREMENT,
     request_code VARCHAR(30) NOT NULL,
     brand_id BIGINT NOT NULL,
-    status ENUM('QUOTING', 'SELECTED', 'CANCELED', 'EXPIRED') NOT NULL DEFAULT 'QUOTING',
+    processor_id BIGINT NOT NULL,
+    status ENUM('QUOTING', 'SELECTED', 'CANCELED', 'REJECTED', 'EXPIRED') NOT NULL DEFAULT 'QUOTING',
     expires_at DATETIME NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT pk_processing_request PRIMARY KEY (id),
     CONSTRAINT uk_processing_request_code UNIQUE (request_code),
     CONSTRAINT fk_processing_request_brand FOREIGN KEY (brand_id) REFERENCES users (id),
+    CONSTRAINT fk_processing_request_processor FOREIGN KEY (processor_id) REFERENCES users (id),
+    CONSTRAINT chk_processing_request_parties CHECK (brand_id <> processor_id),
     INDEX idx_processing_request_brand_status (brand_id, status),
+    INDEX idx_processing_request_processor_status (processor_id, status),
     INDEX idx_processing_request_expires_at (expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
@@ -304,6 +308,7 @@ CREATE TABLE processing_request_input (
     material_id BIGINT NOT NULL,
     quantity BIGINT NOT NULL,
     CONSTRAINT pk_processing_request_input PRIMARY KEY (id),
+    CONSTRAINT uk_processing_request_input_material UNIQUE (processing_request_id, material_id),
     CONSTRAINT fk_processing_request_input_request FOREIGN KEY (processing_request_id)
         REFERENCES processing_request (id),
     CONSTRAINT fk_processing_request_input_material FOREIGN KEY (material_id) REFERENCES material (id),
@@ -327,6 +332,7 @@ CREATE TABLE processing_request_type (
     ) NOT NULL,
     sequence_no INT NOT NULL,
     CONSTRAINT pk_processing_request_type PRIMARY KEY (id),
+    CONSTRAINT uk_processing_request_type_purpose UNIQUE (processing_request_id, process_type),
     CONSTRAINT uk_processing_request_type_sequence UNIQUE (processing_request_id, sequence_no),
     CONSTRAINT fk_processing_request_type_request FOREIGN KEY (processing_request_id)
         REFERENCES processing_request (id),

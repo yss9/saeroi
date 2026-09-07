@@ -15,6 +15,13 @@ import org.springframework.data.jpa.repository.JpaRepository;
  */
 public interface MaterialBalanceRepository extends JpaRepository<MaterialBalance, Long> {
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query(
+            "select b from MaterialBalance b where b.materialId = :materialId and b.ownerId = :ownerId")
+    Optional<MaterialBalance> findForUpdate(
+            @org.springframework.data.repository.query.Param("materialId") Long materialId,
+            @org.springframework.data.repository.query.Param("ownerId") Long ownerId);
+
     Optional<MaterialBalance> findByMaterialIdAndOwnerId(Long materialId, Long ownerId);
 
     List<MaterialBalance> findAllByOwnerId(Long ownerId);
