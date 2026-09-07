@@ -4,33 +4,48 @@
 // **블록체인은 결제를 검증하지 않는다** — `Marketplace.sol` 의 `Order` 구조체에 금액
 // 필드가 없고 `createListing` 에 가격 인자가 없다. 온체인에는 수량과 소유권만 남는다.
 //
-// ⚠️ **PG 연동 전이다.** 지금은 서버가 카카오페이를 부르지 않고, 클라이언트가 승인
-// 결과를 알려주는 구조다. 그래서 서버가 승인 금액을 거래 금액과 반드시 대조한다.
+// 카카오페이는 2단계다.
 //
-// 실제 카카오페이는 2단계다 — `ready` 로 결제창 주소와 tid 를 받고, 사용자가 인증한 뒤
-// `approve` 로 승인한다. 붙일 때 바뀌는 것은 **서버 안쪽과 이 파일의 두 함수뿐**이고,
-// 호출하는 훅(usePayment)과 화면의 상태 흐름은 그대로다.
+//   1) ready    서버가 PG 에 준비를 요청해 tid 와 결제창 주소를 받는다   (돈 안 움직임)
+//   2) 결제창으로 이동 → 사용자가 인증 → pg_token 을 들고 복귀 URL 로 돌아온다
+//   3) approve  서버가 그 토큰으로 승인을 마친다                        (실제 청구)
 //
-// 프론트가 PG 를 직접 부르지 않는다. CID·시크릿이 필요해서 서버만 호출할 수 있고,
+// 프론트가 PG 를 직접 부르지 않는다. 시크릿이 필요해서 서버만 호출할 수 있고,
 // 프론트가 부르면 그 값이 브라우저에 노출된다.
 
 import { apiClient } from '../../../services/apiClient.ts'
-import type { PaymentConfirmRequest, Trade } from '../types/trade.types.ts'
+import type { PaymentReady, Trade } from '../types/trade.types.ts'
 
 /**
- * 결제 승인 — `POST /v1/trades/{tradeId}/payment`
+ * 결제 준비 — `POST /v1/trades/{tradeId}/payment/ready`
  *
- * 성공하면 거래가 PAID 로 넘어간다. 이때 Material 은 아직 이동하지 않는다 —
- * 소유권 이전은 Buyer 수령 확인 시점이다 (정책 07.2).
+ * **아직 청구되지 않는다.** 응답의 `redirectUrl` 로 사용자를 보내면 결제창이 열린다.
  *
- * `CREATED` 가 아닌 거래에 부르면 서버가 `PAYMENT_STATE_INVALID` 로 거절한다.
- * 중복 결제를 막는 지점이다.
+ * `live` 가 false 면 서버에 카카오페이 키가 없어 Mock 게이트웨이가 붙은 것이다.
+ * 그때는 `redirectUrl` 이 비어 있고, 화면은 이동하지 않고 바로 승인으로 갈 수 있다.
  */
-export async function confirmPayment(
-  tradeId: number,
-  payload: PaymentConfirmRequest,
-): Promise<Trade> {
-  const { data } = await apiClient.post<Trade>(`/v1/trades/${tradeId}/payment`, payload)
+export async function readyPayment(tradeId: number): Promise<PaymentReady> {
+  const { data } = await apiClient.post<PaymentReady>(`/v1/trades/${tradeId}/payment/ready`)
+  return data
+}
+
+/**
+ * 결제 승인 — `POST /v1/trades/{tradeId}/payment/approve`
+ *
+ * **이 시점에 실제로 청구된다.** 성공하면 거래가 PAID 로 넘어간다. 이때 Material 은 아직
+ * 이동하지 않는다 — 소유권 이전은 Buyer 수령 확인 시점이다 (정책 07.2).
+ *
+ * 금액과 tid 를 보내지 않는다. 금액은 서버가 PG 응답에서 읽어 거래 금액과 대조하고,
+ * tid 는 준비 단계에서 서버가 거래에 저장해 두었다. 둘 다 클라이언트가 말하게 두면
+ * 조작 경로가 된다.
+ *
+ * 준비를 건너뛰고 부르면 `PAYMENT_NOT_PREPARED`, 이미 결제된 거래면
+ * `PAYMENT_STATE_INVALID` 로 거절된다 (뒤로 가기로 복귀 URL 을 다시 열면 실제로 두 번 들어온다).
+ */
+export async function approvePayment(tradeId: number, pgToken: string): Promise<Trade> {
+  const { data } = await apiClient.post<Trade>(`/v1/trades/${tradeId}/payment/approve`, {
+    pgToken,
+  })
   return data
 }
 
@@ -40,13 +55,11 @@ export async function confirmPayment(
  * 당사자 양쪽 모두 부를 수 있고 **발송 전까지만** 가능하다. 배송이 시작된 뒤의 되돌리기는
  * 분쟁 절차(정책 09)다.
  *
- * 서버가 판매글의 잔여 수량을 함께 복구한다. **결제창을 닫은 사용자를 반드시 이 경로로
- * 보내야 한다** — 안 보내면 그 수량이 아무도 살 수 없는 채로 남는다.
+ * 결제까지 끝난 거래면 서버가 **환불을 먼저 요청하고** 상태를 바꾼다. 환불이 실패하면
+ * 거래는 PAID 로 남는다 — 돈은 그대로인데 거래만 취소된 상태를 만들지 않기 위해서다.
  *
- * `DELETE` 가 아니라 `POST /cancel` 인 것은 거래 행을 지우지 않기 때문이다. 취소된 거래도
- * 이력이고, 같은 판매글에서 몇 건이 취소됐는지가 분쟁 때 근거가 된다.
- *
- * 취소 사유는 서버가 받지 않는다 — `material_trade` 에 사유 컬럼이 없다.
+ * 판매글의 잔여 수량도 함께 복구된다. **결제창을 닫은 사용자를 반드시 이 경로로 보내야
+ * 한다** — 안 보내면 그 수량이 아무도 살 수 없는 채로 남는다.
  */
 export async function cancelTrade(tradeId: number): Promise<Trade> {
   const { data } = await apiClient.post<Trade>(`/v1/trades/${tradeId}/cancel`)
