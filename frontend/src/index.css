@@ -1,5 +1,6 @@
 /* 공통 컴포넌트 스타일. @import 는 CSS 규칙상 반드시 최상단이어야 한다. */
 @import "./components/common/common.css";
+@import "./features/marketplace/components/marketplace.css";
 
 :root {
   font-family: "Pretendard", "Noto Sans KR", system-ui, sans-serif;

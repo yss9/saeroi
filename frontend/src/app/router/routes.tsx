@@ -5,7 +5,9 @@ import { AdminPage } from '../../pages/auth/AdminPage.tsx'
 import { LoginPage } from '../../pages/auth/LoginPage.tsx'
 import { NotFoundPage } from '../../pages/auth/NotFoundPage.tsx'
 import { InventoryPage } from '../../pages/inventory/InventoryPage.tsx'
+import { ListingDetailPage } from '../../pages/marketplace/ListingDetailPage.tsx'
 import { MarketplacePage } from '../../pages/marketplace/MarketplacePage.tsx'
+import { SupplierMarketPage } from '../../pages/marketplace/SupplierMarketPage.tsx'
 import { MaterialDetailPage } from '../../pages/material/MaterialDetailPage.tsx'
 import { MaterialListPage } from '../../pages/material/MaterialListPage.tsx'
 import { MaterialRegisterPage } from '../../pages/material/MaterialRegisterPage.tsx'
@@ -14,6 +16,7 @@ import { ProductDetailPage } from '../../pages/product/ProductDetailPage.tsx'
 import { ProductListPage } from '../../pages/product/ProductListPage.tsx'
 import { ProductionPage } from '../../pages/production/ProductionPage.tsx'
 import { PassportPage } from '../../pages/traceability/PassportPage.tsx'
+import { TradeDetailPage } from '../../pages/trade/TradeDetailPage.tsx'
 import { TradeListPage } from '../../pages/trade/TradeListPage.tsx'
 import { ProtectedRoute } from './guards/ProtectedRoute.tsx'
 import { RoleGuard } from './guards/RoleGuard.tsx'
@@ -48,6 +51,7 @@ export const routes: RouteObject[] = [
   { path: '/materials', element: <MaterialListPage /> },
   { path: '/materials/:materialId', element: <MaterialDetailPage /> },
   { path: '/marketplace', element: <MarketplacePage /> },
+  { path: '/marketplace/:listingId', element: <ListingDetailPage /> },
   { path: '/products', element: <ProductListPage /> },
   { path: '/products/:productId', element: <ProductDetailPage /> },
 
@@ -57,11 +61,17 @@ export const routes: RouteObject[] = [
     children: [
       { path: '/inventory', element: <InventoryPage /> },
       { path: '/trades', element: <TradeListPage /> },
+      { path: '/trades/:tradeId', element: <TradeDetailPage /> },
 
       // ── SUPPLIER ──
       {
         element: <RoleGuard allow={['SUPPLIER']} />,
-        children: [{ path: '/supplier/materials/new', element: <MaterialRegisterPage /> }],
+        children: [
+          { path: '/supplier/materials/new', element: <MaterialRegisterPage /> },
+          // 정책 07.1: Supplier 뿐 아니라 소재를 보유한 Brand 도 재판매할 수 있다.
+          // 지금은 SUPPLIER 구역에 두고, Brand 재판매 진입점은 별도로 논의한다.
+          { path: '/supplier/listings', element: <SupplierMarketPage /> },
+        ],
       },
 
       // ── BRAND ──
