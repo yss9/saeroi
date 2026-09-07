@@ -3,6 +3,7 @@ package com.ssafy.upcycle.processing.controller;
 import com.ssafy.upcycle.common.response.ApiResponse;
 import com.ssafy.upcycle.processing.dto.*;
 import com.ssafy.upcycle.processing.entity.ProcessingRequestStatus;
+import com.ssafy.upcycle.processing.service.ProcessingRequestQueryService;
 import com.ssafy.upcycle.processing.service.ProcessingRequestService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,16 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class ProcessingRequestController {
     private final ProcessingRequestService service;
+    private final ProcessingRequestQueryService queryService;
+
+    @GetMapping
+    public ApiResponse<ProcessingRequestListResponse> list(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "0") String page,
+            @RequestParam(defaultValue = "20") String size) {
+        return ApiResponse.success(queryService.list(Long.valueOf(jwt.getSubject()), status, page, size));
+    }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
