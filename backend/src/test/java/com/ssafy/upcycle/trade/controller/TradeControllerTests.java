@@ -221,6 +221,22 @@ class TradeControllerTests {
                 .andExpect(jsonPath("$.code").value("TRADE_ALREADY_SHIPPED"));
     }
 
+    /**
+     * 프론트에서 보고된 500 을 그대로 재현한다. 폼의 빈 입력은 null 이 아니라 "" 로 오는데,
+     * 그것이 "송장 없이 발송" 이라는 정상 경로를 매번 막고 있었다.
+     */
+    @Test
+    void blankWaybillFieldsAreAcceptedAsNoWaybill() throws Exception {
+        mockMvc.perform(patch("/api/v1/trades/{tradeId}/ship", trade.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(seller, UserRole.SUPPLIER))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{ \"carrier\": \"\", \"trackingNumber\": \"\" }"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("SHIPPED"))
+                .andExpect(jsonPath("$.data.carrier").doesNotExist())
+                .andExpect(jsonPath("$.data.trackingNumber").doesNotExist());
+    }
+
     @Test
     void trackingNumberWithoutCarrierIsRejected() throws Exception {
         mockMvc.perform(patch("/api/v1/trades/{tradeId}/ship", trade.getId())
@@ -253,9 +269,10 @@ class TradeControllerTests {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.status").value("COMPLETED"))
                 .andExpect(jsonPath("$.data.transferredQuantity").value(20000))
-                .andExpect(jsonPath("$.data.sellerQuantity").value(10000))
                 .andExpect(jsonPath("$.data.buyerQuantity").value(20000))
-                .andExpect(jsonPath("$.data.buyerSignedAt").isNotEmpty());
+                .andExpect(jsonPath("$.data.buyerSignedAt").isNotEmpty())
+                // 판매자 재고는 이 거래와 무관하다. 구매자에게 내려가면 안 된다
+                .andExpect(jsonPath("$.data.sellerQuantity").doesNotExist());
     }
 
     /** 받는 쪽은 구매자다. 판매자가 대신 확인하면 2-Track 이 성립하지 않는다. */

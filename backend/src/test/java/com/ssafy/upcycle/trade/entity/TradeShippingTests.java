@@ -49,6 +49,29 @@ class TradeShippingTests {
         assertThat(shipping.getShippedAt()).isEqualTo(NOW);
     }
 
+    /**
+     * 폼에서 입력하지 않은 칸은 null 이 아니라 빈 문자열로 온다. 이걸 필수 검사로 넘기면
+     * "송장 없이 발송" 이라는 정상 경로가 매번 500 으로 끝난다.
+     */
+    @Test
+    void blankWaybillIsTreatedAsAbsent() {
+        TradeShipping shipping = shipping();
+
+        shipping.registerShipment("", "   ", NOW);
+
+        assertThat(shipping.getCarrier()).isNull();
+        assertThat(shipping.getTrackingNumber()).isNull();
+        assertThat(shipping.getShippedAt()).isEqualTo(NOW);
+    }
+
+    @Test
+    void blankAddressDetailIsTreatedAsAbsent() {
+        TradeShipping shipping = TradeShipping.of(
+                1L, "김구매", "010-0000-0000", "04766", "서울시 성동구", "");
+
+        assertThat(shipping.getAddressDetail()).isNull();
+    }
+
     /** 직접 수령·화물처럼 송장이 없는 전달도 있다. */
     @Test
     void shipmentWithoutTrackingNumberIsAllowed() {

@@ -142,8 +142,16 @@ public class TradeShipping {
         return value;
     }
 
+    /**
+     * 선택 항목의 빈 문자열은 <b>없는 것과 같게</b> 다룬다.
+     *
+     * <p>폼에서 입력하지 않은 칸은 {@code null} 이 아니라 {@code ""} 로 온다. 그걸 필수 검사에
+     * 넘기면 "송장 없이 발송" 이라는 정상 경로가 매번 예외로 끝난다 — 실제로 프론트에서
+     * 500 이 재현됐다. 값이 없다는 사실을 두 가지 방법으로 표현할 이유가 없으므로 여기서
+     * 하나로 모은다.
+     */
     private static String requireOptionalText(String value, String field, int maxLength) {
-        if (value == null) {
+        if (value == null || value.isBlank()) {
             return null;
         }
         return requireText(value, field, maxLength);
