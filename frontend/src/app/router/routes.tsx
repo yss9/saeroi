@@ -4,6 +4,8 @@ import { LandingPage } from '../../pages/landing/LandingPage.tsx'
 import { AdminPage } from '../../pages/auth/AdminPage.tsx'
 import { LoginPage } from '../../pages/auth/LoginPage.tsx'
 import { NotFoundPage } from '../../pages/auth/NotFoundPage.tsx'
+import { SignupPendingPage } from '../../pages/auth/SignupPendingPage.tsx'
+import { SignupTypePage } from '../../pages/auth/SignupTypePage.tsx'
 import { InventoryPage } from '../../pages/inventory/InventoryPage.tsx'
 import { ListingDetailPage } from '../../pages/marketplace/ListingDetailPage.tsx'
 import { MarketplacePage } from '../../pages/marketplace/MarketplacePage.tsx'
@@ -45,6 +47,9 @@ export const routes: RouteObject[] = [
   // ── Public ────────────────────────────────────────────
   { path: '/', element: landingPageElement },
   { path: '/login', element: <LoginPage /> },
+  { path: '/signup', element: <SignupTypePage /> },
+  { path: '/signup/consumer', element: <SignupPendingPage accountType="consumer" /> },
+  { path: '/signup/business', element: <SignupPendingPage accountType="business" /> },
 
   // QR Passport: 비회원 공개. 절대 ProtectedRoute 안으로 옮기지 말 것.
   { path: '/passport/:productId', element: <PassportPage /> },
