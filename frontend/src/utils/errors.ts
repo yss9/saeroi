@@ -88,5 +88,9 @@ export function isAppError(value: unknown): value is AppError {
 export function toErrorMessage(error: unknown): string {
   if (isAppError(error)) return error.message
   if (error instanceof Error) return error.message
+  // 문자열도 그대로 쓴다. ErrorMessage 는 `error="잘못된 주소입니다."` 처럼 문구를 직접
+  // 받는 호출을 이미 허용하고 있는데(그렇게 문서화되어 있다), 여기서 걸러내면 그 문구가
+  // "알 수 없는 오류가 발생했습니다." 로 바뀌어 화면에 나간다.
+  if (typeof error === 'string' && error.trim()) return error
   return DEFAULT_MESSAGE.UNKNOWN
 }

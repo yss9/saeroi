@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Button, ErrorMessage } from '../../../components/common/index.ts'
+import { Controller, useForm, useWatch } from 'react-hook-form'
+import { Button, ErrorMessage, Input } from '../../../components/common/index.ts'
 import { QuantityInput } from '../../../components/common/QuantityInput.tsx'
 import { calculateTotalPrice, formatKg, formatWon, kgToGram } from '../../../utils/quantity.ts'
 import type { Listing } from '../../marketplace/types/marketplace.types.ts'
@@ -10,20 +10,53 @@ export interface PurchaseFormProps {
   onCreated?: (tradeId: number) => void
 }
 
+/** 폼 입력값. 수량은 kg 으로 입력하고 전송 직전에 gram 으로 바꾼다. */
+interface PurchaseFormValues {
+  quantityKg: number | null
+  receiverName: string
+  receiverPhone: string
+  zipCode: string
+  address: string
+  addressDetail: string
+}
+
 /**
  * 부분 구매 폼 (Brand Market).
  *
  * 정책 07.1: 판매글의 **일부만 살 수 있다.** 30kg 짜리에서 10kg 만 사면
  * 판매글은 20kg 남은 채로 유지된다.
  *
- * 수량 입력에 useState 를 쓰는 이유 — 필드가 하나뿐이고 실시간으로 금액을 다시
- * 계산해야 한다. React Hook Form 은 필드가 여럿이고 검증이 복잡할 때 유리하다.
+ * **배송지를 여기서 받는다.** 나중에 채우는 API 가 없고, 배송 행이 없는 거래는 발송·수령이
+ * 서버에서 404 로 막힌다 — 즉 배송지를 빠뜨린 거래는 판매자도 구매자도 끝낼 방법이 없다.
+ *
+ * 필드가 여섯 개가 되면서 React Hook Form 으로 옮겼다 (예전에는 수량 하나라 `useState`
+ * 였다). input 마다 `useState` 를 두면 검증·에러 표시가 흩어지고 입력마다 폼 전체가
+ * 리렌더된다. 수량은 `QuantityInput` 이 제어 컴포넌트라 `Controller` 로 연결한다.
  */
 export function PurchaseForm({ listing, onCreated }: PurchaseFormProps) {
-  const [quantityKg, setQuantityKg] = useState<number | null>(null)
+  const {
+    control,
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<PurchaseFormValues>({
+    defaultValues: {
+      quantityKg: null,
+      receiverName: '',
+      receiverPhone: '',
+      zipCode: '',
+      address: '',
+      addressDetail: '',
+    },
+  })
+
   const { mutate, isPending, isError, error } = useCreateTrade()
 
-  const quantityGram = quantityKg === null ? 0 : kgToGram(quantityKg)
+  // 입력 중인 수량으로 금액을 미리 보여준다. watch() 대신 useWatch() 를 쓰는 이유는
+  // ListingForm 과 같다 — watch() 가 돌려주는 함수는 렌더마다 새로 만들어진다.
+  const quantityKg = useWatch({ control, name: 'quantityKg' })
+
+  const quantityGram = quantityKg === null || quantityKg === undefined ? 0 : kgToGram(quantityKg)
   const exceedsAvailable = quantityGram > listing.availableQuantity
   const isEmpty = quantityGram <= 0
 
@@ -33,28 +66,49 @@ export function PurchaseForm({ listing, onCreated }: PurchaseFormProps) {
 
   const canSubmit = !isEmpty && !exceedsAvailable && listing.status === 'ON_SALE'
 
-  function submit() {
+  const onSubmit = handleSubmit((values) => {
     if (!canSubmit) return
     mutate(
-      // 단위를 함께 보낸다. 서버가 gram 으로 환산하므로 여기서 이미 gram 인 값에는 'G' 다.
-      // 결제 수단은 PG 연동 전이라 MOCK 이다 — 스키마의 ENUM 에 있는 값이고,
-      // 연동되면 KAKAO_PAY 로 바뀐다.
-      { listingId: listing.listingId, quantity: quantityGram, unit: 'G', paymentMethod: 'MOCK' },
+      {
+        listingId: listing.listingId,
+        // 단위를 함께 보낸다. 서버가 gram 으로 환산하므로 여기서 이미 gram 인 값에는 'G' 다.
+        quantity: quantityGram,
+        unit: 'G',
+        // 결제 수단은 PG 연동 전이라 MOCK 이다 — 스키마의 ENUM 에 있는 값이고,
+        // 연동되면 KAKAO_PAY 로 바뀐다.
+        paymentMethod: 'MOCK',
+        receiverName: values.receiverName.trim(),
+        receiverPhone: values.receiverPhone.trim(),
+        zipCode: values.zipCode.trim(),
+        address: values.address.trim(),
+        // 상세 주소만 선택이다. 빈 값은 필드째 뺀다 — 공백을 주소의 일부로 저장할 이유가 없다.
+        ...(values.addressDetail.trim() ? { addressDetail: values.addressDetail.trim() } : {}),
+      },
       { onSuccess: (trade) => onCreated?.(trade.tradeId) },
     )
-  }
+  })
 
   return (
-    <div className="purchase-form">
-      <QuantityInput
-        label="구매 수량"
-        unit="KG"
-        value={quantityKg}
-        onChange={setQuantityKg}
-        min={0}
-        max={listing.availableQuantity / 1000}
-        disabled={listing.status !== 'ON_SALE'}
-        error={exceedsAvailable ? `판매 가능 수량(${formatKg(listing.availableQuantity)})을 넘었습니다.` : undefined}
+    <form onSubmit={onSubmit} noValidate className="purchase-form">
+      <Controller
+        control={control}
+        name="quantityKg"
+        render={({ field }) => (
+          <QuantityInput
+            label="구매 수량"
+            unit="KG"
+            value={field.value}
+            onChange={field.onChange}
+            min={0}
+            max={listing.availableQuantity / 1000}
+            disabled={listing.status !== 'ON_SALE'}
+            error={
+              exceedsAvailable
+                ? `판매 가능 수량(${formatKg(listing.availableQuantity)})을 넘었습니다.`
+                : undefined
+            }
+          />
+        )}
       />
 
       <dl className="purchase-form__summary">
@@ -68,6 +122,62 @@ export function PurchaseForm({ listing, onCreated }: PurchaseFormProps) {
         </div>
       </dl>
 
+      {/* 길이 제한은 서버 검증과 같은 값이다. 여기서 막지 않으면 다 입력하고 제출한
+          뒤에야 400 을 본다. */}
+      <fieldset className="purchase-form__shipping">
+        <legend>배송지</legend>
+
+        <Input
+          label="수취인"
+          autoComplete="name"
+          error={errors.receiverName?.message}
+          {...register('receiverName', {
+            required: '수취인 이름을 입력해 주세요.',
+            maxLength: { value: 100, message: '수취인 이름은 100자를 넘을 수 없습니다.' },
+          })}
+        />
+
+        <Input
+          label="연락처"
+          autoComplete="tel"
+          placeholder="010-0000-0000"
+          error={errors.receiverPhone?.message}
+          {...register('receiverPhone', {
+            required: '연락처를 입력해 주세요.',
+            maxLength: { value: 20, message: '연락처는 20자를 넘을 수 없습니다.' },
+          })}
+        />
+
+        <Input
+          label="우편번호"
+          autoComplete="postal-code"
+          error={errors.zipCode?.message}
+          {...register('zipCode', {
+            required: '우편번호를 입력해 주세요.',
+            maxLength: { value: 20, message: '우편번호는 20자를 넘을 수 없습니다.' },
+          })}
+        />
+
+        <Input
+          label="주소"
+          autoComplete="street-address"
+          error={errors.address?.message}
+          {...register('address', {
+            required: '주소를 입력해 주세요.',
+            maxLength: { value: 255, message: '주소는 255자를 넘을 수 없습니다.' },
+          })}
+        />
+
+        <Input
+          label="상세 주소"
+          hint="선택 입력입니다."
+          error={errors.addressDetail?.message}
+          {...register('addressDetail', {
+            maxLength: { value: 255, message: '상세 주소는 255자를 넘을 수 없습니다.' },
+          })}
+        />
+      </fieldset>
+
       {/* 구매 요청과 결제는 별개다. 요청 시점에 수량이 예약되고, 결제는 그다음이다.
           이 순서를 모르면 "결제도 안 했는데 왜 수량이 줄었지" 로 읽힌다. */}
       <p className="purchase-form__note">
@@ -76,9 +186,9 @@ export function PurchaseForm({ listing, onCreated }: PurchaseFormProps) {
 
       {isError && <ErrorMessage error={error} />}
 
-      <Button onClick={submit} disabled={!canSubmit} loading={isPending} fullWidth>
+      <Button type="submit" disabled={!canSubmit} loading={isPending} fullWidth>
         {listing.status === 'ON_SALE' ? '구매 요청' : '판매가 종료된 소재입니다'}
       </Button>
-    </div>
+    </form>
   )
 }

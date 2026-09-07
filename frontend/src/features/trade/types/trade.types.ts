@@ -98,6 +98,16 @@ export interface Trade {
   /** Buyer 수령 서명 시각. 이게 있어야 TRANSACTION_VERIFIED 가 된다 */
   buyerSignedAt: string | null
   completedAt: string | null
+  /**
+   * 배송지와 송장.
+   *
+   * **배송지가 추가되기 전에 만들어진 거래는 `null` 이다.** 그 거래에는 `trade_shipping`
+   * 행이 없어서 발송·수령이 서버에서 404(`TRADE_SHIPPING_NOT_FOUND`)로 막힌다 —
+   * 화면에서 되살릴 방법이 없으므로 판매자에게 사유를 알리는 것까지가 할 수 있는 일이다.
+   *
+   * 서버가 빈 객체 대신 `null` 을 주므로 "주소가 비어 있는 배송지" 로 잘못 읽을 일은 없다.
+   */
+  shipping: TradeShippingInfo | null
 }
 
 /**
@@ -111,6 +121,24 @@ export interface CreateTradeRequest {
   quantity: number
   unit: QuantityUnit
   paymentMethod: PaymentMethod
+
+  // ── 배송지 ──
+  //
+  // **구매 시점에 함께 받는다.** 나중에 채우는 별도 API 가 없고, 배송 행이 없는 거래는
+  // 발송·수령이 모두 404 로 막힌다. 그래서 상세 주소를 뺀 나머지는 전부 필수다.
+  //
+  // 길이 제한은 서버 검증과 같은 값이다 (`TradeCreateRequest`). 화면에서 먼저 막지 않으면
+  // 사용자가 다 입력하고 제출한 뒤에야 400 을 본다.
+  /** 필수, 100자 이하 */
+  receiverName: string
+  /** 필수, 20자 이하 */
+  receiverPhone: string
+  /** 필수, 20자 이하 */
+  zipCode: string
+  /** 필수, 255자 이하 */
+  address: string
+  /** 선택, 255자 이하 */
+  addressDetail?: string
 }
 
 /** 내 거래 목록 필터. */
@@ -178,3 +206,102 @@ export type PaymentPhase =
   /** 사용자가 결제창에서 취소 */
   | 'CANCELED'
   | 'FAILED'
+
+// ── 배송 · 수령 ─────────────────────────────────────────
+
+/**
+ * 배송 정보 (`trade_shipping`). `trade_id` 가 UNIQUE 라 **거래당 한 건**이고
+ * 분할 배송은 없다.
+ *
+ * 배송지는 구매 시점에 확정되고 송장은 판매자가 발송할 때 붙는다. 그래서 수취인·주소는
+ * 항상 값이 있고 `carrier`·`trackingNumber`·`shippedAt` 은 발송 전까지 null 이다.
+ */
+export interface TradeShippingInfo {
+  receiverName: string
+  receiverPhone: string
+  zipCode: string
+  address: string
+  addressDetail: string | null
+  /** 택배사. 송장 없이 전달한 경우 null */
+  carrier: string | null
+  trackingNumber: string | null
+  shippedAt: string | null
+  /** 실제 배송 완료 시각. 구매자 수령 확인 시 기록된다 */
+  deliveredAt: string | null
+}
+
+/**
+ * 발송 처리 요청 (`PATCH /v1/trades/{tradeId}/ship`).
+ *
+ * 택배사·운송장 **둘 다 선택**이다. 직접 수령이나 화물처럼 송장이 없는 전달 방식이 있어
+ * 서버 스키마도 두 컬럼 모두 NULL 을 허용한다.
+ *
+ * 다만 운송장만 보내면 `TRADE_CARRIER_REQUIRED` 로 거절된다 — 택배사를 모르면 조회할
+ * 방법이 없어 기록해도 쓸모가 없다. 화면에서 먼저 막는다.
+ *
+ * 빈 값은 보내지 않는다. 서버도 blank 를 null 로 정규화하므로 보내도 결과는 같지만,
+ * 앞뒤 공백까지 지우는 것은 화면 쪽 일이다 — 공백만 입력한 택배사가 그대로 저장되면
+ * 송장이 있는 것처럼 보인다. 그 정리는 `shipTrade()` 가 한다.
+ */
+export interface ShipTradeRequest {
+  carrier?: string
+  trackingNumber?: string
+}
+
+/**
+ * 발송 처리 결과.
+ *
+ * ⚠️ **`Trade` 가 아니다.** 거래 전체가 아니라 바뀐 값만 온다. 그래서 상세 캐시를
+ * `setQueryData` 로 통째로 덮을 수 없고 이 값들만 병합해야 한다 (`useShipTrade` 참고).
+ */
+export interface TradeShipResult {
+  tradeId: number
+  tradeCode: string
+  status: TradeStatus
+  shippedAt: string
+  carrier: string | null
+  trackingNumber: string | null
+}
+
+/**
+ * 수령 확인 결과 (`POST /v1/trades/{tradeId}/receive/confirm`).
+ *
+ * 요청 하나로 서버가 `RECEIVED` 를 거쳐 `COMPLETED` 까지 끝낸다 — 잠금 소비, 판매자 차감,
+ * 구매자 증가가 한 트랜잭션이다. 그래서 중간 상태를 화면에서 볼 일이 없고,
+ * **이전 수량과 구매자 보유량이 결과로 온다.**
+ *
+ * 수량 단위는 gram 이다.
+ */
+export interface TradeReceiptResult {
+  tradeId: number
+  tradeCode: string
+  status: TradeStatus
+  receivedAt: string
+  /** Wallet 서명 시각. 지금은 서버가 수령 시각과 같은 값으로 남긴다 */
+  buyerSignedAt: string
+  completedAt: string
+  /** 이번에 이전된 수량 (gram) */
+  transferredQuantity: number
+  /**
+   * 이전 후 구매자 보유량 (gram).
+   *
+   * 판매자 보유량은 오지 않는다 — 이 응답을 받는 사람은 구매자이고, 판매자가 그 소재를
+   * 통틀어 얼마나 갖고 있는지는 이 거래와 무관한 재고 정보다.
+   */
+  buyerQuantity: number
+}
+
+/**
+ * "지금 상태로는 처리할 수 없다" 는 거절 코드.
+ *
+ * 이 코드가 오면 **화면이 들고 있는 거래가 낡았다는 뜻**이다. 다른 창에서 이미 발송했거나
+ * 구매자가 먼저 수령을 확인한 경우다. 사유만 보여주고 끝내면 사용자는 같은 버튼을 다시
+ * 누르므로, 거래를 다시 읽어 현재 상태로 화면을 맞춘다.
+ */
+export const STALE_TRADE_ERROR_CODES: readonly string[] = [
+  'TRADE_ALREADY_SHIPPED',
+  'TRADE_NOT_SHIPPABLE',
+  'TRADE_ALREADY_RECEIVED',
+  'TRADE_NOT_RECEIVABLE',
+  'PAYMENT_STATE_INVALID',
+]
