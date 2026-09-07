@@ -31,6 +31,9 @@ GIT_CONVENTION에 따라 develop / feat 하위 브랜치 없이 이 브랜치에
 │   ├── backup-mysql.sh        # MySQL 일일 덤프 (cron 03:10)
 │   ├── restore-mysql.sh       # 덤프로 복구
 │   ├── install-backup-cron.sh # 백업 cron 등록 (멱등)
+│   ├── prune-images.sh        # 떠도는 이미지·빌드 캐시 정리 (cron 04:20, 24h 보다 오래된 것만)
+│   │                          #   ⚠️ 배포 경로에서 부르지 않는다 — 다른 파트의 빌드를 깨뜨렸다
+│   ├── install-prune-cron.sh  # prune cron 등록 (멱등)
 │   └── pull-backups.sh        # 덤프를 EC2 밖(작업용 PC)으로 반출 — 로컬에서 실행
 └── docs/
     ├── INFRA_SETUP.md         # 구축 체크리스트 / 배경
@@ -148,3 +151,11 @@ Jenkins Multibranch Pipeline이 자동 수행합니다. 배포 실패(헬스체�
 - HTTPS 적용 완료 (`j15e104.p.ssafy.io`, 만료 2026-11-29, `certbot.timer` 자동 갱신).
 - MySQL은 매일 03:10 자동 백업(`~/backups/mysql`, 14일 보관), 팀원 PC로의 반출은
   `scripts/pull-backups.sh`.
+- **배포 스크립트에서 `docker image prune` 을 부르지 않습니다** (2026-09-07 실사고).
+  네 파트가 하나의 Docker 데몬을 공유하는데, prune 이 부르는 containerd content GC 가
+  다른 파트의 진행 중인 빌드 ingest 블롭을 지워 `failed to export layer` 로 죽였습니다
+  (frontend 배포 07:02:24 → backend 빌드 07:02:31 실패). 테스트는 전부 통과하고
+  이미지 export 에서만 죽어서 코드 문제로 보이는 것이 고약합니다.
+  정리는 `scripts/prune-images.sh` 가 cron(04:20)으로 하고, 24h 보다 오래된 것만 지웁니다.
+  Jenkinsfile 의 `disableConcurrentBuilds()` 는 **같은 job 안에서만** 직렬화하므로
+  파트 간 동시 실행은 막아 주지 않습니다.

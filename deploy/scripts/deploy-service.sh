@@ -75,6 +75,26 @@ if ! bash scripts/health-check.sh "$SERVICE"; then
     exit 1
 fi
 
-# 6) 교체되어 떠도는 이미지 정리 (EC2 디스크 가득참 예방).
-#    prune -a 는 쓰지 않는다 — 잠시 내려둔 서비스의 베이스 이미지까지 지워 재다운로드를 유발한다.
-docker image prune -f >/dev/null || true
+# 6) 이미지 정리는 **여기서 하지 않는다.**
+#
+# 예전에는 이 자리에서 `docker image prune -f` 를 불렀다. 그게 다른 파트의 빌드를
+# 깨뜨렸다 (2026-09-07, backend/master #8):
+#
+#   07:02:24  frontend Deploy → docker image prune -f
+#   07:02:31  backend  Docker Build → failed to export layer:
+#             rename .../ingest/<id>/data → .../blobs/sha256/<digest>:
+#             no such file or directory
+#
+# 네 파트가 **하나의 Docker 데몬을 공유**한다. prune 은 containerd content GC 를
+# 부르는데, 그 GC 가 다른 빌드가 아직 커밋하지 않은 ingest 블롭을 지웠다.
+# Jenkinsfile 의 `disableConcurrentBuilds()` 는 **같은 job 안에서만** 직렬화하므로
+# frontend 배포와 backend 빌드가 겹치는 것을 막지 못한다.
+#
+# 증상이 고약하다 — 테스트는 다 통과하고 이미지 export 에서만 죽어서 코드 문제로
+# 보인다. 재현도 두 파트를 동시에 머지해야 되니 잘 안 된다.
+#
+# 그래서 정리를 배포 경로에서 떼어내 스케줄로 옮겼다 → scripts/prune-images.sh
+# (`install-prune-cron.sh` 로 등록). 디스크는 지금 5% 사용이라 배포마다 즉시
+# 정리할 이유가 없다.
+#
+# ⚠️ 여기에 prune 을 다시 넣지 않는다. 넣으면 위 실패가 그대로 돌아온다.
