@@ -111,3 +111,99 @@
   gap: 0.5rem;
   margin-bottom: 1.15rem;
 }
+
+/* ── 거래 진행 타임라인 ──────────────────────────────── */
+
+.trade-timeline {
+  max-width: 28rem;
+  margin: 0 0 1.5rem;
+  padding: 1.15rem 1.25rem 1.25rem;
+  border: 1px solid #ddd9cd;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.trade-timeline__steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* 각 단계가 세로선으로 이어지게 한다. 선을 별도 요소로 두지 않고 ::before 로 그려
+   마크업을 단계 하나 = li 하나로 유지한다. */
+.trade-timeline__step {
+  position: relative;
+  display: flex;
+  gap: 0.75rem;
+  padding: 0 0 1.15rem;
+}
+.trade-timeline__step:last-child { padding-bottom: 0; }
+.trade-timeline__step::before {
+  content: "";
+  position: absolute;
+  left: 0.3rem;
+  top: 1.1rem;
+  bottom: 0;
+  width: 1px;
+  background: #ddd9cd;
+}
+.trade-timeline__step:last-child::before { display: none; }
+
+.trade-timeline__marker {
+  flex-shrink: 0;
+  width: 0.7rem;
+  height: 0.7rem;
+  margin-top: 0.3rem;
+  border: 2px solid #ddd9cd;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.trade-timeline__body { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+.trade-timeline__label { font-size: 0.92rem; color: #6b7280; }
+.trade-timeline__at {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  font-variant-numeric: tabular-nums;
+}
+.trade-timeline__detail {
+  font-size: 0.78rem;
+  color: #6b7280;
+  overflow-wrap: anywhere;
+}
+
+/* 끝난 단계. 색만으로 구분하지 않는다 — 굵기도 함께 바꿔 색을 구분하기 어려운
+   사용자에게도 진행된 단계가 드러난다. */
+.trade-timeline__step--done .trade-timeline__marker {
+  border-color: #1f6f4a;
+  background: #1f6f4a;
+}
+.trade-timeline__step--done .trade-timeline__label { color: #172033; font-weight: 600; }
+.trade-timeline__step--done .trade-timeline__at { color: #6b7280; }
+
+/* 진행 중인 단계. 링을 둘러 지금 여기라는 것을 드러낸다. */
+.trade-timeline__step--current .trade-timeline__marker {
+  border-color: #1f6f4a;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(31, 111, 74, 0.16);
+}
+.trade-timeline__step--current .trade-timeline__label { color: #172033; font-weight: 700; }
+.trade-timeline__step--current .trade-timeline__at { color: #1f6f4a; font-weight: 600; }
+
+/* 취소로 멈춘 단계. 대기와 달라 보여야 한다 — 기다리면 진행될 것처럼 읽히면 안 된다. */
+.trade-timeline__step--stopped .trade-timeline__marker {
+  border-style: dashed;
+  border-color: #c9c4b6;
+}
+.trade-timeline__step--stopped .trade-timeline__label,
+.trade-timeline__step--stopped .trade-timeline__at { color: #b1aca0; }
+
+.trade-timeline__next,
+.trade-timeline__canceled {
+  margin: 1.15rem 0 0;
+  padding: 0.7rem 0.9rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+.trade-timeline__next { background: #f4f2ec; color: #172033; }
+.trade-timeline__canceled { background: #fdf6ec; color: #8a4b0b; }

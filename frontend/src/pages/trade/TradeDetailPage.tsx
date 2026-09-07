@@ -4,6 +4,7 @@ import { useAuth } from '../../features/auth/hooks/useAuth.ts'
 import { PaymentPanel } from '../../features/trade/components/PaymentPanel.tsx'
 import { ReceiptPanel } from '../../features/trade/components/ReceiptPanel.tsx'
 import { ShipmentPanel } from '../../features/trade/components/ShipmentPanel.tsx'
+import { TradeTimeline } from '../../features/trade/components/TradeTimeline.tsx'
 import { useTrade } from '../../features/trade/hooks/useTrade.ts'
 import { formatKg, formatWon } from '../../utils/quantity.ts'
 
@@ -60,6 +61,10 @@ export function TradeDetailPage() {
           <dd>{data.buyerName}</dd>
         </div>
       </dl>
+
+      {/* 진행 상태는 양쪽이 같은 것을 본다. 무엇이 끝났고 지금 누구를 기다리는지가
+          결제·발송 버튼보다 먼저 보여야 한다 — 사용자가 이 화면에 오는 이유다. */}
+      <TradeTimeline trade={data} viewer={isSeller ? 'SELLER' : isBuyer ? 'BUYER' : undefined} />
 
       {/* 구매자: 결제 → 수령 확인. 두 패널을 함께 두는 이유는 결제 직후 다음에 무엇을
           기다려야 하는지가 같은 화면에 보여야 하기 때문이다. */}

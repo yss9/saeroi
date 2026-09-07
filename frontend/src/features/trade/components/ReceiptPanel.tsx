@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Button, ConfirmModal, ErrorMessage, StatusBadge } from '../../../components/common/index.ts'
 import { formatKg } from '../../../utils/quantity.ts'
+import { formatTradeDateTime } from '../utils/tradeDateTime.ts'
 import { useConfirmTradeReceipt } from '../hooks/useConfirmTradeReceipt.ts'
 import {
   TRADE_STATUS_LABEL,
@@ -67,7 +68,7 @@ export function ReceiptPanel({ trade }: ReceiptPanelProps) {
             </div>
             <div>
               <dt>발송 시각</dt>
-              <dd>{formatDateTime(trade.shippedAt)}</dd>
+              <dd>{formatTradeDateTime(trade.shippedAt)}</dd>
             </div>
             {/* 서버가 배송 정보를 내려주기 전에는 이 항목이 나오지 않는다.
                 없다고 수령 확인을 막지는 않는다 — 물건은 이미 도착했을 수 있다. */}
@@ -131,7 +132,7 @@ function ReceiptResult({
     <dl className="receipt-panel__result">
       <div>
         <dt>수령 확인 시각</dt>
-        <dd>{formatDateTime(trade.receivedAt ?? result?.receivedAt ?? null)}</dd>
+        <dd>{formatTradeDateTime(trade.receivedAt ?? result?.receivedAt ?? null)}</dd>
       </div>
       {result && (
         <>
@@ -147,11 +148,4 @@ function ReceiptResult({
       )}
     </dl>
   )
-}
-
-function formatDateTime(value: string | null): string {
-  if (value === null) return '-'
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return value
-  return parsed.toLocaleString('ko-KR', { dateStyle: 'short', timeStyle: 'short' })
 }
