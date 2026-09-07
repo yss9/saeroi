@@ -37,7 +37,7 @@ class LocalFileStorageServiceTests {
 
     private LocalFileStorageService storage() {
         return new LocalFileStorageService(
-                new FileStorageProperties(root.toString()), Clock.systemDefaultZone());
+                FileStorageProperties.local(root.toString()), Clock.systemDefaultZone());
     }
 
     private StoredFile store(String filename, String contentType) {
