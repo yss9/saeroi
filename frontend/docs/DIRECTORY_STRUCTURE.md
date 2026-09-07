@@ -37,9 +37,11 @@ saeroi/frontend/
 │  └─ index.css                     # 전역 스타일
 ├─ docker/                          # Frontend 컨테이너·Nginx 설정
 ├─ docs/                            # 설계 및 작업 문서
-├─ ARCHITECTURE.md                  # 아키텍처 규칙 (작업 전 필독)
-├─ GIT_CONVENTION.md                # 브랜치·커밋 규칙
-├─ .env.example                     # 환경변수 목록 (실값은 .env, 커밋 금지)
+│  ├─ ARCHITECTURE.md               # 아키텍처 규칙 (작업 전 필독)
+│  ├─ DIRECTORY_STRUCTURE.md        # 디렉터리 구조와 협업 규칙
+│  ├─ GIT_CONVENTION.md             # 브랜치·커밋 규칙
+│  ├─ design-qa.md                  # 랜딩 페이지 디자인 QA
+│  └─ superpowers/                  # 랜딩 페이지 설계 계획 및 명세├─ .env.example                     # 환경변수 목록 (실값은 .env, 커밋 금지)
 ├─ package.json
 └─ vite.config.ts
 ```
