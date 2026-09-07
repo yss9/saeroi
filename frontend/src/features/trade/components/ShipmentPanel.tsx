@@ -9,6 +9,7 @@ import {
 } from '../../../components/common/index.ts'
 import type { AppError } from '../../../utils/errors.ts'
 import { formatKg } from '../../../utils/quantity.ts'
+import { formatTradeDateTime } from '../utils/tradeDateTime.ts'
 import { useShipTrade } from '../hooks/useShipTrade.ts'
 import {
   TRADE_STATUS_LABEL,
@@ -211,7 +212,7 @@ function ShippedReceipt({
       <dl className="shipment-panel__result">
         <div>
           <dt>발송 시각</dt>
-          <dd>{formatDateTime(shippedAt)}</dd>
+          <dd>{formatTradeDateTime(shippedAt)}</dd>
         </div>
         <div>
           <dt>송장</dt>
@@ -258,11 +259,4 @@ function shipErrorMessage(error: AppError): string {
     return '이 거래에 배송지 정보가 없어 발송 처리를 할 수 없습니다. 배송지 입력이 적용되기 전에 만들어진 거래라 판매자가 해결할 수 없습니다 — 운영자에게 알려 주세요.'
   }
   return error.message
-}
-
-function formatDateTime(value: string | null): string {
-  if (value === null) return '-'
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return value
-  return parsed.toLocaleString('ko-KR', { dateStyle: 'short', timeStyle: 'short' })
 }
