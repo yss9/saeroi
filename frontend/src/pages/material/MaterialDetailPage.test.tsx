@@ -57,6 +57,9 @@ function detail(overrides: Partial<MaterialDetail> = {}): MaterialDetail {
     tokenId: null,
     chainId: null,
     contractAddress: null,
+    originReason: 'DEADSTOCK',
+    originReasonNote: null,
+    composition: [],
     ...overrides,
   }
 }
@@ -203,6 +206,100 @@ describe('근거 없는 값을 확정으로 보여주지 않는다', () => {
   })
 })
 
+describe('구성 · 발생 사유', () => {
+  it('구성이 없으면 EmptyState 다 — 오류가 아니다', async () => {
+    api.getMaterial.mockResolvedValue(detail({ composition: [] }))
+    renderPage()
+
+    expect(await screen.findByText('구성 정보가 없습니다')).toBeInTheDocument()
+  })
+
+  it('서버가 준 순서대로 그린다', async () => {
+    // 서버가 비율 내림차순으로 정렬해 준다. 여기서 다시 정렬하면 같은 소재의 줄 순서가
+    // 화면마다 달라 보인다.
+    api.getMaterial.mockResolvedValue(detail({
+      composition: [
+        { fiberType: 'COTTON', percentage: 60 },
+        { fiberType: 'POLYESTER', percentage: 40 },
+      ],
+    }))
+    renderPage()
+
+    expect(await screen.findByText('면')).toBeInTheDocument()
+    expect(screen.getByText('60%')).toBeInTheDocument()
+    expect(screen.getByText('폴리에스터')).toBeInTheDocument()
+    expect(screen.getByText('40%')).toBeInTheDocument()
+  })
+
+  it('합계 100 이면 미확인 문구를 띄우지 않는다', async () => {
+    api.getMaterial.mockResolvedValue(detail({
+      composition: [
+        { fiberType: 'COTTON', percentage: 60 },
+        { fiberType: 'POLYESTER', percentage: 40 },
+      ],
+    }))
+    renderPage()
+
+    await screen.findByText('면')
+    expect(screen.queryByText(/확인되지 않았습니다/)).not.toBeInTheDocument()
+  })
+
+  it('합계가 100 미만이면 나머지가 미확인임을 밝힌다', async () => {
+    // 밝히지 않으면 데이터 누락으로 읽힌다. 실제로는 지어내지 않은 결과다.
+    api.getMaterial.mockResolvedValue(detail({
+      composition: [{ fiberType: 'COTTON', percentage: 60 }],
+    }))
+    renderPage()
+
+    expect(await screen.findByText(/나머지 40% 는 확인되지 않았습니다/)).toBeInTheDocument()
+  })
+
+  it('라벨 없는 섬유 이름은 원본을 그대로 보여준다', async () => {
+    // 컬럼이 VARCHAR(50) 이라 허용 목록 밖의 값이 이미 저장돼 있을 수 있다.
+    // 빈칸으로 두면 성분이 하나 사라진 것처럼 보인다.
+    api.getMaterial.mockResolvedValue(detail({
+      composition: [{ fiberType: 'HEMP', percentage: 100 }],
+    }))
+    renderPage()
+
+    expect(await screen.findByText('HEMP')).toBeInTheDocument()
+  })
+
+  it('폐기물이면 발생 사유를 보여준다', async () => {
+    api.getMaterial.mockResolvedValue(detail({
+      rootOrigin: 'WASTE',
+      originReason: 'OFFCUT',
+    }))
+    renderPage()
+
+    expect(await screen.findByText('재단 자투리')).toBeInTheDocument()
+  })
+
+  it('설명이 있으면 사유와 함께 보여준다', async () => {
+    api.getMaterial.mockResolvedValue(detail({
+      rootOrigin: 'WASTE',
+      originReason: 'ETC',
+      originReasonNote: '행사 후 남은 배너 원단',
+    }))
+    renderPage()
+
+    expect(await screen.findByText(/기타 · 행사 후 남은 배너 원단/)).toBeInTheDocument()
+  })
+
+  it('신소재면 발생 사유 줄을 그리지 않는다', async () => {
+    // 신소재에는 "왜 폐기물이 되었나" 라는 개념이 없다. "미지정" 으로 두면 입력을
+    // 빠뜨린 것처럼 보인다.
+    api.getMaterial.mockResolvedValue(detail({
+      rootOrigin: 'VIRGIN',
+      originReason: null,
+    }))
+    renderPage()
+
+    await screen.findByText('MAT-000012')
+    expect(screen.queryByText('발생 사유')).not.toBeInTheDocument()
+  })
+})
+
 describe('블록 조합', () => {
   it('티켓이 요구한 블록을 모두 그린다', async () => {
     api.getMaterial.mockResolvedValue(detail())
@@ -211,6 +308,7 @@ describe('블록 조합', () => {
     await screen.findByText('MAT-000012')
     for (const name of [
       '소재 정보',
+      '구성',
       '온체인',
       '보유 현황',
       '소재 이력',
