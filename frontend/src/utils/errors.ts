@@ -88,5 +88,9 @@ export function isAppError(value: unknown): value is AppError {
 export function toErrorMessage(error: unknown): string {
   if (isAppError(error)) return error.message
   if (error instanceof Error) return error.message
+  // 문자열은 그대로 쓴다. `ErrorMessage.error` 주석이 "문자열 무엇이든 받는다" 라고
+  // 약속하고 세 페이지가 그렇게 쓰고 있는데, 여기서 버리면 호출부가 적은 문구가
+  // 조용히 "알 수 없는 오류" 로 바뀐다 — 원인을 아는 상황에서 모른다고 말하는 셈이다.
+  if (typeof error === 'string' && error.trim() !== '') return error
   return DEFAULT_MESSAGE.UNKNOWN
 }
