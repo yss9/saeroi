@@ -22,7 +22,14 @@ public class ProcessingJob {
     @Column(name = "processor_wallet", nullable = false, length = 42) private String processorWallet;
     @Column(nullable = false) private long fee;
     @Column(name = "loss_quantity", nullable = false) private long lossQuantity;
-    @Column(name = "evidence_hash", length = 66) private String evidenceHash;
+    /**
+     * {@code schema.sql} 이 {@code CHAR(66)} 이라 {@code columnDefinition} 으로 못박는다.
+     * {@code length = 66} 만 적으면 Hibernate 가 {@code VARCHAR(66)} 을 기대해
+     * {@code ddl-auto: validate} 인 local·운영 프로파일에서 <b>기동 자체가 실패한다.</b>
+     * 테스트는 {@code create-drop} 이라 엔티티가 시키는 대로 테이블을 만들어 드러나지 않는다
+     * ({@code BlockchainTransaction#txHash} 주석에 같은 사고 기록이 있다).
+     */
+    @Column(name = "evidence_hash", columnDefinition = "CHAR(66)") private String evidenceHash;
     @Column(name = "manifest_url", length = 500) private String manifestUrl;
     @Enumerated(EnumType.STRING) @Column(name = "payment_method", nullable = false) private PaymentMethod paymentMethod;
     @Column(name = "payment_reference", length = 100) private String paymentReference;
