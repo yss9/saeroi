@@ -25,6 +25,15 @@ export const env = {
    * 지갑이 쓰는 16진수 문자열로 통일한다. 값이 없으면 null → 체인 검증 UI 자체가 꺼진다.
    */
   besuChainIdHex: toChainIdHex(optional(import.meta.env.VITE_BESU_CHAIN_ID)),
+
+  /**
+   * 블록 익스플로러 주소. 없으면 트랜잭션 해시를 텍스트로만 보여준다.
+   *
+   * 링크가 되면 사용자가 **우리 화면 밖에서** 사실을 확인할 수 있다. "체인에 기록됐다" 는
+   * 우리 말을 믿으라고 하는 것과, 직접 볼 수 있게 하는 것은 다르다 — 블록체인을 쓰는 이유가
+   * 그것이기도 하다.
+   */
+  besuExplorerUrl: optional(import.meta.env.VITE_BESU_EXPLORER_URL),
 } as const
 
 /** '1337' 또는 '0x539' 를 모두 '0x539' 로 만든다. 해석 불가면 null. */

@@ -41,7 +41,10 @@ vi.mock('../../features/evidence/api/getEvidence.ts', () => ({
 
 function detail(overrides: Partial<MaterialDetail> = {}): MaterialDetail {
   return {
+    // 서버는 상세에서 materialId 로 준다. id 는 목록 쪽 이름이라 둘 다 채워 둔다 —
+    // 화면이 잘못된 쪽을 읽으면 여기서 드러나야 한다.
     id: 12,
+    materialId: 12,
     materialCode: 'MAT-000012',
     materialType: 'DENIM',
     name: '수거 데님 원단',
@@ -166,13 +169,13 @@ describe('근거 없는 값을 확정으로 보여주지 않는다', () => {
     expect(screen.getByText('검증 단계 표시 준비 중')).toBeInTheDocument()
   })
 
-  it('tokenId 가 null 이면 온체인 미확정으로 보여준다', async () => {
-    // confirm 엔드포인트가 없어 지금은 모든 소재가 이 상태다. 0 이나 빈칸으로
-    // 그리면 발행된 것처럼 읽힌다.
+  it('tokenId 가 null 이면 미등록으로 보여주고 Token ID 를 그리지 않는다', async () => {
+    // 0 이나 빈칸으로 그리면 발행된 것처럼 읽힌다. 발행 버튼은 등록자 본인에게만
+    // 보이므로(MaterialMintPanel 이 판정한다) 여기서는 배지만 확인한다.
     api.getMaterial.mockResolvedValue(detail({ tokenId: null }))
     renderPage()
 
-    expect(await screen.findByText('온체인 미확정')).toBeInTheDocument()
+    expect(await screen.findByText('미등록')).toBeInTheDocument()
     expect(screen.queryByText('Token ID')).not.toBeInTheDocument()
   })
 
@@ -182,7 +185,8 @@ describe('근거 없는 값을 확정으로 보여주지 않는다', () => {
 
     expect(await screen.findByText('77')).toBeInTheDocument()
     expect(screen.getByText('1337')).toBeInTheDocument()
-    expect(screen.queryByText('온체인 미확정')).not.toBeInTheDocument()
+    expect(screen.queryByText('미등록')).not.toBeInTheDocument()
+    expect(screen.getByText('온체인 #77')).toBeInTheDocument()
   })
 
   it('증빙은 EvidenceUpload 에 위임하고 소재 id 로 조회한다', async () => {
