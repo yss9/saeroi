@@ -5,11 +5,13 @@ import {
   ConfirmModal,
   ErrorMessage,
   Input,
+  Modal,
   StatusBadge,
 } from '../../../components/common/index.ts'
 import type { AppError } from '../../../utils/errors.ts'
 import { formatKg } from '../../../utils/quantity.ts'
 import { formatTradeDateTime } from '../utils/tradeDateTime.ts'
+import { useCancelTrade } from '../hooks/useCancelTrade.ts'
 import { useShipTrade } from '../hooks/useShipTrade.ts'
 import {
   TRADE_STATUS_LABEL,
@@ -63,6 +65,11 @@ export function ShipmentPanel({ trade }: ShipmentPanelProps) {
     isSuccess ||
     (trade.status !== 'CREATED' && trade.status !== 'PAID' && trade.status !== 'CANCELED')
 
+  // 서버가 허용하는 취소 구간과 같다 — CREATED·PAID 뿐이고 그 밖에서는
+  // PAYMENT_STATE_INVALID 로 거절된다. 발송한 뒤에도 버튼이 남아 있으면 판매자는
+  // 취소가 가능하다고 읽는다.
+  const cancelable = !isSuccess && (trade.status === 'CREATED' || trade.status === 'PAID')
+
   return (
     <section className="shipment-panel">
       <header className="shipment-panel__header">
@@ -91,9 +98,7 @@ export function ShipmentPanel({ trade }: ShipmentPanelProps) {
         </p>
       )}
 
-      {trade.status === 'CANCELED' && (
-        <p className="shipment-panel__note">취소된 거래입니다. 발송하지 마세요.</p>
-      )}
+      {trade.status === 'CANCELED' && <CanceledNotice trade={trade} />}
 
       {shipped && <ShippedReceipt trade={trade} justShipped={data ?? null} />}
 
@@ -134,6 +139,9 @@ export function ShipmentPanel({ trade }: ShipmentPanelProps) {
         </form>
       )}
 
+      {/* 발송 전까지만 취소할 수 있다. 그 뒤는 분쟁 절차다 (정책 09). */}
+      {cancelable && <CancelSection trade={trade} />}
+
       {/* 발송은 취소할 수 없다. 송장을 비워 둔 채 누르는 실수도 여기서 한 번 걸린다. */}
       <ConfirmModal
         open={pending !== null}
@@ -148,6 +156,134 @@ export function ShipmentPanel({ trade }: ShipmentPanelProps) {
         onClose={() => setPending(null)}
       />
     </section>
+  )
+}
+
+/** 취소 사유 최대 길이. 서버 검증(`TradeCancelRequest`)과 같은 값이다. */
+const CANCEL_REASON_MAX = 255
+
+/**
+ * 판매자 거래 취소.
+ *
+ * **사유는 선택이다.** 강제하면 의미 없는 문자열이 쌓이고, 급히 취소해야 하는 상황에서
+ * 취소 자체가 늦어진다. 다만 판매자가 취소하는 건은 구매자가 이유를 알아야 하는 경우가
+ * 많아(재고 부족·파손 등) 입력 자리를 눈에 보이게 둔다.
+ *
+ * ConfirmModal 을 쓰지 않고 Modal 을 직접 쓴다 — ConfirmModal 은 문구만 받고 입력을 받을
+ * 자리가 없다. 사유를 받으면서 확인 단계를 유지해야 하므로 이쪽이 맞다.
+ */
+function CancelSection({ trade }: { trade: Trade }) {
+  const [open, setOpen] = useState(false)
+  // 모달 안의 단일 선택 입력이라 useState 로 둔다. 교차 검증이 없고 길이 하나만 보므로
+  // React Hook Form 을 끌어올 이유가 없다 (ARCHITECTURE §3 의 "폼이 많은 화면" 이 아니다).
+  const [reason, setReason] = useState('')
+  const { mutate, isPending, isError, error } = useCancelTrade(trade.tradeId)
+
+  const tooLong = reason.length > CANCEL_REASON_MAX
+
+  function close() {
+    if (isPending) return
+    setOpen(false)
+    setReason('')
+  }
+
+  return (
+    <>
+      <div className="shipment-panel__actions">
+        <Button variant="secondary" onClick={() => setOpen(true)}>
+          거래 취소
+        </Button>
+      </div>
+
+      {isError && <ErrorMessage error={error} />}
+
+      <Modal
+        open={open}
+        onClose={close}
+        title="거래를 취소할까요?"
+        dismissible={!isPending}
+        footer={
+          <>
+            <Button variant="secondary" onClick={close} disabled={isPending}>
+              닫기
+            </Button>
+            <Button
+              variant="danger"
+              loading={isPending}
+              disabled={tooLong}
+              onClick={() => mutate({ reason }, { onSuccess: () => setOpen(false) })}
+            >
+              거래 취소
+            </Button>
+          </>
+        }
+      >
+        <p className="cancel-form__lead">
+          취소하면 이 수량이 판매글로 되돌아가고 거래는 되돌릴 수 없습니다.
+          {/* 결제까지 끝난 거래는 환불이 함께 일어난다. 판매자가 그것을 모르고 누르면
+              "왜 환불이 됐냐" 가 된다. */}
+          {trade.status === 'PAID' && ' 결제가 완료된 거래라 환불이 함께 요청됩니다.'}
+        </p>
+
+        <label className="cancel-form__label" htmlFor="cancel-reason">
+          취소 사유 <span className="cancel-form__optional">(선택)</span>
+        </label>
+        <textarea
+          id="cancel-reason"
+          className="cancel-form__textarea"
+          rows={3}
+          value={reason}
+          placeholder="예: 재고 부족으로 발송이 어렵습니다"
+          aria-invalid={tooLong ? true : undefined}
+          aria-describedby="cancel-reason-hint"
+          onChange={(event) => setReason(event.target.value)}
+        />
+        <p
+          id="cancel-reason-hint"
+          className={`cancel-form__hint${tooLong ? ' cancel-form__hint--error' : ''}`}
+          role={tooLong ? 'alert' : undefined}
+        >
+          {tooLong
+            ? `취소 사유는 ${CANCEL_REASON_MAX}자를 넘을 수 없습니다.`
+            : `적지 않아도 취소됩니다. ${reason.length}/${CANCEL_REASON_MAX}자`}
+        </p>
+      </Modal>
+    </>
+  )
+}
+
+/**
+ * 취소된 거래 안내.
+ *
+ * 시각은 항상 있고 사유는 사람이 적었을 때만 있다. 사유가 없다고 "사유 없음" 처럼
+ * 빈 자리를 만들지 않는다 — 사유 없는 취소가 정상 경로다.
+ *
+ * ⚠️ **취소해도 판매글의 잠금은 풀리지 않는다.** 되돌린 수량이 다시 판매 중이 되기
+ * 때문이다. "이제 이 수량을 자유롭게 쓸 수 있다" 고 안내하면 틀린다 — 잠금이 풀리는 것은
+ * 판매글 자체를 내릴 때뿐이다.
+ */
+function CanceledNotice({ trade }: { trade: Trade }) {
+  return (
+    <div className="shipment-panel__canceled">
+      <p className="shipment-panel__note shipment-panel__note--warning">
+        취소된 거래입니다. 발송하지 마세요.
+      </p>
+      <dl className="shipment-panel__result">
+        <div>
+          <dt>취소 시각</dt>
+          <dd>{formatTradeDateTime(trade.canceledAt)}</dd>
+        </div>
+        {trade.cancelReason && (
+          <div>
+            <dt>취소 사유</dt>
+            <dd className="shipment-panel__reason">{trade.cancelReason}</dd>
+          </div>
+        )}
+      </dl>
+      <p className="shipment-panel__note">
+        되돌린 수량은 판매글에 다시 올라가 있습니다. 판매를 멈추려면 판매글을 내려야 합니다.
+      </p>
+    </div>
   )
 }
 
