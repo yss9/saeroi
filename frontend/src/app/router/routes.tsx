@@ -8,6 +8,7 @@ import { LoginPage } from '../../pages/auth/LoginPage.tsx'
 import { NotFoundPage } from '../../pages/auth/NotFoundPage.tsx'
 import { SignupCompletePage } from '../../pages/auth/SignupCompletePage.tsx'
 import { SignupTypePage } from '../../pages/auth/SignupTypePage.tsx'
+import { CompanyAccountPage } from '../../pages/company/CompanyAccountPage.tsx'
 import { InventoryPage } from '../../pages/inventory/InventoryPage.tsx'
 import { ListingDetailPage } from '../../pages/marketplace/ListingDetailPage.tsx'
 import { MarketplacePage } from '../../pages/marketplace/MarketplacePage.tsx'
@@ -23,6 +24,7 @@ import { ProductListPage } from '../../pages/product/ProductListPage.tsx'
 import { ProductionPage } from '../../pages/production/ProductionPage.tsx'
 import { PassportPage } from '../../pages/traceability/PassportPage.tsx'
 import { PaymentReturnPage } from '../../pages/trade/PaymentReturnPage.tsx'
+import { SupplierTradePage } from '../../pages/trade/SupplierTradePage.tsx'
 import { TradeDetailPage } from '../../pages/trade/TradeDetailPage.tsx'
 import { TradeListPage } from '../../pages/trade/TradeListPage.tsx'
 import { ProtectedRoute } from './guards/ProtectedRoute.tsx'
@@ -83,6 +85,12 @@ export const routes: RouteObject[] = [
         children: [{ path: '/mypage', element: <ConsumerMyPage /> }],
       },
 
+      // ── BUSINESS 공통 ──
+      {
+        element: <RoleGuard allow={['SUPPLIER', 'BRAND', 'PROCESSOR']} />,
+        children: [{ path: '/company/account', element: <CompanyAccountPage /> }],
+      },
+
       // ── SUPPLIER ──
       {
         element: <RoleGuard allow={['SUPPLIER']} />,
@@ -91,6 +99,9 @@ export const routes: RouteObject[] = [
           // 정책 07.1: Supplier 뿐 아니라 소재를 보유한 Brand 도 재판매할 수 있다.
           // 지금은 SUPPLIER 구역에 두고, Brand 재판매 진입점은 별도로 논의한다.
           { path: '/supplier/listings', element: <SupplierMarketPage /> },
+          // 판매 거래 목록. 발송 처리 자체는 /trades/:tradeId 에서 한다 — 발송은
+          // 역할이 아니라 그 거래의 판매자인지로 갈리므로 상세가 당사자를 보고 판단한다.
+          { path: '/supplier/trades', element: <SupplierTradePage /> },
         ],
       },
 

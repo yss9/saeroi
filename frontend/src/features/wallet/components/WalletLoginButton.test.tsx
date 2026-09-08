@@ -18,7 +18,7 @@ import { useAuthStore } from '../../../stores/authStore.ts'
 import { useWalletStore } from '../../../stores/walletStore.ts'
 import { createAppError, ERROR_KIND } from '../../../utils/errors.ts'
 import type { EthereumProvider } from '../types/wallet.types.ts'
-import { buildLoginMessage } from '../hooks/useWalletLogin.ts'
+import { buildLoginMessage } from '../services/walletMessage.ts'
 import { WalletLoginButton } from './WalletLoginButton.tsx'
 
 // vi.hoisted 없이 쓰면 팩토리 호이스팅 때문에 초기화 전 참조 에러가 난다.

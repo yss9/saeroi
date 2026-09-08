@@ -1,12 +1,17 @@
 import { useParams } from 'react-router-dom'
 import { EmptyState, ErrorMessage, Loading, StatusBadge } from '../../components/common/index.ts'
 import { MaterialBalanceTable } from '../../features/material/components/MaterialBalanceTable.tsx'
+import { EvidenceUpload } from '../../features/evidence/components/EvidenceUpload.tsx'
 import { MaterialLineageTree } from '../../features/material/components/MaterialLineageTree.tsx'
 import { useMaterial } from '../../features/material/hooks/useMaterial.ts'
 import {
+  FIBER_TYPE_LABEL,
   GRADE_LABEL,
+  ORIGIN_REASON_LABEL,
   ROOT_ORIGIN_LABEL,
+  type MaterialCompositionItem,
   type MaterialDetail,
+  type MaterialFiberType,
 } from '../../features/material/types/material.types.ts'
 import { formatKg } from '../../utils/quantity.ts'
 
@@ -72,6 +77,19 @@ export function MaterialDetailPage() {
             <dt>규격</dt>
             <dd>{formatDimensions(data)}</dd>
           </div>
+          {/*
+            신소재면 발생 사유 자체가 없는 개념이라 줄을 그리지 않는다.
+            "미지정" 으로 두면 입력을 빠뜨린 것처럼 보인다.
+          */}
+          {data.rootOrigin === 'WASTE' && (
+            <div>
+              <dt>발생 사유</dt>
+              <dd>
+                {data.originReason ? ORIGIN_REASON_LABEL[data.originReason] : '미지정'}
+                {data.originReasonNote && ` · ${data.originReasonNote}`}
+              </dd>
+            </div>
+          )}
           <div>
             <dt>등록일</dt>
             <dd>{formatDate(data.createdAt)}</dd>
@@ -102,6 +120,34 @@ export function MaterialDetailPage() {
         )}
       </section>
 
+      <section aria-labelledby="material-composition">
+        <h2 id="material-composition">구성</h2>
+        {data.composition.length === 0 ? (
+          <EmptyState
+            title="구성 정보가 없습니다"
+            description="등록 시 혼방 비율을 입력하면 여기에 표시됩니다."
+          />
+        ) : (
+          <>
+            <dl className="material-detail__info">
+              {/* 서버가 비율 내림차순으로 정렬해 준다. 여기서 다시 정렬하지 않는다 —
+                  양쪽에서 정렬하면 같은 소재의 줄 순서가 화면마다 달라 보인다. */}
+              {data.composition.map((row) => (
+                <div key={row.fiberType}>
+                  <dt>{fiberLabel(row.fiberType)}</dt>
+                  <dd>{row.percentage}%</dd>
+                </div>
+              ))}
+            </dl>
+            {/* 합계가 100 미만인 것은 정상이다. 모르는 부분을 지어내지 않은 결과이므로
+                "나머지 미확인" 이라고 밝힌다 — 밝히지 않으면 데이터 누락으로 읽힌다. */}
+            {compositionTotal(data.composition) < 100 && (
+              <p>나머지 {100 - compositionTotal(data.composition)}% 는 확인되지 않았습니다.</p>
+            )}
+          </>
+        )}
+      </section>
+
       <section aria-labelledby="material-owners">
         <h2 id="material-owners">보유 현황</h2>
         <MaterialBalanceTable materialId={id} />
@@ -114,19 +160,16 @@ export function MaterialDetailPage() {
 
       <section aria-labelledby="material-evidence">
         <h2 id="material-evidence">증빙</h2>
-        {data.evidenceHash === null ? (
-          <EmptyState
-            title="등록된 증빙이 없습니다"
-            description="증빙 업로드 기능은 준비 중입니다."
-          />
-        ) : (
-          <dl className="material-detail__info">
-            <div>
-              <dt>증빙 해시</dt>
-              <dd className="material-detail__hash">{data.evidenceHash}</dd>
-            </div>
-          </dl>
-        )}
+        {/*
+          업로드와 목록을 EvidenceUpload 가 함께 맡는다. 페이지가 조회를 대신하지 않는
+          이유는 다른 블록과 같다 — 증빙 조회가 실패해도 소재 정보는 보여야 한다.
+
+          material.evidenceHash 는 여기서 쓰지 않는다. 그 컬럼은 **manifest 해시**
+          (여러 증빙을 묶은 JSON 의 해시)를 담을 자리이고 개별 파일 해시가 아니다.
+          아직 manifest 를 만드는 경로가 없어 늘 null 이며, 개별 파일 해시는
+          evidence_file 이 갖는다. 둘을 섞으면 "증빙 없음" 인데 파일은 있는 상태가 된다.
+        */}
+        <EvidenceUpload referenceType="MATERIAL" referenceId={id} />
       </section>
 
       {/*
@@ -166,6 +209,19 @@ function formatDimensions(material: MaterialDetail): string {
     return `${lengthMm.toLocaleString('ko-KR')} × ${widthMm.toLocaleString('ko-KR')} mm`
   }
   return `${(lengthMm ?? widthMm)!.toLocaleString('ko-KR')} mm`
+}
+
+/**
+ * 서버가 주는 `fiberType` 은 문자열이다 — 컬럼이 `VARCHAR(50)` 이라 허용 목록 밖의 값이
+ * 이미 저장돼 있을 수 있다. 라벨이 없으면 <b>원본을 그대로</b> 보여준다.
+ * 빈칸으로 두면 성분이 하나 사라진 것처럼 보인다.
+ */
+function fiberLabel(fiberType: string): string {
+  return FIBER_TYPE_LABEL[fiberType as MaterialFiberType] ?? fiberType
+}
+
+function compositionTotal(composition: MaterialCompositionItem[]): number {
+  return composition.reduce((sum, row) => sum + row.percentage, 0)
 }
 
 function formatDate(value: string): string {

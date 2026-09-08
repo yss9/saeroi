@@ -60,8 +60,18 @@ export async function approvePayment(tradeId: number, pgToken: string): Promise<
  *
  * 판매글의 잔여 수량도 함께 복구된다. **결제창을 닫은 사용자를 반드시 이 경로로 보내야
  * 한다** — 안 보내면 그 수량이 아무도 살 수 없는 채로 남는다.
+ *
+ * 사유는 선택이다. 값이 없으면 **바디를 아예 보내지 않는다** — 서버가 빈 문자열을 null 로
+ * 정규화하므로 보내도 결과는 같지만, 사유 없는 취소가 정상 경로라는 것을 요청 모양이
+ * 그대로 말하게 둔다. 기존 호출부(`usePayment.cancel`)는 인자를 늘리지 않아도 그대로 동작한다.
+ *
+ * ⚠️ 취소는 되돌릴 수 없다. 같은 수량을 다시 사려면 판매글에서 새로 구매해야 한다.
  */
-export async function cancelTrade(tradeId: number): Promise<Trade> {
-  const { data } = await apiClient.post<Trade>(`/v1/trades/${tradeId}/cancel`)
+export async function cancelTrade(tradeId: number, reason?: string): Promise<Trade> {
+  const trimmed = reason?.trim()
+  const { data } = await apiClient.post<Trade>(
+    `/v1/trades/${tradeId}/cancel`,
+    trimmed ? { reason: trimmed } : undefined,
+  )
   return data
 }

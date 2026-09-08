@@ -1,7 +1,20 @@
-import { List, MagnifyingGlass, ShoppingBag, UserCircle, X } from '@phosphor-icons/react'
+import {
+  Buildings,
+  List,
+  MagnifyingGlass,
+  ShieldCheck,
+  ShoppingBag,
+  SignIn,
+  SignOut,
+  UserCircle,
+  UserPlus,
+  X,
+} from '@phosphor-icons/react'
 import { useEffect, useRef, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '../../../features/auth/hooks/useAuth.ts'
 import { useShop } from '../../../features/shop/ShopContext.tsx'
-import { WalletButton } from '../../../features/wallet/components/WalletButton.tsx'
+import type { UserRole } from '../../../types/role.types.ts'
 
 const navigation = [
   { label: '신상품', href: '#curated-picks' },
@@ -10,10 +23,29 @@ const navigation = [
   { label: '스토리', href: '#about' },
 ]
 
+const businessRoles: readonly UserRole[] = ['SUPPLIER', 'BRAND', 'PROCESSOR']
+
+function getAccountLink(role: UserRole) {
+  if (role === 'CONSUMER') return { label: '마이페이지', to: '/mypage', icon: UserCircle }
+  if (role === 'ADMIN') return { label: '관리자 페이지', to: '/admin', icon: ShieldCheck }
+  return { label: '회사 대시보드', to: '/company/account', icon: Buildings }
+}
+
+function getAccountTypeLabel(role: UserRole) {
+  if (role === 'CONSUMER') return '개인회원'
+  if (role === 'ADMIN') return '관리자'
+  if (businessRoles.includes(role)) return '사업자회원'
+  return ''
+}
+
 export function Header() {
   const { cartCount } = useShop()
+  const { user, isAuthenticated, signOut } = useAuth()
+  const navigate = useNavigate()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [isWalletOpen, setIsWalletOpen] = useState(false)
+  const [isAccountOpen, setIsAccountOpen] = useState(false)
+  const accountRef = useRef<HTMLDivElement>(null)
+  const accountTriggerRef = useRef<HTMLButtonElement>(null)
   const menuTriggerRef = useRef<HTMLButtonElement>(null)
   const shouldRestoreMenuFocusRef = useRef(false)
 
@@ -24,10 +56,48 @@ export function Header() {
     }
   }, [isMenuOpen])
 
+  useEffect(() => {
+    if (!isAccountOpen) return
+
+    function closeOnOutsidePointer(event: PointerEvent) {
+      if (!accountRef.current?.contains(event.target as Node)) {
+        setIsAccountOpen(false)
+      }
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsAccountOpen(false)
+        accountTriggerRef.current?.focus()
+      }
+    }
+
+    document.addEventListener('pointerdown', closeOnOutsidePointer)
+    document.addEventListener('keydown', closeOnEscape)
+
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsidePointer)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [isAccountOpen])
+
   function closeMobileMenuFromLink() {
     shouldRestoreMenuFocusRef.current = true
     setIsMenuOpen(false)
   }
+
+  function toggleAccountMenu() {
+    setIsMenuOpen(false)
+    setIsAccountOpen((isOpen) => !isOpen)
+  }
+
+  function handleSignOut() {
+    signOut()
+    setIsAccountOpen(false)
+    navigate('/', { replace: true })
+  }
+
+  const accountLink = user ? getAccountLink(user.role) : null
 
   return (
     <header className="site-header">
@@ -46,19 +116,66 @@ export function Header() {
           <MagnifyingGlass aria-hidden="true" />
         </button>
 
-        <div className="site-header__wallet">
+        <div className="site-header__account" ref={accountRef}>
           <button
+            ref={accountTriggerRef}
             type="button"
-            aria-label="계정 및 지갑"
-            aria-expanded={isWalletOpen}
-            aria-controls="wallet-popover"
-            onClick={() => setIsWalletOpen((isOpen) => !isOpen)}
+            aria-label="계정 메뉴"
+            aria-expanded={isAccountOpen}
+            aria-controls="account-popover"
+            onClick={toggleAccountMenu}
           >
             <UserCircle aria-hidden="true" />
           </button>
-          {isWalletOpen && (
-            <div id="wallet-popover" className="site-header__wallet-popover">
-              <WalletButton />
+          {isAccountOpen && (
+            <div id="account-popover" className="site-header__account-popover">
+              {isAuthenticated && user && accountLink ? (
+                <>
+                  <div className="site-header__account-summary">
+                    <strong>{user.name}</strong>
+                    <span>{getAccountTypeLabel(user.role)}</span>
+                  </div>
+                  <Link
+                    className="site-header__account-link"
+                    to={accountLink.to}
+                    onClick={() => setIsAccountOpen(false)}
+                  >
+                    <accountLink.icon aria-hidden="true" />
+                    {accountLink.label}
+                  </Link>
+                  <button
+                    className="site-header__account-link site-header__account-link--muted"
+                    type="button"
+                    onClick={handleSignOut}
+                  >
+                    <SignOut aria-hidden="true" />
+                    로그아웃
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="site-header__account-summary">
+                    <strong>SAEROI에 오신 것을 환영합니다.</strong>
+                    <span>로그인하고 새로이의 서비스를 이용해 보세요.</span>
+                  </div>
+                  <Link
+                    className="site-header__account-link site-header__account-link--primary"
+                    to="/login"
+                    onClick={() => setIsAccountOpen(false)}
+                  >
+                    <SignIn aria-hidden="true" />
+                    로그인
+                  </Link>
+                  <Link
+                    className="site-header__account-link"
+                    to="/signup"
+                    onClick={() => setIsAccountOpen(false)}
+                  >
+                    <UserPlus aria-hidden="true" />
+                    회원가입
+                  </Link>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -75,7 +192,10 @@ export function Header() {
           aria-label={isMenuOpen ? '메뉴 닫기' : '메뉴 열기'}
           aria-expanded={isMenuOpen}
           aria-controls="mobile-navigation"
-          onClick={() => setIsMenuOpen((isOpen) => !isOpen)}
+          onClick={() => {
+            setIsAccountOpen(false)
+            setIsMenuOpen((isOpen) => !isOpen)
+          }}
         >
           {isMenuOpen ? <X aria-hidden="true" /> : <List aria-hidden="true" />}
         </button>

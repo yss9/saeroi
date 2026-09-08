@@ -1,13 +1,20 @@
-import { useForm } from 'react-hook-form'
+import { useFieldArray, useForm, useWatch } from 'react-hook-form'
 import { Button, ErrorMessage, Input, Select } from '../../../components/common/index.ts'
 import { kgToGram } from '../../../utils/quantity.ts'
 import { useCreateMaterial } from '../hooks/useCreateMaterial.ts'
 import { WIRE_UNIT } from '../types/materialQuantity.ts'
 import {
+  COMPOSITION_MAX_TOTAL,
+  FIBER_TYPE_LABEL,
   GRADE_LABEL,
+  MATERIAL_FIBER_TYPES,
+  ORIGIN_REASON_LABEL,
   ROOT_ORIGIN_LABEL,
+  originReasonRequiresNote,
   type CreateMaterialRequest,
+  type MaterialFiberType,
   type MaterialGrade,
+  type MaterialOriginReason,
   type MaterialRootOrigin,
   type MaterialType,
 } from '../types/material.types.ts'
@@ -33,6 +40,14 @@ interface MaterialFormValues {
   description: string
   lengthMm: number | null
   widthMm: number | null
+  /** 출처가 WASTE 일 때만 쓴다. 빈 문자열은 "선택 안 함" */
+  originReason: MaterialOriginReason | ''
+  originReasonNote: string
+  /**
+   * 혼방 비율. `percentage` 가 `number | null` 인 이유는 빈 줄을 0 으로 만들지 않기
+   * 위해서다 — 사용자가 섬유만 고르고 비율을 아직 안 적은 상태와 "0%" 는 다르다.
+   */
+  composition: { fiberType: MaterialFiberType | ''; percentage: number | null }[]
 }
 
 const MATERIAL_TYPE_OPTIONS: readonly { value: MaterialType; label: string }[] = [
@@ -58,6 +73,15 @@ const GRADE_OPTIONS: readonly { value: MaterialGrade; label: string }[] = [
   { value: 'C', label: GRADE_LABEL.C },
 ]
 
+// PRODUCTION_SCRAP 은 없다. 그건 generationType 이 말하는 것이고, 같은 사실을 두 곳에
+// 적으면 어긋난다. 서버 ENUM 에도 없어서 보내면 400 이 된다.
+const ORIGIN_REASON_OPTIONS: readonly { value: MaterialOriginReason; label: string }[] = (
+  ['DEADSTOCK', 'DEFECT', 'OFFCUT', 'END_OF_LIFE', 'COLLECTED', 'ETC'] as const
+).map((value) => ({ value, label: ORIGIN_REASON_LABEL[value] }))
+
+const FIBER_TYPE_OPTIONS: readonly { value: MaterialFiberType; label: string }[] =
+  MATERIAL_FIBER_TYPES.map((value) => ({ value, label: FIBER_TYPE_LABEL[value] }))
+
 /** 서버 `total_quantity` 는 BIGINT 지만, 실수로 자릿수를 더 누른 입력을 여기서 먼저 막는다. */
 const MAX_QUANTITY_KG = 1_000_000
 
@@ -72,16 +96,21 @@ const MAX_QUANTITY_KG = 1_000_000
  * `materialCode`(서버가 id 에서 파생) · `generationType`(항상 INITIAL) ·
  * `registrantId`(JWT sub) 는 입력칸이 없다. 자세한 이유는 `CreateMaterialRequest` 주석 참고.
  *
- * ── 아직 못 넣은 입력 2개 ──
- * 티켓(S15P21E104-152)은 "구성" 과 "발생 사유" 도 요구하지만 Backend 에 저장할 컬럼이
- * 없고 Jira·API 명세 어디에도 없다. 관리자에게 확인 요청 중이며, 컬럼이 생기면 여기에
- * 추가한다. **입력칸을 미리 만들어 두지 않는다** — 값이 서버에서 버려지는데 화면에
- * 보이면 사용자가 입력한 것이 사라진다.
+ * ── 구성 · 발생 사유 (S15P21E104-437) ──
+ * 저장 경로가 생겨서(S15P21E104-436) 입력칸을 붙였다. 그 전에는 값이 서버에서 버려지므로
+ * 일부러 만들지 않았다 — 화면에 보이는데 사라지는 것이 없는 것보다 나쁘다.
  *
- * "이미지" 도 마찬가지로 빠져 있다. 증빙 업로드 경로(Evidence)가 아직 없다.
+ * **발생 사유는 출처가 `WASTE` 일 때만 보인다.** 신소재에 사유를 보내면 서버가 400 을
+ * 낸다("신소재에는 발생 사유가 붙을 수 없다"). 칸을 감추는 것으로 그 오류를 없앤다.
+ *
+ * **비율 합계 100 을 요구하지 않는다.** "면 60% 는 확실하고 나머지는 모른다" 가 흔하고,
+ * 100 을 강제하면 사용자가 "기타 40%" 를 지어낸다. 그 값이 Upcycle Ratio 집계로 흘러간다.
+ *
+ * "이미지" 는 아직 빠져 있다. 증빙 업로드 경로(Evidence)가 없다.
  */
 export function MaterialForm({ onCreated }: MaterialFormProps) {
   const {
+    control,
     register,
     handleSubmit,
     reset,
@@ -95,8 +124,25 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
       description: '',
       lengthMm: null,
       widthMm: null,
+      originReason: '',
+      originReasonNote: '',
+      composition: [],
     },
   })
+
+  // 감시하는 이유가 다르다. rootOrigin·originReason 은 어떤 칸을 보일지 결정하고,
+  // composition 은 합계를 실시간으로 보여주기 위한 것이다.
+  const rootOrigin = useWatch({ control, name: 'rootOrigin' })
+  const originReason = useWatch({ control, name: 'originReason' })
+  const composition = useWatch({ control, name: 'composition' })
+
+  const { fields, append, remove } = useFieldArray({ control, name: 'composition' })
+
+  const isWaste = rootOrigin === 'WASTE'
+  const compositionTotal = (composition ?? []).reduce(
+    (sum, row) => sum + (row?.percentage ?? 0),
+    0,
+  )
 
   const { mutate, isPending, isError, error } = useCreateMaterial()
 
@@ -196,6 +242,87 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
         })}
       />
 
+      {/*
+        발생 사유는 출처가 WASTE 일 때만 보인다. 신소재에 사유를 보내면 서버가 400 을
+        내므로, 칸을 감추는 것이 오류 메시지를 다듬는 것보다 낫다.
+      */}
+      {isWaste && (
+        <Select
+          label="발생 사유 (선택)"
+          placeholder="선택 안 함"
+          options={ORIGIN_REASON_OPTIONS}
+          error={errors.originReason?.message}
+          {...register('originReason')}
+        />
+      )}
+
+      {/* ETC 는 값 자체가 뜻을 담지 않아 설명이 없으면 분류가 무의미해진다. */}
+      {isWaste && originReasonRequiresNote(originReason as MaterialOriginReason) && (
+        <Input
+          label="발생 사유 설명"
+          placeholder="행사 후 남은 배너 원단"
+          error={errors.originReasonNote?.message}
+          {...register('originReasonNote', {
+            required: '기타를 선택하면 설명이 필요합니다.',
+            maxLength: { value: 200, message: '설명은 200자를 넘을 수 없습니다.' },
+          })}
+        />
+      )}
+
+      <fieldset>
+        <legend>구성 (선택)</legend>
+        {/*
+          합계 100 을 요구하지 않는다. "면 60% 는 확실하고 나머지는 모른다" 가 흔하고,
+          강제하면 사용자가 "기타 40%" 를 지어낸다. 대신 합계를 보여줘 스스로 판단하게 한다.
+        */}
+        <p aria-live="polite">
+          합계 {compositionTotal.toLocaleString('ko-KR')}%
+          {compositionTotal > COMPOSITION_MAX_TOTAL && ' — 100%를 넘을 수 없습니다.'}
+          {compositionTotal > 0 && compositionTotal < COMPOSITION_MAX_TOTAL && ' (나머지 미확인)'}
+        </p>
+
+        {fields.map((field, index) => (
+          <div key={field.id}>
+            <Select
+              label={`섬유 ${index + 1}`}
+              placeholder="선택해 주세요"
+              options={FIBER_TYPE_OPTIONS}
+              error={errors.composition?.[index]?.fiberType?.message}
+              {...register(`composition.${index}.fiberType` as const, {
+                required: '섬유 종류를 선택해 주세요.',
+              })}
+            />
+            <Input
+              label={`비율 ${index + 1} (%)`}
+              type="number"
+              step="0.01"
+              error={errors.composition?.[index]?.percentage?.message}
+              {...register(`composition.${index}.percentage` as const, {
+                setValueAs: toOptionalNumber,
+                validate: (value) => {
+                  if (value === null) return '비율을 입력해 주세요.'
+                  if (value <= 0) return '비율은 0보다 커야 합니다.'
+                  if (value > COMPOSITION_MAX_TOTAL) return '비율은 100%를 넘을 수 없습니다.'
+                  return true
+                },
+              })}
+            />
+            <Button type="button" variant="secondary" size="sm" onClick={() => remove(index)}>
+              섬유 {index + 1} 삭제
+            </Button>
+          </div>
+        ))}
+
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={() => append({ fiberType: '', percentage: null })}
+        >
+          섬유 추가
+        </Button>
+      </fieldset>
+
       {isError && <ErrorMessage error={error} />}
 
       <Button type="submit" loading={isPending}>
@@ -227,7 +354,48 @@ function toRequest(values: MaterialFormValues): CreateMaterialRequest {
     ...(values.description.trim() ? { description: values.description.trim() } : {}),
     ...(values.lengthMm !== null ? { lengthMm: values.lengthMm } : {}),
     ...(values.widthMm !== null ? { widthMm: values.widthMm } : {}),
+    ...toOriginReason(values),
+    ...toComposition(values),
   }
+}
+
+/**
+ * 발생 사유를 전송 본문으로.
+ *
+ * <b>신소재면 아무것도 보내지 않는다.</b> 칸이 감춰져 있어도 사용자가 WASTE 로 골라
+ * 사유를 채운 뒤 VIRGIN 으로 되돌리면 폼 값에는 사유가 남아 있다. 그대로 보내면
+ * 서버가 400 을 낸다 — 화면에 보이지 않는 값 때문에 등록이 막히는 셈이라 여기서 끊는다.
+ *
+ * 설명은 `ETC` 가 아니어도 보낸다. 서버가 받아 주고, 사용자가 적어 둔 것을 버릴 이유가 없다.
+ */
+function toOriginReason(
+  values: MaterialFormValues,
+): Pick<CreateMaterialRequest, 'originReason' | 'originReasonNote'> {
+  if (values.rootOrigin !== 'WASTE' || !values.originReason) return {}
+  const note = values.originReasonNote.trim()
+  return {
+    originReason: values.originReason,
+    ...(note ? { originReasonNote: note } : {}),
+  }
+}
+
+/**
+ * 구성을 전송 본문으로.
+ *
+ * <b>덜 채운 줄은 버린다.</b> "섬유 추가" 를 누르고 아무것도 고르지 않은 빈 줄이 남는
+ * 것이 정상적인 사용 흐름이다. 그 줄을 보내면 서버가 400 을 내므로 여기서 걸러낸다.
+ * 폼 검증이 빈 줄을 막지만, 사용자가 줄을 추가한 뒤 다른 필드를 고치는 동안에도
+ * 제출이 가능해야 한다.
+ *
+ * 결과가 비면 필드를 아예 넣지 않는다 — 빈 배열과 미입력은 서버에서 같지만,
+ * 보내지 않는 편이 "입력하지 않았다" 는 뜻을 정확히 전한다.
+ */
+function toComposition(values: MaterialFormValues): Pick<CreateMaterialRequest, 'composition'> {
+  const rows = values.composition
+    .filter((row): row is { fiberType: MaterialFiberType; percentage: number } =>
+      Boolean(row.fiberType) && row.percentage !== null)
+    .map((row) => ({ fiberType: row.fiberType, percentage: row.percentage }))
+  return rows.length > 0 ? { composition: rows } : {}
 }
 
 /** 빈 입력을 0 으로 만들지 않는다. "미입력"(null)과 "0 을 입력함" 은 다르게 검증해야 한다. */

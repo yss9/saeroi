@@ -75,6 +75,10 @@ export interface MaterialDetail extends MaterialSummary {
   owners: MaterialOwner[]
   evidenceHash: string | null
   manifestUrl: string | null
+  originReason: MaterialOriginReason | null
+  originReasonNote: string | null
+  /** 정보가 없으면 **빈 배열**이다. 서버가 `null` 을 주지 않는다 */
+  composition: MaterialCompositionItem[]
   tokenId: number | null
   chainId: number | null
   contractAddress: string | null
@@ -163,6 +167,106 @@ export interface CreateMaterialRequest {
   grade?: MaterialGrade
   lengthMm?: number
   widthMm?: number
+  /**
+   * 왜 폐기물이 되었나. `rootOrigin: 'VIRGIN'` 이면 **보내면 안 된다** —
+   * 서버가 "신소재에는 발생 사유가 붙을 수 없다" 로 400 을 낸다.
+   *
+   * 아직 필수는 아니다. 서버가 `WASTE` 에 대해 필수로 전환하는 시점은 이 입력칸이
+   * 배포된 뒤다 (그 반대로 하면 등록이 전부 막힌다).
+   */
+  originReason?: MaterialOriginReason
+  /** `originReason: 'ETC'` 일 때 필수 */
+  originReasonNote?: string
+  /** 혼방 비율. 비어 있으면 **보내지 않는다** — 빈 배열과 미입력을 서버가 같게 다룬다 */
+  composition?: MaterialCompositionInput[]
+}
+
+/**
+ * `material.origin_reason` — 왜 폐기물이 되었나.
+ *
+ * ⚠️ `generationType` 과 **다른 축**이다. 그쪽은 "어떻게 생겼나"(최초 등록 / 가공 산출 /
+ * 생산 자투리)를 말한다. 그래서 이 목록에 `PRODUCTION_SCRAP` 이 **없다** — 같은 사실을
+ * 두 곳에 적으면 어긋난다.
+ */
+export type MaterialOriginReason =
+  | 'DEADSTOCK'
+  | 'DEFECT'
+  | 'OFFCUT'
+  | 'END_OF_LIFE'
+  | 'COLLECTED'
+  | 'ETC'
+
+export const ORIGIN_REASON_LABEL: Record<MaterialOriginReason, string> = {
+  DEADSTOCK: '재고 원단',
+  DEFECT: '불량·B급',
+  OFFCUT: '재단 자투리',
+  END_OF_LIFE: '사용 종료 제품',
+  COLLECTED: '수거·회수',
+  ETC: '기타',
+}
+
+/** `ETC` 만 설명을 요구한다. 나머지는 값 자체가 뜻을 담는다. */
+export function originReasonRequiresNote(reason: MaterialOriginReason): boolean {
+  return reason === 'ETC'
+}
+
+/**
+ * `material_composition.fiber_type`.
+ *
+ * ⚠️ 서버 컬럼은 `VARCHAR(50)` 이지만 **허용 목록을 서버 코드가 강제**한다
+ * (`MaterialFiberType`). 목록 밖의 값을 보내면 400 이다. 이 배열이 그 목록과
+ * 어긋나면 사용자가 고를 수 없거나 고른 값이 거절되므로 순서까지 맞춰 둔다.
+ */
+export const MATERIAL_FIBER_TYPES = [
+  'COTTON',
+  'POLYESTER',
+  'NYLON',
+  'WOOL',
+  'LINEN',
+  'RAYON',
+  'ACRYLIC',
+  'SPANDEX',
+  'LYOCELL',
+  'LEATHER',
+  'DENIM',
+  'OTHER',
+] as const
+
+export type MaterialFiberType = (typeof MATERIAL_FIBER_TYPES)[number]
+
+export const FIBER_TYPE_LABEL: Record<MaterialFiberType, string> = {
+  COTTON: '면',
+  POLYESTER: '폴리에스터',
+  NYLON: '나일론',
+  WOOL: '울',
+  LINEN: '린넨',
+  RAYON: '레이온',
+  ACRYLIC: '아크릴',
+  SPANDEX: '스판덱스',
+  LYOCELL: '리요셀',
+  LEATHER: '가죽',
+  DENIM: '데님',
+  OTHER: '기타',
+}
+
+/** 구성 비율 합계의 상한. **100 을 요구하지 않는다** — 아래 주석 참고 */
+export const COMPOSITION_MAX_TOTAL = 100
+
+/** 전송용 구성 한 줄 */
+export interface MaterialCompositionInput {
+  fiberType: MaterialFiberType
+  percentage: number
+}
+
+/**
+ * 조회 응답의 구성 한 줄.
+ *
+ * 서버가 **비율 내림차순**으로 정렬해 준다. 클라이언트에서 다시 정렬하지 않는다 —
+ * 양쪽에서 정렬하면 같은 소재의 줄 순서가 화면마다 달라 보인다.
+ */
+export interface MaterialCompositionItem {
+  fiberType: string
+  percentage: number
 }
 
 /** `POST /api/materials` 응답. 전체 필드는 상세 조회가 책임진다. */
