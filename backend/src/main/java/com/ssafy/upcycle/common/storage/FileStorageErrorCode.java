@@ -27,6 +27,15 @@ public enum FileStorageErrorCode implements ErrorCode {
     FILE_COUNT_EXCEEDED(
             HttpStatus.BAD_REQUEST, "FILE_COUNT_EXCEEDED", "한 번에 10개까지 올릴 수 있습니다."),
     FILE_EMPTY(HttpStatus.BAD_REQUEST, "FILE_EMPTY", "빈 파일은 올릴 수 없습니다."),
+
+    /**
+     * DB 행은 있는데 저장소에 객체가 없다.
+     *
+     * <p>{@link #FILE_STORAGE_FAILED}(500) 와 나눈다. 이쪽은 <b>서버가 고장난 것이 아니라
+     * 그 파일이 없는 것</b>이라 다시 시도해도 같은 결과다. 500 으로 내보내면 프론트가
+     * 재시도 루프를 돌고 우리는 장애 알림을 받는다 — 원인은 데이터 쪽인데.
+     */
+    FILE_NOT_FOUND(HttpStatus.NOT_FOUND, "FILE_NOT_FOUND", "파일을 찾을 수 없습니다."),
     FILE_STORAGE_FAILED(
             HttpStatus.INTERNAL_SERVER_ERROR, "FILE_STORAGE_FAILED", "파일 저장에 실패했습니다.");
 

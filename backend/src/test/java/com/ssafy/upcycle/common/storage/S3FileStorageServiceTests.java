@@ -25,12 +25,16 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import software.amazon.awssdk.awscore.exception.AwsErrorDetails;
+import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.exception.AbortedException;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.http.AbortableInputStream;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectResponse;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
@@ -244,6 +248,70 @@ class S3FileStorageServiceTests {
         }
     }
 
+    // ── 읽기 (S15P21E104-162) ───────────────────────────────
+
+    @Test
+    void readsBackExactlyWhatWasUploaded() throws Exception {
+        StoredFile stored = store("photo.jpg", "image/jpeg");
+
+        FileContent content = storage().read(stored.storageKey());
+        try (InputStream in = content.stream()) {
+            assertThat(in.readAllBytes()).isEqualTo(CONTENT);
+        }
+        assertThat(content.size()).isEqualTo(CONTENT.length);
+        assertThat(s3.gets).containsExactly(stored.storageKey());
+    }
+
+    @Test
+    void derivesTheMediaTypeFromTheKeyLikeTheLocalImplementation() throws Exception {
+        // 객체 메타데이터를 쓰면 로컬 구현과 답이 갈린다. 저장소 전환은 설정 한 줄이라
+        // 그 차이가 배포 시점까지 드러나지 않는다.
+        StoredFile stored = store("slip.pdf", "application/pdf");
+
+        FileContent content = storage().read(stored.storageKey());
+        try (InputStream in = content.stream()) {
+            assertThat(in).isNotNull();
+        }
+        assertThat(content.contentType()).isEqualTo("application/pdf");
+    }
+
+    @Test
+    void readingAMissingObjectIsNotFoundRatherThanAServerError() {
+        assertThatThrownBy(() -> storage().read("MATERIAL/1024/2026/09/does-not-exist.jpg"))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(FileStorageErrorCode.FILE_NOT_FOUND);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("sdkFailures")
+    void readFailsLoudlyForBothSdkFailureKinds(String kind, SdkException failure) {
+        // 실패를 "없음"(404) 으로 답하면 화면에 "증빙 없음" 이라는 거짓이 나간다.
+        //
+        // 두 종류를 모두 넣는다. 서비스가 오류를 응답한 경우(S3Exception)와 서비스에
+        // 닿지도 못한 경우(SdkClientException)는 상속 관계가 없어서, catch (S3Exception)
+        // 만 하던 동안 후자는 원시 SDK 예외로 새어 나갔다 — ApiResponse 봉투 없는 500 이다.
+        StoredFile stored = store("photo.jpg", "image/jpeg");
+        s3.getFailure = failure;
+
+        assertThatThrownBy(() -> storage().read(stored.storageKey()))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(FileStorageErrorCode.FILE_STORAGE_FAILED);
+    }
+
+    @Test
+    void readPassesCancellationThroughInsteadOfCallingItAStorageFailure() {
+        // AbortedException(SdkClientException 의 하위 타입) 은 인터럽트·요청 취소다.
+        // FILE_STORAGE_FAILED 로 바꾸면 취소가 500 도메인 오류로 보고되고, 호출부는
+        // 재시도할 근거가 없는데 재시도하게 된다.
+        StoredFile stored = store("photo.jpg", "image/jpeg");
+        s3.getFailure = AbortedException.create("취소됨");
+
+        assertThatThrownBy(() -> storage().read(stored.storageKey()))
+                .isInstanceOf(AbortedException.class);
+    }
+
     // ── 삭제 · 존재 ──────────────────────────────────────────
 
     @Test
@@ -368,10 +436,27 @@ class S3FileStorageServiceTests {
         record Put(PutObjectRequest request, byte[] body) {}
 
         final List<Put> puts = new ArrayList<>();
+        final List<String> gets = new ArrayList<>();
         final Map<String, byte[]> objects = new HashMap<>();
         SdkException putFailure;
         SdkException deleteFailure;
         SdkException headFailure;
+        SdkException getFailure;
+
+        @Override
+        public ResponseInputStream<GetObjectResponse> getObject(GetObjectRequest request) {
+            if (getFailure != null) {
+                throw getFailure;
+            }
+            byte[] found = objects.get(request.key());
+            if (found == null) {
+                throw NoSuchKeyException.builder().message("no such key").build();
+            }
+            gets.add(request.key());
+            return new ResponseInputStream<>(
+                    GetObjectResponse.builder().contentLength((long) found.length).build(),
+                    AbortableInputStream.create(new ByteArrayInputStream(found)));
+        }
 
         @Override
         public PutObjectResponse putObject(PutObjectRequest request, RequestBody body) {
@@ -421,8 +506,9 @@ class S3FileStorageServiceTests {
         /**
          * 서비스에 <b>닿지 못한</b> 경우. MinIO 컨테이너 정지·DNS 실패·커넥션 타임아웃이
          * 실제로 이 타입으로 온다 ({@code SdkClientException}, {@code S3Exception} 의 형제).
+         * {@link #serviceError} 로는 이 종류를 만들 수 없다.
          */
-        static SdkClientException unreachable() {
+        private static SdkClientException unreachable() {
             return SdkClientException.create(
                     "Unable to execute HTTP request: minio: nodename nor servname provided",
                     new java.net.ConnectException("Connection refused"));

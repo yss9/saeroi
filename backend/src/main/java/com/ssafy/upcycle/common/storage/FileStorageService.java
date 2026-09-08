@@ -55,6 +55,35 @@ public interface FileStorageService {
             long size);
 
     /**
+     * 저장된 파일을 읽는다. S15P21E104-162.
+     *
+     * <h2>왜 presigned URL 이 아닌가</h2>
+     *
+     * <p>S3/MinIO 는 만료 시간이 붙은 서명 URL 을 발급할 수 있다. 쓰지 않았다.
+     *
+     * <ul>
+     *   <li>{@link LocalFileStorageService} 에 <b>대응물이 없다.</b> presigned 로 가면
+     *       {@code app.storage.type=local} 배포에서 조회가 통째로 사라진다. 저장소 전환은
+     *       설정 한 줄이라 그 차이가 배포 시점까지 드러나지 않는다
+     *   <li>발급된 URL 은 만료 전까지 <b>토큰 없이 누구에게든 통한다.</b> 증빙은 남의 소재
+     *       자료라 링크가 새는 순간 인가가 없어진다 — 채팅에 붙여 넣거나 리퍼러로 새는 것을
+     *       우리가 막을 방법이 없다
+     *   <li>인가 판정을 저장소에 넘기면 <b>우리가 못 한다.</b> 누가 무엇을 볼 수 있는지는
+     *       소재 등록자·보유자 관계라 도메인 지식이고, 저장소는 그것을 모른다
+     * </ul>
+     *
+     * <p>그래서 바이트를 우리 서버로 끌어와 인가를 통과한 요청에만 흘린다
+     * ({@code GET /api/evidence/{id}/content}). 두 구현이 같은 방식으로 동작한다.
+     *
+     * @param storageKey {@code store} 가 돌려준 키. DB 에 저장된 값을 그대로 받는다
+     * @return 스트림·크기·미디어 타입. <b>스트림은 호출부가 닫는다</b>
+     * @throws com.ssafy.upcycle.common.exception.BusinessException 객체가 없으면
+     *     {@link FileStorageErrorCode#FILE_NOT_FOUND}, 저장소 자체가 실패하면
+     *     {@link FileStorageErrorCode#FILE_STORAGE_FAILED}
+     */
+    FileContent read(String storageKey);
+
+    /**
      * 저장된 파일을 지운다.
      *
      * <p>없는 키를 지우는 것은 <b>오류가 아니다.</b> 호출부는 트랜잭션이 롤백될 때 이 메서드를

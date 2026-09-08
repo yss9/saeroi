@@ -5,6 +5,7 @@ import com.ssafy.upcycle.material.dto.MaterialQuantityUnit;
 import com.ssafy.upcycle.trade.dto.PageResponse;
 import com.ssafy.upcycle.trade.dto.PaymentApproveRequest;
 import com.ssafy.upcycle.trade.dto.PaymentReadyResponse;
+import com.ssafy.upcycle.trade.dto.TradeCancelRequest;
 import com.ssafy.upcycle.trade.dto.TradeCreateRequest;
 import com.ssafy.upcycle.trade.dto.TradeQuoteResponse;
 import com.ssafy.upcycle.trade.dto.TradeReceiptResponse;
@@ -141,11 +142,19 @@ public class TradeController {
      *
      * <p>{@code DELETE} 가 아니라 {@code POST /cancel} 인 것은 거래 행을 지우지 않기 때문이다.
      * 취소된 거래도 이력이고, 같은 판매 글에서 몇 건이 취소됐는지가 분쟁 때 근거가 된다.
+     *
+     * <p><b>바디는 없어도 된다.</b> 사유를 적을 자리가 없는 취소(결제창 이탈 등)가 정상
+     * 경로이고, 기존 호출부도 바디 없이 부르고 있었다. 시각은 사유와 무관하게 기록된다.
      */
     @PostMapping("/{tradeId}/cancel")
     public ApiResponse<TradeResponse> cancel(
-            @AuthenticationPrincipal Jwt jwt, @PathVariable Long tradeId) {
-        return ApiResponse.success(paymentService.cancel(userId(jwt), tradeId));
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long tradeId,
+            @Valid @RequestBody(required = false) TradeCancelRequest request) {
+        TradeCancelRequest cancelRequest =
+                request == null ? TradeCancelRequest.empty() : request;
+        return ApiResponse.success(
+                paymentService.cancel(userId(jwt), tradeId, cancelRequest.reason()));
     }
 
     /**

@@ -212,6 +212,58 @@ class LocalFileStorageServiceTests {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
+    // ── 읽기 (S15P21E104-162) ───────────────────────────────
+
+    @Test
+    void readsBackExactlyWhatWasWritten() throws Exception {
+        StoredFile stored = store("photo.jpg", "image/jpeg");
+
+        FileContent content = storage().read(stored.storageKey());
+        try (InputStream in = content.stream()) {
+            assertThat(in.readAllBytes()).isEqualTo(CONTENT);
+        }
+        assertThat(content.size()).isEqualTo(CONTENT.length);
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "photo.jpg,image/jpeg",
+        "photo.png,image/png",
+        "photo.webp,image/webp",
+        "slip.pdf,application/pdf",
+    })
+    void derivesTheMediaTypeFromTheKey(String filename, String contentType) throws Exception {
+        // 로컬에는 저장해 둔 메타데이터가 없고 probeContentType 은 OS 설정에 따라 답이
+        // 달라진다. 확장자에서 파생하면 서버·저장소가 달라도 같은 답이 나온다.
+        StoredFile stored = store(filename, contentType);
+
+        FileContent content = storage().read(stored.storageKey());
+        try (InputStream in = content.stream()) {
+            assertThat(in).isNotNull();
+        }
+        assertThat(content.contentType()).isEqualTo(contentType);
+    }
+
+    @Test
+    void readingAMissingFileIsNotFoundRatherThanAServerError() {
+        // 500 으로 내보내면 프론트가 재시도 루프를 돌고 우리는 장애 알림을 받는다 —
+        // 원인은 데이터 쪽인데.
+        assertThatThrownBy(() -> storage().read("MATERIAL/1024/2026/09/does-not-exist.jpg"))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(FileStorageErrorCode.FILE_NOT_FOUND);
+    }
+
+    @Test
+    void refusesToReadAKeyThatEscapesTheRoot() {
+        // 읽기는 키를 DB 에서 받는다. 그 값이 오염되면 이 메서드가 서버의 임의 파일을
+        // 응답으로 내보내는 문이 된다 — 파생 경로를 쓰는 노력이 여기서 무의미해진다.
+        assertThatThrownBy(() -> storage().read("../../etc/passwd"))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(FileStorageErrorCode.FILE_STORAGE_FAILED);
+    }
+
     // ── 삭제·존재 ────────────────────────────────────────────
 
     @Test

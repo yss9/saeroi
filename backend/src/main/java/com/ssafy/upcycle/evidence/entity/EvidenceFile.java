@@ -19,12 +19,18 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 /**
  * 업로드된 증빙 파일 한 건. 테이블은 {@code schema.sql} 에 이미 있었고 매핑만 없었다.
  *
- * <h2>이 행은 지우지 않는다</h2>
+ * <h2>이 행은 지우지 않는다 — {@link #markDeleted} 로 표시만 한다</h2>
  *
  * <p>{@code file_hash} 가 온체인에 기록된다. 파일을 지우고 행도 지우면 <b>온체인에는
  * 해시가 남아 있는데 무엇의 해시인지 알 수 없는 상태</b>가 된다. 되돌릴 수 없다.
- * 그래서 이 엔티티에는 삭제·수정 메서드가 없다. 잘못 올린 파일은 새로 올리고
- * 화면이 최신 것을 보여주는 방식으로 다룬다.
+ *
+ * <p>그래서 삭제는 {@code deleted_at} 을 채우는 것이고(S15P21E104-162), 실제로 없어지는
+ * 것은 저장소의 바이트뿐이다. 사용자가 원하는 것은 파일이 없어지는 것이고, 우리가 잃어선
+ * 안 되는 것은 <b>그 해시가 존재했다는 사실</b>이다. 두 요구가 이 지점에서 갈린다.
+ *
+ * <p>무엇을 언제 지울 수 있는지는 {@code EvidenceDeletionPolicy} 가 정한다 —
+ * 온체인에 고정된 증빙은 이 메서드에 닿기 전에 거절된다. 내용 수정 메서드는 여전히 없다:
+ * 이미 제출된 기록은 고치지 않는다는 것이 2-Track 원칙이다.
  *
  * <h2>reference_id 에 FK 가 없다</h2>
  *
@@ -81,6 +87,19 @@ public class EvidenceFile {
     @Column(name = "uploaded_at", nullable = false, updatable = false)
     private LocalDateTime uploadedAt;
 
+    /** 소프트 삭제 시각. {@code null} 이면 살아 있다. */
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+    /**
+     * 지운 사용자.
+     *
+     * <p>{@code uploadedBy} 로 대신할 수 없다 — 업로더 외에 대상 소재의 등록자도 지울 수
+     * 있어서, 증빙이 사라진 건에서 "누가 지웠나" 에 답하지 못한다.
+     */
+    @Column(name = "deleted_by")
+    private Long deletedBy;
+
     private EvidenceFile(
             EvidenceReferenceType referenceType,
             Long referenceId,
@@ -118,6 +137,31 @@ public class EvidenceFile {
         requireHash(fileHash);
         return new EvidenceFile(
                 referenceType, referenceId, storageKey, fileHash, evidenceType, uploadedBy);
+    }
+
+    /** 살아 있는 증빙인가. 목록·조회·삭제가 모두 이 값을 먼저 본다. */
+    public boolean isDeleted() {
+        return deletedAt != null;
+    }
+
+    /**
+     * 소프트 삭제로 표시한다.
+     *
+     * <p><b>두 번 지울 수 없다.</b> 이미 지운 것을 다시 지우면 {@code deleted_at} 과
+     * {@code deleted_by} 가 나중 사람으로 덮이고, 그러면 처음 지운 사람이 감사 기록에서
+     * 사라진다. 증빙 삭제는 그 기록이 요점이다.
+     *
+     * <p>여기서 예외를 던져도 사용자에게는 <b>404</b> 로 나간다 —
+     * {@code EvidenceDeletionService} 가 먼저 걸러 내므로 이 예외는 경합으로만 닿는다.
+     */
+    public void markDeleted(LocalDateTime deletedAt, Long deletedBy) {
+        requireNonNull(deletedAt, "deleted at");
+        requirePositive(deletedBy, "deleter id");
+        if (isDeleted()) {
+            throw new IllegalStateException("Evidence file is already deleted: " + id);
+        }
+        this.deletedAt = deletedAt;
+        this.deletedBy = deletedBy;
     }
 
     private static void requireNonNull(Object value, String field) {

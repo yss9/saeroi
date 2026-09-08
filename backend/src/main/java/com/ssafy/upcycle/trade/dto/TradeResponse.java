@@ -59,6 +59,10 @@ public record TradeResponse(
         LocalDateTime receivedAt,
         LocalDateTime buyerSignedAt,
         LocalDateTime completedAt,
+        LocalDateTime canceledAt,
+
+        /** 사람이 적은 취소 사유. 사유 없이 취소된 건은 {@code null} 이다. */
+        String cancelReason,
 
         /**
          * 배송지와 송장. 이 변경 이전에 만들어진 거래에는 배송 행이 없어 {@code null} 이다.
@@ -102,6 +106,8 @@ public record TradeResponse(
                 trade.getReceivedAt(),
                 trade.getBuyerSignedAt(),
                 trade.getCompletedAt(),
+                trade.getCanceledAt(),
+                trade.getCancelReason(),
                 TradeShippingResponse.from(shipping));
     }
 }
