@@ -35,6 +35,22 @@ export interface EvidenceUploadProps {
  * <b>올리기 전에 무엇이 올라가는지 보여주고, 올린 뒤에는 지우기를 제안하지 않는다.</b>
  * 삭제 버튼을 두면 사용자는 되돌릴 수 있다고 믿는다.
  *
+ * <h2>목록은 보는 사람에 따라 범위가 다르다 (S15P21E104-286 §6-1)</h2>
+ *
+ * <p>`GET /api/evidence` 는 업로더·소재 등록자·현재 보유자에게만 파일 목록을 주고,
+ * 그 외 인증 사용자에게는 <b>종류별 개수만</b> 준다. 그래서 이 화면은 세 상태를
+ * <b>서로 다르게</b> 그린다.
+ *
+ * <ul>
+ *   <li>`summary` 가 빈 배열 → 정말 증빙이 없다 → EmptyState ("올려 주세요")</li>
+ *   <li>`visibility: 'SUMMARY'` → 있지만 가려졌다 → 요약 줄 + "관계자에게만 공개" 안내</li>
+ *   <li>`visibility: 'FULL'` → 요약 줄 + 파일 목록</li>
+ * </ul>
+ *
+ * <p><b>가려진 것을 "증빙 없음" 으로 그리지 않는다.</b> 둘을 같은 문구로 말하면 남의
+ * 소재를 보는 사람은 증빙이 안 올라왔다고 오해하고, 자기 소재를 보는 사람은 방문자에게
+ * 무엇이 보이는지 알 수 없다.
+ *
  * <h2>서버가 막는 것을 여기서도 막는다</h2>
  *
  * <p>중복이 아니다. 서버 거절은 요청을 보낸 뒤에 오고, 사용자는 그때까지 파일이
@@ -123,7 +139,9 @@ export function EvidenceUpload({ referenceType, referenceId, readOnly }: Evidenc
         <Loading variant="skeleton" rows={2} label="증빙을 불러오는 중" />
       ) : list.isError ? (
         <ErrorMessage error={list.error} onRetry={() => void list.refetch()} />
-      ) : list.data.length === 0 ? (
+      ) : list.data.summary.length === 0 ? (
+        // 정말 0건이다. 서버는 가려진 응답에도 `summary` 를 채워 주므로, 빈 요약은
+        // "증빙이 없다" 는 뜻이 확실하다. EmptyState 는 여기서만 쓴다.
         <EmptyState
           title="등록된 증빙이 없습니다"
           description={
@@ -131,24 +149,56 @@ export function EvidenceUpload({ referenceType, referenceId, readOnly }: Evidenc
           }
         />
       ) : (
-        <ul className="evidence__list" aria-label="등록된 증빙">
-          {list.data.map((file) => (
-            <li key={file.evidenceFileId}>
-              <p>{EVIDENCE_TYPE_LABEL[file.evidenceType]}</p>
-              {/*
-                파일을 되돌려주는 엔드포인트가 아직 없다. storageKey 를 <img src> 에
-                넣으면 깨진 이미지가 되므로, 파일 이름 대신 해시를 보여주고 미리보기가
-                준비 중임을 밝힌다. 사용자는 자기 증빙이 온체인에 올라간 그것인지
-                이 해시로 대조할 수 있다.
-              */}
-              <p className="evidence__hash">{file.fileHash}</p>
-              <p>
-                <time dateTime={file.uploadedAt}>{formatDateTime(file.uploadedAt)}</time>
-                {' · 미리보기 준비 중'}
-              </p>
-            </li>
-          ))}
-        </ul>
+        <>
+          {/*
+            종류별 건수는 FULL·SUMMARY 두 경우 모두 서버가 준다. files 를 세어 만들지
+            않는다 — 요약 규칙이 두 곳에 생기고, 순서도 서버가 정한 EvidenceType 열거
+            순서를 그대로 써야 화면마다 달라 보이지 않는다.
+          */}
+          <ul className="evidence__summary" aria-label="증빙 요약">
+            {list.data.summary.map(({ evidenceType: type, count }) => (
+              <li key={type}>
+                {EVIDENCE_TYPE_LABEL[type]} {count}건
+              </li>
+            ))}
+          </ul>
+
+          {/*
+            `files` 유무가 아니라 visibility 로 갈라야 한다. 가려진 응답에는 files 키가
+            아예 없는데 그것을 빈 배열처럼 다루면 "증빙 없음" 과 구분되지 않는다.
+            서버가 visibility 를 응답에 싣는 이유가 바로 그 구분이다.
+          */}
+          {list.data.visibility === 'FULL' ? (
+            <ul className="evidence__list" aria-label="등록된 증빙">
+              {(list.data.files ?? []).map((file) => (
+                <li key={file.evidenceFileId}>
+                  <p>{EVIDENCE_TYPE_LABEL[file.evidenceType]}</p>
+                  {/*
+                    파일 이름(storageKey)이 아니라 해시를 보여준다. storageKey 는 URL 이
+                    아니라 저장소 경로라 <img src> 에 넣으면 깨진 이미지가 되고, 해시는
+                    온체인에 올라간 값이라 사용자가 대조할 수 있다.
+
+                    파일을 되돌려주는 엔드포인트는 이제 있다 (contentPath →
+                    GET /api/evidence/{id}/content). 다만 미리보기 UI 는 별도 작업이라
+                    이 브랜치에서 만들지 않는다 — 그래서 아직 "준비 중" 이라고 말한다.
+                  */}
+                  <p className="evidence__hash">{file.fileHash}</p>
+                  <p>
+                    <time dateTime={file.uploadedAt}>{formatDateTime(file.uploadedAt)}</time>
+                    {' · 미리보기 준비 중'}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            // 가려진 것은 없는 것이 아니다. 개수는 위 요약에 이미 나와 있으니 여기서는
+            // 무엇이 왜 안 보이는지만 말한다. EmptyState 를 쓰면 "증빙 없음" 이 된다.
+            <p className="evidence__masked">
+              증빙이 등록되어 있지만 파일 정보는 보이지 않습니다. 파일 이름·해시·업로더는
+              업로더와 소재 등록자, 현재 보유자에게만 공개됩니다.
+            </p>
+          )}
+        </>
       )}
     </div>
   )

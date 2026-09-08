@@ -107,7 +107,10 @@ beforeEach(() => {
   api.getMaterial.mockReset()
   api.getMaterialBalances.mockReset().mockResolvedValue([BALANCE])
   api.getMaterialLineage.mockReset().mockResolvedValue(EMPTY_LINEAGE)
-  api.getEvidence.mockReset().mockResolvedValue([])
+  // `GET /api/evidence` 는 배열이 아니라 객체를 준다 (S15P21E104-286 §6-1).
+  // 증빙 0건은 `summary` 가 빈 배열인 것으로 표현된다 — 이 페이지 테스트는 증빙
+  // 내용을 보지 않으므로 가장 단순한 "0건" 응답을 쓴다.
+  api.getEvidence.mockReset().mockResolvedValue({ visibility: 'FULL', files: [], summary: [] })
 })
 
 afterEach(cleanup)
