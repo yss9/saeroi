@@ -8,6 +8,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ssafy.upcycle.common.security.jwt.JwtTokenService;
+import com.ssafy.upcycle.common.storage.FileReference;
+import com.ssafy.upcycle.common.storage.FileStorageService;
 import com.ssafy.upcycle.product.entity.ProductItem;
 import com.ssafy.upcycle.product.entity.ProductModel;
 import com.ssafy.upcycle.product.entity.ProductModelStatus;
@@ -16,6 +18,11 @@ import com.ssafy.upcycle.product.repository.ProductModelRepository;
 import com.ssafy.upcycle.user.entity.User;
 import com.ssafy.upcycle.user.entity.UserRole;
 import com.ssafy.upcycle.user.repository.UserRepository;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +34,8 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,6 +56,26 @@ class ProductModelControllerTests {
 
     private static final String PATH = "/api/v1/product-models";
 
+    /**
+     * 저장 루트를 임시 디렉터리로 돌린다. 기본값이 {@code /app/files} 라 그대로 두면
+     * 테스트가 레포 밖 실제 경로에 파일을 쓴다. 컨텍스트 생성 전에 값이 필요하므로
+     * {@code @DynamicPropertySource} 로 넣는다 (증빙 테스트와 같다).
+     */
+    private static final Path STORAGE_ROOT = createStorageRoot();
+
+    private static Path createStorageRoot() {
+        try {
+            return Files.createTempDirectory("product-model-controller-");
+        } catch (IOException e) {
+            throw new IllegalStateException("임시 저장 루트를 만들 수 없다", e);
+        }
+    }
+
+    @DynamicPropertySource
+    static void storageRoot(DynamicPropertyRegistry registry) {
+        registry.add("app.storage.root", STORAGE_ROOT::toString);
+    }
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -65,14 +94,35 @@ class ProductModelControllerTests {
     @Autowired
     private ProductItemRepository productItemRepository;
 
+    @Autowired
+    private FileStorageService fileStorageService;
+
     private User brand;
     private String brandToken;
+    private String thumbnailKey;
 
     @BeforeEach
     void setUp() {
         brand = userRepository.save(User.register(
                 "product-brand@example.com", "{noop}x", "브랜드", "010-0000-0000", UserRole.BRAND));
         brandToken = tokenFor(brand);
+        thumbnailKey = storeImage(brand.getId());
+    }
+
+    /**
+     * 등록은 저장소에 실제로 있는 키만 받는다. 업로드 엔드포인트를 거치지 않고 저장소에
+     * 직접 넣는 이유는, 이 클래스가 고정하려는 것이 <b>등록</b>의 계약이기 때문이다 —
+     * 업로드 표면은 {@code ProductImageControllerTests} 가 본다.
+     */
+    private String storeImage(Long brandId) {
+        byte[] bytes = "photo-bytes".getBytes(StandardCharsets.UTF_8);
+        return fileStorageService.store(
+                        new FileReference("PRODUCT_IMAGE", brandId),
+                        "thumb.jpg",
+                        "image/jpeg",
+                        new ByteArrayInputStream(bytes),
+                        bytes.length)
+                .storageKey();
     }
 
     // ── 인증·권한 ────────────────────────────────────────────
@@ -209,6 +259,21 @@ class ProductModelControllerTests {
     }
 
     @Test
+    void rejectsAThumbnailThatWasNeverUploaded() throws Exception {
+        // 이 검사가 없으면 프론트가 아무 문자열이나 보내도 등록이 성공하고,
+        // 이미지가 깨진 제품이 마켓에 올라간 뒤에야 드러난다.
+        Map<String, Object> request = validRequest();
+        request.put("thumbnailUrl", "PRODUCT_IMAGE/1/2026/09/nope.jpg");
+
+        mockMvc.perform(post(PATH)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + brandToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("PRODUCT_THUMBNAIL_NOT_STORED"));
+    }
+
+    @Test
     void rejectsAMissingThumbnail() throws Exception {
         Map<String, Object> request = validRequest();
         request.remove("thumbnailUrl");
@@ -298,7 +363,7 @@ class ProductModelControllerTests {
         request.put("category", "BAG");
         request.put("price", 129_000);
         request.put("description", "폐데님으로 만든 가방");
-        request.put("thumbnailUrl", "https://cdn.example.com/rebag.jpg");
+        request.put("thumbnailUrl", thumbnailKey);
         return request;
     }
 

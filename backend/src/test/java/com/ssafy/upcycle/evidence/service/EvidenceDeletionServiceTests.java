@@ -58,6 +58,7 @@ import org.springframework.test.util.ReflectionTestUtils;
     EvidenceAccessPolicy.class,
     EvidenceAnchorPolicy.class,
     EvidenceDeletionService.class,
+    EvidenceListService.class,
     EvidenceDeletionServiceTests.StorageTestConfig.class
 })
 class EvidenceDeletionServiceTests {
@@ -86,6 +87,9 @@ class EvidenceDeletionServiceTests {
 
     @Autowired
     private EvidenceDeletionService deletionService;
+
+    @Autowired
+    private EvidenceListService listService;
 
     @Autowired
     private EvidenceFileRepository evidenceFileRepository;
@@ -227,7 +231,9 @@ class EvidenceDeletionServiceTests {
         EvidenceFileResponse uploaded = upload();
         deletionService.delete(uploaderId, uploaded.evidenceFileId());
 
-        assertThat(uploadService.findAll(EvidenceReferenceType.MATERIAL, materialId))
+        assertThat(listService
+                        .findAll(registrantId, EvidenceReferenceType.MATERIAL, materialId)
+                        .files())
                 .as("지워진 증빙이 목록에 남으면 화면이 깨진 이미지를 그린다")
                 .isEmpty();
     }

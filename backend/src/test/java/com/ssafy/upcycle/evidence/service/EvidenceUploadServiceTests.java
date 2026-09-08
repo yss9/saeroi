@@ -180,27 +180,8 @@ class EvidenceUploadServiceTests {
         assertThat(filesOnDisk()).isEqualTo(3);
     }
 
-    @Test
-    void listsEvidenceInUploadOrder() {
-        // 증빙은 "이전 사진 → 이후 사진" 처럼 시간 순서가 뜻을 갖는 자료다.
-        uploadService.upload(uploaderId, request(), List.of(jpeg("first.jpg")));
-        uploadService.upload(uploaderId, request(), List.of(jpeg("second.jpg")));
-
-        var listed = uploadService.findAll(EvidenceReferenceType.MATERIAL, materialId);
-
-        assertThat(listed).hasSize(2);
-        assertThat(listed.get(0).evidenceFileId()).isLessThan(listed.get(1).evidenceFileId());
-    }
-
-    @Test
-    void doesNotMixEvidenceOfAnotherReferenceType() {
-        // reference_id 는 타입마다 따로 매겨진다. 같은 번호의 가공작업 증빙을
-        // 소재의 것으로 읽으면 안 된다.
-        uploadService.upload(uploaderId, request(), List.of(jpeg("before.jpg")));
-
-        assertThat(uploadService.findAll(EvidenceReferenceType.PROCESSING_JOB, materialId))
-                .isEmpty();
-    }
+    // 목록 조회 테스트는 EvidenceListServiceTests 로 옮겼다 — 조회가 인가를 갖게 되면서
+    // EvidenceListService 로 이동했다 (S15P21E104-286 §6-1).
 
     // ── 대상 확인 ────────────────────────────────────────────
 
