@@ -7,7 +7,7 @@ import { apiClient } from '../../services/apiClient.ts'
 import { useAuthStore } from '../../stores/authStore.ts'
 import { ProcessingPage } from './ProcessingPage.tsx'
 
-vi.mock('../../services/apiClient.ts', () => ({ apiClient: { get: vi.fn() } }))
+vi.mock('../../services/apiClient.ts', () => ({ apiClient: { get: vi.fn(), post: vi.fn() } }))
 
 const requests = {
   items: [
@@ -51,6 +51,7 @@ beforeEach(() => {
     isAuthenticated: true,
   })
   vi.mocked(apiClient.get).mockResolvedValue({ data: requests })
+  vi.mocked(apiClient.post).mockResolvedValue({ data: {} })
 })
 
 afterEach(cleanup)
@@ -95,7 +96,45 @@ test('요청 행을 펼치면 만료 정보와 상세 조건을 확인할 수 �
   expect(detailButton).toHaveAttribute('aria-expanded', 'true')
   expect(screen.getByText('만료 일시')).toBeInTheDocument()
   expect(screen.getByText('DENIM')).toBeInTheDocument()
-  expect(screen.getByText(/견적 제출 단계/)).toBeInTheDocument()
+  expect(screen.getByText('견적 작성')).toBeInTheDocument()
+})
+
+test('Processor가 금액과 기간을 입력해 견적을 제출한다', async () => {
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByText('PR-007')
+
+  await user.click(screen.getByRole('button', { name: 'PR-007 요청 상세 보기' }))
+  await user.type(screen.getByRole('textbox', { name: '견적 금액' }), '150000')
+  await user.type(screen.getByRole('spinbutton', { name: '예상 처리 기간' }), '5')
+  await user.type(screen.getByRole('textbox', { name: '견적 메모' }), '세척 및 해체 비용 포함')
+  await user.click(screen.getByRole('button', { name: '견적 제출' }))
+
+  expect(apiClient.post).toHaveBeenCalledWith('/v1/processing-requests/7/quotes', {
+    price: 150000,
+    leadDays: 5,
+    memo: '세척 및 해체 비용 포함',
+  })
+  expect(await screen.findByText('견적을 제출했어요')).toBeInTheDocument()
+})
+
+test('유효하지 않은 견적은 API를 호출하지 않는다', async () => {
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByText('PR-007')
+  await user.click(screen.getByRole('button', { name: 'PR-007 요청 상세 보기' }))
+  await user.click(screen.getByRole('button', { name: '견적 제출' }))
+  expect(screen.getByRole('alert')).toHaveTextContent('견적 금액과 예상 처리 기간을 입력해 주세요.')
+  expect(apiClient.post).not.toHaveBeenCalled()
+})
+
+test('Processor가 담당 요청을 거절한다', async () => {
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByText('PR-007')
+  await user.click(screen.getByRole('button', { name: 'PR-007 요청 상세 보기' }))
+  await user.click(screen.getByRole('button', { name: '요청 거절' }))
+  expect(apiClient.post).toHaveBeenCalledWith('/v1/processing-requests/7/reject')
 })
 
 test('다음 페이지로 이동하면 해당 페이지를 조회한다', async () => {
