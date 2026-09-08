@@ -57,4 +57,9 @@ public class ProcessingRequest {
         }
         status = target;
     }
+
+    public void select() {
+        if (status != ProcessingRequestStatus.QUOTING) throw new IllegalStateException("Only a quoting request may be selected");
+        status = ProcessingRequestStatus.SELECTED;
+    }
 }
