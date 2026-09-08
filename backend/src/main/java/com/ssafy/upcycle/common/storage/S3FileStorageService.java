@@ -13,6 +13,8 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 import software.amazon.awssdk.core.ResponseInputStream;
+import software.amazon.awssdk.core.exception.AbortedException;
+import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
@@ -129,9 +131,21 @@ public class S3FileStorageService implements FileStorageService {
                     FileContentPolicy.mediaTypeOf(storageKey));
         } catch (NoSuchKeyException absent) {
             throw new BusinessException(FileStorageErrorCode.FILE_NOT_FOUND);
-        } catch (S3Exception failure) {
+        } catch (AbortedException aborted) {
+            // 취소는 "있다/없다" 에 대한 답이 아니다. 도메인 오류로 바꾸지 않고 올려보낸다.
+            // (AbortedException 은 SdkClientException 의 하위 타입이라 아래 catch 보다 먼저
+            // 와야 한다. 인터럽트·요청 취소를 500 FILE_STORAGE_FAILED 로 보고하면 호출부는
+            // 재시도할 근거가 없는데 재시도하게 된다. store()/exists() 와 같은 판단이다.)
+            throw aborted;
+        } catch (SdkException failure) {
             // 권한 오류·연결 실패를 "없음" 으로 답하면 화면에 "증빙 없음" 이라는 거짓이
             // 나간다. exists() 와 같은 판단이다.
+            //
+            // 잡는 타입이 SdkException 이어야 한다 — MinIO 도달 불가(컨테이너 정지·DNS 실패·
+            // 커넥션 타임아웃)는 S3Exception 이 아니라 SdkClientException 으로 오고, 둘은
+            // 상속 관계가 아니라 공통 조상이 SdkException 뿐이다. S3Exception 만 잡으면
+            // 바로 위 판단이 하필 "연결 실패" 에서만 무력화된다 — 원시 SDK 예외가
+            // 그대로 나가 ApiResponse 봉투 없는 500 이 된다.
             throw new BusinessException(FileStorageErrorCode.FILE_STORAGE_FAILED);
         }
     }

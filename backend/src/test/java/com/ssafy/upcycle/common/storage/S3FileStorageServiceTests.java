@@ -23,6 +23,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import software.amazon.awssdk.awscore.exception.AwsErrorDetails;
 import software.amazon.awssdk.core.ResponseInputStream;
+import software.amazon.awssdk.core.exception.AbortedException;
+import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.http.AbortableInputStream;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
@@ -258,8 +260,9 @@ class S3FileStorageServiceTests {
     }
 
     @Test
-    void readFailsLoudlyWhenS3IsUnreachable() {
-        // 연결 실패를 "없음"(404) 으로 답하면 화면에 "증빙 없음" 이라는 거짓이 나간다.
+    void readFailsLoudlyWhenS3RespondsWithAnError() {
+        // 이 테스트가 재현하는 것은 "서비스가 오류를 응답한 경우" 다 (도달 불가가 아니다).
+        // 권한 오류를 "없음"(404) 으로 답하면 화면에 "증빙 없음" 이라는 거짓이 나간다.
         StoredFile stored = store("photo.jpg", "image/jpeg");
         s3.failGet = true;
 
@@ -267,6 +270,34 @@ class S3FileStorageServiceTests {
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(FileStorageErrorCode.FILE_STORAGE_FAILED);
+    }
+
+    @Test
+    void readFailsLoudlyWhenS3IsUnreachable() {
+        // 진짜 도달 불가다 — MinIO 컨테이너 정지·DNS 실패·커넥션 타임아웃은 S3Exception 이
+        // 아니라 SdkClientException 으로 온다. 둘은 상속 관계가 아니어서 catch (S3Exception)
+        // 만 하던 동안 이건 원시 SDK 예외로 새어 나갔다 — ApiResponse 봉투 없는 500 이다.
+        //
+        // 위 테스트와 나란히 둔다. 실패 종류가 둘이고 경로가 다르다는 것이 드러나야 한다.
+        StoredFile stored = store("photo.jpg", "image/jpeg");
+        s3.failGetUnreachable = true;
+
+        assertThatThrownBy(() -> storage().read(stored.storageKey()))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(FileStorageErrorCode.FILE_STORAGE_FAILED);
+    }
+
+    @Test
+    void readPassesCancellationThroughInsteadOfCallingItAStorageFailure() {
+        // AbortedException(SdkClientException 의 하위 타입) 은 인터럽트·요청 취소다.
+        // FILE_STORAGE_FAILED 로 바꾸면 취소가 500 도메인 오류로 보고되고, 호출부는
+        // 재시도할 근거가 없는데 재시도하게 된다.
+        StoredFile stored = store("photo.jpg", "image/jpeg");
+        s3.failGetAborted = true;
+
+        assertThatThrownBy(() -> storage().read(stored.storageKey()))
+                .isInstanceOf(AbortedException.class);
     }
 
     // ── 삭제 · 존재 ──────────────────────────────────────────
@@ -324,11 +355,21 @@ class S3FileStorageServiceTests {
         boolean failDelete;
         boolean failHead;
         boolean failGet;
+        // 도달 불가와 취소는 failGet 으로 흉내낼 수 없다 — error() 가 만드는 것은
+        // S3Exception 이고, 그 둘은 SdkClientException 계열이라 상속 관계가 없다.
+        boolean failGetUnreachable;
+        boolean failGetAborted;
 
         @Override
         public ResponseInputStream<GetObjectResponse> getObject(GetObjectRequest request) {
             if (failGet) {
                 throw error("InternalError");
+            }
+            if (failGetUnreachable) {
+                throw unreachable();
+            }
+            if (failGetAborted) {
+                throw AbortedException.create("취소됨");
             }
             byte[] found = objects.get(request.key());
             if (found == null) {
@@ -382,6 +423,17 @@ class S3FileStorageServiceTests {
                     .awsErrorDetails(AwsErrorDetails.builder().errorCode(code).build())
                     .message(code)
                     .build();
+        }
+
+        /**
+         * 서비스에 <b>닿지 못한</b> 경우. MinIO 컨테이너 정지·DNS 실패·커넥션 타임아웃이
+         * 실제로 이 타입으로 온다 ({@code SdkClientException}, {@code S3Exception} 의 형제).
+         * {@link #error} 로는 이 종류를 만들 수 없다.
+         */
+        private static SdkClientException unreachable() {
+            return SdkClientException.create(
+                    "Unable to execute HTTP request: minio: nodename nor servname provided",
+                    new java.net.ConnectException("Connection refused"));
         }
 
         @Override
