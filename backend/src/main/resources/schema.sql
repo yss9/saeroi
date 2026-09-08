@@ -303,9 +303,20 @@ CREATE TABLE evidence_file (
     ) NOT NULL,
     uploaded_by BIGINT NOT NULL,
     uploaded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- 소프트 삭제. 행은 남는다 (S15P21E104-162).
+    -- file_hash 가 온체인 manifest 에 들어갈 수 있어, 행을 지우면 체인에는 해시가 남아
+    -- 있는데 무엇의 해시인지 알 수 없는 상태가 된다. 그건 되돌릴 수 없다.
+    -- 저장소의 바이트는 하드 삭제한다 — 사용자가 원하는 것은 파일이 없어지는 것이다.
+    -- deleted_by 를 따로 두는 이유: 증빙이 사라진 건에서 감사가 묻는 것은 "누가 지웠나"
+    -- 이고, uploaded_by 로는 답할 수 없다 (등록자도 지울 수 있다).
+    deleted_at DATETIME NULL,
+    deleted_by BIGINT NULL,
     CONSTRAINT pk_evidence_file PRIMARY KEY (id),
     CONSTRAINT fk_evidence_file_uploader FOREIGN KEY (uploaded_by) REFERENCES users (id),
-    INDEX idx_evidence_file_reference (reference_type, reference_id),
+    CONSTRAINT fk_evidence_file_deleter FOREIGN KEY (deleted_by) REFERENCES users (id),
+    -- 삭제 여부가 조건에 항상 붙는다 (목록은 살아 있는 것만 본다). 선행 두 컬럼만으로도
+    -- 인덱스를 타지만, deleted_at 을 뒤에 붙여 두면 그 필터까지 인덱스에서 끝난다.
+    INDEX idx_evidence_file_reference (reference_type, reference_id, deleted_at),
     INDEX idx_evidence_file_uploader (uploaded_by)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
@@ -409,8 +420,10 @@ CREATE TABLE processing_job (
         'PROCESSING',
         'RESULT_SUBMITTED',
         'CONFIRMED',
-        'REJECTED'
+        'REJECTED',
+        'EXPIRED'
     ) NOT NULL DEFAULT 'CREATED',
+    payment_expires_at DATETIME NOT NULL,
     processor_submitted_at DATETIME NULL,
     brand_reviewed_at DATETIME NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -430,7 +443,8 @@ CREATE TABLE processing_job (
     ),
     CONSTRAINT chk_processing_job_parties CHECK (brand_id <> processor_id),
     INDEX idx_processing_job_processor_status (processor_id, status),
-    INDEX idx_processing_job_brand_status (brand_id, status)
+    INDEX idx_processing_job_brand_status (brand_id, status),
+    INDEX idx_processing_job_status_payment_expiry (status, payment_expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE processing_input (

@@ -6,6 +6,7 @@ import static com.ssafy.upcycle.processing.ProcessingErrorCode.PROCESSING_INVALI
 import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.material.entity.MaterialType;
 import com.ssafy.upcycle.processing.dto.ProcessingRequestListResponse;
+import com.ssafy.upcycle.processing.dto.ProcessingRequestDetailResponse;
 import com.ssafy.upcycle.processing.entity.ProcessType;
 import com.ssafy.upcycle.processing.entity.ProcessingRequestStatus;
 import com.ssafy.upcycle.user.entity.User;
@@ -28,6 +29,36 @@ import org.springframework.transaction.annotation.Transactional;
 public class ProcessingRequestQueryService {
     private final UserRepository users;
     private final NamedParameterJdbcTemplate jdbc;
+
+    @Transactional(readOnly = true)
+    public ProcessingRequestDetailResponse detail(Long actorId, Long requestId) {
+        User actor = users.findById(actorId).filter(User::isActive)
+                .orElseThrow(() -> new BusinessException(PROCESSING_FORBIDDEN));
+        String sql = """
+                select r.id,r.request_code,r.brand_id,b.name brand_name,r.processor_id,p.name processor_name,
+                       r.status,r.created_at,r.expires_at,i.material_id,m.material_code,m.name material_name,
+                       m.material_type,i.quantity,t.process_type,t.sequence_no
+                from processing_request r join users b on b.id=r.brand_id join users p on p.id=r.processor_id
+                join processing_request_input i on i.processing_request_id=r.id
+                join material m on m.id=i.material_id join processing_request_type t on t.processing_request_id=r.id
+                where r.id=:id order by t.sequence_no
+                """;
+        var rows = jdbc.queryForList(sql, new MapSqlParameterSource("id", requestId));
+        if (rows.isEmpty()) throw new BusinessException(com.ssafy.upcycle.processing.ProcessingErrorCode.PROCESSING_REQUEST_NOT_FOUND);
+        var first = rows.getFirst();
+        Long brandId = ((Number) first.get("brand_id")).longValue();
+        Long processorId = ((Number) first.get("processor_id")).longValue();
+        if (!actorId.equals(brandId) && !actorId.equals(processorId)) throw new BusinessException(PROCESSING_FORBIDDEN);
+        List<ProcessType> processTypes = rows.stream().map(r -> ProcessType.valueOf((String) r.get("process_type"))).toList();
+        return new ProcessingRequestDetailResponse(((Number) first.get("id")).longValue(), (String) first.get("request_code"),
+                brandId, (String) first.get("brand_name"), processorId, (String) first.get("processor_name"),
+                ((Number) first.get("material_id")).longValue(), (String) first.get("material_code"),
+                (String) first.get("material_name"), MaterialType.valueOf((String) first.get("material_type")),
+                ((Number) first.get("quantity")).longValue(), processTypes,
+                ProcessingRequestStatus.valueOf((String) first.get("status")),
+                ((java.sql.Timestamp) first.get("created_at")).toLocalDateTime(),
+                ((java.sql.Timestamp) first.get("expires_at")).toLocalDateTime());
+    }
 
     @Transactional(readOnly = true)
     public ProcessingRequestListResponse list(Long actorId, String statusValue, String pageValue, String sizeValue) {

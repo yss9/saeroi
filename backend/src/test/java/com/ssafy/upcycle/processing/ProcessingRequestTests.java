@@ -13,6 +13,8 @@ import com.ssafy.upcycle.material.repository.*;
 import com.ssafy.upcycle.user.entity.User;
 import com.ssafy.upcycle.user.entity.UserRole;
 import com.ssafy.upcycle.user.repository.UserRepository;
+import com.ssafy.upcycle.user.repository.UserWalletRepository;
+import com.ssafy.upcycle.user.entity.UserWallet;
 import java.util.List;
 import java.util.concurrent.*;
 import java.time.LocalDateTime;
@@ -35,10 +37,12 @@ class ProcessingRequestTests {
     @Autowired JdbcTemplate jdbc;
     @Autowired ObjectMapper mapper;
     @Autowired UserRepository users;
+    @Autowired UserWalletRepository wallets;
     @Autowired MaterialRepository materials;
     @Autowired MaterialBalanceRepository balances;
     @Autowired MaterialLockRepository locks;
     @Autowired com.ssafy.upcycle.processing.service.ProcessingRequestService service;
+    @Autowired com.ssafy.upcycle.processing.service.ProcessingJobService jobService;
     @Autowired com.ssafy.upcycle.processing.repository.ProcessingRequestRepository requests;
     @Autowired java.time.Clock clock;
     Long brandId;
@@ -48,8 +52,8 @@ class ProcessingRequestTests {
     @BeforeEach
     void fixture() {
         // Real persisted fixtures: missing reservation writes and transaction errors are observable.
-        for (String table : List.of("material_lock", "processing_request_type", "processing_request_input",
-                "processing_request", "processor_capability", "processor_lead_time", "processor_profile", "material_balance", "material", "users")) {
+        for (String table : List.of("processing_input", "processing_job", "processing_quote", "material_lock", "processing_request_type", "processing_request_input",
+                "processing_request", "processor_capability", "processor_lead_time", "processor_profile", "material_balance", "material", "user_wallet", "users")) {
             jdbc.update("delete from " + table);
         }
         brandId = users.save(User.register("brand@test.com", "hash", "brand", "010", UserRole.BRAND)).getId();
@@ -421,5 +425,85 @@ class ProcessingRequestTests {
         processor.suspend();
         users.save(processor);
         mvc.perform(listRequests(processorId, "PROCESSOR")).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void quoteSelectionPaymentAndPartyScopedDetailsKeepTheSameLock() throws Exception {
+        wallets.save(UserWallet.link(brandId, "0x" + "1".repeat(40), 31337));
+        wallets.save(UserWallet.link(processorId, "0x" + "2".repeat(40), 31337));
+        long requestId = create(300);
+
+        mvc.perform(post("/processing-requests/{id}/quotes", requestId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"price\":120000,\"leadDays\":5,\"memo\":\"washing included\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("data.price").value(120000))
+                .andExpect(jsonPath("data.status").value("SUBMITTED"));
+        long quoteId = jdbc.queryForObject("select id from processing_quote where processing_request_id=?", Long.class, requestId);
+
+        mvc.perform(get("/processing-requests/{id}", requestId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString()))))
+                .andExpect(status().isOk()).andExpect(jsonPath("data.quantity").value(300));
+        Long stranger = users.save(User.register("stranger@test.com", "hash", "stranger", "010", UserRole.BRAND)).getId();
+        mvc.perform(get("/processing-requests/{id}", requestId)
+                        .with(jwt().jwt(j -> j.subject(stranger.toString())))).andExpect(status().isForbidden());
+
+        mvc.perform(get("/processing-requests/{id}/quotes", requestId)
+                        .with(jwt().jwt(j -> j.subject(brandId.toString()))))
+                .andExpect(status().isOk()).andExpect(jsonPath("data[0].quoteId").value(quoteId));
+
+        var selection = mvc.perform(post("/quotes/{id}/select", quoteId)
+                        .with(jwt().jwt(j -> j.subject(brandId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"paymentMethod\":\"MOCK\"}"))
+                .andExpect(status().isCreated()).andExpect(jsonPath("data.status").value("CREATED")).andReturn();
+        long jobId = mapper.readTree(selection.getResponse().getContentAsString()).path("data").path("jobId").asLong();
+        var timestamps = jdbc.queryForMap("select created_at,payment_expires_at from processing_job where id=?", jobId);
+        assertThat(((java.sql.Timestamp) timestamps.get("payment_expires_at")).toLocalDateTime())
+                .isEqualTo(((java.sql.Timestamp) timestamps.get("created_at")).toLocalDateTime().plusMinutes(15));
+        MaterialLock selectedLock = locks.findAll().getFirst();
+        assertThat(selectedLock.getReferenceType()).isEqualTo(MaterialLockReferenceType.PROCESSING_JOB);
+        assertThat(selectedLock.getReferenceId()).isEqualTo(jobId);
+        assertThat(selectedLock.getExpiresAt()).isNotNull();
+
+        mvc.perform(get("/processing-jobs/{id}", jobId).with(jwt().jwt(j -> j.subject(processorId.toString()))))
+                .andExpect(status().isOk()).andExpect(jsonPath("data.fee").value(120000));
+        mvc.perform(get("/processing-jobs/{id}", jobId).with(jwt().jwt(j -> j.subject(stranger.toString()))))
+                .andExpect(status().isForbidden());
+
+        mvc.perform(post("/processing-jobs/{id}/payment", jobId)
+                        .with(jwt().jwt(j -> j.subject(brandId.toString()))))
+                .andExpect(status().isOk()).andExpect(jsonPath("data.amount").value(120000))
+                .andExpect(jsonPath("data.live").value(false));
+        mvc.perform(post("/processing-jobs/{id}/payment/confirm", jobId)
+                        .with(jwt().jwt(j -> j.subject(brandId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"pgToken\":\"mock-token\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("data.status").value("PAID"));
+        assertThat(locks.findAll().getFirst().getExpiresAt()).isNull();
+    }
+
+    @Test
+    void unpaidJobExpiresAfterDeadlineAndReleasesItsLock() throws Exception {
+        wallets.save(UserWallet.link(brandId, "0x" + "3".repeat(40), 31337));
+        wallets.save(UserWallet.link(processorId, "0x" + "4".repeat(40), 31337));
+        long requestId=create(250);
+        mvc.perform(post("/processing-requests/{id}/quotes", requestId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"price\":50000,\"leadDays\":3}"))
+                .andExpect(status().isCreated());
+        long quoteId=jdbc.queryForObject("select id from processing_quote where processing_request_id=?",Long.class,requestId);
+        var selected=mvc.perform(post("/quotes/{id}/select",quoteId)
+                        .with(jwt().jwt(j -> j.subject(brandId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"paymentMethod\":\"MOCK\"}"))
+                .andExpect(status().isCreated()).andReturn();
+        long jobId=mapper.readTree(selected.getResponse().getContentAsString()).path("data").path("jobId").asLong();
+        jdbc.update("update processing_job set payment_expires_at=? where id=?", java.sql.Timestamp.valueOf(LocalDateTime.now(clock).minusSeconds(1)), jobId);
+        jdbc.update("update material_lock set expires_at=? where reference_type='PROCESSING_JOB' and reference_id=?",
+                java.sql.Timestamp.valueOf(LocalDateTime.now(clock).minusSeconds(1)), jobId);
+
+        jobService.expire(jobId);
+
+        assertThat(jdbc.queryForObject("select status from processing_job where id=?",String.class,jobId)).isEqualTo("EXPIRED");
+        assertThat(locks.findAll().getFirst().getStatus()).isEqualTo(MaterialLockStatus.EXPIRED);
     }
 }

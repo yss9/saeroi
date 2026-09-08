@@ -2,6 +2,7 @@ package com.ssafy.upcycle.common.storage;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import com.ssafy.upcycle.common.exception.BusinessException;
 import java.io.ByteArrayInputStream;
@@ -20,11 +21,20 @@ import java.util.Map;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import software.amazon.awssdk.awscore.exception.AwsErrorDetails;
+import software.amazon.awssdk.core.ResponseInputStream;
+import software.amazon.awssdk.core.exception.AbortedException;
+import software.amazon.awssdk.core.exception.SdkClientException;
+import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.http.AbortableInputStream;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectResponse;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
@@ -42,6 +52,22 @@ import software.amazon.awssdk.services.s3.model.S3Exception;
  * <p>가장 중요한 단언은 <b>해시가 실제로 올라간 바이트를 가리키는가</b>다. 그 값이
  * 온체인에 기록되므로 어긋나면 되돌릴 수 없다. 그리고 <b>저장 키가 로컬 구현과 같은가</b> —
  * 다르면 저장소를 바꿀 때 기존 {@code evidence_file.file_url} 을 찾을 수 없다.
+ *
+ * <h2>실패는 두 종류를 모두 넣어야 한다</h2>
+ *
+ * <p>SDK 가 내는 실패는 서로 상속 관계가 없는 두 갈래다.
+ *
+ * <ul>
+ *   <li>{@code S3Exception} — <b>서비스가 오류를 응답한 경우</b> (AccessDenied, InternalError…)
+ *   <li>{@code SdkClientException} — <b>서비스에 닿지도 못한 경우</b>
+ *       (컨테이너 정지, DNS 실패, 커넥션 타임아웃)
+ * </ul>
+ *
+ * <p>공통 조상은 {@code SdkException} 뿐이라 한쪽만 잡는 구현은 다른 쪽을 그대로 흘린다.
+ * 예전 이 테스트는 "도달 불가" 를 {@code S3Exception(InternalError)} 로 흉내내서
+ * <b>가짜가 현실과 다른 종류의 실패를 재현했고</b>, 그래서 도달 불가에서 원시 SDK 예외가
+ * 새어 나가는 결함을 통과시켰다. 지금은 실패를 넣는 테스트마다 두 종류를 함께 돌린다
+ * ({@link #sdkFailures()}).
  */
 class S3FileStorageServiceTests {
 
@@ -196,10 +222,14 @@ class S3FileStorageServiceTests {
         assertThat(temporaryPartFiles()).isEqualTo(before);
     }
 
-    @Test
-    void leavesNoTemporaryFileWhenS3Fails() throws Exception {
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("sdkFailures")
+    void storeReportsADomainErrorAndLeavesNoTemporaryFile(String kind, SdkException failure)
+            throws Exception {
+        // 두 실패 종류를 모두 넣는다. SdkClientException(도달 불가)은 S3Exception 이 아니라
+        // catch (S3Exception) 에 걸리지 않았고, 원시 SDK 예외가 그대로 밖으로 나갔다.
         long before = temporaryPartFiles();
-        s3.failPut = true;
+        s3.putFailure = failure;
 
         assertThatThrownBy(() -> store("photo.jpg", "image/jpeg"))
                 .isInstanceOf(BusinessException.class)
@@ -216,6 +246,70 @@ class S3FileStorageServiceTests {
             return list.filter(path -> path.getFileName().toString().startsWith(".upload-"))
                     .count();
         }
+    }
+
+    // ── 읽기 (S15P21E104-162) ───────────────────────────────
+
+    @Test
+    void readsBackExactlyWhatWasUploaded() throws Exception {
+        StoredFile stored = store("photo.jpg", "image/jpeg");
+
+        FileContent content = storage().read(stored.storageKey());
+        try (InputStream in = content.stream()) {
+            assertThat(in.readAllBytes()).isEqualTo(CONTENT);
+        }
+        assertThat(content.size()).isEqualTo(CONTENT.length);
+        assertThat(s3.gets).containsExactly(stored.storageKey());
+    }
+
+    @Test
+    void derivesTheMediaTypeFromTheKeyLikeTheLocalImplementation() throws Exception {
+        // 객체 메타데이터를 쓰면 로컬 구현과 답이 갈린다. 저장소 전환은 설정 한 줄이라
+        // 그 차이가 배포 시점까지 드러나지 않는다.
+        StoredFile stored = store("slip.pdf", "application/pdf");
+
+        FileContent content = storage().read(stored.storageKey());
+        try (InputStream in = content.stream()) {
+            assertThat(in).isNotNull();
+        }
+        assertThat(content.contentType()).isEqualTo("application/pdf");
+    }
+
+    @Test
+    void readingAMissingObjectIsNotFoundRatherThanAServerError() {
+        assertThatThrownBy(() -> storage().read("MATERIAL/1024/2026/09/does-not-exist.jpg"))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(FileStorageErrorCode.FILE_NOT_FOUND);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("sdkFailures")
+    void readFailsLoudlyForBothSdkFailureKinds(String kind, SdkException failure) {
+        // 실패를 "없음"(404) 으로 답하면 화면에 "증빙 없음" 이라는 거짓이 나간다.
+        //
+        // 두 종류를 모두 넣는다. 서비스가 오류를 응답한 경우(S3Exception)와 서비스에
+        // 닿지도 못한 경우(SdkClientException)는 상속 관계가 없어서, catch (S3Exception)
+        // 만 하던 동안 후자는 원시 SDK 예외로 새어 나갔다 — ApiResponse 봉투 없는 500 이다.
+        StoredFile stored = store("photo.jpg", "image/jpeg");
+        s3.getFailure = failure;
+
+        assertThatThrownBy(() -> storage().read(stored.storageKey()))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(FileStorageErrorCode.FILE_STORAGE_FAILED);
+    }
+
+    @Test
+    void readPassesCancellationThroughInsteadOfCallingItAStorageFailure() {
+        // AbortedException(SdkClientException 의 하위 타입) 은 인터럽트·요청 취소다.
+        // FILE_STORAGE_FAILED 로 바꾸면 취소가 500 도메인 오류로 보고되고, 호출부는
+        // 재시도할 근거가 없는데 재시도하게 된다.
+        StoredFile stored = store("photo.jpg", "image/jpeg");
+        s3.getFailure = AbortedException.create("취소됨");
+
+        assertThatThrownBy(() -> storage().read(stored.storageKey()))
+                .isInstanceOf(AbortedException.class);
     }
 
     // ── 삭제 · 존재 ──────────────────────────────────────────
@@ -235,20 +329,34 @@ class S3FileStorageServiceTests {
         assertThat(storage().delete("MATERIAL/1024/2026/09/does-not-exist.jpg")).isFalse();
     }
 
-    @Test
-    void deleteDoesNotThrowWhenS3Fails() {
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("sdkFailures")
+    void deleteDoesNotThrowWhenTheDeleteCallFails(String kind, SdkException failure) {
         // 호출부는 트랜잭션 롤백 경로에서 이걸 부른다. 여기서 던지면 원래 실패 원인을 덮는다.
         StoredFile stored = store("photo.jpg", "image/jpeg");
-        s3.failDelete = true;
+        s3.deleteFailure = failure;
+
+        assertThat(storage().delete(stored.storageKey())).isFalse();
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("sdkFailures")
+    void deleteDoesNotThrowWhenTheExistenceCheckFails(String kind, SdkException failure) {
+        // delete() 는 먼저 exists() 를 부르고, exists() 는 계약대로 저장소 오류를
+        // BusinessException 으로 바꿔 던진다. 그것을 delete() 가 흘리면 결국 롤백 경로에서
+        // 던지는 것과 같다 — MinIO 가 죽어 있으면 업로드 롤백 중 원래 예외가 덮인다.
+        StoredFile stored = store("photo.jpg", "image/jpeg");
+        s3.headFailure = failure;
 
         assertThat(storage().delete(stored.storageKey())).isFalse();
     }
 
     @Test
-    void existsThrowsWhenS3IsUnreachable() {
-        // 연결 실패를 "없음" 으로 답하면 호출부가 파일이 사라졌다고 판단한다.
+    void existsThrowsWhenS3RespondsWithAnError() {
+        // 이 테스트가 재현하는 것은 "서비스가 오류를 응답한 경우" 다 (도달 불가가 아니다).
+        // 권한 오류를 "없음" 으로 답하면 호출부가 파일이 사라졌다고 판단하고,
         // 증빙 조회에서 그건 "증빙 없음" 이라는 거짓이 화면에 나가는 것이다.
-        s3.failHead = true;
+        s3.headFailure = FakeS3Client.serviceError("AccessDenied");
 
         assertThatThrownBy(() -> storage().exists("MATERIAL/1024/2026/09/whatever.jpg"))
                 .isInstanceOf(BusinessException.class)
@@ -256,26 +364,104 @@ class S3FileStorageServiceTests {
                 .isEqualTo(FileStorageErrorCode.FILE_STORAGE_FAILED);
     }
 
+    @Test
+    void existsThrowsWhenS3IsUnreachable() {
+        // 진짜 도달 불가다 — MinIO 컨테이너 정지·DNS 실패·커넥션 타임아웃은
+        // S3Exception 이 아니라 SdkClientException 으로 온다. catch (S3Exception) 만
+        // 하던 동안 이건 원시 SDK 예외로 새어 나가 ApiResponse 봉투 없는 500 이 됐다.
+        s3.headFailure = FakeS3Client.unreachable();
+
+        assertThatThrownBy(() -> storage().exists("MATERIAL/1024/2026/09/whatever.jpg"))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(FileStorageErrorCode.FILE_STORAGE_FAILED);
+    }
+
+    // ── 취소는 저장 실패가 아니다 ────────────────────────────
+
+    @Test
+    void storePassesCancellationThroughInsteadOfCallingItAStorageFailure() throws Exception {
+        // AbortedException(SdkClientException 의 하위 타입) 은 인터럽트·요청 취소다.
+        // FILE_STORAGE_FAILED 로 바꾸면 취소가 500 도메인 오류로 보고되고,
+        // 호출부는 재시도할 근거가 없는데 재시도하게 된다. 임시 파일 정리는 그대로 해야 한다.
+        long before = temporaryPartFiles();
+        s3.putFailure = AbortedException.create("취소됨");
+
+        assertThatThrownBy(() -> store("photo.jpg", "image/jpeg"))
+                .isInstanceOf(AbortedException.class);
+
+        assertThat(temporaryPartFiles()).isEqualTo(before);
+    }
+
+    @Test
+    void existsPassesCancellationThrough() {
+        s3.headFailure = AbortedException.create("취소됨");
+
+        assertThatThrownBy(() -> storage().exists("MATERIAL/1024/2026/09/whatever.jpg"))
+                .isInstanceOf(AbortedException.class);
+    }
+
+    @Test
+    void deleteSwallowsEvenCancellation() {
+        // delete() 만 예외다 — 이미 실패한 트랜잭션을 정리하는 자리라 무엇을 던져도
+        // 원래 원인을 덮는다. 계약은 "어떤 경우에도 던지지 않는다" 다.
+        StoredFile stored = store("photo.jpg", "image/jpeg");
+        s3.deleteFailure = AbortedException.create("취소됨");
+
+        assertThat(storage().delete(stored.storageKey())).isFalse();
+    }
+
+    /**
+     * SDK 실패의 두 갈래. 서로 상속 관계가 없고 공통 조상이 {@code SdkException} 뿐이라
+     * 실패를 넣는 테스트는 반드시 둘 다 돌려야 한다.
+     */
+    static Stream<Arguments> sdkFailures() {
+        return Stream.of(
+                arguments("서비스가 오류를 응답 (S3Exception)", FakeS3Client.serviceError("InternalError")),
+                arguments("서비스에 닿지 못함 (SdkClientException)", FakeS3Client.unreachable()));
+    }
+
     /**
      * 가짜 S3. 올라간 바이트를 그대로 들고 있어 해시 대조에 쓴다.
      *
      * <p>{@code S3Client} 의 나머지 수백 개 메서드는 인터페이스 기본 구현이 있어
      * 구현할 필요가 없다 — 이 테스트가 쓰는 셋만 덮는다.
+     *
+     * <p>실패는 <b>boolean 이 아니라 예외 인스턴스로</b> 넣는다. boolean 이던 동안 이 가짜는
+     * 모든 실패를 {@code S3Exception} 으로만 흉내낼 수 있었고, 그래서 도달 불가
+     * ({@code SdkClientException})를 재현할 방법이 아예 없었다.
      */
     private static class FakeS3Client implements software.amazon.awssdk.services.s3.S3Client {
 
         record Put(PutObjectRequest request, byte[] body) {}
 
         final List<Put> puts = new ArrayList<>();
+        final List<String> gets = new ArrayList<>();
         final Map<String, byte[]> objects = new HashMap<>();
-        boolean failPut;
-        boolean failDelete;
-        boolean failHead;
+        SdkException putFailure;
+        SdkException deleteFailure;
+        SdkException headFailure;
+        SdkException getFailure;
+
+        @Override
+        public ResponseInputStream<GetObjectResponse> getObject(GetObjectRequest request) {
+            if (getFailure != null) {
+                throw getFailure;
+            }
+            byte[] found = objects.get(request.key());
+            if (found == null) {
+                throw NoSuchKeyException.builder().message("no such key").build();
+            }
+            gets.add(request.key());
+            return new ResponseInputStream<>(
+                    GetObjectResponse.builder().contentLength((long) found.length).build(),
+                    AbortableInputStream.create(new ByteArrayInputStream(found)));
+        }
 
         @Override
         public PutObjectResponse putObject(PutObjectRequest request, RequestBody body) {
-            if (failPut) {
-                throw error("InternalError");
+            if (putFailure != null) {
+                throw putFailure;
             }
             byte[] bytes;
             try (InputStream in = body.contentStreamProvider().newStream()) {
@@ -290,8 +476,8 @@ class S3FileStorageServiceTests {
 
         @Override
         public DeleteObjectResponse deleteObject(DeleteObjectRequest request) {
-            if (failDelete) {
-                throw error("AccessDenied");
+            if (deleteFailure != null) {
+                throw deleteFailure;
             }
             objects.remove(request.key());
             return DeleteObjectResponse.builder().build();
@@ -299,8 +485,8 @@ class S3FileStorageServiceTests {
 
         @Override
         public HeadObjectResponse headObject(HeadObjectRequest request) {
-            if (failHead) {
-                throw error("InternalError");
+            if (headFailure != null) {
+                throw headFailure;
             }
             byte[] found = objects.get(request.key());
             if (found == null) {
@@ -309,11 +495,23 @@ class S3FileStorageServiceTests {
             return HeadObjectResponse.builder().contentLength((long) found.length).build();
         }
 
-        private static S3Exception error(String code) {
+        /** 서비스가 오류를 <b>응답한</b> 경우. 요청은 서버에 닿았다. */
+        static S3Exception serviceError(String code) {
             return (S3Exception) S3Exception.builder()
                     .awsErrorDetails(AwsErrorDetails.builder().errorCode(code).build())
                     .message(code)
                     .build();
+        }
+
+        /**
+         * 서비스에 <b>닿지 못한</b> 경우. MinIO 컨테이너 정지·DNS 실패·커넥션 타임아웃이
+         * 실제로 이 타입으로 온다 ({@code SdkClientException}, {@code S3Exception} 의 형제).
+         * {@link #serviceError} 로는 이 종류를 만들 수 없다.
+         */
+        private static SdkClientException unreachable() {
+            return SdkClientException.create(
+                    "Unable to execute HTTP request: minio: nodename nor servname provided",
+                    new java.net.ConnectException("Connection refused"));
         }
 
         @Override
