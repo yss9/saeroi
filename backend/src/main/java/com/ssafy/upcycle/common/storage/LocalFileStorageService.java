@@ -132,9 +132,13 @@ public class LocalFileStorageService implements FileStorageService {
     public boolean delete(String storageKey) {
         try {
             return Files.deleteIfExists(resolveExisting(storageKey));
-        } catch (IOException e) {
+        } catch (IOException | BusinessException e) {
             // 삭제 실패로 예외를 던지지 않는다. 호출부는 롤백 경로에서 이걸 부르는데,
             // 여기서 던지면 원래 실패 원인을 덮어쓴다.
+            //
+            // BusinessException 도 잡는다 — resolveExisting 은 루트를 벗어나는 키에
+            // 그것을 던진다. 오염된 키 하나가 롤백을 깨뜨리면 원래 실패 원인이 사라진다.
+            // 지우지 않은 것은 사실이므로 false 가 정직한 답이다.
             return false;
         }
     }
