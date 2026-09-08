@@ -60,6 +60,19 @@ export interface ProcessingRequestList {
   page: number
   size: number
 }
+export interface SubmitProcessingQuoteInput {
+  price: number
+  leadDays: number
+  memo?: string
+}
+export interface SubmittedProcessingQuote extends SubmitProcessingQuoteInput {
+  quoteId: number
+  requestId: number
+  processorId: number
+  processorName: string
+  status: 'SUBMITTED' | 'SELECTED' | 'REJECTED' | 'EXPIRED'
+  createdAt: string
+}
 export interface ProcessingRequestListFilter {
   status?: ProcessingRequestStatus
   page: number
@@ -70,6 +83,8 @@ export const processingRequestApi = {
   search: async (filters: ProcessorSearch, signal?: AbortSignal) => (await apiClient.get<{ items: ProcessorMatch[]; total: number; page: number; size: number }>('/v1/processors/search', { params: { ...filters, processTypes: filters.processTypes.join(',') }, signal })).data,
   create: async (input: ProcessingRequestInput) => (await apiClient.post<CreatedProcessingRequest>('/v1/processing-requests', input)).data,
   cancel: async (id: number) => (await apiClient.post<ProcessingRequestStatus>(`/v1/processing-requests/${id}/cancel`)).data,
+  submitQuote: async (requestId: number, input: SubmitProcessingQuoteInput) => (await apiClient.post<SubmittedProcessingQuote>(`/v1/processing-requests/${requestId}/quotes`, input)).data,
+  reject: async (requestId: number) => (await apiClient.post<ProcessingRequestStatus>(`/v1/processing-requests/${requestId}/reject`)).data,
   list: async (filters: ProcessingRequestListFilter, signal?: AbortSignal) => (
     await apiClient.get<ProcessingRequestList>('/v1/processing-requests', { params: filters, signal })
   ).data,

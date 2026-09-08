@@ -5,6 +5,7 @@ import { useAuthStore } from '../../../stores/authStore.ts'
 import { isAppError } from '../../../utils/errors.ts'
 import { PROCESS_TYPE_LABEL, type ProcessingRequestStatus } from '../types/processing.types.ts'
 import { useProcessorRequests } from '../hooks/useProcessorRequests.ts'
+import { ProcessorQuoteForm } from './ProcessorQuoteForm.tsx'
 import './processor-requests.css'
 
 const grams = (value: number) => `${value.toLocaleString('ko-KR')} g`
@@ -70,7 +71,7 @@ export function ProcessorRequestList() {
                 <div><span>요청 수량</span><strong>{grams(item.quantity)}</strong></div>
                 <div><span>요청 일시</span><strong>{date(item.createdAt)}</strong></div>
                 <div><span>만료 일시</span><strong>{date(item.expiresAt)}</strong></div>
-                <p>견적 내용을 검토한 뒤 견적 제출 단계에서 금액과 예상 처리 기간을 입력할 수 있어요.</p>
+                {item.status === 'QUOTING' ? <ProcessorQuoteForm requestId={item.requestId} requestCode={item.requestCode} /> : <p>이 요청은 현재 견적을 작성할 수 없는 상태입니다.</p>}
               </div>}</div>)}
             </div>
             {pageCount > 1 && <nav className="pr-pagination" aria-label="요청 목록 페이지">
