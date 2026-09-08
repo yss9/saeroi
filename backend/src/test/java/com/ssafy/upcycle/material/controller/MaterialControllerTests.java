@@ -10,9 +10,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ssafy.upcycle.common.security.jwt.JwtTokenService;
 import com.ssafy.upcycle.material.entity.Material;
 import com.ssafy.upcycle.material.repository.MaterialRepository;
+import com.ssafy.upcycle.material.repository.MaterialBalanceRepository;
 import com.ssafy.upcycle.user.entity.User;
 import com.ssafy.upcycle.user.entity.UserRole;
+import com.ssafy.upcycle.user.entity.UserWallet;
 import com.ssafy.upcycle.user.repository.UserRepository;
+import com.ssafy.upcycle.user.repository.UserWalletRepository;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,6 +59,14 @@ class MaterialControllerTests {
     @Autowired
     private MaterialRepository materialRepository;
 
+    @Autowired
+    private MaterialBalanceRepository materialBalanceRepository;
+
+    @Autowired
+    private UserWalletRepository userWalletRepository;
+
+    private static final long SSAFY_CHAIN_ID = 31221L;
+
     private String supplierToken;
 
     @BeforeEach
@@ -63,6 +74,11 @@ class MaterialControllerTests {
         clean();
         User supplier = userRepository.save(User.register(
                 "material-supplier@example.com", "{noop}x", "공급자", "010-0000-0000", UserRole.SUPPLIER));
+        // 등록은 등록자에게 전량을 발행하고, 보유 행은 활성 지갑 주소를 스냅샷으로 든다
+        // (material_balance.wallet_address 는 NOT NULL). 지갑 없는 공급자는 소재를 소유할 수
+        // 없으므로, 지갑을 붙이지 않은 setUp 은 실재하지 않는 사용자를 모델링하는 것이 된다.
+        userWalletRepository.save(UserWallet.link(
+                supplier.getId(), "0xaaaa000000000000000000000000000000000001", SSAFY_CHAIN_ID));
         supplierToken = tokenFor(supplier);
     }
 
@@ -308,7 +324,9 @@ class MaterialControllerTests {
     }
 
     private void clean() {
+        materialBalanceRepository.deleteAll();
         materialRepository.deleteAll();
+        userWalletRepository.deleteAll();
         userRepository.deleteAll();
     }
 }
