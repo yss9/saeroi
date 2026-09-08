@@ -12,7 +12,15 @@ public enum ProcessingErrorCode implements ErrorCode {
     PROCESSING_INVALID_QUERY(HttpStatus.BAD_REQUEST, "가공 요청 목록 조회 조건이 올바르지 않습니다."),
     PROCESSING_INSUFFICIENT_BALANCE(HttpStatus.CONFLICT, "활성 Lock을 제외한 소재 보유 수량이 부족합니다."),
     PROCESSING_REQUEST_NOT_FOUND(HttpStatus.NOT_FOUND, "가공 요청을 찾을 수 없습니다."),
-    PROCESSING_INVALID_STATE(HttpStatus.CONFLICT, "현재 상태에서는 가공 요청을 변경할 수 없습니다.");
+    PROCESSING_INVALID_STATE(HttpStatus.CONFLICT, "현재 상태에서는 가공 요청을 변경할 수 없습니다."),
+    PROCESSING_QUOTE_NOT_FOUND(HttpStatus.NOT_FOUND, "가공 견적을 찾을 수 없습니다."),
+    PROCESSING_QUOTE_ALREADY_EXISTS(HttpStatus.CONFLICT, "이 요청에는 이미 견적을 제출했습니다."),
+    PROCESSING_INVALID_QUOTE(HttpStatus.BAD_REQUEST, "견적 가격은 0 이상의 정수, 작업 기간은 양의 정수여야 합니다."),
+    PROCESSING_JOB_NOT_FOUND(HttpStatus.NOT_FOUND, "가공 작업을 찾을 수 없습니다."),
+    PROCESSING_WALLET_NOT_FOUND(HttpStatus.CONFLICT, "Brand와 Processor 모두 활성 지갑이 필요합니다."),
+    PROCESSING_PAYMENT_NOT_PREPARED(HttpStatus.CONFLICT, "결제 준비가 필요합니다."),
+    PROCESSING_PAYMENT_EXPIRED(HttpStatus.CONFLICT, "결제 가능 시간이 만료되었습니다."),
+    PROCESSING_PAYMENT_AMOUNT_MISMATCH(HttpStatus.CONFLICT, "승인 금액이 견적 금액과 일치하지 않습니다.");
 
     private final HttpStatus status;
     private final String message;

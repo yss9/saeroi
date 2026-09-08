@@ -43,7 +43,7 @@ class TradeVerificationServiceTests {
     @Test
     void shippedButUnsignedTradeIsNotVerified() {
         MaterialTrade trade = tradeRepository.save(trade("TRD-000001", MATERIAL_ID));
-        trade.markPaid("T1234", 200_000L, NOW);
+        trade.markPaid("T1234", 200_000L, NOW, PaymentMethod.MOCK);
         trade.ship(NOW);
         entityManager.flush();
 
@@ -53,7 +53,7 @@ class TradeVerificationServiceTests {
     @Test
     void signedTradeVerifiesTheMaterial() {
         MaterialTrade trade = tradeRepository.save(trade("TRD-000001", MATERIAL_ID));
-        trade.markPaid("T1234", 200_000L, NOW);
+        trade.markPaid("T1234", 200_000L, NOW, PaymentMethod.MOCK);
         trade.ship(NOW);
         trade.confirmReceipt(NOW, NOW);
         entityManager.flush();
@@ -65,7 +65,7 @@ class TradeVerificationServiceTests {
     @Test
     void anotherMaterialsSignedTradeDoesNotLeakOver() {
         MaterialTrade trade = tradeRepository.save(trade("TRD-000001", OTHER_MATERIAL_ID));
-        trade.markPaid("T1234", 200_000L, NOW);
+        trade.markPaid("T1234", 200_000L, NOW, PaymentMethod.MOCK);
         trade.ship(NOW);
         trade.confirmReceipt(NOW, NOW);
         entityManager.flush();
@@ -78,7 +78,7 @@ class TradeVerificationServiceTests {
     @Test
     void oneSignedTradeIsEnough() {
         MaterialTrade signed = tradeRepository.save(trade("TRD-000001", MATERIAL_ID));
-        signed.markPaid("T1234", 200_000L, NOW);
+        signed.markPaid("T1234", 200_000L, NOW, PaymentMethod.MOCK);
         signed.ship(NOW);
         signed.confirmReceipt(NOW, NOW);
 

@@ -420,8 +420,10 @@ CREATE TABLE processing_job (
         'PROCESSING',
         'RESULT_SUBMITTED',
         'CONFIRMED',
-        'REJECTED'
+        'REJECTED',
+        'EXPIRED'
     ) NOT NULL DEFAULT 'CREATED',
+    payment_expires_at DATETIME NOT NULL,
     processor_submitted_at DATETIME NULL,
     brand_reviewed_at DATETIME NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -441,7 +443,8 @@ CREATE TABLE processing_job (
     ),
     CONSTRAINT chk_processing_job_parties CHECK (brand_id <> processor_id),
     INDEX idx_processing_job_processor_status (processor_id, status),
-    INDEX idx_processing_job_brand_status (brand_id, status)
+    INDEX idx_processing_job_brand_status (brand_id, status),
+    INDEX idx_processing_job_status_payment_expiry (status, payment_expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE processing_input (

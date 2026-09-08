@@ -203,7 +203,11 @@ public class MaterialTrade {
     }
 
     /** 결제가 승인되었다. PG 승인 tid 와 실제 승인 금액을 남긴다. */
-    public void markPaid(String paymentReference, long paymentAmount, LocalDateTime paidAt) {
+    public void markPaid(
+            String paymentReference,
+            long paymentAmount,
+            LocalDateTime paidAt,
+            PaymentMethod settledWith) {
         requireStatus(TradeStatus.CREATED, "pay");
         if (paymentAmount < 0) {
             throw new IllegalArgumentException("Material trade payment amount must not be negative");
@@ -211,6 +215,10 @@ public class MaterialTrade {
         this.paymentReference = paymentReference;
         this.paymentAmount = paymentAmount;
         this.paidAt = requireTimestamp(paidAt);
+        // 실제로 청구한 수단으로 덮어쓴다. 구매 요청이 보낸 값은 희망이고, 어느 게이트웨이가
+        // 돌았는지는 서버만 안다 — 키가 없으면 Mock 이 붙는다. 요청 값을 그대로 남기면
+        // 카카오페이로 청구된 거래가 MOCK 으로 기록되고, 대조나 환불 때 그 필드가 거짓이 된다.
+        this.paymentMethod = requireNonNull(settledWith, "settled payment method");
         this.status = TradeStatus.PAID;
     }
 

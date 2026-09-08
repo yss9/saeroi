@@ -193,6 +193,10 @@ public class MaterialLock {
 
     /** Quote selection must verify Job ownership and call this within its Job creation transaction. */
     public void attachToProcessingJob(Long requestId, Long jobId) {
+        attachToProcessingJob(requestId, jobId, null);
+    }
+
+    public void attachToProcessingJob(Long requestId, Long jobId, LocalDateTime paymentExpiresAt) {
         requireActive("attach to processing job");
         if (purpose != MaterialLockPurpose.PROCESSING
                 || referenceType != MaterialLockReferenceType.PROCESSING_REQUEST
@@ -201,7 +205,16 @@ public class MaterialLock {
         }
         referenceType = MaterialLockReferenceType.PROCESSING_JOB;
         referenceId = jobId;
-        // The seven-day quote deadline must not release a selected Job's material in transit.
+        // The request deadline is replaced by the selected Job's payment deadline.
+        expiresAt = paymentExpiresAt;
+    }
+
+    /** Paid Jobs keep their reservation until the later processing lifecycle consumes/releases it. */
+    public void clearExpiryForPaidProcessingJob(Long jobId) {
+        requireActive("keep paid processing job lock");
+        if (referenceType != MaterialLockReferenceType.PROCESSING_JOB || !referenceId.equals(jobId)) {
+            throw new IllegalArgumentException("This lock does not belong to the processing Job");
+        }
         expiresAt = null;
     }
 

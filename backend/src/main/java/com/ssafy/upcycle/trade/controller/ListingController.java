@@ -1,11 +1,13 @@
 package com.ssafy.upcycle.trade.controller;
 
+import com.ssafy.upcycle.blockchain.dto.ChainLinkRequest;
 import com.ssafy.upcycle.common.response.ApiResponse;
 import com.ssafy.upcycle.trade.dto.ListingRegisterRequest;
 import com.ssafy.upcycle.trade.dto.ListingResponse;
 import com.ssafy.upcycle.trade.dto.ListingSearchCondition;
 import com.ssafy.upcycle.trade.dto.PageResponse;
 import com.ssafy.upcycle.trade.service.ListingCommandService;
+import com.ssafy.upcycle.trade.service.TradeChainLinkService;
 import com.ssafy.upcycle.trade.service.ListingQueryService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -44,6 +46,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ListingController {
 
     private final ListingCommandService listingCommandService;
+    private final TradeChainLinkService tradeChainLinkService;
     private final ListingQueryService listingQueryService;
 
     /**
@@ -108,5 +111,23 @@ public class ListingController {
      */
     private static Long userId(Jwt jwt) {
         return Long.valueOf(jwt.getSubject());
+    }
+
+    /**
+     * 판매 글의 온체인 번호를 연결한다. <b>판매자 본인만</b> 부를 수 있다.
+     *
+     * <p>화면이 {@code Marketplace.createListing(tokenId, quantity)} 를 판매자 지갑으로
+     * 보내고, {@code ListingCreated} 이벤트의 {@code listingId} 를 여기로 알려 준다.
+     *
+     * <p><b>소재가 먼저 발행되어 있어야 한다.</b> 온체인 {@code createListing} 의 첫 인자가
+     * {@code tokenId} 라서, mint 가 없으면 화면이 부를 인자 자체를 만들 수 없다.
+     */
+    @PostMapping("/{listingId}/chain")
+    public ApiResponse<Void> linkOnChain(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long listingId,
+            @Valid @RequestBody ChainLinkRequest request) {
+        tradeChainLinkService.linkListing(userId(jwt), listingId, request);
+        return ApiResponse.success(null);
     }
 }
