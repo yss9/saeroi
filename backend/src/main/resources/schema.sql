@@ -731,6 +731,10 @@ CREATE TABLE material_trade (
     -- received_at 은 수령 확인 시각이라 서명 사실을 대신하지 못한다.
     buyer_signed_at DATETIME NULL,
     completed_at DATETIME NULL,
+    -- 취소는 상태만 남기면 "언제 왜 취소됐는가" 를 답할 수 없다. 분쟁이나 문의가
+    -- 들어왔을 때 근거가 되는 값이라 사유와 시각을 함께 남긴다 (정책 7.3).
+    canceled_at DATETIME NULL,
+    cancel_reason VARCHAR(255) NULL,
     CONSTRAINT pk_material_trade PRIMARY KEY (id),
     CONSTRAINT uk_material_trade_code UNIQUE (trade_code),
     CONSTRAINT uk_material_trade_chain_trade_id UNIQUE (chain_trade_id),
