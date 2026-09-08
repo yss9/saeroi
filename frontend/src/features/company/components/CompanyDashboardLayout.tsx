@@ -48,6 +48,7 @@ const roleNavigation: Record<BusinessUserRole, NavigationItem[]> = {
     { label: '거래 내역', to: '/trades', Icon: Swap },
   ],
   PROCESSOR: [
+    { label: '업체 등록', to: '/processor/profile', Icon: Buildings },
     { label: '가공 작업', to: '/processor/jobs', Icon: Factory },
   ],
 }
