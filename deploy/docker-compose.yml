@@ -74,6 +74,9 @@ services:
       APP_STORAGE_TYPE: ${STORAGE_TYPE:-local}
       APP_STORAGE_BUCKET: ${STORAGE_BUCKET:-evidence}
       APP_STORAGE_ENDPOINT: ${STORAGE_ENDPOINT:-http://minio:9000}
+      # `:-` 로 항상 정의되게 둔다. local 일 때는 읽히지도 않는 값이라 비어도 무해하다.
+      # s3 로 바꿀 때는 자격증명이 실제로 채워졌는지 사람이 확인해야 한다 — 비어 있으면
+      # backend 는 정상 기동한 뒤 업로드 시점에 인증 오류를 낸다 (기동 로그에는 안 보인다).
       APP_STORAGE_ACCESS_KEY: ${MINIO_ROOT_USER:-}
       APP_STORAGE_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-}
       # application.yml 의 app.security.jwt.*
@@ -106,10 +109,29 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
-      # 저장소가 준비되기 전에 뜨면 첫 업로드가 연결 실패한다.
-      # local 을 쓸 때도 기다리게 두는데, minio 는 어차피 떠 있고 몇 초 차이다.
-      minio:
-        condition: service_healthy
+      # minio 는 **여기에 넣지 않는다** (2026-09-08 제거). 전에는
+      # `minio: condition: service_healthy` 가 있었고, 근거는 "저장소가 준비되기 전에
+      # 뜨면 첫 업로드가 실패한다. minio 는 어차피 떠 있고 몇 초 차이다" 였다.
+      # 뒤쪽 가정이 틀렸다 — minio 는 MINIO_ROOT_USER/MINIO_ROOT_PASSWORD 를 기본값 없이
+      # 요구하고 비밀번호가 8자 미만이면 기동을 거부한다. 자격증명이 없거나 부실하면
+      # minio 가 healthy 가 되지 못하고, 그러면 STORAGE_TYPE 이 기본값 local 이라
+      # MinIO 를 한 줄도 쓰지 않는데도 cf-backend 가 아예 생성되지 않는다.
+      # /api/health 까지 같이 죽어 nginx upstream 과 인프라 헬스체크가 전부 실패한다.
+      # 저장소 자격증명 하나가 전체 서비스 중단으로 번지는 배선이었다.
+      #
+      # 잃는 것: STORAGE_TYPE=s3 일 때 `up` 직후 minio 가 healthy 가 되기 전 몇 초의
+      # 창에서 첫 업로드가 연결 실패할 수 있다. 그 실패는 업로드 요청 하나가 5xx 를
+      # 돌려주는 형태로 끝나고(사용자 재시도로 해결된다) 저장된 데이터에는 영향이 없다.
+      # 애초에 depends_on 은 기동 순서만 보장하므로 운영 중 minio 가 재기동되는 경우는
+      # 막아 주지 못한다 — 저장소의 일시 부재는 애플리케이션이 감당해야 하는 조건이다.
+      # "모든 API 가 무기한 죽는다" 를 "업로드 한 번이 수 초 창에서 실패할 수 있다" 로
+      # 바꾸는 거래라 제거가 맞다.
+      #
+      # `service_started` 로 낮추는 안은 버렸다. 자격증명이 잘못되면 minio 는 기동
+      # 직후 종료되어 restart 정책에 따라 크래시 루프에 들어가는데, 그 상태에서도
+      # backend 가 계속 발이 묶일 수 있어(컨테이너가 살아 있지 않으므로) 결합은 남고
+      # 얻는 순서 보장은 "프로세스가 준비됐다" 는 뜻이 아니어서 거의 의미가 없다.
+      # 버킷 준비를 실제로 기다려야 하는 것은 minio-init 이고, 그 의존성은 그대로 둔다.
     networks:
       - web
       - internal
@@ -142,6 +164,22 @@ services:
     image: minio/minio:RELEASE.2024-10-13T13-34-11Z
     container_name: cf-minio
     environment:
+      # 기본값을 주지 않는다. 여기에 minioadmin 같은 기본 자격증명을 넣으면 값이 빠진
+      # 환경에서 **약한 루트 키로 조용히 뜨는** 쪽이 되는데, 이 키 하나로 모든 증빙
+      # 파일에 닿으므로 "안 뜨는 것" 보다 나쁘다.
+      #
+      # `${MINIO_ROOT_PASSWORD:?...}` 로 compose 를 즉시 멈추게 하는 안도 검토했고
+      # 채택하지 않았다. `:?` 는 파일 보간 단계에서 평가되므로 `docker compose up -d`,
+      # `up -d --no-deps backend`, `config`, `ps` 까지 **전부** 그 자리에서 실패한다
+      # (2026-09-08 로컬 실측: `config backend` 처럼 backend 만 지정해도
+      #  "error while interpolating services.minio.environment.MINIO_ROOT_PASSWORD"
+      #  로 exit 1 — 서비스를 골라도 파일 전체를 보간하기 때문이다).
+      # 즉 저장소 자격증명이 빠진 것 하나로 다시 스택 전체가 뜨지 못하게 되어,
+      # 이 커밋이 없애려는 결합을 더 넓은 범위로 되살리는 셈이다.
+      # 지금 구조에서 값이 없으면 compose 가
+      #   warning: The "MINIO_ROOT_PASSWORD" variable is not set. Defaulting to a blank string.
+      # 를 매 호출마다 내고 minio 만 뜨지 못한다(다른 서비스는 정상). 진단 경로는
+      # `cflog minio` 로, MinIO 가 자격증명 길이 문제를 직접 로그에 적는다.
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       TZ: Asia/Seoul
@@ -149,11 +187,15 @@ services:
     volumes:
       - minio-data:/data
     healthcheck:
-      # backend 가 준비되기 전에 뜨면 첫 업로드가 연결 실패한다.
+      # 버킷을 만드는 minio-init 이 이 조건을 기다린다 (backend 는 기다리지 않는다 —
+      # 위 backend.depends_on 주석 참고).
       test: ["CMD-SHELL", "mc ready local || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 10
+      # 기동 중의 실패를 retries 에서 차감하지 않는다. 이게 없으면 첫 몇 초의 정상적인
+      # "아직 준비 안 됨" 이 재시도 예산을 갉아먹어, 느린 기동이 unhealthy 로 오인된다.
+      start_period: 20s
     networks:
       - internal
     logging: *default-logging

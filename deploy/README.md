@@ -157,6 +157,15 @@ Jenkins Multibranch Pipeline이 자동 수행합니다. 배포 실패(헬스체�
   버킷은 `minio-init` 잡이 만듭니다. MinIO는 기동만으로 버킷을 만들지 않고, 없는 버킷에
   업로드하면 `NoSuchBucket`이 되는데 그 실패는 사용자가 파일을 고른 뒤에 드러납니다.
   **버킷 공개 읽기를 켜지 않습니다** — 저장 키를 아는 누구나 받아 갈 수 있게 됩니다.
+- **Backend는 MinIO 기동을 기다리지 않습니다**(2026-09-08). `backend.depends_on`에 `minio`가
+  있으면 저장소 자격증명이 없거나 8자 미만일 때 minio가 healthy가 되지 못하고,
+  `STORAGE_TYPE`이 기본값 `local`(MinIO를 전혀 쓰지 않는 모드)인 상태에서도 `cf-backend`가
+  생성되지 않아 `/api/health`까지 함께 죽습니다. 대신 `STORAGE_TYPE=s3`일 때는 기동 직후
+  몇 초 동안 첫 업로드가 연결 실패할 수 있습니다(요청 하나가 5xx, 재시도로 해결).
+  버킷 생성을 실제로 기다려야 하는 `minio-init`의 의존성은 그대로입니다.
+  `MINIO_ROOT_PASSWORD`는 **8자 이상**이어야 하며 기본값을 두지 않습니다
+  (`docs/INFRA_SETUP.md` 3장). 값이 없으면 minio/minio-init만 뜨지 못하고 나머지는 정상이며,
+  `docker compose` 호출마다 "variable is not set" 경고가 나옵니다. 진단은 `cflog minio`.
 - **`STORAGE_TYPE`을 넣지 않으면 Backend는 로컬 파일시스템을 씁니다**(`/app/files`,
   `file-storage` 볼륨). MinIO 컨테이너는 떠 있지만 쓰이지 않습니다. `s3`로 바꾸기 전에
   **기존 파일 이관**이 필요합니다 — 바꾸기만 하면 이전 증빙의 저장 키를 찾지 못합니다.

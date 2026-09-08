@@ -72,6 +72,30 @@
 | Blockchain | `BESU_RPC_URL`, `BESU_CHAIN_ID` (수령 완료), `BLOCKCHAIN_SERVICE_PRIVATE_KEY`, `*_ADDRESS` (대기) | 1번 Blockchain 담당 |
 | Frontend 빌드 | `VITE_API_BASE_URL`, `VITE_BESU_*`, `VITE_*_ADDRESS` | 빌드 시점 주입 |
 | Jenkins | `JENKINS_ADMIN_ID/PASSWORD`, `JENKINS_EXTERNAL_URL`, `GITLAB_USERNAME/TOKEN` | Infra가 생성 (JCasC에서 사용) |
+| Object Storage | `STORAGE_TYPE`(`local`/`s3`, 없으면 `local`), `STORAGE_BUCKET`(기본 `evidence`), `STORAGE_ENDPOINT`(기본 `http://minio:9000`), `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD` | Infra가 생성 |
+
+### 3-0-1. Object Storage 키 제약
+
+- `MINIO_ROOT_PASSWORD` 는 **8자 이상**이어야 한다. 짧으면 MinIO 가 기동을 거부한다
+  (`MINIO_ROOT_USER` 는 3자 이상).
+- 두 키에는 **기본값을 두지 않는다.** 기본값을 두면 값이 빠진 환경에서 약한 루트 키로
+  조용히 떠 버리는데, 이 키 하나로 모든 증빙 파일에 닿는다.
+- 값이 없으면 `docker compose` 호출마다
+  `The "MINIO_ROOT_PASSWORD" variable is not set. Defaulting to a blank string.` 경고가 나고
+  **`minio` / `minio-init` 만** 뜨지 못한다. 나머지 서비스는 정상 기동한다 —
+  `backend` 는 `minio` 를 기다리지 않는다(바로 아래 항목). 진단은 `cflog minio`.
+- `STORAGE_TYPE=s3` 로 바꿀 때는 자격증명이 실제로 채워졌는지 확인해야 한다. 비어 있어도
+  backend 는 정상 기동한 뒤 **업로드 시점에** 인증 오류를 내므로 기동 로그로는 안 보인다.
+
+### 3-0-2. backend 는 minio 를 기다리지 않는다 (2026-09-08)
+
+`docker-compose.yml` 의 `backend.depends_on` 에서 `minio` 를 제거했다. 저장소 자격증명이
+없거나 8자 미만이면 minio 가 healthy 가 되지 못하고, 그러면 `STORAGE_TYPE` 이 기본값
+`local`(MinIO 를 전혀 쓰지 않는 모드)인 상태에서도 `cf-backend` 가 생성되지 않아
+`/api/health` 와 인프라 헬스체크 전체가 죽었다. 대가는 `STORAGE_TYPE=s3` 일 때 기동
+직후 수 초 동안 첫 업로드가 실패할 수 있다는 것뿐이다(업로드 요청 하나가 5xx, 재시도로
+해결, 저장 데이터 영향 없음). 버킷 생성을 실제로 기다려야 하는 `minio-init` 의 의존성은
+그대로다.
 
 ## 3-1. nginx rate limit
 
