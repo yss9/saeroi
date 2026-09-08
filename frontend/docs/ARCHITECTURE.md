@@ -222,6 +222,24 @@ IDLE → SIGNING → PENDING → CONFIRMED
 | **Public (비회원 필수)** | `/passport/:productId` |
 | Protected | `/inventory`, `/trades` |
 | Role별 | `/supplier/*`, `/brand/*`, `/processor/*`, `/admin/*` |
+| 안내 | `/403` (권한 없음), `*` (없는 경로) |
+
+### 미인증(401)과 권한없음(403)을 구분합니다
+
+Backend가 401과 403을 나눠 주는 것과 같은 이유로 가드도 나눕니다.
+
+| 상황 | 가드 | 결과 |
+| --- | --- | --- |
+| 로그인 안 됨 | `ProtectedRoute` / `RoleGuard` | `/login` (`state.from`으로 원래 위치를 넘겨 로그인 후 복귀) |
+| 로그인했지만 Role이 다름 | `RoleGuard` | `/403` (`FORBIDDEN_PATH`) |
+| 로그인했지만 Role을 아직 모름 | `RoleGuard` | 판정 보류 — `Loading`을 렌더 |
+
+**권한없음을 `/login`으로 보내지 마세요.** 이미 로그인한 사용자가 로그인 화면을 다시 보고,
+로그인에 성공하면 `LoginPage`가 `state.from`으로 되돌려 보내 같은 자리에서 또 튕깁니다.
+
+`/403`은 Public입니다. 이 화면 자체가 가드에 막히면 사용자가 나갈 길이 없어집니다.
+Role 판정의 출처는 `useAuth()`(= `authStore`) 하나입니다. JWT를 따로 디코딩하지 마세요 —
+같은 값을 읽는 두 번째 경로가 생기면 둘이 어긋납니다.
 
 > ### Frontend Guard는 보안이 아닙니다
 > `ProtectedRoute`와 `RoleGuard`는 **UX를 위한 장치**입니다. 브라우저에서 도는 코드는

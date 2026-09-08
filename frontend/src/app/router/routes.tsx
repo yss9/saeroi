@@ -4,6 +4,7 @@ import { LandingPage } from '../../pages/landing/LandingPage.tsx'
 import { AdminPage } from '../../pages/auth/AdminPage.tsx'
 import { BusinessSignupPage } from '../../pages/auth/BusinessSignupPage.tsx'
 import { ConsumerSignupPage } from '../../pages/auth/ConsumerSignupPage.tsx'
+import { ForbiddenPage } from '../../pages/auth/ForbiddenPage.tsx'
 import { LoginPage } from '../../pages/auth/LoginPage.tsx'
 import { NotFoundPage } from '../../pages/auth/NotFoundPage.tsx'
 import { SignupCompletePage } from '../../pages/auth/SignupCompletePage.tsx'
@@ -28,7 +29,7 @@ import { SupplierTradePage } from '../../pages/trade/SupplierTradePage.tsx'
 import { TradeDetailPage } from '../../pages/trade/TradeDetailPage.tsx'
 import { TradeListPage } from '../../pages/trade/TradeListPage.tsx'
 import { ProtectedRoute } from './guards/ProtectedRoute.tsx'
-import { RoleGuard } from './guards/RoleGuard.tsx'
+import { FORBIDDEN_PATH, RoleGuard } from './guards/RoleGuard.tsx'
 
 const landingPageElement = (
   <ShopProvider>
@@ -56,6 +57,10 @@ export const routes: RouteObject[] = [
   { path: '/signup/consumer', element: <ConsumerSignupPage /> },
   { path: '/signup/business', element: <BusinessSignupPage /> },
   { path: '/signup/complete', element: <SignupCompletePage /> },
+
+  // 권한 없음(403 성격) 안내. RoleGuard 가 여기로 보낸다.
+  // Public 에 두는 이유: 이 화면 자체가 가드에 막히면 사용자가 갈 곳이 없어진다.
+  { path: FORBIDDEN_PATH, element: <ForbiddenPage /> },
 
   // QR Passport: 비회원 공개. 절대 ProtectedRoute 안으로 옮기지 말 것.
   { path: '/passport/:productId', element: <PassportPage /> },
