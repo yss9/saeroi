@@ -218,9 +218,9 @@ IDLE → SIGNING → PENDING → CONFIRMED
 
 | 구역 | 예 |
 | --- | --- |
-| Public | `/`, `/login`, `/materials`, `/marketplace`, `/products` |
+| Public | `/`, `/login`, `/materials`, `/marketplace` |
 | **Public (비회원 필수)** | `/passport/:productId` |
-| Protected | `/inventory`, `/trades` |
+| Protected | `/inventory`, `/trades`, `/products` |
 | Role별 | `/supplier/*`, `/brand/*`, `/processor/*`, `/admin/*` |
 | 안내 | `/403` (권한 없음), `*` (없는 경로) |
 

@@ -72,3 +72,61 @@
 .product-form__created dl > div { display: flex; justify-content: space-between; gap: 1rem; }
 .product-form__created dt { color: #6b7280; font-size: 0.875rem; }
 .product-form__created dd { margin: 0; font-variant-numeric: tabular-nums; }
+
+/* ── 제품 상세 ───────────────────────────────────────── */
+
+.product-detail {
+  display: grid;
+  gap: 1.5rem;
+  /* 좁은 화면에서는 이미지가 위, 넓어지면 좌우로 놓인다. 이미지 폭을 고정하지 않고
+     비율로 두어 긴 제품명이 들어와도 본문이 먼저 줄어든다. */
+  grid-template-columns: 1fr;
+  align-items: start;
+}
+@media (min-width: 48rem) {
+  .product-detail { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+
+.product-detail__image {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 12rem;
+  padding: 0.75rem;
+  border: 1px solid #ddd9cd;
+  border-radius: 8px;
+  background: #f4f2ec;
+}
+.product-detail__image img {
+  display: block;
+  max-width: 100%;
+  max-height: 24rem;
+  border-radius: 6px;
+  object-fit: contain;
+}
+.product-detail__image-empty { margin: 0; font-size: 0.85rem; color: #6b7280; }
+
+.product-detail__body { display: flex; flex-direction: column; gap: 0.85rem; min-width: 0; }
+.product-detail__header { display: flex; flex-direction: column; gap: 0.3rem; }
+.product-detail__title { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.product-detail__title h2 { margin: 0; font-size: 1.35rem; }
+.product-detail__category { margin: 0; font-size: 0.85rem; color: #6b7280; }
+
+.product-detail__price {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.product-detail__stock { margin: 0; font-size: 0.9rem; }
+/* 팔 수 없는 상태(판매 준비·품절·단종)는 남은 수량과 색으로 구분한다. */
+.product-detail__stock--muted { color: #6b7280; }
+
+/* 사용자가 적은 설명이다. 줄바꿈을 살리고 긴 단어는 강제로 끊는다. */
+.product-detail__description {
+  margin: 0.35rem 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.65;
+}
