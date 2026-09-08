@@ -1,0 +1,53 @@
+import { OnChainPanel } from '../../../components/common/index.ts'
+import { useAuth } from '../../auth/hooks/useAuth.ts'
+import { useMaterial } from '../../material/hooks/useMaterial.ts'
+import { useWalletStore } from '../../../stores/walletStore.ts'
+import { useListingOnChain } from '../hooks/useListingOnChain.ts'
+import type { Listing } from '../types/marketplace.types.ts'
+
+/**
+ * 판매 글을 온체인에도 등록한다. **판매자 본인에게만 보인다.**
+ *
+ * ⚠️ 컨트랙트의 `createListing(materialId, quantity)` 에서 `materialId` 는 우리 DB 의 id 가
+ * 아니라 **온체인 `tokenId`** 다. 컨트랙트는 우리 테이블을 모른다. 그래서 소재가 아직
+ * 발행되지 않았으면 부를 인자 자체가 없고, 그 경우 버튼 대신 이유를 보여준다.
+ */
+export function ListingChainPanel({ listing }: { listing: Listing }) {
+  const { user } = useAuth()
+  const address = useWalletStore((state) => state.address)
+  const material = useMaterial(listing.materialId)
+  const chain = useListingOnChain()
+
+  // 판매자만 서명할 수 있다. 구매자에게도 "이 판매 글이 온체인에 있는가" 는 보여야 한다 —
+  // 온체인 주문을 할 수 있는지가 여기에 달려 있다.
+  const actionable = user?.id === listing.sellerId
+  const tokenId = material.data?.tokenId ?? null
+  const ready = actionable && address !== null && tokenId !== null && listing.chainListingId === null
+
+  return (
+    <OnChainPanel
+      title="판매 온체인 등록"
+      description="판매 수량이 체인에서도 잠깁니다. 등록해야 구매자가 온체인으로 주문할 수 있습니다."
+      onChainId={listing.chainListingId}
+      actionable={actionable}
+      ready={ready}
+      blockedReason={
+        address === null
+          ? '지갑을 먼저 연결해 주세요.'
+          : tokenId === null
+            ? '이 소재가 아직 온체인에 발행되지 않았습니다. 소재 상세에서 발행을 먼저 진행해 주세요.'
+            : undefined
+      }
+      status={chain.status}
+      hash={chain.hash}
+      error={chain.error}
+      isBusy={chain.isBusy}
+      isRejected={chain.isRejected}
+      actionLabel="온체인 등록"
+      onSign={() => {
+        if (tokenId === null) return
+        void chain.register(listing.listingId, tokenId, listing.totalQuantity)
+      }}
+    />
+  )
+}

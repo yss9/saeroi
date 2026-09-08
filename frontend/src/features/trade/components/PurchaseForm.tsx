@@ -74,9 +74,10 @@ export function PurchaseForm({ listing, onCreated }: PurchaseFormProps) {
         // 단위를 함께 보낸다. 서버가 gram 으로 환산하므로 여기서 이미 gram 인 값에는 'G' 다.
         quantity: quantityGram,
         unit: 'G',
-        // 결제 수단은 PG 연동 전이라 MOCK 이다 — 스키마의 ENUM 에 있는 값이고,
-        // 연동되면 KAKAO_PAY 로 바뀐다.
-        paymentMethod: 'MOCK',
+        // 이 값은 **희망**이고 확정이 아니다. 실제로 어느 게이트웨이가 청구했는지는 서버가
+        // 승인 시점에 덮어쓴다 (PaymentService#approve) — 키가 없으면 Mock 이 붙기 때문에
+        // 화면이 단정할 수 없다. 그래서 여기서는 기본 경로인 카카오페이를 보낸다.
+        paymentMethod: 'KAKAO_PAY',
         receiverName: values.receiverName.trim(),
         receiverPhone: values.receiverPhone.trim(),
         zipCode: values.zipCode.trim(),

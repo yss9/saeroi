@@ -2,6 +2,8 @@ import { useParams } from 'react-router-dom'
 import { ErrorMessage, Loading } from '../../components/common/index.ts'
 import { useAuth } from '../../features/auth/hooks/useAuth.ts'
 import { PaymentPanel } from '../../features/trade/components/PaymentPanel.tsx'
+import { TradeChainActionPanel } from '../../features/trade/components/TradeChainActionPanel.tsx'
+import { TradeChainPanel } from '../../features/trade/components/TradeChainPanel.tsx'
 import { ReceiptPanel } from '../../features/trade/components/ReceiptPanel.tsx'
 import { ShipmentPanel } from '../../features/trade/components/ShipmentPanel.tsx'
 import { TradeTimeline } from '../../features/trade/components/TradeTimeline.tsx'
@@ -71,13 +73,23 @@ export function TradeDetailPage() {
       {isBuyer && (
         <>
           <PaymentPanel trade={data} />
+          {/* 온체인 주문은 결제와 별개다 — 컨트랙트에 금액이 없고(정책 v3), 체인이 남기는
+              것은 "누가 무엇을 얼마나 사기로 했는가" 뿐이다. 그래서 결제 실패와 체인 실패가
+              서로를 막지 않도록 패널을 나란히 둔다. */}
+          <TradeChainPanel trade={data} />
           <ReceiptPanel trade={data} />
+          <TradeChainActionPanel trade={data} viewer="BUYER" />
         </>
       )}
 
       {/* 판매자: 발송. 결제 패널을 보여주지 않는다 — 판매자가 부를 수 있는 요청이 아니고,
           "결제하기" 버튼이 보이면 자기가 결제해야 하는 것처럼 읽힌다. */}
-      {isSeller && <ShipmentPanel trade={data} />}
+      {isSeller && (
+        <>
+          <ShipmentPanel trade={data} />
+          <TradeChainActionPanel trade={data} viewer="SELLER" />
+        </>
+      )}
 
       {/* 당사자가 아니면 서버가 403 을 주므로 여기까지 오지 않는다. 그래도 로그인 정보가
           아직 복원되지 않은 순간이 있어(persist 복원 전) 아무 패널도 없는 화면이 잠깐
