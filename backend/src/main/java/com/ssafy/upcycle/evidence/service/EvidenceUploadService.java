@@ -100,7 +100,10 @@ public class EvidenceUploadService {
     }
 
     /**
-     * 한 대상의 증빙 목록. 업로드 순서를 리포지토리가 보장한다.
+     * 한 대상의 <b>살아 있는</b> 증빙 목록. 업로드 순서를 리포지토리가 보장한다.
+     *
+     * <p>소프트 삭제된 행은 빠진다 (S15P21E104-162). 행이 남아 있는 것은 온체인 대조를
+     * 위한 것이고, 화면에는 지워진 증빙이 보이지 않는 것이 사용자가 요청한 결과다.
      *
      * <p>업로드 요청 DTO 를 재사용하지 않는다 — 그쪽은 {@code evidenceType} 이 필수인데
      * 조회에는 그 값이 없다. 재사용하면 필수 필드에 {@code null} 을 넣어 통과시키게 되고,
@@ -110,7 +113,7 @@ public class EvidenceUploadService {
     public List<EvidenceFileResponse> findAll(
             EvidenceReferenceType referenceType, Long referenceId) {
         return evidenceFileRepository
-                .findByReferenceTypeAndReferenceIdOrderByUploadedAtAscIdAsc(
+                .findByReferenceTypeAndReferenceIdAndDeletedAtIsNullOrderByUploadedAtAscIdAsc(
                         referenceType, referenceId)
                 .stream()
                 .map(EvidenceFileResponse::from)

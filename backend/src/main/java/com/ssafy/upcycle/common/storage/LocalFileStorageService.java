@@ -99,6 +99,35 @@ public class LocalFileStorageService implements FileStorageService {
         }
     }
 
+    /**
+     * 저장된 파일을 열어 준다.
+     *
+     * <p>{@code resolveExisting} 을 거치므로 <b>오염된 키가 루트를 벗어날 수 없다.</b>
+     * 이 경로가 특히 중요하다 — 읽기는 키를 DB 에서 받고, 그 값이 어떤 이유로든
+     * {@code ../../} 를 담게 되면 여기가 서버의 임의 파일을 응답으로 내보내는 문이 된다.
+     *
+     * <p>미디어 타입은 확장자에서 파생한다. 로컬에는 저장해 둔 메타데이터가 없고,
+     * {@code Files.probeContentType} 은 OS 설정에 따라 답이 달라져 같은 파일이 서버마다
+     * 다른 타입으로 나간다.
+     */
+    @Override
+    public FileContent read(String storageKey) {
+        Path file = resolveExisting(storageKey);
+        if (!Files.isRegularFile(file)) {
+            throw new BusinessException(FileStorageErrorCode.FILE_NOT_FOUND);
+        }
+        try {
+            // 스트림은 호출부가 닫는다. 여기서 try-with-resources 로 감싸면 컨트롤러가
+            // 응답으로 흘리기 전에 닫혀 빈 본문이 나간다.
+            return new FileContent(
+                    Files.newInputStream(file),
+                    Files.size(file),
+                    FileContentPolicy.mediaTypeOf(storageKey));
+        } catch (IOException e) {
+            throw new BusinessException(FileStorageErrorCode.FILE_STORAGE_FAILED);
+        }
+    }
+
     @Override
     public boolean delete(String storageKey) {
         try {

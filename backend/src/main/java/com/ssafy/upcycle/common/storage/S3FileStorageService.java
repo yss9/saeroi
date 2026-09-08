@@ -12,9 +12,12 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.UUID;
+import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
@@ -101,6 +104,35 @@ public class S3FileStorageService implements FileStorageService {
             throw new BusinessException(FileStorageErrorCode.FILE_STORAGE_FAILED);
         } finally {
             deleteQuietly(staged);
+        }
+    }
+
+    /**
+     * 객체를 열어 준다. 응답 스트림을 그대로 넘긴다.
+     *
+     * <p><b>바이트를 미리 읽지 않는다.</b> {@code getObjectAsBytes} 가 더 짧지만 파일
+     * 하나가 최대 10MB 이고 동시 조회가 겹치면 그만큼 힙에 쌓인다. 스트림을 그대로
+     * 서블릿 출력으로 흘리면 메모리가 파일 크기에 비례하지 않는다.
+     *
+     * <p>크기는 응답의 {@code contentLength} 를 쓴다 — 실제로 저장된 객체의 길이다.
+     * 미디어 타입은 객체 메타데이터가 아니라 <b>키의 확장자</b>에서 파생한다
+     * ({@link FileContentPolicy#mediaTypeOf} 주석 참고. 로컬 구현과 답이 같아야 한다).
+     */
+    @Override
+    public FileContent read(String storageKey) {
+        try {
+            ResponseInputStream<GetObjectResponse> object = s3.getObject(
+                    GetObjectRequest.builder().bucket(bucket).key(storageKey).build());
+            return new FileContent(
+                    object,
+                    object.response().contentLength(),
+                    FileContentPolicy.mediaTypeOf(storageKey));
+        } catch (NoSuchKeyException absent) {
+            throw new BusinessException(FileStorageErrorCode.FILE_NOT_FOUND);
+        } catch (S3Exception failure) {
+            // 권한 오류·연결 실패를 "없음" 으로 답하면 화면에 "증빙 없음" 이라는 거짓이
+            // 나간다. exists() 와 같은 판단이다.
+            throw new BusinessException(FileStorageErrorCode.FILE_STORAGE_FAILED);
         }
     }
 

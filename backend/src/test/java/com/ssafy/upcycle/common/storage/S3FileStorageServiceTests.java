@@ -22,9 +22,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import software.amazon.awssdk.awscore.exception.AwsErrorDetails;
+import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.http.AbortableInputStream;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectResponse;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
@@ -218,6 +222,53 @@ class S3FileStorageServiceTests {
         }
     }
 
+    // ── 읽기 (S15P21E104-162) ───────────────────────────────
+
+    @Test
+    void readsBackExactlyWhatWasUploaded() throws Exception {
+        StoredFile stored = store("photo.jpg", "image/jpeg");
+
+        FileContent content = storage().read(stored.storageKey());
+        try (InputStream in = content.stream()) {
+            assertThat(in.readAllBytes()).isEqualTo(CONTENT);
+        }
+        assertThat(content.size()).isEqualTo(CONTENT.length);
+        assertThat(s3.gets).containsExactly(stored.storageKey());
+    }
+
+    @Test
+    void derivesTheMediaTypeFromTheKeyLikeTheLocalImplementation() throws Exception {
+        // 객체 메타데이터를 쓰면 로컬 구현과 답이 갈린다. 저장소 전환은 설정 한 줄이라
+        // 그 차이가 배포 시점까지 드러나지 않는다.
+        StoredFile stored = store("slip.pdf", "application/pdf");
+
+        FileContent content = storage().read(stored.storageKey());
+        try (InputStream in = content.stream()) {
+            assertThat(in).isNotNull();
+        }
+        assertThat(content.contentType()).isEqualTo("application/pdf");
+    }
+
+    @Test
+    void readingAMissingObjectIsNotFoundRatherThanAServerError() {
+        assertThatThrownBy(() -> storage().read("MATERIAL/1024/2026/09/does-not-exist.jpg"))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(FileStorageErrorCode.FILE_NOT_FOUND);
+    }
+
+    @Test
+    void readFailsLoudlyWhenS3IsUnreachable() {
+        // 연결 실패를 "없음"(404) 으로 답하면 화면에 "증빙 없음" 이라는 거짓이 나간다.
+        StoredFile stored = store("photo.jpg", "image/jpeg");
+        s3.failGet = true;
+
+        assertThatThrownBy(() -> storage().read(stored.storageKey()))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(FileStorageErrorCode.FILE_STORAGE_FAILED);
+    }
+
     // ── 삭제 · 존재 ──────────────────────────────────────────
 
     @Test
@@ -267,10 +318,27 @@ class S3FileStorageServiceTests {
         record Put(PutObjectRequest request, byte[] body) {}
 
         final List<Put> puts = new ArrayList<>();
+        final List<String> gets = new ArrayList<>();
         final Map<String, byte[]> objects = new HashMap<>();
         boolean failPut;
         boolean failDelete;
         boolean failHead;
+        boolean failGet;
+
+        @Override
+        public ResponseInputStream<GetObjectResponse> getObject(GetObjectRequest request) {
+            if (failGet) {
+                throw error("InternalError");
+            }
+            byte[] found = objects.get(request.key());
+            if (found == null) {
+                throw NoSuchKeyException.builder().message("no such key").build();
+            }
+            gets.add(request.key());
+            return new ResponseInputStream<>(
+                    GetObjectResponse.builder().contentLength((long) found.length).build(),
+                    AbortableInputStream.create(new ByteArrayInputStream(found)));
+        }
 
         @Override
         public PutObjectResponse putObject(PutObjectRequest request, RequestBody body) {
