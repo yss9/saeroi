@@ -169,10 +169,10 @@ class SchemaSqlTests {
                 INSERT INTO processing_job (
                     id, job_code, processing_request_id, processing_quote_id,
                     brand_id, processor_id, brand_wallet, processor_wallet,
-                    fee, payment_method, payment_amount
+                    fee, payment_method, payment_amount, payment_expires_at
                 ) VALUES
-                    (1, 'JOB-000001', 1, 1, 1, 2, '0xbrand', '0xprocessor', 1000, 'MOCK', 1000),
-                    (2, 'JOB-000002', 2, 2, 1, 2, '0xbrand', '0xprocessor', 1000, 'MOCK', 1000)
+                    (1, 'JOB-000001', 1, 1, 1, 2, '0xbrand', '0xprocessor', 1000, 'MOCK', 1000, '2099-01-01 00:15:00'),
+                    (2, 'JOB-000002', 2, 2, 1, 2, '0xbrand', '0xprocessor', 1000, 'MOCK', 1000, '2099-01-01 00:15:00')
                 """);
         statement.executeUpdate("""
                 INSERT INTO material_lock (
