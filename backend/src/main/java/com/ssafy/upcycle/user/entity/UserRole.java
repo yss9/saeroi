@@ -43,4 +43,18 @@ public enum UserRole {
     public boolean canRegisterMaterial() {
         return this == SUPPLIER || this == BRAND;
     }
+
+    /**
+     * 제품을 등록할 수 있는 역할인가.
+     *
+     * <p>{@code BRAND} 뿐이다. 업사이클 제품을 파는 주체가 브랜드이고, 제품 모델은 곧
+     * 마켓에 노출되는 판매 단위라 공급·가공 주체가 직접 올릴 대상이 아니다.
+     *
+     * <p>{@link #canRegisterMaterial} 과 목록이 <b>다르다</b>. 소재를 올릴 수 있다는 것과
+     * 제품을 팔 수 있다는 것은 별개 권한이며, 합치면 {@code SUPPLIER} 가 제품을 올릴 수 있게
+     * 조용히 넓어진다.
+     */
+    public boolean canRegisterProduct() {
+        return this == BRAND;
+    }
 }
