@@ -43,6 +43,7 @@ import com.ssafy.upcycle.user.entity.UserRole;
 import com.ssafy.upcycle.user.entity.UserWallet;
 import com.ssafy.upcycle.user.repository.UserRepository;
 import com.ssafy.upcycle.user.repository.UserWalletRepository;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -123,6 +124,9 @@ class MarketplaceApiTests {
 
     @Autowired
     private KakaoPayProperties kakaoPayProperties;
+
+    @Autowired
+    private Clock clock;
 
     private User seller;
     private User buyer;
@@ -780,7 +784,8 @@ class MarketplaceApiTests {
                 materialRepository,
                 tradeResponseAssembler,
                 new WrongAmountGateway(),
-                kakaoPayProperties);
+                kakaoPayProperties,
+                clock);
 
         assertThatThrownBy(() -> service.approve(buyer.getId(), tradeId, "TOKEN"))
                 .isInstanceOf(BusinessException.class)
@@ -852,6 +857,85 @@ class MarketplaceApiTests {
 
         assertThat(listingRepository.findById(listingId).orElseThrow().getAvailableQuantity())
                 .isEqualTo(20_000L);
+    }
+
+    /** 상태만 남기면 "언제 왜 취소됐는가" 를 답할 수 없다. 분쟁·문의의 근거가 되는 값이다. */
+    @Test
+    void cancellationKeepsTheReasonAndTime() throws Exception {
+        Long listingId = registerListing(20_000L);
+        Long tradeId = jsonLong(purchase(listingId, 8_000L), "tradeId");
+
+        mockMvc.perform(post("/api/v1/trades/" + tradeId + "/cancel")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + sellerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{ \"reason\": \"재고 부족으로 발송이 어렵습니다\" }"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.cancelReason").value("재고 부족으로 발송이 어렵습니다"))
+                .andExpect(jsonPath("$.data.canceledAt").isNotEmpty());
+
+        MaterialTrade trade = tradeRepository.findById(tradeId).orElseThrow();
+        assertThat(trade.getCancelReason()).isEqualTo("재고 부족으로 발송이 어렵습니다");
+        assertThat(trade.getCanceledAt()).isNotNull();
+    }
+
+    /** 결제창을 닫고 나온 취소처럼 사유를 적을 자리가 없는 경로가 정상이다. */
+    @Test
+    void cancellationWithoutABodyStillRecordsTheTime() throws Exception {
+        Long listingId = registerListing(20_000L);
+        Long tradeId = jsonLong(purchase(listingId, 8_000L), "tradeId");
+
+        mockMvc.perform(post("/api/v1/trades/" + tradeId + "/cancel")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.cancelReason").doesNotExist())
+                .andExpect(jsonPath("$.data.canceledAt").isNotEmpty());
+    }
+
+    /** 폼의 빈 입력은 null 이 아니라 "" 로 온다. 그것을 사유로 저장하면 빈 값이 쌓인다. */
+    @Test
+    void blankReasonIsTreatedAsNoReason() throws Exception {
+        Long listingId = registerListing(20_000L);
+        Long tradeId = jsonLong(purchase(listingId, 8_000L), "tradeId");
+
+        mockMvc.perform(post("/api/v1/trades/" + tradeId + "/cancel")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{ \"reason\": \"   \" }"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.cancelReason").doesNotExist());
+    }
+
+    @Test
+    void tooLongReasonIsRejected() throws Exception {
+        Long listingId = registerListing(20_000L);
+        Long tradeId = jsonLong(purchase(listingId, 8_000L), "tradeId");
+
+        mockMvc.perform(post("/api/v1/trades/" + tradeId + "/cancel")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{ \"reason\": \"" + "가".repeat(256) + "\" }"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    /**
+     * 되돌린 수량은 다시 판매 중이므로 계속 묶여 있어야 한다. 여기서 풀면 판매 글에 올라와
+     * 있는 수량을 가공이나 생산에도 쓸 수 있게 된다(정책 6.4). 잠금이 RELEASED 되는 것은
+     * 판매 글 자체를 내릴 때뿐이다(정책 7.3).
+     */
+    @Test
+    void cancellingATradeKeepsTheListingLockActive() throws Exception {
+        Long listingId = registerListing(20_000L);
+        Long tradeId = jsonLong(purchase(listingId, 8_000L), "tradeId");
+        Long lockId = listingRepository.findById(listingId).orElseThrow().getMaterialLockId();
+
+        mockMvc.perform(post("/api/v1/trades/" + tradeId + "/cancel")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken))
+                .andExpect(status().isOk());
+
+        MaterialLock lock = lockRepository.findById(lockId).orElseThrow();
+        assertThat(lock.getStatus()).isEqualTo(MaterialLockStatus.ACTIVE);
+        assertThat(lock.getAmount()).isEqualTo(20_000L);
     }
 
     @Test
