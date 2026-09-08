@@ -167,6 +167,10 @@ Page → Feature Hook → Contract Service → contractFactory → walletService
 - Component에서 `new ethers.Contract(...)`를 쓰지 마세요.
 - 주소·ABI는 `config/contracts.ts`에서만 읽습니다. 하드코딩 금지.
 - ABI/주소의 Source of Truth는 `blockchain/master` 브랜치입니다.
+- 쓰기 트랜잭션은 Hardhat 개인키가 아니라 브라우저의 MetaMask signer가 직접 서명합니다.
+- `VITE_BESU_CHAIN_ID`와 현재 지갑 체인이 다르면 `contractFactory`가 전송 전에 차단합니다.
+- 확정 후 화면에는 서명 지갑·Chain ID·컨트랙트·블록 번호·tx hash를 표시합니다.
+- Docker의 `VITE_*` ARG 이름은 `.env.example` 및 `config/contracts.ts`와 반드시 같아야 합니다.
 
 ### Transaction 상태
 

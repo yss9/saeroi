@@ -25,6 +25,11 @@ export interface OnChainPanelProps {
   blockedReason?: string
   status: ChainLinkStatus
   hash: string | null
+  /** MetaMask에서 서명한 계정과 실제 배포 대상을 사용자가 대조할 수 있게 표시한다. */
+  walletAddress?: string | null
+  chainId?: string | null
+  contractAddress?: string | null
+  blockNumber?: number | null
   error: AppError | null
   isBusy: boolean
   isRejected: boolean
@@ -52,6 +57,10 @@ export function OnChainPanel({
   blockedReason,
   status,
   hash,
+  walletAddress,
+  chainId,
+  contractAddress,
+  blockNumber,
   error,
   isBusy,
   isRejected,
@@ -71,6 +80,38 @@ export function OnChainPanel({
       </header>
 
       <p className="on-chain-panel__lead">{description}</p>
+
+      {(walletAddress ||
+        chainId ||
+        contractAddress ||
+        (blockNumber !== null && blockNumber !== undefined)) && (
+        <dl className="on-chain-panel__details">
+          {walletAddress && (
+            <div>
+              <dt>서명 지갑</dt>
+              <dd title={walletAddress}>{shortAddress(walletAddress)}</dd>
+            </div>
+          )}
+          {chainId && (
+            <div>
+              <dt>네트워크</dt>
+              <dd>{formatChainId(chainId)}</dd>
+            </div>
+          )}
+          {contractAddress && (
+            <div>
+              <dt>컨트랙트</dt>
+              <dd title={contractAddress}>{shortAddress(contractAddress)}</dd>
+            </div>
+          )}
+          {blockNumber !== null && blockNumber !== undefined && (
+            <div>
+              <dt>확정 블록</dt>
+              <dd>{blockNumber.toLocaleString('ko-KR')}</dd>
+            </div>
+          )}
+        </dl>
+      )}
 
       {children}
 
@@ -99,9 +140,29 @@ export function OnChainPanel({
         </>
       )}
 
-      {hash && <TransactionHash hash={hash} />}
+      {hash && (
+        <>
+          <TransactionHash hash={hash} />
+          <p className="on-chain-panel__hint">
+            이 트랜잭션은 연결된 MetaMask 지갑이 직접 서명했습니다. 지갑 활동 또는 위 해시로 확인할 수 있습니다.
+          </p>
+        </>
+      )}
     </section>
   )
+}
+
+function shortAddress(value: string): string {
+  return `${value.slice(0, 8)}…${value.slice(-6)}`
+}
+
+function formatChainId(chainId: string): string {
+  try {
+    const decimal = BigInt(chainId).toString()
+    return chainId === env.besuChainIdHex ? `SSAFY (${decimal})` : `Chain ID ${decimal}`
+  } catch {
+    return chainId
+  }
 }
 
 /**

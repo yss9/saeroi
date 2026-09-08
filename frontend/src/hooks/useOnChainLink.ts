@@ -40,6 +40,8 @@ export interface UseOnChainLinkOptions {
 export interface UseOnChainLinkResult {
   status: ChainLinkStatus
   hash: string | null
+  /** 영수증이 확정된 블록. 사용자가 지갑/익스플로러 기록과 대조할 때 쓴다. */
+  blockNumber: number | null
   error: AppError | null
   /** SIGNING·PENDING·LINKING — 버튼을 잠글 때 쓴다. */
   isBusy: boolean
@@ -161,6 +163,7 @@ export function useOnChainLink(options: UseOnChainLinkOptions): UseOnChainLinkRe
   return {
     status: phase.status === 'IDLE' ? transaction.status : phase.status,
     hash: transaction.hash,
+    blockNumber: transaction.receipt?.blockNumber ?? null,
     error: phase.error ?? transaction.error,
     isBusy: transaction.isBusy || phase.status === 'LINKING',
     isRejected: transaction.isRejected,

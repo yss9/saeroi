@@ -42,6 +42,35 @@
   color: var(--color-text-muted, #6b6862);
 }
 
+.on-chain-panel__details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px 16px;
+  margin: 0 0 14px;
+  padding: 12px;
+  border-radius: 6px;
+  background: var(--color-surface-muted, #f6f5f1);
+}
+
+.on-chain-panel__details div {
+  min-width: 0;
+}
+
+.on-chain-panel__details dt {
+  margin-bottom: 2px;
+  font-size: 11px;
+  color: var(--color-text-muted, #6b6862);
+}
+
+.on-chain-panel__details dd {
+  margin: 0;
+  overflow: hidden;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .on-chain-panel__blocked {
   margin: 0 0 12px;
   font-size: 13px;
