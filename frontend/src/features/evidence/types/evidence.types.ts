@@ -141,3 +141,31 @@ export const EVIDENCE_MAX_FILE_SIZE = 10 * 1024 * 1024
 
 /** 한 요청에 10개. 더 올리려면 여러 번 나눠 올린다 (진행 상황도 눈에 보인다). */
 export const EVIDENCE_MAX_FILES = 10
+
+/**
+ * 서버에 올라간 증빙을 **어떻게 보여줄 수 있는가.**
+ *
+ * 허용 목록에 `.pdf` 가 있으므로 모든 증빙을 `<img>` 로 그릴 수는 없다. pdf 를
+ * `<img src>` 에 넣으면 깨진 이미지 아이콘이 뜨고, 사용자는 파일이 잘못됐다고 생각한다.
+ */
+export type EvidenceContentKind = 'IMAGE' | 'PDF'
+
+/**
+ * 저장 키의 확장자로 표시 방법을 정한다.
+ *
+ * <b>`storageKey` 를 보는 것이 맞다.</b> 서버가 만든 값이고(`{...}/{uuid}.{ext}`) 그
+ * 확장자는 **업로드 때 실제 내용과 대조해 검증된 것**이다 (정책 문서: 확장자와 미디어
+ * 타입이 일치해야 통과한다). 사용자가 준 원본 파일명은 저장 경로에 들어가지 않으므로
+ * 여기에 끼어들 수 없다.
+ *
+ * 알 수 없는 확장자는 `null` 이다 — 추측해서 `<img>` 로 그리면 깨진 이미지가 된다.
+ * 화이트리스트가 좁아 실제로는 나올 수 없지만, 정책이 늘어날 때 조용히 깨지지 않게 한다.
+ */
+export function evidenceContentKind(storageKey: string): EvidenceContentKind | null {
+  const dot = storageKey.lastIndexOf('.')
+  if (dot < 0) return null
+  const extension = storageKey.slice(dot + 1).toLowerCase()
+  if (extension === 'pdf') return 'PDF'
+  if (['jpg', 'jpeg', 'png', 'webp'].includes(extension)) return 'IMAGE'
+  return null
+}
