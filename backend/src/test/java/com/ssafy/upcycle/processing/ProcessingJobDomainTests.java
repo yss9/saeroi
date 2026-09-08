@@ -6,10 +6,20 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.ssafy.upcycle.processing.entity.ProcessingJob;
 import com.ssafy.upcycle.processing.entity.ProcessingJobStatus;
 import com.ssafy.upcycle.trade.entity.PaymentMethod;
+import jakarta.persistence.Column;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 
 class ProcessingJobDomainTests {
+
+    @Test
+    void evidenceHashUsesTheCharTypeDeclaredBySchemaSql() throws Exception {
+        Column column = ProcessingJob.class
+                .getDeclaredField("evidenceHash")
+                .getAnnotation(Column.class);
+
+        assertThat(column.columnDefinition()).isEqualTo("CHAR(66)");
+    }
 
     @Test
     void jobPaymentExpiresExactlyFifteenMinutesAfterCreation() {

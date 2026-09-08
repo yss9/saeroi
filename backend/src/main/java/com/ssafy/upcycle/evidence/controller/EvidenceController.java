@@ -4,10 +4,12 @@ import com.ssafy.upcycle.common.response.ApiResponse;
 import com.ssafy.upcycle.common.storage.FileContent;
 import com.ssafy.upcycle.evidence.EvidenceApiPaths;
 import com.ssafy.upcycle.evidence.dto.EvidenceFileResponse;
+import com.ssafy.upcycle.evidence.dto.EvidenceListResponse;
 import com.ssafy.upcycle.evidence.dto.EvidenceUploadRequest;
 import com.ssafy.upcycle.evidence.entity.EvidenceReferenceType;
 import com.ssafy.upcycle.evidence.service.EvidenceContentService;
 import com.ssafy.upcycle.evidence.service.EvidenceDeletionService;
+import com.ssafy.upcycle.evidence.service.EvidenceListService;
 import com.ssafy.upcycle.evidence.service.EvidenceUploadService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
@@ -49,6 +51,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class EvidenceController {
 
     private final EvidenceUploadService evidenceUploadService;
+    private final EvidenceListService evidenceListService;
     private final EvidenceContentService evidenceContentService;
     private final EvidenceDeletionService evidenceDeletionService;
 
@@ -72,18 +75,34 @@ public class EvidenceController {
     }
 
     /**
-     * 한 대상의 증빙 목록.
+     * 한 대상의 증빙 목록. <b>보는 사람에 따라 응답 모양이 다르다.</b> S15P21E104-286 §6-1.
      *
-     * <p>대상이 없으면 <b>404 가 아니라 빈 목록</b>이다. 증빙이 아직 없는 것과 대상이
-     * 없는 것은 다른 상황이지만, 이 엔드포인트는 목록을 묻는 것이라 빈 목록이 정확한 답이다.
+     * <p>고치기 전에는 이 메서드가 <b>JWT 를 아예 받지 않았다.</b> 그래서 로그인한 아무나
+     * {@code referenceId} 만 바꿔 가며 남의 소재 증빙 목록을 통째로 볼 수 있었다 —
+     * 파일명({@code storageKey}) · {@code contentPath} · {@code fileHash} · 업로더까지.
+     * {@code /content} 는 {@code EvidenceAccessPolicy} 가 막고 있었으니 파일 자체는 못 받지만,
+     * {@code 계근표_OO상사.pdf} 라는 이름 하나로 거래 상대가 드러난다.
+     *
+     * <ul>
+     *   <li>업로더 · 소재 등록자 · 소재 현재 보유자 → <b>전체</b> ({@code files})
+     *   <li>그 외 인증 사용자 → <b>요약만</b> ({@code summary} = 종류별 개수)
+     * </ul>
+     *
+     * <p>응답 타입이 배열에서 객체로 바뀌었다. 프론트가 고쳐야 하는 유일한 지점이고,
+     * 그렇게 정한 이유(그리고 버린 두 안)는 {@link EvidenceListResponse} 주석에 있다.
+     *
+     * <p>대상이 없으면 <b>404 가 아니라 빈 요약</b>이다. 증빙이 아직 없는 것과 대상이
+     * 없는 것은 다른 상황이지만, 이 엔드포인트는 목록을 묻는 것이라 빈 답이 정확하다.
+     * 404 로 답하면 그 응답이 <b>소재 id 의 존재 여부를 알려주는 신호</b>가 된다.
      * 대상 존재는 업로드할 때 확인한다.
      */
     @GetMapping
-    public ApiResponse<List<EvidenceFileResponse>> findAll(
+    public ApiResponse<EvidenceListResponse> findAll(
+            @AuthenticationPrincipal Jwt jwt,
             @RequestParam EvidenceReferenceType referenceType,
             @RequestParam @Positive(message = "증빙 대상 id는 양수여야 합니다.") Long referenceId) {
         return ApiResponse.success(
-                evidenceUploadService.findAll(referenceType, referenceId));
+                evidenceListService.findAll(userId(jwt), referenceType, referenceId));
     }
 
     /**
