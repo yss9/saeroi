@@ -20,6 +20,7 @@ import { MaterialRegisterPage } from '../../pages/material/MaterialRegisterPage.
 import { ConsumerMyPage } from '../../pages/mypage/ConsumerMyPage.tsx'
 import { BrandProcessingPage } from '../../pages/processing/BrandProcessingPage.tsx'
 import { ProcessingPage } from '../../pages/processing/ProcessingPage.tsx'
+import { ProcessorProfilePage } from '../../pages/processing/ProcessorProfilePage.tsx'
 import { ProductDetailPage } from '../../pages/product/ProductDetailPage.tsx'
 import { ProductListPage } from '../../pages/product/ProductListPage.tsx'
 import { ProductionPage } from '../../pages/production/ProductionPage.tsx'
@@ -122,7 +123,10 @@ export const routes: RouteObject[] = [
       // ── PROCESSOR ──
       {
         element: <RoleGuard allow={['PROCESSOR']} />,
-        children: [{ path: '/processor/jobs', element: <ProcessingPage /> }],
+        children: [
+          { path: '/processor/jobs', element: <ProcessingPage /> },
+          { path: '/processor/profile', element: <ProcessorProfilePage /> },
+        ],
       },
 
       // ── ADMIN ──
