@@ -19,6 +19,8 @@ import com.ssafy.upcycle.trade.payment.PaymentReady;
 import com.ssafy.upcycle.trade.payment.PaymentReadyCommand;
 import com.ssafy.upcycle.trade.repository.ListingLockRepository;
 import com.ssafy.upcycle.trade.repository.MaterialTradeRepository;
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -56,6 +58,7 @@ public class PaymentService {
     private final TradeResponseAssembler tradeResponseAssembler;
     private final PaymentGateway paymentGateway;
     private final KakaoPayProperties kakaoPayProperties;
+    private final Clock clock;
 
     /**
      * 결제를 준비하고 사용자를 보낼 결제창 주소를 돌려준다. <b>구매자만 할 수 있다.</b>
@@ -140,9 +143,15 @@ public class PaymentService {
      * <p><b>수량 복구가 이 메서드의 핵심이다.</b> 거래 생성 시점에 판매 글의 잔여 수량이
      * 줄었으므로 취소하면 그만큼 다시 팔 수 있어야 한다. 빠뜨리면 결제창을 닫은 사용자마다
      * 판매 수량이 영구히 사라진다.
+     *
+     * <p><b>잠금은 풀지 않는다.</b> 되돌린 수량은 다시 판매 중이 되므로 계속 묶여 있어야
+     * 한다 — 여기서 풀면 판매 글에 올라와 있는 수량을 가공이나 생산에도 쓸 수 있게 된다
+     * (정책 6.4). 잠금이 {@code RELEASED} 되는 것은 판매 글 자체를 내릴 때뿐이다(정책 7.3).
+     *
+     * @param reason 사람이 적은 취소 사유. 결제창 이탈처럼 사유가 없는 경로도 있어 선택이다
      */
     @Transactional
-    public TradeResponse cancel(Long userId, Long tradeId) {
+    public TradeResponse cancel(Long userId, Long tradeId, String reason) {
         MaterialTrade trade = findTrade(tradeId);
         if (!trade.getSellerId().equals(userId) && !trade.getBuyerId().equals(userId)) {
             throw new BusinessException(TradeErrorCode.TRADE_NOT_PARTICIPANT);
@@ -152,7 +161,7 @@ public class PaymentService {
         }
 
         refundIfPaid(trade);
-        trade.cancel();
+        trade.cancel(reason, LocalDateTime.now(clock));
         restoreListingQuantity(trade);
 
         return tradeResponseAssembler.of(trade);
