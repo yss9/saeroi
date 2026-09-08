@@ -1,5 +1,6 @@
 package com.ssafy.upcycle.trade.controller;
 
+import com.ssafy.upcycle.blockchain.dto.ChainLinkRequest;
 import com.ssafy.upcycle.common.response.ApiResponse;
 import com.ssafy.upcycle.material.dto.MaterialQuantityUnit;
 import com.ssafy.upcycle.trade.dto.PageResponse;
@@ -14,6 +15,7 @@ import com.ssafy.upcycle.trade.dto.TradeSearchCondition;
 import com.ssafy.upcycle.trade.dto.TradeShipRequest;
 import com.ssafy.upcycle.trade.dto.TradeShipResponse;
 import com.ssafy.upcycle.trade.service.PaymentService;
+import com.ssafy.upcycle.trade.service.TradeChainLinkService;
 import com.ssafy.upcycle.trade.service.TradeCommandService;
 import com.ssafy.upcycle.trade.service.TradeQueryService;
 import com.ssafy.upcycle.trade.service.TradeReceiptService;
@@ -52,6 +54,7 @@ public class TradeController {
     private final TradeCommandService tradeCommandService;
     private final TradeQueryService tradeQueryService;
     private final PaymentService paymentService;
+    private final TradeChainLinkService tradeChainLinkService;
     private final TradeShipmentService tradeShipmentService;
     private final TradeReceiptService tradeReceiptService;
 
@@ -199,5 +202,24 @@ public class TradeController {
      */
     private static Long userId(Jwt jwt) {
         return Long.valueOf(jwt.getSubject());
+    }
+
+    /**
+     * 거래의 온체인 주문 번호를 연결한다. <b>구매자 본인만</b> 부를 수 있다.
+     *
+     * <p>화면이 {@code Marketplace.createOrder(chainListingId, quantity)} 를 구매자 지갑으로
+     * 보내고, {@code OrderCreated} 이벤트의 {@code orderId} 를 여기로 알려 준다.
+     *
+     * <p><b>이 번호가 있어야 발송·수령 확인을 온체인에서 부를 수 있다</b> —
+     * {@code markShipped(orderId)} · {@code confirmReceipt(orderId)} 가 이 값을 인자로 받는다.
+     * 그래서 이것이 연결되지 않은 거래는 오프체인으로만 진행된다.
+     */
+    @PostMapping("/{tradeId}/chain")
+    public ApiResponse<Void> linkOnChain(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long tradeId,
+            @Valid @RequestBody ChainLinkRequest request) {
+        tradeChainLinkService.linkTrade(userId(jwt), tradeId, request);
+        return ApiResponse.success(null);
     }
 }

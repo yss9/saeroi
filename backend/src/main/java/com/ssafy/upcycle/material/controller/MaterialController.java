@@ -1,5 +1,6 @@
 package com.ssafy.upcycle.material.controller;
 
+import com.ssafy.upcycle.blockchain.dto.ChainLinkRequest;
 import com.ssafy.upcycle.common.response.ApiResponse;
 import com.ssafy.upcycle.material.dto.MaterialBalanceResponse;
 import com.ssafy.upcycle.material.dto.MaterialDetailResponse;
@@ -7,6 +8,7 @@ import com.ssafy.upcycle.material.dto.MaterialLineageResponse;
 import com.ssafy.upcycle.material.dto.MaterialRegisterRequest;
 import com.ssafy.upcycle.material.dto.MaterialRegisterResponse;
 import com.ssafy.upcycle.material.dto.MyMaterialResponse;
+import com.ssafy.upcycle.material.service.MaterialChainLinkService;
 import com.ssafy.upcycle.material.service.MaterialLineageQueryService;
 import com.ssafy.upcycle.material.service.MaterialQueryService;
 import com.ssafy.upcycle.material.service.MaterialRegistrationService;
@@ -48,6 +50,7 @@ public class MaterialController {
     private final MaterialRegistrationService materialRegistrationService;
     private final MaterialQueryService materialQueryService;
     private final MaterialLineageQueryService materialLineageQueryService;
+    private final MaterialChainLinkService materialChainLinkService;
 
     /**
      * 소재 등록. {@code SUPPLIER}·{@code BRAND} 만 가능하다.
@@ -124,5 +127,23 @@ public class MaterialController {
      */
     private static Long userId(Jwt jwt) {
         return Long.valueOf(jwt.getSubject());
+    }
+
+    /**
+     * 온체인 발행 결과를 연결한다. <b>등록자 본인만</b> 부를 수 있다.
+     *
+     * <p>화면이 지갑으로 {@code MaterialToken.mintMaterial} 을 보내고 영수증을 받은 뒤
+     * {@code MaterialMinted} 이벤트의 {@code tokenId} 를 여기로 알려 준다. 서버가 mint 를
+     * 보내지 않는 이유는 서명이 공급자 지갑의 것이고 서버에 개인키가 없기 때문이다.
+     *
+     * <p><b>체인 ID 와 컨트랙트 주소는 받지 않는다</b> — 서버 설정이 정본이다.
+     */
+    @PostMapping("/{materialId}/chain")
+    public ApiResponse<Void> linkOnChain(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long materialId,
+            @Valid @RequestBody ChainLinkRequest request) {
+        materialChainLinkService.link(userId(jwt), materialId, request);
+        return ApiResponse.success(null);
     }
 }
