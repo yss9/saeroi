@@ -1,0 +1,6 @@
+{
+  "_comment": "이 파일을 roles.ssafy.json 으로 복사해 실제 메타마스크 주소를 채운다. 역할은 SUPPLIER / BRAND / PROCESSOR / ADMIN.",
+  "0x3cdA1c35B5F84c71C3Bc2A6c1A3C3aFC5D1C5F04": ["SUPPLIER"],
+  "0xc62aF11C2f7F5fbB39253e6ef7bDdd65BAda06Dd": ["BRAND"],
+  "0xf8d3867DC1eB2B7307E87fd1B02E576228Bcaa52": ["PROCESSOR"]
+}
