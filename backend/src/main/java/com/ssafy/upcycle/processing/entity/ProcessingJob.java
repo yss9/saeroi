@@ -22,7 +22,7 @@ public class ProcessingJob {
     @Column(name = "processor_wallet", nullable = false, length = 42) private String processorWallet;
     @Column(nullable = false) private long fee;
     @Column(name = "loss_quantity", nullable = false) private long lossQuantity;
-    @Column(name = "evidence_hash", length = 66) private String evidenceHash;
+    @Column(name = "evidence_hash", columnDefinition = "CHAR(66)") private String evidenceHash;
     @Column(name = "manifest_url", length = 500) private String manifestUrl;
     @Enumerated(EnumType.STRING) @Column(name = "payment_method", nullable = false) private PaymentMethod paymentMethod;
     @Column(name = "payment_reference", length = 100) private String paymentReference;
