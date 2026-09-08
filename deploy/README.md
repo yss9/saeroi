@@ -25,6 +25,7 @@ GIT_CONVENTION에 따라 develop / feat 하위 브랜치 없이 이 브랜치에
 │   ├── deploy-*.sh            # 파트 Jenkinsfile이 부르는 진입점 (deploy-service.sh 호출)
 │   ├── health-check.sh        # 컨테이너 + 엔드포인트 확인 (2xx만 통과)
 │   ├── check-schema.sh        # 배포 전 스키마 검증 — DB가 엔티티보다 오래되면 앱이 기동에 실패한다
+│   │                          #   없는 테이블·컬럼 + 컬럼 타입 불일치(CHAR vs VARCHAR 등)를 대조한다
 │   │                          #   테이블 0개(빈 DB)와 접속 실패를 구분해 보고한다
 │   ├── gitlab-status.sh       # 빌드 결과를 GitLab 커밋 상태로 보고 (초록 체크/빨간 X)
 │   ├── shell-aliases.sh       # 서버 단축 명령 (~/.bashrc 가 source)
@@ -124,9 +125,13 @@ bash scripts/health-check.sh
 
 # ── backend 배포 전에 반드시 ─────────────────────────────
 # application.yml 이 ddl-auto: validate 라서 스키마를 자동으로 만들지 않는다.
-# 엔티티가 기대하는 컬럼이 DB에 없으면 Hibernate 검증이 실패해 컨테이너가 죽는다.
-bash scripts/check-schema.sh          # 부족한 테이블·컬럼 보고 (읽기만 함)
+# 엔티티가 기대하는 컬럼이 DB에 없거나 타입이 다르면 Hibernate 검증이 실패해 컨테이너가 죽는다.
+# 컬럼 이름만 맞고 타입이 다른 경우도 실패한다 (2026-09-08 tx_hash CHAR(66) vs VARCHAR(66) 롤백).
+bash scripts/check-schema.sh          # 없는 테이블·컬럼 + 컬럼 타입 불일치 보고 (읽기만 함)
 bash scripts/check-schema.sh --ddl    # 적용할 DDL 출력
+SCHEMA_REF=origin/backend/master bash scripts/check-schema.sh   # 기준 브랜치 지정
+# 대조 범위: 테이블 존재 / 컬럼 존재 / 컬럼 타입.
+# NULL 허용·DEFAULT·인덱스는 일부러 보지 않는다 (거짓 양성이 많고 validate 도 보지 않는다).
 # → OK 를 확인한 뒤에 <파트>/master 로 올려 배포를 트리거한다
 # 이후 Jenkins 에서 backend/frontend/ai 의 <파트>/master 빌드를 실행하면
 # deploy-*.sh 가 실제 이미지로 교체한다. DB 는 scripts/restore-mysql.sh 로 복구.
