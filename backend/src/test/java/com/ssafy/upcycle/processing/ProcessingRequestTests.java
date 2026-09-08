@@ -274,6 +274,7 @@ class ProcessingRequestTests {
     @Test
     void processorSearchMatchesEveryPurposeAndReturnsCombinedQuantityBounds() throws Exception {
         jdbc.update("update processor_capability set min_quantity=100,max_quantity=900 where process_type='CUTTING'");
+        jdbc.update("insert into processor_lead_time(processor_profile_id,max_quantity,lead_days) values (?,1000,5)", processorId);
         mvc.perform(get("/processors/search").with(jwt().jwt(j -> j.subject(brandId.toString())))
                         .param("materialType", "DENIM").param("quantity", "500")
                         .param("processTypes", "CLEANING", "CUTTING"))
@@ -312,17 +313,18 @@ class ProcessingRequestTests {
     }
 
     @Test
-    void searchPaginationIsStableAndMissingLeadTimeIsNotInvented() throws Exception {
+    void searchPaginationIsStableForCompletelyRegisteredProcessors() throws Exception {
         Long second=users.save(User.register("second@test.com","hash","second","010",UserRole.PROCESSOR)).getId();
         jdbc.update("insert into processor_profile(user_id,region) values (?,'Busan')",second);
         jdbc.update("insert into processor_capability(processor_profile_id,material_type,process_type,min_quantity,max_quantity) values (?,'DENIM','CLEANING',1,1000),(?,'DENIM','CUTTING',1,1000)",second,second);
+        jdbc.update("insert into processor_lead_time(processor_profile_id,max_quantity,lead_days) values (?,1000,3),(?,1000,4)", processorId, second);
         mvc.perform(get("/processors/search").with(jwt().jwt(j -> j.subject(brandId.toString())))
                         .param("materialType","DENIM").param("quantity","100").param("processTypes","CLEANING,CUTTING")
                         .param("page","1").param("size","1"))
                 .andExpect(status().isOk()).andExpect(jsonPath("data.total").value(2))
                 .andExpect(jsonPath("data.items.length()").value(1))
                 .andExpect(jsonPath("data.items[0].processorId").value(second))
-                .andExpect(jsonPath("data.items[0].estimatedLeadDays").value(org.hamcrest.Matchers.nullValue()));
+                .andExpect(jsonPath("data.items[0].estimatedLeadDays").value(4));
     }
 
     @Test

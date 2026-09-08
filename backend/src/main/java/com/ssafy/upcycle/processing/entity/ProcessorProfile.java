@@ -14,4 +14,17 @@ public class ProcessorProfile {
     private Long userId;
     @Column(name = "region", nullable = false, length = 100)
     private String region;
+
+    private ProcessorProfile(Long userId, String region) {
+        this.userId = userId;
+        this.region = region;
+    }
+
+    public static ProcessorProfile register(Long userId, String region) {
+        return new ProcessorProfile(userId, region.trim());
+    }
+
+    public void updateRegion(String region) {
+        this.region = region.trim();
+    }
 }

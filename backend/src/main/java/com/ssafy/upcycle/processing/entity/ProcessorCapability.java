@@ -27,6 +27,20 @@ public class ProcessorCapability {
     @Column(name = "max_quantity", nullable = false)
     private long maxQuantity;
 
+    private ProcessorCapability(Long processorProfileId, MaterialType materialType, ProcessType processType,
+            long minQuantity, long maxQuantity) {
+        this.processorProfileId = processorProfileId;
+        this.materialType = materialType;
+        this.processType = processType;
+        this.minQuantity = minQuantity;
+        this.maxQuantity = maxQuantity;
+    }
+
+    public static ProcessorCapability of(Long processorProfileId, MaterialType materialType, ProcessType processType,
+            long minQuantity, long maxQuantity) {
+        return new ProcessorCapability(processorProfileId, materialType, processType, minQuantity, maxQuantity);
+    }
+
     public boolean accepts(long quantity) {
         return minQuantity <= quantity && quantity <= maxQuantity;
     }
