@@ -41,6 +41,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 /**
  * 증빙 파일 조회·삭제의 <b>HTTP 표면</b>. S15P21E104-162.
@@ -54,6 +55,9 @@ import org.springframework.test.web.servlet.MockMvc;
  *   <li>실패는 다른 API 와 <b>같은 봉투</b>다 — 프론트가 여기만 다르게 분기하지 않아도 된다
  *   <li>토큰이 없으면 컨트롤러에 닿기 전에 401 이다 ({@code SecurityConfig} 를 고치지 않았다
  *       는 사실을 이 테스트가 고정한다)
+ *   <li><b>목록은 보는 사람에 따라 모양이 다르다</b> (S15P21E104-286 §6-1) — 관계가 없는
+ *       인증 사용자의 응답에는 파일명·해시·업로더가 <b>본문 어디에도</b> 없다.
+ *       판정 자체는 {@code EvidenceListServiceTests} 가 확인한다
  * </ul>
  */
 @SpringBootTest
@@ -210,14 +214,89 @@ class EvidenceFileControllerTests {
     void theUploadResponseCarriesTheContentPath() throws Exception {
         Long evidenceFileId = uploadEvidence();
 
+        mockMvc.perform(list(uploaderToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.visibility").value("FULL"))
+                .andExpect(jsonPath("$.data.files[0].contentPath")
+                        .value("/api/evidence/" + evidenceFileId + "/content"))
+                .andExpect(jsonPath("$.data.files[0].deletedAt").doesNotExist());
+    }
+
+    // ── 목록 인가 (S15P21E104-286 §6-1) ──────────────────────
+
+    /**
+     * <b>관계 없는 인증 사용자의 응답에 민감한 값이 하나도 들어 있지 않다.</b>
+     *
+     * <p>고치기 전 이 엔드포인트는 JWT 를 받지 않았고, 로그인한 아무나 {@code referenceId} 만
+     * 바꿔 가며 남의 소재 증빙 목록을 통째로 봤다. 파일 바이트는
+     * {@code EvidenceAccessPolicy} 가 막았지만 {@code 계근표_OO상사.pdf} 라는 이름 하나로
+     * 거래 상대가 드러나고, 계근표에는 중량·단가가 찍혀 있다.
+     *
+     * <p><b>필드 이름이 아니라 응답 본문 전체를 본다.</b> {@code jsonPath} 로 알려진 필드만
+     * 확인하면 <b>나중에 추가되는 필드가 조용히 새어 나가고</b>, 응답 모양을 바꾸면 단언이
+     * 지나가 버린다. 여기서는 "이 값들이 본문 어디에도 없다" 를 못 박는다.
+     */
+    @Test
+    void doesNotLeakFileNamesHashesOrUploadersToAnUnrelatedUser() throws Exception {
+        Long evidenceFileId = uploadEvidence();
+        var stored = evidenceFileRepository.findByIdAndDeletedAtIsNull(evidenceFileId).orElseThrow();
+
+        String body = mockMvc.perform(list(strangerToken))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(StandardCharsets.UTF_8);
+
+        assertThat(body)
+                .as("파일명(storageKey) 하나로 거래 상대가 드러난다")
+                .doesNotContain(stored.getFileUrl())
+                .as("fileHash 는 온체인 대조용이고 관계 있는 사람에게만 뜻이 있다")
+                .doesNotContain(stored.getFileHash())
+                .as("contentPath 는 증빙 id 를 그대로 노출한다")
+                .doesNotContain("/content")
+                .as("업로더 id 는 누가 이 소재를 다루는지 알려준다")
+                .doesNotContain("uploadedBy");
+    }
+
+    /**
+     * 그래도 <b>개수는 보여준다.</b> 소재 상세는 추적성 화면이라 "계근표 1건 있음" 은
+     * 공개 가치가 있다. 목록을 통째로 403 으로 막으면 그 섹션이 대부분 방문자에게 빈칸이 된다.
+     */
+    @Test
+    void showsOnlyTheCountsByEvidenceTypeToAnUnrelatedUser() throws Exception {
+        uploadEvidence();
+
+        mockMvc.perform(list(strangerToken))
+                .andExpect(status().isOk())
+                // 응답에 "가려졌다" 는 사실이 실려 나간다 — 필드를 조용히 빼면 프론트가
+                // "값이 없는 것" 과 "가려진 것" 을 구분할 수 없다.
+                .andExpect(jsonPath("$.data.visibility").value("SUMMARY"))
+                .andExpect(jsonPath("$.data.files").doesNotExist())
+                .andExpect(jsonPath("$.data.summary[0].evidenceType").value("BEFORE_PHOTO"))
+                .andExpect(jsonPath("$.data.summary[0].count").value(1));
+    }
+
+    /**
+     * 인증 요구는 그대로다.
+     *
+     * <p>비회원에게 요약을 열지는 Matrix §6-3 · §6-4 (기획 결정)에 걸려 있고 <b>미결</b>이다.
+     * 이번 변경은 인증된 사용자 사이의 구분만 한다 — 그 사실을 이 테스트가 고정한다.
+     */
+    @Test
+    void theListStillRequiresAuthentication() throws Exception {
+        uploadEvidence();
+
         mockMvc.perform(get("/api/evidence")
                         .param("referenceType", "MATERIAL")
-                        .param("referenceId", String.valueOf(materialId))
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + uploaderToken))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[0].contentPath")
-                        .value("/api/evidence/" + evidenceFileId + "/content"))
-                .andExpect(jsonPath("$.data[0].deletedAt").doesNotExist());
+                        .param("referenceId", String.valueOf(materialId)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    private MockHttpServletRequestBuilder list(String token) {
+        return get("/api/evidence")
+                .param("referenceType", "MATERIAL")
+                .param("referenceId", String.valueOf(materialId))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
     }
 
     // ── 삭제 ────────────────────────────────────────────────
