@@ -4,6 +4,7 @@ import {
   EmptyState,
   ErrorMessage,
   FileUploader,
+  LocalFilePreview,
   Loading,
   Select,
 } from '../../../components/common/index.ts'
@@ -18,6 +19,8 @@ import {
   type EvidenceReferenceType,
   type EvidenceType,
 } from '../types/evidence.types.ts'
+import { EvidencePreview } from './EvidencePreview.tsx'
+import './evidence.css'
 
 export interface EvidenceUploadProps {
   referenceType: EvidenceReferenceType
@@ -57,11 +60,28 @@ export interface EvidenceUploadProps {
  * 올라가는 중이라고 생각한다. 앞에서 막으면 <b>고르는 순간</b> 이유를 알 수 있다.
  * 그리고 목록이 서버와 어긋나면 조용히 실패하므로 값을 한곳
  * ({@code evidence.types.ts})에서만 정의한다.
+ *
+ * <p><b>검증 자체는 이 컴포넌트가 하지 않는다</b> — 형식·크기·개수와 거절 문구는
+ * 공통 {@code FileUploader} 가 맡는다 (S15P21E104-253). 도메인이 하는 일은 정책 값을
+ * 넘기는 것뿐이다. 여기서 다시 세면 같은 규칙이 두 곳에 생긴다.
+ *
+ * <h2>미리보기는 두 번 나온다</h2>
+ *
+ * <ul>
+ *   <li><b>올리기 전</b> — 고른 파일을 브라우저가 가진 바이트로 그린다
+ *       ({@code LocalFilePreview}). 증빙은 되돌릴 수 없으니 무엇이 올라가는지 눈으로
+ *       확인할 기회가 있어야 한다</li>
+ *   <li><b>올린 뒤</b> — 서버 파일을 {@code EvidencePreview} 가 그린다. 눌러야 받는다
+ *       (파일 10개 × 10MB 를 목록만 그리면서 내려받지 않는다)</li>
+ * </ul>
+ *
+ * <p>둘 다 {@code <img src={contentPath}>} 가 아니다 — 조회 경로가 Authorization 헤더를
+ * 요구해서 브라우저가 스스로 보내는 요청은 401 을 받는다
+ * ({@code api/getEvidenceContent.ts} 주석).
  */
 export function EvidenceUpload({ referenceType, referenceId, readOnly }: EvidenceUploadProps) {
   const [evidenceType, setEvidenceType] = useState<EvidenceType>('BEFORE_PHOTO')
   const [selected, setSelected] = useState<File[]>([])
-  const [tooMany, setTooMany] = useState(false)
 
   const list = useEvidence(referenceType, referenceId)
   const upload = useUploadEvidence()
@@ -94,41 +114,72 @@ export function EvidenceUpload({ referenceType, referenceId, readOnly }: Evidenc
             onChange={(event) => setEvidenceType(event.target.value as EvidenceType)}
           />
 
+          {/*
+            형식·크기·개수 검증과 거절 문구는 모두 공통 컴포넌트가 한다 (S15P21E104-253).
+            여기서 다시 세면 같은 규칙이 두 곳에 생기고, 상한을 고칠 때 한쪽이 남는다.
+            도메인이 하는 일은 **정책 값을 넘기는 것**뿐이다.
+          */}
           <FileUploader
-            label={`파일 선택 (최대 ${EVIDENCE_MAX_FILES}개, 개당 10MB)`}
+            label="파일 선택"
+            hint={`사진(jpg·png·webp)과 pdf 를 최대 ${EVIDENCE_MAX_FILES}개, 개당 10MB 까지 올릴 수 있습니다.`}
             accept={EVIDENCE_ACCEPT}
             multiple
             maxSizeBytes={EVIDENCE_MAX_FILE_SIZE}
-            disabled={upload.isPending}
-            onChange={(files) => {
-              // 개수 초과를 조용히 잘라내지 않는다. 잘라내면 사용자는 10개를 골랐는데
-              // 몇 개가 왜 빠졌는지 모른다.
-              setTooMany(files.length > EVIDENCE_MAX_FILES)
-              setSelected(files.length > EVIDENCE_MAX_FILES ? [] : files)
-            }}
+            maxFiles={EVIDENCE_MAX_FILES}
+            uploading={upload.isPending}
+            progress={upload.progress}
+            onChange={setSelected}
           />
-
-          {tooMany && (
-            <p role="alert">
-              한 번에 {EVIDENCE_MAX_FILES}개까지 올릴 수 있습니다. 나눠서 올려 주세요.
-            </p>
-          )}
 
           {selected.length > 0 && (
             <>
               {/*
-                올리기 전에 목록을 보여준다. 증빙은 되돌릴 수 없으므로 무엇이 올라가는지
-                확인할 기회가 있어야 한다.
+                올리기 전에 목록과 미리보기를 보여준다. 증빙은 되돌릴 수 없으므로 무엇이
+                올라가는지 **눈으로** 확인할 기회가 있어야 한다 — 파일명만으로는 사진
+                열 장 중 어느 것을 잘못 골랐는지 알 수 없다.
+
+                미리보기는 서버를 거치지 않는다. 아직 올라가지 않았고, 브라우저는 이미
+                바이트를 갖고 있다.
               */}
-              <ul aria-label="올릴 파일">
+              <ul className="evidence__selected" aria-label="올릴 파일">
                 {selected.map((file) => (
-                  <li key={`${file.name}-${file.size}`}>{file.name}</li>
+                  <li key={`${file.name}-${file.size}`}>
+                    <LocalFilePreview file={file} />
+                    <span>{file.name}</span>
+                  </li>
                 ))}
               </ul>
               <Button type="button" onClick={submit} loading={upload.isPending}>
                 증빙 {selected.length}개 올리기
               </Button>
             </>
+          )}
+
+          {/*
+            업로드 결과.
+
+            <b>서버는 일부만 성공시키지 않는다.</b> `EvidenceUploadService` 는 검증을 모두
+            끝낸 뒤에 첫 바이트를 쓰고, 중간에 실패하면 이미 쓴 파일을 지우고 트랜잭션을
+            되돌린다. 그래서 결과는 "전부 올라갔다" 또는 "하나도 안 올라갔다" 뿐이고,
+            **파일별 성공/실패 표를 만들 수 없다** — 만들면 서버가 하지 않는 약속을
+            화면이 하는 것이 된다.
+
+            대신 성공한 건에 대해 **무엇이 올라갔는지**를 파일별로 밝힌다. 증빙은 지울 수
+            없으므로 사용자가 방금 남긴 기록을 확인할 수 있어야 하고, 해시는 온체인에
+            올라가는 값이라 대조에 쓰인다.
+          */}
+          {upload.isSuccess && upload.data.length > 0 && (
+            <div className="evidence__result" role="status">
+              <p>증빙 {upload.data.length}개를 올렸습니다.</p>
+              <ul aria-label="업로드 결과">
+                {upload.data.map((file) => (
+                  <li key={file.evidenceFileId}>
+                    {EVIDENCE_TYPE_LABEL[file.evidenceType]}
+                    <span className="evidence__hash">{file.fileHash}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
 
           {upload.isError && <ErrorMessage error={upload.error} />}
@@ -177,16 +228,17 @@ export function EvidenceUpload({ referenceType, referenceId, readOnly }: Evidenc
                     파일 이름(storageKey)이 아니라 해시를 보여준다. storageKey 는 URL 이
                     아니라 저장소 경로라 <img src> 에 넣으면 깨진 이미지가 되고, 해시는
                     온체인에 올라간 값이라 사용자가 대조할 수 있다.
-
-                    파일을 되돌려주는 엔드포인트는 이제 있다 (contentPath →
-                    GET /api/evidence/{id}/content). 다만 미리보기 UI 는 별도 작업이라
-                    이 브랜치에서 만들지 않는다 — 그래서 아직 "준비 중" 이라고 말한다.
                   */}
                   <p className="evidence__hash">{file.fileHash}</p>
                   <p>
                     <time dateTime={file.uploadedAt}>{formatDateTime(file.uploadedAt)}</time>
-                    {' · 미리보기 준비 중'}
                   </p>
+                  {/*
+                    미리보기는 여기까지 온 파일에만 붙는다. visibility 가 FULL 이 아니면
+                    서버가 evidenceFileId · contentPath 를 아예 주지 않으므로 이 분기에
+                    들어올 수 없다.
+                  */}
+                  <EvidencePreview file={file} />
                 </li>
               ))}
             </ul>
