@@ -50,6 +50,38 @@ public final class FileContentPolicy {
         return extension;
     }
 
+    /**
+     * 저장 키의 확장자로 <b>응답에 쓸 미디어 타입</b>을 정한다.
+     *
+     * <p>저장소가 들고 있는 메타데이터(S3 객체의 {@code Content-Type})를 쓰지 않는다.
+     * 이유가 둘이다.
+     *
+     * <ol>
+     *   <li>로컬 구현에는 그런 메타데이터가 <b>없다.</b> 저장소를 바꾸면 같은 파일이 다른
+     *       타입으로 나가고, 브라우저 동작이 달라진다
+     *   <li>메타데이터는 업로드 시점에 클라이언트가 선언한 값이 흘러 들어간 것이다.
+     *       확장자는 {@link #requireAcceptable} 를 통과한 값이라 <b>화이트리스트 안에 있는
+     *       것이 보장된다</b> — 파생하는 편이 좁다
+     * </ol>
+     *
+     * @param storageKey {@code store} 가 만든 키. 확장자만 본다
+     */
+    public static String mediaTypeOf(String storageKey) {
+        String extension = requireAllowedExtension(storageKey);
+        return DOCUMENT_EXTENSIONS.contains(extension) ? PDF_CONTENT_TYPE : imageType(extension);
+    }
+
+    private static String imageType(String extension) {
+        return switch (extension) {
+            case "jpg", "jpeg" -> "image/jpeg";
+            case "png" -> "image/png";
+            case "webp" -> "image/webp";
+            // requireAllowedExtension 을 통과한 값만 오므로 닿지 않는다. 화이트리스트가
+            // 늘었는데 여기를 안 고치면 이 예외가 그 사실을 알려 준다.
+            default -> throw new BusinessException(FileStorageErrorCode.FILE_TYPE_NOT_ALLOWED);
+        };
+    }
+
     private static String requireAllowedExtension(String originalFilename) {
         if (originalFilename == null || originalFilename.isBlank()) {
             throw new BusinessException(FileStorageErrorCode.FILE_TYPE_NOT_ALLOWED);

@@ -434,20 +434,42 @@ Journey 를 한 단계씩 거슬러 올라갈 때마다 Processing 과 Productio
 | evidence_type | ENUM | BEFORE_PHOTO / AFTER_PHOTO / WEIGHT_SLIP / INVOICE / PROCESS_PHOTO / ETC |
 | uploaded_by | BIGINT FK | 올린 사용자. JWT `sub` 에서 얻는다 |
 | uploaded_at | DATETIME |  |
+| deleted_at | DATETIME NULL | 소프트 삭제 시각. NULL 이면 살아 있다 |
+| deleted_by | BIGINT FK NULL | 지운 사용자. 등록자도 지울 수 있어 `uploaded_by` 로는 답할 수 없다 |
 
-INDEX `(reference_type, reference_id)`, `uploaded_by`
+INDEX `(reference_type, reference_id, deleted_at)`, `uploaded_by`
 
 **`file_url` 은 URL 이 아니라 저장 키다.**
 저장소 루트 기준 상대 경로(`MATERIAL/1024/2026/09/<uuid>.jpg`)를 담는다.
 절대 URL 을 넣으면 도메인이나 버킷이 바뀔 때 모든 행을 고쳐야 하고, MinIO/S3 로 옮길 때
-(S15P21E104-162) 그 이관이 실패하면 파일을 찾을 수 없다. 공개 URL 은 조회 시점에 조립한다.
+(S15P21E104-162) 그 이관이 실패하면 파일을 찾을 수 없다.
+
+**파일은 `GET /api/evidence/{id}/content` 로 받는다.** 이 값으로 저장소에 직접 붙을 수 없다.
+presigned URL 을 발급하지 않은 이유는 (1) `app.storage.type=local` 배포에 대응물이 없어
+저장소를 바꾸면 조회가 통째로 깨지고, (2) 발급된 URL 은 만료 전까지 토큰 없이 통해
+링크가 새는 순간 인가가 사라지기 때문이다. 증빙은 남의 소재 자료다.
 
 **`reference_id` 에 FK 가 없다 = DB 가 대상 존재를 막아 주지 않는다.**
 `EvidenceReferenceValidator` 가 확인한다. 확인하지 않으면 없는 소재를 가리키는 증빙 행이
 남고, 그 파일의 해시는 온체인에 올라갈 수 있다 — 그 뒤에는 무엇의 증빙인지 알 방법이 없다.
 
-**증빙 행은 지우지 않는다.** `file_hash` 가 온체인에 기록되므로, 지우면 온체인에는 해시가
-남아 있는데 무엇의 해시인지 알 수 없는 상태가 된다. 잘못 올린 파일은 새로 올린다.
+**증빙 행은 지우지 않는다 — 소프트 삭제만 한다.** `file_hash` 가 온체인 manifest 에 들어갈 수
+있으므로, 행을 지우면 체인에는 해시가 남아 있는데 무엇의 해시인지 알 수 없는 상태가 된다.
+그래서 `DELETE /api/evidence/{id}` 는 `deleted_at` 을 채우고 저장소의 바이트만 실제로 지운다.
+
+삭제 정책 (`EvidenceDeletionPolicy`):
+
+| 조건 | 코드 | HTTP |
+| --- | --- | --- |
+| 행이 없거나 이미 삭제됨 | `EVIDENCE_NOT_FOUND` | 404 |
+| 업로더도 대상 소재 등록자도 아님 | `EVIDENCE_DELETE_FORBIDDEN` | 403 |
+| 대상이 온체인에 고정됨 (`material.token_id` 또는 `material.evidence_hash` 존재) | `EVIDENCE_ANCHORED_ON_CHAIN` | 409 |
+| 확인할 수 없는 `reference_type` | `EVIDENCE_REFERENCE_NOT_SUPPORTED` | 400 |
+
+온체인 고정 판정이 **개별 파일이 아니라 대상 단위**인 것은 manifest 때문이다. 체인에는
+manifest 해시 하나만 올라가므로 어느 파일이 그 안에 들어갔는지 행만 보고는 알 수 없다.
+모르는 상태에서 하나라도 지우면 manifest 재계산이 영구히 불가능해진다.
+`MaterialToken.verifyEvidence` 가 비교할 대상이 사라지는 것이다.
 
 **Evidence Manifest 방식**
 
