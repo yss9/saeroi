@@ -87,7 +87,7 @@ class TradeReceiptServiceTests {
         trade = tradeRepository.save(MaterialTrade.create(
                 "TRD-000001", listing.getId(), MATERIAL_ID, SELLER_ID, BUYER_ID,
                 SELLER_WALLET, BUYER_WALLET, TRADE_QUANTITY, 200_000L, PaymentMethod.MOCK));
-        trade.markPaid("T1234", 200_000L, LocalDateTime.now());
+        trade.markPaid("T1234", 200_000L, LocalDateTime.now(), PaymentMethod.MOCK);
         trade.ship(LocalDateTime.now());
         shippingRepository.save(TradeShipping.of(
                         trade.getId(), "김구매", "010-0000-0000", "04766", "서울시 성동구", "101동"))
@@ -153,7 +153,7 @@ class TradeReceiptServiceTests {
         MaterialTrade wholeTrade = tradeRepository.save(MaterialTrade.create(
                 "TRD-000002", trade.getListingId(), MATERIAL_ID, SELLER_ID, BUYER_ID,
                 SELLER_WALLET, BUYER_WALLET, LISTING_QUANTITY, 300_000L, PaymentMethod.MOCK));
-        wholeTrade.markPaid("T9999", 300_000L, LocalDateTime.now());
+        wholeTrade.markPaid("T9999", 300_000L, LocalDateTime.now(), PaymentMethod.MOCK);
         wholeTrade.ship(LocalDateTime.now());
         shippingRepository.save(TradeShipping.of(
                         wholeTrade.getId(), "김구매", "010-0000-0000", "04766", "서울시 성동구", null))
@@ -199,7 +199,7 @@ class TradeReceiptServiceTests {
         MaterialTrade paidOnly = tradeRepository.save(MaterialTrade.create(
                 "TRD-000003", trade.getListingId(), MATERIAL_ID, SELLER_ID, BUYER_ID,
                 SELLER_WALLET, BUYER_WALLET, 1_000L, 10_000L, PaymentMethod.MOCK));
-        paidOnly.markPaid("T5555", 10_000L, LocalDateTime.now());
+        paidOnly.markPaid("T5555", 10_000L, LocalDateTime.now(), PaymentMethod.MOCK);
         entityManager.flush();
 
         assertThatFails(
@@ -249,7 +249,7 @@ class TradeReceiptServiceTests {
         MaterialTrade oversized = tradeRepository.save(MaterialTrade.create(
                 "TRD-000004", smallListing.getId(), MATERIAL_ID, SELLER_ID, BUYER_ID,
                 SELLER_WALLET, BUYER_WALLET, 5_000L, 50_000L, PaymentMethod.MOCK));
-        oversized.markPaid("T7777", 50_000L, LocalDateTime.now());
+        oversized.markPaid("T7777", 50_000L, LocalDateTime.now(), PaymentMethod.MOCK);
         oversized.ship(LocalDateTime.now());
         shippingRepository.save(TradeShipping.of(
                         oversized.getId(), "김구매", "010-0000-0000", "04766", "서울시 성동구", null))

@@ -144,7 +144,7 @@ class TradeShipmentServiceTests {
     @Test
     void tradeWithoutShippingAddressIsRejected() {
         MaterialTrade trade = tradeRepository.save(trade());
-        trade.markPaid("T1234", 200_000L, LocalDateTime.now());
+        trade.markPaid("T1234", 200_000L, LocalDateTime.now(), PaymentMethod.MOCK);
         entityManager.flush();
 
         assertThatFails(
@@ -161,7 +161,7 @@ class TradeShipmentServiceTests {
 
     private MaterialTrade paidTradeWithShipping() {
         MaterialTrade trade = tradeRepository.save(trade());
-        trade.markPaid("T1234", 200_000L, LocalDateTime.now());
+        trade.markPaid("T1234", 200_000L, LocalDateTime.now(), PaymentMethod.MOCK);
         shippingRepository.save(shipping(trade.getId()));
         entityManager.flush();
         return trade;

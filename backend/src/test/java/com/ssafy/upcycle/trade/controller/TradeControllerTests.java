@@ -110,7 +110,7 @@ class TradeControllerTests {
         trade = tradeRepository.save(MaterialTrade.create(
                 "TRD-000001", listing.getId(), materialId, seller.getId(), buyer.getId(),
                 SELLER_WALLET, BUYER_WALLET, 20_000L, 200_000L, PaymentMethod.MOCK));
-        trade.markPaid("T1234", 200_000L, LocalDateTime.now());
+        trade.markPaid("T1234", 200_000L, LocalDateTime.now(), PaymentMethod.MOCK);
         shippingRepository.save(TradeShipping.of(
                 trade.getId(), "김구매", "010-1111-1111", "04766", "서울시 성동구", "101동"));
     }
