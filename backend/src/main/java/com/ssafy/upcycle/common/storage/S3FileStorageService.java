@@ -12,13 +12,14 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.UUID;
+import software.amazon.awssdk.core.exception.AbortedException;
+import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
-import software.amazon.awssdk.services.s3.model.S3Exception;
 
 /**
  * MinIO / S3 구현. S15P21E104-162 · S15P21E104-248.
@@ -48,6 +49,17 @@ import software.amazon.awssdk.services.s3.model.S3Exception;
  *
  * <p>임시 파일은 {@code finally} 에서 지운다. S3 객체는 PutObject 가 실패하면 아예
  * 만들어지지 않으므로(부분 업로드는 멀티파트에서만 생긴다) 따로 정리할 것이 없다.
+ *
+ * <h2>SDK 실패는 {@link SdkException} 으로 잡는다 — {@code S3Exception} 으로는 부족하다</h2>
+ *
+ * <p>MinIO 가 <b>도달 불가</b>일 때(컨테이너 정지, DNS 실패, 커넥션 타임아웃) SDK 가 던지는
+ * 것은 {@code S3Exception} 이 아니라 {@code SdkClientException} 이다. 둘은 상속 관계가 아니고
+ * 공통 조상이 {@link SdkException} 뿐이다 — 즉 {@code catch (S3Exception)} 은
+ * <b>"서비스가 오류를 응답한 경우" 만</b> 잡고 "서비스에 닿지도 못한 경우" 는 놓친다.
+ * 그래서 이 클래스의 세 메서드는 모두 {@link SdkException} 으로 잡는다.
+ *
+ * <p>단 {@link AbortedException}({@code SdkClientException} 의 하위 타입, 스레드 인터럽트·
+ * 요청 취소)은 저장 실패가 아니므로 {@code store}/{@code exists} 에서 그대로 다시 던진다.
  */
 public class S3FileStorageService implements FileStorageService {
 
@@ -97,7 +109,13 @@ public class S3FileStorageService implements FileStorageService {
 
             return new StoredFile(
                     key, originalFilename, contentType, written, FileHash.format(digest));
-        } catch (IOException | S3Exception failure) {
+        } catch (AbortedException aborted) {
+            // 인터럽트·요청 취소다. 저장 실패로 바꿔 내보내면 취소가 도메인 오류로 보고되고
+            // (500 FILE_STORAGE_FAILED) 호출부는 재시도할 근거가 없는데 재시도하게 된다.
+            // 임시 파일 정리(finally)는 그대로 하고 원래 신호를 올려보낸다.
+            throw aborted;
+        } catch (IOException | SdkException failure) {
+            // SdkException 이어야 한다 — 도달 불가는 SdkClientException 이고 S3Exception 이 아니다.
             throw new BusinessException(FileStorageErrorCode.FILE_STORAGE_FAILED);
         } finally {
             deleteQuietly(staged);
@@ -114,9 +132,18 @@ public class S3FileStorageService implements FileStorageService {
             }
             s3.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(storageKey).build());
             return true;
-        } catch (S3Exception failure) {
+        } catch (BusinessException | SdkException failure) {
             // 삭제 실패로 예외를 던지지 않는다. 호출부는 롤백 경로에서 이걸 부르는데,
             // 여기서 던지면 원래 실패 원인을 덮어쓴다 (로컬 구현과 같은 계약).
+            //
+            // 잡는 범위가 둘인 이유:
+            //   - SdkException  : 도달 불가(SdkClientException)와 서비스 오류(S3Exception)가
+            //                     형제 타입이라 공통 조상으로 잡아야 둘 다 걸린다.
+            //   - BusinessException : 위 exists() 는 계약대로 저장소 오류를 이 예외로 바꿔 던진다.
+            //                     그것을 여기서 흘리면 결국 롤백 경로에서 던지는 것과 같다.
+            //
+            // AbortedException(인터럽트) 도 여기서는 의도적으로 삼킨다 — 이 메서드는 이미
+            // 실패한 트랜잭션을 정리하는 자리이고, 무엇을 던져도 원래 원인을 덮는다.
             return false;
         }
     }
@@ -128,9 +155,15 @@ public class S3FileStorageService implements FileStorageService {
             return true;
         } catch (NoSuchKeyException absent) {
             return false;
-        } catch (S3Exception failure) {
+        } catch (AbortedException aborted) {
+            // 취소는 "있다/없다" 에 대한 답이 아니다. 도메인 오류로 바꾸지 않고 올려보낸다.
+            throw aborted;
+        } catch (SdkException failure) {
             // 권한 오류나 연결 실패를 "없음" 으로 답하면 호출부가 파일이 사라졌다고
             // 판단한다. 증빙 조회에서 그건 "증빙 없음" 으로 화면에 나가는 거짓이다.
+            //
+            // 도달 불가(SdkClientException)는 S3Exception 이 아니다. 예전에는 여기서
+            // 놓쳐 원시 SDK 예외가 그대로 밖으로 나가 ApiResponse 봉투 없는 500 이 됐다.
             throw new BusinessException(FileStorageErrorCode.FILE_STORAGE_FAILED);
         }
     }

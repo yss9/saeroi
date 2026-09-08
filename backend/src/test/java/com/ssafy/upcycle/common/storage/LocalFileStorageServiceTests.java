@@ -229,6 +229,14 @@ class LocalFileStorageServiceTests {
     }
 
     @Test
+    void deletingAKeyThatEscapesTheRootReportsFalseInsteadOfThrowing() {
+        // exists() 는 오염된 키에 예외를 던지는 것이 맞지만 delete() 는 롤백 경로에서 불린다 —
+        // 여기서 던지면 오염된 키 하나가 원래 실패 원인을 덮는다. 지운 것이 없는 것은
+        // 사실이므로 false 가 정직한 답이고, 그것이 FileStorageService#delete 의 계약이다.
+        assertThat(storage().delete("../../etc/passwd")).isFalse();
+    }
+
+    @Test
     void refusesToResolveAKeyThatEscapesTheRoot() {
         // DB 에 저장된 키가 오염됐을 때. 되찾는 쪽에 구멍이 있으면 파생 경로의 노력이 무의미하다.
         assertThatThrownBy(() -> storage().exists("../../etc/passwd"))
