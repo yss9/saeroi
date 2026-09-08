@@ -1,14 +1,23 @@
 package com.ssafy.upcycle.product.controller;
 
 import com.ssafy.upcycle.common.response.ApiResponse;
+import com.ssafy.upcycle.common.storage.FileContent;
 import com.ssafy.upcycle.product.dto.ProductModelRegisterRequest;
 import com.ssafy.upcycle.product.dto.ProductModelResponse;
 import com.ssafy.upcycle.product.dto.ProductModelStatusRequest;
+import com.ssafy.upcycle.product.service.ProductImageService;
 import com.ssafy.upcycle.product.service.ProductModelRegistrationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -36,6 +45,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ProductModelController {
 
     private final ProductModelRegistrationService productModelRegistrationService;
+    private final ProductImageService productImageService;
 
     /**
      * 제품 등록. {@code BRAND} 만 가능하다.
@@ -68,6 +78,43 @@ public class ProductModelController {
             @Valid @RequestBody ProductModelStatusRequest request) {
         return ApiResponse.success(
                 productModelRegistrationService.changeStatus(userId(jwt), productModelId, request));
+    }
+
+    /**
+     * 제품 대표 이미지. 마켓 목록·상세가 쓴다.
+     *
+     * <p><b>저장 키가 아니라 제품 id 로 받는다.</b> 키를 URL 에 넣게 하면 {@code ..} 나 남의
+     * 키를 찔러 볼 수 있고 그 검사는 틀리기 쉽다. 행에서 꺼내면 그런 요청이 만들어지지 않는다.
+     *
+     * <p><b>인증이 필요하다.</b> 마켓 자체가 로그인 뒤에 보이므로 이미지만 열어 둘 이유가
+     * 없다. 대신 브라우저는 {@code <img src>} 에 Authorization 헤더를 붙이지 않으므로,
+     * 프론트는 fetch 로 받아 blob URL 로 바꿔 써야 한다 — 증빙 이미지와 같은 방식이다.
+     *
+     * <h2>헤더</h2>
+     *
+     * <ul>
+     *   <li>{@code Content-Disposition: inline} — 사진은 화면에 그린다. 원본 파일명은 싣지
+     *       않는다: 한글·따옴표·개행이 들어간 이름은 헤더 인젝션이 되고 그 이름은 사용자가
+     *       정한 값이다
+     *   <li>{@code X-Content-Type-Options: nosniff} — 화이트리스트로 svg 를 막는 노력이
+     *       브라우저의 타입 추측으로 무의미해질 수 있다
+     *   <li>{@code Cache-Control: private} — 로그인 뒤에만 보이는 자료다. 공용 프록시가
+     *       캐시하면 다른 사용자에게 그대로 나간다
+     * </ul>
+     */
+    @GetMapping("/{productModelId}/thumbnail")
+    public ResponseEntity<Resource> thumbnail(@PathVariable Long productModelId) {
+        FileContent file = productImageService.readThumbnail(productModelId);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(file.contentType()))
+                .contentLength(file.size())
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.inline().build().toString())
+                .header(HttpHeaders.CACHE_CONTROL, "private, max-age=0, no-store")
+                .header("X-Content-Type-Options", "nosniff")
+                // InputStreamResource 는 한 번만 읽힌다. Spring 이 응답으로 흘린 뒤 닫아 준다.
+                .body(new InputStreamResource(file.stream()));
     }
 
     /**

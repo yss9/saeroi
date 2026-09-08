@@ -10,8 +10,6 @@ import com.ssafy.upcycle.product.entity.ProductModel;
 import com.ssafy.upcycle.product.entity.ProductModelStatus;
 import com.ssafy.upcycle.product.repository.ProductItemRepository;
 import com.ssafy.upcycle.product.repository.ProductModelRepository;
-import com.ssafy.upcycle.user.entity.User;
-import com.ssafy.upcycle.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,16 +27,22 @@ public class ProductModelRegistrationService {
 
     private final ProductModelRepository productModelRepository;
     private final ProductItemRepository productItemRepository;
-    private final UserRepository userRepository;
+    private final ProductSellerPolicy sellerPolicy;
+    private final ProductImageService productImageService;
 
     /**
      * 제품 모델을 등록한다. <b>{@code DRAFT} 로 시작한다.</b>
+     *
+     * <p>{@code thumbnailUrl} 은 이미지 업로드가 돌려준 저장 키다. 저장소에 실제로 있는지
+     * 확인하고 저장한다 — 확인하지 않으면 아무 문자열이나 통과하고, 이미지가 깨진 제품이
+     * 마켓에 올라간 뒤에야 드러난다.
      *
      * @param brandId JWT {@code sub} 에서 온 사용자 id. 요청 바디로 받지 않는다
      */
     @Transactional
     public ProductModelResponse register(Long brandId, ProductModelRegisterRequest request) {
-        requireProductCapableUser(brandId);
+        sellerPolicy.requireSeller(brandId);
+        productImageService.requireStoredImage(request.thumbnailUrl());
 
         ProductModel saved = productModelRepository.save(ProductModel.register(
                 request.name(),
@@ -106,24 +110,6 @@ public class ProductModelRegistrationService {
     private void requireNotDiscontinued(ProductModel model) {
         if (model.getStatus() == ProductModelStatus.DISCONTINUED) {
             throw new BusinessException(ProductErrorCode.PRODUCT_MODEL_DISCONTINUED);
-        }
-    }
-
-    /**
-     * 등록 자격을 확인한다.
-     *
-     * <p>JWT 의 {@code roles} 클레임을 믿지 않고 DB 를 다시 읽는다. 토큰은 발급 시점의
-     * 스냅샷이라, 정지되거나 역할이 바뀐 계정이 만료 전까지 등록을 계속할 수 있다.
-     * 소재 등록이 같은 이유로 같은 방식을 쓴다.
-     */
-    private void requireProductCapableUser(Long brandId) {
-        User user = userRepository.findById(brandId)
-                .orElseThrow(() -> new BusinessException(ProductErrorCode.PRODUCT_BRAND_NOT_FOUND));
-        if (!user.isActive()) {
-            throw new BusinessException(ProductErrorCode.PRODUCT_BRAND_SUSPENDED);
-        }
-        if (!user.getRole().canRegisterProduct()) {
-            throw new BusinessException(ProductErrorCode.PRODUCT_ROLE_NOT_ALLOWED);
         }
     }
 }

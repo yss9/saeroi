@@ -54,6 +54,40 @@ public enum ProductErrorCode implements ErrorCode {
      * <p>재고는 {@code product_item} 을 세어 구하므로, 개체가 없으면 마켓에 뜨자마자
      * 살 수 없는 제품이 된다.
      */
+    /** 파일이 붙지 않은 업로드 요청. */
+    PRODUCT_IMAGE_MISSING(
+            HttpStatus.BAD_REQUEST,
+            "PRODUCT_IMAGE_MISSING",
+            "이미지 파일이 필요합니다."),
+
+    /**
+     * 이미지가 아닌 파일을 제품 사진으로 올리려는 경우.
+     *
+     * <p>공용 저장소 정책({@code FileContentPolicy})은 PDF 도 받는다 — 증빙에는 계량증명서
+     * 같은 문서가 있기 때문이다. 제품 사진은 마켓에 {@code <img>} 로 걸리므로 그보다 좁다.
+     */
+    PRODUCT_IMAGE_TYPE_NOT_ALLOWED(
+            HttpStatus.BAD_REQUEST,
+            "PRODUCT_IMAGE_TYPE_NOT_ALLOWED",
+            "제품 이미지는 JPG, PNG, WEBP 만 올릴 수 있습니다."),
+
+    /**
+     * 등록 요청이 준 이미지 키가 저장소에 없는 경우.
+     *
+     * <p>이 검사가 없으면 프론트가 아무 문자열이나 보내도 등록이 성공하고, 나중에 이미지가
+     * 깨진 제품으로 드러난다. 그때는 이미 마켓에 올라가 있다.
+     */
+    PRODUCT_THUMBNAIL_NOT_STORED(
+            HttpStatus.BAD_REQUEST,
+            "PRODUCT_THUMBNAIL_NOT_STORED",
+            "업로드되지 않은 이미지입니다. 이미지를 먼저 올려 주세요."),
+
+    /** 제품 행은 있는데 그 이미지 파일이 저장소에서 사라진 경우. */
+    PRODUCT_THUMBNAIL_NOT_FOUND(
+            HttpStatus.NOT_FOUND,
+            "PRODUCT_THUMBNAIL_NOT_FOUND",
+            "제품 이미지를 찾을 수 없습니다."),
+
     PRODUCT_MODEL_HAS_NO_STOCK(
             HttpStatus.UNPROCESSABLE_ENTITY,
             "PRODUCT_MODEL_HAS_NO_STOCK",
