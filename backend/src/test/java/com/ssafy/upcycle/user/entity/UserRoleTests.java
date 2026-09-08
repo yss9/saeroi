@@ -22,4 +22,18 @@ class UserRoleTests {
     void consumerAndAdminCannotOwnAWallet(UserRole role) {
         assertThat(role.canOwnWallet()).isFalse();
     }
+
+    @ParameterizedTest
+    @EnumSource(value = UserRole.class, names = {"BRAND"})
+    void onlyABrandCanRegisterAProduct(UserRole role) {
+        assertThat(role.canRegisterProduct()).isTrue();
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = UserRole.class, names = {"SUPPLIER", "PROCESSOR", "CONSUMER", "ADMIN"})
+    void everyOtherRoleCannotRegisterAProduct(UserRole role) {
+        // 소재를 올릴 수 있다는 것과 제품을 팔 수 있다는 것은 별개 권한이다 —
+        // SUPPLIER 가 여기 섞이면 소재 등록 권한이 제품 등록까지 조용히 넓어진 것이다.
+        assertThat(role.canRegisterProduct()).isFalse();
+    }
 }
