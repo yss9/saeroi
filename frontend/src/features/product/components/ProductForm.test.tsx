@@ -1,0 +1,199 @@
+// 제품 등록 폼.
+//
+// 이 폼의 핵심은 **등록이 두 번의 요청이라는 것**이다. 이미지를 먼저 올려 받은 저장 키가
+// 등록 요청의 필수 필드다. 그래서 틀리면 안 되는 지점이 셋이다.
+//
+//   1) **이미지 없이 등록을 보내지 않는다** — 서버가 thumbnailUrl 을 @NotBlank 로 받는다.
+//      보내면 400 이고, 사용자는 다 채운 폼에서 이유를 모르는 실패를 본다.
+//   2) **업로드로 받은 키를 그대로 넘긴다** — 파일 이름이나 blob URL 을 넣으면 등록은
+//      성공하는데 이미지가 영원히 안 보인다.
+//   3) **등록이 판매 시작이 아니라는 것을 말한다** — 응답은 언제나 DRAFT·재고 0 이다.
+//
+// 모킹 경계는 API 모듈 두 개다.
+
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createAppError, ERROR_KIND } from '../../../utils/errors.ts'
+import type { ProductImageUpload, ProductModel } from '../types/product.types.ts'
+import { ProductForm } from './ProductForm.tsx'
+
+const api = vi.hoisted(() => ({ uploadProductImage: vi.fn(), createProductModel: vi.fn() }))
+vi.mock('../api/uploadProductImage.ts', () => ({ uploadProductImage: api.uploadProductImage }))
+vi.mock('../api/createProductModel.ts', () => ({ createProductModel: api.createProductModel }))
+
+const UPLOADED: ProductImageUpload = {
+  storageKey: 'product-images/2026/09/abc123.png',
+  originalFilename: 'tote.png',
+  contentType: 'image/png',
+  size: 204_800,
+  hash: '9f'.repeat(32),
+}
+
+const CREATED: ProductModel = {
+  productModelId: 31,
+  name: '업사이클 데님 토트백',
+  category: 'BAG',
+  brandId: 5,
+  price: 129_000,
+  description: '폐데님을 재단해 만든 토트백입니다.',
+  thumbnailUrl: UPLOADED.storageKey,
+  status: 'DRAFT',
+  stockQuantity: 0,
+  createdAt: '2026-09-08T10:00:00',
+}
+
+function image(name = 'tote.png', type = 'image/png'): File {
+  return new File(['fake-bytes'], name, { type })
+}
+
+function renderForm(onCreated?: (product: ProductModel) => void) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
+  render(
+    <QueryClientProvider client={queryClient}>
+      <ProductForm onCreated={onCreated} />
+    </QueryClientProvider>,
+  )
+  return userEvent.setup()
+}
+
+/** 이미지를 뺀 나머지 필드를 채운다. */
+async function fillFields(user: ReturnType<typeof userEvent.setup>) {
+  await user.type(screen.getByLabelText('제품명'), '업사이클 데님 토트백')
+  await user.selectOptions(screen.getByLabelText('카테고리'), 'BAG')
+  await user.type(screen.getByLabelText('판매가 (원)'), '129000')
+  await user.type(screen.getByLabelText('제품 설명'), '폐데님을 재단해 만든 토트백입니다.')
+}
+
+beforeEach(() => {
+  api.uploadProductImage.mockResolvedValue(UPLOADED)
+  api.createProductModel.mockResolvedValue(CREATED)
+})
+afterEach(() => {
+  cleanup()
+  vi.resetAllMocks()
+})
+
+describe('ProductForm', () => {
+  // 이 테스트가 이 파일의 존재 이유다.
+  it('이미지를 올리기 전에는 등록할 수 없다', async () => {
+    const user = renderForm()
+    await fillFields(user)
+
+    expect(screen.getByRole('button', { name: '제품 등록' })).toBeDisabled()
+    expect(api.createProductModel).not.toHaveBeenCalled()
+  })
+
+  it('파일을 고르는 즉시 업로드한다', async () => {
+    const user = renderForm()
+
+    await user.upload(screen.getByLabelText('대표 이미지'), image())
+
+    // 제출을 기다리지 않는다 — 실패 지점을 분리하기 위해 즉시 올린다.
+    await waitFor(() => expect(api.uploadProductImage).toHaveBeenCalledTimes(1))
+    expect(api.uploadProductImage.mock.calls[0][0]).toBeInstanceOf(File)
+    expect(api.createProductModel).not.toHaveBeenCalled()
+  })
+
+  it('업로드가 끝나면 등록할 수 있고, 받은 저장 키를 그대로 보낸다', async () => {
+    const user = renderForm()
+    await fillFields(user)
+    await user.upload(screen.getByLabelText('대표 이미지'), image())
+
+    const submit = screen.getByRole('button', { name: '제품 등록' })
+    await waitFor(() => expect(submit).toBeEnabled())
+    await user.click(submit)
+
+    await waitFor(() => expect(api.createProductModel).toHaveBeenCalledTimes(1))
+    expect(api.createProductModel.mock.calls[0][0]).toEqual({
+      name: '업사이클 데님 토트백',
+      category: 'BAG',
+      price: 129_000,
+      description: '폐데님을 재단해 만든 토트백입니다.',
+      // 파일 이름이나 blob URL 이 아니라 업로드 응답의 저장 키여야 한다.
+      thumbnailUrl: UPLOADED.storageKey,
+    })
+  })
+
+  it('업로드가 실패하면 등록을 막고 사유를 보여준다', async () => {
+    api.uploadProductImage.mockRejectedValue(
+      createAppError(ERROR_KIND.API_ERROR, {
+        code: 'PRODUCT_IMAGE_TYPE_NOT_ALLOWED',
+        message: '허용되지 않는 이미지 형식입니다.',
+        status: 400,
+      }),
+    )
+    const user = renderForm()
+    await fillFields(user)
+
+    await user.upload(screen.getByLabelText('대표 이미지'), image())
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('허용되지 않는 이미지 형식')
+    expect(screen.getByRole('button', { name: '제품 등록' })).toBeDisabled()
+  })
+
+  // 서버도 거절하지만(PRODUCT_IMAGE_TYPE_NOT_ALLOWED) 보내기 전에 막는다.
+  // accept 속성은 파일 선택창의 힌트일 뿐 강제가 아니다.
+  it('허용되지 않는 형식은 업로드하지 않는다', async () => {
+    const user = renderForm()
+
+    await user.upload(screen.getByLabelText('대표 이미지'), image('spec.pdf', 'application/pdf'))
+
+    expect(api.uploadProductImage).not.toHaveBeenCalled()
+  })
+
+  it('필수 항목을 비우면 등록하지 않고 어느 칸인지 알린다', async () => {
+    const user = renderForm()
+    await user.upload(screen.getByLabelText('대표 이미지'), image())
+    await waitFor(() => expect(screen.getByRole('button', { name: '제품 등록' })).toBeEnabled())
+
+    await user.click(screen.getByRole('button', { name: '제품 등록' }))
+
+    expect(await screen.findByText('제품명을 입력해 주세요.')).toBeInTheDocument()
+    expect(screen.getByText('카테고리를 선택해 주세요.')).toBeInTheDocument()
+    expect(screen.getByText('제품 설명을 입력해 주세요.')).toBeInTheDocument()
+    expect(api.createProductModel).not.toHaveBeenCalled()
+  })
+
+  // 서버는 소수를 조용히 버려 129000 으로 등록한다. 요청은 200 인데 가격만 달라진다.
+  it('판매가에 소수를 넣으면 막는다', async () => {
+    const user = renderForm()
+    await fillFields(user)
+    await user.clear(screen.getByLabelText('판매가 (원)'))
+    await user.type(screen.getByLabelText('판매가 (원)'), '129000.5')
+    await user.upload(screen.getByLabelText('대표 이미지'), image())
+    await waitFor(() => expect(screen.getByRole('button', { name: '제품 등록' })).toBeEnabled())
+
+    await user.click(screen.getByRole('button', { name: '제품 등록' }))
+
+    expect(await screen.findByText('판매가는 원 단위 정수로 입력해 주세요.')).toBeInTheDocument()
+    expect(api.createProductModel).not.toHaveBeenCalled()
+  })
+
+  it('등록하면 폼을 비우고 결과를 넘긴다', async () => {
+    const onCreated = vi.fn()
+    const user = renderForm(onCreated)
+    await fillFields(user)
+    await user.upload(screen.getByLabelText('대표 이미지'), image())
+    await waitFor(() => expect(screen.getByRole('button', { name: '제품 등록' })).toBeEnabled())
+
+    await user.click(screen.getByRole('button', { name: '제품 등록' }))
+
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith(CREATED))
+    // 브랜드는 제품을 여러 개 연달아 올린다. 남은 값이 다음 등록에 섞이면 안 된다.
+    expect(screen.getByLabelText('제품명')).toHaveValue('')
+    expect(screen.getByRole('button', { name: '제품 등록' })).toBeDisabled()
+  })
+
+  // 등록 결과는 언제나 DRAFT·재고 0 이다. 이 말을 빼면 사용자는 마켓에서 자기 제품을
+  // 찾다가 없다고 생각한다.
+  it('등록이 판매 시작이 아니라는 것을 알린다', () => {
+    renderForm()
+
+    expect(screen.getByText(/판매 준비\(DRAFT\)/)).toBeInTheDocument()
+    expect(screen.getByText(/생산으로 개체가 만들어진 뒤/)).toBeInTheDocument()
+  })
+})

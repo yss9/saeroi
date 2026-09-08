@@ -22,6 +22,7 @@ import { BrandProcessingPage } from '../../pages/processing/BrandProcessingPage.
 import { ProcessingPage } from '../../pages/processing/ProcessingPage.tsx'
 import { ProductDetailPage } from '../../pages/product/ProductDetailPage.tsx'
 import { ProductListPage } from '../../pages/product/ProductListPage.tsx'
+import { ProductRegisterPage } from '../../pages/product/ProductRegisterPage.tsx'
 import { ProductionPage } from '../../pages/production/ProductionPage.tsx'
 import { PassportPage } from '../../pages/traceability/PassportPage.tsx'
 import { PaymentReturnPage } from '../../pages/trade/PaymentReturnPage.tsx'
@@ -116,6 +117,8 @@ export const routes: RouteObject[] = [
         children: [
           { path: '/brand/processing', element: <BrandProcessingPage /> },
           { path: '/brand/production', element: <ProductionPage /> },
+          // 제품 등록. 서버도 BRAND 만 허용하고 역할을 DB 에서 다시 읽어 판단한다.
+          { path: '/brand/products/new', element: <ProductRegisterPage /> },
         ],
       },
 
