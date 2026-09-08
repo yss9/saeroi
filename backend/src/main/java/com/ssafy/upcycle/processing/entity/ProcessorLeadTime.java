@@ -19,4 +19,14 @@ public class ProcessorLeadTime {
     private long maxQuantity;
     @Column(name = "lead_days", nullable = false)
     private int leadDays;
+
+    private ProcessorLeadTime(Long processorProfileId, long maxQuantity, int leadDays) {
+        this.processorProfileId = processorProfileId;
+        this.maxQuantity = maxQuantity;
+        this.leadDays = leadDays;
+    }
+
+    public static ProcessorLeadTime of(Long processorProfileId, long maxQuantity, int leadDays) {
+        return new ProcessorLeadTime(processorProfileId, maxQuantity, leadDays);
+    }
 }

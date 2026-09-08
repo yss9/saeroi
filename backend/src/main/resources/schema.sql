@@ -142,7 +142,7 @@ CREATE TABLE processor_capability (
     CONSTRAINT fk_processor_capability_profile FOREIGN KEY (processor_profile_id)
         REFERENCES processor_profile (user_id),
     CONSTRAINT chk_processor_capability_quantity CHECK (
-        min_quantity >= 0 AND max_quantity >= min_quantity
+        min_quantity > 0 AND max_quantity >= min_quantity
     )
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 

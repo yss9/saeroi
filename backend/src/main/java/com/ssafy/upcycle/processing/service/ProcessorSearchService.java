@@ -48,6 +48,9 @@ public class ProcessorSearchService {
                 join processor_profile p on p.user_id=c.processor_profile_id
                 join users u on u.id=p.user_id
                 where u.role='PROCESSOR' and u.status='ACTIVE'
+                  and exists (select 1 from processor_lead_time configured
+                              where configured.processor_profile_id=p.user_id
+                                and configured.max_quantity>=:quantity)
                   and c.material_type=:materialType and c.process_type in (:purposes)
                   and c.min_quantity<=:quantity and c.max_quantity>=:quantity
                 group by p.user_id,u.name,p.region
