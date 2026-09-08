@@ -1,4 +1,6 @@
 import { OnChainPanel } from '../../../components/common/index.ts'
+import { contracts } from '../../../config/contracts.ts'
+import { env } from '../../../config/env.ts'
 import { useAuth } from '../../auth/hooks/useAuth.ts'
 import { useWalletStore } from '../../../stores/walletStore.ts'
 import { useMintMaterialOnChain } from '../hooks/useMintMaterialOnChain.ts'
@@ -18,12 +20,29 @@ import type { MaterialDetail } from '../types/material.types.ts'
 export function MaterialMintPanel({ material }: { material: MaterialDetail }) {
   const { user } = useAuth()
   const address = useWalletStore((state) => state.address)
+  const chainId = useWalletStore((state) => state.chainId)
   const mint = useMintMaterialOnChain()
 
   // 등록자만 서명할 수 있다 — 컨트랙트가 SUPPLIER_ROLE 을, 서버가 등록자 본인을 요구한다.
   // 다만 "온체인에 있는가" 는 누구에게나 보여야 하므로 패널 자체는 감추지 않는다.
   const actionable = user?.id === material.registrantId
-  const ready = actionable && address !== null && material.tokenId === null
+  const correctChain = env.besuChainIdHex !== null && chainId === env.besuChainIdHex
+  const ready =
+    actionable &&
+    address !== null &&
+    material.tokenId === null &&
+    correctChain &&
+    contracts.materialToken !== null
+
+  const blockedReason = (() => {
+    if (address === null) return '지갑을 먼저 연결해 주세요.'
+    if (env.besuChainIdHex === null) return 'SSAFY 네트워크 Chain ID 설정이 필요합니다.'
+    if (!correctChain) {
+      return `MetaMask를 SSAFY 네트워크(${BigInt(env.besuChainIdHex).toString()})로 전환해 주세요.`
+    }
+    if (contracts.materialToken === null) return 'MaterialToken 컨트랙트 주소 설정이 필요합니다.'
+    return undefined
+  })()
 
   return (
     <OnChainPanel
@@ -32,9 +51,13 @@ export function MaterialMintPanel({ material }: { material: MaterialDetail }) {
       onChainId={material.tokenId}
       actionable={actionable}
       ready={ready}
-      blockedReason={address === null ? '지갑을 먼저 연결해 주세요.' : undefined}
+      blockedReason={blockedReason}
       status={mint.status}
       hash={mint.hash}
+      blockNumber={mint.blockNumber}
+      walletAddress={address}
+      chainId={chainId}
+      contractAddress={contracts.materialToken}
       error={mint.error}
       isBusy={mint.isBusy}
       isRejected={mint.isRejected}

@@ -13,6 +13,7 @@
 
 import { Contract, Interface, type ContractRunner } from 'ethers'
 import { abis, contracts, type ContractName } from '../../config/contracts.ts'
+import { env } from '../../config/env.ts'
 import { getBrowserProvider, getSigner } from '../../features/wallet/services/walletService.ts'
 import { createAppError, ERROR_KIND } from '../../utils/errors.ts'
 
@@ -35,6 +36,23 @@ export function getReadContract(name: ContractName): Contract {
  * 즉 렌더링 중이 아니라 **이벤트 핸들러 안에서** 불러야 한다.
  */
 export async function getWriteContract(name: ContractName): Promise<Contract> {
+  const provider = getBrowserProvider()
+  if (!provider) throw createAppError(ERROR_KIND.WALLET_NOT_FOUND)
+
+  // 쓰기 호출은 반드시 배포된 SSAFY 체인에서만 보낸다. 헤더의 네트워크 경고만 믿으면
+  // 사용자가 경고를 보지 못한 채 다른 체인에 같은 주소로 서명할 수 있다.
+  if (!env.besuChainIdHex) {
+    throw createAppError(ERROR_KIND.WRONG_NETWORK, {
+      message: 'SSAFY 네트워크 Chain ID가 설정되지 않았습니다.',
+    })
+  }
+  const currentChainId = `0x${(await provider.getNetwork()).chainId.toString(16)}`
+  if (currentChainId !== env.besuChainIdHex) {
+    throw createAppError(ERROR_KIND.WRONG_NETWORK, {
+      message: `SSAFY 네트워크(${env.besuChainIdHex})로 전환해 주세요.`,
+    })
+  }
+
   const signer = await getSigner()
   return createContract(name, signer)
 }
