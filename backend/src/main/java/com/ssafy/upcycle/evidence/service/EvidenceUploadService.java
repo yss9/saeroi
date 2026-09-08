@@ -9,7 +9,6 @@ import com.ssafy.upcycle.evidence.EvidenceErrorCode;
 import com.ssafy.upcycle.evidence.dto.EvidenceFileResponse;
 import com.ssafy.upcycle.evidence.dto.EvidenceUploadRequest;
 import com.ssafy.upcycle.evidence.entity.EvidenceFile;
-import com.ssafy.upcycle.evidence.entity.EvidenceReferenceType;
 import com.ssafy.upcycle.evidence.repository.EvidenceFileRepository;
 import com.ssafy.upcycle.user.entity.User;
 import com.ssafy.upcycle.user.repository.UserRepository;
@@ -37,6 +36,12 @@ import org.springframework.web.multipart.MultipartFile;
  * <p>반대 순서(DB 먼저)로 두지 않은 이유는 저장 키와 해시가 파일을 실제로 써 봐야
  * 나오는 값이기 때문이다. 해시를 나중에 채우는 방식이면 <b>해시 없는 증빙 행</b>이
  * 잠시 존재하고, 그 창에서 온체인 기록이 일어나면 무엇의 해시인지 알 수 없게 된다.
+ *
+ * <h2>목록 조회는 여기 없다</h2>
+ *
+ * <p>{@code findAll} 은 {@link EvidenceListService} 로 옮겼다 (S15P21E104-286 §6-1).
+ * 목록에 인가가 필요해졌고, <b>요청자를 받지 않는 조회 메서드를 여기 남겨 두면 그것이
+ * 인가 우회 경로가 된다.</b>
  *
  * <p>지우기가 실패하면 파일만 남는다. 디스크를 쓰는 것으로 끝이고 DB 에는 그 파일을
  * 가리키는 행이 없어 아무도 보지 못한다. <b>원래 실패 원인을 덮는 것보다 낫다</b> —
@@ -97,27 +102,6 @@ public class EvidenceUploadService {
             stored.forEach(file -> fileStorageService.delete(file.storageKey()));
             throw failure;
         }
-    }
-
-    /**
-     * 한 대상의 <b>살아 있는</b> 증빙 목록. 업로드 순서를 리포지토리가 보장한다.
-     *
-     * <p>소프트 삭제된 행은 빠진다 (S15P21E104-162). 행이 남아 있는 것은 온체인 대조를
-     * 위한 것이고, 화면에는 지워진 증빙이 보이지 않는 것이 사용자가 요청한 결과다.
-     *
-     * <p>업로드 요청 DTO 를 재사용하지 않는다 — 그쪽은 {@code evidenceType} 이 필수인데
-     * 조회에는 그 값이 없다. 재사용하면 필수 필드에 {@code null} 을 넣어 통과시키게 되고,
-     * 그 순간 DTO 의 제약이 거짓이 된다.
-     */
-    @Transactional(readOnly = true)
-    public List<EvidenceFileResponse> findAll(
-            EvidenceReferenceType referenceType, Long referenceId) {
-        return evidenceFileRepository
-                .findByReferenceTypeAndReferenceIdAndDeletedAtIsNullOrderByUploadedAtAscIdAsc(
-                        referenceType, referenceId)
-                .stream()
-                .map(EvidenceFileResponse::from)
-                .toList();
     }
 
     private StoredFile store(FileReference reference, MultipartFile file) {
