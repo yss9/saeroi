@@ -73,7 +73,14 @@ class ProductSchemaMappingTests {
     }
 
     private static Stream<Class<?>> productDomainEntities() {
-        return Stream.of(ProductModel.class, ProductItem.class);
+        return Stream.of(
+                ProductModel.class,
+                ProductItem.class,
+                ProductOrder.class,
+                ProductOrderItem.class,
+                ProductShipping.class,
+                CanceledProductOrder.class,
+                CanceledProductOrderItem.class);
     }
 
     /**
@@ -83,7 +90,8 @@ class ProductSchemaMappingTests {
     private static Stream<Arguments> productEnumColumns() {
         return Stream.of(
                 Arguments.of("product_model", "status", ProductModelStatus.class),
-                Arguments.of("product_item", "status", ProductItemStatus.class));
+                Arguments.of("product_item", "status", ProductItemStatus.class),
+                Arguments.of("product_order", "status", ProductOrderStatus.class));
     }
 
     private Set<String> mappedColumns(Class<?> entityType) {
