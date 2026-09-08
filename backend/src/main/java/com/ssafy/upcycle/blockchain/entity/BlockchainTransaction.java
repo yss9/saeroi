@@ -54,7 +54,21 @@ public class BlockchainTransaction {
     @Column(name = "contract_address", nullable = false, length = 42)
     private String contractAddress;
 
-    @Column(name = "tx_hash", nullable = false, length = 66)
+    /**
+     * 트랜잭션 해시. {@code 0x} + 64 hex 로 <b>길이가 항상 정확히 66</b> 이라
+     * {@code schema.sql} 이 {@code CHAR(66)} 으로 잡아 두었다.
+     *
+     * <p>{@code length = 66} 만 적으면 Hibernate 는 {@code VARCHAR(66)} 을 기대해
+     * 운영 프로파일({@code ddl-auto: validate})에서 <b>기동 자체가 실패한다.</b>
+     * 2026-09-07 backend/master #10 이 이것 때문에 헬스체크 실패로 롤백됐다.
+     * 테스트 프로파일은 {@code create-drop} 이라 엔티티가 시키는 대로 테이블을
+     * 만들어버려 드러나지 않았다.
+     *
+     * <p>그래서 {@code columnDefinition} 으로 실제 타입을 못박는다 —
+     * {@code WalletNonce.nonce} · {@code EvidenceFile.fileHash} ·
+     * {@code Material.evidenceHash} 가 이미 쓰는 방식이다.
+     */
+    @Column(name = "tx_hash", nullable = false, columnDefinition = "CHAR(66)")
     private String txHash;
 
     @Enumerated(EnumType.STRING)
