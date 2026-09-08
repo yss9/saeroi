@@ -32,12 +32,16 @@ import java.util.concurrent.Future;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.web3j.crypto.Credentials;
 import org.web3j.crypto.ECKeyPair;
 import org.web3j.crypto.Keys;
@@ -67,6 +71,9 @@ class WalletAuthServiceTests {
 
     @Autowired
     private WalletNonceRepository walletNonceRepository;
+
+    @Autowired
+    private JwtDecoder jwtDecoder;
 
     @Autowired
     private MutableClock clock;
@@ -205,6 +212,45 @@ class WalletAuthServiceTests {
         assertThat(response.accessToken()).isNotBlank();
         assertThat(response.user().email()).isEqualTo("supplier@example.com");
         assertThat(response.user().role()).isEqualTo(UserRole.SUPPLIER);
+    }
+
+    /**
+     * S15P21E104-288 — 발급된 토큰의 {@code roles} 클레임이 <b>DB 의 역할 그대로</b>여야 한다.
+     *
+     * <p>이미 확인하는 곳이 있다 — {@code WalletAuthControllerTests} 가 HTTP 응답의 토큰을
+     * 디코드해 {@code roles} 를 본다. 그런데 <b>{@code SUPPLIER} 한 역할만</b> 본다.
+     * 한 역할만 확인하면 발급부가 역할을 읽지 않고 어딘가에 <b>고정</b>된 값을 넣어도
+     * 통과한다. 그래서 지갑을 가질 수 있는 세 역할({@code canOwnWallet()})을 모두 돈다.
+     *
+     * <p>{@code CONSUMER}·{@code ADMIN} 은 이 경로로 확인할 수 없다 — 지갑 로그인 자체가
+     * {@code WALLET_ROLE_NOT_ALLOWED} 로 막힌다(위 두 테스트). 그쪽 경계는
+     * {@code RoleAuthorizationIntegrationTests} 가 본다.
+     *
+     * <p>단언 세 개가 각각 다른 회귀를 잡는다 — <b>정확히 하나</b>(역할을 여러 개 싣기
+     * 시작하면 {@code hasRole} 판정이 조용히 넓어진다), <b>DB 역할과 일치</b>(발급부가
+     * 역할을 안 읽는 회귀), <b>{@code ROLE_} 접두어 없음</b>(붙이는 것은 읽는 쪽인
+     * {@code JwtAuthorityConverter} 다. 발급 시 붙이면 권한이 {@code ROLE_ROLE_*} 가 되어
+     * 모든 인가가 조용히 실패한다 — {@code JwtTokenService} 가 거부하는 이유다).
+     */
+    @ParameterizedTest
+    @EnumSource(value = UserRole.class, names = {"SUPPLIER", "BRAND", "PROCESSOR"})
+    void theIssuedTokenCarriesTheDatabaseRoleAsTheOnlyClaimValue(UserRole role) {
+        // 이 클래스의 Clock 은 고정 시각(2026-09-04)이라 그대로 발급하면 토큰이 이미 만료된
+        // 상태로 나온다. JwtDecoder 는 실제 시각으로 만료를 검증하므로 decode 가 실패한다.
+        // 여기서 재는 것은 만료가 아니라 클레임 값이므로 시계를 현재로 맞춘다.
+        clock.set(Instant.now());
+        // setUp 이 만들어 둔 소유자가 SUPPLIER 다. 같은 이메일로 다시 만들면 UNIQUE 가 깨진다.
+        if (role != UserRole.SUPPLIER) {
+            relinkWalletTo(role);
+        }
+        WalletNonceResponse issued = walletAuthService.issueNonce(nonceRequest(CHAIN_ID));
+
+        WalletLoginResponse response = walletAuthService.verify(verifyRequest(issued, KEY_PAIR));
+
+        Jwt jwt = jwtDecoder.decode(response.accessToken());
+        assertThat(jwt.getClaimAsStringList("roles")).containsExactly(role.name());
+        assertThat(response.user().role()).isEqualTo(role);
+        assertThat(jwt.getClaimAsStringList("roles")).noneMatch(value -> value.startsWith("ROLE_"));
     }
 
     @Test
