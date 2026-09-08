@@ -50,7 +50,7 @@ class MaterialTradeTests {
     void tradeWalksTheHappyPathInOrder() {
         MaterialTrade trade = trade();
 
-        trade.markPaid("T1234", 200_000L, NOW);
+        trade.markPaid("T1234", 200_000L, NOW, PaymentMethod.MOCK);
         assertThat(trade.getStatus()).isEqualTo(TradeStatus.PAID);
         assertThat(trade.getPaymentReference()).isEqualTo("T1234");
         assertThat(trade.getPaymentAmount()).isEqualTo(200_000L);
@@ -79,7 +79,7 @@ class MaterialTradeTests {
     @Test
     void unshippedTradeCannotConfirmReceipt() {
         MaterialTrade trade = trade();
-        trade.markPaid("T1234", 200_000L, NOW);
+        trade.markPaid("T1234", 200_000L, NOW, PaymentMethod.MOCK);
 
         assertThatThrownBy(() -> trade.confirmReceipt(NOW, NOW))
                 .isInstanceOf(IllegalStateException.class);
@@ -132,7 +132,7 @@ class MaterialTradeTests {
 
     private MaterialTrade shippedTrade() {
         MaterialTrade trade = trade();
-        trade.markPaid("T1234", 200_000L, NOW);
+        trade.markPaid("T1234", 200_000L, NOW, PaymentMethod.MOCK);
         trade.ship(NOW);
         return trade;
     }

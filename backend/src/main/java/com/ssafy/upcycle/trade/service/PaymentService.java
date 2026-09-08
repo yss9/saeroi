@@ -9,6 +9,7 @@ import com.ssafy.upcycle.trade.dto.TradeResponse;
 import com.ssafy.upcycle.trade.entity.ListingStatus;
 import com.ssafy.upcycle.trade.entity.MaterialListing;
 import com.ssafy.upcycle.trade.entity.MaterialTrade;
+import com.ssafy.upcycle.trade.entity.PaymentMethod;
 import com.ssafy.upcycle.trade.entity.TradeStatus;
 import com.ssafy.upcycle.trade.payment.KakaoPayProperties;
 import com.ssafy.upcycle.trade.payment.PaymentApproval;
@@ -126,7 +127,13 @@ public class PaymentService {
             throw new BusinessException(TradeErrorCode.PAYMENT_AMOUNT_MISMATCH);
         }
 
-        trade.markPaid(approval.tid(), approval.approvedAmount(), approval.approvedAt());
+        // 실제로 청구한 게이트웨이를 기록한다. 구매 요청이 보낸 결제 수단은 희망일 뿐이고,
+        // 어느 쪽이 붙었는지는 설정이 정한다 (PaymentGatewayConfig).
+        trade.markPaid(
+                approval.tid(),
+                approval.approvedAmount(),
+                approval.approvedAt(),
+                paymentGateway.isLive() ? PaymentMethod.KAKAO_PAY : PaymentMethod.MOCK);
         return tradeResponseAssembler.of(trade);
     }
 

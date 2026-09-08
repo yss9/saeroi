@@ -180,4 +180,22 @@ public class MaterialListing {
         this.availableQuantity += quantity;
         this.status = ListingStatus.ON_SALE;
     }
+
+    /**
+     * 온체인 Listing 번호를 연결한다. <b>한 번 정해지면 바뀌지 않는다.</b>
+     *
+     * <p>{@code MaterialTrade#assignChainTradeId} 와 같은 규칙이다. 덮어쓰기를 막는 이유도
+     * 같다 — 체인에는 판매글이 두 개 생기고 각각 수량을 잠그는데, DB 가 하나만 가리키면
+     * 나머지 잠금은 아무도 풀 수 없다.
+     */
+    public void assignChainListingId(Long chainListingId) {
+        if (this.chainListingId != null) {
+            throw new IllegalStateException(
+                    "Material listing chain id is already assigned: " + this.chainListingId);
+        }
+        if (chainListingId == null || chainListingId <= 0) {
+            throw new IllegalArgumentException("Material listing chain id must be positive");
+        }
+        this.chainListingId = chainListingId;
+    }
 }

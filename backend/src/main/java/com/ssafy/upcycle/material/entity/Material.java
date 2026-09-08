@@ -300,4 +300,35 @@ public class Material {
         }
         return value;
     }
+
+    /**
+     * 온체인 발행 결과를 연결한다. <b>한 번 정해지면 바뀌지 않는다.</b>
+     *
+     * <p>등록과 발행이 나뉜 이유는 <b>서명하는 주체가 서버가 아니기 때문</b>이다. mint 는
+     * 공급자 지갑이 직접 보내므로, 서버는 화면이 영수증을 받은 뒤에야 {@code tokenId} 를 안다.
+     * 그때까지 이 세 컬럼은 {@code NULL} 이고 그것이 "등록됐지만 아직 온체인에 없음" 상태다.
+     *
+     * <p>재배정을 막는 것이 핵심이다. 같은 소재를 두 번 mint 하면 체인에 서로 다른 토큰이
+     * 두 개 생기는데, 나중 것으로 덮어쓰면 앞의 토큰이 미아가 된다 — 잔액은 남아 있는데
+     * 우리 DB 에서 가리키는 곳이 없다.
+     */
+    public void linkOnChain(Long tokenId, Long chainId, String contractAddress) {
+        if (this.tokenId != null) {
+            throw new IllegalStateException("Material token id is already assigned: " + this.tokenId);
+        }
+        if (tokenId == null || tokenId <= 0) {
+            throw new IllegalArgumentException("Material token id must be positive");
+        }
+        if (chainId == null || chainId <= 0) {
+            throw new IllegalArgumentException("Material chain id must be positive");
+        }
+        if (contractAddress == null || contractAddress.length() != 42
+                || !contractAddress.startsWith("0x")) {
+            throw new IllegalArgumentException(
+                    "Material contract address must be a 0x-prefixed 42 character address");
+        }
+        this.tokenId = tokenId;
+        this.chainId = chainId;
+        this.contractAddress = contractAddress.toLowerCase();
+    }
 }

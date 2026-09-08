@@ -57,7 +57,11 @@ public enum MaterialErrorCode implements ErrorCode {
             "MATERIAL_ORIGIN_REASON_INVALID",
             "발생 사유가 소재 출처와 맞지 않습니다."),
     MATERIAL_UNIT_NOT_SUPPORTED(
-            HttpStatus.BAD_REQUEST, "MATERIAL_UNIT_NOT_SUPPORTED", "지원하지 않는 단위입니다.");
+            HttpStatus.BAD_REQUEST, "MATERIAL_UNIT_NOT_SUPPORTED", "지원하지 않는 단위입니다."),
+    MATERIAL_WALLET_NOT_LINKED(
+            HttpStatus.CONFLICT,
+            "MATERIAL_WALLET_NOT_LINKED",
+            "지갑을 먼저 등록해야 소재를 등록할 수 있습니다.");
 
     private final HttpStatus status;
     private final String code;

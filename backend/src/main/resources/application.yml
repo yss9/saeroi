@@ -55,6 +55,26 @@ app:
       base-url: ${KAKAOPAY_BASE_URL:https://open-api.kakaopay.com}
       # 결제창에서 돌아올 프론트 주소. {tradeId} 는 거래별로 치환된다.
       return-url: ${KAKAOPAY_RETURN_URL:http://localhost:5173/trades/{tradeId}/payment/return}
+  blockchain:
+    # 배포된 컨트랙트 좌표. 정본은 blockchain/deployments/ssafy.json 이다.
+    #
+    # 비어 있으면 온체인 기록 엔드포인트가 501 BLOCKCHAIN_NOT_CONFIGURED 로 거절한다.
+    # 빈 주소로 기록을 받으면 나중에 그것이 어느 배포분이었는지 알 수 없다.
+    #
+    # ⚠️ 프론트의 VITE_*_CONTRACT_ADDRESS 와 같은 배포분이어야 한다 —
+    #    어긋나면 화면은 새 컨트랙트에 서명하는데 서버는 옛 주소로 기록한다.
+    chain-id: ${BESU_CHAIN_ID:31221}
+    material-token-address: ${MATERIAL_TOKEN_ADDRESS:}
+    marketplace-address: ${MARKETPLACE_ADDRESS:}
+  material:
+    # 소재 최초 발행을 어디가 정본으로 하는가.
+    #
+    # false(기본) — OffChainMaterialIssuer. 등록 트랜잭션에서 material_balance 를 만든다.
+    # true        — 온체인 mint 를 정본으로 하는 구현이 붙을 자리. 아직 없다.
+    #
+    # 프로파일이 아니라 명시적 설정으로 고른다 (payment.kakaopay 와 같은 이유) —
+    # "운영인데 설정이 빠져 조용히 오프체인으로 돌았다" 가 가장 나쁘다.
+    on-chain: ${MATERIAL_ON_CHAIN:false}
   auth:
     wallet:
       # 지갑 서명용 1회용 nonce 유효 시간. 사용자가 MetaMask 팝업을 확인하는 데 걸리는

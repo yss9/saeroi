@@ -22,6 +22,10 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>조회는 {@link MaterialQueryService} 가 맡는다. 나눈 이유는 읽기 쪽이 앞으로
  * 잔량 집계를 얹으며 커지는데, 쓰기 쪽은 confirm 단계를 얹으며 커지기 때문이다.
+ *
+ * <p><b>보유 관계({@code material_balance})는 여기서 함께 만든다.</b> 온체인 여부와 무관하게
+ * "등록자가 전량을 보유한다" 는 사실은 성립하고, 그 행이 없으면 소재를 팔 수도 가공에 넣을
+ * 수도 없다. 발행 방식은 {@link MaterialIssuer} 가 정하므로 이 클래스는 mint 를 알지 못한다.
  */
 @Service
 @RequiredArgsConstructor
@@ -31,6 +35,7 @@ public class MaterialRegistrationService {
     private final UserRepository userRepository;
     private final MaterialCodeGenerator codeGenerator;
     private final MaterialCompositionRegistrar compositionRegistrar;
+    private final MaterialIssuer materialIssuer;
 
     /**
      * 소재를 등록한다.
@@ -64,6 +69,10 @@ public class MaterialRegistrationService {
         // 구성은 소재 id 가 확정된 뒤에만 저장할 수 있다 (FK). 같은 트랜잭션이라
         // 구성 검증이 실패하면 소재 행도 함께 롤백된다 — 구성 없는 소재가 남지 않는다.
         compositionRegistrar.register(saved.getId(), request.composition());
+        // 보유 관계도 같은 트랜잭션에서 만든다. 이것이 빠져 있으면 소재는 등록되는데
+        // 판매 등록이 LISTING_QUANTITY_EXCEEDS_AVAILABLE 로 막힌다 — 보유량 조회가
+        // 행을 못 찾아 0 을 돌려주기 때문이다. 발행 방식은 MaterialIssuer 가 정한다.
+        materialIssuer.issue(saved.getId(), registrantId, totalQuantity);
         return MaterialRegisterResponse.from(saved);
     }
 
