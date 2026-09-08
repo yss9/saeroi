@@ -41,6 +41,7 @@ public class MaterialTrade {
     private static final Pattern WALLET_ADDRESS_PATTERN =
             Pattern.compile("^0x[0-9a-fA-F]{40}$");
     private static final int TRADE_CODE_MAX_LENGTH = 30;
+    private static final int CANCEL_REASON_MAX_LENGTH = 255;
 
     @Id
     @Column(name = "id")
@@ -116,6 +117,13 @@ public class MaterialTrade {
 
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
+
+    @Column(name = "canceled_at")
+    private LocalDateTime canceledAt;
+
+    /** 사람이 적은 취소 사유. 자동 정리처럼 사유가 없는 경로도 있어 null 을 허용한다. */
+    @Column(name = "cancel_reason", length = CANCEL_REASON_MAX_LENGTH)
+    private String cancelReason;
 
     private MaterialTrade(
             String tradeCode,
@@ -247,13 +255,19 @@ public class MaterialTrade {
      *
      * <p>판매 글의 잔여 수량 복구와 잠금 처리는 여기서 하지 않는다 — 다른 테이블이고,
      * 같은 트랜잭션에서 함께 처리하는 것이 호출부의 책임이다.
+     *
+     * <p><b>사유는 선택이다.</b> 결제창을 닫아 자동으로 정리되는 건처럼 사람이 이유를 적을
+     * 자리가 없는 경로가 있다. 필수로 두면 그런 호출부가 의미 없는 문자열을 지어내게 된다.
+     * 대신 시각은 언제나 남긴다 — 취소가 일어난 사실 자체는 예외가 없다.
      */
-    public void cancel() {
+    public void cancel(String reason, LocalDateTime canceledAt) {
         if (this.status != TradeStatus.CREATED && this.status != TradeStatus.PAID) {
             throw new IllegalStateException(
                     "Material trade can only cancel while CREATED or PAID but was " + this.status);
         }
         this.status = TradeStatus.CANCELED;
+        this.canceledAt = requireTimestamp(canceledAt);
+        this.cancelReason = requireOptionalText(reason, "cancel reason", CANCEL_REASON_MAX_LENGTH);
     }
 
     /** 온체인 주문 번호를 연결한다. 한 번 정해지면 바뀌지 않는다. */
@@ -281,6 +295,14 @@ public class MaterialTrade {
             throw new IllegalArgumentException("Material trade " + field + " must not be null");
         }
         return value;
+    }
+
+    /** 빈 문자열은 없는 것과 같게 다룬다. 폼에서 입력하지 않은 칸은 null 이 아니라 "" 로 온다. */
+    private static String requireOptionalText(String value, String field, int maxLength) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return requireText(value, field, maxLength);
     }
 
     private static String requireText(String value, String field, int maxLength) {
