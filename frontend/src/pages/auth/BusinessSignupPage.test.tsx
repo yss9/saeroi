@@ -8,9 +8,11 @@ afterEach(cleanup)
 describe('BusinessSignupPage', () => {
   it('uses the company as the business account identity', () => {
     render(
-      <MemoryRouter>
-        <BusinessSignupPage />
-      </MemoryRouter>,
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter>
+          <BusinessSignupPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
     )
 
     expect(screen.getByRole('heading', { name: '사업자회원 가입', level: 1 })).toBeInTheDocument()
@@ -20,3 +22,4 @@ describe('BusinessSignupPage', () => {
     expect(screen.queryByText(/MetaMask|지갑 연결/)).not.toBeInTheDocument()
   })
 })
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'

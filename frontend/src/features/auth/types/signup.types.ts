@@ -9,11 +9,12 @@ export interface ConsumerSignupFormValues {
   agreeMarketing: boolean
 }
 
-/**
- * API DTO가 확정되기 전까지 화면 계층이 사용하는 입력 모델이다.
- * 실제 요청 DTO 변환은 회원가입 API를 연결하는 단계에서 api/ 아래에 둔다.
- */
 export type ConsumerSignupSubmitValues = Omit<ConsumerSignupFormValues, 'passwordConfirm'>
+
+export type ConsumerSignupRequest = Pick<
+  ConsumerSignupSubmitValues,
+  'name' | 'email' | 'phone' | 'password'
+>
 
 export type BusinessRole = 'SUPPLIER' | 'BRAND' | 'PROCESSOR'
 
@@ -23,7 +24,9 @@ export interface BusinessSignupFormValues {
   businessNumber: string
   representativeName: string
   companyPhone: string
-  companyAddress: string
+  zipCode: string
+  address: string
+  addressDetail: string
   email: string
   password: string
   passwordConfirm: string
@@ -33,3 +36,17 @@ export interface BusinessSignupFormValues {
 }
 
 export type BusinessSignupSubmitValues = Omit<BusinessSignupFormValues, 'passwordConfirm'>
+
+export type BusinessSignupRequest = Pick<
+  BusinessSignupSubmitValues,
+  | 'role'
+  | 'companyName'
+  | 'businessNumber'
+  | 'representativeName'
+  | 'companyPhone'
+  | 'zipCode'
+  | 'address'
+  | 'addressDetail'
+  | 'email'
+  | 'password'
+>

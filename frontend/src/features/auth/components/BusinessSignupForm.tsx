@@ -72,7 +72,9 @@ export function BusinessSignupForm({
       businessNumber: values.businessNumber,
       representativeName: values.representativeName,
       companyPhone: values.companyPhone,
-      companyAddress: values.companyAddress,
+      zipCode: values.zipCode,
+      address: values.address,
+      addressDetail: values.addressDetail,
       email: values.email,
       password: values.password,
       agreeTerms: values.agreeTerms,
@@ -159,14 +161,36 @@ export function BusinessSignupForm({
             })}
           />
         </div>
+        <div className="consumer-signup__grid">
+          <Input
+            label="우편번호"
+            inputMode="numeric"
+            autoComplete="postal-code"
+            placeholder="06236"
+            error={errors.zipCode?.message}
+            {...register('zipCode', {
+              required: '우편번호를 입력해 주세요.',
+              maxLength: { value: 20, message: '우편번호는 20자 이하로 입력해 주세요.' },
+            })}
+          />
+          <Input
+            label="업체 주소"
+            autoComplete="street-address"
+            placeholder="업체 주소를 입력해 주세요."
+            error={errors.address?.message}
+            {...register('address', {
+              required: '업체 주소를 입력해 주세요.',
+              validate: (value) => value.trim().length >= 5 || '주소를 5자 이상 입력해 주세요.',
+            })}
+          />
+        </div>
         <Input
-          label="업체 주소"
-          autoComplete="street-address"
-          placeholder="업체 주소를 입력해 주세요."
-          error={errors.companyAddress?.message}
-          {...register('companyAddress', {
-            required: '업체 주소를 입력해 주세요.',
-            validate: (value) => value.trim().length >= 5 || '주소를 5자 이상 입력해 주세요.',
+          label="상세 주소"
+          autoComplete="address-line2"
+          placeholder="상세 주소를 입력해 주세요. (선택)"
+          error={errors.addressDetail?.message}
+          {...register('addressDetail', {
+            maxLength: { value: 255, message: '상세 주소는 255자 이하로 입력해 주세요.' },
           })}
         />
       </div>
