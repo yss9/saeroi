@@ -3,6 +3,7 @@ import { ErrorMessage, Loading, StatusBadge } from '../../components/common/inde
 import { useListing } from '../../features/marketplace/hooks/useListing.ts'
 import { LISTING_STATUS_LABEL } from '../../features/marketplace/types/marketplace.types.ts'
 import { ROOT_ORIGIN_LABEL } from '../../features/material/types/material.types.ts'
+import { ListingChainPanel } from '../../features/marketplace/components/ListingChainPanel.tsx'
 import { PurchaseForm } from '../../features/trade/components/PurchaseForm.tsx'
 import { formatKg, formatWon } from '../../utils/quantity.ts'
 
@@ -68,6 +69,10 @@ export function ListingDetailPage() {
           <dd>{data.sellerName}</dd>
         </div>
       </dl>
+
+      {/* 판매자 본인에게만 보인다 — 패널이 스스로 판정한다. 구매자에게는 아무것도 그리지
+          않으므로 여기서 역할을 다시 따지지 않는다. */}
+      <ListingChainPanel listing={data} />
 
       <PurchaseForm listing={data} onCreated={(tradeId) => navigate(`/trades/${tradeId}`)} />
     </main>

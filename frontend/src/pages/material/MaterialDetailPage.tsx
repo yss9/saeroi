@@ -3,6 +3,7 @@ import { EmptyState, ErrorMessage, Loading, StatusBadge } from '../../components
 import { MaterialBalanceTable } from '../../features/material/components/MaterialBalanceTable.tsx'
 import { EvidenceUpload } from '../../features/evidence/components/EvidenceUpload.tsx'
 import { MaterialLineageTree } from '../../features/material/components/MaterialLineageTree.tsx'
+import { MaterialMintPanel } from '../../features/material/components/MaterialMintPanel.tsx'
 import { useMaterial } from '../../features/material/hooks/useMaterial.ts'
 import {
   FIBER_TYPE_LABEL,
@@ -99,14 +100,7 @@ export function MaterialDetailPage() {
 
       <section aria-labelledby="material-onchain">
         <h2 id="material-onchain">온체인</h2>
-        {data.tokenId === null ? (
-          // null tokenId 가 "등록됐지만 온체인에 없음" 의 유일한 신호다.
-          // confirm 엔드포인트가 아직 없어 지금은 모든 소재가 이 상태다.
-          <EmptyState
-            title="온체인 미확정"
-            description="소재가 등록됐지만 아직 블록체인에 발행되지 않았습니다."
-          />
-        ) : (
+        {data.tokenId !== null && (
           <dl className="material-detail__info">
             <div>
               <dt>Token ID</dt>
@@ -118,6 +112,9 @@ export function MaterialDetailPage() {
             </div>
           </dl>
         )}
+        {/* null tokenId 가 "등록됐지만 온체인에 없음" 의 유일한 신호다.
+            패널이 그 상태에서 발행 버튼을, 발행 후에는 토큰 번호를 보여준다. */}
+        <MaterialMintPanel material={data} />
       </section>
 
       <section aria-labelledby="material-composition">

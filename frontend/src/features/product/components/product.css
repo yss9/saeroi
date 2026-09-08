@@ -1,0 +1,74 @@
+/* 제품 등록 폼.
+ *
+ * 컴포넌트에서 직접 import 한다 (brand-processing.css · trade.css 와 같은 방식) —
+ * index.css 는 여러 사람이 함께 고치는 파일이고 이 스타일은 product 도메인 밖에서 쓰이지
+ * 않는다.
+ */
+
+.product-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-width: 32rem;
+}
+
+/* 설명은 여러 줄이다. 공통 Input 은 한 줄 입력이라 여기서만 textarea 를 쓴다. */
+.product-form__description {
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid #d8d5cb;
+  border-radius: 6px;
+  background: #fff;
+  resize: vertical;
+}
+.product-form__description:focus-visible { outline: 2px solid #1f6f4a; outline-offset: 1px; }
+.product-form__description[aria-invalid="true"] { border-color: #b42318; }
+
+.product-form__thumbnail {
+  margin: 0.5rem 0 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid #ddd9cd;
+  border-radius: 8px;
+  background: #fff;
+}
+
+/* 미리보기. 세로로 긴 사진이 화면을 밀어내지 않게 높이를 묶고 비율을 유지한다. */
+.product-form__preview { margin: 0.75rem 0 0; }
+.product-form__preview img {
+  display: block;
+  max-width: 100%;
+  max-height: 14rem;
+  border-radius: 6px;
+  object-fit: contain;
+  background: #f4f2ec;
+}
+.product-form__preview figcaption {
+  margin-top: 0.4rem;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.product-form__hint { margin: 0.6rem 0 0; font-size: 0.78rem; color: #6b7280; }
+
+/* 등록해도 바로 팔리지 않는다는 안내. 버튼 아래에서 다음 할 일을 말한다. */
+.product-form__note {
+  margin: 0.75rem 0 0;
+  padding: 0.7rem 0.9rem;
+  border-radius: 6px;
+  background: #f4f2ec;
+  font-size: 0.85rem;
+  color: #172033;
+}
+
+.product-form__created {
+  margin: 0 0 1.5rem;
+  padding: 1rem 1.15rem;
+  border: 1px solid #b7d9c4;
+  border-radius: 8px;
+  background: #f1f8f3;
+}
+.product-form__created-title { margin: 0 0 0.75rem; font-weight: 700; }
+.product-form__created dl { display: flex; flex-direction: column; gap: 0.5rem; margin: 0; }
+.product-form__created dl > div { display: flex; justify-content: space-between; gap: 1rem; }
+.product-form__created dt { color: #6b7280; font-size: 0.875rem; }
+.product-form__created dd { margin: 0; font-variant-numeric: tabular-nums; }

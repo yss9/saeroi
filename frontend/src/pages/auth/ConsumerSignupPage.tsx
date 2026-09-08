@@ -1,14 +1,18 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { ErrorMessage } from '../../components/common/index.ts'
 import { AuthLayout } from '../../features/auth/components/AuthLayout.tsx'
 import { ConsumerSignupForm } from '../../features/auth/components/ConsumerSignupForm.tsx'
+import { useConsumerSignup } from '../../features/auth/hooks/useSignup.ts'
+import type { ConsumerSignupSubmitValues } from '../../features/auth/types/signup.types.ts'
 
 export function ConsumerSignupPage() {
-  const [isFormValidated, setIsFormValidated] = useState(false)
+  const navigate = useNavigate()
+  const { mutate, isPending, isError, error } = useConsumerSignup()
 
-  function prepareSignup() {
-    // 실제 계정 생성과 완료 페이지 이동은 Backend 회원가입 DTO 확정 후 이 경계에 연결한다.
-    setIsFormValidated(true)
+  function submitSignup(values: ConsumerSignupSubmitValues) {
+    mutate(values, {
+      onSuccess: () => navigate('/signup/complete', { state: { accountType: 'consumer' } }),
+    })
   }
 
   return (
@@ -19,12 +23,8 @@ export function ConsumerSignupPage() {
       wide
     >
       <div className="consumer-signup__form-wrap">
-        <ConsumerSignupForm onSubmit={prepareSignup} />
-        {isFormValidated ? (
-          <p className="consumer-signup__ready" role="status">
-            입력 정보 확인이 완료되었습니다. 계정 생성은 회원가입 API 연결 후 진행됩니다.
-          </p>
-        ) : null}
+        <ConsumerSignupForm onSubmit={submitSignup} isSubmitting={isPending} />
+        {isError && <ErrorMessage error={error} />}
       </div>
 
       <p className="auth-entry__switch">

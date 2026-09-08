@@ -4,6 +4,7 @@ import { LandingPage } from '../../pages/landing/LandingPage.tsx'
 import { AdminPage } from '../../pages/auth/AdminPage.tsx'
 import { BusinessSignupPage } from '../../pages/auth/BusinessSignupPage.tsx'
 import { ConsumerSignupPage } from '../../pages/auth/ConsumerSignupPage.tsx'
+import { ForbiddenPage } from '../../pages/auth/ForbiddenPage.tsx'
 import { LoginPage } from '../../pages/auth/LoginPage.tsx'
 import { NotFoundPage } from '../../pages/auth/NotFoundPage.tsx'
 import { SignupCompletePage } from '../../pages/auth/SignupCompletePage.tsx'
@@ -21,6 +22,7 @@ import { BrandProcessingPage } from '../../pages/processing/BrandProcessingPage.
 import { ProcessingPage } from '../../pages/processing/ProcessingPage.tsx'
 import { ProductDetailPage } from '../../pages/product/ProductDetailPage.tsx'
 import { ProductListPage } from '../../pages/product/ProductListPage.tsx'
+import { ProductRegisterPage } from '../../pages/product/ProductRegisterPage.tsx'
 import { ProductionPage } from '../../pages/production/ProductionPage.tsx'
 import { PassportPage } from '../../pages/traceability/PassportPage.tsx'
 import { PaymentReturnPage } from '../../pages/trade/PaymentReturnPage.tsx'
@@ -28,7 +30,7 @@ import { SupplierTradePage } from '../../pages/trade/SupplierTradePage.tsx'
 import { TradeDetailPage } from '../../pages/trade/TradeDetailPage.tsx'
 import { TradeListPage } from '../../pages/trade/TradeListPage.tsx'
 import { ProtectedRoute } from './guards/ProtectedRoute.tsx'
-import { RoleGuard } from './guards/RoleGuard.tsx'
+import { FORBIDDEN_PATH, RoleGuard } from './guards/RoleGuard.tsx'
 
 const landingPageElement = (
   <ShopProvider>
@@ -56,6 +58,10 @@ export const routes: RouteObject[] = [
   { path: '/signup/consumer', element: <ConsumerSignupPage /> },
   { path: '/signup/business', element: <BusinessSignupPage /> },
   { path: '/signup/complete', element: <SignupCompletePage /> },
+
+  // 권한 없음(403 성격) 안내. RoleGuard 가 여기로 보낸다.
+  // Public 에 두는 이유: 이 화면 자체가 가드에 막히면 사용자가 갈 곳이 없어진다.
+  { path: FORBIDDEN_PATH, element: <ForbiddenPage /> },
 
   // QR Passport: 비회원 공개. 절대 ProtectedRoute 안으로 옮기지 말 것.
   { path: '/passport/:productId', element: <PassportPage /> },
@@ -111,6 +117,8 @@ export const routes: RouteObject[] = [
         children: [
           { path: '/brand/processing', element: <BrandProcessingPage /> },
           { path: '/brand/production', element: <ProductionPage /> },
+          // 제품 등록. 서버도 BRAND 만 허용하고 역할을 DB 에서 다시 읽어 판단한다.
+          { path: '/brand/products/new', element: <ProductRegisterPage /> },
         ],
       },
 

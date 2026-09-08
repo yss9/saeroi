@@ -67,6 +67,18 @@ export interface MaterialSummary {
  * `evidenceHash`·`manifestUrl` 도 증빙 등록 경로가 없어 당분간 `null` 이다.
  */
 export interface MaterialDetail extends MaterialSummary {
+  /**
+   * ⚠️ **상세 응답의 식별자는 `id` 가 아니라 `materialId` 다.**
+   *
+   * `MaterialSummary` 를 확장하면서 `id` 를 물려받지만 **서버는 그 이름으로 주지 않는다** —
+   * `MaterialDetailResponse` 의 첫 필드가 `materialId` 다. 타입만 보고 `data.id` 를 쓰면
+   * 컴파일은 통과하고 런타임에 `undefined` 가 되어 `/api/materials/undefined/chain` 같은
+   * 요청이 나간다 (2026-09-08 온체인 발행에서 실제로 그렇게 500 이 났다).
+   *
+   * `id` 를 지우지 않는 이유는 목록(`getMaterials`)이 아직 목이고 그쪽이 `id` 를 쓰기
+   * 때문이다. 목록 API 가 붙을 때 두 이름을 한쪽으로 맞춘다.
+   */
+  materialId: number
   description: string | null
   lengthMm: number | null
   widthMm: number | null

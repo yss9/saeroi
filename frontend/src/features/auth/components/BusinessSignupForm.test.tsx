@@ -16,6 +16,7 @@ describe('BusinessSignupForm', () => {
     expect(await screen.findByText('업체 유형을 선택해 주세요.')).toBeInTheDocument()
     expect(screen.getByText('업체명을 입력해 주세요.')).toBeInTheDocument()
     expect(screen.getByText('사업자등록번호를 입력해 주세요.')).toBeInTheDocument()
+    expect(screen.getByText('우편번호를 입력해 주세요.')).toBeInTheDocument()
     expect(screen.getByText('업체 주소를 입력해 주세요.')).toBeInTheDocument()
     expect(onSubmit).not.toHaveBeenCalled()
   })
@@ -30,7 +31,9 @@ describe('BusinessSignupForm', () => {
     await user.type(screen.getByLabelText('대표자명'), '김새로')
     await user.type(screen.getByLabelText('사업자등록번호'), '123-45-67890')
     await user.type(screen.getByLabelText('업체 연락처'), '02-1234-5678')
+    await user.type(screen.getByLabelText('우편번호'), '06236')
     await user.type(screen.getByLabelText('업체 주소'), '서울특별시 강남구 테헤란로 212')
+    await user.type(screen.getByLabelText('상세 주소'), '2층')
     await user.type(screen.getByLabelText('이메일'), 'brand@saeroi.test')
     await user.type(screen.getByLabelText('비밀번호'), 'Saeroi!123')
     await user.type(screen.getByLabelText('비밀번호 확인'), 'Saeroi!123')
@@ -45,7 +48,9 @@ describe('BusinessSignupForm', () => {
         businessNumber: '123-45-67890',
         representativeName: '김새로',
         companyPhone: '02-1234-5678',
-        companyAddress: '서울특별시 강남구 테헤란로 212',
+        zipCode: '06236',
+        address: '서울특별시 강남구 테헤란로 212',
+        addressDetail: '2층',
         email: 'brand@saeroi.test',
         password: 'Saeroi!123',
         agreeTerms: true,

@@ -1,14 +1,18 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { ErrorMessage } from '../../components/common/index.ts'
 import { AuthLayout } from '../../features/auth/components/AuthLayout.tsx'
 import { BusinessSignupForm } from '../../features/auth/components/BusinessSignupForm.tsx'
+import { useBusinessSignup } from '../../features/auth/hooks/useSignup.ts'
+import type { BusinessSignupSubmitValues } from '../../features/auth/types/signup.types.ts'
 
 export function BusinessSignupPage() {
-  const [isFormValidated, setIsFormValidated] = useState(false)
+  const navigate = useNavigate()
+  const { mutate, isPending, isError, error } = useBusinessSignup()
 
-  function prepareSignup() {
-    // 실제 계정 생성과 완료 페이지 이동은 Backend 회원가입 DTO 확정 후 이 경계에 연결한다.
-    setIsFormValidated(true)
+  function submitSignup(values: BusinessSignupSubmitValues) {
+    mutate(values, {
+      onSuccess: () => navigate('/signup/complete', { state: { accountType: 'business' } }),
+    })
   }
 
   return (
@@ -19,12 +23,8 @@ export function BusinessSignupPage() {
       wide
     >
       <div className="consumer-signup__form-wrap">
-        <BusinessSignupForm onSubmit={prepareSignup} />
-        {isFormValidated ? (
-          <p className="consumer-signup__ready" role="status">
-            입력 정보 확인이 완료되었습니다. 계정 생성은 회원가입 API 연결 후 진행됩니다.
-          </p>
-        ) : null}
+        <BusinessSignupForm onSubmit={submitSignup} isSubmitting={isPending} />
+        {isError && <ErrorMessage error={error} />}
       </div>
       <p className="auth-entry__switch">
         회원 유형을 변경하시겠어요? <Link to="/signup">다시 선택하기</Link>

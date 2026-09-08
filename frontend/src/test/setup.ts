@@ -24,3 +24,18 @@ if (typeof HTMLDialogElement !== 'undefined') {
     }
   }
 }
+
+// jsdom 에 `URL.createObjectURL` / `revokeObjectURL` 이 없다.
+//
+// 사용자가 고른 파일을 미리 보여주거나, 인증이 필요한 이미지를 fetch 로 받아 화면에 그리려면
+// blob URL 이 필요하다 (제품 대표 이미지·증빙 사진이 그렇다). jsdom 은 이 API 를 구현하지
+// 않아서, 호출하는 순간 이벤트 핸들러가 TypeError 로 죽고 그 뒤 코드가 실행되지 않는다 —
+// 화면은 아무 반응이 없고 테스트는 "요청이 안 나갔다" 로만 보인다.
+//
+// 그래서 형태만 맞춘 값을 돌려준다. 실제 blob 을 만들지는 않으므로 이 URL 로 이미지를
+// 불러오는 것까지 검증할 수는 없다 — 그건 브라우저의 일이다.
+if (typeof URL.createObjectURL !== 'function') {
+  let issued = 0
+  URL.createObjectURL = () => `blob:jsdom/${(issued += 1)}`
+  URL.revokeObjectURL = () => {}
+}

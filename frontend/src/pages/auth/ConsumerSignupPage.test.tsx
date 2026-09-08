@@ -8,9 +8,11 @@ afterEach(cleanup)
 describe('ConsumerSignupPage', () => {
   it('renders a personal signup form without wallet or profile image fields', () => {
     render(
-      <MemoryRouter>
-        <ConsumerSignupPage />
-      </MemoryRouter>,
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter>
+          <ConsumerSignupPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
     )
 
     expect(screen.getByRole('heading', { name: '개인회원 가입' })).toBeInTheDocument()
@@ -20,3 +22,4 @@ describe('ConsumerSignupPage', () => {
     expect(screen.queryByLabelText(/프로필 이미지/)).not.toBeInTheDocument()
   })
 })
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
