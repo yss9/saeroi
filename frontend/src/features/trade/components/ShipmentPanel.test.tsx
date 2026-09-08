@@ -17,8 +17,10 @@ import { createAppError, ERROR_KIND } from '../../../utils/errors.ts'
 import type { Trade, TradeShipResult } from '../types/trade.types.ts'
 import { ShipmentPanel } from './ShipmentPanel.tsx'
 
-const api = vi.hoisted(() => ({ shipTrade: vi.fn() }))
-vi.mock('../api/shipTrade.ts', () => api)
+const api = vi.hoisted(() => ({ shipTrade: vi.fn(), cancelTrade: vi.fn() }))
+vi.mock('../api/shipTrade.ts', () => ({ shipTrade: api.shipTrade }))
+// 취소는 결제 흐름과 같은 API 모듈을 쓴다 (usePayment.cancel 과 한 함수를 공유한다).
+vi.mock('../api/paymentApi.ts', () => ({ cancelTrade: api.cancelTrade }))
 
 function trade(overrides: Partial<Trade> = {}): Trade {
   return {
@@ -48,6 +50,8 @@ function trade(overrides: Partial<Trade> = {}): Trade {
     receivedAt: null,
     buyerSignedAt: null,
     completedAt: null,
+    canceledAt: null,
+    cancelReason: null,
     // 배송지는 구매 시점에 확정된다. 이 값이 null 인 거래는 배송지 입력이 적용되기 전에
     // 만들어진 건이고, 서버에서도 발송이 막힌다.
     shipping: null,
@@ -80,6 +84,7 @@ function renderPanel(value: Trade = trade()) {
 // teardown 으로 보고 매 테스트 뒤에 호출한다 — 다음 테스트에 호출 1건이 남는다.
 beforeEach(() => {
   api.shipTrade.mockResolvedValue(SHIPPED)
+  api.cancelTrade.mockResolvedValue(trade({ status: 'CANCELED' }))
 })
 afterEach(() => {
   cleanup()
@@ -173,6 +178,90 @@ describe('ShipmentPanel', () => {
     expect(screen.getByText('서울 강남구 테헤란로 1', { exact: false })).toBeInTheDocument()
     // 발송이 끝이 아니라는 것을 알려야 한다 — 소유권은 수령 확인 시점에 넘어간다.
     expect(screen.getByText(/구매자의 수령 확인을 기다리는 중/)).toBeInTheDocument()
+  })
+
+  describe('거래 취소', () => {
+    it('발송 전에는 취소할 수 있다', async () => {
+      const user = renderPanel()
+
+      await user.click(screen.getByRole('button', { name: '거래 취소' }))
+
+      // 확인 단계 없이 요청이 나가면 안 된다 — 취소는 되돌릴 수 없다.
+      expect(api.cancelTrade).not.toHaveBeenCalled()
+      expect(screen.getByLabelText(/취소 사유/)).toBeInTheDocument()
+    })
+
+    // 사유를 강제하면 급한 취소가 늦어지고 의미 없는 문자열이 쌓인다.
+    it('사유를 적지 않아도 취소된다', async () => {
+      const user = renderPanel()
+
+      await user.click(screen.getByRole('button', { name: '거래 취소' }))
+      // 모달 안의 확인 버튼. 여는 버튼과 이름이 같아 마지막 것을 고른다.
+      const [, confirm] = screen.getAllByRole('button', { name: '거래 취소' })
+      await user.click(confirm)
+
+      expect(api.cancelTrade).toHaveBeenCalledWith(7, '')
+    })
+
+    it('적은 사유를 함께 보낸다', async () => {
+      const user = renderPanel()
+
+      await user.click(screen.getByRole('button', { name: '거래 취소' }))
+      await user.type(screen.getByLabelText(/취소 사유/), '재고 부족')
+      const [, confirm] = screen.getAllByRole('button', { name: '거래 취소' })
+      await user.click(confirm)
+
+      expect(api.cancelTrade).toHaveBeenCalledWith(7, '재고 부족')
+    })
+
+    // 서버도 255자로 거절한다(VALIDATION_ERROR). 제출 후에야 알게 되면 적은 글이 날아간다.
+    it('사유가 255자를 넘으면 막는다', async () => {
+      const user = renderPanel()
+
+      await user.click(screen.getByRole('button', { name: '거래 취소' }))
+      await user.type(screen.getByLabelText(/취소 사유/), 'x'.repeat(256))
+
+      expect(screen.getByRole('alert')).toHaveTextContent('255자를 넘을 수 없습니다')
+      const [, confirm] = screen.getAllByRole('button', { name: '거래 취소' })
+      expect(confirm).toBeDisabled()
+      expect(api.cancelTrade).not.toHaveBeenCalled()
+    })
+
+    it('결제된 거래는 환불이 함께 일어난다는 것을 알린다', async () => {
+      const user = renderPanel()
+
+      await user.click(screen.getByRole('button', { name: '거래 취소' }))
+
+      expect(screen.getByText(/환불이 함께 요청됩니다/)).toBeInTheDocument()
+    })
+
+    // 발송한 뒤에는 서버가 PAYMENT_STATE_INVALID 로 거절한다. 버튼이 남아 있으면
+    // 판매자는 취소가 가능하다고 읽는다.
+    it('발송된 거래는 취소 버튼이 없다', () => {
+      renderPanel(trade({ status: 'SHIPPED', shippedAt: '2026-09-03T09:00:00' }))
+
+      expect(screen.queryByRole('button', { name: '거래 취소' })).not.toBeInTheDocument()
+    })
+
+    it('취소된 거래는 시각과 사유를 보여준다', () => {
+      renderPanel(
+        trade({
+          status: 'CANCELED',
+          canceledAt: '2026-09-02T15:00:00',
+          cancelReason: '재고 부족으로 발송이 어렵습니다',
+        }),
+      )
+
+      expect(screen.getByText('재고 부족으로 발송이 어렵습니다')).toBeInTheDocument()
+      // 되돌린 수량은 판매글에 남아 있다 — 잠금이 풀린 것이 아니다.
+      expect(screen.getByText(/판매글에 다시 올라가 있습니다/)).toBeInTheDocument()
+    })
+
+    it('사유 없이 취소된 거래는 사유 자리를 만들지 않는다', () => {
+      renderPanel(trade({ status: 'CANCELED', canceledAt: '2026-09-02T15:00:00' }))
+
+      expect(screen.queryByText('취소 사유')).not.toBeInTheDocument()
+    })
   })
 
   // 배송지가 없는 것은 판매자가 해결할 수 없는 서버 쪽 문제다. 서버 문구를 그대로

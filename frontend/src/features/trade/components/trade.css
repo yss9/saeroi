@@ -207,3 +207,43 @@
 }
 .trade-timeline__next { background: #f4f2ec; color: #172033; }
 .trade-timeline__canceled { background: #fdf6ec; color: #8a4b0b; }
+
+/* ── 거래 취소 ───────────────────────────────────────── */
+
+.shipment-panel__actions { display: flex; gap: 0.5rem; margin-top: 1rem; }
+.shipment-panel__canceled { display: flex; flex-direction: column; }
+/* 사유는 사용자가 적은 문장이라 길고 줄바꿈이 들어올 수 있다. */
+.shipment-panel__reason {
+  text-align: left;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.cancel-form__lead { margin: 0 0 1rem; font-size: 0.9rem; }
+.cancel-form__label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.cancel-form__optional { font-weight: 400; color: #6b7280; }
+.cancel-form__textarea {
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid #d8d5cb;
+  border-radius: 6px;
+  background: #fff;
+  resize: vertical;
+}
+.cancel-form__textarea:focus-visible { outline: 2px solid #1f6f4a; outline-offset: 1px; }
+.cancel-form__textarea[aria-invalid="true"] { border-color: #b42318; }
+.cancel-form__hint { margin: 0.35rem 0 0; font-size: 0.78rem; color: #6b7280; }
+.cancel-form__hint--error { color: #b42318; }
+
+.trade-timeline__canceled p { margin: 0; }
+.trade-timeline__cancel-reason {
+  margin-top: 0.35rem;
+  font-size: 0.82rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

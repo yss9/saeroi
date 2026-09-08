@@ -47,6 +47,8 @@ function trade(overrides: Partial<Trade> = {}): Trade {
     receivedAt: null,
     buyerSignedAt: null,
     completedAt: null,
+    canceledAt: null,
+    cancelReason: null,
     // 배송지는 구매 시점에 확정된다. 이 값이 null 인 거래는 배송지 입력이 적용되기 전에
     // 만들어진 건이고, 서버에서도 발송이 막힌다.
     shipping: null,

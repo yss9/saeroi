@@ -78,12 +78,19 @@ export function TradeTimeline({ trade, viewer }: TradeTimelineProps) {
         ))}
       </ol>
 
-      {/* 취소된 거래. **취소 시각은 보여줄 수 없다** — `material_trade` 에 canceled_at
-          컬럼이 없다. 없는 값을 다른 시각으로 대신 채우면 거래 이력이 거짓이 된다. */}
+      {/* 취소된 거래. 시각은 항상 있고 사유는 사람이 적었을 때만 있다 —
+          사유 없는 취소가 정상 경로라 "사유 없음" 같은 빈 자리를 만들지 않는다. */}
       {isCanceled && (
-        <p className="trade-timeline__canceled" role="status">
-          이 거래는 취소되었습니다. 취소 이후 단계는 진행되지 않습니다.
-        </p>
+        <div className="trade-timeline__canceled" role="status">
+          <p>
+            이 거래는 취소되었습니다
+            {trade.canceledAt !== null && ` · ${formatTradeDateTime(trade.canceledAt)}`}. 취소
+            이후 단계는 진행되지 않습니다.
+          </p>
+          {trade.cancelReason && (
+            <p className="trade-timeline__cancel-reason">사유: {trade.cancelReason}</p>
+          )}
+        </div>
       )}
 
       {/* 지금 누구를 기다리는지. 상태 배지만으로는 "내가 뭘 해야 하나" 에 답하지 못한다. */}
@@ -153,9 +160,9 @@ function stateOf(
 ): StepState {
   if (index < reached) return 'DONE'
 
-  // 취소된 거래는 어느 단계에서 취소됐는지 상태만으로 알 수 없다 (canceled_at 이 없고
-  // status 가 하나로 덮인다). 그래서 **시각이 남아 있는 단계는 실제로 일어난 일로 본다** —
-  // 결제 후 취소된 거래의 결제를 "진행되지 않음" 으로 적으면 사실과 다르다.
+  // 취소된 거래는 어느 단계에서 취소됐는지 status 만으로 알 수 없다 (하나로 덮인다).
+  // 그래서 **시각이 남아 있는 단계는 실제로 일어난 일로 본다** — 결제 후 취소된 거래의
+  // 결제를 "진행되지 않음" 으로 적으면 사실과 다르다.
   //
   // 남은 단계는 '대기' 가 아니라 '진행되지 않음' 이다. 기다리면 진행될 것처럼 읽히면 안 된다.
   if (canceled) return step.at === null ? 'STOPPED' : 'DONE'
@@ -166,9 +173,10 @@ function stateOf(
 /**
  * 상태별로 **몇 번째 단계까지 끝났는가**.
  *
- * 이 값이 곧 "지금 진행해야 할 단계의 인덱스" 가 된다. `CANCELED` 는 어디서 취소됐는지
- * 알 수 없다 — 상태가 하나로 덮이고 canceled_at 도 없다. 결제 여부는 `paidAt` 으로
- * 확인할 수 있으므로 그것까지만 끝난 것으로 본다.
+ * 이 값이 곧 "지금 진행해야 할 단계의 인덱스" 가 된다. `CANCELED` 는 **어느 단계에서
+ * 취소됐는지를 상태가 말해주지 않는다** — 취소 시각(`canceledAt`)은 있지만 그것은 "언제" 이고
+ * "어디까지 갔었는지" 가 아니다. 그래서 각 단계의 시각이 남아 있는지로 판정한다
+ * (`stateOf` 참고).
  */
 const REACHED_INDEX: Record<TradeStatus, number> = {
   CREATED: 1,

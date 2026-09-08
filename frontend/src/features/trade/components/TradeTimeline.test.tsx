@@ -45,6 +45,8 @@ function trade(overrides: Partial<Trade> = {}): Trade {
     receivedAt: null,
     buyerSignedAt: null,
     completedAt: null,
+    canceledAt: null,
+    cancelReason: null,
     shipping: null,
     ...overrides,
   }
@@ -184,6 +186,28 @@ describe('TradeTimeline', () => {
 
       expect(step('결제 완료').className).toContain('--done')
       expect(within(step('결제 완료')).getByText(localized(PAID_AT))).toBeInTheDocument()
+    })
+
+    it('취소 시각과 사유를 함께 보여준다', () => {
+      renderTimeline(
+        trade({
+          status: 'CANCELED',
+          canceledAt: '2026-09-02T15:00:00',
+          cancelReason: '재고 부족으로 발송이 어렵습니다',
+        }),
+      )
+
+      const notice = screen.getByRole('status')
+      expect(notice).toHaveTextContent(localized('2026-09-02T15:00:00'))
+      expect(notice).toHaveTextContent('사유: 재고 부족으로 발송이 어렵습니다')
+    })
+
+    // 사유 없는 취소가 정상 경로다. "사유 없음" 같은 빈 자리를 만들면 뭔가 누락된
+    // 것처럼 읽힌다.
+    it('사유가 없으면 사유 줄을 만들지 않는다', () => {
+      renderTimeline(trade({ status: 'CANCELED', canceledAt: '2026-09-02T15:00:00' }))
+
+      expect(screen.getByRole('status')).not.toHaveTextContent('사유')
     })
 
     it('다음 할 일을 안내하지 않는다', () => {

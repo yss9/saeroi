@@ -99,6 +99,19 @@ export interface Trade {
   buyerSignedAt: string | null
   completedAt: string | null
   /**
+   * 취소 시각. **취소 여부와 무관하게 취소가 일어났다면 항상 있다** —
+   * 사유를 적지 않은 취소도 시각은 남는다.
+   */
+  canceledAt: string | null
+  /**
+   * 취소 사유. 사람이 적었을 때만 있다.
+   *
+   * 대부분의 취소는 사유가 없다 — 결제창을 닫고 나온 구매자에게 이유를 적으라고 요구하면
+   * 취소가 막히거나 의미 없는 문자열이 쌓인다. 판매자가 재고 문제로 취소하는 경우처럼
+   * 상대가 알아야 하는 상황에서만 채운다.
+   */
+  cancelReason: string | null
+  /**
    * 배송지와 송장.
    *
    * **배송지가 추가되기 전에 만들어진 거래는 `null` 이다.** 그 거래에는 `trade_shipping`
@@ -139,6 +152,21 @@ export interface CreateTradeRequest {
   address: string
   /** 선택, 255자 이하 */
   addressDetail?: string
+}
+
+/**
+ * 거래 취소 요청 (`POST /v1/trades/{tradeId}/cancel`).
+ *
+ * 당사자 양쪽 모두 부를 수 있고 **발송 전(`CREATED`·`PAID`)까지만** 가능하다.
+ * 그 뒤의 되돌리기는 분쟁 절차다 (정책 09).
+ *
+ * 사유는 선택이고 바디 자체를 생략할 수 있다. 서버가 빈 문자열·공백을 null 로
+ * 정규화하지만, 보낼 값이 없으면 바디를 아예 만들지 않는다 — 사유 없는 취소가
+ * 정상 경로라는 것을 요청 모양이 그대로 말하게 둔다.
+ */
+export interface CancelTradeRequest {
+  /** 선택, 255자 이하 */
+  reason?: string
 }
 
 /** 내 거래 목록 필터. */
