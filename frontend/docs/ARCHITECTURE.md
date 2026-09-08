@@ -255,6 +255,31 @@ Role 판정의 출처는 `useAuth()`(= `authStore`) 하나입니다. JWT를 따�
 > **절대 `ProtectedRoute` 안으로 옮기지 마세요.**
 > 이 화면이 부르는 API도 인증을 요구하면 안 됩니다.
 
+### Role별 메뉴 노출은 `routes.tsx`에서 파생합니다
+
+메뉴 항목에 `roles: ['SUPPLIER']` 같은 조건을 직접 쓰지 마세요.
+어떤 역할이 어떤 화면에 들어갈 수 있는지는 이미 `routes.tsx`의 `RoleGuard allow`에
+적혀 있습니다. 메뉴에 같은 정책을 한 번 더 쓰면 한쪽만 고쳤을 때
+**"메뉴는 보이는데 누르면 `/403`"** 또는 **"권한은 있는데 메뉴가 없다"**가 조용히 생깁니다.
+
+| 파일 | 역할 |
+| --- | --- |
+| `app/router/routes.tsx` | **정본.** 어떤 경로에 어떤 Role이 들어가는가 |
+| `app/router/routeAccess.ts` | 위 트리를 훑어 경로 → `public` / `auth` / `role(allow)` 로 파생 |
+| `app/navigation/navigationMenu.ts` | 메뉴 항목 정의. **`label` `to` `Icon` 뿐 — 역할 조건이 없습니다** |
+| `app/navigation/useVisibleMenu.ts` | 현재 사용자가 들어갈 수 있는 항목만 남김 |
+
+- 새 메뉴는 `navigationMenu.ts`에 `to`만 추가하면 됩니다. 노출 조건은 그 경로의 가드가 정합니다.
+- `RoleGuard`가 없는 Protected 경로(`/inventory`, `/trades`)는 **로그인만 하면 역할 무관**입니다.
+  메뉴 쪽에서 역할로 좁히지 마세요 — 권한 Matrix가 그 경로들을 역할로 좁히지 않았습니다.
+- `ADMIN`을 만능으로 두지 않습니다. 권한 Matrix에서 ADMIN은 도메인 기능에 허용이 없고
+  (지갑을 가질 수 없어 서명 흐름에 들어가지 못합니다) `routes.tsx`의 `allow`에도 없습니다.
+- 역할 판정 중(`isAuthenticated && role === null`)에는 링크를 그리지 않고 `aria-busy`만 둡니다.
+  `RoleGuard`가 같은 상태를 `Loading`으로 처리하는 것과 같은 이유입니다.
+
+> **메뉴를 숨기는 것도 보안이 아닙니다.** 숨겨도 URL을 직접 입력하면 그 경로로 이동합니다.
+> 거기서 막는 것은 `RoleGuard`(UX)와 서버 인가(실제 경계)입니다.
+
 ## 10. 타입 규칙
 
 - 도메인 타입은 `features/{domain}/types/{domain}.types.ts`에 둡니다.

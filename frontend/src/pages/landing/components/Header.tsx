@@ -1,8 +1,6 @@
 import {
-  Buildings,
   List,
   MagnifyingGlass,
-  ShieldCheck,
   ShoppingBag,
   SignIn,
   SignOut,
@@ -12,10 +10,15 @@ import {
 } from '@phosphor-icons/react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { ACCOUNT_MENU_ITEMS } from '../../../app/navigation/navigationMenu.ts'
+import { useVisibleMenu } from '../../../app/navigation/useVisibleMenu.ts'
 import { useAuth } from '../../../features/auth/hooks/useAuth.ts'
+import { BUSINESS_ROLES } from '../../../features/company/types/companyAccount.types.ts'
 import { useShop } from '../../../features/shop/ShopContext.tsx'
 import type { UserRole } from '../../../types/role.types.ts'
 
+// 랜딩 섹션 앵커. 로그인·역할과 무관한 공개 정보라 필터를 걸지 않는다
+// (routes.tsx 의 Public 구역과 같은 성격이다).
 const navigation = [
   { label: '신상품', href: '#curated-picks' },
   { label: '브랜드', href: '#featured-brands' },
@@ -23,18 +26,10 @@ const navigation = [
   { label: '스토리', href: '#about' },
 ]
 
-const businessRoles: readonly UserRole[] = ['SUPPLIER', 'BRAND', 'PROCESSOR']
-
-function getAccountLink(role: UserRole) {
-  if (role === 'CONSUMER') return { label: '마이페이지', to: '/mypage', icon: UserCircle }
-  if (role === 'ADMIN') return { label: '관리자 페이지', to: '/admin', icon: ShieldCheck }
-  return { label: '회사 대시보드', to: '/company/account', icon: Buildings }
-}
-
 function getAccountTypeLabel(role: UserRole) {
   if (role === 'CONSUMER') return '개인회원'
   if (role === 'ADMIN') return '관리자'
-  if (businessRoles.includes(role)) return '사업자회원'
+  if ((BUSINESS_ROLES as readonly UserRole[]).includes(role)) return '사업자회원'
   return ''
 }
 
@@ -97,7 +92,11 @@ export function Header() {
     navigate('/', { replace: true })
   }
 
-  const accountLink = user ? getAccountLink(user.role) : null
+  // 역할별 "내 홈" 링크. 어느 역할이 어디로 가는지를 이 파일이 정하지 않는다 —
+  // routes.tsx 의 RoleGuard 가 정하고 useVisibleMenu 가 걸러 준다. 그래서
+  // /mypage 나 /admin 의 allow 가 바뀌면 여기 손대지 않아도 따라온다.
+  const { items: accountItems, isResolving: isRoleResolving } = useVisibleMenu(ACCOUNT_MENU_ITEMS)
+  const accountLink = accountItems[0] ?? null
 
   return (
     <header className="site-header">
@@ -128,8 +127,14 @@ export function Header() {
             <UserCircle aria-hidden="true" />
           </button>
           {isAccountOpen && (
-            <div id="account-popover" className="site-header__account-popover">
-              {isAuthenticated && user && accountLink ? (
+            <div id="account-popover" className="site-header__account-popover" aria-busy={isRoleResolving}>
+              {isRoleResolving ? (
+                // 로그인은 됐지만 역할을 아직 모르는 구간. 여기서 비회원 안내를 그리면
+                // 로그인한 사용자에게 "로그인" 버튼이 잠깐 보였다가 바뀐다.
+                <div className="site-header__account-summary">
+                  <strong>계정 정보를 확인하는 중입니다.</strong>
+                </div>
+              ) : isAuthenticated && user && accountLink ? (
                 <>
                   <div className="site-header__account-summary">
                     <strong>{user.name}</strong>
@@ -140,7 +145,7 @@ export function Header() {
                     to={accountLink.to}
                     onClick={() => setIsAccountOpen(false)}
                   >
-                    <accountLink.icon aria-hidden="true" />
+                    <accountLink.Icon aria-hidden="true" />
                     {accountLink.label}
                   </Link>
                   <button
