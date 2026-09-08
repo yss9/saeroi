@@ -147,7 +147,9 @@ describe('PurchaseForm', () => {
       // 10kg → 10,000g. 금액은 보내지 않는다 — 서버가 계산한다.
       quantity: 10_000,
       unit: 'G',
-      paymentMethod: 'MOCK',
+      // 화면은 기본 경로인 카카오페이를 보낸다. 확정은 서버가 승인 시점에 덮어쓴다 —
+      // 어느 게이트웨이가 청구했는지는 설정이 정하므로 화면이 단정할 수 없다.
+      paymentMethod: 'KAKAO_PAY',
       receiverName: '브랜드 B 자재팀',
       receiverPhone: '010-0000-0000',
       zipCode: '06236',
