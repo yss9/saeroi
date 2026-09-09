@@ -84,7 +84,7 @@ describe('application router', () => {
     expect(screen.getByRole('heading', { name: '가공 요청 내역' })).toBeInTheDocument()
   })
 
-  it.each(['/brand/processing', '/brand/processing/requests'])(
+  it.each(['/brand/processing', '/brand/processing/requests', '/brand/production'])(
     '%s에서 공통 Header와 Sidebar를 한 번만 렌더링한다',
     (path) => {
       signInAs('BRAND')
