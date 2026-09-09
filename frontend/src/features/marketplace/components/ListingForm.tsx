@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { Button, ErrorMessage, Input } from '../../../components/common/index.ts'
 import { calculateTotalPrice, formatKg, formatWon, kgToGram } from '../../../utils/quantity.ts'
 import { useMaterial } from '../../material/hooks/useMaterial.ts'
 import { useCreateListing } from '../hooks/useCreateListing.ts'
 import { useListingOnChain } from '../hooks/useListingOnChain.ts'
+import type { CreateListingRequest, Listing } from '../types/marketplace.types.ts'
 
 export interface ListingFormProps {
   /** 판매할 소재 */
@@ -45,7 +47,7 @@ export function ListingForm({
     formState: { errors },
   } = useForm<ListingFormValues>()
 
-  const { mutate, isPending, isError, error } = useCreateListing()
+  const { mutateAsync, isPending, isError, error } = useCreateListing()
 
   // 입력 중인 값으로 총액을 미리 보여준다. 확정 금액이 아니라 미리보기다 —
   // 실제 금액은 서버가 Listing 의 단가로 계산한다.
@@ -64,37 +66,38 @@ export function ListingForm({
   const material = useMaterial(materialId)
   const tokenId = material.data?.tokenId ?? null
   const chain = useListingOnChain()
+  const [pendingListing, setPendingListing] = useState<{
+    created: Listing
+    request: CreateListingRequest
+  } | null>(null)
 
-  const onSubmit = handleSubmit((values) => {
-    const quantityGram = kgToGram(values.quantityKg)
-    mutate(
-      {
+  const onSubmit = handleSubmit(async (values) => {
+    try {
+      const request: CreateListingRequest = pendingListing?.request ?? {
         materialId,
         // kg 을 gram 으로 바꿔 'G' 로 보낸다. kgToGram 이 Math.round 를 쓰는 것이
         // 중요하다 — 20.3 * 1000 은 20299.999... 라 그냥 곱하면 1g 이 사라진다.
-        quantity: quantityGram,
+        quantity: kgToGram(values.quantityKg),
         unit: 'G',
         pricePerKg: values.pricePerKg,
-      },
-      {
-        onSuccess: (created) => {
-          reset()
+      }
+      const created = pendingListing?.created ?? (await mutateAsync(request))
+      if (pendingListing === null) setPendingListing({ created, request })
 
-          // **서버 등록이 끝나면 바로 체인 서명으로 이어간다.**
-          //
-          // 버튼을 두 개로 나눠 뒀을 때, 사용자가 두 번째를 잊는 일이 실제로 일어났다.
-          // 그러면 구매자가 온체인 주문을 만들 수 없고 — createOrder 가 온체인
-          // listingId 를 인자로 받는다 — 그 거래는 오프체인 기록만 남는다. 되돌릴 수 없다.
-          //
-          // 실패하면 판매 글은 그대로 남고 체인 등록만 비어 있다. 그 상태를 판매 글
-          // 상세의 패널이 이어받아 다시 시도할 수 있게 한다.
-          if (tokenId !== null) {
-            void chain.register(created.listingId, tokenId, quantityGram)
-          }
-          onCreated?.(created.listingId)
-        },
-      },
-    )
+      if (tokenId === null) {
+        onCreated?.(created.listingId)
+        return
+      }
+
+      const linked = await chain.register(created.listingId, tokenId, request.quantity)
+      if (linked) {
+        setPendingListing(null)
+        reset()
+        onCreated?.(created.listingId)
+      }
+    } catch {
+      // API와 지갑 오류는 각 훅의 오류 상태로 화면에 표시한다.
+    }
   })
 
   return (
@@ -159,7 +162,9 @@ export function ListingForm({
             ? '블록 확정을 기다리는 중…'
             : chain.status === 'LINKING'
               ? '온체인 결과를 기록하는 중…'
-              : '판매 등록'}
+              : pendingListing
+                ? '판매 등록 완료하기'
+                : '판매 등록'}
       </Button>
 
       {tokenId === null && (
