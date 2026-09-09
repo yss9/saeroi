@@ -1,12 +1,23 @@
 import { House, List, SignOut, Wallet, X } from '@phosphor-icons/react'
 import { useState, type ReactNode } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { BUSINESS_MENU_ITEMS } from '../../../app/navigation/navigationMenu.ts'
+import {
+  ACCOUNT_MENU_ITEMS,
+  BUSINESS_MENU_ITEMS,
+} from '../../../app/navigation/navigationMenu.ts'
 import { useVisibleMenu } from '../../../app/navigation/useVisibleMenu.ts'
 import { useAuth } from '../../auth/hooks/useAuth.ts'
 import { ROLE_LABEL } from '../../../types/role.types.ts'
 import { BUSINESS_ROLE_LABEL, isBusinessUserRole } from '../types/companyAccount.types.ts'
 import './company-dashboard.css'
+
+/**
+ * 로그인한 사용자가 갈 수 있는 모든 곳.
+ *
+ * 두 배열을 이어 붙이는 것은 이 레이아웃이 사업자 대시보드만이 아니라
+ * **보호 라우트 전체의 셸**이 되었기 때문이다. 역할별 필터는 useVisibleMenu 가 한다.
+ */
+const MENU_ITEMS = [...BUSINESS_MENU_ITEMS, ...ACCOUNT_MENU_ITEMS] as const
 
 interface CompanyDashboardLayoutProps {
   children: ReactNode
@@ -20,7 +31,12 @@ export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps
   // 파생된다 (app/navigation/navigationMenu.ts 머리말). 예전에는 여기에 역할별 배열이
   // 있어서 라우트를 추가해도 메뉴가 따라오지 않았다 — /supplier/trades 와
   // /brand/products/new 가 실제로 그렇게 빠져 있었다.
-  const { items: navigation, isResolving } = useVisibleMenu(BUSINESS_MENU_ITEMS)
+  //
+  // 사업자 메뉴와 계정 메뉴를 함께 거른다. 이 레이아웃이 이제 **로그인한 모든 화면**을
+  // 감싸므로(ProtectedRoute), 소비자에게는 사업자 항목이 하나도 남지 않고 마이페이지만
+  // 남아야 한다. useVisibleMenu 가 routes.tsx 의 RoleGuard 로 걸러 주므로 두 배열을
+  // 이어 붙여도 남의 메뉴가 새지 않는다.
+  const { items: navigation, isResolving } = useVisibleMenu(MENU_ITEMS)
 
   function handleSignOut() {
     signOut()
