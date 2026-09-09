@@ -62,6 +62,20 @@ public enum ProductionErrorCode implements ErrorCode {
             HttpStatus.NOT_FOUND, "PRODUCTION_MATERIAL_NOT_FOUND", "소재를 찾을 수 없습니다."),
 
     /**
+     * 보유하지 않은 소재를 투입하려는 경우.
+     *
+     * <p><b>수량 부족과 구분한다.</b> 하나로 합치면 "수량이 부족하다" 는 안내를 받은
+     * 사용자가 수량을 줄여 가며 다시 시도하는데, 애초에 가진 적이 없는 소재라 아무리 줄여도
+     * 통과하지 못한다. 판매 등록이 같은 이유로 같은 구분을 한다
+     * ({@code LISTING_MATERIAL_NOT_OWNED}).
+     *
+     * <p><b>보유량이 0 인 것과도 다르다.</b> 전량을 소비한 소재는 {@code material_balance}
+     * 행이 남아 있고, 그 경우의 정직한 답은 "수량이 부족하다" 다.
+     */
+    PRODUCTION_MATERIAL_NOT_OWNED(
+            HttpStatus.FORBIDDEN, "PRODUCTION_MATERIAL_NOT_OWNED", "보유하지 않은 소재입니다."),
+
+    /**
      * 가공을 거치지 않은 폐소재를 투입하려는 경우.
      *
      * <p>ERD 의 투입 자격 —

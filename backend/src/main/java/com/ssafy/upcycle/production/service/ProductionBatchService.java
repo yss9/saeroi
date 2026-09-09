@@ -118,7 +118,11 @@ public class ProductionBatchService {
         requireActiveBrand(producerId);
         ProductionBatch batch = editableBatch(batchId, producerId);
         requireQuantitiesAddUp(request);
-        Material material = eligibleMaterial(request.materialId());
+        Material material = activeMaterial(request.materialId());
+        // 소유를 자격보다 먼저 본다. 가진 적도 없는 소재에게 "가공을 거쳐야 한다" 고
+        // 답하면, 그 소재를 가공하면 쓸 수 있다는 뜻으로 읽힌다.
+        requireOwned(material.getId(), producerId);
+        requireEligible(material);
         requireNotAlreadyInput(batchId, material.getId());
         requireAvailable(material.getId(), producerId, request.inputQuantity());
 
@@ -231,22 +235,50 @@ public class ProductionBatchService {
     }
 
     /**
+     * 살아 있는 소재인가.
+     *
+     * <p><b>존재 여부를 감추지 않는다.</b> {@code GET /api/materials/{id}} 가 인증만 되면
+     * 누구에게나 열려 있어 (소재 정보는 추적성이 목적이라 누가 보든 같은 값이다) 여기서
+     * 감출 것이 없고, 감추면 오타를 낸 사용자의 안내만 나빠진다.
+     */
+    private Material activeMaterial(Long materialId) {
+        return materialRepository.findById(materialId)
+                .filter(found -> found.getStatus() == MaterialStatus.ACTIVE)
+                .orElseThrow(
+                        () -> new BusinessException(ProductionErrorCode.PRODUCTION_MATERIAL_NOT_FOUND));
+    }
+
+    /**
      * 투입할 수 있는 소재인가.
      *
      * <p>ERD 의 투입 자격 — {@code NOT (WASTE AND INITIAL)}. 수거한 그대로의 폐소재는 제품이
      * 될 수 없고 Processing 을 최소 1회 거쳐야 한다. 막지 않으면 <b>가공 이력이 없는 제품이
      * 업사이클로 팔린다.</b>
      */
-    private Material eligibleMaterial(Long materialId) {
-        Material material = materialRepository.findById(materialId)
-                .filter(found -> found.getStatus() == MaterialStatus.ACTIVE)
-                .orElseThrow(
-                        () -> new BusinessException(ProductionErrorCode.PRODUCTION_MATERIAL_NOT_FOUND));
+    private void requireEligible(Material material) {
         if (material.getRootOrigin() == MaterialRootOrigin.WASTE
                 && material.getGenerationType() == MaterialGenerationType.INITIAL) {
             throw new BusinessException(ProductionErrorCode.PRODUCTION_MATERIAL_NOT_ELIGIBLE);
         }
-        return material;
+    }
+
+    /**
+     * 보유한 소재인가. <b>수량 부족과 구분한다.</b>
+     *
+     * <p>{@code material_balance} 행의 <b>존재</b>가 소유의 근거다. 수량이 0 이어도 행이 있으면
+     * 보유한 것이고, 그때의 정직한 답은 "수량이 부족하다" 다 — 전량을 소비한 소재가 그렇다.
+     *
+     * <p>둘을 하나로 합치면 "수량이 부족하다" 는 안내를 받은 사용자가 수량을 줄여 가며 다시
+     * 시도하는데, 가진 적이 없는 소재는 아무리 줄여도 통과하지 못한다. 판매 등록이 같은
+     * 이유로 같은 구분을 한다 ({@code ListingCommandService#requireSellableQuantity}).
+     *
+     * <p><b>소재의 등록자가 아니라 보유자를 본다.</b> 소재는 거래로 주인이 바뀌므로
+     * {@code material.registrant_id} 는 지금 누가 가졌는지 답하지 못한다.
+     */
+    private void requireOwned(Long materialId, Long ownerId) {
+        if (balanceRepository.findByMaterialIdAndOwnerId(materialId, ownerId).isEmpty()) {
+            throw new BusinessException(ProductionErrorCode.PRODUCTION_MATERIAL_NOT_OWNED);
+        }
     }
 
     /**
@@ -283,9 +315,11 @@ public class ProductionBatchService {
      * 잠금이 {@code ACTIVE} 로 남아 있다. 그걸 세면 이미 풀린 수량을 영영 쓰지 못한다.
      */
     private void requireAvailable(Long materialId, Long ownerId, long wanted) {
+        // 여기 도달했다면 requireOwned 가 보유 행을 확인한 뒤다. 그래도 없으면 그 사이에
+        // 사라졌다는 뜻이고, 그건 수량 문제가 아니라 소유 문제다.
         long available = balanceRepository.findForUpdate(materialId, ownerId)
                 .orElseThrow(() ->
-                        new BusinessException(ProductionErrorCode.PRODUCTION_INSUFFICIENT_BALANCE))
+                        new BusinessException(ProductionErrorCode.PRODUCTION_MATERIAL_NOT_OWNED))
                 .getQuantity();
         LocalDateTime now = LocalDateTime.now(clock);
         for (MaterialLock lock : lockRepository.findActiveForUpdate(materialId, ownerId)) {
