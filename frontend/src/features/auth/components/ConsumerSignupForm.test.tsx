@@ -27,7 +27,8 @@ describe('ConsumerSignupForm', () => {
     render(<ConsumerSignupForm onSubmit={onSubmit} />)
 
     await user.type(screen.getByLabelText('이름'), '김새로')
-    await user.type(screen.getByLabelText('휴대전화 번호'), '010-1234-5678')
+    await user.type(screen.getByLabelText('휴대전화 번호'), '01012345678')
+    expect(screen.getByLabelText('휴대전화 번호')).toHaveValue('010-1234-5678')
     await user.type(screen.getByLabelText('이메일'), 'consumer@saeroi.test')
     await user.type(screen.getByLabelText('비밀번호'), 'Saeroi!123')
     await user.type(screen.getByLabelText('비밀번호 확인'), 'Saeroi!123')

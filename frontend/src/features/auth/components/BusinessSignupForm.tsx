@@ -1,4 +1,4 @@
-import { Eye, EyeSlash, Factory, PaintBrush, Package } from '@phosphor-icons/react'
+import { Eye, EyeSlash, Factory, MagnifyingGlass, PaintBrush, Package } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { Button, Input } from '../../../components/common/index.ts'
@@ -7,6 +7,8 @@ import type {
   BusinessSignupFormValues,
   BusinessSignupSubmitValues,
 } from '../types/signup.types.ts'
+import { formatBusinessNumber, formatPhoneNumber } from '../utils/signupInputFormatters.ts'
+import { openKakaoPostcode } from '../utils/kakaoPostcode.ts'
 
 interface BusinessSignupFormProps {
   onSubmit: (values: BusinessSignupSubmitValues) => void | Promise<void>
@@ -50,10 +52,14 @@ export function BusinessSignupForm({
 }: BusinessSignupFormProps) {
   const [showPassword, setShowPassword] = useState(false)
   const [showPasswordConfirm, setShowPasswordConfirm] = useState(false)
+  const [isSearchingAddress, setIsSearchingAddress] = useState(false)
+  const [addressSearchError, setAddressSearchError] = useState('')
   const {
     register,
     handleSubmit,
     control,
+    setFocus,
+    setValue,
     formState: { errors },
   } = useForm<BusinessSignupFormValues>({
     defaultValues: {
@@ -64,6 +70,22 @@ export function BusinessSignupForm({
   })
   const password = useWatch({ control, name: 'password' })
   const selectedRole = useWatch({ control, name: 'role' })
+
+  const searchAddress = async () => {
+    setAddressSearchError('')
+    setIsSearchingAddress(true)
+    try {
+      await openKakaoPostcode(({ zonecode, address }) => {
+        setValue('zipCode', zonecode, { shouldDirty: true, shouldValidate: true })
+        setValue('address', address, { shouldDirty: true, shouldValidate: true })
+        setFocus('addressDetail')
+      })
+    } catch {
+      setAddressSearchError('주소 검색을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.')
+    } finally {
+      setIsSearchingAddress(false)
+    }
+  }
 
   const submitForm = handleSubmit((values) => {
     return onSubmit({
@@ -135,10 +157,14 @@ export function BusinessSignupForm({
           <Input
             label="사업자등록번호"
             inputMode="numeric"
+            maxLength={12}
             placeholder="123-45-67890"
             error={errors.businessNumber?.message}
             {...register('businessNumber', {
               required: '사업자등록번호를 입력해 주세요.',
+              onChange: (event) => {
+                event.target.value = formatBusinessNumber(event.target.value)
+              },
               pattern: {
                 value: businessNumberPattern,
                 message: '올바른 사업자등록번호를 입력해 주세요.',
@@ -149,11 +175,15 @@ export function BusinessSignupForm({
             label="업체 연락처"
             type="tel"
             inputMode="tel"
+            maxLength={13}
             autoComplete="tel"
             placeholder="02-1234-5678"
             error={errors.companyPhone?.message}
             {...register('companyPhone', {
               required: '업체 연락처를 입력해 주세요.',
+              onChange: (event) => {
+                event.target.value = formatPhoneNumber(event.target.value)
+              },
               pattern: {
                 value: companyPhonePattern,
                 message: '올바른 업체 연락처를 입력해 주세요.',
@@ -167,23 +197,32 @@ export function BusinessSignupForm({
             inputMode="numeric"
             autoComplete="postal-code"
             placeholder="06236"
+            readOnly
             error={errors.zipCode?.message}
             {...register('zipCode', {
               required: '우편번호를 입력해 주세요.',
               maxLength: { value: 20, message: '우편번호는 20자 이하로 입력해 주세요.' },
             })}
           />
-          <Input
-            label="업체 주소"
-            autoComplete="street-address"
-            placeholder="업체 주소를 입력해 주세요."
-            error={errors.address?.message}
-            {...register('address', {
-              required: '업체 주소를 입력해 주세요.',
-              validate: (value) => value.trim().length >= 5 || '주소를 5자 이상 입력해 주세요.',
-            })}
-          />
+          <div className="business-signup__address-search">
+            <Input
+              label="업체 주소"
+              autoComplete="street-address"
+              placeholder="주소 검색을 이용해 주세요."
+              readOnly
+              error={errors.address?.message}
+              {...register('address', {
+                required: '업체 주소를 입력해 주세요.',
+                validate: (value) => value.trim().length >= 5 || '주소를 5자 이상 입력해 주세요.',
+              })}
+            />
+            <button type="button" onClick={() => void searchAddress()} disabled={isSearchingAddress}>
+              <MagnifyingGlass aria-hidden="true" />
+              {isSearchingAddress ? '불러오는 중' : '주소 검색'}
+            </button>
+          </div>
         </div>
+        {addressSearchError ? <p className="business-signup__address-error" role="alert">{addressSearchError}</p> : null}
         <Input
           label="상세 주소"
           autoComplete="address-line2"
