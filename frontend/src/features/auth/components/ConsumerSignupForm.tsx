@@ -6,6 +6,7 @@ import type {
   ConsumerSignupFormValues,
   ConsumerSignupSubmitValues,
 } from '../types/signup.types.ts'
+import { formatPhoneNumber } from '../utils/signupInputFormatters.ts'
 
 interface ConsumerSignupFormProps {
   onSubmit: (values: ConsumerSignupSubmitValues) => void | Promise<void>
@@ -65,11 +66,15 @@ export function ConsumerSignupForm({
           label="휴대전화 번호"
           type="tel"
           inputMode="tel"
+          maxLength={13}
           autoComplete="tel"
           placeholder="010-1234-5678"
           error={errors.phone?.message}
           {...register('phone', {
             required: '휴대전화 번호를 입력해 주세요.',
+            onChange: (event) => {
+              event.target.value = formatPhoneNumber(event.target.value)
+            },
             pattern: {
               value: phonePattern,
               message: '올바른 휴대전화 번호를 입력해 주세요.',

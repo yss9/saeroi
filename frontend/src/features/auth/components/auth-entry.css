@@ -472,6 +472,59 @@
   margin: 0 0 18px;
 }
 
+.business-signup__address-search {
+  position: relative;
+}
+
+.business-signup__address-search .ui-field__control {
+  padding-right: 112px;
+}
+
+.business-signup__address-search > button {
+  position: absolute;
+  top: 29px;
+  right: 6px;
+  display: inline-flex;
+  min-width: 100px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 11px;
+  border: 1px solid rgb(33 106 159 / 0.24);
+  border-radius: 8px;
+  background: rgb(33 106 159 / 0.08);
+  color: var(--auth-blue-dark);
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.business-signup__address-search > button:hover {
+  background: rgb(33 106 159 / 0.14);
+}
+
+.business-signup__address-search > button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.business-signup__address-search > button:focus-visible {
+  outline: 3px solid rgb(33 106 159 / 0.22);
+  outline-offset: 2px;
+}
+
+.business-signup__address-search > button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.business-signup__address-error {
+  margin: -7px 0 16px;
+  color: var(--ui-color-danger);
+  font-size: 0.8rem;
+}
+
 .signup-complete {
   display: flex;
   flex-direction: column;

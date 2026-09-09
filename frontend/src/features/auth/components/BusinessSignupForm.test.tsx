@@ -3,7 +3,14 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { BusinessSignupForm } from './BusinessSignupForm.tsx'
 
-afterEach(cleanup)
+const openKakaoPostcode = vi.hoisted(() => vi.fn())
+
+vi.mock('../utils/kakaoPostcode.ts', () => ({ openKakaoPostcode }))
+
+afterEach(() => {
+  cleanup()
+  vi.clearAllMocks()
+})
 
 describe('BusinessSignupForm', () => {
   it('requires a business role and company information', async () => {
@@ -26,13 +33,21 @@ describe('BusinessSignupForm', () => {
     const onSubmit = vi.fn()
     render(<BusinessSignupForm onSubmit={onSubmit} />)
 
+    openKakaoPostcode.mockImplementation(async (onComplete) => {
+      onComplete({ zonecode: '06236', address: '서울특별시 강남구 테헤란로 212' })
+    })
+
     await user.click(screen.getByRole('radio', { name: /브랜드/ }))
     await user.type(screen.getByLabelText('업체명'), '새로이 브랜드')
     await user.type(screen.getByLabelText('대표자명'), '김새로')
-    await user.type(screen.getByLabelText('사업자등록번호'), '123-45-67890')
-    await user.type(screen.getByLabelText('업체 연락처'), '02-1234-5678')
-    await user.type(screen.getByLabelText('우편번호'), '06236')
-    await user.type(screen.getByLabelText('업체 주소'), '서울특별시 강남구 테헤란로 212')
+    await user.type(screen.getByLabelText('사업자등록번호'), '1234567890')
+    expect(screen.getByLabelText('사업자등록번호')).toHaveValue('123-45-67890')
+    await user.type(screen.getByLabelText('업체 연락처'), '0212345678')
+    expect(screen.getByLabelText('업체 연락처')).toHaveValue('02-1234-5678')
+    await user.click(screen.getByRole('button', { name: '주소 검색' }))
+    expect(await screen.findByLabelText('우편번호')).toHaveValue('06236')
+    expect(screen.getByLabelText('업체 주소')).toHaveValue('서울특별시 강남구 테헤란로 212')
+    expect(screen.getByLabelText('상세 주소')).toHaveFocus()
     await user.type(screen.getByLabelText('상세 주소'), '2층')
     await user.type(screen.getByLabelText('이메일'), 'brand@saeroi.test')
     await user.type(screen.getByLabelText('비밀번호'), 'Saeroi!123')
