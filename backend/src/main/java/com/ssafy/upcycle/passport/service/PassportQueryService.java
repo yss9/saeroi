@@ -33,4 +33,18 @@ public class PassportQueryService {
                 .orElseThrow(() -> new BusinessException(PassportErrorCode.QR_TOKEN_NOT_FOUND));
         return PassportResponse.of(item, model);
     }
+
+    /**
+     * 썸네일 조회가 필요로 하는 {@code productModelId} 만 뽑아 낸다.
+     *
+     * <p>{@code ProductImageService.readThumbnail} 이 이미 productModelId 를 받게
+     * 돼 있어(제품 상세와 같은 이유 — 키가 아니라 행에서 꺼낸다) 그 계약을 그대로
+     * 재사용한다. 이 메서드는 {@code qrToken → productModelId} 변환만 맡는다.
+     */
+    @Transactional(readOnly = true)
+    public Long resolveProductModelId(String qrToken) {
+        return productItemRepository.findByQrToken(qrToken)
+                .map(ProductItem::getProductModelId)
+                .orElseThrow(() -> new BusinessException(PassportErrorCode.QR_TOKEN_NOT_FOUND));
+    }
 }

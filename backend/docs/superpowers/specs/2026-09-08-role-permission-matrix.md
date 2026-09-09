@@ -488,6 +488,13 @@ Epic `-10`(Material Passport / Traceability) 과 `-11`(QR) 에 관련 티켓이 
 인증 경로를 순서대로 훑을 실마리를 주지 않기 위해서다. `brandId`·`price` 도 뺐다
 (§6-3 항목 2, "거래 정보").
 
+`thumbnailUrl`(저장 키 문자열)도 뺐다 — 뒤늦게 발견한 것인데, 저장 키 자체가
+`FileReference(type, id)` 의 `id`(브랜드 내부 id)를 경로에 담고 있어서 문자열로 내려주면
+방금 뺀 `brandId` 가 다른 필드 안에 그대로 새는 셈이었다. 대신 이미지는
+`GET /api/v1/qr/{qrToken}/thumbnail` 로 직접 받는다 — 제품 상세가 저장 키를 안 받고
+`productModelId` 로 이미지를 받는 것과 같은 이유(`ProductImageController` 참고)를 공개
+경로에도 그대로 적용했다.
+
 ### 6-4. `CONSUMER` 가 B2B 소재 정보를 볼 수 있어야 하는가 — ✅ 결정 (2026-09-08, 공병우)
 
 `GET /api/materials/**` 와 `GET /api/v1/listings` 는 현재 `AUTH` 다.
