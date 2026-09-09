@@ -23,7 +23,7 @@ public class ProcessingPaymentService {
     private final UserRepository users;
     private final PaymentGateway gateway;
     private final Clock clock;
-    @Value("${app.payment.kakaopay.return-url:http://localhost:5173/processing/jobs/{tradeId}/payment/callback}")
+    @Value("${app.payment.kakaopay.processing-return-url:http://localhost:5173/processing/jobs/{jobId}/payment/callback}")
     private String returnUrl;
 
     @Transactional
@@ -32,7 +32,7 @@ public class ProcessingPaymentService {
         LocalDateTime now=LocalDateTime.now(clock);
         requirePayable(job, now);
         PaymentReady result=gateway.ready(new PaymentReadyCommand(job.getJobCode(), String.valueOf(job.getBrandId()),
-                "가공비 "+job.getJobCode(), job.getFee(), returnUrl.replace("{tradeId}", String.valueOf(jobId))));
+                "가공비 "+job.getJobCode(), job.getFee(), returnUrl.replace("{jobId}", String.valueOf(jobId))));
         job.preparePayment(result.tid());
         return new ProcessingPaymentReadyResponse(jobId, result.tid(), result.redirectUrl(), job.getFee(),
                 gateway.isLive(), job.getPaymentExpiresAt());
