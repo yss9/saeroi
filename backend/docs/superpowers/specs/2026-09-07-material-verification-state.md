@@ -176,3 +176,26 @@ tx_hash        CHAR(66)                   어느 Tx 로
 `MaterialDetailResponse` 에 `verification` 필드를 추가했다(위 "응답 형태" 절 그대로).
 `SOURCE_VERIFIED` 일 때만 `{state, signerWallet, signedAt, txHash}` 를 채우고, 다른 단은
 근거의 모양이 달라(거래 서명 등) `null` 이다.
+
+## 2026-09-09 추가 — 등록→발행 시나리오 테스트 (S15P21E104-440)
+
+`-440`(`[TEST] Material 온체인 등록 테스트`) 검토 결과, 계층별 테스트는 이미 다 있었다.
+
+- 컨트랙트 레벨 `mintMaterial`/`verifySource`/`verifyEvidence` — blockchain 패키지 컨트랙트
+  테스트가 이미 고정
+- mint 확정이 `material.token_id/chain_id/contract_address` 와
+  `blockchain_transaction` 행을 남기는 것 — `ChainLinkApiTests.linksTheMintedTokenAndRecordsTheTransaction`
+- 등록자 본인만 verifySource 확정 가능·미mint 소재 거절·중복 확정 거절·상세 조회의
+  `SOURCE_VERIFIED` 전환 — `MaterialSourceVerificationApiTests` (컨트롤러 테스트, 위 절 참고)
+
+빠진 것은 **하나의 시나리오로 이어 붙인 테스트**였다 — 개별 계층 테스트는 각자의
+전제 상태(예: 이미 mint 된 소재)에서 시작해, 등록부터 시작하는 한 서사가 없었다.
+`MaterialOnChainRegistrationScenarioTests`
+(`src/test/java/com/ssafy/upcycle/material/MaterialOnChainRegistrationScenarioTests.java`)
+를 추가해 **등록 → mint 확정 → verifySource 확정 → 상세 조회 하나**로 tokenId·chainId·
+contractAddress·verificationState·verification 이 전부 일관되게 읽히는지 한 테스트
+메서드로 검증한다. 기존 서비스·컨트롤러를 그대로 호출만 하며 재구현하지 않는다.
+
+**여전히 막혀 있는 것**: `evidence_hash`/`manifest_url` 은 매니페스트 생성 경로가 없어
+(`evidencePlaceholder.ts` 가 이를 자리표시자로 명시) 이 시나리오에서도 계속 `null` 이다.
+이 티켓의 범위가 아니다 — Evidence 도메인(`-167`)이 별도로 다룬다.
