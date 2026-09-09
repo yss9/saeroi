@@ -1,3 +1,5 @@
+import { CompanyDashboardLayout } from '../../features/company/components/CompanyDashboardLayout.tsx'
+
 /**
  * 생산 관리 화면.
  *
@@ -6,8 +8,10 @@
  */
 export function ProductionPage() {
   return (
-    <main className="page">
-      <h1>생산 관리</h1>
-    </main>
+    <CompanyDashboardLayout>
+      <div className="page">
+        <h1>생산 관리</h1>
+      </div>
+    </CompanyDashboardLayout>
   )
 }

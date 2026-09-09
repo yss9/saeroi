@@ -76,4 +76,11 @@ describe('application router', () => {
 
     expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeInTheDocument()
   })
+
+  it('Brand가 자신의 가공 요청 내역 경로에 접근한다', () => {
+    signInAs('BRAND')
+    renderRoute('/brand/processing/requests')
+
+    expect(screen.getByRole('heading', { name: '가공 요청 내역' })).toBeInTheDocument()
+  })
 })

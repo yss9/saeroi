@@ -35,10 +35,10 @@ export function SupplierMarketPage() {
 
   return (
     <main className="page">
-      <header className="page__header">
-        <h1>내 판매 관리</h1>
-        <p className="page__lead">보유한 소재를 마켓플레이스에 등록하고 판매 상태를 관리합니다.</p>
-      </header>
+        <header className="page__header">
+          <h1>내 판매 관리</h1>
+          <p className="page__lead">보유한 소재를 마켓플레이스에 등록하고 판매 상태를 관리합니다.</p>
+        </header>
 
       <section className="page__section">
         <h2>판매 등록</h2>
