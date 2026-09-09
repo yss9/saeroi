@@ -12,7 +12,8 @@ import { getListing, type OnChainListing } from '../services/marketplaceContract
  * 판매 글 응답에는 이 사실을 알려 줄 필드가 없다. {@code chainListingId} 는 "체인에
  * 있다" 까지만 말하고 그것이 아직 ACTIVE 인지는 말하지 않는다. 그래서 체인에 직접 묻는다.
  *
- * {@link useChainOrderStatus} 와 같은 이유·같은 모양이다.
+ * 거래 쪽에도 같은 것이 필요하지만, 온체인 패널을 업무 버튼에 흡수하는 작업
+ * (frontend/feat/metamask-mint-activity)과 방향을 맞추기 위해 그쪽은 그 작업에 맡긴다.
  */
 export function useChainListingStatus(chainListingId: number | null) {
   return useQuery<OnChainListing>({
