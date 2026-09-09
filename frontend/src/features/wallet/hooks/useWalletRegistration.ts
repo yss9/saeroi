@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../../../stores/authStore.ts'
 import { createAppError, ERROR_KIND, type AppError } from '../../../utils/errors.ts'
 import {
@@ -6,11 +6,13 @@ import {
   requestWalletRegistrationNonce,
   type RegisteredWallet,
 } from '../api/walletRegistrationApi.ts'
+import { walletKeys } from '../api/walletKeys.ts'
 import { buildLoginMessage } from '../services/walletMessage.ts'
 import { getChainIdNumber, getWalletAddress, signMessage } from '../services/walletService.ts'
 
 export function useWalletRegistration() {
   const patchUser = useAuthStore((state) => state.patchUser)
+  const queryClient = useQueryClient()
 
   return useMutation<RegisteredWallet, AppError>({
     mutationFn: async () => {
@@ -44,6 +46,9 @@ export function useWalletRegistration() {
         signature,
       })
     },
-    onSuccess: (wallet) => patchUser({ walletAddress: wallet.walletAddress }),
+    onSuccess: (wallet) => {
+      patchUser({ walletAddress: wallet.walletAddress })
+      void queryClient.invalidateQueries({ queryKey: walletKeys.all })
+    },
   })
 }

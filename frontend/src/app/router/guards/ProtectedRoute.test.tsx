@@ -1,6 +1,9 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { cleanup, render, screen, within } from '@testing-library/react'
+import type { AxiosResponse } from 'axios'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { apiClient } from '../../../services/apiClient.ts'
 import { useAuthStore } from '../../../stores/authStore.ts'
 import type { UserRole } from '../../../types/role.types.ts'
 import { ProtectedRoute } from './ProtectedRoute.tsx'
@@ -25,21 +28,29 @@ function setUser(role: UserRole) {
 }
 
 function renderAt(path: string) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
-    <MemoryRouter initialEntries={[path]}>
-      <Routes>
-        <Route element={<ProtectedRoute />}>
-          <Route path={path} element={<h1>보호된 본문</h1>} />
-        </Route>
-        <Route path="/login" element={<h1>로그인</h1>} />
-      </Routes>
-    </MemoryRouter>,
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route element={<ProtectedRoute />}>
+            <Route path={path} element={<h1>보호된 본문</h1>} />
+          </Route>
+          <Route path="/login" element={<h1>로그인</h1>} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
   )
 }
+
+beforeEach(() => {
+  vi.spyOn(apiClient, 'get').mockResolvedValue({ data: [] } as AxiosResponse)
+})
 
 afterEach(() => {
   cleanup()
   useAuthStore.setState({ user: null, accessToken: null, isAuthenticated: false })
+  vi.restoreAllMocks()
 })
 
 describe('ProtectedRoute', () => {
@@ -68,7 +79,8 @@ describe('ProtectedRoute', () => {
     setUser('SUPPLIER')
     renderAt('/inventory')
 
-    const toAccount = screen
+    const navigation = screen.getByRole('navigation', { name: '사업자 대시보드 메뉴' })
+    const toAccount = within(navigation)
       .getAllByRole('link')
       .filter((link) => link.getAttribute('href') === '/company/account')
     expect(toAccount).toHaveLength(1)
@@ -83,5 +95,6 @@ describe('ProtectedRoute', () => {
     expect(screen.getByRole('link', { name: /마이페이지/ })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /판매 관리/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /소재 등록/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /지갑/ })).not.toBeInTheDocument()
   })
 })

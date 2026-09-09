@@ -21,18 +21,6 @@ import { describe, expect, it } from 'vitest'
 // fileURLToPath 를 쓴다. URL.pathname 은 Windows 에서 `/C:/...` 를 돌려줘 경로가 깨진다.
 const PAGES_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'pages')
 
-/**
- * 아직 정리되지 않은 화면들. <b>목록이 늘어나면 안 된다.</b>
- *
- * 셸을 게이트로 옮길 당시에는 자기 래핑하는 화면이 하나도 없었는데, 그 전에 갈라진
- * 브랜치들이 옛 패턴 그대로 들어오면서 다시 생겼었다. 담당자들이 각자 고쳐 이제
- * 하나도 남지 않았다 — 2026-09-09 확인, 남은 참조는 각 페이지의 `.test.tsx` 뿐이고
- * `pageFiles()` 가 애초에 `.test.` 파일을 걸러낸다.
- *
- * 새 화면이 여기 없이 래핑하면 이 테스트가 막는다.
- */
-const KNOWN_UNFIXED: string[] = []
-
 function pageFiles(dir: string, prefix = ''): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const rel = prefix ? `${prefix}/${entry.name}` : entry.name
@@ -48,6 +36,6 @@ describe('사업자 셸 중첩', () => {
       readFileSync(join(PAGES_DIR, rel), 'utf-8').includes('<CompanyDashboardLayout'),
     )
 
-    expect(offenders.sort()).toEqual([...KNOWN_UNFIXED].sort())
+    expect(offenders).toEqual([])
   })
 })

@@ -1,5 +1,6 @@
 import { Buildings, CheckCircle, Envelope, MapPin, Phone, Wallet } from '@phosphor-icons/react'
-import { ErrorMessage, StatusBadge } from '../../../components/common/index.ts'
+import { Button, ErrorMessage, StatusBadge } from '../../../components/common/index.ts'
+import { shortenAddress } from '../../../utils/address.ts'
 import { WalletRegistrationPanel } from '../../wallet/components/WalletRegistrationPanel.tsx'
 import {
   BUSINESS_ROLE_LABEL,
@@ -12,7 +13,14 @@ export type CompanyAccountViewState =
 
 interface CompanyAccountViewProps {
   state: CompanyAccountViewState
+  walletState: CompanyWalletViewState
+  onRetryWallet?: () => void
 }
+
+export type CompanyWalletViewState =
+  | { status: 'loading' }
+  | { status: 'error'; error: unknown }
+  | { status: 'ready'; registeredAddress: string | null }
 
 function displayValue(value: string | null) {
   return value || '등록된 정보가 없습니다.'
@@ -27,7 +35,7 @@ function DetailItem({ label, value }: { label: string; value: string | null }) {
   )
 }
 
-export function CompanyAccountView({ state }: CompanyAccountViewProps) {
+export function CompanyAccountView({ state, walletState, onRetryWallet }: CompanyAccountViewProps) {
   if (state.status === 'error') {
     return (
       <section className="company-account" aria-labelledby="company-account-title">
@@ -38,6 +46,14 @@ export function CompanyAccountView({ state }: CompanyAccountViewProps) {
   }
 
   const { data } = state
+  const registeredAddress = walletState.status === 'ready' ? walletState.registeredAddress : null
+  const walletBadge = walletState.status === 'loading'
+    ? { label: '확인 중', tone: 'neutral' as const }
+    : walletState.status === 'error'
+      ? { label: '확인 실패', tone: 'neutral' as const }
+      : registeredAddress
+        ? { label: '연결됨', tone: 'success' as const }
+        : { label: '미연결', tone: 'neutral' as const }
 
   return (
     <section className="company-account" aria-labelledby="company-account-title">
@@ -99,22 +115,43 @@ export function CompanyAccountView({ state }: CompanyAccountViewProps) {
         </article>
       </div>
 
-      <article className="company-account__wallet-card">
-        <span className="company-account__wallet-icon" aria-hidden="true"><Wallet /></span>
-        <div>
-          <h2>블록체인 지갑</h2>
-          {data.walletAddress ? (
-            <>
-              <p className="company-account__wallet-status"><CheckCircle weight="fill" /> 연결된 지갑</p>
-              <code>{data.walletAddress}</code>
-            </>
+      <article id="company-wallet" className="company-account__wallet-card">
+        <div className="company-account__wallet-heading">
+          <span className="company-account__wallet-icon" aria-hidden="true"><Wallet /></span>
+          <div>
+            <h2>블록체인 지갑</h2>
+            <p>블록체인 네트워크 인증에 사용할 사업자 지갑을 관리합니다.</p>
+          </div>
+          <StatusBadge tone={walletBadge.tone}>{walletBadge.label}</StatusBadge>
+        </div>
+
+        <div className="company-account__wallet-content">
+          {walletState.status === 'loading' ? (
+            <p className="company-account__wallet-loading" aria-live="polite">등록된 지갑 정보를 확인하고 있습니다.</p>
+          ) : walletState.status === 'error' ? (
+            <div className="company-account__wallet-error">
+              <ErrorMessage error={walletState.error} />
+              {onRetryWallet ? <Button variant="secondary" size="sm" onClick={onRetryWallet}>다시 확인</Button> : null}
+            </div>
           ) : (
             <>
-              <p>아직 연결된 지갑이 없습니다.</p>
-              <span>MetaMask를 연결하고 서명하여 회사 계정의 지갑을 등록해 주세요.</span>
+              {registeredAddress ? (
+                <div className="company-account__registered-wallet">
+                  <CheckCircle weight="fill" aria-hidden="true" />
+                  <div>
+                    <span>등록된 지갑 주소</span>
+                    <code title={registeredAddress}>{shortenAddress(registeredAddress)}</code>
+                  </div>
+                </div>
+              ) : (
+                <div className="company-account__wallet-empty">
+                  <strong>아직 연결된 지갑이 없습니다.</strong>
+                  <span>MetaMask를 연결하고 서명하여 회사 계정의 지갑을 등록해 주세요.</span>
+                </div>
+              )}
+              <WalletRegistrationPanel registeredAddress={registeredAddress} />
             </>
           )}
-          <WalletRegistrationPanel registeredAddress={data.walletAddress} />
         </div>
       </article>
     </section>
