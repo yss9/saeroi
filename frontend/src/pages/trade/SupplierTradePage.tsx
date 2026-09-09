@@ -1,3 +1,4 @@
+import { CompanyDashboardLayout } from '../../features/company/components/CompanyDashboardLayout.tsx'
 import { SellerTradeBoard } from '../../features/trade/components/SellerTradeBoard.tsx'
 
 /**
@@ -12,16 +13,18 @@ import { SellerTradeBoard } from '../../features/trade/components/SellerTradeBoa
  */
 export function SupplierTradePage() {
   return (
-    <main className="page">
-      <header className="page__header">
-        <h1>판매 거래 관리</h1>
-        <p className="page__lead">
-          결제가 완료된 거래를 발송 처리하고 배송 상태를 확인합니다. 소유권은 구매자가 수령을
-          확인하는 시점에 이전됩니다.
-        </p>
-      </header>
+    <CompanyDashboardLayout>
+      <div className="page">
+        <header className="page__header">
+          <h1>판매 거래 관리</h1>
+          <p className="page__lead">
+            결제가 완료된 거래를 발송 처리하고 배송 상태를 확인합니다. 소유권은 구매자가 수령을
+            확인하는 시점에 이전됩니다.
+          </p>
+        </header>
 
-      <SellerTradeBoard />
-    </main>
+        <SellerTradeBoard />
+      </div>
+    </CompanyDashboardLayout>
   )
 }

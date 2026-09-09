@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Button, ConfirmModal, EmptyState } from '../../components/common/index.ts'
+import { CompanyDashboardLayout } from '../../features/company/components/CompanyDashboardLayout.tsx'
 import { ListingForm } from '../../features/marketplace/components/ListingForm.tsx'
 import { ListingList } from '../../features/marketplace/components/ListingList.tsx'
 import { MaterialSelect } from '../../features/marketplace/components/MaterialSelect.tsx'
@@ -29,11 +30,12 @@ export function SupplierMarketPage() {
   const sellerId = useAuthStore((state) => state.user?.id)
 
   return (
-    <main className="page">
-      <header className="page__header">
-        <h1>내 판매 관리</h1>
-        <p className="page__lead">보유한 소재를 마켓플레이스에 등록하고 판매 상태를 관리합니다.</p>
-      </header>
+    <CompanyDashboardLayout>
+      <div className="page">
+        <header className="page__header">
+          <h1>내 판매 관리</h1>
+          <p className="page__lead">보유한 소재를 마켓플레이스에 등록하고 판매 상태를 관리합니다.</p>
+        </header>
 
       <section className="page__section">
         <h2>판매 등록</h2>
@@ -91,6 +93,7 @@ export function SupplierMarketPage() {
         }}
         onClose={() => setCancelTarget(null)}
       />
-    </main>
+      </div>
+    </CompanyDashboardLayout>
   )
 }

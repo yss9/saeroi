@@ -4,6 +4,7 @@ import { Button, ErrorMessage, Input } from '../../components/common/index.ts'
 import { AuthLayout } from '../../features/auth/components/AuthLayout.tsx'
 import { useLogin } from '../../features/auth/hooks/useLogin.ts'
 import type { LoginRequest } from '../../features/auth/types/auth.types.ts'
+import { getRoleHomePath } from '../../features/auth/utils/roleHomePath.ts'
 
 interface LocationState {
   from?: { pathname: string }
@@ -20,11 +21,12 @@ export function LoginPage() {
     formState: { errors },
   } = useForm<LoginRequest>()
 
-  // ProtectedRoute 가 넘겨준 원래 목적지. 없으면 홈으로.
-  const from = (location.state as LocationState | null)?.from?.pathname ?? '/'
+  const from = (location.state as LocationState | null)?.from?.pathname
 
   const onSubmit = handleSubmit((values) => {
-    mutate(values, { onSuccess: () => navigate(from, { replace: true }) })
+    mutate(values, {
+      onSuccess: ({ user }) => navigate(from ?? getRoleHomePath(user.role), { replace: true }),
+    })
   })
 
   return (

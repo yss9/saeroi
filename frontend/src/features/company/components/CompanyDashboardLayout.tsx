@@ -98,6 +98,7 @@ export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps
               <NavLink
                 key={to}
                 to={to}
+                end={to === '/brand/processing'}
                 onClick={() => setIsMenuOpen(false)}
                 className={({ isActive }) => isActive ? 'company-dashboard__nav-link--active' : undefined}
               >

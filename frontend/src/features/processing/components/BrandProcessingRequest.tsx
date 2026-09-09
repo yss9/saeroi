@@ -1,6 +1,5 @@
-import { ArrowLeft, ArrowRight, Check, CheckCircle, Clock, Factory, Info, Leaf, MapPin, Package, SquaresFour, Storefront } from '@phosphor-icons/react'
+import { ArrowLeft, ArrowRight, Check, CheckCircle, Clock, Factory, Info, Leaf, MapPin, Package } from '@phosphor-icons/react'
 import { Link } from 'react-router-dom'
-import { useAuthStore } from '../../../stores/authStore.ts'
 import { isAppError } from '../../../utils/errors.ts'
 import { PROCESS_TYPE_LABEL, type ProcessType } from '../types/processing.types.ts'
 import { useBrandProcessingRequest } from '../hooks/useBrandProcessingRequest.ts'
@@ -14,7 +13,6 @@ const materialLabel: Record<string, string> = { DENIM: '데님', COTTON: '면', 
 
 export function BrandProcessingRequest() {
   const flow = useBrandProcessingRequest()
-  const user = useAuthStore(state => state.user)
   const selectedLabels = flow.processTypes.map(type => PROCESS_TYPE_LABEL[type]).join(' · ')
   const canceled = flow.created?.status === 'CANCELED'
   const summary = <dl className="bp-summary-list">
@@ -23,18 +21,8 @@ export function BrandProcessingRequest() {
     <div><dt>가공 목적</dt><dd>{selectedLabels || '—'}</dd></div>
     <div><dt>선택 가공사</dt><dd>{flow.processor?.name ?? '—'}</dd></div>
   </dl>
-  return <div className="bp-shell">
-    <aside className="bp-sidebar" aria-label="Brand 메뉴">
-      <Link className="bp-logo" to="/"><Leaf size={29} weight="fill" /> SAEROI<span>새로이</span></Link>
-      <div className="bp-workspace"><span className="bp-avatar"><Storefront size={22} /></span><div><strong>Brand Workspace</strong><small>소재의 다음 가능성을 만들어요</small></div></div>
-      <span className="bp-nav-title">WORKSPACE</span>
-      <nav><Link to="/inventory"><Package size={21} />보유 소재</Link><Link to="/marketplace"><SquaresFour size={21} />소재 마켓플레이스</Link><Link to="/brand/processing" aria-current="page"><Factory size={21} weight="fill" />가공 신청</Link><Link to="/brand/production"><Storefront size={21} />제품 제작</Link></nav>
-      <div className="bp-sidebar-note"><Leaf size={24} /><strong>소재에 새로운 쓰임을.</strong><p>가공 파트너와 함께<br />순환의 다음 단계를 시작하세요.</p></div>
-      <div className="bp-profile"><span className="bp-avatar">B</span><div><strong>{user?.name ?? 'Brand'}</strong><small>브랜드 계정</small></div></div>
-    </aside>
-    <div className="bp-main">
-      <header className="bp-header"><span>Brand Workspace <span className="bp-breadcrumb">/ 가공 신청</span></span><span className="bp-badge"><span className="bp-dot" /> BRAND</span></header>
-      <main className="bp-content">
+  return <div className="bp-shell bp-shell--embedded">
+      <div className="bp-content">
         <div className="bp-page-heading"><div><span className="bp-eyebrow">PROCESSING REQUEST</span><h1>소재 가공 신청</h1><p>보유 소재에 맞는 가공사를 찾고, 새로운 가능성을 연결하세요.</p></div><span className="bp-heading-icon"><Factory size={30} weight="duotone" /></span></div>
         <ol className="bp-steps" aria-label="신청 단계">{['소재 및 가공 조건', '가공사 선택', '신청 확인'].map((label, index) => <li key={label} className={flow.step === index + 1 ? 'is-active' : flow.step > index + 1 ? 'is-done' : ''} aria-current={flow.step === index + 1 ? 'step' : undefined}><span>{flow.step > index + 1 ? <Check weight="bold" size={17} /> : `0${index + 1}`}</span><strong>{label}</strong></li>)}</ol>
         {flow.created ? <section className="bp-card bp-success" aria-live="polite">
@@ -74,8 +62,7 @@ export function BrandProcessingRequest() {
           </>}
         </section><aside className="bp-summary"><section className="bp-card"><span className="bp-eyebrow">YOUR REQUEST</span><h2>신청 요약</h2>{summary}</section><div className="bp-tip"><Leaf size={24} /><h3>더 나은 소재의 시작</h3><p>소재의 특성에 맞는 가공을 통해<br />새로운 제품의 가능성을 발견하세요.</p></div><p className="bp-side-note"><Info size={17} />최종 비용과 일정은 가공사의 견적을 통해 확정됩니다.</p></aside></div>}
         <footer className="bp-footer"><span>SAEROI · 소재의 가치를 다시 잇다</span><span>CIRCULAR MATERIAL PLATFORM</span></footer>
-      </main>
-    </div>
+      </div>
   </div>
 }
 
