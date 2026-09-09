@@ -33,6 +33,7 @@ import { PaymentReturnPage } from '../../pages/trade/PaymentReturnPage.tsx'
 import { SupplierTradePage } from '../../pages/trade/SupplierTradePage.tsx'
 import { TradeDetailPage } from '../../pages/trade/TradeDetailPage.tsx'
 import { TradeListPage } from '../../pages/trade/TradeListPage.tsx'
+import { BrowseLayout } from './guards/BrowseLayout.tsx'
 import { ProtectedRoute } from './guards/ProtectedRoute.tsx'
 import { FORBIDDEN_PATH, RoleGuard } from './guards/RoleGuard.tsx'
 
@@ -65,7 +66,13 @@ export const routes: RouteObject[] = [
 
   // 권한 없음(403 성격) 안내. RoleGuard 가 여기로 보낸다.
   // Public 에 두는 이유: 이 화면 자체가 가드에 막히면 사용자가 갈 곳이 없어진다.
-  { path: FORBIDDEN_PATH, element: <ForbiddenPage /> },
+  // BrowseLayout 으로 감싸는 이유: RoleGuard 가 로그인한 사용자를 여기로 보내는데,
+  // 셸이 없으면 그 순간 사이드바를 잃는다. 유일한 출구가 "홈으로 돌아가기"(랜딩)라
+  // 대시보드로 돌아오려면 한 번 더 헤매야 했다. 비회원에게는 그대로 안내 화면만 보인다.
+  {
+    element: <BrowseLayout />,
+    children: [{ path: FORBIDDEN_PATH, element: <ForbiddenPage /> }],
+  },
 
   // QR Passport: 비회원 공개. 절대 ProtectedRoute 안으로 옮기지 말 것.
   //
@@ -79,10 +86,20 @@ export const routes: RouteObject[] = [
   // ⚠️ 다만 이 구역의 화면들이 부르는 API 는 대부분 인증을 요구한다 — SecurityConfig 가
   // `/api/v1/auth/**` 와 헬스체크만 열어 두었다. 비회원에게 무엇을 보여줄지는 QR 공개
   // 조회와 함께 정해야 하는 별도 결정이라 여기서 우회하지 않는다.
-  { path: '/materials', element: <MaterialListPage /> },
-  { path: '/materials/:materialId', element: <MaterialDetailPage /> },
-  { path: '/marketplace', element: <MarketplacePage /> },
-  { path: '/marketplace/:listingId', element: <ListingDetailPage /> },
+  //
+  // BrowseLayout 은 가드가 아니라 껍데기 선택이다 — 로그인했으면 사이드바 안에서 보고,
+  // 비회원이면 화면만 본다. 접근 조건은 그대로 public 이라 routeAccess 파생도 바뀌지
+  // 않는다. 이게 없으면 브랜드가 소재를 사러 마켓플레이스에 들어간 순간 메뉴가 사라져,
+  // 판매 관리나 거래 내역으로 돌아갈 길이 브라우저 뒤로 가기밖에 없다.
+  {
+    element: <BrowseLayout />,
+    children: [
+      { path: '/materials', element: <MaterialListPage /> },
+      { path: '/materials/:materialId', element: <MaterialDetailPage /> },
+      { path: '/marketplace', element: <MarketplacePage /> },
+      { path: '/marketplace/:listingId', element: <ListingDetailPage /> },
+    ],
+  },
 
   // ── 로그인 필요 ───────────────────────────────────────
   {

@@ -7,6 +7,7 @@ import {
 } from '../../../app/navigation/navigationMenu.ts'
 import { useVisibleMenu } from '../../../app/navigation/useVisibleMenu.ts'
 import { useAuth } from '../../auth/hooks/useAuth.ts'
+import { getRoleHomePath } from '../../auth/utils/roleHomePath.ts'
 import { BusinessWalletStatus } from '../../wallet/components/BusinessWalletStatus.tsx'
 import { ROLE_LABEL } from '../../../types/role.types.ts'
 import { BUSINESS_ROLE_LABEL, isBusinessUserRole } from '../types/companyAccount.types.ts'
@@ -60,12 +61,23 @@ export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps
     navigate('/', { replace: true })
   }
 
+  // 역할마다 대시보드 홈이 다르다. 역할을 아직 모르면(판정 보류) 회사 정보로 보낸다 —
+  // 어느 사업자 역할이든 들어갈 수 있는 화면이다.
+  const homePath = user ? getRoleHomePath(user.role) : '/company/account'
+
   return (
     <div className="company-dashboard">
       <a className="company-dashboard__skip-link" href="#company-dashboard-content">본문으로 이동</a>
 
       <header className="company-dashboard__header">
-        <Link className="company-dashboard__logo" to="/" aria-label="SAEROI 쇼핑몰 홈">
+        {/*
+          로고는 <b>대시보드 안</b>으로 돌아간다. 예전에는 `/`(쇼핑몰 랜딩)로 갔는데,
+          그 화면은 사업자 셸 밖이라 누르는 순간 사이드바가 사라졌다 — 작업 중에 로고를
+          누른 사용자가 메뉴를 잃고 마케팅 페이지에 서 있게 된다.
+
+          쇼핑몰로 나가는 길은 옆의 "쇼핑몰" 버튼이 따로 맡는다. 그쪽은 의도한 이탈이다.
+        */}
+        <Link className="company-dashboard__logo" to={homePath} aria-label="대시보드 홈">
           <img src="/img/logo.png" alt="" />
         </Link>
         <div className="company-dashboard__identity">
