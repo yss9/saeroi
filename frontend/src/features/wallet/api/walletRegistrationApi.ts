@@ -22,6 +22,12 @@ export interface RegisteredWallet {
   deactivatedAt: string | null
 }
 
+/** 현재 로그인한 계정에 등록된 지갑 이력을 조회한다. */
+export async function getMyWallets(): Promise<RegisteredWallet[]> {
+  const { data } = await apiClient.get<RegisteredWallet[]>('/v1/wallets/me')
+  return data
+}
+
 /** 인증된 사업자 계정에 지갑을 등록하기 위한 1회용 서명 메시지를 발급한다. */
 export async function requestWalletRegistrationNonce(
   payload: WalletRegistrationNonceRequest,

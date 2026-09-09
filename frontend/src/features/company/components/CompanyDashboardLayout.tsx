@@ -1,4 +1,4 @@
-import { House, List, SignOut, Wallet, X } from '@phosphor-icons/react'
+import { House, List, SignOut, UserCircle, X } from '@phosphor-icons/react'
 import { useState, type ReactNode } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import {
@@ -7,6 +7,7 @@ import {
 } from '../../../app/navigation/navigationMenu.ts'
 import { useVisibleMenu } from '../../../app/navigation/useVisibleMenu.ts'
 import { useAuth } from '../../auth/hooks/useAuth.ts'
+import { BusinessWalletStatus } from '../../wallet/components/BusinessWalletStatus.tsx'
 import { ROLE_LABEL } from '../../../types/role.types.ts'
 import { BUSINESS_ROLE_LABEL, isBusinessUserRole } from '../types/companyAccount.types.ts'
 import './company-dashboard.css'
@@ -37,6 +38,7 @@ export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const navigate = useNavigate()
   const { user, signOut } = useAuth()
+  const isBusinessUser = Boolean(user && isBusinessUserRole(user.role))
   // 역할→메뉴 매핑을 이 파일이 들고 있지 않다. routes.tsx 의 RoleGuard 정의에서
   // 파생된다 (app/navigation/navigationMenu.ts 머리말). 예전에는 여기에 역할별 배열이
   // 있어서 라우트를 추가해도 메뉴가 따라오지 않았다 — /supplier/trades 와
@@ -46,7 +48,12 @@ export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps
   // 감싸므로(ProtectedRoute), 소비자에게는 사업자 항목이 하나도 남지 않고 마이페이지만
   // 남아야 한다. useVisibleMenu 가 routes.tsx 의 RoleGuard 로 걸러 주므로 두 배열을
   // 이어 붙여도 남의 메뉴가 새지 않는다.
-  const { items: navigation, isResolving } = useVisibleMenu(MENU_ITEMS)
+  const { items: visibleNavigation, isResolving } = useVisibleMenu(MENU_ITEMS)
+  // BUSINESS_MENU_ITEMS 의 "회사 정보"와 ACCOUNT_MENU_ITEMS 의 사업자 홈은 같은
+  // 경로다. 사업자에게는 앞의 구체적인 메뉴만 남기고 중복 링크를 그리지 않는다.
+  const navigation = visibleNavigation.filter(
+    (item, index, items) => items.findIndex((candidate) => candidate.to === item.to) === index,
+  )
 
   function handleSignOut() {
     signOut()
@@ -68,11 +75,20 @@ export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps
           ) : null}
         </div>
         <div className="company-dashboard__header-actions">
-          <Link to="/">
+          <Link className="company-dashboard__shop-link" to="/">
             <House aria-hidden="true" />
             <span>쇼핑몰</span>
           </Link>
-          <button type="button" onClick={handleSignOut}>
+          {isBusinessUser ? (
+            <>
+              <BusinessWalletStatus />
+              <Link className="company-dashboard__account-link" to="/company/account" aria-label="마이페이지">
+                <UserCircle aria-hidden="true" />
+                <span>마이페이지</span>
+              </Link>
+            </>
+          ) : null}
+          <button className="company-dashboard__signout-button" type="button" onClick={handleSignOut}>
             <SignOut aria-hidden="true" />
             <span>로그아웃</span>
           </button>
@@ -117,13 +133,6 @@ export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps
               </NavLink>
             ))}
           </nav>
-          <div className="company-dashboard__wallet-summary">
-            <Wallet aria-hidden="true" />
-            <div>
-              <strong>지갑 연결</strong>
-              <span>{user?.walletAddress ? '연결됨' : '연결 전'}</span>
-            </div>
-          </div>
         </aside>
 
         {isMenuOpen ? (

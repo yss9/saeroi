@@ -1,9 +1,11 @@
 import { cleanup, render, screen } from '@testing-library/react'
+import type { AxiosResponse } from 'axios'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppProviders } from '../../app/providers/AppProviders.tsx'
 import { routes } from '../../app/router/routes.tsx'
 import { useAuthStore } from '../../stores/authStore.ts'
+import { apiClient } from '../../services/apiClient.ts'
 
 function renderRoute() {
   const router = createMemoryRouter(routes, { initialEntries: ['/company/account'] })
@@ -17,12 +19,14 @@ function renderRoute() {
 beforeEach(() => {
   localStorage.clear()
   useAuthStore.setState({ user: null, accessToken: null, isAuthenticated: false })
+  vi.spyOn(apiClient, 'get').mockResolvedValue({ data: [] } as AxiosResponse)
 })
 
 afterEach(() => {
   cleanup()
   localStorage.clear()
   useAuthStore.setState({ user: null, accessToken: null, isAuthenticated: false })
+  vi.restoreAllMocks()
 })
 
 describe('company account route', () => {
