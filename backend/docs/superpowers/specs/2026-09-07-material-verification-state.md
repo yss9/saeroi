@@ -199,3 +199,47 @@ contractAddress·verificationState·verification 이 전부 일관되게 읽히�
 **여전히 막혀 있는 것**: `evidence_hash`/`manifest_url` 은 매니페스트 생성 경로가 없어
 (`evidencePlaceholder.ts` 가 이를 자리표시자로 명시) 이 시나리오에서도 계속 `null` 이다.
 이 티켓의 범위가 아니다 — Evidence 도메인(`-167`)이 별도로 다룬다.
+
+## 2026-09-09 추가 — 같은 txHash 를 다른 소재에 재사용하는 것을 막는다
+
+`MaterialSourceVerificationTxHashReuseApiTests` (MR !237, 티켓 없이 테스트 작업 중 발견)가
+`MaterialSourceVerificationService.confirm` 의 빈 자리를 실행으로 고정해 두었다 — 같은
+`txHash` 를 서로 다른 두 소재의 확정에 그대로 다시 보내면 **둘 다 200 으로 끝났다.**
+서비스도 `blockchain_transaction` 의 유일한 유니크 제약(`(chain_id, tx_hash, log_index)`)도
+이를 막지 않았다. 이 경로가 `log_index` 를 항상 `NULL` 로 남기고(위 "확정된 트랜잭션
+하나만" 절 참고) MySQL 은 NULL 을 서로 다른 값으로 취급하므로 제약이 걸리지 않는다.
+
+**이제 막는다.** 실제 블록체인 트랜잭션 해시는 온체인에서 한 번의 실행에만 대응한다 —
+하나의 `verifySource` 트랜잭션은 그 트랜잭션이 emit 한 `SourceVerified` 이벤트의 정확히
+하나의 `(tokenId, signer, evidenceHash)` 삼중값에만 대응할 수 있다. 같은 해시가 서로
+**다른** 소재의 확정에 정당하게 재사용될 시나리오는 없다 — 위조이거나 클라이언트 버그다.
+
+**어디서 막는가.** `MaterialSourceVerificationService.confirm` 안, 기존 "이미 검증됨"
+검사 바로 다음이다. `BlockchainTransactionRepository` 에 조건을 하나 더 추가했다 —
+`existsByReferenceTypeAndFunctionNameAndTxHashAndStatusAndReferenceIdNot`. 같은 txHash 가
+**다른** `reference_id` 에 이미 `SUCCESS` 로 있으면 새 에러 코드
+`MATERIAL_SOURCE_VERIFICATION_TX_HASH_REUSED` (409) 로 거절한다. 같은 소재를 다시
+확정하는 경우는 이 검사를 타지 않는다 — 그건 이미 `MATERIAL_SOURCE_ALREADY_VERIFIED` 가
+막는다.
+
+**공유 `ChainTransactionRecorder` 가 아니라 여기(`MaterialSourceVerificationService`)에만
+좁혀서 고쳤다.** mint 확정(`MaterialChainLinkService`)·판매 등록·거래 확정에도 이론상
+같은 종류의 구멍이 있다 — 예: mint 확정도 `material.token_id != null` 여부만 보고 같은
+txHash 가 다른 소재의 mint 로 이미 쓰였는지는 안 본다. 하지만 그 확인은 이 티켓의
+범위가 아니다:
+
+- 이 수정은 지금 **실행으로 고정된 실패 테스트 하나**를 닫는 것이 목적이다. 다른 흐름은
+  아직 그런 테스트가 없어 회귀 여부를 검증할 고정점이 없다.
+- mint·판매·거래 확정은 각각 `material.token_id`, 판매글의 체인 등록 상태, 거래의
+  체인 확정 상태처럼 **참조 대상 엔티티가 이미 재배정을 막는** 별도 가드가 있다
+  (`MaterialChainLinkService` 주석 참고). 그 가드가 이 재사용까지 완전히 막는지는
+  각 흐름을 개별적으로 검토해야 하고, `ChainTransactionRecorder.record` 수준에서
+  일괄로 막으면 세 흐름의 동작을 한 번에 바꾸는 것이라 회귀 위험이 이 티켓의 범위보다
+  크다.
+- 필요하면 별도 티켓으로 mint/판매/거래 각각에 대해 같은 방식(도메인 서비스의 confirm
+  안에서 `referenceIdNot` 대조)으로 좁혀서 따로 고치는 편이 안전하다.
+
+`MaterialSourceVerificationTxHashReuseApiTests` 는 더 이상 빈 자리를 문서화하지 않는다 —
+이제는 이 방지 로직이 실제로 동작한다는 보장을 고정한다. 테스트 메서드 이름도
+`currentlyAllowsTheSameTxHashAcrossDifferentMaterials` 에서
+`rejectsTheSameTxHashAcrossDifferentMaterials` 로 바꿨다.

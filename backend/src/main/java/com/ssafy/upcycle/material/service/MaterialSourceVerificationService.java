@@ -1,6 +1,8 @@
 package com.ssafy.upcycle.material.service;
 
 import com.ssafy.upcycle.blockchain.entity.BlockchainReferenceType;
+import com.ssafy.upcycle.blockchain.entity.BlockchainTransactionStatus;
+import com.ssafy.upcycle.blockchain.repository.BlockchainTransactionRepository;
 import com.ssafy.upcycle.blockchain.service.ChainTransactionRecorder;
 import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.material.MaterialErrorCode;
@@ -30,6 +32,7 @@ public class MaterialSourceVerificationService {
     private final MaterialRepository materialRepository;
     private final BlockchainVerification blockchainVerification;
     private final ChainTransactionRecorder recorder;
+    private final BlockchainTransactionRepository transactionRepository;
 
     /**
      * 발행 결과를 연결한다. <b>등록자 본인만 할 수 있다.</b>
@@ -55,6 +58,19 @@ public class MaterialSourceVerificationService {
         }
         if (blockchainVerification.hasVerifiedSource(materialId)) {
             throw new BusinessException(MaterialErrorCode.MATERIAL_SOURCE_ALREADY_VERIFIED);
+        }
+        // 실제 Tx 해시는 한 번의 실행에만 대응한다 — 같은 해시가 다른 소재의 verifySource
+        // 로 이미 성공 기록되어 있으면 위조이거나 클라이언트 버그다. 같은 소재 재확정은
+        // 위 "이미 검증됨" 검사가 이미 막으므로 여기서는 다른 소재(referenceIdNot)만 본다.
+        // 저장 시 소문자로 정규화되므로(BlockchainTransaction.requireTxHash) 조회도
+        // 소문자로 맞춘다 — 그렇지 않으면 대문자 hex 로 온 재사용을 놓친다.
+        if (transactionRepository.existsByReferenceTypeAndFunctionNameAndTxHashAndStatusAndReferenceIdNot(
+                BlockchainReferenceType.MATERIAL,
+                VERIFY_SOURCE,
+                request.txHash().toLowerCase(),
+                BlockchainTransactionStatus.SUCCESS,
+                materialId)) {
+            throw new BusinessException(MaterialErrorCode.MATERIAL_SOURCE_VERIFICATION_TX_HASH_REUSED);
         }
 
         recorder.record(

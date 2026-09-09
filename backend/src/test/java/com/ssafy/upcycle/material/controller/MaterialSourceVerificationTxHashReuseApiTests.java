@@ -2,6 +2,7 @@ package com.ssafy.upcycle.material.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -36,19 +37,25 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
- * {@code verifySource} 확정에서 <b>같은 txHash 가 서로 다른 소재에 재사용되는 경우</b>를 고정한다.
+ * {@code verifySource} 확정에서 <b>같은 txHash 가 서로 다른 소재에 재사용되는 경우</b>를
+ * 거절하는 것을 고정한다.
  *
  * <p>{@code MaterialSourceVerificationApiTests} 는 "같은 소재를 두 번 확정" 만 막는 것을
  * 검증한다({@code refusesToVerifyTheSameMaterialTwice}). 이 클래스는 그 옆 칸 —
- * <b>다른 소재를 같은 txHash 로</b> 확정하는 경우를 본다. 새 동작을 추가하지 않는다.
- * {@code MaterialSourceVerificationService.confirm}·{@code ChainTransactionRecorder.record}
- * 어디에도 txHash 가 이미 다른 소재에 쓰였는지 대조하는 코드가 없고,
- * {@code blockchain_transaction} 의 유일한 유니크 제약(schema.sql
- * {@code uk_blockchain_transaction_event}, {@code (chain_id, tx_hash, log_index)})은
- * 이 경로가 {@code log_index} 를 항상 NULL 로 남기기 때문에(MySQL 은 NULL 을 서로 다른 값으로
- * 취급) 걸리지 않는다 — 그래서 지금 동작을 실행으로 확인해 남긴다. 의도된 방지 로직이
- * 아니라 <b>현재 비어 있는 자리</b>이므로, 나중에 막기로 결정하면 이 테스트가 먼저 깨져야
- * 정상이다(회귀가 아니라 의도된 동작 변경으로 읽는다).
+ * <b>다른 소재를 같은 txHash 로</b> 확정하려는 경우를 본다.
+ *
+ * <p>실제 블록체인 트랜잭션 해시는 한 번의 실행에만 대응하므로, 같은 해시가 서로 다른
+ * 소재의 {@code verifySource} 로 정당하게 재사용될 시나리오는 없다 — 위조이거나 클라이언트
+ * 버그다. {@code MaterialSourceVerificationService.confirm} 이 첫 소재의 확정 이후
+ * {@code blockchain_transaction} 에서 같은 txHash 가 <b>다른</b> 소재({@code reference_id})에
+ * 이미 {@code SUCCESS} 로 기록되어 있는지 대조해 두 번째 확정을
+ * {@code MATERIAL_SOURCE_VERIFICATION_TX_HASH_REUSED} (409) 로 거절한다.
+ *
+ * <p>2026-09-09 이전에는 이 테스트가 정반대로 재사용이 <b>성공</b>하는 것을 고정해
+ * 현재의 빈 자리를 문서화했다({@code blockchain_transaction} 의 유일한 유니크 제약
+ * {@code (chain_id, tx_hash, log_index)} 이 이 경로가 {@code log_index} 를 항상 NULL 로
+ * 남기기 때문에 걸리지 않았다). 이제는 그 자리를 채운 방지 로직을 고정하므로, 이 테스트가
+ * 깨지면 회귀다.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -96,28 +103,27 @@ class MaterialSourceVerificationTxHashReuseApiTests {
     }
 
     /**
-     * 같은 {@code txHash} 를 서로 다른 두 소재의 확정에 그대로 다시 보내면 <b>지금은</b>
-     * 둘 다 200 으로 끝나고 {@code blockchain_transaction} 에 행이 두 개 남는다.
-     * 서비스도 DB 제약도 이 재사용을 막지 않는다는 사실을 실행으로 고정한다.
+     * 같은 {@code txHash} 를 서로 다른 두 소재의 확정에 그대로 다시 보내면 첫 확정만 성공하고
+     * 두 번째는 {@code MATERIAL_SOURCE_VERIFICATION_TX_HASH_REUSED} (409) 로 거절된다.
+     * {@code blockchain_transaction} 에는 첫 소재의 행 하나만 남는다.
      */
     @Test
-    void currentlyAllowsTheSameTxHashAcrossDifferentMaterials() throws Exception {
+    void rejectsTheSameTxHashAcrossDifferentMaterials() throws Exception {
         long firstMaterialId = registerAndMintMaterial(MINT_TX_1, 7L);
         long secondMaterialId = registerAndMintMaterial(MINT_TX_2, 8L);
 
         confirmSourceVerification(firstMaterialId, SHARED_VERIFY_TX)
                 .andExpect(status().isOk());
         confirmSourceVerification(secondMaterialId, SHARED_VERIFY_TX)
-                .andExpect(status().isOk());
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("MATERIAL_SOURCE_VERIFICATION_TX_HASH_REUSED"));
 
         var verifySourceRows = transactionRepository.findAll().stream()
                 .filter(tx -> tx.getFunctionName().equals("verifySource"))
                 .toList();
-        assertThat(verifySourceRows).hasSize(2);
-        assertThat(verifySourceRows)
-                .allSatisfy(tx -> assertThat(tx.getTxHash()).isEqualTo(SHARED_VERIFY_TX));
-        assertThat(verifySourceRows.stream().map(tx -> tx.getReferenceId()).distinct().toList())
-                .containsExactlyInAnyOrder(firstMaterialId, secondMaterialId);
+        assertThat(verifySourceRows).hasSize(1);
+        assertThat(verifySourceRows.get(0).getTxHash()).isEqualTo(SHARED_VERIFY_TX);
+        assertThat(verifySourceRows.get(0).getReferenceId()).isEqualTo(firstMaterialId);
     }
 
     // ── helpers ─────────────────────────────────────────────
