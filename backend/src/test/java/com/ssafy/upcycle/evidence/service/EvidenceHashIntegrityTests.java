@@ -1,13 +1,15 @@
 package com.ssafy.upcycle.evidence.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.ssafy.upcycle.common.config.ClockConfig;
+import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.common.jpa.config.JpaAuditingConfig;
-import com.ssafy.upcycle.common.storage.FileContent;
 import com.ssafy.upcycle.common.storage.FileStorageProperties;
 import com.ssafy.upcycle.common.storage.FileStorageService;
 import com.ssafy.upcycle.common.storage.LocalFileStorageService;
+import com.ssafy.upcycle.evidence.EvidenceErrorCode;
 import com.ssafy.upcycle.evidence.dto.EvidenceFileResponse;
 import com.ssafy.upcycle.evidence.dto.EvidenceUploadRequest;
 import com.ssafy.upcycle.evidence.entity.EvidenceFile;
@@ -55,15 +57,15 @@ import org.springframework.mock.web.MockMultipartFile;
  * 있다 — 여기서는 <b>Evidence 도메인 계층까지 그 값이 그대로 전달·영속화되는지</b>와,
  * <b>업로드~읽기 왕복에서 해시가 실제 바이트와 계속 일치하는지</b>를 본다.
  *
- * <h2>변조 탐지는 능동적이지 않다 — 이 테스트가 그 사실을 명시한다</h2>
+ * <h2>변조 탐지 — {@code read} 가 능동적으로 막는다</h2>
  *
  * <p>저장소 바이트가 업로드 이후 변조되면(디스크 손상, 수동 수정 등) 재계산한 해시는
- * DB 의 {@code file_hash} 와 달라진다 — 그런데 {@code EvidenceContentService#read} 는 그 대조를
- * 하지 않는다. 읽기는 그저 저장 키가 가리키는 바이트를 그대로 흘려보낼 뿐이다. 이 클래스의
- * 마지막 테스트는 "달라짐을 계산으로 확인할 수 있다" 는 것과 "그 확인을 서버가 자동으로
- * 하지는 않는다" 는 것을 함께 못박는다 — 후자를 프로덕션 코드로 조용히 고치지 않는다.
+ * DB 의 {@code file_hash} 와 달라진다. {@code EvidenceContentService#read} 는 돌려주기 전에
+ * 그 대조를 하고, 어긋나면 {@code EvidenceErrorCode#EVIDENCE_INTEGRITY_VIOLATION} 을 던져
+ * 변조된 바이트를 응답으로 내보내지 않는다. 이 클래스의 마지막 테스트가 그 거부를 고정한다.
  * 온체인 {@code verifyEvidence} 로 이 대조를 하는 경로는 백엔드에 아직 연결되어 있지 않다
- * ({@code EvidenceAnchorPolicy} 주석 참고, MR 설명에도 명시).
+ * ({@code EvidenceAnchorPolicy} 주석 참고) — 이번에 고친 것은 저장소 바이트와 우리 DB 값의
+ * 대조이지, 온체인 값과의 대조가 아니다.
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -211,11 +213,10 @@ class EvidenceHashIntegrityTests {
         assertThat(readBack).isEqualTo(CONTENT_A);
     }
 
-    // ── 변조 탐지 — 계산은 가능하나 서버가 자동으로 하지 않는다 ──
+    // ── 변조 탐지 — read() 가 능동적으로 거부한다 ──
 
     @Test
-    void aTamperedFileNoLongerMatchesThePersistedHashButTheServerDoesNotNoticeOnRead()
-            throws Exception {
+    void aTamperedFileNoLongerMatchesThePersistedHashAndReadRefusesToServeIt() throws Exception {
         EvidenceFileResponse uploaded = upload(CONTENT_A, "before.jpg");
         Path writtenFile = tempDir.resolve(uploaded.storageKey());
 
@@ -223,19 +224,12 @@ class EvidenceHashIntegrityTests {
         // 그대로 CONTENT_A 의 해시다.
         Files.write(writtenFile, CONTENT_B);
 
-        byte[] tamperedBytes;
-        try (InputStream stream = contentService.read(uploaderId, uploaded.evidenceFileId()).stream()) {
-            tamperedBytes = stream.readAllBytes();
-        }
-
-        assertThat(tamperedBytes)
-                .as("read() 는 변조된 바이트를 그대로 돌려준다 — 대조하지 않는다")
-                .isEqualTo(CONTENT_B);
-        assertThat(sha256Of(tamperedBytes))
-                .as("재계산한 해시는 DB 에 저장된 값과 더 이상 일치하지 않는다 — "
-                        + "이 불일치를 사람이나 별도 배치가 알아채야 한다. "
-                        + "EvidenceContentService#read 는 이것을 검사하지 않는다")
-                .isNotEqualTo(uploaded.fileHash());
+        assertThatThrownBy(() -> contentService.read(uploaderId, uploaded.evidenceFileId()))
+                .as("재계산한 해시가 DB 의 file_hash 와 어긋나면 read() 는 바이트를 내보내지 "
+                        + "않고 거부해야 한다")
+                .isInstanceOf(BusinessException.class)
+                .extracting(failure -> ((BusinessException) failure).getErrorCode())
+                .isEqualTo(EvidenceErrorCode.EVIDENCE_INTEGRITY_VIOLATION);
 
         EvidenceFile persisted =
                 evidenceFileRepository.findById(uploaded.evidenceFileId()).orElseThrow();
