@@ -73,6 +73,58 @@
 .ui-field__control--error { border-color: var(--ui-color-danger); }
 .ui-field__error { margin: 0; font-size: 0.8125rem; color: var(--ui-color-danger); }
 .ui-field__hint { margin: 0; font-size: 0.8125rem; color: var(--ui-color-muted); }
+/* 거절 사유가 여러 가지면 alert 한 덩어리 안에 문단으로 들어온다. */
+.ui-field__error p { margin: 0; }
+
+/* ── FileUploader ── */
+.ui-uploader__drop {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  /* 점선은 "여기에 놓을 수 있다" 를 문구 없이도 알려준다. */
+  border: 1px dashed var(--ui-color-border);
+  border-radius: var(--ui-radius);
+}
+.ui-uploader__drop--active { border-color: var(--ui-color-primary); border-style: solid; }
+.ui-uploader__drop-hint { font-size: 0.8125rem; color: var(--ui-color-muted); }
+.ui-uploader__previews {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ui-uploader__previews li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  width: 6rem;
+  font-size: 0.75rem;
+  /* 파일 이름이 길어도 칸을 밀어내지 않게 줄바꿈한다. */
+  overflow-wrap: anywhere;
+}
+/* LocalFilePreview / 서버 증빙 미리보기 공통 칸. 이미지든 확장자 글자든 같은 크기다 —
+   섞여 있을 때 줄이 들쭉날쭉하지 않아야 목록으로 읽힌다. */
+.ui-file-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 6rem;
+  height: 6rem;
+  border-radius: var(--ui-radius);
+  background: var(--ui-color-surface);
+  object-fit: cover;
+}
+.ui-file-preview--none {
+  border: 1px solid var(--ui-color-border);
+  color: var(--ui-color-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+.ui-uploader__progress { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8125rem; }
+.ui-uploader__progress progress { flex: 1; }
 
 .ui-quantity { display: flex; align-items: center; gap: 0.5rem; }
 .ui-quantity .ui-field__control { flex: 1; }

@@ -11,7 +11,17 @@ export { ConfirmModal, type ConfirmModalProps } from './ConfirmModal.tsx'
 export { EmptyState, type EmptyStateProps } from './EmptyState.tsx'
 export { ErrorMessage, type ErrorMessageProps } from './ErrorMessage.tsx'
 export { FileUploader, type FileUploaderProps } from './FileUploader.tsx'
+export {
+  validateFiles,
+  isPreviewableImage,
+  rejectionMessage,
+  groupRejections,
+  type FileRejection,
+  type FileRejectionReason,
+  type FileValidationPolicy,
+} from './fileValidation.ts'
 export { Input, type InputProps } from './Input.tsx'
+export { LocalFilePreview, type LocalFilePreviewProps } from './LocalFilePreview.tsx'
 export { Loading, type LoadingProps } from './Loading.tsx'
 export { Modal, type ModalProps } from './Modal.tsx'
 export { OnChainPanel, TransactionHash, type OnChainPanelProps } from './OnChainPanel.tsx'

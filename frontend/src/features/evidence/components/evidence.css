@@ -1,0 +1,100 @@
+/* 증빙 업로드·목록 (S15P21E104-165).
+ *
+ * 컴포넌트에서 직접 import 한다 (product.css · trade.css 와 같은 방식) — index.css 는
+ * 여러 사람이 함께 고치는 파일이고 이 스타일은 evidence 도메인 밖에서 쓰이지 않는다.
+ *
+ * 미리보기 칸 자체(`ui-file-preview`)는 공통 컴포넌트가 정한다. 여기서 크기를 다시
+ * 정하면 같은 화면 안에서 올리기 전/후 미리보기가 다른 크기로 보인다.
+ */
+
+.evidence {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.evidence__form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* 올릴 파일 · 등록된 증빙 모두 목록이지만 불릿은 필요 없다 — 각 줄이 카드다. */
+.evidence__selected,
+.evidence__list,
+.evidence__summary,
+.evidence__result ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.evidence__selected {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.evidence__selected li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  width: 6rem;
+  font-size: 0.75rem;
+  /* 파일 이름이 길어도 칸을 밀어내지 않게 줄바꿈한다. */
+  overflow-wrap: anywhere;
+}
+
+.evidence__summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.evidence__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.evidence__list li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.75rem;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius);
+}
+.evidence__list p {
+  margin: 0;
+}
+
+/* 해시는 66자다. 좁은 화면에서 레이아웃을 밀어내지 않게 잘라 준다 (ui-tx__hash 와 같은 이유). */
+.evidence__hash {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+  color: var(--ui-color-muted);
+}
+
+.evidence__result {
+  padding: 0.75rem;
+  border: 1px solid var(--ui-color-success);
+  border-radius: var(--ui-radius);
+  font-size: 0.875rem;
+}
+.evidence__result p {
+  margin: 0 0 0.35rem;
+  color: var(--ui-color-success);
+  font-weight: 600;
+}
+.evidence__result li {
+  display: flex;
+  flex-direction: column;
+}
+
+.evidence__masked,
+.evidence__preview-none {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--ui-color-muted);
+}

@@ -20,6 +20,7 @@ import { MaterialRegisterPage } from '../../pages/material/MaterialRegisterPage.
 import { ConsumerMyPage } from '../../pages/mypage/ConsumerMyPage.tsx'
 import { BrandProcessingPage } from '../../pages/processing/BrandProcessingPage.tsx'
 import { ProcessingPage } from '../../pages/processing/ProcessingPage.tsx'
+import { ProcessorProfilePage } from '../../pages/processing/ProcessorProfilePage.tsx'
 import { ProductDetailPage } from '../../pages/product/ProductDetailPage.tsx'
 import { ProductListPage } from '../../pages/product/ProductListPage.tsx'
 import { ProductRegisterPage } from '../../pages/product/ProductRegisterPage.tsx'
@@ -66,19 +67,30 @@ export const routes: RouteObject[] = [
   // QR Passport: 비회원 공개. 절대 ProtectedRoute 안으로 옮기지 말 것.
   { path: '/passport/:productId', element: <PassportPage /> },
 
-  // 소재·제품 목록은 공개 정보다. 등록·거래처럼 쓰기 동작만 인증을 요구한다.
+  // 소재 목록은 공개 정보다. 등록·거래처럼 쓰기 동작만 인증을 요구한다.
+  //
+  // ⚠️ 다만 이 구역의 화면들이 부르는 API 는 대부분 인증을 요구한다 — SecurityConfig 가
+  // `/api/v1/auth/**` 와 헬스체크만 열어 두었다. 비회원에게 무엇을 보여줄지는 QR 공개
+  // 조회와 함께 정해야 하는 별도 결정이라 여기서 우회하지 않는다.
   { path: '/materials', element: <MaterialListPage /> },
   { path: '/materials/:materialId', element: <MaterialDetailPage /> },
   { path: '/marketplace', element: <MarketplacePage /> },
   { path: '/marketplace/:listingId', element: <ListingDetailPage /> },
-  { path: '/products', element: <ProductListPage /> },
-  { path: '/products/:productId', element: <ProductDetailPage /> },
 
   // ── 로그인 필요 ───────────────────────────────────────
   {
     element: <ProtectedRoute />,
     children: [
       { path: '/inventory', element: <InventoryPage /> },
+
+      // 제품은 로그인 뒤에만 본다. 조회 API 와 대표 이미지 모두 인증을 요구하므로
+      // 공개 라우트로 두면 비회원에게 401 로 빈 화면이 나간다.
+      //
+      // 소비자가 QR 로 들어오는 입구는 이 화면이 아니라 `/passport/:productId` 다 —
+      // 그쪽은 비회원 공개를 유지해야 한다.
+      { path: '/products', element: <ProductListPage /> },
+      { path: '/products/:productId', element: <ProductDetailPage /> },
+
       { path: '/trades', element: <TradeListPage /> },
       { path: '/trades/:tradeId', element: <TradeDetailPage /> },
       // 카카오페이 결제창이 돌아오는 자리. 승인·취소·실패가 모두 이 주소로 오고
@@ -125,7 +137,10 @@ export const routes: RouteObject[] = [
       // ── PROCESSOR ──
       {
         element: <RoleGuard allow={['PROCESSOR']} />,
-        children: [{ path: '/processor/jobs', element: <ProcessingPage /> }],
+        children: [
+          { path: '/processor/jobs', element: <ProcessingPage /> },
+          { path: '/processor/profile', element: <ProcessorProfilePage /> },
+        ],
       },
 
       // ── ADMIN ──

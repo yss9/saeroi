@@ -28,7 +28,7 @@ describe('useVisibleMenu', () => {
     const { result } = renderHook(() => useVisibleMenu(BUSINESS_MENU_ITEMS))
 
     expect(result.current.items.map((item) => item.to)).toEqual([
-      '/company/account', '/inventory', '/processor/jobs', '/trades',
+      '/company/account', '/inventory', '/processor/profile', '/processor/jobs', '/trades',
     ])
     expect(result.current.isResolving).toBe(false)
   })

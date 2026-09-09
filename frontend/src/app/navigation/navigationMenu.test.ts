@@ -128,8 +128,8 @@ describe('역할별 사업자 메뉴', () => {
     ])
   })
 
-  it('PROCESSOR 는 가공 작업 메뉴만 추가로 본다', () => {
-    expect(visibleLabels('PROCESSOR')).toEqual(['회사 정보', '보유 소재', '가공 작업', '거래 내역'])
+  it('PROCESSOR 는 업체 등록·가공 작업 메뉴를 추가로 본다', () => {
+    expect(visibleLabels('PROCESSOR')).toEqual(['회사 정보', '보유 소재', '업체 등록', '가공 작업', '거래 내역'])
   })
 
   // ADMIN 을 만능으로 두지 않는다. 권한 Matrix §4 에서 ADMIN 은 도메인 기능에

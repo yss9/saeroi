@@ -40,7 +40,7 @@ export interface NavigationMenuItem {
  *
  *   SUPPLIER  회사 정보 · 보유 소재 · 소재 등록 · 판매 관리 · 판매 거래 · 거래 내역
  *   BRAND     회사 정보 · 보유 소재 · 가공 요청 · 생산 관리 · 제품 등록 · 거래 내역
- *   PROCESSOR 회사 정보 · 보유 소재 · 가공 작업 · 거래 내역
+ *   PROCESSOR 회사 정보 · 보유 소재 · 업체 등록 · 가공 작업 · 거래 내역
  *
  * `/inventory`, `/trades` 는 RoleGuard 가 없는 Protected 경로다 = 로그인만 하면
  * 역할 무관. 예전 사이드바는 이 둘에 역할 조건을 직접 붙여(SUPPLIER 는 거래 내역만,
@@ -57,6 +57,7 @@ export const BUSINESS_MENU_ITEMS: readonly NavigationMenuItem[] = [
   { label: '가공 요청', to: '/brand/processing', Icon: Factory },
   { label: '생산 관리', to: '/brand/production', Icon: Buildings },
   { label: '제품 등록', to: '/brand/products/new', Icon: Tag },
+  { label: '업체 등록', to: '/processor/profile', Icon: Buildings },
   { label: '가공 작업', to: '/processor/jobs', Icon: Factory },
   { label: '거래 내역', to: '/trades', Icon: Swap },
 ]

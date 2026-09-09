@@ -1,13 +1,26 @@
+import { useParams } from 'react-router-dom'
+import { ErrorMessage } from '../../components/common/index.ts'
+import { ProductDetail } from '../../features/product/components/ProductDetail.tsx'
+
 /**
- * 제품 상세 화면.
+ * 제품 상세.
  *
- * TODO(5번/Product 담당): Feature 컴포넌트를 조합해 채운다.
- * Page 는 조합만 한다 — API 호출·비즈니스 로직·응답 가공을 여기 두지 않는다.
+ * **로그인이 필요하다.** 제품 조회와 이미지 모두 서버가 인증을 요구한다. 공개 라우트로
+ * 두면 비회원에게 401 로 빈 화면이 나가므로 `ProtectedRoute` 안에 있다.
+ *
+ * ⚠️ 소비자가 QR 로 들어오는 입구는 이 화면이 아니라 `/passport/:productId` 다.
+ * 그쪽은 비회원 공개여야 한다 (ARCHITECTURE §9) — 이 화면과 혼동하지 말 것.
  */
 export function ProductDetailPage() {
+  const { productId } = useParams<{ productId: string }>()
+  const parsed = Number(productId)
+  const id = Number.isInteger(parsed) && parsed > 0 ? parsed : null
+
+  if (id === null) return <ErrorMessage error="잘못된 주소입니다." />
+
   return (
     <main className="page">
-      <h1>제품 상세</h1>
+      <ProductDetail productModelId={id} />
     </main>
   )
 }
