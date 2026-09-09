@@ -61,7 +61,24 @@ public enum MaterialErrorCode implements ErrorCode {
     MATERIAL_WALLET_NOT_LINKED(
             HttpStatus.CONFLICT,
             "MATERIAL_WALLET_NOT_LINKED",
-            "지갑을 먼저 등록해야 소재를 등록할 수 있습니다.");
+            "지갑을 먼저 등록해야 소재를 등록할 수 있습니다."),
+
+    /**
+     * 온체인에 발행되지 않은(mint confirm 이 안 된) 소재를 출처 검증하려는 경우.
+     *
+     * <p>{@code verifySource(tokenId, ...)} 자체가 {@code tokenId} 를 요구하므로,
+     * mint 가 먼저 확정되지 않은 소재는 검증 대상이 될 수 없다.
+     */
+    MATERIAL_NOT_ON_CHAIN(
+            HttpStatus.CONFLICT,
+            "MATERIAL_NOT_ON_CHAIN",
+            "온체인에 발행되지 않은 소재는 출처 검증을 할 수 없습니다."),
+
+    /** 이미 verifySource 가 확정된 소재를 다시 확정하려는 경우. */
+    MATERIAL_SOURCE_ALREADY_VERIFIED(
+            HttpStatus.CONFLICT,
+            "MATERIAL_SOURCE_ALREADY_VERIFIED",
+            "이미 출처 검증이 완료된 소재입니다.");
 
     private final HttpStatus status;
     private final String code;

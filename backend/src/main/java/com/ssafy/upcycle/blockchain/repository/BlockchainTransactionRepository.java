@@ -3,6 +3,7 @@ package com.ssafy.upcycle.blockchain.repository;
 import com.ssafy.upcycle.blockchain.entity.BlockchainReferenceType;
 import com.ssafy.upcycle.blockchain.entity.BlockchainTransaction;
 import com.ssafy.upcycle.blockchain.entity.BlockchainTransactionStatus;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface BlockchainTransactionRepository
@@ -16,6 +17,13 @@ public interface BlockchainTransactionRepository
      * 매겨지므로 {@code reference_type} 없이 id 만 보면 같은 번호의 거래를 소재로 착각한다.
      */
     boolean existsByReferenceTypeAndReferenceIdAndFunctionNameAndStatus(
+            BlockchainReferenceType referenceType,
+            Long referenceId,
+            String functionName,
+            BlockchainTransactionStatus status);
+
+    /** 판정용 {@code exists} 와 같은 조건으로 근거 행 자체를 읽는다 (Blockchain Proof 화면). */
+    Optional<BlockchainTransaction> findFirstByReferenceTypeAndReferenceIdAndFunctionNameAndStatusOrderByConfirmedAtDesc(
             BlockchainReferenceType referenceType,
             Long referenceId,
             String functionName,

@@ -156,3 +156,23 @@ tx_hash        CHAR(66)                   어느 Tx 로
 
 `VerificationBadge.tsx` 가 5단계 라벨·톤을 이미 갖고 있으므로 붙이기만 하면 된다.
 별도 티켓으로 낸다 — 이 문서가 근거다.
+
+## 2026-09-09 추가 — 검증 Tx 를 보내는 경로 (S15P21E104-171/-172)
+
+위 "하지 않는 것" 목록의 `-153`/`-374` 블로킹은 낡은 정보였다. 컨트랙트 주소 env 키는
+이미 세 곳(`.env.example`/`Dockerfile`/`contracts.ts`) 모두 `VITE_MATERIAL_CONTRACT_ADDRESS`
+로 통일돼 있었고, mint 확정(`MaterialChainLinkService`)도 이미 배포돼 있었다.
+
+**A안(`material.signed_at`/`signer_wallet` 컬럼 추가)은 다시 검토하지 않는다** — 위
+"결정" 절이 이미 기각한 방안이고, 이 문서가 근거다. 대신 mint 확정과 같은 패턴으로
+`MaterialSourceVerificationService`(`POST /api/materials/{id}/source-verification`)를
+추가했다. 이 서비스는 **`material` 을 바꾸지 않는다** — `blockchain_transaction` 에
+`verifySource` 행 하나를 남기고, `MaterialVerificationStateResolver` 는 그대로 둔다.
+
+`onChainId` 를 받지 않는다 — mint 와 달리 verifySource 는 새로 채번되는 값이 없다.
+등록자 본인만, 온체인에 없는(mint 안 된) 소재는 거절, 두 번 확정 거절 — 셋 다
+`MaterialSourceVerificationApiTests` 가 고정한다.
+
+`MaterialDetailResponse` 에 `verification` 필드를 추가했다(위 "응답 형태" 절 그대로).
+`SOURCE_VERIFIED` 일 때만 `{state, signerWallet, signedAt, txHash}` 를 채우고, 다른 단은
+근거의 모양이 달라(거래 서명 등) `null` 이다.

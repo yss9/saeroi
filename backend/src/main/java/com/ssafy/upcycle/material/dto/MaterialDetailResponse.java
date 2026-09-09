@@ -18,15 +18,17 @@ import java.util.List;
  * <h2>{@code verificationState} 가 판정하는 범위</h2>
  *
  * <p>저장 컬럼이 아니라 {@code MaterialVerificationStateResolver} 가 조회 시점에 계산한
- * 값이다. 다만 <b>지금 판정되는 단계는 {@code TRANSACTION_VERIFIED} 와
- * {@code REGISTERED} 둘뿐이다.</b>
+ * 값이다. 지금 판정되는 단계는 {@code REGISTERED} · {@code SOURCE_VERIFIED} ·
+ * {@code TRANSACTION_VERIFIED} 셋이다 ({@code docs/superpowers/specs/2026-09-07-material-verification-state.md}).
  *
- * <p>나머지 세 단계는 판정 근거가 아직 없다 — {@code material.signed_at} 컬럼이 없고,
- * 승인 시각을 남길 {@code processing_job} 도, {@code production_input} 엔티티도 없다.
- * 그래서 <b>결과 자체는 오늘 기준으로 정확하다.</b> 도달할 수 없는 단계를 놓치는 것이지
- * 틀리게 보고하는 것이 아니다.
+ * <p>남은 두 단({@code PROCESSING_VERIFIED}·{@code PRODUCT_LINKED})은 판정 근거가 될
+ * {@code processing_job}·{@code production_input} 엔티티가 아직 없다. 그래서 <b>결과
+ * 자체는 오늘 기준으로 정확하다.</b> 도달할 수 없는 단계를 놓치는 것이지 틀리게
+ * 보고하는 것이 아니다.
  *
- * <p>화면에서 검증 배지를 그린다면 이 범위를 넘는 표현은 쓰지 않는다.
+ * <p>{@code verification} 은 {@code SOURCE_VERIFIED} 일 때만 근거(지갑·Tx 해시·시각)를
+ * 채운 채 내려온다. 다른 단은 근거의 종류가 달라(거래 서명 등) 이 모양이 맞지 않으므로
+ * {@code null} 이다 — {@link MaterialVerificationResponse} 주석 참고.
  *
  * <h2>null 이 정상인 필드들</h2>
  *
@@ -75,6 +77,7 @@ public record MaterialDetailResponse(
 
         // Verification — 조회 시점 계산값. 판정 범위는 위 주석 참고
         MaterialVerificationState verificationState,
+        MaterialVerificationResponse verification,
 
         // 상태
         MaterialStatus status,
@@ -88,7 +91,8 @@ public record MaterialDetailResponse(
             Material material,
             List<MaterialBalance> balances,
             List<MaterialComposition> composition,
-            MaterialVerificationState verificationState) {
+            MaterialVerificationState verificationState,
+            MaterialVerificationResponse verification) {
         return new MaterialDetailResponse(
                 material.getId(),
                 material.getMaterialCode(),
@@ -110,6 +114,7 @@ public record MaterialDetailResponse(
                 material.getEvidenceHash(),
                 material.getManifestUrl(),
                 verificationState,
+                verification,
                 material.getStatus(),
                 material.getTokenId(),
                 material.getChainId(),
