@@ -11,6 +11,7 @@ import com.ssafy.upcycle.material.entity.MaterialStatus;
 import com.ssafy.upcycle.material.repository.MaterialBalanceRepository;
 import com.ssafy.upcycle.material.repository.MaterialLockRepository;
 import com.ssafy.upcycle.material.repository.MaterialRepository;
+import com.ssafy.upcycle.material.service.MaterialAvailabilityPolicy;
 import com.ssafy.upcycle.product.entity.ProductModel;
 import com.ssafy.upcycle.product.repository.ProductModelRepository;
 import com.ssafy.upcycle.production.ProductionErrorCode;
@@ -317,16 +318,16 @@ public class ProductionBatchService {
     private void requireAvailable(Long materialId, Long ownerId, long wanted) {
         // 여기 도달했다면 requireOwned 가 보유 행을 확인한 뒤다. 그래도 없으면 그 사이에
         // 사라졌다는 뜻이고, 그건 수량 문제가 아니라 소유 문제다.
-        long available = balanceRepository.findForUpdate(materialId, ownerId)
+        long balance = balanceRepository.findForUpdate(materialId, ownerId)
                 .orElseThrow(() ->
                         new BusinessException(ProductionErrorCode.PRODUCTION_MATERIAL_NOT_OWNED))
                 .getQuantity();
-        LocalDateTime now = LocalDateTime.now(clock);
-        for (MaterialLock lock : lockRepository.findActiveForUpdate(materialId, ownerId)) {
-            if (!lock.isExpiredAt(now)) {
-                available -= lock.getAmount();
-            }
-        }
+        // 규칙은 MaterialAvailabilityPolicy 가, 읽는 방식은 여기가 정한다.
+        // 판매 등록과 같은 답을 해야 하고, 그것을 MaterialAvailabilityConsistencyTests 가 고정한다.
+        long available = MaterialAvailabilityPolicy.available(
+                balance,
+                lockRepository.findActiveForUpdate(materialId, ownerId),
+                LocalDateTime.now(clock));
         if (wanted > available) {
             throw new BusinessException(ProductionErrorCode.PRODUCTION_INSUFFICIENT_BALANCE);
         }
