@@ -89,6 +89,22 @@ public enum ProductionErrorCode implements ErrorCode {
             "가공을 거치지 않은 폐소재는 생산에 투입할 수 없습니다."),
 
     /**
+     * 한 요청 안에 같은 소재가 두 번 들어 있는 경우.
+     *
+     * <p>{@link #PRODUCTION_MATERIAL_ALREADY_INPUT} 과 다르다 — 그쪽은 이미 배치에 들어가
+     * 있는 소재를 또 넣으려는 경우이고, 이쪽은 <b>이번 요청 안에서</b> 겹치는 경우다.
+     * DB 의 UNIQUE 는 두 번째 INSERT 에서야 걸리는데, 그때는 첫 번째 잠금이 이미 만들어진
+     * 뒤다. 쓰기 전에 걸러야 그 경로가 아예 없어진다.
+     *
+     * <p>수량을 합쳐서 하나로 만들지 않는다. 사용자가 실수로 두 번 고른 것인지 두 덩이를
+     * 따로 세려던 것인지 알 수 없고, 합치면 화면의 목록과 저장된 내용이 달라진다.
+     */
+    PRODUCTION_DUPLICATE_MATERIAL_IN_REQUEST(
+            HttpStatus.BAD_REQUEST,
+            "PRODUCTION_DUPLICATE_MATERIAL_IN_REQUEST",
+            "같은 소재를 한 번에 두 번 투입할 수 없습니다."),
+
+    /**
      * 같은 소재를 한 배치에 두 번 넣으려는 경우.
      *
      * <p>DB 의 UNIQUE {@code (production_batch_id, material_id)} 가 막지만 그건

@@ -3,7 +3,7 @@ package com.ssafy.upcycle.production.controller;
 import com.ssafy.upcycle.common.response.ApiResponse;
 import com.ssafy.upcycle.production.dto.ProductionBatchOpenRequest;
 import com.ssafy.upcycle.production.dto.ProductionBatchResponse;
-import com.ssafy.upcycle.production.dto.ProductionInputRequest;
+import com.ssafy.upcycle.production.dto.ProductionInputsRequest;
 import com.ssafy.upcycle.production.service.ProductionBatchService;
 import com.ssafy.upcycle.production.service.ProductionConfirmService;
 import jakarta.validation.Valid;
@@ -50,14 +50,18 @@ public class ProductionBatchController {
     /**
      * 소재를 배치에 연결한다. <b>연결과 동시에 그 수량이 잠긴다.</b>
      *
+     * <p><b>목록으로 받고 전부 성공하거나 전부 실패한다.</b> 한 건씩 받으면 중간에 실패했을
+     * 때 앞의 것들이 잠긴 채 남고, 프론트가 어디까지 성공했는지 추적해 되돌려야 한다.
+     * 단건은 원소 하나짜리 목록으로 보내면 된다.
+     *
      * <p>응답은 배치 전체다 — 화면이 투입 목록과 합계를 함께 다시 그리므로 한 번에 준다.
      */
     @PostMapping("/{batchId}/inputs")
-    public ApiResponse<ProductionBatchResponse> addInput(
+    public ApiResponse<ProductionBatchResponse> addInputs(
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable Long batchId,
-            @Valid @RequestBody ProductionInputRequest request) {
-        return ApiResponse.success(productionBatchService.addInput(userId(jwt), batchId, request));
+            @Valid @RequestBody ProductionInputsRequest request) {
+        return ApiResponse.success(productionBatchService.addInputs(userId(jwt), batchId, request));
     }
 
     /** 투입을 취소한다. 잠금이 함께 풀려 수량이 돌아온다. */
