@@ -29,6 +29,7 @@ const LISTING: Listing = {
   materialDescription: null,
   materialType: 'DENIM',
   rootOrigin: 'WASTE',
+  generationType: 'INITIAL',
   grade: 'A',
   sellerId: 2,
   sellerName: '수거업체 A',

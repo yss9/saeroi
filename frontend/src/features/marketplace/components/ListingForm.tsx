@@ -1,7 +1,9 @@
 import { useForm, useWatch } from 'react-hook-form'
 import { Button, ErrorMessage, Input } from '../../../components/common/index.ts'
 import { calculateTotalPrice, formatKg, formatWon, kgToGram } from '../../../utils/quantity.ts'
+import { useMaterial } from '../../material/hooks/useMaterial.ts'
 import { useCreateListing } from '../hooks/useCreateListing.ts'
+import { useListingOnChain } from '../hooks/useListingOnChain.ts'
 
 export interface ListingFormProps {
   /** 판매할 소재 */
@@ -57,19 +59,38 @@ export function ListingForm({
 
   const availableKg = availableQuantity / 1000
 
+  // 온체인 등록에 필요한 tokenId. 소재가 아직 발행되지 않았으면 null 이고, 그때는
+  // 서버 등록만 하고 끝낸다 — 판매 자체를 막을 이유는 없다.
+  const material = useMaterial(materialId)
+  const tokenId = material.data?.tokenId ?? null
+  const chain = useListingOnChain()
+
   const onSubmit = handleSubmit((values) => {
+    const quantityGram = kgToGram(values.quantityKg)
     mutate(
       {
         materialId,
         // kg 을 gram 으로 바꿔 'G' 로 보낸다. kgToGram 이 Math.round 를 쓰는 것이
         // 중요하다 — 20.3 * 1000 은 20299.999... 라 그냥 곱하면 1g 이 사라진다.
-        quantity: kgToGram(values.quantityKg),
+        quantity: quantityGram,
         unit: 'G',
         pricePerKg: values.pricePerKg,
       },
       {
         onSuccess: (created) => {
           reset()
+
+          // **서버 등록이 끝나면 바로 체인 서명으로 이어간다.**
+          //
+          // 버튼을 두 개로 나눠 뒀을 때, 사용자가 두 번째를 잊는 일이 실제로 일어났다.
+          // 그러면 구매자가 온체인 주문을 만들 수 없고 — createOrder 가 온체인
+          // listingId 를 인자로 받는다 — 그 거래는 오프체인 기록만 남는다. 되돌릴 수 없다.
+          //
+          // 실패하면 판매 글은 그대로 남고 체인 등록만 비어 있다. 그 상태를 판매 글
+          // 상세의 패널이 이어받아 다시 시도할 수 있게 한다.
+          if (tokenId !== null) {
+            void chain.register(created.listingId, tokenId, quantityGram)
+          }
           onCreated?.(created.listingId)
         },
       },
@@ -122,10 +143,31 @@ export function ListingForm({
       )}
 
       {isError && <ErrorMessage error={error} />}
+      {chain.error && !chain.isRejected && <ErrorMessage error={chain.error} />}
+      {chain.isRejected && (
+        <p className="listing-form__preview">
+          판매 등록은 끝났습니다. 온체인 서명을 취소하셨으니 판매글 상세에서 다시 할 수
+          있습니다.
+        </p>
+      )}
 
-      <Button type="submit" loading={isPending} fullWidth>
-        판매 등록
+      {/* 어느 단계인지 말해 준다 — 지갑을 봐야 하는지 기다리면 되는지가 다르다. */}
+      <Button type="submit" loading={isPending || chain.isBusy} fullWidth>
+        {chain.status === 'SIGNING'
+          ? '지갑에서 서명해 주세요'
+          : chain.status === 'PENDING'
+            ? '블록 확정을 기다리는 중…'
+            : chain.status === 'LINKING'
+              ? '온체인 결과를 기록하는 중…'
+              : '판매 등록'}
       </Button>
+
+      {tokenId === null && (
+        <p className="listing-form__preview">
+          이 소재는 아직 온체인에 발행되지 않아 서버에만 등록됩니다. 소재 상세에서 발행한 뒤
+          판매글 상세에서 온체인 등록을 할 수 있습니다.
+        </p>
+      )}
     </form>
   )
 }

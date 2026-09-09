@@ -347,6 +347,33 @@ export type MaterialType =
  */
 export type MaterialGrade = 'A' | 'B' | 'C'
 
+/**
+ * 소재 종류 라벨.
+ *
+ * ⚠️ 이 표가 없어서 `ListingFilterBar` 와 `MaterialForm` 이 각자 같은 목록을 들고
+ * 있었다. 종류가 하나 늘 때 두 곳을 고쳐야 하고, 빠뜨리면 한쪽 화면에만 나타난다.
+ */
+export const MATERIAL_TYPE_LABEL: Record<MaterialType, string> = {
+  DENIM: '데님',
+  COTTON: '면',
+  LEATHER: '가죽',
+  LINING: '안감',
+  METAL: '금속',
+  MIXED: '혼방',
+  ETC: '기타',
+}
+
+/**
+ * 생성 유형 라벨. **출처와 함께 두 축을 이룬다** (화면 설계서 B03 · S05).
+ *
+ * "폐기물 · 최초 등록" 은 원물이고 "폐기물 · 가공 산출물" 은 이미 한 번 손이 간 소재다.
+ */
+export const GENERATION_TYPE_LABEL: Record<MaterialGenerationType, string> = {
+  INITIAL: '최초 등록',
+  PROCESSED: '가공 산출물',
+  PRODUCTION_SCRAP: '생산 부산물',
+}
+
 export const GRADE_LABEL: Record<MaterialGrade, string> = {
   A: 'A · 오염·손상 없음',
   B: 'B · 경미한 오염·손상',

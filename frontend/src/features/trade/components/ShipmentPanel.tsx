@@ -13,6 +13,7 @@ import { formatKg } from '../../../utils/quantity.ts'
 import { formatTradeDateTime } from '../utils/tradeDateTime.ts'
 import { useCancelTrade } from '../hooks/useCancelTrade.ts'
 import { useShipTrade } from '../hooks/useShipTrade.ts'
+import { useTradeChainAction } from '../hooks/useTradeChainAction.ts'
 import {
   TRADE_STATUS_LABEL,
   type ShipTradeRequest,
@@ -47,6 +48,7 @@ export function ShipmentPanel({ trade }: ShipmentPanelProps) {
   } = useForm<ShipTradeRequest>({ defaultValues: { carrier: '', trackingNumber: '' } })
 
   const { mutate, isPending, isError, isSuccess, error, data } = useShipTrade(trade.tradeId)
+  const chain = useTradeChainAction(trade.tradeId)
 
   // 확인 단계에서 들고 있을 입력값. 확인 모달을 닫으면 버린다.
   const [pending, setPending] = useState<ShipTradeRequest | null>(null)
@@ -151,7 +153,17 @@ export function ShipmentPanel({ trade }: ShipmentPanelProps) {
         loading={isPending}
         onConfirm={() => {
           if (pending === null) return
-          mutate(pending, { onSettled: () => setPending(null) })
+          mutate(pending, {
+            // **발송이 기록되면 바로 체인 서명으로 이어간다.**
+            //
+            // 버튼을 나눠 뒀을 때 두 번째를 잊으면 체인의 주문은 CREATED 로 남아,
+            // 구매자가 온체인 수령 확인을 부를 수 없다 — confirmReceipt 가 SHIPPED 를
+            // 요구한다. 실패하면 아래 패널에서 다시 시도할 수 있다.
+            onSuccess: () => {
+              if (trade.chainTradeId !== null) void chain.ship(trade.chainTradeId)
+            },
+            onSettled: () => setPending(null),
+          })
         }}
         onClose={() => setPending(null)}
       />

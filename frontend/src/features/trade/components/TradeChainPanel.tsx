@@ -25,7 +25,7 @@ export function TradeChainPanel({ trade }: { trade: Trade }) {
   const wallet = useWallet()
   const address = wallet.address
   const listing = useListing(trade.listingId)
-  const chain = useTradeOnChain(trade.tradeId)
+  const chain = useTradeOnChain()
 
   const chainListingId = listing.data?.chainListingId ?? null
 
@@ -68,7 +68,7 @@ export function TradeChainPanel({ trade }: { trade: Trade }) {
       actionLabel="온체인 주문"
       onSign={() => {
         if (chainListingId === null) return
-        void chain.order(chainListingId, trade.quantity)
+        void chain.order(trade.tradeId, chainListingId, trade.quantity)
       }}
     />
   )
