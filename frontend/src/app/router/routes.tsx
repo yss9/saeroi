@@ -33,6 +33,7 @@ import { PaymentReturnPage } from '../../pages/trade/PaymentReturnPage.tsx'
 import { SupplierTradePage } from '../../pages/trade/SupplierTradePage.tsx'
 import { TradeDetailPage } from '../../pages/trade/TradeDetailPage.tsx'
 import { TradeListPage } from '../../pages/trade/TradeListPage.tsx'
+import { BrowseLayout } from './guards/BrowseLayout.tsx'
 import { ProtectedRoute } from './guards/ProtectedRoute.tsx'
 import { FORBIDDEN_PATH, RoleGuard } from './guards/RoleGuard.tsx'
 
@@ -79,10 +80,20 @@ export const routes: RouteObject[] = [
   // ⚠️ 다만 이 구역의 화면들이 부르는 API 는 대부분 인증을 요구한다 — SecurityConfig 가
   // `/api/v1/auth/**` 와 헬스체크만 열어 두었다. 비회원에게 무엇을 보여줄지는 QR 공개
   // 조회와 함께 정해야 하는 별도 결정이라 여기서 우회하지 않는다.
-  { path: '/materials', element: <MaterialListPage /> },
-  { path: '/materials/:materialId', element: <MaterialDetailPage /> },
-  { path: '/marketplace', element: <MarketplacePage /> },
-  { path: '/marketplace/:listingId', element: <ListingDetailPage /> },
+  //
+  // BrowseLayout 은 가드가 아니라 껍데기 선택이다 — 로그인했으면 사이드바 안에서 보고,
+  // 비회원이면 화면만 본다. 접근 조건은 그대로 public 이라 routeAccess 파생도 바뀌지
+  // 않는다. 이게 없으면 브랜드가 소재를 사러 마켓플레이스에 들어간 순간 메뉴가 사라져,
+  // 판매 관리나 거래 내역으로 돌아갈 길이 브라우저 뒤로 가기밖에 없다.
+  {
+    element: <BrowseLayout />,
+    children: [
+      { path: '/materials', element: <MaterialListPage /> },
+      { path: '/materials/:materialId', element: <MaterialDetailPage /> },
+      { path: '/marketplace', element: <MarketplacePage /> },
+      { path: '/marketplace/:listingId', element: <ListingDetailPage /> },
+    ],
+  },
 
   // ── 로그인 필요 ───────────────────────────────────────
   {

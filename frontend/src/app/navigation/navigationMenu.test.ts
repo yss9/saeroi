@@ -118,18 +118,29 @@ describe('역할별 사업자 메뉴', () => {
   // 티켓의 예시: SUPPLIER 는 소재 판매 메뉴, PROCESSOR 는 Processing 메뉴.
   it('SUPPLIER 는 판매 계열 메뉴를 보고 가공·생산 메뉴를 보지 않는다', () => {
     expect(visibleLabels('SUPPLIER')).toEqual([
-      '회사 정보', '보유 소재', '소재 등록', '판매 관리', '판매 거래', '거래 내역',
+      '회사 정보', '보유 소재',
+      // 조회 화면은 공개라 역할과 무관하게 보인다. 라우터에는 있는데 메뉴에 없어서
+      // 주소를 직접 치지 않으면 못 가던 것을 넣었다.
+      '소재 마켓플레이스', '소재 둘러보기',
+      '소재 등록', '판매 관리', '판매 거래', '제품 둘러보기', '거래 내역',
     ])
   })
 
   it('BRAND 는 가공·생산·제품 메뉴를 보고 판매 등록 메뉴를 보지 않는다', () => {
     expect(visibleLabels('BRAND')).toEqual([
-      '회사 정보', '보유 소재', '가공 신청', '요청 내역', '생산 관리', '제품 등록', '거래 내역',
+      '회사 정보', '보유 소재',
+      // 브랜드가 소재를 사는 입구다. 이게 메뉴에 없어서 대시보드에서 갈 수가 없었다.
+      '소재 마켓플레이스', '소재 둘러보기',
+      '가공 신청', '요청 내역', '생산 관리', '제품 등록', '제품 둘러보기', '거래 내역',
     ])
   })
 
   it('PROCESSOR 는 업체 등록·가공 작업 메뉴를 추가로 본다', () => {
-    expect(visibleLabels('PROCESSOR')).toEqual(['회사 정보', '보유 소재', '업체 등록', '가공 작업', '거래 내역'])
+    expect(visibleLabels('PROCESSOR')).toEqual([
+      '회사 정보', '보유 소재',
+      '소재 마켓플레이스', '소재 둘러보기',
+      '업체 등록', '가공 작업', '제품 둘러보기', '거래 내역',
+    ])
   })
 
   // ADMIN 을 만능으로 두지 않는다. 권한 Matrix §4 에서 ADMIN 은 도메인 기능에
@@ -138,12 +149,25 @@ describe('역할별 사업자 메뉴', () => {
   it('ADMIN 과 CONSUMER 는 사업자 전용 메뉴를 보지 않는다', () => {
     // 남는 것은 RoleGuard 가 없는 Protected 경로(/inventory·/trades)뿐이다.
     // 그 둘에 역할 조건을 새로 붙이지 않기로 했다 (권한 Matrix §3-3·§3-5).
-    expect(visibleLabels('ADMIN')).toEqual(['보유 소재', '거래 내역'])
-    expect(visibleLabels('CONSUMER')).toEqual(['보유 소재', '거래 내역'])
+    const browseAndOpen = [
+      '보유 소재', '소재 마켓플레이스', '소재 둘러보기', '제품 둘러보기', '거래 내역',
+    ]
+    expect(visibleLabels('ADMIN')).toEqual(browseAndOpen)
+    expect(visibleLabels('CONSUMER')).toEqual(browseAndOpen)
   })
 
   it('미인증 사용자에게는 로그인이 필요한 메뉴가 하나도 보이지 않는다', () => {
-    expect(visibleLabels(null, false)).toEqual([])
+    // 공개 조회 화면은 비회원도 들어갈 수 있으므로 남는 것이 정상이다. 확인할 것은
+    // "로그인이 필요한 것이 새어 나오지 않는가" 이지 목록이 비었는가가 아니다.
+    //
+    // 실제로 비회원이 이 메뉴를 보는 일은 없다 — CompanyDashboardLayout 은
+    // ProtectedRoute 안이거나 BrowseLayout 이 로그인 여부를 보고 씌울 때만 그려진다.
+    const map = getRouteAccessMap()
+    const leaked = BUSINESS_MENU_ITEMS.filter((item) => map.get(item.to)?.kind !== 'public')
+      .filter((item) => visibleLabels(null, false).includes(item.label))
+
+    expect(leaked).toEqual([])
+    expect(visibleLabels(null, false)).toEqual(['소재 마켓플레이스', '소재 둘러보기'])
   })
 })
 

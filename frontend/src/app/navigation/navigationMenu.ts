@@ -15,8 +15,10 @@ import {
   Buildings,
   ClipboardText,
   Factory,
+  MagnifyingGlass,
   Package,
   ShieldCheck,
+  ShoppingCart,
   Storefront,
   Swap,
   Tag,
@@ -51,6 +53,13 @@ export interface NavigationMenuItem {
 export const BUSINESS_MENU_ITEMS: readonly NavigationMenuItem[] = [
   { label: '회사 정보', to: '/company/account', Icon: Buildings },
   { label: '보유 소재', to: '/inventory', Icon: Package },
+
+  // 조회 화면. 라우터에는 있는데 메뉴에 없어서 주소를 직접 치지 않으면 갈 수 없었다.
+  // **마켓플레이스가 빠져 있던 것이 특히 문제였다** — 브랜드가 소재를 사는 입구인데
+  // 대시보드 어디에도 링크가 없었다.
+  { label: '소재 마켓플레이스', to: '/marketplace', Icon: ShoppingCart },
+  { label: '소재 둘러보기', to: '/materials', Icon: MagnifyingGlass },
+
   { label: '소재 등록', to: '/supplier/materials/new', Icon: ClipboardText },
   { label: '판매 관리', to: '/supplier/listings', Icon: Storefront },
   { label: '판매 거래', to: '/supplier/trades', Icon: Truck },
@@ -60,6 +69,7 @@ export const BUSINESS_MENU_ITEMS: readonly NavigationMenuItem[] = [
   { label: '제품 등록', to: '/brand/products/new', Icon: Tag },
   { label: '업체 등록', to: '/processor/profile', Icon: Buildings },
   { label: '가공 작업', to: '/processor/jobs', Icon: Factory },
+  { label: '제품 둘러보기', to: '/products', Icon: Tag },
   { label: '거래 내역', to: '/trades', Icon: Swap },
 ]
 
