@@ -1,4 +1,5 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
+import { CompanyDashboardLayout } from '../../../features/company/components/CompanyDashboardLayout.tsx'
 import { useAuth } from '../../../features/auth/hooks/useAuth.ts'
 
 /**
@@ -22,5 +23,16 @@ export function ProtectedRoute() {
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 
-  return <Outlet />
+  // **셸을 여기서 씌운다.** 메뉴는 화면마다 넣는 구조였고, 그래서 실제로
+  // CompanyAccountPage 와 ProcessorProfilePage 두 곳에만 붙어 있었다. 나머지 14개
+  // 보호 화면에는 메뉴가 없어서, 한 번 대시보드를 벗어나면 뒤로 가기나 주소 직접
+  // 입력 말고는 돌아갈 길이 없었다 — 거래 목록으로 갈 방법이 없다는 제보가 그것이다.
+  //
+  // 로그인이 확인된 모든 화면이 이 게이트를 지나므로 여기 한 곳이면 전부 덮인다.
+  // 각 화면에 넣는 방식은 새 화면이 생길 때마다 빠뜨리게 된다.
+  return (
+    <CompanyDashboardLayout>
+      <Outlet />
+    </CompanyDashboardLayout>
+  )
 }
