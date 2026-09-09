@@ -414,6 +414,25 @@ class MarketplaceApiTests {
     }
 
     @Test
+    void filtersByMaterialId() throws Exception {
+        // 소재 상세 화면이 "이 소재가 지금 판매 중인가" 를 묻는 경로다 (-438).
+        registerListing(20_000L);
+
+        mockMvc.perform(get("/api/v1/listings")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
+                        .param("materialId", String.valueOf(material.getId())))
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].materialId").value(material.getId()));
+
+        // 판매 글이 없는 소재는 빈 목록이다 — 완료 조건이 명시한 값이다.
+        mockMvc.perform(get("/api/v1/listings")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
+                        .param("materialId", String.valueOf(cotton.getId())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(0));
+    }
+
+    @Test
     void capsThePageSize() throws Exception {
         // size=100000 한 번으로 전체 테이블을 끌어오지 못해야 한다.
         registerListing(20_000L);
