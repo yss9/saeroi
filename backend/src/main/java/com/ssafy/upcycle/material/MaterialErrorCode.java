@@ -78,7 +78,20 @@ public enum MaterialErrorCode implements ErrorCode {
     MATERIAL_SOURCE_ALREADY_VERIFIED(
             HttpStatus.CONFLICT,
             "MATERIAL_SOURCE_ALREADY_VERIFIED",
-            "이미 출처 검증이 완료된 소재입니다.");
+            "이미 출처 검증이 완료된 소재입니다."),
+
+    /**
+     * 이미 <b>다른</b> 소재의 {@code verifySource} 확정에 쓰인 txHash 를 다시 제출한 경우.
+     *
+     * <p>같은 소재를 다시 확정하는 것은 이 코드가 아니라
+     * {@code MATERIAL_SOURCE_ALREADY_VERIFIED} 로 걸린다. 실제 블록체인 트랜잭션 해시는
+     * 한 번의 실행에만 대응하므로 서로 다른 소재가 같은 해시를 정당하게 공유할 시나리오는
+     * 없다 — 위조이거나 클라이언트 버그다.
+     */
+    MATERIAL_SOURCE_VERIFICATION_TX_HASH_REUSED(
+            HttpStatus.CONFLICT,
+            "MATERIAL_SOURCE_VERIFICATION_TX_HASH_REUSED",
+            "이미 다른 소재의 출처 검증에 사용된 트랜잭션입니다.");
 
     private final HttpStatus status;
     private final String code;

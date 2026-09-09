@@ -28,4 +28,20 @@ public interface BlockchainTransactionRepository
             Long referenceId,
             String functionName,
             BlockchainTransactionStatus status);
+
+    /**
+     * 같은 {@code txHash} 가 <b>다른</b> 대상(reference_id)에 이미 성공으로 기록됐는지.
+     *
+     * <p>실제 블록체인 트랜잭션 해시는 한 번의 실행에만 대응하므로, 같은 해시가 서로
+     * 다른 대상에 대해 {@code SUCCESS} 로 두 번 나타나는 것은 항상 위조이거나 클라이언트
+     * 버그다 — 정당하게 재사용될 시나리오가 없다. {@code referenceId} 를 제외 조건에 두는
+     * 이유는 같은 대상을 다시 확정하는 것(멱등 재시도 등)까지 막으면 안 되기 때문이다 —
+     * 그건 호출부의 "이미 검증됨" 검사가 따로 막는다.
+     */
+    boolean existsByReferenceTypeAndFunctionNameAndTxHashAndStatusAndReferenceIdNot(
+            BlockchainReferenceType referenceType,
+            String functionName,
+            String txHash,
+            BlockchainTransactionStatus status,
+            Long referenceId);
 }
