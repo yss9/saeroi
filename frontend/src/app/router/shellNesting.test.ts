@@ -25,20 +25,13 @@ const PAGES_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'pag
  * 아직 정리되지 않은 화면들. <b>목록이 늘어나면 안 된다.</b>
  *
  * 셸을 게이트로 옮길 당시에는 자기 래핑하는 화면이 하나도 없었는데, 그 전에 갈라진
- * 브랜치들이 옛 패턴 그대로 들어오면서 다시 생겼다. 남의 도메인 화면이라 이 MR 에서
- * 함께 고치지 않고 목록으로 남긴다 — 고치는 것은 각 담당자의 몫이고, 그때 이 목록에서
- * 지우면 된다.
+ * 브랜치들이 옛 패턴 그대로 들어오면서 다시 생겼었다. 담당자들이 각자 고쳐 이제
+ * 하나도 남지 않았다 — 2026-09-09 확인, 남은 참조는 각 페이지의 `.test.tsx` 뿐이고
+ * `pageFiles()` 가 애초에 `.test.` 파일을 걸러낸다.
  *
  * 새 화면이 여기 없이 래핑하면 이 테스트가 막는다.
  */
-const KNOWN_UNFIXED = [
-  'processing/BrandProcessingPage.tsx',
-  'processing/BrandProcessingRequestDetailPage.tsx',
-  'processing/BrandProcessingRequestListPage.tsx',
-  'processing/ProcessingPage.tsx',
-  'processing/ProcessingPaymentCallbackPage.tsx',
-  'production/ProductionPage.tsx',
-]
+const KNOWN_UNFIXED: string[] = []
 
 function pageFiles(dir: string, prefix = ''): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
