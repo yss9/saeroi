@@ -54,6 +54,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         // 배포 파이프라인(scripts/health-check.sh)이 인증 없이 호출한다.
                         .requestMatchers(HttpMethod.GET, "/api/health").permitAll()
+                        // QR Passport 공개 조회 (FR-051, §6-3 2026-09-08). qrToken 자체가
+                        // 추측 불가능한 값이라 접근 통제 역할을 한다 — 로그인을 요구하면
+                        // 비회원이 QR 을 찍고 들어오는 진입점이 무너진다.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/qr/**").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(authorityConverter))

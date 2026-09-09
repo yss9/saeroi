@@ -1,0 +1,134 @@
+package com.ssafy.upcycle.production;
+
+import com.ssafy.upcycle.common.exception.ErrorCode;
+import org.springframework.http.HttpStatus;
+
+/**
+ * 생산 배치의 실패 사유.
+ *
+ * <p>Bean Validation 실패(필수 필드 누락, 형식 오류)는 {@code GlobalExceptionHandler} 가
+ * 공통 봉투로 400 을 내주므로 여기에 두지 않는다. 여기 있는 것은 <b>요청 형식은 맞지만
+ * 도메인 규칙에 걸리는</b> 경우뿐이다.
+ */
+public enum ProductionErrorCode implements ErrorCode {
+
+    PRODUCTION_BATCH_NOT_FOUND(
+            HttpStatus.NOT_FOUND, "PRODUCTION_BATCH_NOT_FOUND", "생산 배치를 찾을 수 없습니다."),
+
+    /** 남의 배치를 건드리려는 경우. 역할만 보면 브랜드 아무나 남의 생산에 소재를 넣을 수 있다. */
+    PRODUCTION_FORBIDDEN(
+            HttpStatus.FORBIDDEN, "PRODUCTION_FORBIDDEN", "본인이 만든 생산 배치만 관리할 수 있습니다."),
+
+    /**
+     * 작성 중이 아닌 배치의 투입을 바꾸려는 경우.
+     *
+     * <p>서명이 시작되면 투입을 바꿀 수 없다 — 서명한 내용과 저장된 내용이 달라지면
+     * 온체인 기록이 무엇을 증명하는지 알 수 없게 된다.
+     */
+    PRODUCTION_BATCH_NOT_EDITABLE(
+            HttpStatus.CONFLICT, "PRODUCTION_BATCH_NOT_EDITABLE", "작성 중인 배치만 수정할 수 있습니다."),
+
+    PRODUCTION_PRODUCER_NOT_FOUND(
+            HttpStatus.NOT_FOUND, "PRODUCTION_PRODUCER_NOT_FOUND", "생산자를 찾을 수 없습니다."),
+
+    PRODUCTION_PRODUCER_SUSPENDED(
+            HttpStatus.FORBIDDEN, "PRODUCTION_PRODUCER_SUSPENDED", "정지된 계정입니다."),
+
+    PRODUCTION_ROLE_NOT_ALLOWED(
+            HttpStatus.FORBIDDEN, "PRODUCTION_ROLE_NOT_ALLOWED", "생산은 브랜드만 할 수 있습니다."),
+
+    /**
+     * 지갑이 연결되지 않은 계정이 배치를 열려는 경우.
+     *
+     * <p>{@code producer_wallet} 이 {@code NOT NULL} 인 것은 확정 시 서명할 주소를 <b>배치를
+     * 여는 시점에 고정</b>하기 때문이다. 나중에 다시 읽으면 지갑을 바꾼 뒤에는 다른 주소가
+     * 나오고, 온체인 기록과 DB 가 어긋난다.
+     */
+    PRODUCTION_WALLET_NOT_LINKED(
+            HttpStatus.UNPROCESSABLE_ENTITY,
+            "PRODUCTION_WALLET_NOT_LINKED",
+            "지갑을 먼저 연결해야 생산을 시작할 수 있습니다."),
+
+    PRODUCTION_PRODUCT_MODEL_NOT_FOUND(
+            HttpStatus.NOT_FOUND, "PRODUCTION_PRODUCT_MODEL_NOT_FOUND", "제품을 찾을 수 없습니다."),
+
+    /** 남의 제품을 생산하려는 경우. */
+    PRODUCTION_PRODUCT_MODEL_FORBIDDEN(
+            HttpStatus.FORBIDDEN,
+            "PRODUCTION_PRODUCT_MODEL_FORBIDDEN",
+            "본인이 등록한 제품만 생산할 수 있습니다."),
+
+    PRODUCTION_MATERIAL_NOT_FOUND(
+            HttpStatus.NOT_FOUND, "PRODUCTION_MATERIAL_NOT_FOUND", "소재를 찾을 수 없습니다."),
+
+    /**
+     * 가공을 거치지 않은 폐소재를 투입하려는 경우.
+     *
+     * <p>ERD 의 투입 자격 —
+     * {@code NOT (root_origin = 'WASTE' AND generation_type = 'INITIAL')}.
+     * 수거한 그대로의 폐소재는 제품이 될 수 없고 Processing 을 최소 1회 거쳐야 한다.
+     * 이걸 막지 않으면 <b>가공 이력이 없는 제품이 업사이클로 팔린다.</b>
+     */
+    PRODUCTION_MATERIAL_NOT_ELIGIBLE(
+            HttpStatus.UNPROCESSABLE_ENTITY,
+            "PRODUCTION_MATERIAL_NOT_ELIGIBLE",
+            "가공을 거치지 않은 폐소재는 생산에 투입할 수 없습니다."),
+
+    /**
+     * 같은 소재를 한 배치에 두 번 넣으려는 경우.
+     *
+     * <p>DB 의 UNIQUE {@code (production_batch_id, material_id)} 가 막지만 그건
+     * {@code DataIntegrityViolationException} 이라 사용자에게 설명할 수 없다. 수량을 바꾸려면
+     * 기존 투입을 빼고 다시 넣는다.
+     */
+    PRODUCTION_MATERIAL_ALREADY_INPUT(
+            HttpStatus.CONFLICT,
+            "PRODUCTION_MATERIAL_ALREADY_INPUT",
+            "이미 투입된 소재입니다. 수량을 바꾸려면 투입을 취소하고 다시 넣어 주세요."),
+
+    /**
+     * 투입량 셋의 합이 총 투입량과 다른 경우.
+     *
+     * <p>{@code input = 제품사용 + 재사용자투리 + 폐기}. 엔티티도 같은 검사를 하지만 그쪽은
+     * {@code IllegalArgumentException} 이라 그대로 두면 500 이 나간다. 사용자가 고칠 수 있는
+     * 입력 오류이므로 도메인 오류로 바꿔 400 을 만든다 — 엔티티 검사는 최후 방어선으로 남긴다.
+     */
+    PRODUCTION_INPUT_QUANTITY_MISMATCH(
+            HttpStatus.BAD_REQUEST,
+            "PRODUCTION_INPUT_QUANTITY_MISMATCH",
+            "투입량은 제품 사용량 + 재사용 자투리 + 폐기량과 같아야 합니다."),
+
+    /** 잠금을 뺀 가용 수량이 모자라는 경우. 보유량이 아니라 가용량으로 판단한다. */
+    PRODUCTION_INSUFFICIENT_BALANCE(
+            HttpStatus.UNPROCESSABLE_ENTITY,
+            "PRODUCTION_INSUFFICIENT_BALANCE",
+            "사용 가능한 수량이 부족합니다."),
+
+    PRODUCTION_INPUT_NOT_FOUND(
+            HttpStatus.NOT_FOUND, "PRODUCTION_INPUT_NOT_FOUND", "투입 내역을 찾을 수 없습니다.");
+
+    private final HttpStatus status;
+    private final String code;
+    private final String message;
+
+    ProductionErrorCode(HttpStatus status, String code, String message) {
+        this.status = status;
+        this.code = code;
+        this.message = message;
+    }
+
+    @Override
+    public HttpStatus status() {
+        return status;
+    }
+
+    @Override
+    public String code() {
+        return code;
+    }
+
+    @Override
+    public String message() {
+        return message;
+    }
+}

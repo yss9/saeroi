@@ -18,10 +18,16 @@ import org.springframework.data.jpa.domain.JpaSort;
  * <p><b>가격 범위가 뒤집혀 있어도 그대로 넘긴다</b> ({@code min > max}). 결과가 0 건이 되며,
  * 그것이 사용자가 입력한 조건의 정직한 답이다. 조용히 바꿔치기하면 화면의 필터 UI 와
  * 결과가 어긋난다.
+ *
+ * <p>{@code materialId} 는 소재 상세 화면이 "이 소재가 지금 판매 중인가" 를 물을 때 쓴다
+ * (-438). 새 엔드포인트를 만들지 않고 이 필터를 더한 이유는 정렬·페이지·응답 포맷을
+ * 그대로 재사용하기 위해서다 — 소재 하나에 판매 글이 여러 개일 수 있어(재등록) 단건
+ * 조회가 아니라 같은 목록 조회의 좁힌 형태다.
  */
 public record ListingSearchCondition(
         ListingStatus status,
         Long sellerId,
+        Long materialId,
         MaterialType materialType,
         MaterialRootOrigin rootOrigin,
         MaterialGenerationType generationType,
