@@ -6,19 +6,23 @@ import com.ssafy.upcycle.material.entity.MaterialGenerationType;
 import com.ssafy.upcycle.material.entity.MaterialLock;
 import com.ssafy.upcycle.material.entity.MaterialLockPurpose;
 import com.ssafy.upcycle.material.entity.MaterialLockReferenceType;
+import com.ssafy.upcycle.material.entity.MaterialLockStatus;
 import com.ssafy.upcycle.material.entity.MaterialRootOrigin;
 import com.ssafy.upcycle.material.entity.MaterialStatus;
 import com.ssafy.upcycle.material.repository.MaterialBalanceRepository;
 import com.ssafy.upcycle.material.repository.MaterialLockRepository;
 import com.ssafy.upcycle.material.repository.MaterialRepository;
 import com.ssafy.upcycle.material.service.MaterialAvailabilityPolicy;
+import com.ssafy.upcycle.product.entity.ProductItem;
 import com.ssafy.upcycle.product.entity.ProductModel;
+import com.ssafy.upcycle.product.repository.ProductItemRepository;
 import com.ssafy.upcycle.product.repository.ProductModelRepository;
 import com.ssafy.upcycle.production.ProductionErrorCode;
 import com.ssafy.upcycle.production.dto.ProductionBatchOpenRequest;
 import com.ssafy.upcycle.production.dto.ProductionBatchResponse;
 import com.ssafy.upcycle.production.dto.ProductionInputRequest;
 import com.ssafy.upcycle.production.dto.ProductionInputsRequest;
+import com.ssafy.upcycle.production.dto.ProductionItemResponse;
 import com.ssafy.upcycle.production.dto.ProductionInputResponse;
 import com.ssafy.upcycle.production.entity.ProductionBatch;
 import com.ssafy.upcycle.production.entity.ProductionInput;
@@ -33,9 +37,12 @@ import com.ssafy.upcycle.user.repository.UserWalletRepository;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -72,6 +79,7 @@ public class ProductionBatchService {
     private final ProductionOutputRepository outputRepository;
     private final ProductionBatchCodeGenerator codeGenerator;
     private final ProductModelRepository productModelRepository;
+    private final ProductItemRepository productItemRepository;
     private final MaterialRepository materialRepository;
     private final MaterialBalanceRepository balanceRepository;
     private final MaterialLockRepository lockRepository;
@@ -251,10 +259,73 @@ public class ProductionBatchService {
                 .toList();
     }
 
+    /**
+     * 투입 목록에 소재 이름을 붙인다.
+     *
+     * <p>투입마다 소재를 다시 읽으면 그게 N+1 이다. 한 번에 읽어 붙인다 — 배치 하나의
+     * 투입은 많아야 스무 건이라 {@code findAllById} 한 번으로 끝난다.
+     */
     private List<ProductionInputResponse> inputsOf(Long batchId) {
-        return inputRepository.findAllByProductionBatchId(batchId).stream()
-                .map(ProductionInputResponse::from)
+        List<ProductionInput> inputs = inputRepository.findAllByProductionBatchId(batchId);
+        Map<Long, Material> materials = materialRepository
+                .findAllById(inputs.stream().map(ProductionInput::getMaterialId).distinct().toList())
+                .stream()
+                .collect(Collectors.toMap(Material::getId, material -> material));
+        return inputs.stream()
+                .map(input -> ProductionInputResponse.of(
+                        input, materials.get(input.getMaterialId())))
                 .toList();
+    }
+
+    /**
+     * 확정으로 만들어진 개체 목록. <b>QR 라벨 인쇄가 쓴다.</b>
+     *
+     * <p>{@code qrToken} 이 실려 나가므로 <b>배치 소유자만</b> 볼 수 있다. 그 토큰은 인증
+     * 없이 열리는 조회 경로의 열쇠라, 남에게 주면 남의 제품 이력을 열람할 수 있다.
+     *
+     * <p>확정 전 배치는 빈 목록이다 — 오류가 아니라 사실이다. 개체는 확정이 만든다.
+     */
+    @Transactional(readOnly = true)
+    public List<ProductionItemResponse> findItems(Long producerId, Long batchId) {
+        ProductionBatch batch = batchRepository.findById(batchId)
+                .orElseThrow(
+                        () -> new BusinessException(ProductionErrorCode.PRODUCTION_BATCH_NOT_FOUND));
+        requireOwner(batch, producerId);
+        return productItemRepository.findAllByProductionBatchId(batchId).stream()
+                .sorted(Comparator.comparingInt(ProductItem::getSerialNumber))
+                .map(ProductionItemResponse::from)
+                .toList();
+    }
+
+    /**
+     * 배치를 취소한다. <b>{@code DRAFT} 에서만, 남은 잠금을 함께 푼다.</b>
+     *
+     * <p>잘못 연 배치를 정리할 방법이 없으면 목록에 영원히 쌓이고, 그 배치가 잡고 있는
+     * 소재도 계속 묶인다 — 투입을 한 건씩 빼면 되지만 그건 사용자가 할 일이 아니다.
+     *
+     * <p>투입 행은 지우지 않는다. "이런 소재를 넣으려다 취소했다" 는 것도 이력이고,
+     * 취소된 배치는 되살아나지 않으므로 그 행이 다시 쓰이지 않는다.
+     *
+     * <p>확정된 배치는 취소할 수 없다 — 소재는 이미 소비됐고 개체는 이미 만들어졌다.
+     * 그걸 되돌리는 일은 취소가 아니라 별도의 보정이다.
+     */
+    @Transactional
+    public ProductionBatchResponse cancel(Long producerId, Long batchId) {
+        requireActiveBrand(producerId);
+        ProductionBatch batch = editableBatch(batchId, producerId);
+
+        LocalDateTime now = LocalDateTime.now(clock);
+        for (MaterialLock lock : lockRepository.findByReferenceForUpdate(
+                MaterialLockReferenceType.PRODUCTION_BATCH, batchId)) {
+            // 이미 풀렸거나 소비된 잠금은 건너뛴다. release 가 상태를 검사해 던지는데,
+            // 취소 경로에서 그건 사용자가 할 수 있는 일이 없는 실패다.
+            if (lock.getStatus() == MaterialLockStatus.ACTIVE) {
+                lock.release(now);
+            }
+        }
+        batch.cancel();
+
+        return ProductionBatchResponse.of(batch, inputsOf(batchId));
     }
 
     /**

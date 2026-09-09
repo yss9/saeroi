@@ -4,6 +4,7 @@ import com.ssafy.upcycle.common.response.ApiResponse;
 import com.ssafy.upcycle.production.dto.ProductionBatchOpenRequest;
 import com.ssafy.upcycle.production.dto.ProductionBatchResponse;
 import com.ssafy.upcycle.production.dto.ProductionInputsRequest;
+import com.ssafy.upcycle.production.dto.ProductionItemResponse;
 import com.ssafy.upcycle.production.service.ProductionBatchService;
 import com.ssafy.upcycle.production.service.ProductionConfirmService;
 import jakarta.validation.Valid;
@@ -87,6 +88,33 @@ public class ProductionBatchController {
     public ApiResponse<ProductionBatchResponse> confirm(
             @AuthenticationPrincipal Jwt jwt, @PathVariable Long batchId) {
         return ApiResponse.success(productionConfirmService.confirm(userId(jwt), batchId));
+    }
+
+    /**
+     * 배치를 취소한다. <b>작성 중인 배치만 가능하다.</b>
+     *
+     * <p>남은 투입의 잠금이 함께 풀려 소재 수량이 돌아온다. 투입 행은 이력으로 남는다.
+     *
+     * <p>확정된 배치는 취소할 수 없다 — 소재는 이미 소비됐고 개체는 이미 만들어졌다.
+     */
+    @PostMapping("/{batchId}/cancel")
+    public ApiResponse<ProductionBatchResponse> cancel(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable Long batchId) {
+        return ApiResponse.success(productionBatchService.cancel(userId(jwt), batchId));
+    }
+
+    /**
+     * 확정으로 만들어진 제품 개체 목록. <b>QR 라벨 인쇄가 쓴다.</b>
+     *
+     * <p>{@code qrToken} 이 실려 나가므로 배치 소유자만 볼 수 있다. 그 토큰은 인증 없이
+     * 열리는 조회 경로의 열쇠이고, 브랜드는 그것을 제품에 인쇄해야 한다.
+     *
+     * <p>확정 전 배치는 빈 목록이다 — 오류가 아니다. 개체는 확정이 만든다.
+     */
+    @GetMapping("/{batchId}/items")
+    public ApiResponse<List<ProductionItemResponse>> findItems(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable Long batchId) {
+        return ApiResponse.success(productionBatchService.findItems(userId(jwt), batchId));
     }
 
     /** 배치 상세. 투입 목록을 함께 담는다. */
