@@ -5,6 +5,7 @@ import com.ssafy.upcycle.production.dto.ProductionBatchOpenRequest;
 import com.ssafy.upcycle.production.dto.ProductionBatchResponse;
 import com.ssafy.upcycle.production.dto.ProductionInputRequest;
 import com.ssafy.upcycle.production.service.ProductionBatchService;
+import com.ssafy.upcycle.production.service.ProductionConfirmService;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -21,8 +22,8 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * 생산 배치와 소재 연결. <b>인증이 필요하며 {@code BRAND} 만 쓸 수 있다.</b>
  *
- * <p>확정은 여기 없다. 확정은 소재를 소비하고 개체를 만들고 온체인 기록까지 남기는
- * 되돌릴 수 없는 행위라 별도 티켓이며, 그때 {@code POST /{id}/confirm} 이 붙는다.
+ * <p>확정({@code POST /{id}/confirm})은 소재를 소비하고 개체를 만드는 <b>되돌릴 수 없는</b>
+ * 행위다. 확정된 배치는 취소할 수 없다.
  *
  * <p>역할 검사를 {@code @PreAuthorize} 로 하지 않는 이유는 제품 등록과 같다 — 토큰의 역할
  * 클레임은 발급 시점의 스냅샷이라 정지되거나 역할이 바뀐 계정이 만료 전까지 통과한다.
@@ -33,6 +34,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ProductionBatchController {
 
     private final ProductionBatchService productionBatchService;
+    private final ProductionConfirmService productionConfirmService;
 
     /**
      * 배치를 연다. 생산자와 서명 지갑은 JWT 와 등록된 활성 지갑에서 가져온다 —
@@ -66,6 +68,21 @@ public class ProductionBatchController {
             @PathVariable Long inputId) {
         return ApiResponse.success(
                 productionBatchService.removeInput(userId(jwt), batchId, inputId));
+    }
+
+    /**
+     * 배치를 확정한다. <b>되돌릴 수 없다.</b>
+     *
+     * <p>여기서 소재가 소비되고 제품 개체가 만들어진다. 자투리가 있으면 새 소재로 발행되고
+     * 혈통이 이어지며, 업사이클 비율이 계산되어 배치에 굳는다.
+     *
+     * <p>바디가 없다 — 확정에 필요한 것은 전부 이미 배치에 있다. 수량이나 비율을 여기서
+     * 받으면 실제 투입과 다른 값을 적어 넣을 수 있고, 그 값이 그대로 제품에 붙는다.
+     */
+    @PostMapping("/{batchId}/confirm")
+    public ApiResponse<ProductionBatchResponse> confirm(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable Long batchId) {
+        return ApiResponse.success(productionConfirmService.confirm(userId(jwt), batchId));
     }
 
     /** 배치 상세. 투입 목록을 함께 담는다. */
