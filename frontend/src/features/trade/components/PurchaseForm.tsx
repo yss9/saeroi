@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 import { Button, ErrorMessage, Input } from '../../../components/common/index.ts'
 import { QuantityInput } from '../../../components/common/QuantityInput.tsx'
@@ -5,6 +6,7 @@ import { calculateTotalPrice, formatKg, formatWon, kgToGram } from '../../../uti
 import type { Listing } from '../../marketplace/types/marketplace.types.ts'
 import { useCreateTrade } from '../hooks/useCreateTrade.ts'
 import { useTradeOnChain } from '../hooks/useTradeOnChain.ts'
+import type { CreateTradeRequest, Trade } from '../types/trade.types.ts'
 
 export interface PurchaseFormProps {
   listing: Listing
@@ -51,8 +53,12 @@ export function PurchaseForm({ listing, onCreated }: PurchaseFormProps) {
     },
   })
 
-  const { mutate, isPending, isError, error } = useCreateTrade()
+  const { mutateAsync, isPending, isError, error } = useCreateTrade()
   const chain = useTradeOnChain()
+  const [pendingTrade, setPendingTrade] = useState<{
+    created: Trade
+    request: CreateTradeRequest
+  } | null>(null)
 
   // 입력 중인 수량으로 금액을 미리 보여준다. watch() 대신 useWatch() 를 쓰는 이유는
   // ListingForm 과 같다 — watch() 가 돌려주는 함수는 렌더마다 새로 만들어진다.
@@ -68,10 +74,10 @@ export function PurchaseForm({ listing, onCreated }: PurchaseFormProps) {
 
   const canSubmit = !isEmpty && !exceedsAvailable && listing.status === 'ON_SALE'
 
-  const onSubmit = handleSubmit((values) => {
+  const onSubmit = handleSubmit(async (values) => {
     if (!canSubmit) return
-    mutate(
-      {
+    try {
+      const request: CreateTradeRequest = pendingTrade?.request ?? {
         listingId: listing.listingId,
         // 단위를 함께 보낸다. 서버가 gram 으로 환산하므로 여기서 이미 gram 인 값에는 'G' 다.
         quantity: quantityGram,
@@ -86,35 +92,25 @@ export function PurchaseForm({ listing, onCreated }: PurchaseFormProps) {
         address: values.address.trim(),
         // 상세 주소만 선택이다. 빈 값은 필드째 뺀다 — 공백을 주소의 일부로 저장할 이유가 없다.
         ...(values.addressDetail.trim() ? { addressDetail: values.addressDetail.trim() } : {}),
-      },
-      {
-        // **구매 요청이 만들어지면 바로 체인 주문으로 이어간다.**
-        //
-        // 체인 주문은 결제와 무관하다 — 컨트랙트에 금액이 없고(정책 v3) 남는 것은
-        // "누가 무엇을 얼마나 사기로 했는가" 뿐이다. 그래서 수량을 예약하는 이 시점이
-        // 오프체인 예약과 짝이 맞는 자리다.
-        //
-        // 결제 복귀 화면에서 하지 않는 이유는 그때는 사용자가 아무것도 누르지 않은
-        // 상태라, 지갑 팝업이 스스로 뜨는 것처럼 보이고 브라우저가 막을 수도 있다.
-        //
-        // 판매 글이 체인에 없으면(chainListingId 가 null) 부를 인자가 없어 건너뛴다.
-        // 그 경우 거래 상세의 패널이 이어받는다.
-        onSuccess: (trade) => {
-          // 수량은 서버가 확정한 값(trade.quantity, gram)을 쓴다. 폼 입력을 다시 환산하면
-          // 서버가 반올림한 값과 어긋날 수 있고, 체인과 DB 가 다른 수량을 갖게 된다.
-          //
-          // 지역 변수로 받아 좁힌다 — 클로저 안에서는 프로퍼티 접근이 좁혀지지 않는다.
-          const chainListingId = listing.chainListingId
-          if (chainListingId === null) {
-            onCreated?.(trade.tradeId)
-            return
-          }
-          void chain
-            .order(trade.tradeId, chainListingId, trade.quantity)
-            .finally(() => onCreated?.(trade.tradeId))
-        },
-      },
-    )
+      }
+      const created = pendingTrade?.created ?? (await mutateAsync(request))
+      if (pendingTrade === null) setPendingTrade({ created, request })
+
+      const chainListingId = listing.chainListingId
+      if (chainListingId === null) {
+        onCreated?.(created.tradeId)
+        return
+      }
+
+      // 서버가 확정한 gram 수량으로 주문한다. 연결까지 끝났을 때만 상세로 이동한다.
+      const linked = await chain.order(created.tradeId, chainListingId, created.quantity)
+      if (linked) {
+        setPendingTrade(null)
+        onCreated?.(created.tradeId)
+      }
+    } catch {
+      // API와 지갑 오류는 각 훅의 오류 상태로 화면에 표시한다.
+    }
   })
 
   return (
@@ -230,7 +226,9 @@ export function PurchaseForm({ listing, onCreated }: PurchaseFormProps) {
             : chain.status === 'LINKING'
               ? '온체인 결과를 기록하는 중…'
               : listing.status === 'ON_SALE'
-                ? '구매 요청'
+                ? pendingTrade
+                  ? '구매 요청 완료하기'
+                  : '구매 요청'
                 : '판매가 종료된 소재입니다'}
       </Button>
     </form>
