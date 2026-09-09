@@ -223,7 +223,7 @@ IDLE → SIGNING → PENDING → CONFIRMED
 | 구역 | 예 |
 | --- | --- |
 | Public | `/`, `/login`, `/materials`, `/marketplace` |
-| **Public (비회원 필수)** | `/passport/:productId` |
+| **Public (비회원 필수)** | `/qr/:qrToken` |
 | Protected | `/inventory`, `/trades`, `/products` |
 | Role별 | `/supplier/*`, `/brand/*`, `/processor/*`, `/admin/*` |
 | 안내 | `/403` (권한 없음), `*` (없는 경로) |
@@ -253,10 +253,14 @@ Role 판정의 출처는 `useAuth()`(= `authStore`) 하나입니다. JWT를 따�
 > 프론트에서 가드를 빠뜨리면 사용자 경험이 나빠지지만,
 > **Backend에서 인가를 빠뜨리면 데이터가 샙니다.**
 
-> ### `/passport/:productId`는 Public Route입니다
+> ### `/qr/:qrToken`는 Public Route입니다
 > 소비자가 제품 QR을 찍고 바로 들어오는 진입점입니다.
 > 로그인이나 지갑 연결을 요구하면 서비스의 목적 자체가 무너집니다.
 > **절대 `ProtectedRoute` 안으로 옮기지 마세요.**
+>
+> `:productId`가 아니라 `:qrToken`입니다(S15P21E104-136). productId는 순번이라
+> URL을 하나씩 바꿔가며 남의 제품 이력을 볼 수 있습니다 — qrToken이 추측 불가능한
+> 값이라 이 경로의 유일한 접근 통제입니다 (Backend §6-3, 2026-09-08).
 > 이 화면이 부르는 API도 인증을 요구하면 안 됩니다.
 
 ### Role별 메뉴 노출은 `routes.tsx`에서 파생합니다
