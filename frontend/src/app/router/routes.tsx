@@ -65,7 +65,11 @@ export const routes: RouteObject[] = [
   { path: FORBIDDEN_PATH, element: <ForbiddenPage /> },
 
   // QR Passport: 비회원 공개. 절대 ProtectedRoute 안으로 옮기지 말 것.
-  { path: '/passport/:productId', element: <PassportPage /> },
+  //
+  // `:productId` 가 아니라 `:qrToken` 이다 (S15P21E104-136). productId 는 순번이라
+  // URL 을 하나씩 바꿔가며 남의 제품 이력을 볼 수 있다 — qrToken 이 추측 불가능한
+  // 값이라 이 경로의 유일한 접근 통제다 (§6-3, 2026-09-08).
+  { path: '/qr/:qrToken', element: <PassportPage /> },
 
   // 소재 목록은 공개 정보다. 등록·거래처럼 쓰기 동작만 인증을 요구한다.
   //
@@ -86,7 +90,7 @@ export const routes: RouteObject[] = [
       // 제품은 로그인 뒤에만 본다. 조회 API 와 대표 이미지 모두 인증을 요구하므로
       // 공개 라우트로 두면 비회원에게 401 로 빈 화면이 나간다.
       //
-      // 소비자가 QR 로 들어오는 입구는 이 화면이 아니라 `/passport/:productId` 다 —
+      // 소비자가 QR 로 들어오는 입구는 이 화면이 아니라 `/qr/:qrToken` 다 —
       // 그쪽은 비회원 공개를 유지해야 한다.
       { path: '/products', element: <ProductListPage /> },
       { path: '/products/:productId', element: <ProductDetailPage /> },
