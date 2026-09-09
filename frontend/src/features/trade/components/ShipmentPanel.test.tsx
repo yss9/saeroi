@@ -22,6 +22,20 @@ vi.mock('../api/shipTrade.ts', () => ({ shipTrade: api.shipTrade }))
 // 취소는 결제 흐름과 같은 API 모듈을 쓴다 (usePayment.cancel 과 한 함수를 공유한다).
 vi.mock('../api/paymentApi.ts', () => ({ cancelTrade: api.cancelTrade }))
 
+// 온체인 서명은 지갑이 필요하다. 여기서 확인하려는 것은 "서명을 시켰는가" 이지
+// 서명 자체가 아니므로 훅 경계에서 자른다.
+const chain = vi.hoisted(() => ({ ship: vi.fn(), receive: vi.fn(), cancel: vi.fn() }))
+vi.mock('../hooks/useTradeChainAction.ts', () => ({
+  useTradeChainAction: () => ({
+    ...chain,
+    status: 'IDLE',
+    hash: null,
+    error: null,
+    isBusy: false,
+    isRejected: false,
+  }),
+}))
+
 function trade(overrides: Partial<Trade> = {}): Trade {
   return {
     tradeId: 7,
@@ -201,6 +215,33 @@ describe('ShipmentPanel', () => {
       await user.click(confirm)
 
       expect(api.cancelTrade).toHaveBeenCalledWith(7, '')
+    })
+
+    // **서버만 취소하면 체인의 잔량이 되돌아오지 않는다.**
+    //
+    // createOrder 가 판매 글의 remainingQuantity 를 깎아 두었고, 서버는 취소하면서 그
+    // 수량을 되돌린다(PaymentService.restoreListingQuantity). 체인은 cancelOrder 를
+    // 서명해야만 되돌아온다. 놓치면 두 잔량이 어긋나, 다음 구매자가 화면에 보이는
+    // 잔량을 전부 사려 할 때 서버는 통과하고 체인만 되돌려진다.
+    it('온체인 주문이 있으면 체인의 주문도 함께 취소한다', async () => {
+      const user = renderPanel(trade({ chainTradeId: 42 }))
+
+      await user.click(screen.getByRole('button', { name: '거래 취소' }))
+      const [, confirm] = screen.getAllByRole('button', { name: '거래 취소' })
+      await user.click(confirm)
+
+      expect(chain.cancel).toHaveBeenCalledWith(42)
+    })
+
+    it('온체인 주문이 없으면 체인 서명을 요구하지 않는다', async () => {
+      // 지갑 팝업을 띄울 이유가 없다 — 취소할 온체인 주문 자체가 없다.
+      const user = renderPanel(trade({ chainTradeId: null }))
+
+      await user.click(screen.getByRole('button', { name: '거래 취소' }))
+      const [, confirm] = screen.getAllByRole('button', { name: '거래 취소' })
+      await user.click(confirm)
+
+      expect(chain.cancel).not.toHaveBeenCalled()
     })
 
     it('적은 사유를 함께 보낸다', async () => {
