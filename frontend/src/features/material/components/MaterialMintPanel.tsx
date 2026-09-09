@@ -4,6 +4,7 @@ import { env } from '../../../config/env.ts'
 import { useAuth } from '../../auth/hooks/useAuth.ts'
 import { useWallet } from '../../wallet/hooks/useWallet.ts'
 import { useMintMaterialOnChain } from '../hooks/useMintMaterialOnChain.ts'
+import { evidencePlaceholder } from '../services/evidencePlaceholder.ts'
 import type { MaterialDetail } from '../types/material.types.ts'
 
 /**
@@ -85,17 +86,4 @@ export function MaterialMintPanel({ material }: { material: MaterialDetail }) {
       }}
     />
   )
-}
-
-/**
- * 컨트랙트가 0 인 evidenceHash 를 거절하므로 자리를 채운다.
- * 소재 코드에서 파생해 같은 소재는 같은 값이 나오게 한다 — 무작위로 두면 재시도할 때마다
- * 값이 달라져 나중에 매니페스트와 대조할 때 어느 것이 맞는지 알 수 없다.
- */
-function evidencePlaceholder(materialCode: string): string {
-  let hash = 0n
-  for (const char of materialCode) {
-    hash = (hash * 31n + BigInt(char.codePointAt(0) ?? 0)) % (2n ** 256n)
-  }
-  return `0x${hash.toString(16).padStart(64, '0')}`
 }

@@ -1,5 +1,7 @@
 import { Select } from '../../../components/common/index.ts'
-import type { MaterialGrade, MaterialRootOrigin, MaterialType } from '../../material/types/material.types.ts'
+import type { MaterialGrade, MaterialRootOrigin, MaterialType,
+  MaterialGenerationType,
+} from '../../material/types/material.types.ts'
 import {
   LISTING_SORT_LABEL,
   type ListingFilters,
@@ -26,6 +28,18 @@ const MATERIAL_TYPE_OPTIONS = [
 const ORIGIN_OPTIONS = [
   { value: 'WASTE', label: '폐기물' },
   { value: 'VIRGIN', label: '신소재' },
+] as const
+
+/**
+ * 생성 유형. **출처와 독립된 축이다** (화면 설계서 B03의 2축 필터).
+ *
+ * "폐기물 + 최초 등록" 은 원물이고 "폐기물 + 가공 산출물" 은 이미 한 번 손이 간 소재다.
+ * 구매자에게는 완전히 다른 물건이라 출처만으로는 고를 수 없다.
+ */
+const GENERATION_OPTIONS = [
+  { value: 'INITIAL', label: '최초 등록' },
+  { value: 'PROCESSED', label: '가공 산출물' },
+  { value: 'PRODUCTION_SCRAP', label: '생산 부산물' },
 ] as const
 
 const GRADE_OPTIONS = [
@@ -73,6 +87,15 @@ export function ListingFilterBar({
         options={ORIGIN_OPTIONS}
         value={filters.rootOrigin ?? ''}
         onChange={(event) => patch('rootOrigin', event.target.value as MaterialRootOrigin)}
+      />
+      <Select
+        label="생성 유형"
+        placeholder="전체"
+        options={GENERATION_OPTIONS}
+        value={filters.generationType ?? ''}
+        onChange={(event) =>
+          patch('generationType', event.target.value as MaterialGenerationType)
+        }
       />
       <Select
         label="등급"

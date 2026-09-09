@@ -3,6 +3,7 @@ import { useAuth } from '../../auth/hooks/useAuth.ts'
 import { useMaterial } from '../../material/hooks/useMaterial.ts'
 import { useWallet } from '../../wallet/hooks/useWallet.ts'
 import { useListingOnChain } from '../hooks/useListingOnChain.ts'
+import { useOnChainAvailable } from '../hooks/useOnChainAvailable.ts'
 import type { Listing } from '../types/marketplace.types.ts'
 
 /**
@@ -32,7 +33,19 @@ export function ListingChainPanel({ listing }: { listing: Listing }) {
   // 온체인 주문을 할 수 있는지가 여기에 달려 있다.
   const actionable = user?.id === listing.sellerId
   const tokenId = material.data?.tokenId ?? null
-  const ready = actionable && address !== null && tokenId !== null && listing.chainListingId === null
+
+  // 체인 잔량을 미리 읽는다. 부족하면 createListing 이 revert 하는데, 그걸 모르고 버튼을
+  // 열어 두면 사용자가 지갑 팝업을 확인하고 나서 실패를 본다.
+  const available = useOnChainAvailable(actionable ? address : null, tokenId)
+  const shortOnChain =
+    available.data !== undefined && available.data < BigInt(listing.totalQuantity)
+
+  const ready =
+    actionable &&
+    address !== null &&
+    tokenId !== null &&
+    !shortOnChain &&
+    listing.chainListingId === null
 
   return (
     <OnChainPanel

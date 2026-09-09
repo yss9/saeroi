@@ -15,7 +15,12 @@ import { tradeKeys } from '../api/tradeKeys.ts'
  * 이 번호가 있어야 발송·수령 확인을 온체인에서 부를 수 있다
  * (`markShipped(orderId)` · `confirmReceipt(orderId)`).
  */
-export function useTradeOnChain(tradeId: number) {
+/**
+ * <b>{@code tradeId} 를 훅이 아니라 호출 시점에 받는다.</b> 구매 폼은 거래가 만들어지기
+ * 전에 이 훅을 준비해야 하는데, 그때는 아직 번호가 없다. 훅 인자로 두면 0 같은 자리값을
+ * 넘기게 되고 그러면 서명 가드에 걸린다.
+ */
+export function useTradeOnChain() {
   const queryClient = useQueryClient()
 
   const link = useOnChainLink({
@@ -24,14 +29,15 @@ export function useTradeOnChain(tradeId: number) {
     argName: 'orderId',
     link: linkTradeOnChain,
     onLinked: () => {
-      void queryClient.invalidateQueries({ queryKey: tradeKeys.detail(tradeId) })
+      // 어느 거래인지 모르므로 도메인 전체를 무효화한다. 거래 목록·상세가 함께 갱신된다.
+      void queryClient.invalidateQueries({ queryKey: tradeKeys.all })
     },
   })
 
   const order = useCallback(
-    (chainListingId: number, quantityGram: number) =>
+    (tradeId: number, chainListingId: number, quantityGram: number) =>
       link.run(tradeId, () => createOrder(chainListingId, quantityGram)),
-    [link, tradeId],
+    [link],
   )
 
   return { ...link, order }

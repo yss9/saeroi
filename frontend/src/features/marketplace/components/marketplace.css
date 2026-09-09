@@ -6,17 +6,13 @@
  * 클래스 접두사로 소유를 구분한다 — 남의 영역 이름을 쓰지 않는다.
  */
 
-/* ── 페이지 공통 ─────────────────────────────────────── */
-.page {
-  max-width: 72rem;
-  margin: 0 auto;
-  padding: 2rem clamp(1rem, 4vw, 2rem) 4rem;
-}
-.page__header { margin-bottom: 1.75rem; }
-.page__header h1 { margin: 0 0 0.4rem; font-size: clamp(1.5rem, 4vw, 2rem); }
-.page__lead { margin: 0; color: #6b7280; }
+/* 페이지 골격(.page · .page__header · .page__lead)은 common.css 가 갖는다.
+   여기에도 두었더니 두 정의가 겹쳐, 나중에 로드되는 이 파일이 공통 값을 덮어썼다 —
+   그래서 이 파일을 불러오는 화면과 그러지 않는 화면의 여백이 달랐다.
+
+   .page__section 만 남긴다. 이 도메인 화면에만 있는 구획이다. */
 .page__section { margin-top: 2.5rem; }
-.page__section h2 { font-size: 1.15rem; margin: 0 0 1rem; }
+.page__section h2 { font-size: 1.05rem; margin: 0 0 1rem; }
 
 /* ── 필터 ────────────────────────────────────────────── */
 .listing-filter {
@@ -24,9 +20,10 @@
   gap: 0 1rem;
   grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
   padding: 1rem 1.25rem 0.25rem;
-  border: 1px solid #ddd9cd;
-  border-radius: 8px;
-  background: #fff;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius);
+  box-shadow: var(--ui-shadow);
+  background: var(--ui-color-surface);
   margin-bottom: 1.5rem;
 }
 
@@ -46,9 +43,17 @@
   gap: 0.85rem;
   height: 100%;
   padding: 1.15rem 1.25rem;
-  border: 1px solid #ddd9cd;
-  border-radius: 8px;
-  background: #fff;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius);
+  box-shadow: var(--ui-shadow);
+  background: var(--ui-color-surface);
+  /* 카드는 누를 수 있는 것이다 — 그 사실이 보여야 한다. */
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.listing-card:hover {
+  border-color: var(--ui-color-primary);
+  box-shadow: 0 2px 8px rgba(16, 34, 56, 0.08);
 }
 .listing-card__header {
   display: flex;
@@ -67,7 +72,7 @@
   margin: 0;
   font-size: 0.85rem;
 }
-.listing-card__meta dt { color: #6b7280; font-size: 0.75rem; }
+.listing-card__meta dt { color: var(--ui-color-muted); font-size: 0.75rem; }
 .listing-card__meta dd { margin: 0.1rem 0 0; }
 .listing-card__price { font-variant-numeric: tabular-nums; font-weight: 600; }
 
@@ -85,15 +90,15 @@
   height: 5px;
   margin: 0.4rem 0 0.3rem;
   border-radius: 999px;
-  background: #ece9e1;
+  background: var(--ui-color-border);
   overflow: hidden;
 }
 .listing-card__bar span {
   display: block;
   height: 100%;
-  background: #1f6f4a;
+  background: var(--ui-color-primary);
 }
-.listing-card__total { margin: 0; font-size: 0.78rem; color: #6b7280; }
+.listing-card__total { margin: 0; font-size: 0.78rem; color: var(--ui-color-muted); }
 
 .listing-card__footer {
   display: flex;
@@ -101,9 +106,9 @@
   justify-content: space-between;
   gap: 0.75rem;
   padding-top: 0.75rem;
-  border-top: 1px solid #eae7dd;
+  border-top: 1px solid var(--ui-color-border);
 }
-.listing-card__seller { font-size: 0.85rem; color: #6b7280; }
+.listing-card__seller { font-size: 0.85rem; color: var(--ui-color-muted); }
 
 /* ── 상세 ────────────────────────────────────────────── */
 .listing-detail__header {
@@ -114,40 +119,40 @@
   margin-bottom: 1rem;
 }
 .listing-detail__header h1 { margin: 0 0 0.25rem; }
-.listing-detail__code { margin: 0; color: #6b7280; font-size: 0.875rem; }
-.listing-detail__description { max-width: 60ch; color: #47505f; }
+.listing-detail__code { margin: 0; color: var(--ui-color-muted); font-size: 0.875rem; }
+.listing-detail__description { max-width: 60ch; color: var(--ui-color-muted); }
 .listing-detail__meta {
   display: grid;
   gap: 0.85rem 1.5rem;
   grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
   padding: 1.15rem 1.25rem;
-  border: 1px solid #ddd9cd;
+  border: 1px solid var(--ui-color-border);
   border-radius: 8px;
-  background: #fff;
+  background: var(--ui-color-surface);
   margin: 0 0 1.75rem;
 }
-.listing-detail__meta dt { color: #6b7280; font-size: 0.78rem; }
+.listing-detail__meta dt { color: var(--ui-color-muted); font-size: 0.78rem; }
 .listing-detail__meta dd { margin: 0.2rem 0 0; font-weight: 600; font-variant-numeric: tabular-nums; }
-.listing-detail__sold { font-weight: 400; color: #6b7280; }
+.listing-detail__sold { font-weight: 400; color: var(--ui-color-muted); }
 
 /* ── 폼 ──────────────────────────────────────────────── */
 .listing-form,
 .purchase-form {
   max-width: 26rem;
   padding: 1.25rem;
-  border: 1px solid #ddd9cd;
+  border: 1px solid var(--ui-color-border);
   border-radius: 8px;
-  background: #fff;
+  background: var(--ui-color-surface);
 }
 .listing-form__material { margin: 0 0 1rem; font-size: 0.9rem; }
-.listing-form__material span { color: #6b7280; }
+.listing-form__material span { color: var(--ui-color-muted); }
 .listing-form__preview,
 .purchase-form__note {
   margin: 0 0 1rem;
   font-size: 0.875rem;
-  color: #6b7280;
+  color: var(--ui-color-muted);
 }
-.listing-form__preview strong { color: #172033; font-size: 1rem; }
+.listing-form__preview strong { color: var(--ui-color-text); font-size: 1rem; }
 
 .purchase-form__summary {
   display: flex;
@@ -156,11 +161,11 @@
   margin: 0 0 1rem;
   padding: 0.85rem 1rem;
   border-radius: 6px;
-  background: #f4f2ec;
+  background: var(--ui-color-bg);
   font-size: 0.9rem;
 }
 .purchase-form__summary > div { display: flex; justify-content: space-between; }
-.purchase-form__summary dt { color: #6b7280; }
+.purchase-form__summary dt { color: var(--ui-color-muted); }
 .purchase-form__summary dd { margin: 0; font-variant-numeric: tabular-nums; }
 .purchase-form__total { font-size: 1.1rem; font-weight: 700; }
 
@@ -168,14 +173,14 @@
 .purchase-form__shipping {
   margin: 0 0 1rem;
   padding: 0.85rem 1rem 0.4rem;
-  border: 1px solid #ddd9cd;
+  border: 1px solid var(--ui-color-border);
   border-radius: 6px;
 }
 .purchase-form__shipping legend {
   padding: 0 0.35rem;
   font-size: 0.82rem;
   font-weight: 700;
-  color: #6b7280;
+  color: var(--ui-color-muted);
 }
 
 /* ── 거래 ────────────────────────────────────────────── */
@@ -186,23 +191,23 @@
   justify-content: space-between;
   gap: 1rem;
   padding: 0.9rem 1.15rem;
-  border: 1px solid #ddd9cd;
+  border: 1px solid var(--ui-color-border);
   border-radius: 8px;
-  background: #fff;
+  background: var(--ui-color-surface);
   color: inherit;
   text-decoration: none;
 }
-.trade-list__link:hover { border-color: #1f6f4a; }
+.trade-list__link:hover { border-color: var(--ui-color-primary); }
 .trade-list__main { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
-.trade-list__code { font-size: 0.72rem; color: #6b7280; font-family: ui-monospace, Menlo, monospace; }
+.trade-list__code { font-size: 0.72rem; color: var(--ui-color-muted); font-family: ui-monospace, Menlo, monospace; }
 .trade-list__name { font-size: 0.98rem; }
-.trade-list__quantity { font-size: 0.82rem; color: #6b7280; }
+.trade-list__quantity { font-size: 0.82rem; color: var(--ui-color-muted); }
 .trade-list__side { display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; }
 .trade-list__price { font-variant-numeric: tabular-nums; font-weight: 600; }
 .trade-list__action-hint {
   font-size: 0.72rem;
   font-weight: 700;
-  color: #b54708;
+  color: var(--ui-color-warning);
 }
 
 .trade-detail__meta {
@@ -211,16 +216,16 @@
   grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
   margin: 0 0 1.75rem;
 }
-.trade-detail__meta dt { color: #6b7280; font-size: 0.78rem; }
+.trade-detail__meta dt { color: var(--ui-color-muted); font-size: 0.78rem; }
 .trade-detail__meta dd { margin: 0.2rem 0 0; font-weight: 600; font-variant-numeric: tabular-nums; }
 
 /* ── 결제 ────────────────────────────────────────────── */
 .payment-panel {
   max-width: 28rem;
   padding: 1.25rem;
-  border: 1px solid #ddd9cd;
+  border: 1px solid var(--ui-color-border);
   border-radius: 8px;
-  background: #fff;
+  background: var(--ui-color-surface);
 }
 .payment-panel__header {
   display: flex;
@@ -232,14 +237,14 @@
 .payment-panel__header h2 { margin: 0; font-size: 1.05rem; }
 .payment-panel__summary { display: flex; flex-direction: column; gap: 0.6rem; margin: 0 0 1.15rem; }
 .payment-panel__summary > div { display: flex; justify-content: space-between; gap: 1rem; }
-.payment-panel__summary dt { color: #6b7280; font-size: 0.875rem; }
+.payment-panel__summary dt { color: var(--ui-color-muted); font-size: 0.875rem; }
 .payment-panel__summary dd { margin: 0; font-variant-numeric: tabular-nums; }
 .payment-panel__total { font-size: 1.25rem; font-weight: 700; }
 /* 결제 참조는 길다. 좁은 화면에서 레이아웃을 밀어내지 않게 자른다. */
 .payment-panel__reference {
   font-family: ui-monospace, Menlo, monospace;
   font-size: 0.75rem;
-  color: #6b7280;
+  color: var(--ui-color-muted);
   overflow-wrap: anywhere;
   text-align: right;
 }
@@ -254,10 +259,10 @@
 .payment-panel__mock {
   margin-top: 1rem;
   padding: 0.85rem 1rem;
-  border: 1px dashed #d8d5cb;
+  border: 1px dashed var(--ui-color-border);
   border-radius: 6px;
   font-size: 0.85rem;
-  color: #6b7280;
+  color: var(--ui-color-muted);
 }
 .payment-panel__mock p { margin: 0 0 0.6rem; }
 
@@ -271,11 +276,11 @@
 }
 .pagination__status {
   font-size: 0.875rem;
-  color: #4b5563;
+  color: var(--ui-color-muted);
   /* 페이지를 넘길 때 숫자 폭이 달라져 버튼이 흔들리는 것을 막는다. */
   font-variant-numeric: tabular-nums;
 }
-.pagination__total { color: #9ca3af; }
+.pagination__total { color: var(--ui-color-muted); }
 
 /* ── 결제 복귀 화면 ──────────────────────────────────── */
 .payment-return { max-width: 32rem; }

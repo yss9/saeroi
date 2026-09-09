@@ -3,6 +3,7 @@ import { Button, ConfirmModal, ErrorMessage, StatusBadge } from '../../../compon
 import { formatKg } from '../../../utils/quantity.ts'
 import { formatTradeDateTime } from '../utils/tradeDateTime.ts'
 import { useConfirmTradeReceipt } from '../hooks/useConfirmTradeReceipt.ts'
+import { useTradeChainAction } from '../hooks/useTradeChainAction.ts'
 import {
   TRADE_STATUS_LABEL,
   type Trade,
@@ -30,6 +31,7 @@ export function ReceiptPanel({ trade }: ReceiptPanelProps) {
     trade.tradeId,
   )
   const [confirming, setConfirming] = useState(false)
+  const chain = useTradeChainAction(trade.tradeId)
 
   // `isSuccess` 를 함께 보는 이유는 ShipmentPanel 과 같다 — 상세가 캐시에 없는 경로로
   // 열렸다면 훅이 병합할 대상이 없어 `trade.status` 가 그대로다. 그래도 방금 수령을
@@ -104,7 +106,19 @@ export function ReceiptPanel({ trade }: ReceiptPanelProps) {
         message={`${formatKg(trade.quantity)}을 받았음을 확인합니다. 소유권이 즉시 이전되며 되돌릴 수 없습니다.`}
         confirmLabel="수령 확정"
         loading={isPending}
-        onConfirm={() => mutate(undefined, { onSettled: () => setConfirming(false) })}
+        onConfirm={() =>
+          mutate(undefined, {
+            // **수령이 확정되면 바로 체인 서명으로 이어간다.**
+            //
+            // 이 서명이 체인에서 소유권을 옮기는 유일한 자리다(confirmReceipt 가 ERC1155
+            // 잔액을 판매자에서 구매자로 이동시킨다). 놓치면 DB 는 넘어갔는데 체인은
+            // 판매자 소유로 남아, 두 기록이 영구히 어긋난다.
+            onSuccess: () => {
+              if (trade.chainTradeId !== null) void chain.receive(trade.chainTradeId)
+            },
+            onSettled: () => setConfirming(false),
+          })
+        }
         onClose={() => setConfirming(false)}
       />
     </section>

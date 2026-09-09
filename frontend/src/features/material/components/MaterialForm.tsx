@@ -2,6 +2,9 @@ import { useFieldArray, useForm, useWatch } from 'react-hook-form'
 import { Button, ErrorMessage, Input, Select } from '../../../components/common/index.ts'
 import { kgToGram } from '../../../utils/quantity.ts'
 import { useCreateMaterial } from '../hooks/useCreateMaterial.ts'
+import { useWallet } from '../../wallet/hooks/useWallet.ts'
+import { useMintMaterialOnChain } from '../hooks/useMintMaterialOnChain.ts'
+import { evidencePlaceholder } from '../services/evidencePlaceholder.ts'
 import { WIRE_UNIT } from '../types/materialQuantity.ts'
 import {
   COMPOSITION_MAX_TOTAL,
@@ -146,11 +149,41 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
 
   const { mutate, isPending, isError, error } = useCreateMaterial()
 
+  // 발행은 등록자 지갑이 서명한다 — 서버에는 개인키가 없다.
+  const wallet = useWallet()
+  const mint = useMintMaterialOnChain()
+
   const onSubmit = handleSubmit((values) => {
-    mutate(toRequest(values), {
+    const request = toRequest(values)
+    mutate(request, {
       onSuccess: (created) => {
         reset()
-        onCreated?.(created.materialId)
+
+        // **등록이 끝나면 바로 발행으로 이어간다.**
+        //
+        // 버튼을 나눠 뒀을 때 두 번째를 잊는 일이 실제로 일어났다. 발행되지 않은 소재는
+        // 온체인 판매 등록을 할 수 없고 — createListing 의 첫 인자가 tokenId 다 —
+        // 그러면 그 소재로 만든 거래는 체인에 아무것도 남기지 못한다.
+        //
+        // 이동은 발행이 끝난 뒤에 한다. 먼저 이동하면 이 컴포넌트가 사라져 서명 결과를
+        // 받을 곳이 없어지고, 사용자는 지갑 팝업만 남은 화면을 보게 된다.
+        //
+        // 지갑이 없거나 실패하면 그냥 이동한다. 소재는 등록됐고 tokenId 만 비어 있으며,
+        // 그 상태를 소재 상세의 패널이 이어받는다.
+        if (wallet.address === null) {
+          onCreated?.(created.materialId)
+          return
+        }
+        void mint
+          .mint({
+            materialId: created.materialId,
+            to: wallet.address,
+            amount: request.quantity,
+            rootOrigin: values.rootOrigin,
+            metadataUri: `saeroi://material/${created.materialCode}`,
+            evidenceHash: evidencePlaceholder(created.materialCode),
+          })
+          .finally(() => onCreated?.(created.materialId))
       },
     })
   })
@@ -324,9 +357,16 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
       </fieldset>
 
       {isError && <ErrorMessage error={error} />}
+      {mint.error && !mint.isRejected && <ErrorMessage error={mint.error} />}
 
-      <Button type="submit" loading={isPending}>
-        소재 등록
+      <Button type="submit" loading={isPending || mint.isBusy}>
+        {mint.status === 'SIGNING'
+          ? '지갑에서 서명해 주세요'
+          : mint.status === 'PENDING'
+            ? '블록 확정을 기다리는 중…'
+            : mint.status === 'LINKING'
+              ? '온체인 결과를 기록하는 중…'
+              : '소재 등록'}
       </Button>
     </form>
   )

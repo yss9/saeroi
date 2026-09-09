@@ -219,7 +219,11 @@ describe('ShipmentPanel', () => {
       const user = renderPanel()
 
       await user.click(screen.getByRole('button', { name: '거래 취소' }))
-      await user.type(screen.getByLabelText(/취소 사유/), 'x'.repeat(256))
+      // type() 이 아니라 paste() 다. 256자를 한 자씩 입력하면 키 입력마다 리렌더가 일어나
+      // 2.7초가 걸리고, 전체 스위트를 돌릴 때 5초 제한을 넘어 간헐적으로 실패했다.
+      // 검증 대상은 "길이가 넘으면 막는다" 이고 붙여넣기도 같은 경로를 지난다.
+      await user.click(screen.getByLabelText(/취소 사유/))
+      await user.paste('x'.repeat(256))
 
       expect(screen.getByRole('alert')).toHaveTextContent('255자를 넘을 수 없습니다')
       const [, confirm] = screen.getAllByRole('button', { name: '거래 취소' })
