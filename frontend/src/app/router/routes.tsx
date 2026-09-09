@@ -66,7 +66,13 @@ export const routes: RouteObject[] = [
 
   // 권한 없음(403 성격) 안내. RoleGuard 가 여기로 보낸다.
   // Public 에 두는 이유: 이 화면 자체가 가드에 막히면 사용자가 갈 곳이 없어진다.
-  { path: FORBIDDEN_PATH, element: <ForbiddenPage /> },
+  // BrowseLayout 으로 감싸는 이유: RoleGuard 가 로그인한 사용자를 여기로 보내는데,
+  // 셸이 없으면 그 순간 사이드바를 잃는다. 유일한 출구가 "홈으로 돌아가기"(랜딩)라
+  // 대시보드로 돌아오려면 한 번 더 헤매야 했다. 비회원에게는 그대로 안내 화면만 보인다.
+  {
+    element: <BrowseLayout />,
+    children: [{ path: FORBIDDEN_PATH, element: <ForbiddenPage /> }],
+  },
 
   // QR Passport: 비회원 공개. 절대 ProtectedRoute 안으로 옮기지 말 것.
   //
