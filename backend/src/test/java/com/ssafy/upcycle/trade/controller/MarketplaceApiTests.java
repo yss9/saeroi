@@ -448,6 +448,55 @@ class MarketplaceApiTests {
                 .andExpect(jsonPath("$.data.totalElements").value(3));
     }
 
+    /**
+     * 생성 유형은 <b>출처와 독립된 축</b>이다 (화면 설계서 B03).
+     *
+     * <p>세 소재 모두 {@code INITIAL} 이다 — {@code Material.register} 가 최초 등록으로
+     * 고정하기 때문이다. 그래서 {@code INITIAL} 로 걸면 전부, {@code PROCESSED} 로 걸면
+     * 하나도 남지 않아야 한다. 값을 무시하고 있으면 두 번째 기대가 깨진다.
+     */
+    @Test
+    void filtersByGenerationType() throws Exception {
+        registerThreeListings();
+
+        mockMvc.perform(get("/api/v1/listings")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
+                        .param("generationType", "INITIAL"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(3));
+
+        mockMvc.perform(get("/api/v1/listings")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
+                        .param("generationType", "PROCESSED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(0));
+    }
+
+    /** 두 축을 함께 걸면 교집합이다. 한쪽이 무시되면 개수가 달라진다. */
+    @Test
+    void combinesRootOriginAndGenerationType() throws Exception {
+        registerThreeListings();
+
+        // 폐기물이면서 최초 등록 — 데님·폐면 둘. 가죽은 VIRGIN 이라 빠진다.
+        mockMvc.perform(get("/api/v1/listings")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
+                        .param("rootOrigin", "WASTE")
+                        .param("generationType", "INITIAL"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(2));
+    }
+
+    /** 목록 응답이 생성 유형을 함께 내려준다 — 화면이 배지로 그린다. */
+    @Test
+    void exposesGenerationTypeInTheResponse() throws Exception {
+        registerListing(10_000L);
+
+        mockMvc.perform(get("/api/v1/listings")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].generationType").value("INITIAL"));
+    }
+
     @Test
     void combinesMaterialTypeAndGrade() throws Exception {
         registerThreeListings();
