@@ -1,0 +1,62 @@
+/* 생산 투입 소재 선택.
+ *
+ * 컴포넌트에서 직접 import 한다 (trade.css · product.css 와 같은 방식) — index.css 는
+ * 여러 사람이 함께 고치는 파일이고 이 스타일은 production 도메인 밖에서 쓰이지 않는다.
+ */
+
+.material-input { display: flex; flex-direction: column; gap: 0.75rem; max-width: 40rem; }
+
+/* 소재 선택과 추가 버튼을 한 줄에 둔다. 버튼이 아래로 떨어지면 "추가" 를 눌러야 하는 줄로
+   보이지 않는다. */
+.material-input__picker { display: flex; gap: 0.6rem; align-items: flex-end; }
+.material-input__picker > :first-child { flex: 1; min-width: 0; }
+
+.material-input__note {
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+  border-radius: 6px;
+  background: #f4f2ec;
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+/* 투입 한 줄. 카드로 묶어 어느 수량이 어느 소재의 것인지 눈으로 갈리게 한다. */
+.material-input__row {
+  padding: 0.9rem 1rem;
+  border: 1px solid #ddd9cd;
+  border-radius: 8px;
+  background: #fff;
+}
+.material-input__row-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+.material-input__row-head strong { min-width: 0; overflow-wrap: anywhere; }
+.material-input__available { font-size: 0.8rem; color: #6b7280; }
+.material-input__row-head > :last-child { margin-left: auto; }
+
+/* 제품·자투리·폐기를 나란히. 좁은 화면에서는 접힌다 — 세 값의 관계가 보여야 해서
+   가로 배치를 우선한다. */
+.material-input__quantities {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 34rem) {
+  .material-input__quantities { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+.material-input__row-total {
+  margin: 0.6rem 0 0;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  color: #172033;
+}
+.material-input__row-total--error { color: #b42318; }
+.material-input__error { margin: 0.35rem 0 0; font-size: 0.82rem; color: #b42318; }
+
+.material-input__actions { display: flex; align-items: center; gap: 0.75rem; }
+.material-input__total { font-size: 0.875rem; color: #6b7280; font-variant-numeric: tabular-nums; }
