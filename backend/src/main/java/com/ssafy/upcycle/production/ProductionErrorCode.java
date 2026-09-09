@@ -104,6 +104,39 @@ public enum ProductionErrorCode implements ErrorCode {
             "PRODUCTION_INSUFFICIENT_BALANCE",
             "사용 가능한 수량이 부족합니다."),
 
+    /**
+     * 투입이 하나도 없는 배치를 확정하려는 경우.
+     *
+     * <p>소재 없이 만들어진 제품은 추적할 이력이 없다. QR 을 찍어도 보여 줄 것이 없는
+     * 제품이 마켓에 올라가는 것을 막는다.
+     */
+    PRODUCTION_NO_INPUT(
+            HttpStatus.UNPROCESSABLE_ENTITY,
+            "PRODUCTION_NO_INPUT",
+            "투입된 소재가 없습니다. 소재를 연결한 뒤 확정해 주세요."),
+
+    /**
+     * 투입은 있는데 제품에 들어간 양이 0 인 경우.
+     *
+     * <p>전량이 자투리·폐기라는 뜻이고, 그런 배치는 제품을 만들지 못한다. 업사이클 비율도
+     * {@code 0/0} 이 되어 계산할 수 없다.
+     */
+    PRODUCTION_NO_PRODUCT_MATERIAL(
+            HttpStatus.UNPROCESSABLE_ENTITY,
+            "PRODUCTION_NO_PRODUCT_MATERIAL",
+            "제품에 사용된 소재가 없습니다."),
+
+    /**
+     * 투입이 가리키는 잠금이 더 이상 유효하지 않은 경우.
+     *
+     * <p>확정 시점에 잠금이 이미 풀렸거나 소비됐다는 뜻이며, <b>데이터가 어긋났다는
+     * 신호다</b>. 조용히 넘어가면 잠기지 않은 소재를 소비하게 되고 잔량이 음수가 된다.
+     */
+    PRODUCTION_LOCK_NOT_ACTIVE(
+            HttpStatus.CONFLICT,
+            "PRODUCTION_LOCK_NOT_ACTIVE",
+            "투입에 걸린 잠금이 유효하지 않습니다. 투입을 다시 확인해 주세요."),
+
     PRODUCTION_INPUT_NOT_FOUND(
             HttpStatus.NOT_FOUND, "PRODUCTION_INPUT_NOT_FOUND", "투입 내역을 찾을 수 없습니다.");
 
