@@ -4,7 +4,9 @@ import com.ssafy.upcycle.common.response.ApiResponse;
 import com.ssafy.upcycle.common.storage.FileContent;
 import com.ssafy.upcycle.product.dto.ProductModelRegisterRequest;
 import com.ssafy.upcycle.product.dto.ProductModelResponse;
+import com.ssafy.upcycle.product.dto.ProductModelSearchCondition;
 import com.ssafy.upcycle.product.dto.ProductModelStatusRequest;
+import com.ssafy.upcycle.trade.dto.PageResponse;
 import com.ssafy.upcycle.product.service.ProductImageService;
 import com.ssafy.upcycle.product.service.ProductModelQueryService;
 import com.ssafy.upcycle.product.service.ProductModelRegistrationService;
@@ -20,6 +22,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -81,6 +84,22 @@ public class ProductModelController {
             @Valid @RequestBody ProductModelStatusRequest request) {
         return ApiResponse.success(
                 productModelRegistrationService.changeStatus(userId(jwt), productModelId, request));
+    }
+
+    /**
+     * 마켓 제품 목록. 필터·페이지 조건은 쿼리 파라미터다.
+     *
+     * <p><b>아무 조건도 주지 않으면 판매 중인 제품 전체, 최신순, 첫 페이지</b>다.
+     * {@code status} 를 직접 주면 그 상태로 바뀌므로 브랜드 화면이 {@code DRAFT} 를 볼 수도
+     * 있지만, <b>남의 {@code DRAFT} 까지 보인다</b> — 본인 제품만 필요하면
+     * {@code GET /me} 를 쓰는 것이 맞다.
+     *
+     * <p>봉투는 다른 도메인과 같은 {@code PageResponse} 다 — {@code page} 는 0 부터다.
+     */
+    @GetMapping
+    public ApiResponse<PageResponse<ProductModelResponse>> search(
+            @ModelAttribute ProductModelSearchCondition condition) {
+        return ApiResponse.success(productModelQueryService.search(condition));
     }
 
     /**

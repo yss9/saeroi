@@ -3,14 +3,20 @@ package com.ssafy.upcycle.product.service;
 import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.product.ProductErrorCode;
 import com.ssafy.upcycle.product.dto.ProductModelResponse;
+import com.ssafy.upcycle.product.dto.ProductModelSearchCondition;
 import com.ssafy.upcycle.product.entity.ProductItemStatus;
 import com.ssafy.upcycle.product.entity.ProductModel;
 import com.ssafy.upcycle.product.repository.ProductItemRepository;
 import com.ssafy.upcycle.product.repository.ProductModelRepository;
+import com.ssafy.upcycle.product.repository.ProductModelSearchQueryRepository;
 import com.ssafy.upcycle.product.repository.ProductStockQueryRepository;
+import com.ssafy.upcycle.trade.dto.PageResponse;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +34,7 @@ public class ProductModelQueryService {
     private final ProductModelRepository productModelRepository;
     private final ProductItemRepository productItemRepository;
     private final ProductStockQueryRepository productStockQueryRepository;
+    private final ProductModelSearchQueryRepository productModelSearchQueryRepository;
 
     /**
      * 제품 상세.
@@ -45,6 +52,31 @@ public class ProductModelQueryService {
         long stock = productItemRepository.countByProductModelIdAndStatus(
                 productModelId, ProductItemStatus.IN_STOCK);
         return ProductModelResponse.of(model, stock);
+    }
+
+    /**
+     * 마켓 제품 목록.
+     *
+     * <p>기본이 {@code ON_SALE} 이다 — 준비 중인 제품이 섞이면 마켓의 의미가 흐려진다.
+     * 브랜드 본인 화면은 {@link #findMyProductModels} 가 따로 있고 그쪽이 {@code DRAFT} 를
+     * 포함한다.
+     *
+     * <p>재고는 <b>이 페이지의 제품들만</b> 한 번에 센다. 모델마다 세면 그게 N+1 이고,
+     * 목록 질의에 집계를 붙이면 count 가 제품이 아니라 개체를 세게 된다
+     * ({@code ProductModelSearchQueryRepository} 주석).
+     *
+     * <p><b>재고 0 인 제품도 그대로 내려간다.</b> 다 팔린 제품을 {@code SOLD_OUT} 으로
+     * 바꾸는 주문 처리가 아직 없어서, 여기서 숨기면 브랜드는 자기 제품이 마켓에서 사라진
+     * 이유를 알 수 없다. 화면이 {@code stockQuantity} 로 품절을 표시하는 편이 정직하다.
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<ProductModelResponse> search(ProductModelSearchCondition condition) {
+        Pageable pageable = PageRequest.of(condition.pageOrDefault(), condition.sizeOrDefault());
+        Page<ProductModel> models = productModelSearchQueryRepository.search(condition, pageable);
+        Map<Long, Long> stocks = productStockQueryRepository.countInStockByProductModelIds(
+                models.getContent().stream().map(ProductModel::getId).toList());
+        return PageResponse.from(models.map(
+                model -> ProductModelResponse.of(model, stocks.getOrDefault(model.getId(), 0L))));
     }
 
     /**
