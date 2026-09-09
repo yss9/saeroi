@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from 'react-router-dom'
-import { ErrorMessage, Loading, StatusBadge } from '../../components/common/index.ts'
+import { BackLink, ErrorMessage, Loading, StatusBadge } from '../../components/common/index.ts'
 import { useListing } from '../../features/marketplace/hooks/useListing.ts'
 import { LISTING_STATUS_LABEL } from '../../features/marketplace/types/marketplace.types.ts'
 import { ROOT_ORIGIN_LABEL } from '../../features/material/types/material.types.ts'
@@ -18,14 +18,41 @@ export function ListingDetailPage() {
 
   const { data, isPending, isError, error, refetch } = useListing(id)
 
-  if (id === null) return <ErrorMessage error="잘못된 주소입니다." />
-  if (isPending) return <Loading variant="skeleton" />
-  if (isError) return <ErrorMessage error={error} onRetry={() => void refetch()} />
+  // Public 라우트라 사이드바 셸이 없다. 조회가 실패한 화면에서도 나갈 길이 있어야
+  // 하므로 이른 반환마다 함께 그린다.
+  const back = <BackLink to="/marketplace" label="소재 마켓플레이스" />
+
+  if (id === null) {
+    return (
+      <main className="page">
+        {back}
+        <ErrorMessage error="잘못된 주소입니다." />
+      </main>
+    )
+  }
+  if (isPending) {
+    return (
+      <main className="page">
+        {back}
+        <Loading variant="skeleton" />
+      </main>
+    )
+  }
+  if (isError) {
+    return (
+      <main className="page">
+        {back}
+        <ErrorMessage error={error} onRetry={() => void refetch()} />
+      </main>
+    )
+  }
 
   const sold = data.totalQuantity - data.availableQuantity
 
   return (
     <main className="page listing-detail">
+      {back}
+
       <header className="listing-detail__header">
         <div>
           <h1>{data.materialName}</h1>
@@ -74,7 +101,13 @@ export function ListingDetailPage() {
           않으므로 여기서 역할을 다시 따지지 않는다. */}
       <ListingChainPanel listing={data} />
 
-      <PurchaseForm listing={data} onCreated={(tradeId) => navigate(`/trades/${tradeId}`)} />
+      <PurchaseForm
+        listing={data}
+        // 주문은 이미 만들어졌다. replace 를 쓰지 않으면 뒤로 가기가 구매 폼으로
+        // 돌아오고, 사용자는 방금 산 것이 취소된 줄 알고 한 번 더 사기 쉽다 —
+        // 그러면 같은 판매 글에 거래가 둘 생긴다.
+        onCreated={(tradeId) => navigate(`/trades/${tradeId}`, { replace: true })}
+      />
     </main>
   )
 }
