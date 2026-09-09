@@ -63,6 +63,7 @@ const material: MaterialDetail = {
   rootOrigin: 'WASTE',
   generationType: 'INITIAL',
   verificationState: 'REGISTERED',
+  verification: null,
   status: 'ACTIVE',
   totalQuantity: 20_000,
   grade: null,

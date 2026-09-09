@@ -45,3 +45,22 @@ export async function linkTradeOnChain(
 ): Promise<void> {
   await apiClient.post(`/v1/trades/${tradeId}/chain`, payload)
 }
+
+/**
+ * 출처 검증(`verifySource`) 확정 결과.
+ *
+ * `onChainId` 가 없다 — mint 와 달리 새로 채번되는 값이 없어서다. 등록자 본인만
+ * 부를 수 있고, 서버는 이미 검증된 소재를 다시 확정하면 거절한다
+ * (`MaterialSourceVerificationApiTests`).
+ */
+export interface SourceVerificationPayload {
+  txHash: string
+  blockNumber?: number
+}
+
+export async function confirmSourceVerification(
+  materialId: number,
+  payload: SourceVerificationPayload,
+): Promise<void> {
+  await apiClient.post(`/materials/${materialId}/source-verification`, payload)
+}
