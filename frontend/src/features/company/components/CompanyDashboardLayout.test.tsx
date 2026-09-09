@@ -83,4 +83,12 @@ describe('CompanyDashboardLayout', () => {
     expect(useAuthStore.getState().isAuthenticated).toBe(false)
     expect(useAuthStore.getState().user).toBeNull()
   })
+
+  it('Brand 메뉴에서 가공 신청과 요청 내역을 구분해 이동한다', () => {
+    setBusinessUser('BRAND')
+    renderLayout()
+
+    expect(screen.getByRole('link', { name: '가공 신청' })).toHaveAttribute('href', '/brand/processing')
+    expect(screen.getByRole('link', { name: '요청 내역' })).toHaveAttribute('href', '/brand/processing/requests')
+  })
 })

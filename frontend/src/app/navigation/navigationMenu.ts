@@ -39,7 +39,7 @@ export interface NavigationMenuItem {
  * 아래 순서는 각 역할이 걸러진 뒤에도 자연스럽게 읽히도록 골랐다.
  *
  *   SUPPLIER  회사 정보 · 보유 소재 · 소재 등록 · 판매 관리 · 판매 거래 · 거래 내역
- *   BRAND     회사 정보 · 보유 소재 · 가공 요청 · 생산 관리 · 제품 등록 · 거래 내역
+ *   BRAND     회사 정보 · 보유 소재 · 가공 신청 · 요청 내역 · 생산 관리 · 제품 등록 · 거래 내역
  *   PROCESSOR 회사 정보 · 보유 소재 · 업체 등록 · 가공 작업 · 거래 내역
  *
  * `/inventory`, `/trades` 는 RoleGuard 가 없는 Protected 경로다 = 로그인만 하면
@@ -54,7 +54,8 @@ export const BUSINESS_MENU_ITEMS: readonly NavigationMenuItem[] = [
   { label: '소재 등록', to: '/supplier/materials/new', Icon: ClipboardText },
   { label: '판매 관리', to: '/supplier/listings', Icon: Storefront },
   { label: '판매 거래', to: '/supplier/trades', Icon: Truck },
-  { label: '가공 요청', to: '/brand/processing', Icon: Factory },
+  { label: '가공 신청', to: '/brand/processing', Icon: Factory },
+  { label: '요청 내역', to: '/brand/processing/requests', Icon: ClipboardText },
   { label: '생산 관리', to: '/brand/production', Icon: Buildings },
   { label: '제품 등록', to: '/brand/products/new', Icon: Tag },
   { label: '업체 등록', to: '/processor/profile', Icon: Buildings },
@@ -65,18 +66,28 @@ export const BUSINESS_MENU_ITEMS: readonly NavigationMenuItem[] = [
 /**
  * 헤더 계정 팝오버가 쓰는 "내 홈" 후보. 보이는 것 중 **첫 번째**를 쓴다.
  *
- * 세 경로의 RoleGuard allow 가 서로 겹치지 않아(CONSUMER / ADMIN / 사업자 3종)
- * 결과적으로 역할당 하나만 남는다. 그래서 헤더도 `role === 'CONSUMER' ? ... : ...`
- * 같은 분기를 들고 있지 않아도 된다 — 겹치게 되는 날에도 순서만 보면 된다.
+ * 역할별 주요 업무 경로를 앞에 두고 계정 홈을 뒤에 둔다. 사업자는 회사 정보에도
+ * 접근할 수 있지만, 헤더는 필터를 통과한 첫 항목을 골라 각 역할의 주요 업무 화면으로
+ * 바로 연결한다.
  */
-export const ACCOUNT_MENU_ITEMS: readonly NavigationMenuItem[] = [
+export const ROLE_HOME_MENU_ITEMS: readonly NavigationMenuItem[] = [
+  { label: '판매 관리', to: '/supplier/listings', Icon: Storefront },
+  { label: '가공 요청', to: '/brand/processing', Icon: Factory },
+  { label: '견적 요청', to: '/processor/jobs', Icon: ClipboardText },
   { label: '마이페이지', to: '/mypage', Icon: UserCircle },
   { label: '관리자 페이지', to: '/admin', Icon: ShieldCheck },
   { label: '회사 대시보드', to: '/company/account', Icon: Buildings },
+]
+
+/** 사업자 셸 안에서 소비자·관리자에게 필요한 계정 메뉴 후보. */
+export const ACCOUNT_MENU_ITEMS: readonly NavigationMenuItem[] = [
+  { label: '마이페이지', to: '/mypage', Icon: UserCircle },
+  { label: '관리자 페이지', to: '/admin', Icon: ShieldCheck },
 ]
 
 /** 메뉴 경로가 routes.tsx 에 실제로 있는지 검사하는 테스트용 전체 목록. */
 export const ALL_MENU_ITEMS: readonly NavigationMenuItem[] = [
   ...BUSINESS_MENU_ITEMS,
   ...ACCOUNT_MENU_ITEMS,
+  ...ROLE_HOME_MENU_ITEMS,
 ]

@@ -4,15 +4,25 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { apiClient } from '../../../services/apiClient.ts'
-import { BrandProcessingRequest } from './BrandProcessingRequest.tsx'
+import { useAuthStore } from '../../../stores/authStore.ts'
+import { BrandProcessingPage } from '../../../pages/processing/BrandProcessingPage.tsx'
 vi.mock('../../../services/apiClient.ts', () => ({ apiClient: { get: vi.fn(), post: vi.fn() } }))
 beforeEach(() => {
+  useAuthStore.setState({
+    user: { id: 1, email: 'brand@test.com', name: '테스트 브랜드', role: 'BRAND', walletAddress: null },
+    accessToken: 'test-token',
+    isAuthenticated: true,
+  })
   vi.mocked(apiClient.get).mockImplementation(async (url) => ({ data: url.includes('materials') ? [{ materialId: 1, materialCode: 'MAT-1', name: '폐데님', materialType: 'DENIM', quantity: 1000, lockedQuantity: 200, availableQuantity: 800 }] : { items: [{ processorId: 2, name: '새로 가공소', region: '서울', minQuantity: 1, maxQuantity: 1000, estimatedLeadDays: 3 }], total: 1, page: 0, size: 12 } }))
   vi.mocked(apiClient.post).mockResolvedValue({ data: { requestId: 7, requestCode: 'PR-7', status: 'QUOTING', quantity: 500, processTypes: ['CLEANING'], expiresAt: '2026-09-14T10:00:00', createdAt: '2026-09-07T10:00:00' } })
 })
-afterEach(() => { cleanup(); vi.resetAllMocks() })
+afterEach(() => {
+  cleanup()
+  vi.resetAllMocks()
+  useAuthStore.setState({ user: null, accessToken: null, isAuthenticated: false })
+})
 function setup() {
-  render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })}><MemoryRouter><BrandProcessingRequest /></MemoryRouter></QueryClientProvider>)
+  render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })}><MemoryRouter><BrandProcessingPage /></MemoryRouter></QueryClientProvider>)
   return userEvent.setup()
 }
 async function conditions() {
@@ -24,6 +34,9 @@ async function conditions() {
 }
 it('예약 수량을 제외한 가용량 초과와 소수를 차단한다', async () => {
   const user = await conditions()
+  expect(screen.getByRole('navigation', { name: '사업자 대시보드 메뉴' })).toBeInTheDocument()
+  expect(screen.queryByRole('complementary', { name: 'Brand 메뉴' })).not.toBeInTheDocument()
+  expect(screen.getByRole('link', { name: '회사 정보' })).toHaveAttribute('href', '/company/account')
   await user.clear(screen.getByLabelText('가공 수량 (g)'))
   await user.type(screen.getByLabelText('가공 수량 (g)'), '801')
   expect(screen.getByRole('button', { name: /가공사 찾기/ })).toBeDisabled()

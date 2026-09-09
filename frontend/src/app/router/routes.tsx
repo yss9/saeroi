@@ -19,8 +19,11 @@ import { MaterialListPage } from '../../pages/material/MaterialListPage.tsx'
 import { MaterialRegisterPage } from '../../pages/material/MaterialRegisterPage.tsx'
 import { ConsumerMyPage } from '../../pages/mypage/ConsumerMyPage.tsx'
 import { BrandProcessingPage } from '../../pages/processing/BrandProcessingPage.tsx'
+import { BrandProcessingRequestDetailPage } from '../../pages/processing/BrandProcessingRequestDetailPage.tsx'
+import { BrandProcessingRequestListPage } from '../../pages/processing/BrandProcessingRequestListPage.tsx'
 import { ProcessingPage } from '../../pages/processing/ProcessingPage.tsx'
 import { ProcessorProfilePage } from '../../pages/processing/ProcessorProfilePage.tsx'
+import { ProcessingPaymentCallbackPage } from '../../pages/processing/ProcessingPaymentCallbackPage.tsx'
 import { ProductDetailPage } from '../../pages/product/ProductDetailPage.tsx'
 import { ProductListPage } from '../../pages/product/ProductListPage.tsx'
 import { ProductRegisterPage } from '../../pages/product/ProductRegisterPage.tsx'
@@ -132,6 +135,9 @@ export const routes: RouteObject[] = [
         element: <RoleGuard allow={['BRAND']} />,
         children: [
           { path: '/brand/processing', element: <BrandProcessingPage /> },
+          { path: '/brand/processing/requests', element: <BrandProcessingRequestListPage /> },
+          { path: '/brand/processing/requests/:requestId', element: <BrandProcessingRequestDetailPage /> },
+          { path: '/processing/jobs/:jobId/payment/callback', element: <ProcessingPaymentCallbackPage /> },
           { path: '/brand/production', element: <ProductionPage /> },
           // 제품 등록. 서버도 BRAND 만 허용하고 역할을 DB 에서 다시 읽어 판단한다.
           { path: '/brand/products/new', element: <ProductRegisterPage /> },
