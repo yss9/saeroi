@@ -83,4 +83,15 @@ describe('application router', () => {
 
     expect(screen.getByRole('heading', { name: '가공 요청 내역' })).toBeInTheDocument()
   })
+
+  it.each(['/brand/processing', '/brand/processing/requests'])(
+    '%s에서 공통 Header와 Sidebar를 한 번만 렌더링한다',
+    (path) => {
+      signInAs('BRAND')
+      const { container } = renderRoute(path)
+
+      expect(container.querySelectorAll('.company-dashboard__header')).toHaveLength(1)
+      expect(container.querySelectorAll('.company-dashboard__sidebar')).toHaveLength(1)
+    },
+  )
 })
