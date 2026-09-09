@@ -146,3 +146,18 @@ export async function verifyEvidence(tokenId: number, hash: string): Promise<boo
   const contract = getReadContract('materialToken')
   return contract.verifyEvidence(tokenId, hash) as Promise<boolean>
 }
+
+/**
+ * 출처 검증(`verifySource`). 최초 등록 SUPPLIER 가 "이 출처가 사실이다" 라고
+ * 서명하는 독립 행위다 — mint 와 달리 새로 채번되는 값이 없다
+ * (`docs/superpowers/specs/2026-09-07-material-verification-state.md`).
+ */
+export async function verifySource(
+  tokenId: number,
+  evidenceHash: string,
+): Promise<ContractTransactionResponse> {
+  const contract = await getWriteContract('materialToken')
+  // mintMaterial 과 같은 이유로 미리 확인한다 — revert 를 서명 팝업 뒤에서 보게 하지 않는다.
+  await requireOnChainRole('SUPPLIER_ROLE')
+  return contract.verifySource(tokenId, evidenceHash) as Promise<ContractTransactionResponse>
+}

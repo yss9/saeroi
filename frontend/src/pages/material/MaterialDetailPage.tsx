@@ -5,11 +5,13 @@ import {
   ErrorMessage,
   Loading,
   StatusBadge,
+  VerificationBadge,
 } from '../../components/common/index.ts'
 import { MaterialBalanceTable } from '../../features/material/components/MaterialBalanceTable.tsx'
 import { EvidenceUpload } from '../../features/evidence/components/EvidenceUpload.tsx'
 import { MaterialLineageTree } from '../../features/material/components/MaterialLineageTree.tsx'
 import { MaterialMintPanel } from '../../features/material/components/MaterialMintPanel.tsx'
+import { MaterialSourceVerificationPanel } from '../../features/material/components/MaterialSourceVerificationPanel.tsx'
 import { ListingList } from '../../features/marketplace/components/ListingList.tsx'
 import { useMaterial } from '../../features/material/hooks/useMaterial.ts'
 import {
@@ -33,7 +35,7 @@ import './material-detail.css'
  * | 이미지 | ⏳ 증빙 업로드 경로가 없어 자리표시자 |
  * | 수량 | 총 수량 (gram → kg) |
  * | Owner | `MaterialBalanceTable` (MR !111) |
- * | Verification | ⚠️ 서버가 항상 REGISTERED — 배지를 그리지 않는다 |
+ * | Verification | `VerificationBadge` + Blockchain Proof (S15P21E104-171/-182) |
  * | Marketplace 정보 | `ListingList` (소재별 필터, S15P21E104-438/439) |
  * | Material History | `MaterialLineageTree` (MR !131) |
  *
@@ -211,18 +213,29 @@ export function MaterialDetailPage() {
         <EvidenceUpload referenceType="MATERIAL" referenceId={id} />
       </section>
 
-      {/*
-        ⚠️ Verification 배지를 일부러 그리지 않았다. 서버가 항상 REGISTERED 를
-        내려준다 — material 에 컬럼이 없고 파생 판정 근거(signed_at)도 스키마에
-        없어서다. 배지를 그리면 실제로 검증된 소재도 "등록만 됨" 으로 보이는데,
-        그건 추적성 화면에서 가장 나쁜 거짓이다. 판정 근거가 확보되면 붙인다.
-      */}
       <section aria-labelledby="material-verification">
         <h2 id="material-verification">검증 상태</h2>
-        <EmptyState
-          title="검증 단계 표시 준비 중"
-          description="온체인 검증 기록과 연결되면 이 소재가 어디까지 검증됐는지 표시됩니다."
-        />
+        <VerificationBadge state={data.verificationState} />
+        {/* null tokenId 가 "온체인에 없음" 인 것처럼, verification 이 null 인 것은
+            "출처 검증 근거 없음" 이다. 패널이 그 상태에서 서명 버튼을, 확정 후에는
+            근거(지갑·Tx 해시·시각)를 보여준다. */}
+        <MaterialSourceVerificationPanel material={data} />
+        {data.verification && (
+          <dl className="material-detail__info">
+            <div>
+              <dt>서명 지갑</dt>
+              <dd>{data.verification.signerWallet}</dd>
+            </div>
+            <div>
+              <dt>검증 시각</dt>
+              <dd>{formatDate(data.verification.signedAt)}</dd>
+            </div>
+            <div>
+              <dt>Tx 해시</dt>
+              <dd title={data.verification.txHash}>{data.verification.txHash}</dd>
+            </div>
+          </dl>
+        )}
       </section>
 
       {/*

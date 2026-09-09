@@ -8,7 +8,7 @@
 // 그 경계를 그대로 테스트 경계로 삼는다.
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type {
@@ -58,6 +58,7 @@ function detail(overrides: Partial<MaterialDetail> = {}): MaterialDetail {
     rootOrigin: 'WASTE',
     generationType: 'INITIAL',
     verificationState: 'REGISTERED',
+    verification: null,
     status: 'ACTIVE',
     totalQuantity: 20_500,
     grade: 'B',
@@ -197,24 +198,57 @@ describe('소재 정보', () => {
 })
 
 describe('근거 없는 값을 확정으로 보여주지 않는다', () => {
-  it('verificationState 로 검증 배지를 그리지 않는다', async () => {
-    // 서버는 항상 REGISTERED 를 준다 — 컬럼도 판정 근거(signed_at)도 스키마에 없다.
-    // 배지를 그리면 실제로 검증된 소재도 "등록만 됨" 으로 보인다.
+  it('verificationState 로 실제 검증 배지를 그린다 (S15P21E104-171/-182)', async () => {
+    // MaterialVerificationStateResolver 가 조회 시점에 판정한 값이라 이제 신뢰할 수 있다
+    // (docs/superpowers/specs/2026-09-07-material-verification-state.md).
     api.getMaterial.mockResolvedValue(detail({ verificationState: 'REGISTERED' }))
     renderPage()
 
     await screen.findByText('MAT-000012')
-    expect(screen.queryByText('등록됨')).not.toBeInTheDocument()
-    expect(screen.getByText('검증 단계 표시 준비 중')).toBeInTheDocument()
+    expect(screen.getByText('등록됨')).toBeInTheDocument()
+    expect(screen.queryByText('검증 단계 표시 준비 중')).not.toBeInTheDocument()
+  })
+
+  it('SOURCE_VERIFIED 면 배지와 함께 Blockchain Proof 근거를 보여준다', async () => {
+    api.getMaterial.mockResolvedValue(detail({
+      verificationState: 'SOURCE_VERIFIED',
+      tokenId: 77,
+      chainId: 31221,
+      verification: {
+        state: 'SOURCE_VERIFIED',
+        signerWallet: '0xaaaa000000000000000000000000000000000011',
+        signedAt: '2026-09-09T12:00:00',
+        txHash: '0x' + 'cd'.repeat(32),
+      },
+    }))
+    renderPage()
+
+    // "출처 검증" 은 배지 라벨과 패널 제목 둘 다에 쓰인다 — 둘 다 나타나는 것 자체가
+    // 배지가 실제로 그려졌다는 신호다.
+    expect(await screen.findAllByText('출처 검증')).toHaveLength(2)
+    expect(screen.getByText('0xaaaa000000000000000000000000000000000011')).toBeInTheDocument()
+    expect(screen.getByText('0x' + 'cd'.repeat(32))).toBeInTheDocument()
+  })
+
+  it('verification 이 없으면 근거를 그리지 않는다', async () => {
+    api.getMaterial.mockResolvedValue(detail({ verificationState: 'REGISTERED', verification: null }))
+    renderPage()
+
+    await screen.findByText('MAT-000012')
+    expect(screen.queryByText('서명 지갑')).not.toBeInTheDocument()
   })
 
   it('tokenId 가 null 이면 미등록으로 보여주고 Token ID 를 그리지 않는다', async () => {
     // 0 이나 빈칸으로 그리면 발행된 것처럼 읽힌다. 발행 버튼은 등록자 본인에게만
-    // 보이므로(MaterialMintPanel 이 판정한다) 여기서는 배지만 확인한다.
+    // 보이므로(MaterialMintPanel 이 판정한다) 여기서는 온체인 섹션의 배지만 확인한다.
+    // 출처 검증 패널도 같은 문구("미등록")를 쓰므로 섹션으로 좁혀서 본다.
     api.getMaterial.mockResolvedValue(detail({ tokenId: null }))
     renderPage()
 
-    expect(await screen.findByText('미등록')).toBeInTheDocument()
+    await screen.findByText('MAT-000012')
+    const onchainSection = screen.getByRole('heading', { name: '온체인' }).closest('section')
+    expect(onchainSection).not.toBeNull()
+    expect(within(onchainSection!).getByText('미등록')).toBeInTheDocument()
     expect(screen.queryByText('Token ID')).not.toBeInTheDocument()
   })
 
@@ -224,8 +258,12 @@ describe('근거 없는 값을 확정으로 보여주지 않는다', () => {
 
     expect(await screen.findByText('77')).toBeInTheDocument()
     expect(screen.getByText('1337')).toBeInTheDocument()
-    expect(screen.queryByText('미등록')).not.toBeInTheDocument()
-    expect(screen.getByText('온체인 #77')).toBeInTheDocument()
+    // 발행 패널은 더 이상 "미등록" 이 아니다. 출처 검증 패널은 아직 근거가 없어
+    // 자기 자리에는 "미등록" 을 계속 보여준다 — 그건 다른 사실이라 섹션으로 좁힌다.
+    const onchainSection = screen.getByRole('heading', { name: '온체인' }).closest('section')
+    expect(onchainSection).not.toBeNull()
+    expect(within(onchainSection!).queryByText('미등록')).not.toBeInTheDocument()
+    expect(within(onchainSection!).getByText('온체인 #77')).toBeInTheDocument()
   })
 
   it('증빙은 EvidenceUpload 에 위임하고 소재 id 로 조회한다', async () => {

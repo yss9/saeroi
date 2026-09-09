@@ -53,20 +53,37 @@ export interface MaterialSummary {
 }
 
 /**
+ * Blockchain Proof 화면(누가·언제·어느 Tx)이 그리는 근거 (S15P21E104-182).
+ *
+ * `verification` 이 `null` 이면 근거가 아직 없다는 뜻이다 — 빈 객체를 내려주지 않는
+ * 이유는 화면이 "값이 있는데 비어 있음" 과 "아직 없음" 을 구분해야 하기 때문이다
+ * (`docs/superpowers/specs/2026-09-07-material-verification-state.md`).
+ *
+ * 지금은 `state`가 `SOURCE_VERIFIED` 일 때만 채워진다. 다른 단(`TRANSACTION_VERIFIED`
+ * 등)은 근거가 온체인 Tx 가 아니라 거래 서명이라 이 모양(지갑·Tx 해시)이 맞지 않는다.
+ */
+export interface MaterialVerification {
+  state: MaterialVerificationState
+  signerWallet: string
+  signedAt: string
+  txHash: string
+}
+
+/**
  * `GET /api/materials/{materialId}` 응답.
  *
- * ⚠️ **`verificationState` 를 신뢰하지 말 것.** 서버가 항상 `'REGISTERED'` 를 준다.
- * `material` 테이블에 그 컬럼이 없고 파생 판정 근거(`signed_at`)도 스키마에 없어서다.
- * 소재의 사실이 아니라 구현의 한계이며, 이 값으로 검증 배지를 그리면
- * **실제로 검증된 소재도 "등록만 됨" 으로 보인다.**
+ * `verificationState` 는 조회 시점에 계산된 값이다 — 지금 판정되는 단계는
+ * `REGISTERED` · `SOURCE_VERIFIED` · `TRANSACTION_VERIFIED` 셋이다. `verification` 은
+ * `SOURCE_VERIFIED` 일 때만 근거를 담고, 그 외에는 `null` 이다(위 `MaterialVerification`
+ * 주석 참고).
  *
- * `tokenId`·`chainId`·`contractAddress` 가 `null` 인 것은 정상이다 — mint 결과를
- * 기록하는 confirm 엔드포인트가 아직 없다. **`tokenId === null` 이 "등록됐지만
- * 온체인에 없음" 의 유일한 신호다.**
+ * `tokenId`·`chainId`·`contractAddress` 가 `null` 인 것은 정상이다 — mint 확정 전
+ * 소재의 상태다. **`tokenId === null` 이 "등록됐지만 온체인에 없음" 의 유일한 신호다.**
  *
  * `evidenceHash`·`manifestUrl` 도 증빙 등록 경로가 없어 당분간 `null` 이다.
  */
 export interface MaterialDetail extends MaterialSummary {
+  verification: MaterialVerification | null
   /**
    * ⚠️ **상세 응답의 식별자는 `id` 가 아니라 `materialId` 다.**
    *
