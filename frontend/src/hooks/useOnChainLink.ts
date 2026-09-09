@@ -33,6 +33,19 @@ export interface UseOnChainLinkOptions {
   /** 꺼낸 번호를 서버에 알리는 함수. */
   link: (targetId: number, payload: ChainLinkPayload) => Promise<void>
   onLinked?: (onChainId: number) => void
+  /**
+   * 서명하기 <b>전에</b> 체인에서 "이미 만들어져 있는지" 찾아보는 함수. 선택이다.
+   *
+   * <b>왜 필요한가</b> — 아래 {@code pendingLink} 는 서명은 끝났고 서버 기록만 실패한
+   * 경우를 ref 로 붙들어 두지만, ref 는 메모리라 <b>새로고침하면 사라진다.</b> 그러면
+   * 다음 시도가 다시 서명부터 보내 같은 것이 체인에 하나 더 생긴다. 되돌릴 수 없다.
+   *
+   * 체인이 정본이므로, 찾으면 서명을 건너뛰고 서버 기록만 이어서 한다.
+   *
+   * 못 찾거나 조회에 실패하면 {@code null} 을 주기로 한다 — 던지면 RPC 가 흔들릴 때
+   * 정상 사용자가 아무것도 못 하게 된다.
+   */
+  findExisting?: (targetId: number) => Promise<ChainLinkPayload | null>
 }
 
 export interface UseOnChainLinkResult {
@@ -55,7 +68,7 @@ type LinkPhase = { status: 'IDLE' | 'LINKING' | 'LINKED'; error: AppError | null
 const IDLE: LinkPhase = { status: 'IDLE', error: null }
 
 export function useOnChainLink(options: UseOnChainLinkOptions): UseOnChainLinkResult {
-  const { contract, eventName, argName, link, onLinked } = options
+  const { contract, eventName, argName, link, onLinked, findExisting } = options
 
   // 서버 기록 구간은 트랜잭션 훅이 모르므로 따로 든다.
   const [phase, setPhase] = useState<LinkPhase>(IDLE)
@@ -75,10 +88,10 @@ export function useOnChainLink(options: UseOnChainLinkOptions): UseOnChainLinkRe
   // 갱신을 effect 안에서 하는 이유도 같다: 렌더 중에 ref 를 쓰면 React 가 렌더를 버리고
   // 다시 실행했을 때(Concurrent 렌더) 커밋되지 않은 값이 남는다. 여기서 쓰는 값은
   // 모두 await 이후에 읽히므로 커밋 이후 시점이면 충분하다.
-  const latest = useRef({ contract, eventName, argName, link, onLinked })
+  const latest = useRef({ contract, eventName, argName, link, onLinked, findExisting })
   useEffect(() => {
-    latest.current = { contract, eventName, argName, link, onLinked }
-  }, [contract, eventName, argName, link, onLinked])
+    latest.current = { contract, eventName, argName, link, onLinked, findExisting }
+  }, [contract, eventName, argName, link, onLinked, findExisting])
 
   const handleConfirmed = useCallback(async (receipt: ContractTransactionReceipt) => {
     const { contract, eventName, argName, link, onLinked } = latest.current
@@ -157,7 +170,25 @@ export function useOnChainLink(options: UseOnChainLinkOptions): UseOnChainLinkRe
         return false
       }
 
-      const recovery = pendingLink.current
+      // **체인에 이미 있으면 서명하지 않는다.**
+      //
+      // pendingLink 는 새로고침을 견디지 못한다(ref = 메모리). 그래서 그것에만 의존하면
+      // 서버 기록이 실패한 뒤 새로고침한 사용자가 다시 서명하게 되고, 같은 것이 체인에
+      // 하나 더 생긴다. 체인이 정본이므로 먼저 물어본다.
+      //
+      // pendingLink 보다 먼저 보는 이유: 둘 다 같은 결론을 주지만, 체인 조회가 더
+      // 믿을 만하다. 같은 세션 안이라면 pendingLink 가 곧바로 답을 주므로 왕복도 아깝지
+      // 않다 — 아래 분기에서 잡힌다.
+      const recovery =
+        pendingLink.current?.targetId === id
+          ? pendingLink.current
+          : await (async () => {
+              const found = await latest.current.findExisting?.(id)
+              return found === null || found === undefined
+                ? null
+                : { targetId: id, onChainId: found.onChainId, payload: found }
+            })()
+
       if (recovery?.targetId === id) {
         setPhase({ status: 'LINKING', error: null })
         try {

@@ -16,6 +16,7 @@ import {
 } from '../../../config/abi/onchainEnums.ts'
 import { getReadContract, getWriteContract } from '../../../services/blockchain/contractFactory.ts'
 import { requireOnChainRole } from '../../../services/blockchain/onChainRole.ts'
+import type { ChainLinkPayload } from '../../../services/blockchain/chainLinkApi.ts'
 import type { MaterialRootOrigin } from '../types/material.types.ts'
 
 /** 도메인 문자열 → 컨트랙트가 받는 uint8. */
@@ -63,6 +64,56 @@ export async function mintMaterial({
     metadataUri,
     evidenceHash,
   ) as Promise<ContractTransactionResponse>
+}
+
+/**
+ * 이 소재가 <b>이미 발행돼 있는지</b> 체인에서 찾는다.
+ *
+ * <b>왜 필요한가</b> — 발행은 두 번의 쓰기다. 지갑 서명(mint)과 그 결과를 서버에 알리는
+ * 요청(link). 서명은 끝났는데 link 가 실패하면 체인에는 토큰이 있고 DB 는 모르는 상태가
+ * 된다. {@code useOnChainLink} 가 그 영수증을 ref 에 붙들어 두지만 <b>ref 는 메모리라
+ * 새로고침하면 사라진다.</b> 그러면 다음 시도가 mint 부터 다시 보내 토큰이 하나 더 생기고,
+ * 되돌릴 수 없다. 2026-09-08 에 tokenId 2 가 그렇게 고아로 남았다.
+ *
+ * 그래서 서명 전에 체인에 묻는다. 체인이 정본이므로 여기서 찾으면 mint 를 보내지 않고
+ * 서버 기록만 이어서 하면 된다.
+ *
+ * <b>{@code metadataUri} 가 대조 키다.</b> 발행 시 `saeroi://material/MAT-000014` 형태로
+ * material_code 를 실어 보내므로(MaterialForm), 그 문자열이 그대로 소재를 가리킨다.
+ * 이벤트에서는 인덱싱되지 않은 값이라 필터로 좁힐 수 없어, 인덱싱된 {@code operator}
+ * (= 서명한 지갑)로 먼저 줄이고 나머지는 코드에서 비교한다.
+ *
+ * 못 찾으면 {@code null}. <b>조회가 실패해도 던지지 않고 {@code null} 을 준다</b> —
+ * RPC 가 흔들릴 때 발행 자체를 막으면 정상 사용자가 아무것도 못 하게 된다. 그때는
+ * 이 가드가 없던 예전과 같은 상태로 돌아갈 뿐이다.
+ */
+export async function findMintedMaterial(
+  registrar: string,
+  metadataUri: string,
+): Promise<ChainLinkPayload | null> {
+  try {
+    const contract = getReadContract('materialToken')
+    const events = await contract.queryFilter(
+      contract.filters.MaterialMinted(registrar, null, null),
+      0,
+      'latest',
+    )
+
+    // 같은 소재를 두 번 발행했다면(이 가드가 없던 시절에 생긴 고아) 가장 오래된 것을
+    // 정본으로 삼는다. 뒤의 것을 고르면 앞의 토큰이 영구히 가리켜지지 않는다.
+    for (const event of events) {
+      if (!('args' in event) || event.args === undefined) continue
+      if (event.args.metadataUri !== metadataUri) continue
+      return {
+        onChainId: Number(event.args.tokenId as bigint),
+        txHash: event.transactionHash,
+        blockNumber: event.blockNumber,
+      }
+    }
+    return null
+  } catch {
+    return null
+  }
 }
 
 /**
