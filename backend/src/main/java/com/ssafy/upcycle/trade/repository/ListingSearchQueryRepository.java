@@ -124,6 +124,7 @@ public class ListingSearchQueryRepository {
         return new BooleanBuilder()
                 .and(materialListing.status.eq(condition.statusOrDefault()))
                 .and(sellerIdEq(condition.sellerId()))
+                .and(materialIdEq(condition.materialId()))
                 .and(materialTypeEq(condition.materialType()))
                 .and(rootOriginEq(condition.rootOrigin()))
                 .and(gradeEq(condition.gradeOrNull()))
@@ -146,6 +147,10 @@ public class ListingSearchQueryRepository {
 
     private static BooleanExpression sellerIdEq(Long sellerId) {
         return sellerId == null ? null : materialListing.sellerId.eq(sellerId);
+    }
+
+    private static BooleanExpression materialIdEq(Long materialId) {
+        return materialId == null ? null : materialListing.materialId.eq(materialId);
     }
 
     private static BooleanExpression materialTypeEq(MaterialType materialType) {
