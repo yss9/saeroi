@@ -1,5 +1,5 @@
 import { Button, ErrorMessage, TransactionHash } from '../../../components/common/index.ts'
-import { useWalletStore } from '../../../stores/walletStore.ts'
+import { useWallet } from '../../wallet/hooks/useWallet.ts'
 import { useTradeChainAction } from '../hooks/useTradeChainAction.ts'
 import type { Trade } from '../types/trade.types.ts'
 import '../../../components/common/on-chain-panel.css'
@@ -21,7 +21,17 @@ export interface TradeChainActionPanelProps {
  * 둘은 별개의 트랜잭션이라 한쪽만 성공할 수 있고, 그래서 버튼을 나눠 두었다.
  */
 export function TradeChainActionPanel({ trade, viewer }: TradeChainActionPanelProps) {
-  const address = useWalletStore((state) => state.address)
+  // **스토어가 아니라 useWallet 을 쓴다.**
+  //
+  // walletStore 는 useWallet() 을 부르는 컴포넌트가 화면에 떠 있을 때만 채워진다. 그런
+  // 컴포넌트는 지갑 화면(WalletButton · WalletRegistrationPanel)에만 있고 이 화면에는
+  // 없다. 그래서 **메타마스크에 지갑이 연결돼 있어도 address 가 null 이라 서명 버튼이
+  // 영영 잠긴다.** 스토어는 메모리에만 있어 새로고침하면 더 확실히 빈다.
+  //
+  // useWallet() 은 페이지 로드 때 팝업 없이 기존 승인 계정을 복원하고, 그 과정에서
+  // 스토어도 채운다. 2026-09-08 데모에서 이 문제로 막혀 한 번 고쳤던 자리다.
+  const wallet = useWallet()
+  const address = wallet.address
   const action = useTradeChainAction(trade.tradeId)
 
   // 온체인 주문이 없으면 바꿀 상태도 없다. 그 단계를 먼저 끝내야 한다.
