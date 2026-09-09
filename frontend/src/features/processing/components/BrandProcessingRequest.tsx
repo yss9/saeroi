@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Check, CheckCircle, Clock, Factory, Info, Leaf, MapPin, Package } from '@phosphor-icons/react'
+import { ArrowLeft, ArrowRight, Check, CheckCircle, ClipboardText, Clock, Factory, Info, Leaf, MapPin, Package } from '@phosphor-icons/react'
 import { Link } from 'react-router-dom'
 import { isAppError } from '../../../utils/errors.ts'
 import { PROCESS_TYPE_LABEL, type ProcessType } from '../types/processing.types.ts'
@@ -23,7 +23,7 @@ export function BrandProcessingRequest() {
   </dl>
   return <div className="bp-shell bp-shell--embedded">
       <div className="bp-content">
-        <div className="bp-page-heading"><div><span className="bp-eyebrow">PROCESSING REQUEST</span><h1>소재 가공 신청</h1><p>보유 소재에 맞는 가공사를 찾고, 새로운 가능성을 연결하세요.</p></div><span className="bp-heading-icon"><Factory size={30} weight="duotone" /></span></div>
+        <div className="bp-page-heading"><div><span className="bp-eyebrow">PROCESSING REQUEST</span><h1>소재 가공 신청</h1><p>보유 소재에 맞는 가공사를 찾고, 새로운 가능성을 연결하세요.</p></div><Link className="bp-heading-action" to="/brand/processing/requests"><ClipboardText size={18} />요청 내역 보기</Link></div>
         <ol className="bp-steps" aria-label="신청 단계">{['소재 및 가공 조건', '가공사 선택', '신청 확인'].map((label, index) => <li key={label} className={flow.step === index + 1 ? 'is-active' : flow.step > index + 1 ? 'is-done' : ''} aria-current={flow.step === index + 1 ? 'step' : undefined}><span>{flow.step > index + 1 ? <Check weight="bold" size={17} /> : `0${index + 1}`}</span><strong>{label}</strong></li>)}</ol>
         {flow.created ? <section className="bp-card bp-success" aria-live="polite">
           <span className="bp-success-icon"><CheckCircle size={48} weight="duotone" /></span><span className="bp-eyebrow">{canceled ? 'REQUEST CANCELED' : 'REQUEST COMPLETE'}</span>
@@ -61,7 +61,6 @@ export function BrandProcessingRequest() {
             <div className="bp-form-footer"><button className="bp-button" disabled={flow.create.isPending} onClick={flow.valid ? flow.backToSearch : flow.edit}><ArrowLeft size={17} />{flow.valid ? '이전' : '조건 수정'}</button><button className="bp-button bp-primary" disabled={flow.create.isPending || !flow.valid} onClick={() => void flow.submit()}>{flow.create.isPending ? '신청 중…' : '가공 신청하기'} <ArrowRight size={18} /></button></div>
           </>}
         </section><aside className="bp-summary"><section className="bp-card"><span className="bp-eyebrow">YOUR REQUEST</span><h2>신청 요약</h2>{summary}</section><div className="bp-tip"><Leaf size={24} /><h3>더 나은 소재의 시작</h3><p>소재의 특성에 맞는 가공을 통해<br />새로운 제품의 가능성을 발견하세요.</p></div><p className="bp-side-note"><Info size={17} />최종 비용과 일정은 가공사의 견적을 통해 확정됩니다.</p></aside></div>}
-        <footer className="bp-footer"><span>SAEROI · 소재의 가치를 다시 잇다</span><span>CIRCULAR MATERIAL PLATFORM</span></footer>
       </div>
   </div>
 }
