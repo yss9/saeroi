@@ -21,14 +21,20 @@ vi.mock('../../auth/hooks/useAuth.ts', () => ({
   useAuth: () => ({ user: { id: 3 } }),
 }))
 
-vi.mock('../../../stores/walletStore.ts', () => ({
-  useWalletStore: (
-    selector: (state: { address: string; chainId: string | null }) => unknown,
-  ) =>
-    selector({
-      address: '0x053E6Ed40F29f21577472d99bF9Fa4AdECD4a63e',
-      chainId: mocks.chainId,
-    }),
+// 패널이 walletStore 가 아니라 useWallet() 을 읽는다. 스토어는 useWallet() 을 부르는
+// 컴포넌트가 떠 있을 때만 채워지는데 이 화면에는 그런 컴포넌트가 없어서, 스토어를 읽으면
+// 지갑이 연결돼 있어도 주소가 null 이 된다.
+vi.mock('../../wallet/hooks/useWallet.ts', () => ({
+  useWallet: () => ({
+    address: '0x053E6Ed40F29f21577472d99bF9Fa4AdECD4a63e',
+    chainId: mocks.chainId,
+    isConnected: true,
+    connect: vi.fn(),
+    disconnect: vi.fn(),
+    switchChain: vi.fn(),
+    wrongChain: false,
+    expectedChainId: '0x79f5',
+  }),
 }))
 
 vi.mock('../hooks/useMintMaterialOnChain.ts', () => ({

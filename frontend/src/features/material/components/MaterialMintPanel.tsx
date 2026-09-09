@@ -2,7 +2,7 @@ import { OnChainPanel } from '../../../components/common/index.ts'
 import { contracts } from '../../../config/contracts.ts'
 import { env } from '../../../config/env.ts'
 import { useAuth } from '../../auth/hooks/useAuth.ts'
-import { useWalletStore } from '../../../stores/walletStore.ts'
+import { useWallet } from '../../wallet/hooks/useWallet.ts'
 import { useMintMaterialOnChain } from '../hooks/useMintMaterialOnChain.ts'
 import type { MaterialDetail } from '../types/material.types.ts'
 
@@ -19,8 +19,18 @@ import type { MaterialDetail } from '../types/material.types.ts'
  */
 export function MaterialMintPanel({ material }: { material: MaterialDetail }) {
   const { user } = useAuth()
-  const address = useWalletStore((state) => state.address)
-  const chainId = useWalletStore((state) => state.chainId)
+  // **스토어가 아니라 useWallet 을 쓴다.**
+  //
+  // walletStore 는 useWallet() 을 부르는 컴포넌트가 화면에 떠 있을 때만 채워진다. 그런
+  // 컴포넌트는 지갑 화면(WalletButton · WalletRegistrationPanel)에만 있고 이 화면에는
+  // 없다. 그래서 **메타마스크에 지갑이 연결돼 있어도 address 가 null 이라 서명 버튼이
+  // 영영 잠긴다.** 스토어는 메모리에만 있어 새로고침하면 더 확실히 빈다.
+  //
+  // useWallet() 은 페이지 로드 때 팝업 없이 기존 승인 계정을 복원하고, 그 과정에서
+  // 스토어도 채운다. 2026-09-08 데모에서 이 문제로 막혀 한 번 고쳤던 자리다.
+  const wallet = useWallet()
+  const address = wallet.address
+  const chainId = wallet.chainId
   const mint = useMintMaterialOnChain()
 
   // 등록자만 서명할 수 있다 — 컨트랙트가 SUPPLIER_ROLE 을, 서버가 등록자 본인을 요구한다.
