@@ -66,6 +66,26 @@ public class CompanyProfile {
                 userId, companyName, businessNumber, zipCode, address, addressDetail);
     }
 
+    /**
+     * 주소·소개·로고를 갱신한다.
+     *
+     * <p>{@code companyName}/{@code businessNumber} 는 여기 없다 — 사업자 등록 시 확정되는
+     * 식별 정보라 계정 소유자가 임의로 바꿀 대상이 아니라고 판단했다
+     * ({@code CompanyProfileService} 문서 참고).
+     */
+    public void updateProfile(
+            String zipCode,
+            String address,
+            String addressDetail,
+            String introduction,
+            String logoUrl) {
+        this.zipCode = requireText(zipCode, "zipCode", 20);
+        this.address = requireText(address, "address", 255);
+        this.addressDetail = optionalText(addressDetail, "addressDetail", 255);
+        this.introduction = optionalText(introduction, "introduction", 65_535);
+        this.logoUrl = optionalText(logoUrl, "logoUrl", 500);
+    }
+
     private static <T> T requireNonNull(T value, String field) {
         if (value == null) {
             throw new IllegalArgumentException("CompanyProfile " + field + " must not be null");

@@ -116,6 +116,19 @@ public class User {
         this.status = UserStatus.SUSPENDED;
     }
 
+    /**
+     * 대표자명·연락처를 갱신한다.
+     *
+     * <p>사업자회원의 경우 이 값은 가입 시 {@code SignupService.registerBusiness} 가
+     * {@code representativeName}/{@code companyPhone} 으로 받아 채운 값이다
+     * ({@code CompanyProfileService} 참고) — {@code name}/{@code phone} 이 "회사명"이 아니라
+     * "대표자 정보"인 이유다.
+     */
+    public void updateContact(String name, String phone) {
+        this.name = requireText(name, "name", NAME_MAX_LENGTH);
+        this.phone = requireText(phone, "phone", PHONE_MAX_LENGTH);
+    }
+
     private static <T> T requireNonNull(T value, String field) {
         if (value == null) {
             throw new IllegalArgumentException("User " + field + " must not be null");
