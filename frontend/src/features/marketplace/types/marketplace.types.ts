@@ -96,6 +96,8 @@ export interface ListingFilters {
   /** 판매자 필터. Supplier Market 이 내 판매글만 보는 데 쓴다 */
   generationType?: MaterialGenerationType
   sellerId?: number
+  /** 소재 상세 화면이 "이 소재가 지금 판매 중인가" 를 물을 때 쓴다 (S15P21E104-438/439) */
+  materialId?: number
   materialType?: MaterialType
   rootOrigin?: MaterialRootOrigin
   grade?: MaterialGrade

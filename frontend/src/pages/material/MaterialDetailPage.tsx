@@ -4,6 +4,7 @@ import { MaterialBalanceTable } from '../../features/material/components/Materia
 import { EvidenceUpload } from '../../features/evidence/components/EvidenceUpload.tsx'
 import { MaterialLineageTree } from '../../features/material/components/MaterialLineageTree.tsx'
 import { MaterialMintPanel } from '../../features/material/components/MaterialMintPanel.tsx'
+import { ListingList } from '../../features/marketplace/components/ListingList.tsx'
 import { useMaterial } from '../../features/material/hooks/useMaterial.ts'
 import {
   FIBER_TYPE_LABEL,
@@ -26,7 +27,7 @@ import { formatKg } from '../../utils/quantity.ts'
  * | 수량 | 총 수량 (gram → kg) |
  * | Owner | `MaterialBalanceTable` (MR !111) |
  * | Verification | ⚠️ 서버가 항상 REGISTERED — 배지를 그리지 않는다 |
- * | Marketplace 정보 | ⏳ 소재별 Listing 조회 API 가 없어 자리표시자 |
+ * | Marketplace 정보 | `ListingList` (소재별 필터, S15P21E104-438/439) |
  * | Material History | `MaterialLineageTree` (MR !131) |
  *
  * <b>Page 는 조합만 한다.</b> API 호출·가공은 Feature 컴포넌트가 각자 한다 —
@@ -170,10 +171,6 @@ export function MaterialDetailPage() {
       </section>
 
       {/*
-        티켓의 나머지 두 항목은 자리표시자다. 화면에 자리를 만들어 두는 이유는
-        나중에 레이아웃이 밀리지 않게 하려는 것이고, "왜 비어 있는가" 를 적어 두는
-        이유는 사용자가 고장으로 읽지 않게 하려는 것이다.
-
         ⚠️ Verification 배지를 일부러 그리지 않았다. 서버가 항상 REGISTERED 를
         내려준다 — material 에 컬럼이 없고 파생 판정 근거(signed_at)도 스키마에
         없어서다. 배지를 그리면 실제로 검증된 소재도 "등록만 됨" 으로 보이는데,
@@ -187,11 +184,17 @@ export function MaterialDetailPage() {
         />
       </section>
 
+      {/*
+        listingId 를 누르면 ListingCard 의 Link 가 /marketplace/:listingId 로 보낸다
+        (완료 조건: "선택하면 marketplace 상세로 이동"). 판매 중인 글이 없으면
+        ListingList 가 emptyTitle/emptyDescription 으로 자체 처리한다.
+      */}
       <section aria-labelledby="material-marketplace">
         <h2 id="material-marketplace">판매 정보</h2>
-        <EmptyState
-          title="판매 정보 준비 중"
-          description="이 소재의 판매 등록 현황을 조회하는 기능이 준비 중입니다."
+        <ListingList
+          params={{ materialId: id }}
+          emptyTitle="판매 중이 아닙니다"
+          emptyDescription="이 소재는 현재 Marketplace 에 등록되어 있지 않습니다."
         />
       </section>
     </main>

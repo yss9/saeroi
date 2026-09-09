@@ -16,6 +16,8 @@ import type {
   MaterialDetail,
   MaterialLineage,
 } from '../../features/material/types/material.types.ts'
+import type { Listing } from '../../features/marketplace/types/marketplace.types.ts'
+import type { PageResponse } from '../../types/api.types.ts'
 import { createAppError, ERROR_KIND } from '../../utils/errors.ts'
 import { MaterialDetailPage } from './MaterialDetailPage.tsx'
 
@@ -25,6 +27,8 @@ const api = vi.hoisted(() => ({
   getMaterialLineage: vi.fn(),
   // 증빙 블록이 EvidenceUpload 로 위임되면서 이 페이지가 네 번째 엔드포인트를 쓴다.
   getEvidence: vi.fn(),
+  // 판매 정보 블록은 ListingList → useListings → getListings 를 그대로 쓴다.
+  getListings: vi.fn(),
 }))
 vi.mock('../../features/material/api/getMaterial.ts', () => ({
   getMaterial: api.getMaterial,
@@ -37,6 +41,9 @@ vi.mock('../../features/material/api/getMaterialLineage.ts', () => ({
 }))
 vi.mock('../../features/evidence/api/getEvidence.ts', () => ({
   getEvidence: api.getEvidence,
+}))
+vi.mock('../../features/marketplace/api/getListings.ts', () => ({
+  getListings: api.getListings,
 }))
 
 function detail(overrides: Partial<MaterialDetail> = {}): MaterialDetail {
@@ -90,6 +97,34 @@ const EMPTY_LINEAGE: MaterialLineage = {
   message: null,
 }
 
+function emptyListingPage(): PageResponse<Listing> {
+  return { content: [], page: 0, size: 12, totalElements: 0, totalPages: 0, hasNext: false }
+}
+
+function listingPage(listing: Partial<Listing> = {}): PageResponse<Listing> {
+  const full: Listing = {
+    listingId: 501,
+    chainListingId: null,
+    materialId: 12,
+    materialCode: 'MAT-000012',
+    materialName: '수거 데님 원단',
+    materialDescription: null,
+    materialType: 'DENIM',
+    rootOrigin: 'WASTE',
+    generationType: 'INITIAL',
+    grade: 'B',
+    sellerId: 3,
+    sellerName: '공급자',
+    totalQuantity: 20_500,
+    availableQuantity: 12_000,
+    pricePerKg: 14_000,
+    status: 'ON_SALE',
+    createdAt: '2026-09-08T10:00:00',
+    ...listing,
+  }
+  return { content: [full], page: 0, size: 12, totalElements: 1, totalPages: 1, hasNext: false }
+}
+
 function renderPage(path = '/materials/12') {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
@@ -111,6 +146,7 @@ beforeEach(() => {
   // 증빙 0건은 `summary` 가 빈 배열인 것으로 표현된다 — 이 페이지 테스트는 증빙
   // 내용을 보지 않으므로 가장 단순한 "0건" 응답을 쓴다.
   api.getEvidence.mockReset().mockResolvedValue({ visibility: 'FULL', files: [], summary: [] })
+  api.getListings.mockReset().mockResolvedValue(emptyListingPage())
 })
 
 afterEach(cleanup)
@@ -212,15 +248,38 @@ describe('근거 없는 값을 확정으로 보여주지 않는다', () => {
     expect(screen.queryByText(manifestHash)).not.toBeInTheDocument()
   })
 
-  it('아직 없는 블록은 자리만 두고 이유를 밝힌다', async () => {
-    // 티켓이 요구한 7블록 중 판매 정보는 조회 API 가 없다. 빈 자리를 말없이 두면
-    // 사용자는 고장으로 읽는다.
+})
+
+describe('판매 정보 (S15P21E104-438/439)', () => {
+  it('소재 id 로 소재별 판매 목록을 조회한다', async () => {
     api.getMaterial.mockResolvedValue(detail())
+    renderPage()
+
+    await waitFor(() =>
+      expect(api.getListings).toHaveBeenCalledWith(
+        expect.objectContaining({ materialId: 12 }),
+      ),
+    )
+  })
+
+  it('판매 중인 글이 없으면 판매 중이 아니라고 알린다', async () => {
+    api.getMaterial.mockResolvedValue(detail())
+    api.getListings.mockResolvedValue(emptyListingPage())
     renderPage()
 
     await screen.findByText('MAT-000012')
     expect(screen.getByRole('heading', { name: '판매 정보' })).toBeInTheDocument()
-    expect(screen.getByText('판매 정보 준비 중')).toBeInTheDocument()
+    expect(await screen.findByText('판매 중이 아닙니다')).toBeInTheDocument()
+  })
+
+  it('판매 중이면 단가·수량을 보여주고 marketplace 상세로 이동할 수 있다', async () => {
+    api.getMaterial.mockResolvedValue(detail())
+    api.getListings.mockResolvedValue(listingPage())
+    renderPage()
+
+    expect(await screen.findByText('14,000원 / kg')).toBeInTheDocument()
+    const link = screen.getByRole('link', { name: '수거 데님 원단' })
+    expect(link).toHaveAttribute('href', '/marketplace/501')
   })
 })
 
