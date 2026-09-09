@@ -15,6 +15,7 @@ import {
   type RootOriginOnChain,
 } from '../../../config/abi/onchainEnums.ts'
 import { getReadContract, getWriteContract } from '../../../services/blockchain/contractFactory.ts'
+import { requireOnChainRole } from '../../../services/blockchain/onChainRole.ts'
 import type { MaterialRootOrigin } from '../types/material.types.ts'
 
 /** 도메인 문자열 → 컨트랙트가 받는 uint8. */
