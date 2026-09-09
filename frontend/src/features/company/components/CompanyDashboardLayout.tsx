@@ -1,70 +1,26 @@
-import {
-  Buildings,
-  Factory,
-  House,
-  List,
-  Package,
-  SignOut,
-  Storefront,
-  Swap,
-  Wallet,
-  X,
-} from '@phosphor-icons/react'
+import { House, List, SignOut, Wallet, X } from '@phosphor-icons/react'
 import { useState, type ReactNode } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
+import { BUSINESS_MENU_ITEMS } from '../../../app/navigation/navigationMenu.ts'
+import { useVisibleMenu } from '../../../app/navigation/useVisibleMenu.ts'
 import { useAuth } from '../../auth/hooks/useAuth.ts'
 import { ROLE_LABEL } from '../../../types/role.types.ts'
-import {
-  BUSINESS_ROLE_LABEL,
-  isBusinessUserRole,
-  type BusinessUserRole,
-} from '../types/companyAccount.types.ts'
+import { BUSINESS_ROLE_LABEL, isBusinessUserRole } from '../types/companyAccount.types.ts'
 import './company-dashboard.css'
 
 interface CompanyDashboardLayoutProps {
   children: ReactNode
 }
 
-interface NavigationItem {
-  label: string
-  to: string
-  Icon: typeof Buildings
-}
-
-const commonNavigation: NavigationItem[] = [
-  { label: '회사 정보', to: '/company/account', Icon: Buildings },
-]
-
-const roleNavigation: Record<BusinessUserRole, NavigationItem[]> = {
-  SUPPLIER: [
-    { label: '소재 등록', to: '/supplier/materials/new', Icon: Package },
-    { label: '판매 관리', to: '/supplier/listings', Icon: Storefront },
-    { label: '거래 내역', to: '/trades', Icon: Swap },
-  ],
-  BRAND: [
-    { label: '보유 소재', to: '/inventory', Icon: Package },
-    { label: '가공 요청', to: '/brand/processing', Icon: Factory },
-    { label: '생산 관리', to: '/brand/production', Icon: Buildings },
-    { label: '거래 내역', to: '/trades', Icon: Swap },
-  ],
-  PROCESSOR: [
-    { label: '업체 등록', to: '/processor/profile', Icon: Buildings },
-    { label: '가공 작업', to: '/processor/jobs', Icon: Factory },
-  ],
-}
-
-function getNavigation(role: string | undefined): NavigationItem[] {
-  if (role === 'SUPPLIER' || role === 'BRAND' || role === 'PROCESSOR') {
-    return [...commonNavigation, ...roleNavigation[role]]
-  }
-  return commonNavigation
-}
-
 export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const navigate = useNavigate()
   const { user, signOut } = useAuth()
-  const navigation = getNavigation(user?.role)
+  // 역할→메뉴 매핑을 이 파일이 들고 있지 않다. routes.tsx 의 RoleGuard 정의에서
+  // 파생된다 (app/navigation/navigationMenu.ts 머리말). 예전에는 여기에 역할별 배열이
+  // 있어서 라우트를 추가해도 메뉴가 따라오지 않았다 — /supplier/trades 와
+  // /brand/products/new 가 실제로 그렇게 빠져 있었다.
+  const { items: navigation, isResolving } = useVisibleMenu(BUSINESS_MENU_ITEMS)
 
   function handleSignOut() {
     signOut()
@@ -116,7 +72,12 @@ export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps
             <span>BUSINESS WORKSPACE</span>
             <strong>{user?.name ?? '회사 계정'}</strong>
           </div>
-          <nav aria-label="사업자 대시보드 메뉴">
+          {/*
+            역할 판정 중에는 aria-busy 만 두고 링크를 그리지 않는다. 이때 잘못
+            그리면(예: 공통 메뉴만) 역할이 도착하는 순간 메뉴가 번쩍 늘어난다.
+            RoleGuard 가 같은 상태를 Loading 으로 처리하는 것과 같은 판단이다.
+          */}
+          <nav aria-label="사업자 대시보드 메뉴" aria-busy={isResolving}>
             {navigation.map(({ label, to, Icon }) => (
               <NavLink
                 key={to}
