@@ -149,10 +149,12 @@ public class ProductionConfirmService {
                 throw new BusinessException(ProductionErrorCode.PRODUCTION_LOCK_NOT_ACTIVE);
             }
 
+            // 보유 행이 사라졌다는 것은 수량이 모자란 것과 다르다. 투입 시점에는 있었고
+            // 잠금까지 걸려 있으므로, 확정 시점에 없다면 소유가 통째로 옮겨 갔다는 뜻이다.
             MaterialBalance balance =
                     balanceRepository.findForUpdate(input.getMaterialId(), producerId)
                             .orElseThrow(() -> new BusinessException(
-                                    ProductionErrorCode.PRODUCTION_INSUFFICIENT_BALANCE));
+                                    ProductionErrorCode.PRODUCTION_MATERIAL_NOT_OWNED));
             if (balance.getQuantity() < input.getInputQuantity()) {
                 throw new BusinessException(ProductionErrorCode.PRODUCTION_INSUFFICIENT_BALANCE);
             }
