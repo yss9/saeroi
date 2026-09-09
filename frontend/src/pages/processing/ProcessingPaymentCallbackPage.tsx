@@ -1,7 +1,6 @@
 import { CheckCircle, WarningCircle } from '@phosphor-icons/react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { CompanyDashboardLayout } from '../../features/company/components/CompanyDashboardLayout.tsx'
 import { processingRequestApi, type ProcessingJob } from '../../features/processing/api/processingRequestApi.ts'
 import { PROCESSING_PAYMENT_JOB_KEY } from '../../features/processing/hooks/useProcessingPayment.ts'
 import { isAppError } from '../../utils/errors.ts'
@@ -41,7 +40,7 @@ export function ProcessingPaymentCallbackPage() {
     content = <><CheckCircle aria-hidden="true" /><h1>가공비 결제가 완료되었습니다</h1><strong>{won(job.paymentAmount)}</strong><p>가공사가 요청을 확인하면 다음 진행 상태를 알려드립니다.</p><Link to={`/brand/processing/requests/${job.requestId}`}>요청 상세로 돌아가기</Link></>
   }
 
-  return <CompanyDashboardLayout><section className="br-payment-callback" role="status">{content}{!job && <Link to="/brand/processing/requests">요청 목록으로</Link>}</section></CompanyDashboardLayout>
+  return <section className="br-payment-callback" role="status">{content}{!job && <Link to="/brand/processing/requests">요청 목록으로</Link>}</section>
 }
 
 function readStoredJobId() {

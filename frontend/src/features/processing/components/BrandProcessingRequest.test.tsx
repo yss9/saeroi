@@ -34,9 +34,6 @@ async function conditions() {
 }
 it('예약 수량을 제외한 가용량 초과와 소수를 차단한다', async () => {
   const user = await conditions()
-  expect(screen.getByRole('navigation', { name: '사업자 대시보드 메뉴' })).toBeInTheDocument()
-  expect(screen.queryByRole('complementary', { name: 'Brand 메뉴' })).not.toBeInTheDocument()
-  expect(screen.getByRole('link', { name: '회사 정보' })).toHaveAttribute('href', '/company/account')
   await user.clear(screen.getByLabelText('가공 수량 (g)'))
   await user.type(screen.getByLabelText('가공 수량 (g)'), '801')
   expect(screen.getByRole('button', { name: /가공사 찾기/ })).toBeDisabled()

@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { apiClient } from '../../services/apiClient.ts'
 import { useAuthStore } from '../../stores/authStore.ts'
+import { CompanyDashboardLayout } from '../../features/company/components/CompanyDashboardLayout.tsx'
 import { ProcessingPage } from './ProcessingPage.tsx'
 
 vi.mock('../../services/apiClient.ts', () => ({ apiClient: { get: vi.fn(), post: vi.fn() } }))
@@ -38,7 +39,11 @@ function renderPage() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter><ProcessingPage /></MemoryRouter>
+      <MemoryRouter initialEntries={['/processor/jobs']}>
+        <CompanyDashboardLayout>
+          <ProcessingPage />
+        </CompanyDashboardLayout>
+      </MemoryRouter>
     </QueryClientProvider>,
   )
 }
