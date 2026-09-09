@@ -15,6 +15,7 @@ import {
   type RootOriginOnChain,
 } from '../../../config/abi/onchainEnums.ts'
 import { getReadContract, getWriteContract } from '../../../services/blockchain/contractFactory.ts'
+import { requireOnChainRole } from '../../../services/blockchain/onChainRole.ts'
 import type { MaterialRootOrigin } from '../types/material.types.ts'
 
 /** 도메인 문자열 → 컨트랙트가 받는 uint8. */
@@ -52,6 +53,9 @@ export async function mintMaterial({
   evidenceHash,
 }: MintMaterialParams): Promise<ContractTransactionResponse> {
   const contract = await getWriteContract('materialToken')
+  // mintMaterial 은 onlyRole(SUPPLIER_ROLE) 이다 (MaterialToken.sol:257).
+  // 권한이 없으면 발행이 통째로 되돌려지므로, 서명 팝업을 띄우기 전에 알려 준다.
+  await requireOnChainRole('SUPPLIER_ROLE')
   return contract.mintMaterial(
     to,
     amount,

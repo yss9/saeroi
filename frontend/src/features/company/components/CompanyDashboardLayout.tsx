@@ -15,10 +15,20 @@ import './company-dashboard.css'
 /**
  * 로그인한 사용자가 갈 수 있는 모든 곳.
  *
- * 두 배열을 이어 붙이는 것은 이 레이아웃이 사업자 대시보드만이 아니라
+ * 두 배열을 합치는 것은 이 레이아웃이 사업자 대시보드만이 아니라
  * **보호 라우트 전체의 셸**이 되었기 때문이다. 역할별 필터는 useVisibleMenu 가 한다.
+ *
+ * <b>경로로 중복을 걸러야 한다.</b> {@code ACCOUNT_MENU_ITEMS} 는 헤더 팝오버의
+ * "내 홈" 후보라 {@code /company/account} 를 사업자 메뉴와 <b>일부러</b> 겹쳐 들고 있다.
+ * 그냥 이어 붙이면 같은 to 가 두 번 들어가 React 가 key 중복을 경고하고, 사이드바에도
+ * 같은 곳으로 가는 항목이 "회사 정보"·"회사 대시보드" 두 개로 보인다.
+ *
+ * 먼저 온 쪽을 남긴다 — 사업자 메뉴의 이름이 사이드바 문맥에 맞고, 겹치지 않는
+ * 마이페이지·관리자 페이지는 그대로 따라 들어온다.
  */
-const MENU_ITEMS = [...BUSINESS_MENU_ITEMS, ...ACCOUNT_MENU_ITEMS] as const
+const MENU_ITEMS = [...BUSINESS_MENU_ITEMS, ...ACCOUNT_MENU_ITEMS].filter(
+  (item, index, items) => items.findIndex((other) => other.to === item.to) === index,
+)
 
 interface CompanyDashboardLayoutProps {
   children: ReactNode
@@ -114,6 +124,7 @@ export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps
               <NavLink
                 key={to}
                 to={to}
+                end={to === '/brand/processing'}
                 onClick={() => setIsMenuOpen(false)}
                 className={({ isActive }) => isActive ? 'company-dashboard__nav-link--active' : undefined}
               >

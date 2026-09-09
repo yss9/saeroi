@@ -1,9 +1,16 @@
-import { useParams } from 'react-router-dom'
-import { EmptyState, ErrorMessage, Loading, StatusBadge } from '../../components/common/index.ts'
+import { Link, useLocation, useParams } from 'react-router-dom'
+import {
+  BackLink,
+  EmptyState,
+  ErrorMessage,
+  Loading,
+  StatusBadge,
+} from '../../components/common/index.ts'
 import { MaterialBalanceTable } from '../../features/material/components/MaterialBalanceTable.tsx'
 import { EvidenceUpload } from '../../features/evidence/components/EvidenceUpload.tsx'
 import { MaterialLineageTree } from '../../features/material/components/MaterialLineageTree.tsx'
 import { MaterialMintPanel } from '../../features/material/components/MaterialMintPanel.tsx'
+import { ListingList } from '../../features/marketplace/components/ListingList.tsx'
 import { useMaterial } from '../../features/material/hooks/useMaterial.ts'
 import {
   FIBER_TYPE_LABEL,
@@ -15,6 +22,7 @@ import {
   type MaterialFiberType,
 } from '../../features/material/types/material.types.ts'
 import { formatKg } from '../../utils/quantity.ts'
+import './material-detail.css'
 
 /**
  * 소재 상세. 티켓(S15P21E104-180)이 요구한 7블록을 조합한다.
@@ -26,7 +34,7 @@ import { formatKg } from '../../utils/quantity.ts'
  * | 수량 | 총 수량 (gram → kg) |
  * | Owner | `MaterialBalanceTable` (MR !111) |
  * | Verification | ⚠️ 서버가 항상 REGISTERED — 배지를 그리지 않는다 |
- * | Marketplace 정보 | ⏳ 소재별 Listing 조회 API 가 없어 자리표시자 |
+ * | Marketplace 정보 | `ListingList` (소재별 필터, S15P21E104-438/439) |
  * | Material History | `MaterialLineageTree` (MR !131) |
  *
  * <b>Page 는 조합만 한다.</b> API 호출·가공은 Feature 컴포넌트가 각자 한다 —
@@ -43,12 +51,46 @@ export function MaterialDetailPage() {
 
   const { data, isPending, isError, error, refetch } = useMaterial(id)
 
-  if (id === null) return <ErrorMessage error="잘못된 소재 주소입니다." />
-  if (isPending) return <Loading variant="skeleton" rows={5} label="소재 정보를 불러오는 중" />
-  if (isError) return <ErrorMessage error={error} onRetry={() => void refetch()} />
+  // 등록 폼이 심어 준 표시. 방금 만든 소재라면 다음에 할 일을 알려 준다 —
+  // 등록만 끝내고 판매 등록을 못 찾아 화면에서 막히는 제보가 있었다.
+  const justCreated = (useLocation().state as { justCreated?: boolean } | null)?.justCreated === true
+
+  // **출구는 이른 반환보다 먼저 그려져야 한다.** 조회가 실패한 화면이야말로 사용자가
+  // 나가고 싶은 화면인데, BackLink 를 성공 분기에만 두면 그때 갇힌다. 이 화면은
+  // Public 라우트라 사이드바 셸도 없어서 브라우저 뒤로 가기 말고는 길이 없다.
+  const back = <BackLink to="/inventory" label="보유 소재" />
+
+  if (id === null) {
+    return (
+      <main className="page">
+        {back}
+        <ErrorMessage error="잘못된 소재 주소입니다." />
+      </main>
+    )
+  }
+  if (isPending) {
+    return (
+      <main className="page">
+        {back}
+        <Loading variant="skeleton" rows={5} label="소재 정보를 불러오는 중" />
+      </main>
+    )
+  }
+  if (isError) {
+    return (
+      <main className="page">
+        {back}
+        <ErrorMessage error={error} onRetry={() => void refetch()} />
+      </main>
+    )
+  }
 
   return (
     <main className="page material-detail">
+      {back}
+
+      {justCreated && <MaterialCreatedNextStep />}
+
       <header className="material-detail__header">
         <h1>{data.name}</h1>
         <p className="material-detail__code">{data.materialCode}</p>
@@ -170,10 +212,6 @@ export function MaterialDetailPage() {
       </section>
 
       {/*
-        티켓의 나머지 두 항목은 자리표시자다. 화면에 자리를 만들어 두는 이유는
-        나중에 레이아웃이 밀리지 않게 하려는 것이고, "왜 비어 있는가" 를 적어 두는
-        이유는 사용자가 고장으로 읽지 않게 하려는 것이다.
-
         ⚠️ Verification 배지를 일부러 그리지 않았다. 서버가 항상 REGISTERED 를
         내려준다 — material 에 컬럼이 없고 파생 판정 근거(signed_at)도 스키마에
         없어서다. 배지를 그리면 실제로 검증된 소재도 "등록만 됨" 으로 보이는데,
@@ -187,11 +225,17 @@ export function MaterialDetailPage() {
         />
       </section>
 
+      {/*
+        listingId 를 누르면 ListingCard 의 Link 가 /marketplace/:listingId 로 보낸다
+        (완료 조건: "선택하면 marketplace 상세로 이동"). 판매 중인 글이 없으면
+        ListingList 가 emptyTitle/emptyDescription 으로 자체 처리한다.
+      */}
       <section aria-labelledby="material-marketplace">
         <h2 id="material-marketplace">판매 정보</h2>
-        <EmptyState
-          title="판매 정보 준비 중"
-          description="이 소재의 판매 등록 현황을 조회하는 기능이 준비 중입니다."
+        <ListingList
+          params={{ materialId: id }}
+          emptyTitle="판매 중이 아닙니다"
+          emptyDescription="이 소재는 현재 Marketplace 에 등록되어 있지 않습니다."
         />
       </section>
     </main>
@@ -225,4 +269,32 @@ function formatDate(value: string): string {
   const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) return value
   return parsed.toLocaleDateString('ko-KR', { dateStyle: 'long' })
+}
+
+/**
+ * 등록 직후에만 나오는 다음 단계 안내.
+ *
+ * <b>등록은 끝이 아니다.</b> 소재를 만들어도 판매 등록을 해야 마켓플레이스에 뜬다.
+ * 그런데 등록 폼은 이 상세 화면으로 보내 놓고 여기서 갈 곳을 알려 주지 않았고,
+ * 이 화면은 Public 라우트라 사이드바도 없어서 사용자가 브라우저 뒤로 가기로
+ * 빠져나가야 했다. 그 자리를 메운다.
+ *
+ * 온체인 발행({@code MaterialMintPanel})은 아래에 그대로 있다 — 순서를 강제하지 않는
+ * 이유는 발행이 실패해도 소재와 판매 등록은 유효하기 때문이다.
+ */
+function MaterialCreatedNextStep() {
+  return (
+    <section className="material-detail__next" role="status">
+      <div>
+        <h2>소재를 등록했습니다.</h2>
+        <p>
+          아직 마켓플레이스에는 보이지 않습니다. 판매 등록을 해야 다른 업체가 구매할 수
+          있습니다.
+        </p>
+      </div>
+      <Link className="material-detail__next-cta" to="/supplier/listings">
+        판매 등록하러 가기
+      </Link>
+    </section>
+  )
 }

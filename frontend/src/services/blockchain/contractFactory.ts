@@ -15,6 +15,7 @@ import { Contract, Interface, type ContractRunner } from 'ethers'
 import { abis, contracts, type ContractName } from '../../config/contracts.ts'
 import { env } from '../../config/env.ts'
 import { getBrowserProvider, getSigner } from '../../features/wallet/services/walletService.ts'
+import { useAuthStore } from '../../stores/authStore.ts'
 import { createAppError, ERROR_KIND } from '../../utils/errors.ts'
 
 /**
@@ -54,7 +55,37 @@ export async function getWriteContract(name: ContractName): Promise<Contract> {
   }
 
   const signer = await getSigner()
+
+  // **서명하려는 계정이 이 사용자의 등록 지갑인가.**
+  //
+  // MetaMask 는 계정을 여러 개 들고 있고, 사용자는 아무 때나 바꿀 수 있다. 화면은
+  // 전환을 따라가지만(walletClient 가 accountsChanged 를 구독한다) "지금 연결된 계정"
+  // 과 "이 계정으로 서명해야 하는가" 는 다른 질문이다.
+  //
+  // 어긋난 채로 서명하면 체인에는 다른 주소가 남는다. 서버는 거래 시점의 지갑 주소를
+  // 스냅샷으로 들고 있으므로 두 기록이 서로 다른 사람을 가리키게 되고, 그 뒤의
+  // markShipped·confirmReceipt 는 컨트랙트가 order.seller/buyer 를 대조하다 되돌린다
+  // ("caller is not seller"). 소재 발행이라면 더 나쁘다 — 토큰이 등록 지갑이 아닌
+  // 곳으로 발행되고 되돌릴 수 없다.
+  //
+  // 여기서 막는 이유는 체인 검사와 같다. 패널마다 두면 새 패널이 생길 때 빠진다.
+  const registered = useAuthStore.getState().user?.walletAddress
+  if (registered) {
+    const signing = await signer.getAddress()
+    if (signing.toLowerCase() !== registered.toLowerCase()) {
+      throw createAppError(ERROR_KIND.WALLET_DISCONNECTED, {
+        message:
+          `MetaMask에서 선택된 계정(${shortAddress(signing)})이 이 계정에 등록된 지갑` +
+          `(${shortAddress(registered)})과 다릅니다. 등록된 지갑으로 전환한 뒤 다시 시도해 주세요.`,
+      })
+    }
+  }
+
   return createContract(name, signer)
+}
+
+function shortAddress(value: string): string {
+  return `${value.slice(0, 8)}…${value.slice(-6)}`
 }
 
 function createContract(name: ContractName, runner: ContractRunner): Contract {

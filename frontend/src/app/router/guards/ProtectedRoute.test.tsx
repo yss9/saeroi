@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import type { AxiosResponse } from 'axios'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -69,6 +69,21 @@ describe('ProtectedRoute', () => {
     // 셸이 씌워졌다는 증거. 이 링크가 없으면 사용자는 이 화면에서 나갈 방법이 없다.
     expect(screen.getByRole('link', { name: /판매 관리/ })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /거래 내역/ })).toBeInTheDocument()
+  })
+
+  it('같은 곳으로 가는 항목을 두 번 그리지 않는다', () => {
+    // 사업자 메뉴와 계정 메뉴가 /company/account 를 함께 들고 있다 — 헤더 팝오버가
+    // "내 홈" 후보로 쓰기 때문이고, 겹치는 것 자체는 의도한 것이다. 다만 사이드바에서
+    // 그대로 이어 붙이면 같은 to 가 두 번 들어가 React 가 key 중복을 경고하고
+    // "회사 정보"·"회사 대시보드" 가 나란히 보인다.
+    setUser('SUPPLIER')
+    renderAt('/inventory')
+
+    const navigation = screen.getByRole('navigation', { name: '사업자 대시보드 메뉴' })
+    const toAccount = within(navigation)
+      .getAllByRole('link')
+      .filter((link) => link.getAttribute('href') === '/company/account')
+    expect(toAccount).toHaveLength(1)
   })
 
   it('소비자에게는 사업자 메뉴가 아니라 마이페이지만 보인다', () => {

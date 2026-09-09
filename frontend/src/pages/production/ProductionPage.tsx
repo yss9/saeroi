@@ -6,8 +6,8 @@
  */
 export function ProductionPage() {
   return (
-    <main className="page">
+    <div className="page">
       <h1>생산 관리</h1>
-    </main>
+    </div>
   )
 }

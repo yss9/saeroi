@@ -6,6 +6,7 @@
 // 만들기 쉽고, 한 파일만 필요해도 도메인 전체가 번들에 끌려온다.
 // 공통 컴포넌트는 도메인에 의존하지 않으므로 순환이 생길 수 없어 예외로 둔다.
 
+export { BackLink, type BackLinkProps } from './BackLink.tsx'
 export { Button, type ButtonProps, type ButtonVariant, type ButtonSize } from './Button.tsx'
 export { ConfirmModal, type ConfirmModalProps } from './ConfirmModal.tsx'
 export { EmptyState, type EmptyStateProps } from './EmptyState.tsx'

@@ -1,0 +1,124 @@
+/* 소재 상세.
+ *
+ * 이 화면에는 스타일이 전혀 없었다 — 제목과 <dl> 이 브라우저 기본값으로 그려져
+ * 항목이 세로로 길게 늘어섰고, dt 와 dd 가 붙어 어느 값이 어느 항목인지 읽기 어려웠다.
+ * common.css 의 --ui-* 토큰만 쓴다. 색을 새로 만들지 않는다. */
+
+.material-detail__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: var(--ui-gap);
+}
+
+.material-detail__header h1 {
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  color: var(--ui-color-text);
+}
+
+/* 소재 코드는 사람이 대조하는 식별자다. 등폭으로 두어야 자리수를 셀 수 있다. */
+.material-detail__code {
+  margin: 0;
+  padding: 2px 8px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-color-bg);
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: var(--ui-color-muted);
+}
+
+/* 항목 목록. 좁은 화면에서는 한 줄, 넓으면 두세 줄로 접힌다. */
+.material-detail__info {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1px;
+  margin: 0;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-color-border);
+  overflow: hidden;
+}
+
+.material-detail__info > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  background: var(--ui-color-surface);
+}
+
+.material-detail__info dt {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ui-color-muted);
+}
+
+.material-detail__info dd {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ui-color-text);
+  /* 수량·Token ID 가 세로로 정렬되게 한다. */
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+/* ── 등록 직후 다음 단계 ────────────────────────────────
+   한 번만 보이는 안내라 카드보다 눈에 띄어야 하지만, 오류가 아니므로
+   위험색을 쓰지 않는다. primary-soft 로 "지금 볼 것" 만 표시한다. */
+.material-detail__next {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+  margin-bottom: var(--ui-gap);
+  padding: 16px 18px;
+  border: 1px solid var(--ui-color-primary);
+  border-radius: var(--ui-radius);
+  background: var(--ui-color-primary-soft);
+}
+
+.material-detail__next h2 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 600;
+  /* .page > section > h2 의 대문자·자간 규칙이 여기까지 오지 않게 되돌린다. */
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--ui-color-text);
+}
+
+.material-detail__next p {
+  margin: 0;
+  max-width: 52ch;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ui-color-muted);
+}
+
+.material-detail__next-cta {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 9px 16px;
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-color-primary);
+  color: var(--ui-color-primary-contrast);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.material-detail__next-cta:hover {
+  filter: brightness(1.08);
+}
+
+.material-detail__next-cta:focus-visible {
+  outline: 2px solid var(--ui-color-primary);
+  outline-offset: 2px;
+}

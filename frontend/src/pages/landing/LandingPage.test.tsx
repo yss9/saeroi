@@ -98,7 +98,9 @@ describe('LandingPage', () => {
 
   it.each([
     [{ role: 'CONSUMER', name: '김새로이' }, '개인회원', '마이페이지', '/mypage'],
-    [{ role: 'BRAND', name: '새로이 브랜드' }, '사업자회원', '회사 대시보드', '/company/account'],
+    [{ role: 'SUPPLIER', name: '새로이 공급사' }, '사업자회원', '판매 관리', '/supplier/listings'],
+    [{ role: 'BRAND', name: '새로이 브랜드' }, '사업자회원', '가공 요청', '/brand/processing'],
+    [{ role: 'PROCESSOR', name: '새로이 가공사' }, '사업자회원', '견적 요청', '/processor/jobs'],
     [{ role: 'ADMIN', name: '새로이 운영자' }, '관리자', '관리자 페이지', '/admin'],
   ] as const)(
     'shows the correct destination for a signed-in $role account',

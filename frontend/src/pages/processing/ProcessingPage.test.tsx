@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { apiClient } from '../../services/apiClient.ts'
 import { useAuthStore } from '../../stores/authStore.ts'
+import { CompanyDashboardLayout } from '../../features/company/components/CompanyDashboardLayout.tsx'
 import { ProcessingPage } from './ProcessingPage.tsx'
 
 vi.mock('../../services/apiClient.ts', () => ({ apiClient: { get: vi.fn(), post: vi.fn() } }))
@@ -38,7 +39,11 @@ function renderPage() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter><ProcessingPage /></MemoryRouter>
+      <MemoryRouter initialEntries={['/processor/jobs']}>
+        <CompanyDashboardLayout>
+          <ProcessingPage />
+        </CompanyDashboardLayout>
+      </MemoryRouter>
     </QueryClientProvider>,
   )
 }
@@ -60,6 +65,11 @@ test('로그인한 Processor에게 지정된 가공 요청을 표시한다', asy
   renderPage()
 
   expect(await screen.findByRole('heading', { name: '견적 요청' })).toBeInTheDocument()
+  expect(screen.getByRole('navigation', { name: '사업자 대시보드 메뉴' })).toBeInTheDocument()
+  expect(screen.queryByRole('complementary', { name: 'Processor 메뉴' })).not.toBeInTheDocument()
+  expect(screen.getByRole('link', { name: '업체 등록' })).toHaveAttribute('href', '/processor/profile')
+  expect(screen.getByRole('link', { name: '회사 정보' })).toHaveAttribute('href', '/company/account')
+  expect(screen.getByRole('link', { name: '쇼핑몰' })).toHaveAttribute('href', '/')
   expect(await screen.findByText('PR-007')).toBeInTheDocument()
   expect(screen.getByText('폐데님')).toBeInTheDocument()
   expect(screen.getByText('20,000 g')).toBeInTheDocument()

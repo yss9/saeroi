@@ -6,7 +6,7 @@ import { routes } from '../router/routes.tsx'
 import { canAccess, getRouteAccess, getRouteAccessMap } from '../router/routeAccess.ts'
 import { useAuthStore } from '../../stores/authStore.ts'
 import { USER_ROLES, type UserRole } from '../../types/role.types.ts'
-import { ACCOUNT_MENU_ITEMS, ALL_MENU_ITEMS, BUSINESS_MENU_ITEMS } from './navigationMenu.ts'
+import { ALL_MENU_ITEMS, BUSINESS_MENU_ITEMS, ROLE_HOME_MENU_ITEMS } from './navigationMenu.ts'
 
 /**
  * routes.tsx 의 RoleGuard allow 를 **routeAccess 와 무관한 방법**으로 다시 읽는다.
@@ -124,7 +124,7 @@ describe('역할별 사업자 메뉴', () => {
 
   it('BRAND 는 가공·생산·제품 메뉴를 보고 판매 등록 메뉴를 보지 않는다', () => {
     expect(visibleLabels('BRAND')).toEqual([
-      '회사 정보', '보유 소재', '가공 요청', '생산 관리', '제품 등록', '거래 내역',
+      '회사 정보', '보유 소재', '가공 신청', '요청 내역', '생산 관리', '제품 등록', '거래 내역',
     ])
   })
 
@@ -151,7 +151,7 @@ describe('계정 메뉴', () => {
   function firstAccountLabel(role: UserRole) {
     signInAs(role)
     const map = getRouteAccessMap()
-    const visible = ACCOUNT_MENU_ITEMS.filter((item) => {
+    const visible = ROLE_HOME_MENU_ITEMS.filter((item) => {
       const access = map.get(item.to)
       return access !== undefined && canAccess(access, { isAuthenticated: true, role })
     })
@@ -161,8 +161,8 @@ describe('계정 메뉴', () => {
   it('역할마다 계정 홈이 하나만 남는다', () => {
     expect(firstAccountLabel('CONSUMER')).toBe('마이페이지')
     expect(firstAccountLabel('ADMIN')).toBe('관리자 페이지')
-    expect(firstAccountLabel('SUPPLIER')).toBe('회사 대시보드')
-    expect(firstAccountLabel('BRAND')).toBe('회사 대시보드')
-    expect(firstAccountLabel('PROCESSOR')).toBe('회사 대시보드')
+    expect(firstAccountLabel('SUPPLIER')).toBe('판매 관리')
+    expect(firstAccountLabel('BRAND')).toBe('가공 요청')
+    expect(firstAccountLabel('PROCESSOR')).toBe('견적 요청')
   })
 })

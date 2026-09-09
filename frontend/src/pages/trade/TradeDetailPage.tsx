@@ -1,5 +1,5 @@
 import { useParams } from 'react-router-dom'
-import { ErrorMessage, Loading } from '../../components/common/index.ts'
+import { BackLink, ErrorMessage, Loading } from '../../components/common/index.ts'
 import { useAuth } from '../../features/auth/hooks/useAuth.ts'
 import { PaymentPanel } from '../../features/trade/components/PaymentPanel.tsx'
 import { TradeChainActionPanel } from '../../features/trade/components/TradeChainActionPanel.tsx'
@@ -30,15 +30,46 @@ export function TradeDetailPage() {
   const { user } = useAuth()
   const { data, isPending, isError, error, refetch } = useTrade(id)
 
-  if (id === null) return <ErrorMessage error="잘못된 주소입니다." />
-  if (isPending) return <Loading variant="skeleton" />
-  if (isError) return <ErrorMessage error={error} onRetry={() => void refetch()} />
+  // 조회 전에는 이 사람이 판매자인지 알 수 없다 (판정에 data 가 필요하다).
+  // 그래서 실패·로딩 화면에서는 누구나 갈 수 있는 거래 내역으로 보낸다 —
+  // 출구가 아예 없는 것보다 낫고, 틀린 목록으로 보내지도 않는다.
+  if (id === null) {
+    return (
+      <main className="page">
+        <BackLink to="/trades" label="거래 내역" />
+        <ErrorMessage error="잘못된 주소입니다." />
+      </main>
+    )
+  }
+  if (isPending) {
+    return (
+      <main className="page">
+        <BackLink to="/trades" label="거래 내역" />
+        <Loading variant="skeleton" />
+      </main>
+    )
+  }
+  if (isError) {
+    return (
+      <main className="page">
+        <BackLink to="/trades" label="거래 내역" />
+        <ErrorMessage error={error} onRetry={() => void refetch()} />
+      </main>
+    )
+  }
 
   const isSeller = user?.id === data.sellerId
   const isBuyer = user?.id === data.buyerId
 
   return (
     <main className="page">
+      {/* 판매자와 구매자가 서로 다른 목록에서 들어온다. 위치에 맞는 곳으로 돌려보낸다 —
+          판매자를 /trades(내 구매 내역)로 보내면 방금 본 거래가 없는 목록이 열린다. */}
+      <BackLink
+        to={isSeller ? '/supplier/trades' : '/trades'}
+        label={isSeller ? '판매 거래' : '거래 내역'}
+      />
+
       <header className="page__header">
         <h1>{data.materialName}</h1>
         <p className="page__lead">{data.tradeCode}</p>

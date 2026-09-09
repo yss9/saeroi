@@ -10,7 +10,7 @@ import {
 } from '@phosphor-icons/react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ACCOUNT_MENU_ITEMS } from '../../../app/navigation/navigationMenu.ts'
+import { ROLE_HOME_MENU_ITEMS } from '../../../app/navigation/navigationMenu.ts'
 import { useVisibleMenu } from '../../../app/navigation/useVisibleMenu.ts'
 import { useAuth } from '../../../features/auth/hooks/useAuth.ts'
 import { BUSINESS_ROLES } from '../../../features/company/types/companyAccount.types.ts'
@@ -95,7 +95,7 @@ export function Header() {
   // 역할별 "내 홈" 링크. 어느 역할이 어디로 가는지를 이 파일이 정하지 않는다 —
   // routes.tsx 의 RoleGuard 가 정하고 useVisibleMenu 가 걸러 준다. 그래서
   // /mypage 나 /admin 의 allow 가 바뀌면 여기 손대지 않아도 따라온다.
-  const { items: accountItems, isResolving: isRoleResolving } = useVisibleMenu(ACCOUNT_MENU_ITEMS)
+  const { items: accountItems, isResolving: isRoleResolving } = useVisibleMenu(ROLE_HOME_MENU_ITEMS)
   const accountLink = accountItems[0] ?? null
 
   return (

@@ -1,7 +1,5 @@
-import { CaretDown, CaretLeft, CaretRight, ChartBar, Clock, Factory, FileText, Gear, Leaf, Package, SquaresFour, UserCircle } from '@phosphor-icons/react'
+import { CaretDown, CaretLeft, CaretRight, Clock, FileText, Package } from '@phosphor-icons/react'
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { useAuthStore } from '../../../stores/authStore.ts'
 import { isAppError } from '../../../utils/errors.ts'
 import { PROCESS_TYPE_LABEL, type ProcessingRequestStatus } from '../types/processing.types.ts'
 import { useProcessorRequests } from '../hooks/useProcessorRequests.ts'
@@ -25,24 +23,11 @@ const statusLabel: Record<ProcessingRequestStatus, string> = {
 
 export function ProcessorRequestList() {
   const requests = useProcessorRequests()
-  const user = useAuthStore(state => state.user)
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const pageCount = requests.data ? Math.max(1, Math.ceil(requests.data.total / requests.data.size)) : 1
 
-  return <div className="pr-shell">
-    <aside className="pr-sidebar" aria-label="Processor 메뉴">
-      <Link className="pr-logo" to="/"><span><Leaf size={19} weight="fill" /></span><div>SAEROI<small>PROCESSOR</small></div></Link>
-      <nav>
-        <Link to="/processor/jobs"><SquaresFour size={20} weight="fill" />Dashboard</Link>
-        <Link to="/processor/jobs" aria-current="page"><FileText size={20} weight="fill" />견적 요청</Link>
-        <span><Factory size={20} />가공 관리</span>
-        <span><ChartBar size={20} />결과 관리</span>
-      </nav>
-      <div className="pr-sidebar-bottom"><span><Gear size={19} />Settings</span><div className="pr-profile"><UserCircle size={32} weight="duotone" /><div><strong>{user?.name ?? 'Processor'}</strong><small>가공사 계정</small></div></div></div>
-    </aside>
-    <div className="pr-main">
-      <header className="pr-header"><span>Processor Workspace <b>/ 견적 요청</b></span><span className="pr-role">PROCESSOR</span></header>
-      <main className="pr-content">
+  return <div className="pr-shell pr-shell--embedded">
+      <div className="pr-content">
         <div className="pr-heading"><div><span>PROCESSING REQUESTS</span><h1>견적 요청</h1><p>Brand가 보낸 가공 요청을 확인하고 조건을 검토하세요.</p></div><div className="pr-heading-icon"><FileText size={28} weight="duotone" /></div></div>
         <section className="pr-summary" aria-label="요청 현황">
           <article><span>조회 결과</span><strong>{requests.data?.total ?? 0}<small>건</small></strong><p>현재 조건에 맞는 요청</p></article>
@@ -80,7 +65,6 @@ export function ProcessorRequestList() {
               <button aria-label="다음 페이지" disabled={requests.page + 1 >= pageCount} onClick={() => requests.setPage(requests.page + 1)}><CaretRight size={16} /></button>
             </nav>}
           </section>}
-      </main>
-    </div>
+      </div>
   </div>
 }

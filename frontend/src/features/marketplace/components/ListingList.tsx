@@ -1,13 +1,15 @@
 import { EmptyState, ErrorMessage, Loading } from '../../../components/common/index.ts'
 import { useListings } from '../hooks/useListings.ts'
 import type { GetListingsParams } from '../api/getListings.ts'
+import type { Listing } from '../types/marketplace.types.ts'
 import { ListingCard } from './ListingCard.tsx'
 import { Pagination } from './Pagination.tsx'
 
 export interface ListingListProps {
   params?: GetListingsParams
   /** 판매자 화면에서 카드마다 붙일 동작 (취소 버튼 등) */
-  renderActions?: (listingId: number) => React.ReactNode
+  /** 판매 글 전체를 넘긴다 — 취소는 온체인 번호(chainListingId)까지 알아야 한다. */
+  renderActions?: (listing: Listing) => React.ReactNode
   /**
    * 페이지 이동. 주지 않으면 페이지 UI 가 나오지 않는다 —
    * 페이지 번호는 조회 조건이라 이 컴포넌트가 아니라 화면이 들고 있어야 한다
@@ -38,7 +40,7 @@ export function ListingList({
       <ul className="listing-list">
         {data.content.map((listing) => (
           <li key={listing.listingId}>
-            <ListingCard listing={listing} actions={renderActions?.(listing.listingId)} />
+            <ListingCard listing={listing} actions={renderActions?.(listing)} />
           </li>
         ))}
       </ul>
