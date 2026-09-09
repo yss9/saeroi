@@ -9,6 +9,7 @@ import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.Predicate;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import com.ssafy.upcycle.material.entity.MaterialGenerationType;
 import com.ssafy.upcycle.material.entity.MaterialRootOrigin;
 import com.ssafy.upcycle.material.entity.MaterialType;
 import com.ssafy.upcycle.trade.dto.ListingResponse;
@@ -127,6 +128,7 @@ public class ListingSearchQueryRepository {
                 .and(materialIdEq(condition.materialId()))
                 .and(materialTypeEq(condition.materialType()))
                 .and(rootOriginEq(condition.rootOrigin()))
+                .and(generationTypeEq(condition.generationType()))
                 .and(gradeEq(condition.gradeOrNull()))
                 .and(nameContains(condition.keywordOrNull()))
                 .and(pricePerKgGoe(condition.minPricePerKg()))
@@ -159,6 +161,15 @@ public class ListingSearchQueryRepository {
 
     private static BooleanExpression rootOriginEq(MaterialRootOrigin rootOrigin) {
         return rootOrigin == null ? null : material.rootOrigin.eq(rootOrigin);
+    }
+
+    /**
+     * 생성 유형. {@code rootOrigin} 과 <b>독립된 축</b>이라 별도 조건이다 —
+     * "폐기물 + 가공 산출물" 과 "폐기물 + 최초 등록" 은 다른 물건이고, 구매자는 둘을
+     * 갈라서 봐야 한다 (화면 설계서 B03의 2축 필터).
+     */
+    private static BooleanExpression generationTypeEq(MaterialGenerationType generationType) {
+        return generationType == null ? null : material.generationType.eq(generationType);
     }
 
     private static BooleanExpression gradeEq(String grade) {

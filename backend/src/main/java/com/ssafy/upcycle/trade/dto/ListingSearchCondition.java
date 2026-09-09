@@ -1,5 +1,6 @@
 package com.ssafy.upcycle.trade.dto;
 
+import com.ssafy.upcycle.material.entity.MaterialGenerationType;
 import com.ssafy.upcycle.material.entity.MaterialRootOrigin;
 import com.ssafy.upcycle.material.entity.MaterialType;
 import com.ssafy.upcycle.trade.entity.ListingStatus;
@@ -29,6 +30,7 @@ public record ListingSearchCondition(
         Long materialId,
         MaterialType materialType,
         MaterialRootOrigin rootOrigin,
+        MaterialGenerationType generationType,
         String grade,
         String keyword,
         Long minPricePerKg,

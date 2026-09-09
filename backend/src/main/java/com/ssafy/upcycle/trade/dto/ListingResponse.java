@@ -1,6 +1,7 @@
 package com.ssafy.upcycle.trade.dto;
 
 import com.ssafy.upcycle.material.entity.Material;
+import com.ssafy.upcycle.material.entity.MaterialGenerationType;
 import com.ssafy.upcycle.material.entity.MaterialRootOrigin;
 import com.ssafy.upcycle.material.entity.MaterialType;
 import com.ssafy.upcycle.trade.entity.ListingStatus;
@@ -35,6 +36,16 @@ public record ListingResponse(
         String materialDescription,
         MaterialType materialType,
         MaterialRootOrigin rootOrigin,
+
+        /**
+         * 이 소재가 어떻게 생겼는가 — 최초 등록 / 가공 산출물 / 생산 부산물.
+         *
+         * <p><b>{@code rootOrigin} 과 함께 두 축을 이룬다.</b> "폐기물 + 가공 산출물" 과
+         * "폐기물 + 최초 등록" 은 구매자에게 완전히 다른 물건이다 — 앞은 이미 한 번
+         * 손이 간 소재고 뒤는 원물이다. 출처만으로는 그 구분이 안 된다 (화면 설계서 B03).
+         */
+        MaterialGenerationType generationType,
+
         String grade,
         Long sellerId,
         String sellerName,
@@ -54,6 +65,7 @@ public record ListingResponse(
                 material.getDescription(),
                 material.getMaterialType(),
                 material.getRootOrigin(),
+                material.getGenerationType(),
                 material.getGrade(),
                 listing.getSellerId(),
                 seller.getName(),
