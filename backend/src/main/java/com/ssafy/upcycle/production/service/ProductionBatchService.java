@@ -18,6 +18,7 @@ import com.ssafy.upcycle.production.ProductionErrorCode;
 import com.ssafy.upcycle.production.dto.ProductionBatchOpenRequest;
 import com.ssafy.upcycle.production.dto.ProductionBatchResponse;
 import com.ssafy.upcycle.production.dto.ProductionInputRequest;
+import com.ssafy.upcycle.production.dto.ProductionInputsRequest;
 import com.ssafy.upcycle.production.dto.ProductionInputResponse;
 import com.ssafy.upcycle.production.entity.ProductionBatch;
 import com.ssafy.upcycle.production.entity.ProductionInput;
@@ -31,7 +32,10 @@ import com.ssafy.upcycle.user.repository.UserRepository;
 import com.ssafy.upcycle.user.repository.UserWalletRepository;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -107,27 +111,57 @@ public class ProductionBatchService {
     }
 
     /**
-     * 소재를 배치에 연결한다. <b>이 티켓의 핵심이다.</b>
+     * 소재를 배치에 연결한다. <b>전부 성공하거나 전부 실패한다.</b>
      *
-     * <p>순서가 중요하다 — <b>검증을 모두 끝낸 뒤에 처음으로 무엇인가를 바꾼다.</b> 잠금을
-     * 먼저 걸고 나중에 거절하면 풀어 줘야 하고, 그 풀기가 실패하면 아무도 쓰지 않는 잠금이
-     * 남아 소재가 영영 묶인다.
+     * <p>순서가 중요하다 — <b>목록 전체를 검증한 뒤에 처음으로 무엇인가를 바꾼다.</b>
+     * 한 건씩 처리하면 세 번째에서 거절될 때 앞의 둘이 이미 잠긴 채 남고, 사용자는 화면에서
+     * 실패를 봤는데 소재는 묶여 있는 상태가 된다. 트랜잭션이 롤백해 주지만 그건 마지막
+     * 방어선이고, 애초에 거절할 요청을 반쯤 처리하다 되돌리는 것과 시작 전에 거절하는 것은
+     * 다르다 — 증빙 업로드가 같은 이유로 같은 순서를 쓴다.
+     *
+     * <p>가용량은 소재별로 본다. 같은 소재가 요청 안에 두 번 들어오는 것은
+     * {@link #requireNoDuplicateMaterial} 이 먼저 막으므로, 한 소재의 가용량을 두 항목이
+     * 나눠 쓰는 경우는 생기지 않는다.
      */
     @Transactional
-    public ProductionBatchResponse addInput(
-            Long producerId, Long batchId, ProductionInputRequest request) {
+    public ProductionBatchResponse addInputs(
+            Long producerId, Long batchId, ProductionInputsRequest request) {
         requireActiveBrand(producerId);
         ProductionBatch batch = editableBatch(batchId, producerId);
-        requireQuantitiesAddUp(request);
-        Material material = activeMaterial(request.materialId());
-        // 소유를 자격보다 먼저 본다. 가진 적도 없는 소재에게 "가공을 거쳐야 한다" 고
-        // 답하면, 그 소재를 가공하면 쓸 수 있다는 뜻으로 읽힌다.
-        requireOwned(material.getId(), producerId);
-        requireEligible(material);
-        requireNotAlreadyInput(batchId, material.getId());
-        requireAvailable(material.getId(), producerId, request.inputQuantity());
 
-        // 여기부터 변경. 잠금을 먼저 만들어 id 를 얻어야 투입 행이 그것을 가리킬 수 있다.
+        List<Material> materials = new ArrayList<>();
+        Set<Long> seen = new HashSet<>();
+        for (ProductionInputRequest each : request.inputs()) {
+            requireQuantitiesAddUp(each);
+            Material material = activeMaterial(each.materialId());
+            requireNoDuplicateMaterial(seen, material.getId());
+            // 소유를 자격보다 먼저 본다. 가진 적도 없는 소재에게 "가공을 거쳐야 한다" 고
+            // 답하면, 그 소재를 가공하면 쓸 수 있다는 뜻으로 읽힌다.
+            requireOwned(material.getId(), producerId);
+            requireEligible(material);
+            requireNotAlreadyInput(batchId, material.getId());
+            requireAvailable(material.getId(), producerId, each.inputQuantity());
+            materials.add(material);
+        }
+
+        // ── 여기까지 검증. 아래에서 처음으로 무엇인가를 바꾼다 ──
+
+        for (int i = 0; i < request.inputs().size(); i++) {
+            link(batch, materials.get(i), producerId, request.inputs().get(i));
+        }
+        return findDetail(producerId, batchId);
+    }
+
+    /**
+     * 소재 한 건을 배치에 붙인다. 잠금 → 투입 → (자투리가 있으면) 산출 예정 순이다.
+     *
+     * <p>잠금을 먼저 만들어야 id 를 얻고, 투입 행이 그것을 가리킬 수 있다.
+     */
+    private void link(
+            ProductionBatch batch,
+            Material material,
+            Long producerId,
+            ProductionInputRequest request) {
         MaterialLock lock = lockRepository.save(MaterialLock.create(
                 material.getId(),
                 producerId,
@@ -155,8 +189,19 @@ public class ProductionBatchService {
             outputRepository.save(
                     ProductionOutput.expect(input.getId(), input.getReusableScrapQuantity()));
         }
+    }
 
-        return findDetail(producerId, batchId);
+    /**
+     * 한 요청 안에서 같은 소재가 겹치지 않는가.
+     *
+     * <p>DB 의 UNIQUE 는 두 번째 INSERT 에서야 걸리는데, 그때는 첫 번째 잠금이 이미 만들어진
+     * 뒤다. 쓰기 전에 걸러야 그 경로가 아예 없어진다.
+     */
+    private void requireNoDuplicateMaterial(Set<Long> seen, Long materialId) {
+        if (!seen.add(materialId)) {
+            throw new BusinessException(
+                    ProductionErrorCode.PRODUCTION_DUPLICATE_MATERIAL_IN_REQUEST);
+        }
     }
 
     /**

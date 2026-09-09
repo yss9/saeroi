@@ -259,7 +259,7 @@ class ProductionJourneyTests {
         mockMvc.perform(post("/api/v1/production-batches/{id}/inputs", batchId)
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + brandToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(body(request)))
+                        .content(body(Map.of("inputs", List.of(request)))))
                 .andExpect(status().isOk());
     }
 

@@ -12,6 +12,7 @@ import com.ssafy.upcycle.common.security.jwt.JwtTokenService;
 import com.ssafy.upcycle.material.entity.Material;
 import com.ssafy.upcycle.material.entity.MaterialBalance;
 import com.ssafy.upcycle.material.entity.MaterialLock;
+import com.ssafy.upcycle.material.entity.MaterialLockReferenceType;
 import com.ssafy.upcycle.material.entity.MaterialLockStatus;
 import com.ssafy.upcycle.material.entity.MaterialRootOrigin;
 import com.ssafy.upcycle.material.entity.MaterialType;
@@ -22,6 +23,7 @@ import com.ssafy.upcycle.product.entity.ProductCategory;
 import com.ssafy.upcycle.product.entity.ProductModel;
 import com.ssafy.upcycle.product.repository.ProductModelRepository;
 import com.ssafy.upcycle.production.entity.ProductionBatch;
+import com.ssafy.upcycle.production.dto.ProductionInputsRequest;
 import com.ssafy.upcycle.production.repository.ProductionBatchRepository;
 import com.ssafy.upcycle.production.repository.ProductionInputRepository;
 import com.ssafy.upcycle.production.repository.ProductionOutputRepository;
@@ -30,6 +32,7 @@ import com.ssafy.upcycle.user.entity.UserRole;
 import com.ssafy.upcycle.user.entity.UserWallet;
 import com.ssafy.upcycle.user.repository.UserRepository;
 import com.ssafy.upcycle.user.repository.UserWalletRepository;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -334,6 +337,98 @@ class ProductionBatchControllerTests {
                 .andExpect(jsonPath("$.code").value("PRODUCTION_BATCH_NOT_EDITABLE"));
     }
 
+    // ── 여러 소재 연결 ───────────────────────────────────────
+
+    @Test
+    void linksSeveralMaterialsInOneRequest() throws Exception {
+        // 생산 화면은 소재 여러 개를 골라 한 번에 저장한다.
+        Long second = heldMaterial(MaterialRootOrigin.VIRGIN, HELD_QUANTITY);
+        Long batchId = openedBatch();
+
+        addInputs(brandToken, batchId, List.of(
+                        inputRequest(materialId, 30_000L, 30_000L, 0L, 0L),
+                        inputRequest(second, 20_000L, 18_000L, 2_000L, 0L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.inputs.length()").value(2));
+
+        assertThat(lockRepository.findAllByReferenceTypeAndReferenceId(
+                        MaterialLockReferenceType.PRODUCTION_BATCH, batchId))
+                .hasSize(2);
+    }
+
+    @Test
+    void oneRejectedEntryLocksNothingAtAll() throws Exception {
+        // 한 건씩 처리하면 앞의 둘은 이미 잠긴 채 남고, 사용자는 화면에서 실패를 봤는데
+        // 소재는 묶여 있는 상태가 된다. 이 테스트가 그 상태를 막는다.
+        Long second = heldMaterial(MaterialRootOrigin.VIRGIN, HELD_QUANTITY);
+        Long tooMuch = heldMaterial(MaterialRootOrigin.VIRGIN, 1_000L);
+        Long batchId = openedBatch();
+
+        addInputs(brandToken, batchId, List.of(
+                        inputRequest(materialId, 30_000L, 30_000L, 0L, 0L),
+                        inputRequest(second, 20_000L, 20_000L, 0L, 0L),
+                        inputRequest(tooMuch, 5_000L, 5_000L, 0L, 0L)))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("PRODUCTION_INSUFFICIENT_BALANCE"));
+
+        assertThat(inputRepository.findAllByProductionBatchId(batchId)).isEmpty();
+        assertThat(lockRepository.findAllByReferenceTypeAndReferenceId(
+                        MaterialLockReferenceType.PRODUCTION_BATCH, batchId))
+                .isEmpty();
+    }
+
+    @Test
+    void refusesTheSameMaterialTwiceInOneRequest() throws Exception {
+        // DB 의 UNIQUE 는 두 번째 INSERT 에서야 걸리는데, 그때는 첫 잠금이 이미 만들어진 뒤다.
+        Long batchId = openedBatch();
+
+        addInputs(brandToken, batchId, List.of(
+                        inputRequest(materialId, 10_000L, 10_000L, 0L, 0L),
+                        inputRequest(materialId, 20_000L, 20_000L, 0L, 0L)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("PRODUCTION_DUPLICATE_MATERIAL_IN_REQUEST"));
+
+        assertThat(inputRepository.findAllByProductionBatchId(batchId)).isEmpty();
+    }
+
+    @Test
+    void refusesAnEmptyList() throws Exception {
+        // 아무것도 넣지 않는 요청은 성공했다고 답할 것이 없다.
+        Long batchId = openedBatch();
+
+        mockMvc.perform(post(PATH + "/{batchId}/inputs", batchId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + brandToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(Map.of("inputs", List.of()))))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void capsHowManyMaterialsOneRequestCanLock() throws Exception {
+        // 상한이 없으면 한 번의 요청으로 소재 수천 건을 잠글 수 있다.
+        Long batchId = openedBatch();
+        List<Map<String, Object>> tooMany = new ArrayList<>();
+        for (int i = 0; i <= ProductionInputsRequest.MAX_INPUTS; i++) {
+            tooMany.add(inputRequest(materialId, 100L, 100L, 0L, 0L));
+        }
+
+        addInputs(brandToken, batchId, tooMany).andExpect(status().isBadRequest());
+        assertThat(inputRepository.findAllByProductionBatchId(batchId)).isEmpty();
+    }
+
+    @Test
+    void addsToABatchThatAlreadyHasInputs() throws Exception {
+        // 나눠 부르는 것도 계속 된다. 두 번째 호출이 첫 번째를 덮어쓰지 않아야 한다.
+        Long second = heldMaterial(MaterialRootOrigin.VIRGIN, HELD_QUANTITY);
+        Long batchId = openedBatch();
+        addInput(brandToken, batchId, inputRequest(materialId, 10_000L, 10_000L, 0L, 0L))
+                .andExpect(status().isOk());
+
+        addInput(brandToken, batchId, inputRequest(second, 10_000L, 10_000L, 0L, 0L))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.inputs.length()").value(2));
+    }
+
     // ── 연결 해제 ────────────────────────────────────────────
 
     @Test
@@ -441,12 +536,18 @@ class ProductionBatchControllerTests {
                 .content(body(request)));
     }
 
+    /** 투입 요청은 목록이다. 단건은 원소 하나짜리 목록으로 보낸다. */
     private ResultActions addInput(String token, Long batchId, Map<String, Object> request)
             throws Exception {
+        return addInputs(token, batchId, List.of(request));
+    }
+
+    private ResultActions addInputs(
+            String token, Long batchId, List<Map<String, Object>> requests) throws Exception {
         return mockMvc.perform(post(PATH + "/{batchId}/inputs", batchId)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(body(request)));
+                .content(body(Map.of("inputs", requests))));
     }
 
     private Long openedBatch() throws Exception {

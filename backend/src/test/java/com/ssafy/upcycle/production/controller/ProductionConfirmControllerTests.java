@@ -308,7 +308,8 @@ class ProductionConfirmControllerTests {
         mockMvc.perform(post(PATH + "/{batchId}/inputs", batchId)
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + brandToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(body(inputRequest(another, 1_000L, 1_000L, 0L, 0L))))
+                        .content(body(Map.of(
+                                "inputs", List.of(inputRequest(another, 1_000L, 1_000L, 0L, 0L))))))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("PRODUCTION_BATCH_NOT_EDITABLE"));
     }
@@ -393,7 +394,9 @@ class ProductionConfirmControllerTests {
         mockMvc.perform(post(PATH + "/{batchId}/inputs", batchId)
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + brandToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(body(inputRequest(materialId, input, productUsed, scrap, waste))))
+                        .content(body(Map.of(
+                                "inputs",
+                                List.of(inputRequest(materialId, input, productUsed, scrap, waste))))))
                 .andExpect(status().isOk());
     }
 

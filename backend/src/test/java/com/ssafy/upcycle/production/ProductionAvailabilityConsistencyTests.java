@@ -251,7 +251,7 @@ class ProductionAvailabilityConsistencyTests {
         return mockMvc.perform(post(PATH + "/{batchId}/inputs", batchId)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + brandToken)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(body(request)));
+                .content(body(Map.of("inputs", List.of(request)))));
     }
 
     private Long openedBatch() throws Exception {
