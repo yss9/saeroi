@@ -6,8 +6,10 @@ import com.ssafy.upcycle.product.dto.ProductModelRegisterRequest;
 import com.ssafy.upcycle.product.dto.ProductModelResponse;
 import com.ssafy.upcycle.product.dto.ProductModelStatusRequest;
 import com.ssafy.upcycle.product.service.ProductImageService;
+import com.ssafy.upcycle.product.service.ProductModelQueryService;
 import com.ssafy.upcycle.product.service.ProductModelRegistrationService;
 import jakarta.validation.Valid;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
@@ -46,6 +48,7 @@ public class ProductModelController {
 
     private final ProductModelRegistrationService productModelRegistrationService;
     private final ProductImageService productImageService;
+    private final ProductModelQueryService productModelQueryService;
 
     /**
      * 제품 등록. {@code BRAND} 만 가능하다.
@@ -78,6 +81,40 @@ public class ProductModelController {
             @Valid @RequestBody ProductModelStatusRequest request) {
         return ApiResponse.success(
                 productModelRegistrationService.changeStatus(userId(jwt), productModelId, request));
+    }
+
+    /**
+     * 제품 상세.
+     *
+     * <p><b>인증만 요구하고 역할은 보지 않는다</b> — 제품 정보는 마켓에 걸리는 공개
+     * 정보라 누가 보든 같은 값이어야 한다. 소재 상세가 같은 판단을 한다.
+     *
+     * <p>등록 응답과 <b>같은 DTO</b> 다. 화면이 등록 직후와 새로고침 후에 다른 모양을
+     * 받으면 그 차이를 프론트가 흡수해야 한다.
+     */
+    @GetMapping("/{productModelId}")
+    public ApiResponse<ProductModelResponse> findDetail(@PathVariable Long productModelId) {
+        return ApiResponse.success(productModelQueryService.findDetail(productModelId));
+    }
+
+    /**
+     * 내가 등록한 제품 목록. 브랜드 관리 화면이 쓴다.
+     *
+     * <p><b>{@code DRAFT} 를 포함한다.</b> 브랜드는 여기서 판매 시작을 눌러야 하는데
+     * 준비 중인 제품이 안 보이면 그 버튼을 놓을 자리가 없다. 마켓 목록은 반대로
+     * {@code ON_SALE} 만 보여준다.
+     *
+     * <p><b>이 매핑이 {@code /{productModelId}} 보다 먼저 선언되어 있어야 하는 것은
+     * 아니다</b> — Spring MVC 는 리터럴 경로를 경로 변수보다 우선한다. 그래도 {@code /me}
+     * 가 {@code productModelId} 로 잘못 바인딩되면 400 이 되므로 테스트로 고정한다.
+     *
+     * <p>브랜드는 JWT {@code sub} 에서 얻는다 — 경로나 쿼리로 받으면 남의 제품 목록을
+     * 들여다볼 수 있고, 거기에는 아직 공개하지 않은 제품이 들어 있다.
+     */
+    @GetMapping("/me")
+    public ApiResponse<List<ProductModelResponse>> findMyProductModels(
+            @AuthenticationPrincipal Jwt jwt) {
+        return ApiResponse.success(productModelQueryService.findMyProductModels(userId(jwt)));
     }
 
     /**
