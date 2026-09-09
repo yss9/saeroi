@@ -190,6 +190,7 @@ function CancelSection({ trade }: { trade: Trade }) {
   // React Hook Form 을 끌어올 이유가 없다 (ARCHITECTURE §3 의 "폼이 많은 화면" 이 아니다).
   const [reason, setReason] = useState('')
   const { mutate, isPending, isError, error } = useCancelTrade(trade.tradeId)
+  const chain = useTradeChainAction(trade.tradeId)
 
   const tooLong = reason.length > CANCEL_REASON_MAX
 
@@ -223,7 +224,23 @@ function CancelSection({ trade }: { trade: Trade }) {
               variant="danger"
               loading={isPending}
               disabled={tooLong}
-              onClick={() => mutate({ reason }, { onSuccess: () => setOpen(false) })}
+              onClick={() =>
+                mutate(
+                  { reason },
+                  {
+                    // **서버 취소가 끝나면 체인의 주문도 취소해야 한다.**
+                    //
+                    // createOrder 가 판매 글의 remainingQuantity 를 깎아 두었다. 서버는
+                    // 취소하면서 그 수량을 되돌리는데 체인은 그대로라, 두 잔량이 어긋난다.
+                    // 그 뒤 다음 구매자가 화면에 보이는 잔량을 전부 사면 서버는 통과하고
+                    // 체인만 되돌려진다 — "10kg 남았는데 10kg 사면 부족" 이 그것이다.
+                    onSuccess: () => {
+                      if (trade.chainTradeId !== null) void chain.cancel(trade.chainTradeId)
+                      setOpen(false)
+                    },
+                  },
+                )
+              }
             >
               거래 취소
             </Button>

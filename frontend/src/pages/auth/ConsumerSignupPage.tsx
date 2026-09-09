@@ -11,7 +11,12 @@ export function ConsumerSignupPage() {
 
   function submitSignup(values: ConsumerSignupSubmitValues) {
     mutate(values, {
-      onSuccess: () => navigate('/signup/complete', { state: { accountType: 'consumer' } }),
+      onSuccess: () => navigate('/signup/complete', {
+          // 가입은 끝났다. replace 를 쓰지 않으면 뒤로 가기가 채워진 가입 폼으로
+          // 돌아가고, 다시 제출하면 "이미 가입된 이메일" 오류만 본다.
+          replace: true,
+          state: { accountType: 'consumer' },
+        }),
     })
   }
 

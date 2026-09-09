@@ -18,6 +18,7 @@ import {
   decodeEnum,
 } from '../../../config/abi/onchainEnums.ts'
 import { getReadContract, getWriteContract } from '../../../services/blockchain/contractFactory.ts'
+import { requireOnChainRole } from '../../../services/blockchain/onChainRole.ts'
 
 // ── 쓰기 ────────────────────────────────────────────────
 
@@ -37,6 +38,9 @@ export async function createListing(
   quantity: number,
 ): Promise<ContractTransactionResponse> {
   const contract = await getWriteContract('marketplace')
+  // 컨트랙트가 materialToken.hasRole(SUPPLIER_ROLE, msg.sender) 를 검사한다
+  // (Marketplace.sol:139). 없으면 영문 revert 만 보이므로 미리 확인한다.
+  await requireOnChainRole('SUPPLIER_ROLE')
   return contract.createListing(materialId, quantity) as Promise<ContractTransactionResponse>
 }
 
@@ -55,6 +59,9 @@ export async function createOrder(
   quantity: number,
 ): Promise<ContractTransactionResponse> {
   const contract = await getWriteContract('marketplace')
+  // 컨트랙트가 materialToken.hasRole(BRAND_ROLE, msg.sender) 를 검사한다
+  // (Marketplace.sol:208). 앱에서 BRAND 로 가입했어도 그 지갑에 권한이 없을 수 있다.
+  await requireOnChainRole('BRAND_ROLE')
   return contract.createOrder(listingId, quantity) as Promise<ContractTransactionResponse>
 }
 

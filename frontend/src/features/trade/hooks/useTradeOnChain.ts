@@ -2,7 +2,12 @@ import { useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { linkTradeOnChain } from '../../../services/blockchain/chainLinkApi.ts'
 import { useOnChainLink } from '../../../hooks/useOnChainLink.ts'
-import { createOrder } from '../../marketplace/services/marketplaceContractService.ts'
+import {
+  createOrder,
+  getListing,
+} from '../../marketplace/services/marketplaceContractService.ts'
+import { formatKg } from '../../../utils/quantity.ts'
+import { ERROR_KIND, createAppError } from '../../../utils/errors.ts'
 import { tradeKeys } from '../api/tradeKeys.ts'
 
 /**
@@ -36,7 +41,31 @@ export function useTradeOnChain() {
 
   const order = useCallback(
     (tradeId: number, chainListingId: number, quantityGram: number) =>
-      link.run(tradeId, () => createOrder(chainListingId, quantityGram)),
+      link.run(tradeId, async () => {
+        // **서명 전에 체인의 잔량을 확인한다.**
+        //
+        // 서버 잔량과 체인 잔량은 어긋날 수 있다. 오프체인에서 취소된 거래는 서버가
+        // 판매 글에 수량을 되돌리지만, 체인의 주문은 cancelOrder 를 서명해야만 풀린다.
+        // 그 서명을 놓친 거래가 있으면 체인의 remainingQuantity 만 작게 남는다.
+        //
+        // 그 상태에서 화면에 보이는 잔량(서버 기준)을 전부 사면 서버는 통과시키고
+        // 체인만 `Marketplace: insufficient listing quantity` 로 되돌린다. 사용자에게는
+        // "재고가 부족" 이라는 영문 revert 만 보이고, 방금 판매글에서 본 숫자와 달라
+        // 화면이 고장 난 것처럼 읽힌다.
+        //
+        // 미리 읽어 두면 두 숫자를 나란히 보여줄 수 있다. 읽기는 가스가 들지 않는다.
+        const onChain = await getListing(chainListingId)
+        if (onChain.remainingQuantity < BigInt(quantityGram)) {
+          throw createAppError(ERROR_KIND.TRANSACTION_FAILED, {
+            message:
+              `체인에 남은 수량이 ${formatKg(onChain.remainingQuantity)} 뿐이라 ` +
+              `${formatKg(quantityGram)} 를 주문할 수 없습니다. ` +
+              '앞선 거래의 온체인 취소가 아직 서명되지 않아 생긴 차이입니다. ' +
+              '수량을 줄이거나, 판매자에게 문의해 주세요.',
+          })
+        }
+        return createOrder(chainListingId, quantityGram)
+      }),
     [link],
   )
 

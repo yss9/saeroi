@@ -1,5 +1,11 @@
-import { useParams } from 'react-router-dom'
-import { EmptyState, ErrorMessage, Loading, StatusBadge } from '../../components/common/index.ts'
+import { Link, useLocation, useParams } from 'react-router-dom'
+import {
+  BackLink,
+  EmptyState,
+  ErrorMessage,
+  Loading,
+  StatusBadge,
+} from '../../components/common/index.ts'
 import { MaterialBalanceTable } from '../../features/material/components/MaterialBalanceTable.tsx'
 import { EvidenceUpload } from '../../features/evidence/components/EvidenceUpload.tsx'
 import { MaterialLineageTree } from '../../features/material/components/MaterialLineageTree.tsx'
@@ -16,6 +22,7 @@ import {
   type MaterialFiberType,
 } from '../../features/material/types/material.types.ts'
 import { formatKg } from '../../utils/quantity.ts'
+import './material-detail.css'
 
 /**
  * 소재 상세. 티켓(S15P21E104-180)이 요구한 7블록을 조합한다.
@@ -44,12 +51,46 @@ export function MaterialDetailPage() {
 
   const { data, isPending, isError, error, refetch } = useMaterial(id)
 
-  if (id === null) return <ErrorMessage error="잘못된 소재 주소입니다." />
-  if (isPending) return <Loading variant="skeleton" rows={5} label="소재 정보를 불러오는 중" />
-  if (isError) return <ErrorMessage error={error} onRetry={() => void refetch()} />
+  // 등록 폼이 심어 준 표시. 방금 만든 소재라면 다음에 할 일을 알려 준다 —
+  // 등록만 끝내고 판매 등록을 못 찾아 화면에서 막히는 제보가 있었다.
+  const justCreated = (useLocation().state as { justCreated?: boolean } | null)?.justCreated === true
+
+  // **출구는 이른 반환보다 먼저 그려져야 한다.** 조회가 실패한 화면이야말로 사용자가
+  // 나가고 싶은 화면인데, BackLink 를 성공 분기에만 두면 그때 갇힌다. 이 화면은
+  // Public 라우트라 사이드바 셸도 없어서 브라우저 뒤로 가기 말고는 길이 없다.
+  const back = <BackLink to="/inventory" label="보유 소재" />
+
+  if (id === null) {
+    return (
+      <main className="page">
+        {back}
+        <ErrorMessage error="잘못된 소재 주소입니다." />
+      </main>
+    )
+  }
+  if (isPending) {
+    return (
+      <main className="page">
+        {back}
+        <Loading variant="skeleton" rows={5} label="소재 정보를 불러오는 중" />
+      </main>
+    )
+  }
+  if (isError) {
+    return (
+      <main className="page">
+        {back}
+        <ErrorMessage error={error} onRetry={() => void refetch()} />
+      </main>
+    )
+  }
 
   return (
     <main className="page material-detail">
+      {back}
+
+      {justCreated && <MaterialCreatedNextStep />}
+
       <header className="material-detail__header">
         <h1>{data.name}</h1>
         <p className="material-detail__code">{data.materialCode}</p>
@@ -228,4 +269,32 @@ function formatDate(value: string): string {
   const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) return value
   return parsed.toLocaleDateString('ko-KR', { dateStyle: 'long' })
+}
+
+/**
+ * 등록 직후에만 나오는 다음 단계 안내.
+ *
+ * <b>등록은 끝이 아니다.</b> 소재를 만들어도 판매 등록을 해야 마켓플레이스에 뜬다.
+ * 그런데 등록 폼은 이 상세 화면으로 보내 놓고 여기서 갈 곳을 알려 주지 않았고,
+ * 이 화면은 Public 라우트라 사이드바도 없어서 사용자가 브라우저 뒤로 가기로
+ * 빠져나가야 했다. 그 자리를 메운다.
+ *
+ * 온체인 발행({@code MaterialMintPanel})은 아래에 그대로 있다 — 순서를 강제하지 않는
+ * 이유는 발행이 실패해도 소재와 판매 등록은 유효하기 때문이다.
+ */
+function MaterialCreatedNextStep() {
+  return (
+    <section className="material-detail__next" role="status">
+      <div>
+        <h2>소재를 등록했습니다.</h2>
+        <p>
+          아직 마켓플레이스에는 보이지 않습니다. 판매 등록을 해야 다른 업체가 구매할 수
+          있습니다.
+        </p>
+      </div>
+      <Link className="material-detail__next-cta" to="/supplier/listings">
+        판매 등록하러 가기
+      </Link>
+    </section>
+  )
 }

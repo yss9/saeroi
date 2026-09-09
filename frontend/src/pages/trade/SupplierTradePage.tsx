@@ -1,4 +1,3 @@
-import { CompanyDashboardLayout } from '../../features/company/components/CompanyDashboardLayout.tsx'
 import { SellerTradeBoard } from '../../features/trade/components/SellerTradeBoard.tsx'
 
 /**
@@ -13,8 +12,7 @@ import { SellerTradeBoard } from '../../features/trade/components/SellerTradeBoa
  */
 export function SupplierTradePage() {
   return (
-    <CompanyDashboardLayout>
-      <div className="page">
+    <main className="page">
         <header className="page__header">
           <h1>판매 거래 관리</h1>
           <p className="page__lead">
@@ -24,7 +22,6 @@ export function SupplierTradePage() {
         </header>
 
         <SellerTradeBoard />
-      </div>
-    </CompanyDashboardLayout>
+    </main>
   )
 }
