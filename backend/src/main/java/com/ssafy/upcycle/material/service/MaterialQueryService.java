@@ -4,8 +4,10 @@ import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.material.MaterialErrorCode;
 import com.ssafy.upcycle.material.dto.MaterialBalanceResponse;
 import com.ssafy.upcycle.material.dto.MaterialDetailResponse;
+import com.ssafy.upcycle.material.dto.MaterialVerificationResponse;
 import com.ssafy.upcycle.material.dto.MyMaterialResponse;
 import com.ssafy.upcycle.material.entity.Material;
+import com.ssafy.upcycle.material.entity.MaterialVerificationState;
 import com.ssafy.upcycle.material.repository.MaterialBalanceQueryRepository;
 import com.ssafy.upcycle.material.repository.MaterialCompositionRepository;
 import com.ssafy.upcycle.material.repository.MaterialBalanceRepository;
@@ -30,6 +32,7 @@ public class MaterialQueryService {
     private final MaterialBalanceRepository materialBalanceRepository;
     private final MaterialBalanceQueryRepository materialBalanceQueryRepository;
     private final MaterialVerificationStateResolver verificationStateResolver;
+    private final BlockchainVerification blockchainVerification;
     private final MaterialCompositionRepository materialCompositionRepository;
 
     /**
@@ -51,12 +54,30 @@ public class MaterialQueryService {
         Material material = materialRepository
                 .findById(materialId)
                 .orElseThrow(() -> new BusinessException(MaterialErrorCode.MATERIAL_NOT_FOUND));
+        MaterialVerificationState verificationState = verificationStateResolver.resolve(materialId);
         return MaterialDetailResponse.of(
                 material,
                 materialBalanceRepository.findAllByMaterialId(materialId),
                 materialCompositionRepository
                         .findByMaterialIdOrderByPercentageDescFiberTypeAsc(materialId),
-                verificationStateResolver.resolve(materialId));
+                verificationState,
+                verificationEvidence(materialId, verificationState));
+    }
+
+    /**
+     * {@code SOURCE_VERIFIED} 일 때만 근거를 채운다. 다른 단은 근거의 종류가 달라
+     * (거래 서명 등) {@link MaterialVerificationResponse} 의 모양(지갑·Tx 해시)이 맞지
+     * 않는다 — {@code null} 로 둔다.
+     */
+    private MaterialVerificationResponse verificationEvidence(
+            Long materialId, MaterialVerificationState state) {
+        if (state != MaterialVerificationState.SOURCE_VERIFIED) {
+            return null;
+        }
+        return blockchainVerification
+                .findSourceVerification(materialId)
+                .map(evidence -> MaterialVerificationResponse.of(state, evidence))
+                .orElse(null);
     }
 
     /**

@@ -3,6 +3,7 @@ package com.ssafy.upcycle.material.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.ssafy.upcycle.material.entity.MaterialVerificationState;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -61,10 +62,10 @@ class MaterialVerificationStateResolverTests {
                     askedTrade[0] = materialId;
                     return false;
                 },
-                materialId -> {
+                blockchainVerificationStub(materialId -> {
                     askedChain[0] = materialId;
                     return false;
-                });
+                }));
 
         resolver.resolve(42L);
 
@@ -95,6 +96,26 @@ class MaterialVerificationStateResolverTests {
     private MaterialVerificationStateResolver resolverWith(
             boolean hasSignedTrade, boolean hasVerifiedSource) {
         return new MaterialVerificationStateResolver(
-                materialId -> hasSignedTrade, materialId -> hasVerifiedSource);
+                materialId -> hasSignedTrade, blockchainVerificationStub(materialId -> hasVerifiedSource));
+    }
+
+    /**
+     * {@link BlockchainVerification} 은 근거 조회({@code findSourceVerification})가
+     * 추가되면서 더 이상 단일 추상 메서드가 아니다 — 판정 사다리 테스트는
+     * {@code hasVerifiedSource} 만 스텁하면 되므로 근거 조회는 항상 빈 값으로 둔다.
+     */
+    private BlockchainVerification blockchainVerificationStub(
+            java.util.function.Function<Long, Boolean> hasVerifiedSource) {
+        return new BlockchainVerification() {
+            @Override
+            public boolean hasVerifiedSource(Long materialId) {
+                return hasVerifiedSource.apply(materialId);
+            }
+
+            @Override
+            public Optional<SourceVerificationEvidence> findSourceVerification(Long materialId) {
+                return Optional.empty();
+            }
+        };
     }
 }
