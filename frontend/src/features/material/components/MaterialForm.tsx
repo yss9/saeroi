@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useFieldArray, useForm, useWatch } from 'react-hook-form'
 import { Button, ErrorMessage, Input, Select } from '../../../components/common/index.ts'
 import { kgToGram } from '../../../utils/quantity.ts'
@@ -15,6 +16,7 @@ import {
   ROOT_ORIGIN_LABEL,
   originReasonRequiresNote,
   type CreateMaterialRequest,
+  type CreateMaterialResponse,
   type MaterialFiberType,
   type MaterialGrade,
   type MaterialOriginReason,
@@ -147,45 +149,46 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
     0,
   )
 
-  const { mutate, isPending, isError, error } = useCreateMaterial()
+  const { mutateAsync, isPending, isError, error } = useCreateMaterial()
 
   // 발행은 등록자 지갑이 서명한다 — 서버에는 개인키가 없다.
   const wallet = useWallet()
   const mint = useMintMaterialOnChain()
+  const [pendingRegistration, setPendingRegistration] = useState<{
+    created: CreateMaterialResponse
+    request: CreateMaterialRequest
+  } | null>(null)
 
-  const onSubmit = handleSubmit((values) => {
-    const request = toRequest(values)
-    mutate(request, {
-      onSuccess: (created) => {
+  const onSubmit = handleSubmit(async (values) => {
+    try {
+      // 서명 또는 서버 연결이 실패하면 이미 만든 DB 소재를 기억한다. 다음 제출에서는
+      // 소재를 또 만들지 않고 같은 소재의 온체인 단계만 이어서 수행한다.
+      const request = pendingRegistration?.request ?? toRequest(values)
+      const created = pendingRegistration?.created ?? (await mutateAsync(request))
+      if (pendingRegistration === null) setPendingRegistration({ created, request })
+
+      if (wallet.address === null) {
+        onCreated?.(created.materialId)
+        return
+      }
+
+      const linked = await mint.mint({
+        materialId: created.materialId,
+        to: wallet.address,
+        amount: request.quantity,
+        rootOrigin: request.rootOrigin,
+        metadataUri: `saeroi://material/${created.materialCode}`,
+        evidenceHash: evidencePlaceholder(created.materialCode),
+      })
+
+      if (linked) {
+        setPendingRegistration(null)
         reset()
-
-        // **등록이 끝나면 바로 발행으로 이어간다.**
-        //
-        // 버튼을 나눠 뒀을 때 두 번째를 잊는 일이 실제로 일어났다. 발행되지 않은 소재는
-        // 온체인 판매 등록을 할 수 없고 — createListing 의 첫 인자가 tokenId 다 —
-        // 그러면 그 소재로 만든 거래는 체인에 아무것도 남기지 못한다.
-        //
-        // 이동은 발행이 끝난 뒤에 한다. 먼저 이동하면 이 컴포넌트가 사라져 서명 결과를
-        // 받을 곳이 없어지고, 사용자는 지갑 팝업만 남은 화면을 보게 된다.
-        //
-        // 지갑이 없거나 실패하면 그냥 이동한다. 소재는 등록됐고 tokenId 만 비어 있으며,
-        // 그 상태를 소재 상세의 패널이 이어받는다.
-        if (wallet.address === null) {
-          onCreated?.(created.materialId)
-          return
-        }
-        void mint
-          .mint({
-            materialId: created.materialId,
-            to: wallet.address,
-            amount: request.quantity,
-            rootOrigin: values.rootOrigin,
-            metadataUri: `saeroi://material/${created.materialCode}`,
-            evidenceHash: evidencePlaceholder(created.materialCode),
-          })
-          .finally(() => onCreated?.(created.materialId))
-      },
-    })
+        onCreated?.(created.materialId)
+      }
+    } catch {
+      // API와 지갑 오류는 각 훅의 오류 상태로 화면에 표시한다.
+    }
   })
 
   return (
@@ -366,7 +369,9 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
             ? '블록 확정을 기다리는 중…'
             : mint.status === 'LINKING'
               ? '온체인 결과를 기록하는 중…'
-              : '소재 등록'}
+              : pendingRegistration
+                ? '소재 등록 완료하기'
+                : '소재 등록'}
       </Button>
     </form>
   )
