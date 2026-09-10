@@ -83,6 +83,23 @@ export interface ProductionInputRequest {
 }
 
 /**
+ * 배치 열기 요청 (`POST /v1/production-batches`).
+ *
+ * 요청이 정할 수 없는 값이 셋 있다 — `producerId`(JWT), `producerWallet`(등록된 활성 지갑),
+ * `status`(언제나 `DRAFT`). 수량 세 컬럼과 업사이클 비율도 받지 않는다: 확정 시점에 실제
+ * 투입으로 계산한다. 요청이 정할 수 있으면 실제와 다른 비율을 적어 넣을 수 있고, 그 값이
+ * 그대로 제품에 붙는다.
+ */
+export interface OpenProductionBatchRequest {
+  /** 필수, 200자 이하 */
+  batchName: string
+  /** 내 제품이어야 한다 */
+  productModelId: number
+  /** 1개 이상 */
+  producedQuantity: number
+}
+
+/**
  * 한 요청의 투입 상한 (`ProductionInputsRequest.MAX_INPUTS`).
  *
  * 상한이 없으면 한 번의 요청으로 소재 수천 건을 잠글 수 있다. 더 필요하면 나눠 부른다.
