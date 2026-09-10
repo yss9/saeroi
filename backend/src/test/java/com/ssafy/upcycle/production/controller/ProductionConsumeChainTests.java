@@ -46,14 +46,16 @@ import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 소재 소각의 온체인 결과를 DB 에 맞추는 경로.
+ * 소각(3단계)의 온체인 결과를 DB 에 맞추는 경로.
  *
  * <p>확정은 소재를 <b>DB 에서만</b> 줄인다. 온체인 토큰은 그대로 남아 있어서, 체인만 보면
  * 브랜드가 여전히 그 소재를 갖고 있는 것처럼 보인다 — <b>같은 소재로 두 번 업사이클했다고
  * 주장할 수 있게 된다.</b>
  *
- * <p>여기서 고정하는 계약이 넷이다 — <b>투입 전부를 보고해야 한다</b>, <b>온체인 잠금
- * 번호가 DB 에 붙는다</b>, <b>확정된 배치만</b>, <b>한 번만</b>.
+ * <p><b>잠금 번호는 이 요청이 받지 않는다.</b> 그 값은 2단계({@code submitPlanAndLock})
+ * 영수증에서 나오고 {@code POST /{id}/chain} 이 이미 받아 두었다. 3단계까지 화면이 들고
+ * 오게 하면 그 사이 새로고침 한 번에 잃어버린다 — {@code chainBatchId} 를 서버가 보관하기로
+ * 한 것과 같은 문제다. 여기서는 그 값이 채워져 있는지만 확인한다.
  *
  * <p>속성 목록이 {@code ChainLinkApiTests} 와 같아야 한다. 그 목록이 스프링 컨텍스트 캐시의
  * 키라, 다르면 컨텍스트가 하나 더 만들어진다.
@@ -71,6 +73,8 @@ class ProductionConsumeChainTests {
 
     private static final String PATH = "/api/v1/production-batches";
     private static final String PRODUCTION_REGISTRY = "0x65b4d0d9f9f0e0a4b0b0f9e8d7c6b5a4d3c2b1a0";
+    private static final String MATERIAL_TOKEN_ADDRESS =
+            "0xbe98f5a9aa8d0480b09c689e38806accd41a0f66";
     private static final String WALLET = "0x1234567890123456789012345678901234567890";
     private static final long CHAIN_ID = 31221L;
     private static final long HELD_QUANTITY = 100_000L;
@@ -109,6 +113,10 @@ class ProductionConsumeChainTests {
     @Autowired
     private BlockchainTransactionRepository transactionRepository;
 
+    private long tokenSequence = 1_000L;
+    private long chainBatchSequence = 500L;
+    private long chainLockSequence = 100L;
+
     private User brand;
     private String brandToken;
     private Long productModelId;
@@ -129,30 +137,10 @@ class ProductionConsumeChainTests {
     // ── 기록 ────────────────────────────────────────────────
 
     @Test
-    void linksTheChainLockIdThatNobodyFilledBefore() throws Exception {
-        // material_lock.chain_lock_id 는 컬럼만 있고 채우는 경로가 없었다.
-        // 소각 함수가 온체인 lockId 를 인자로 받으므로, 이 순간이 두 번호가 만나는 자리다.
-        Long batchId = confirmedBatch();
-        ProductionInput input = inputRepository.findAllByProductionBatchId(batchId).get(0);
-        assertThat(lockRepository.findById(input.getMaterialLockId()))
-                .get()
-                .extracting(MaterialLock::getChainLockId)
-                .isNull();
-
-        linkConsume(batchId, List.of(consumed(input.getId(), 42L))).andExpect(status().isOk());
-
-        assertThat(lockRepository.findById(input.getMaterialLockId()))
-                .get()
-                .extracting(MaterialLock::getChainLockId)
-                .isEqualTo(42L);
-    }
-
-    @Test
     void recordsTheFunctionTheBrandActuallySigned() throws Exception {
-        Long batchId = confirmedBatch();
-        ProductionInput input = inputRepository.findAllByProductionBatchId(batchId).get(0);
+        Long batchId = readyForConsume();
 
-        linkConsume(batchId, List.of(consumed(input.getId(), 42L))).andExpect(status().isOk());
+        linkConsume(batchId).andExpect(status().isOk());
 
         assertThat(transactionRepository.findAll())
                 .filteredOn(tx -> "confirmProduction".equals(tx.getFunctionName()))
@@ -170,90 +158,41 @@ class ProductionConsumeChainTests {
     }
 
     @Test
-    void theInputResponseShowsWhetherTheBurnWasReported() throws Exception {
-        // 화면이 "온체인 소각" 버튼을 언제 보여줄지 이 값으로 정한다.
-        Long batchId = confirmedBatch();
+    void theChainLockIdComesFromStepTwoNotFromThisRequest() throws Exception {
+        // 잠금 번호는 submitPlanAndLock 영수증에서만 나온다. 3단계까지 화면이 들고 오게 하면
+        // 그 사이 새로고침 한 번에 잃어버린다 — chainBatchId 와 같은 문제다.
+        Long batchId = readyForConsume();
         ProductionInput input = inputRepository.findAllByProductionBatchId(batchId).get(0);
 
-        mockMvc.perform(get(PATH + "/{id}", batchId)
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + brandToken))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.inputs[0].chainLockId").doesNotExist());
-
-        linkConsume(batchId, List.of(consumed(input.getId(), 42L))).andExpect(status().isOk());
-
-        mockMvc.perform(get(PATH + "/{id}", batchId)
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + brandToken))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.inputs[0].chainLockId").value(42));
-    }
-
-    @Test
-    void reportsEveryInputOfTheBatchAtOnce() throws Exception {
-        Long second = heldMaterial();
-        Long batchId = confirmedBatch(second);
-        List<ProductionInput> inputs = inputRepository.findAllByProductionBatchId(batchId);
-
-        List<Map<String, Object>> consumed = new ArrayList<>();
-        consumed.add(consumed(inputs.get(0).getId(), 42L));
-        consumed.add(consumed(inputs.get(1).getId(), 43L));
-
-        linkConsume(batchId, consumed).andExpect(status().isOk());
-
-        assertThat(lockRepository.findAllById(inputs.stream()
-                        .map(ProductionInput::getMaterialLockId)
-                        .toList()))
+        assertThat(lockRepository.findById(input.getMaterialLockId()))
+                .get()
                 .extracting(MaterialLock::getChainLockId)
-                .containsExactlyInAnyOrder(42L, 43L);
+                .isNotNull();
+
+        linkConsume(batchId).andExpect(status().isOk());
     }
 
     // ── 거절 ────────────────────────────────────────────────
 
     @Test
-    void refusesAPartialReport() throws Exception {
-        // 일부만 소각하고 보고하면 DB 는 다 썼다고 하는데 체인에는 남아 있는 소재가 생기고,
-        // 그 소재로 또 만들었다고 주장할 수 있다.
-        Long second = heldMaterial();
-        Long batchId = confirmedBatch(second);
-        ProductionInput first = inputRepository.findAllByProductionBatchId(batchId).get(0);
-
-        linkConsume(batchId, List.of(consumed(first.getId(), 42L)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("PRODUCTION_CONSUME_MISMATCH"));
-    }
-
-    @Test
-    void refusesAnInputFromAnotherBatch() throws Exception {
+    void refusesWhenTheChainLocksWereNeverLinked() throws Exception {
+        // 2단계를 건너뛴 경우다. 그 값 없이 소각을 기록하면 어느 온체인 잠금이 소각됐는지
+        // 확인할 방법이 없다.
         Long batchId = confirmedBatch();
-        Long otherMaterial = heldMaterial();
-        Long otherBatchId = confirmedBatch(otherMaterial, false);
-        ProductionInput strangerInput =
-                inputRepository.findAllByProductionBatchId(otherBatchId).get(0);
+        linkChainBatch(batchId);
 
-        linkConsume(batchId, List.of(consumed(strangerInput.getId(), 42L)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("PRODUCTION_CONSUME_MISMATCH"));
-    }
-
-    @Test
-    void refusesTheSameInputTwiceInOneReport() throws Exception {
-        Long second = heldMaterial();
-        Long batchId = confirmedBatch(second);
-        ProductionInput first = inputRepository.findAllByProductionBatchId(batchId).get(0);
-
-        linkConsume(batchId, List.of(consumed(first.getId(), 42L), consumed(first.getId(), 43L)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("PRODUCTION_CONSUME_MISMATCH"));
+        linkConsume(batchId)
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PRODUCTION_CHAIN_LOCKS_NOT_LINKED"));
     }
 
     @Test
     void refusesToReportTwice() throws Exception {
         // 두 번 기록되면 같은 소재를 두 번 소각한 것처럼 보인다.
-        Long batchId = confirmedBatch();
-        ProductionInput input = inputRepository.findAllByProductionBatchId(batchId).get(0);
-        linkConsume(batchId, List.of(consumed(input.getId(), 42L))).andExpect(status().isOk());
+        Long batchId = readyForConsume();
+        linkConsume(batchId).andExpect(status().isOk());
 
-        linkConsume(batchId, List.of(consumed(input.getId(), 44L)))
+        linkConsume(batchId)
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("PRODUCTION_CONSUME_ALREADY_RECORDED"));
     }
@@ -263,16 +202,14 @@ class ProductionConsumeChainTests {
         // 소비 자체가 아직 일어나지 않았다. 소각할 잠금이 CONSUMED 도 아니다.
         Long batchId = openedBatchWithInput();
 
-        ProductionInput input = inputRepository.findAllByProductionBatchId(batchId).get(0);
-        linkConsume(batchId, List.of(consumed(input.getId(), 42L)))
+        linkConsume(batchId)
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("PRODUCTION_BATCH_NOT_CONFIRMED"));
     }
 
     @Test
     void refusesAnotherProducersBatch() throws Exception {
-        Long batchId = confirmedBatch();
-        ProductionInput input = inputRepository.findAllByProductionBatchId(batchId).get(0);
+        Long batchId = readyForConsume();
         User otherBrand = userRepository.save(User.register(
                 "consume-intruder@example.com", "{noop}x", "침입자", "010-4444-4444",
                 UserRole.BRAND));
@@ -281,45 +218,39 @@ class ProductionConsumeChainTests {
         mockMvc.perform(post(PATH + "/{id}/chain/consume", batchId)
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor(otherBrand))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(body(request(List.of(consumed(input.getId(), 42L))))))
+                        .content(body(request())))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("PRODUCTION_FORBIDDEN"));
     }
 
     @Test
-    void refusesAnEmptyReport() throws Exception {
-        Long batchId = confirmedBatch();
+    void refusesAMalformedTransactionHash() throws Exception {
+        Long batchId = readyForConsume();
+        Map<String, Object> malformed = request();
+        malformed.put("txHash", "0xnothex");
 
-        linkConsume(batchId, List.of()).andExpect(status().isBadRequest());
+        mockMvc.perform(post(PATH + "/{id}/chain/consume", batchId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + brandToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(malformed)))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
     void requiresAuthentication() throws Exception {
         mockMvc.perform(post(PATH + "/{id}/chain/consume", 1L)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(body(request(List.of(consumed(1L, 42L))))))
+                        .content(body(request())))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
     void leavesNothingBehindWhenTheReportIsRejected() throws Exception {
-        // 절반만 연결된 상태 — 잠금 일부에만 온체인 번호가 붙고 기록은 없는 — 를
-        // 만들지 않는다.
-        Long second = heldMaterial();
-        Long batchId = confirmedBatch(second);
-        List<ProductionInput> inputs = inputRepository.findAllByProductionBatchId(batchId);
+        Long batchId = confirmedBatch();
+        linkChainBatch(batchId);
 
-        List<Map<String, Object>> consumed = new ArrayList<>();
-        consumed.add(consumed(inputs.get(0).getId(), 42L));
-        consumed.add(consumed(999_999L, 43L));
+        linkConsume(batchId).andExpect(status().isConflict());
 
-        linkConsume(batchId, consumed).andExpect(status().isBadRequest());
-
-        assertThat(lockRepository.findAllById(inputs.stream()
-                        .map(ProductionInput::getMaterialLockId)
-                        .toList()))
-                .extracting(MaterialLock::getChainLockId)
-                .containsOnlyNulls();
         assertThat(transactionRepository.findAll())
                 .filteredOn(tx -> "confirmProduction".equals(tx.getFunctionName()))
                 .isEmpty();
@@ -327,57 +258,72 @@ class ProductionConsumeChainTests {
 
     // ── helpers ─────────────────────────────────────────────
 
-    private ResultActions linkConsume(Long batchId, List<Map<String, Object>> consumedLocks)
-            throws Exception {
+    private ResultActions linkConsume(Long batchId) throws Exception {
         return mockMvc.perform(post(PATH + "/{id}/chain/consume", batchId)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + brandToken)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(body(request(consumedLocks))));
+                .content(body(request())));
     }
 
-    private Map<String, Object> request(List<Map<String, Object>> consumedLocks) {
+    private Map<String, Object> request() {
         Map<String, Object> request = new HashMap<>();
         request.put("txHash", TX_HASH);
         request.put("blockNumber", 1_234L);
-        request.put("consumedLocks", consumedLocks);
         return request;
     }
 
-    private Map<String, Object> consumed(Long productionInputId, Long chainLockId) {
-        Map<String, Object> consumed = new HashMap<>();
-        consumed.put("productionInputId", productionInputId);
-        consumed.put("chainLockId", chainLockId);
-        return consumed;
+    /** 확정 → createBatch 연결 → submitPlanAndLock 보고까지 마친 배치. */
+    private Long readyForConsume() throws Exception {
+        Long batchId = confirmedBatch();
+        linkChainBatch(batchId);
+        linkPlan(batchId);
+        return batchId;
+    }
+
+    private void linkChainBatch(Long batchId) throws Exception {
+        Map<String, Object> request = new HashMap<>();
+        request.put("chainBatchId", ++chainBatchSequence);
+        request.put("txHash", "0x" + "e".repeat(64));
+
+        mockMvc.perform(post(PATH + "/{id}/chain/batch", batchId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + brandToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(request)))
+                .andExpect(status().isOk());
+    }
+
+    /** 2단계. 여기서 온체인 잠금 번호가 DB 에 붙는다. */
+    private void linkPlan(Long batchId) throws Exception {
+        String manifest = mockMvc.perform(get(PATH + "/{id}/chain/manifest", batchId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + brandToken))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        List<Map<String, Object>> locked = new ArrayList<>();
+        for (ProductionInput input : inputRepository.findAllByProductionBatchId(batchId)) {
+            Map<String, Object> entry = new HashMap<>();
+            entry.put("productionInputId", input.getId());
+            entry.put("chainLockId", ++chainLockSequence);
+            locked.add(entry);
+        }
+
+        Map<String, Object> request = new HashMap<>();
+        request.put("txHash", "0x" + "d".repeat(64));
+        request.put("evidenceHash",
+                objectMapper.readTree(manifest).path("data").path("evidenceHash").asText());
+        request.put("lockedMaterials", locked);
+
+        mockMvc.perform(post(PATH + "/{id}/chain", batchId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + brandToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(request)))
+                .andExpect(status().isOk());
     }
 
     private Long confirmedBatch() throws Exception {
-        return confirmedBatch(null);
-    }
-
-    private Long confirmedBatch(Long extraMaterialId) throws Exception {
-        return confirmedBatch(extraMaterialId, true);
-    }
-
-    /**
-     * @param extraMaterialId 함께 투입할 두 번째 소재. {@code null} 이면 기본 소재만 넣는다
-     * @param useDefaultMaterial 기본 소재를 넣을지. 다른 배치를 만들 때는 같은 소재를 두
-     *     배치에 넣을 수 없어 끈다
-     */
-    private Long confirmedBatch(Long extraMaterialId, boolean useDefaultMaterial)
-            throws Exception {
-        Long batchId = openedBatch();
-        List<Map<String, Object>> inputs = new ArrayList<>();
-        if (useDefaultMaterial) {
-            inputs.add(input(materialId));
-        }
-        if (extraMaterialId != null) {
-            inputs.add(input(extraMaterialId));
-        }
-        mockMvc.perform(post(PATH + "/{id}/inputs", batchId)
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + brandToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body(Map.of("inputs", inputs))))
-                .andExpect(status().isOk());
+        Long batchId = openedBatchWithInput();
         mockMvc.perform(post(PATH + "/{id}/confirm", batchId)
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + brandToken))
                 .andExpect(status().isOk());
@@ -386,22 +332,19 @@ class ProductionConsumeChainTests {
 
     private Long openedBatchWithInput() throws Exception {
         Long batchId = openedBatch();
-        mockMvc.perform(post(PATH + "/{id}/inputs", batchId)
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + brandToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body(Map.of("inputs", List.of(input(materialId))))))
-                .andExpect(status().isOk());
-        return batchId;
-    }
-
-    private Map<String, Object> input(Long material) {
         Map<String, Object> input = new HashMap<>();
-        input.put("materialId", material);
+        input.put("materialId", materialId);
         input.put("inputQuantity", 30_000L);
         input.put("productUsedQuantity", 30_000L);
         input.put("reusableScrapQuantity", 0L);
         input.put("wasteQuantity", 0L);
-        return input;
+
+        mockMvc.perform(post(PATH + "/{id}/inputs", batchId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + brandToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(Map.of("inputs", List.of(input)))))
+                .andExpect(status().isOk());
+        return batchId;
     }
 
     private Long openedBatch() throws Exception {
@@ -421,6 +364,10 @@ class ProductionConsumeChainTests {
         return objectMapper.readTree(response).path("data").path("productionBatchId").asLong();
     }
 
+    /**
+     * 온체인 발행까지 마친 소재. {@code submitPlanAndLock} 이 {@code tokenIds[]} 를 인자로
+     * 받으므로, 발행되지 않은 소재는 manifest 단계에서 거절된다.
+     */
     private Long heldMaterial() {
         Material material = materialRepository.save(Material.register(
                 "MAT-" + UUID.randomUUID().toString().substring(0, 10),
@@ -433,6 +380,7 @@ class ProductionConsumeChainTests {
                 null,
                 null,
                 brand.getId()));
+        material.linkOnChain(++tokenSequence, CHAIN_ID, MATERIAL_TOKEN_ADDRESS);
         balanceRepository.save(
                 MaterialBalance.of(material.getId(), brand.getId(), WALLET, HELD_QUANTITY));
         return material.getId();

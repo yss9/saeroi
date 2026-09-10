@@ -52,6 +52,9 @@ public class ProductionManifestService {
     private final MaterialRepository materialRepository;
     private final ObjectMapper objectMapper;
 
+    /** 자투리가 없는 투입의 증빙 해시. 컨트랙트는 그 경우 0 을 허용한다. */
+    private static final String ZERO_HASH = "0x" + "0".repeat(64);
+
     /**
      * 배치의 manifest 와 해시.
      *
@@ -84,12 +87,7 @@ public class ProductionManifestService {
         // 정렬을 고정한다. 조회 순서에 기대면 DB 나 드라이버가 바뀔 때 같은 배치의 해시가
         // 달라지고, 그때는 이미 체인에 옛 해시가 올라가 있다.
         List<ProductionManifestResponse.ManifestInput> manifestInputs = inputs.stream()
-                .map(input -> new ProductionManifestResponse.ManifestInput(
-                        materials.get(input.getMaterialId()).getMaterialCode(),
-                        input.getInputQuantity(),
-                        input.getProductUsedQuantity(),
-                        input.getReusableScrapQuantity(),
-                        input.getWasteQuantity()))
+                .map(input -> manifestInput(batch, input, materials.get(input.getMaterialId())))
                 .sorted(Comparator.comparing(
                         ProductionManifestResponse.ManifestInput::materialCode))
                 .toList();
@@ -116,6 +114,49 @@ public class ProductionManifestService {
     }
 
     /**
+     * 투입 한 건을 manifest 항목으로 옮긴다.
+     *
+     * <p>{@code tokenId} 가 없으면 거절한다. {@code submitPlanAndLock} 이 그 번호를 인자로
+     * 받으므로, 없는 채로 내보내면 화면이 존재하지 않는 토큰으로 서명을 시도하고 사용자는
+     * 지갑 팝업까지 간 뒤에 revert 를 본다.
+     */
+    private ProductionManifestResponse.ManifestInput manifestInput(
+            ProductionBatch batch, ProductionInput input, Material material) {
+        if (material.getTokenId() == null) {
+            throw new BusinessException(ProductionErrorCode.PRODUCTION_MATERIAL_NOT_ON_CHAIN);
+        }
+        boolean hasScrap = input.getReusableScrapQuantity() > 0;
+        return new ProductionManifestResponse.ManifestInput(
+                material.getMaterialCode(),
+                material.getTokenId(),
+                input.getInputQuantity(),
+                input.getProductUsedQuantity(),
+                input.getReusableScrapQuantity(),
+                input.getWasteQuantity(),
+                // 자투리 메타데이터를 올릴 저장소 경로가 아직 없다. 컨트랙트도 URI 는
+                // 검사하지 않으므로 빈 문자열로 둔다.
+                "",
+                hasScrap
+                        ? scrapEvidenceHash(batch, material, input.getReusableScrapQuantity())
+                        : ZERO_HASH);
+    }
+
+    /**
+     * 자투리 증빙 해시. <b>배치 코드 · 부모 소재 코드 · 수량에서 파생한다.</b>
+     *
+     * <p>고정된 문자열에서 만들므로 언제 다시 계산해도 같은 값이다 — 나중에 체인의 값과
+     * 대조할 수 있어야 하고, 그러려면 재현 가능해야 한다.
+     *
+     * <p>파일이 아니라 사실에서 해시를 만드는 이유는 자투리에 올릴 증빙 파일이 없기
+     * 때문이다. 컨트랙트는 {@code scrap > 0} 일 때 0 이 아닌 값만 요구한다.
+     */
+    private String scrapEvidenceHash(ProductionBatch batch, Material parent, long quantity) {
+        return sha256(("production-scrap:" + batch.getBatchCode()
+                + ":" + parent.getMaterialCode()
+                + ":" + quantity).getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
      * {@code 0x} + SHA-256 64 hex.
      *
      * <p>증빙 파일 해시와 같은 알고리즘이다 ({@code FileStorageService} 가 저장하며 계산하는
@@ -124,12 +165,19 @@ public class ProductionManifestService {
      */
     private String hashOf(ProductionManifestResponse.Manifest manifest) {
         try {
-            byte[] json = objectMapper.writeValueAsBytes(manifest);
-            byte[] digest = MessageDigest.getInstance("SHA-256").digest(json);
-            return "0x" + HexFormat.of().formatHex(digest);
-        } catch (JsonProcessingException | NoSuchAlgorithmException impossible) {
-            // 직렬화 대상이 우리가 만든 record 이고 SHA-256 은 JDK 필수 알고리즘이다.
+            return sha256(objectMapper.writeValueAsBytes(manifest));
+        } catch (JsonProcessingException impossible) {
+            // 직렬화 대상이 우리가 만든 record 다.
             throw new IllegalStateException("Failed to hash production manifest", impossible);
+        }
+    }
+
+    private String sha256(byte[] bytes) {
+        try {
+            return "0x" + HexFormat.of().formatHex(
+                    MessageDigest.getInstance("SHA-256").digest(bytes));
+        } catch (NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException("SHA-256 must be available", impossible);
         }
     }
 

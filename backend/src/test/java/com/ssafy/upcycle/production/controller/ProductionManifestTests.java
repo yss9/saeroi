@@ -55,6 +55,8 @@ class ProductionManifestTests {
     private static final String PATH = "/api/v1/production-batches";
     private static final String WALLET = "0x1234567890123456789012345678901234567890";
     private static final long CHAIN_ID = 31221L;
+    private static final String MATERIAL_TOKEN_ADDRESS =
+            "0xbe98f5a9aa8d0480b09c689e38806accd41a0f66";
     private static final long HELD_QUANTITY = 100_000L;
 
     @Autowired
@@ -80,6 +82,8 @@ class ProductionManifestTests {
 
     @Autowired
     private MaterialBalanceRepository balanceRepository;
+
+    private long tokenSequence = 1_000L;
 
     private User brand;
     private String brandToken;
@@ -263,6 +267,9 @@ class ProductionManifestTests {
                 null,
                 null,
                 brand.getId()));
+        // submitPlanAndLock 이 tokenIds[] 를 인자로 받으므로, 온체인 발행이 끝난 소재만
+        // manifest 에 담긴다. 발행 단계는 소재 도메인이 따로 검증하므로 여기서는 값만 채운다.
+        material.linkOnChain(++tokenSequence, CHAIN_ID, MATERIAL_TOKEN_ADDRESS);
         balanceRepository.save(
                 MaterialBalance.of(material.getId(), brand.getId(), WALLET, HELD_QUANTITY));
         return material.getId();

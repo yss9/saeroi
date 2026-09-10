@@ -16,13 +16,7 @@ import com.ssafy.upcycle.production.entity.ProductionBatch;
 import com.ssafy.upcycle.production.entity.ProductionInput;
 import com.ssafy.upcycle.production.repository.ProductionBatchRepository;
 import com.ssafy.upcycle.production.repository.ProductionInputRepository;
-import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,12 +37,12 @@ import org.springframework.transaction.annotation.Transactional;
  * <b>쓰였다는 사실이 체인에 없으면</b>, 브랜드는 같은 100kg 으로 또 무언가를 만들었다고
  * 주장할 수 있다 — 같은 소재로 두 번 업사이클한 것이 된다. 추적성에서 이건 치명적이다.
  *
- * <h2>온체인 잠금 번호가 여기서 채워진다</h2>
+ * <h2>잠금 번호는 2단계에서 이미 받았다</h2>
  *
- * <p>{@code material_lock.chain_lock_id} 는 지금까지 아무도 채우지 않았다. DB 잠금은 서버가
- * 만들고 온체인 잠금은 화면이 만들어, 둘을 잇는 코드가 없었기 때문이다. 소각 함수
- * ({@code consumeLockedMaterial})가 온체인 {@code lockId} 를 인자로 받으므로,
- * <b>소각을 보고하는 이 순간이 두 번호가 한자리에 모이는 유일한 지점</b>이다.
+ * <p>온체인 {@code lockId} 는 {@code submitPlanAndLock} 영수증에서만 나온다. 3단계까지
+ * 화면이 들고 오게 하면 그 사이 새로고침 한 번에 잃어버리므로,
+ * {@code POST /{id}/chain} 이 받아 {@code material_lock.chain_lock_id} 에 채워 둔다.
+ * 여기서는 <b>그 값이 채워져 있는지만</b> 확인한다.
  *
  * <h2>서버는 체인을 읽지 않는다</h2>
  *
@@ -108,14 +102,8 @@ public class ProductionConsumeChainService {
             throw new BusinessException(ProductionErrorCode.PRODUCTION_BATCH_NOT_CONFIRMED);
         }
         requireNotRecorded(batchId);
+        requireChainLocksLinked(batchId);
 
-        List<MaterialLock> locks = matchedLocks(batchId, request);
-
-        // ── 여기까지 검증. 아래에서 처음으로 무엇인가를 바꾼다 ──
-
-        for (int i = 0; i < locks.size(); i++) {
-            locks.get(i).linkChainLock(request.consumedLocks().get(i).chainLockId());
-        }
         recorder.record(
                 producerId,
                 // 소각은 MaterialToken 이 하지만 브랜드가 서명하는 컨트랙트는 레지스트리다.
@@ -128,50 +116,31 @@ public class ProductionConsumeChainService {
     }
 
     /**
-     * 보고된 소각이 배치의 투입과 정확히 짝이 맞는가.
+     * 2단계에서 잠금 번호가 채워졌는가.
      *
-     * <p><b>전부여야 한다.</b> 확정은 투입 전체를 한꺼번에 소비하므로, 일부만 소각하고
-     * 보고하면 DB 는 다 썼다고 하는데 체인에는 남아 있는 소재가 생긴다 — 그 소재로 또
-     * 만들었다고 주장할 수 있다.
+     * <p>그 값 없이 소각을 기록하면 <b>어느 온체인 잠금이 소각됐는지</b> 확인할 방법이 없다.
+     * 번호는 {@code submitPlanAndLock} 영수증에서만 나오고, 그것을 받는 자리가 2단계 보고다.
      *
-     * <p>잠금 id 를 요청에서 받지 않고 투입 id 로 받는 이유는, 잠금을 직접 지목하게 하면
-     * <b>남의 잠금을 이 배치의 것으로 보고</b>할 수 있기 때문이다. 투입 행에서 꺼내면 그
-     * 요청이 만들어지지 않는다.
-     *
-     * @return 요청의 순서와 <b>같은 순서로</b> 정렬된 잠금들
+     * <p>잠금 상태도 함께 본다. 확정이 {@code CONSUMED} 로 바꿔 두었어야 하고, 아니라면 DB 쪽
+     * 소비가 실제로 일어나지 않은 것이다 — 그 상태에서 소각을 기록하면 두 쪽이 더 어긋난다.
      */
-    private List<MaterialLock> matchedLocks(
-            Long batchId, ProductionConsumeChainRequest request) {
-        Map<Long, ProductionInput> inputs = inputRepository.findAllByProductionBatchId(batchId)
-                .stream()
-                .collect(Collectors.toMap(ProductionInput::getId, Function.identity()));
-        if (inputs.size() != request.consumedLocks().size()) {
-            throw new BusinessException(ProductionErrorCode.PRODUCTION_CONSUME_MISMATCH);
+    private void requireChainLocksLinked(Long batchId) {
+        List<ProductionInput> inputs = inputRepository.findAllByProductionBatchId(batchId);
+        if (inputs.isEmpty()) {
+            throw new BusinessException(ProductionErrorCode.PRODUCTION_NO_INPUT);
         }
-
-        List<MaterialLock> locks = new ArrayList<>();
-        Set<Long> seen = new HashSet<>();
-        for (ProductionConsumeChainRequest.ConsumedLock consumed : request.consumedLocks()) {
-            ProductionInput input = inputs.get(consumed.productionInputId());
-            if (input == null || !seen.add(consumed.productionInputId())) {
-                // 이 배치의 투입이 아니거나, 같은 투입을 두 번 보고했다.
-                throw new BusinessException(ProductionErrorCode.PRODUCTION_CONSUME_MISMATCH);
-            }
+        for (ProductionInput input : inputs) {
             MaterialLock lock = lockRepository.findById(input.getMaterialLockId())
                     .orElseThrow(() -> new BusinessException(
                             ProductionErrorCode.PRODUCTION_LOCK_NOT_ACTIVE));
             if (lock.getStatus() != MaterialLockStatus.CONSUMED) {
-                // 확정이 CONSUMED 로 바꿔 두었어야 한다. 아니라면 DB 쪽 소비가 실제로
-                // 일어나지 않은 것이고, 그 상태에서 소각을 기록하면 두 쪽이 더 어긋난다.
                 throw new BusinessException(ProductionErrorCode.PRODUCTION_LOCK_NOT_ACTIVE);
             }
-            if (lock.getChainLockId() != null) {
+            if (lock.getChainLockId() == null) {
                 throw new BusinessException(
-                        ProductionErrorCode.PRODUCTION_CONSUME_ALREADY_RECORDED);
+                        ProductionErrorCode.PRODUCTION_CHAIN_LOCKS_NOT_LINKED);
             }
-            locks.add(lock);
         }
-        return locks;
     }
 
     /**

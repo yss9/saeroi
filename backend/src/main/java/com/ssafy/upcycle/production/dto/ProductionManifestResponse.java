@@ -55,12 +55,26 @@ public record ProductionManifestResponse(Manifest manifest, String evidenceHash)
      * 투입 한 건. 소재를 {@code materialCode} 로 적는 이유는 DB {@code id} 가 이 서비스
      * 안에서만 의미 있는 순번이기 때문이다 — manifest 는 체인에 남아 나중에 다른 시스템이
      * 읽을 수도 있다.
+     *
+     * <p><b>{@code submitPlanAndLock} 의 인자가 이 목록 순서 그대로다.</b> 컨트랙트가 배열
+     * 인덱스로 짝을 맞추므로, 화면이 서로 다른 응답을 조합해 배열을 만들면 순서가 어긋날
+     * 여지가 생긴다. 한 응답에 함께 담아 그 여지를 없앤다.
+     *
+     * <p>{@code scrapEvidenceHash} 는 자투리가 있을 때만 값이 있고 없으면 32바이트 0 이다 —
+     * 컨트랙트가 {@code scrap > 0} 인 경우에만 0 이 아닌 값을 요구한다. 자투리 해시는
+     * 배치 코드·부모 소재 코드·수량에서 파생하므로 <b>언제 다시 계산해도 같은 값</b>이다.
+     *
+     * <p>{@code scrapMetadataUri} 는 지금 빈 문자열이다. 자투리 메타데이터를 올릴 저장소
+     * 경로가 아직 없고, 컨트랙트도 URI 는 검사하지 않는다. 경로가 생기면 이 자리에 채운다.
      */
     public record ManifestInput(
             String materialCode,
+            Long materialTokenId,
             long inputQuantity,
             long productUsedQuantity,
             long reusableScrapQuantity,
-            long wasteQuantity) {
+            long wasteQuantity,
+            String scrapMetadataUri,
+            String scrapEvidenceHash) {
     }
 }
