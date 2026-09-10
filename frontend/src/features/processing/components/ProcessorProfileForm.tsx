@@ -9,8 +9,22 @@ import './processor-profile.css'
 
 const materialTypes = Object.keys(MATERIAL_TYPE_LABEL) as MaterialType[]
 const processTypes = Object.keys(PROCESS_TYPE_LABEL) as ProcessType[]
-const emptyCapability = (): ProcessorCapability => ({ materialType: 'DENIM', processType: 'CLEANING', minQuantity: 1, maxQuantity: 1 })
-const emptyLeadTime = (): ProcessorLeadTime => ({ materialType: 'DENIM', processType: 'CLEANING', maxQuantity: 1, leadDays: 1 })
+const emptyCapability = (materialType: MaterialType = 'DENIM', processType: ProcessType = 'CLEANING'): ProcessorCapability => ({ materialType, processType, minQuantity: 1, maxQuantity: 1 })
+const emptyLeadTime = (capability: ProcessorCapability = emptyCapability()): ProcessorLeadTime => ({ materialType: capability.materialType, processType: capability.processType, maxQuantity: capability.maxQuantity, leadDays: 1 })
+const capabilityKey = ({ materialType, processType }: Pick<ProcessorCapability, 'materialType' | 'processType'>) => `${materialType}:${processType}`
+const capabilityLabel = ({ materialType, processType }: Pick<ProcessorCapability, 'materialType' | 'processType'>) => `${MATERIAL_TYPE_LABEL[materialType]} · ${PROCESS_TYPE_LABEL[processType]}`
+const readQuantity = (value: string, current: number) => /^\d*$/.test(value) ? Number(value) : current
+
+function nextAvailableCapability(capabilities: ProcessorCapability[]) {
+  const used = new Set(capabilities.map(capabilityKey))
+  for (const materialType of materialTypes) {
+    for (const processType of processTypes) {
+      const candidate = emptyCapability(materialType, processType)
+      if (!used.has(capabilityKey(candidate))) return candidate
+    }
+  }
+  return null
+}
 
 export function ProcessorProfileForm() {
   const data = useProcessorProfile()
@@ -28,17 +42,83 @@ export function ProcessorProfileForm() {
   useEffect(() => {
     if (initialized.current || loading || loadError) return
     initialized.current = true
+    const loadedCapabilities = data.capabilities.data?.length ? data.capabilities.data : [emptyCapability()]
     setRegion(data.profile.data?.region ?? '')
-    setCapabilities(data.capabilities.data?.length ? data.capabilities.data : [emptyCapability()])
-    setLeadTimes(data.leadTimes.data?.length ? data.leadTimes.data : [emptyLeadTime()])
+    setCapabilities(loadedCapabilities)
+    setLeadTimes(data.leadTimes.data?.length ? data.leadTimes.data : loadedCapabilities.map(emptyLeadTime))
   }, [data.capabilities.data, data.leadTimes.data, data.profile.data, loadError, loading])
 
   function updateCapability(index: number, patch: Partial<ProcessorCapability>) {
-    setCapabilities(rows => rows.map((row, rowIndex) => rowIndex === index ? { ...row, ...patch } : row))
+    const previous = capabilities[index]
+    const next = { ...previous, ...patch }
+    const previousKey = capabilityKey(previous)
+    setCapabilities(rows => rows.map((row, rowIndex) => rowIndex === index ? next : row))
+    setLeadTimes(rows => {
+      const unrelated = rows.filter(row => capabilityKey(row) !== previousKey)
+      const related = rows.filter(row => capabilityKey(row) === previousKey)
+        .map(row => ({ ...row, materialType: next.materialType, processType: next.processType }))
+        .sort((a, b) => a.maxQuantity - b.maxQuantity)
+      const withinRange = related.filter(row => row.maxQuantity >= next.minQuantity && row.maxQuantity < next.maxQuantity)
+      const finalRow = related.at(-1) ?? emptyLeadTime(next)
+      return [...unrelated, ...withinRange, { ...finalRow, materialType: next.materialType, processType: next.processType, maxQuantity: next.maxQuantity }]
+    })
+    setValidation('')
+    setSaved(false)
   }
-  function updateLeadTime(index: number, patch: Partial<ProcessorLeadTime>) {
-    setLeadTimes(rows => rows.map((row, rowIndex) => rowIndex === index ? { ...row, ...patch } : row))
+
+  function addCapability() {
+    const capability = nextAvailableCapability(capabilities)
+    if (!capability) return
+    setCapabilities(rows => [...rows, capability])
+    setLeadTimes(rows => [...rows, emptyLeadTime(capability)])
+    setValidation('')
+    setSaved(false)
   }
+
+  function removeCapability(index: number) {
+    const target = capabilities[index]
+    setCapabilities(rows => rows.filter((_, rowIndex) => rowIndex !== index))
+    setLeadTimes(rows => rows.filter(row => capabilityKey(row) !== capabilityKey(target)))
+    setValidation('')
+    setSaved(false)
+  }
+
+  function addLeadTimeRange(capability: ProcessorCapability) {
+    const key = capabilityKey(capability)
+    setLeadTimes(rows => {
+      const related = rows.filter(row => capabilityKey(row) === key).sort((a, b) => a.maxQuantity - b.maxQuantity)
+      if (!related.length) return [...rows, emptyLeadTime(capability)]
+      const finalRow = related.at(-1)!
+      const rangeStart = related.length === 1 ? capability.minQuantity : related.at(-2)!.maxQuantity + 1
+      if (rangeStart >= finalRow.maxQuantity) return rows
+      const splitAt = Math.floor((rangeStart + finalRow.maxQuantity) / 2)
+      return [...rows.filter(row => capabilityKey(row) !== key), ...related.slice(0, -1), { ...finalRow, maxQuantity: splitAt }, finalRow]
+    })
+    setValidation('')
+    setSaved(false)
+  }
+
+  function updateLeadTime(capability: ProcessorCapability, previousMax: number, patch: Partial<ProcessorLeadTime>) {
+    const key = capabilityKey(capability)
+    setLeadTimes(rows => rows.map(row => capabilityKey(row) === key && row.maxQuantity === previousMax ? { ...row, ...patch } : row))
+    setValidation('')
+    setSaved(false)
+  }
+
+  function removeLeadTimeRange(capability: ProcessorCapability, maxQuantity: number) {
+    const key = capabilityKey(capability)
+    setLeadTimes(rows => {
+      const related = rows.filter(row => capabilityKey(row) === key).sort((a, b) => a.maxQuantity - b.maxQuantity)
+      if (related.length <= 1) return rows
+      const targetIndex = related.findIndex(row => row.maxQuantity === maxQuantity)
+      const remaining = related.filter((_, index) => index !== targetIndex)
+      if (targetIndex === related.length - 1) remaining[remaining.length - 1] = { ...remaining.at(-1)!, maxQuantity }
+      return [...rows.filter(row => capabilityKey(row) !== key), ...remaining]
+    })
+    setValidation('')
+    setSaved(false)
+  }
+
   async function searchAddress() {
     setAddressSearchError('')
     setIsSearchingAddress(true)
@@ -54,18 +134,22 @@ export function ProcessorProfileForm() {
       setIsSearchingAddress(false)
     }
   }
+
   function validate() {
     if (!region.trim()) return '지역을 입력해 주세요.'
     if (capabilities.some(row => !Number.isInteger(row.minQuantity) || !Number.isInteger(row.maxQuantity) || row.minQuantity < 1 || row.maxQuantity < row.minQuantity)) return '소재·공정별 수량은 1 g 이상의 정수이며 최소 수량이 최대 수량보다 클 수 없어요.'
-    if (new Set(capabilities.map(row => `${row.materialType}:${row.processType}`)).size !== capabilities.length) return '동일한 소재·공정 조합은 한 번만 등록할 수 있어요.'
+    if (new Set(capabilities.map(capabilityKey)).size !== capabilities.length) return '동일한 소재·공정 조합은 한 번만 등록할 수 있어요.'
     if (leadTimes.some(row => !Number.isInteger(row.maxQuantity) || !Number.isInteger(row.leadDays) || row.maxQuantity < 1 || row.leadDays < 1)) return '소요일 구간과 일수는 양의 정수로 입력해 주세요.'
-    const capabilityKeys = new Set(capabilities.map(row => `${row.materialType}:${row.processType}`))
-    if (leadTimes.some(row => !capabilityKeys.has(`${row.materialType}:${row.processType}`))) return '소요일은 위에서 등록한 소재·공정 조합에만 설정할 수 있어요.'
-    if (leadTimes.some(row => row.maxQuantity < capabilities.find(capability => capability.materialType === row.materialType && capability.processType === row.processType)!.minQuantity)) return '소요일 구간의 최대 수량은 해당 가공 조건의 최소 수량 이상이어야 해요.'
-    if (new Set(leadTimes.map(row => `${row.materialType}:${row.processType}:${row.maxQuantity}`)).size !== leadTimes.length) return '같은 소재·공정에서 소요일 구간의 최대 수량은 중복할 수 없어요.'
-    if (capabilities.some(capability => !leadTimes.some(row => row.materialType === capability.materialType && row.processType === capability.processType && row.maxQuantity >= capability.maxQuantity))) return '모든 소재·공정에 최대 처리 수량을 포함하는 소요일 구간이 필요해요.'
+    const capabilityKeys = new Set(capabilities.map(capabilityKey))
+    if (leadTimes.some(row => !capabilityKeys.has(capabilityKey(row)))) return '취급 조건과 연결되지 않은 소요일 구간이 있어요.'
+    for (const capability of capabilities) {
+      const ranges = leadTimes.filter(row => capabilityKey(row) === capabilityKey(capability)).sort((a, b) => a.maxQuantity - b.maxQuantity)
+      if (!ranges.length || ranges.at(-1)!.maxQuantity !== capability.maxQuantity) return `${capabilityLabel(capability)}의 마지막 소요일 구간은 최대 처리 수량과 같아야 해요.`
+      if (ranges.some((row, index) => row.maxQuantity < capability.minQuantity || row.maxQuantity > capability.maxQuantity || (index > 0 && row.maxQuantity <= ranges[index - 1].maxQuantity))) return `${capabilityLabel(capability)}의 소요일 구간을 순서대로 확인해 주세요.`
+    }
     return ''
   }
+
   async function submit() {
     const message = validate()
     setValidation(message)
@@ -92,21 +176,37 @@ export function ProcessorProfileForm() {
       {addressSearchError && <p className="processor-profile-address-error" role="alert">{addressSearchError}</p>}
     </section>
     <section className="processor-profile-card">
-      <div className="processor-profile-section-head"><div className="processor-profile-title"><Factory size={23} /><div><h2>취급 소재·공정</h2><p>각 조합마다 실제로 받을 수 있는 최소·최대 수량을 g 단위로 입력하세요.</p></div></div><button type="button" className="processor-profile-secondary" onClick={() => setCapabilities(rows => [...rows, emptyCapability()])}><Plus />조건 추가</button></div>
-      <div className="processor-profile-table"><div className="processor-profile-table-head"><span>소재</span><span>공정</span><span>최소 수량</span><span>최대 수량</span><span /></div>{capabilities.map((row, index) => <div className="processor-profile-row" key={index}>
-        <label><span>소재 {index + 1}</span><select value={row.materialType} onChange={event => updateCapability(index, { materialType: event.target.value as MaterialType })}>{materialTypes.map(type => <option key={type} value={type}>{MATERIAL_TYPE_LABEL[type]}</option>)}</select></label>
-        <label><span>공정 {index + 1}</span><select value={row.processType} onChange={event => updateCapability(index, { processType: event.target.value as ProcessType })}>{processTypes.map(type => <option key={type} value={type}>{PROCESS_TYPE_LABEL[type]}</option>)}</select></label>
-        <label><span>최소 수량 {index + 1}</span><div className="processor-profile-unit"><input aria-label={`최소 수량 ${index + 1}`} type="number" min="1" step="1" value={row.minQuantity} onChange={event => updateCapability(index, { minQuantity: Number(event.target.value) })} /><b>g</b></div></label>
-        <label><span>최대 수량 {index + 1}</span><div className="processor-profile-unit"><input aria-label={`최대 수량 ${index + 1}`} type="number" min="1" step="1" value={row.maxQuantity} onChange={event => updateCapability(index, { maxQuantity: Number(event.target.value) })} /><b>g</b></div></label>
-        <button type="button" aria-label={`가공 조건 ${index + 1} 삭제`} disabled={capabilities.length === 1} onClick={() => setCapabilities(rows => rows.filter((_, rowIndex) => rowIndex !== index))}><Trash /></button>
-      </div>)}</div>
-    </section>
-    <section className="processor-profile-card">
-      <div className="processor-profile-section-head"><div className="processor-profile-title"><Clock size={23} /><div><h2>소재·공정별 소요일</h2><p>각 소재·공정마다 요청 수량을 포함하는 가장 작은 구간의 평균 기간이 검색 결과에 표시돼요.</p></div></div><button type="button" className="processor-profile-secondary" onClick={() => setLeadTimes(rows => [...rows, emptyLeadTime()])}><Plus />구간 추가</button></div>
-      <div className="processor-profile-lead-list">{leadTimes.map((row, index) => <div className="processor-profile-lead" key={index}><span>{index + 1}구간</span><label><span>소재</span><select aria-label={`소요일 소재 ${index + 1}`} value={row.materialType} onChange={event => updateLeadTime(index, { materialType: event.target.value as MaterialType })}>{materialTypes.map(type => <option key={type} value={type}>{MATERIAL_TYPE_LABEL[type]}</option>)}</select></label><label><span>공정</span><select aria-label={`소요일 공정 ${index + 1}`} value={row.processType} onChange={event => updateLeadTime(index, { processType: event.target.value as ProcessType })}>{processTypes.map(type => <option key={type} value={type}>{PROCESS_TYPE_LABEL[type]}</option>)}</select></label><label><span>최대 수량</span><div className="processor-profile-unit"><input aria-label={`구간 최대 수량 ${index + 1}`} type="number" min="1" step="1" value={row.maxQuantity} onChange={event => updateLeadTime(index, { maxQuantity: Number(event.target.value) })} /><b>g</b></div></label><label><span>평균 소요일</span><div className="processor-profile-unit"><input aria-label={`평균 소요일 ${index + 1}`} type="number" min="1" step="1" value={row.leadDays} onChange={event => updateLeadTime(index, { leadDays: Number(event.target.value) })} /><b>일</b></div></label><button type="button" aria-label={`소요일 구간 ${index + 1} 삭제`} disabled={leadTimes.length === 1} onClick={() => setLeadTimes(rows => rows.filter((_, rowIndex) => rowIndex !== index))}><Trash /></button></div>)}</div>
+      <div className="processor-profile-section-head"><div className="processor-profile-title"><Factory size={23} /><div><h2>취급 소재·공정 및 소요일</h2><p>취급 조건을 고른 뒤 같은 카드에서 수량 구간별 평균 소요일을 설정하세요.</p></div></div><button type="button" className="processor-profile-secondary" onClick={addCapability} disabled={capabilities.length >= materialTypes.length * processTypes.length}><Plus />조건 추가</button></div>
+      <div className="processor-profile-capability-list">{capabilities.map((capability, capabilityIndex) => {
+        const label = capabilityLabel(capability)
+        const ranges = leadTimes.filter(row => capabilityKey(row) === capabilityKey(capability)).sort((a, b) => a.maxQuantity - b.maxQuantity)
+        return <article className="processor-profile-capability" key={`${capabilityKey(capability)}:${capabilityIndex}`}>
+          <div className="processor-profile-capability-head"><div><span>취급 조건 {capabilityIndex + 1}</span><h3>{label}</h3></div><button type="button" aria-label={`가공 조건 ${capabilityIndex + 1} 삭제`} disabled={capabilities.length === 1} onClick={() => removeCapability(capabilityIndex)}><Trash /></button></div>
+          <div className="processor-profile-condition-fields">
+            <label><span>소재</span><select aria-label={`소재 ${capabilityIndex + 1}`} value={capability.materialType} onChange={event => updateCapability(capabilityIndex, { materialType: event.target.value as MaterialType })}>{materialTypes.map(type => <option key={type} value={type}>{MATERIAL_TYPE_LABEL[type]}</option>)}</select></label>
+            <label><span>공정</span><select aria-label={`공정 ${capabilityIndex + 1}`} value={capability.processType} onChange={event => updateCapability(capabilityIndex, { processType: event.target.value as ProcessType })}>{processTypes.map(type => <option key={type} value={type}>{PROCESS_TYPE_LABEL[type]}</option>)}</select></label>
+            <label><span>최소 처리 수량</span><div className="processor-profile-unit"><input aria-label={`최소 수량 ${capabilityIndex + 1}`} type="text" inputMode="numeric" pattern="[0-9]*" value={capability.minQuantity} onChange={event => updateCapability(capabilityIndex, { minQuantity: readQuantity(event.target.value, capability.minQuantity) })} /><b>g</b></div></label>
+            <label><span>최대 처리 수량</span><div className="processor-profile-unit"><input aria-label={`최대 수량 ${capabilityIndex + 1}`} type="text" inputMode="numeric" pattern="[0-9]*" value={capability.maxQuantity} onChange={event => updateCapability(capabilityIndex, { maxQuantity: readQuantity(event.target.value, capability.maxQuantity) })} /><b>g</b></div></label>
+          </div>
+          <div className="processor-profile-ranges">
+            <div className="processor-profile-ranges-head"><div><Clock size={18} /><div><strong>수량 구간별 평균 소요일</strong><p>요청 수량이 포함되는 구간의 기간이 Brand에게 표시돼요.</p></div></div><button type="button" onClick={() => addLeadTimeRange(capability)} disabled={!ranges.length || (ranges.length === 1 ? capability.minQuantity : ranges.at(-2)!.maxQuantity + 1) >= ranges.at(-1)!.maxQuantity} aria-label={`${label} 소요일 구간 추가`}><Plus />구간 나누기</button></div>
+            <div className="processor-profile-range-list">{ranges.map((range, rangeIndex) => {
+              const rangeStart = rangeIndex === 0 ? capability.minQuantity : ranges[rangeIndex - 1].maxQuantity + 1
+              return <div className="processor-profile-range" key={`${range.maxQuantity}:${rangeIndex}`}>
+                <span className="processor-profile-range-number">{rangeIndex + 1}</span>
+                <div className="processor-profile-range-start"><span>시작 수량</span><strong>{rangeStart.toLocaleString()} g</strong></div>
+                <span className="processor-profile-range-separator">~</span>
+                <label><span>최대 수량</span><div className="processor-profile-unit"><input aria-label={`${label} 구간 최대 수량 ${rangeIndex + 1}`} type="text" inputMode="numeric" pattern="[0-9]*" value={range.maxQuantity} readOnly={rangeIndex === ranges.length - 1} onChange={event => updateLeadTime(capability, range.maxQuantity, { maxQuantity: readQuantity(event.target.value, range.maxQuantity) })} /><b>g</b></div></label>
+                <label><span>평균 소요일</span><div className="processor-profile-unit"><input aria-label={`${label} 평균 소요일 ${rangeIndex + 1}`} type="number" min="1" step="1" value={range.leadDays} onChange={event => updateLeadTime(capability, range.maxQuantity, { leadDays: Number(event.target.value) })} /><b>일</b></div></label>
+                <button type="button" aria-label={`${label} 소요일 구간 ${rangeIndex + 1} 삭제`} disabled={ranges.length === 1} onClick={() => removeLeadTimeRange(capability, range.maxQuantity)}><Trash /></button>
+              </div>
+            })}</div>
+          </div>
+        </article>
+      })}</div>
     </section>
     {(validation || data.save.isError) && <p className="processor-profile-message processor-profile-error" role="alert">{validation || toErrorMessage(data.save.error)}</p>}
     {saved && <p className="processor-profile-message processor-profile-success" role="status"><CheckCircle weight="fill" />가공업체 정보가 저장되었어요.</p>}
-    <footer className="processor-profile-actions"><p>세 항목이 모두 등록되면 업체 검색에 즉시 노출됩니다.</p><button type="button" onClick={() => void submit()} disabled={data.save.isPending}>{data.save.isPending ? '저장 중…' : '가공업체 정보 저장'}</button></footer>
+    <footer className="processor-profile-actions"><p>지역과 취급 조건이 등록되면 업체 검색에 즉시 노출됩니다.</p><button type="button" onClick={() => void submit()} disabled={data.save.isPending}>{data.save.isPending ? '저장 중…' : '가공업체 정보 저장'}</button></footer>
   </div>
 }
