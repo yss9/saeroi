@@ -52,6 +52,11 @@ import org.springframework.test.web.servlet.MockMvc;
         "app.blockchain.chain-id=31221",
         "app.blockchain.material-token-address=0xbe98f5a9aa8d0480b09c689e38806accd41a0f66",
         "app.blockchain.marketplace-address=0x53fc91be37720fcb051004b7aab73639ca266853",
+        // 생산 레지스트리 주소를 여기 함께 둔다. 이 목록이 스프링 컨텍스트 캐시의 키라,
+        // 생산 온체인 테스트가 다른 목록을 쓰면 컨텍스트가 하나 더 만들어진다. 캐시가 넘치면
+        // 오래된 컨텍스트가 닫히면서 create-drop 이 공유 H2 의 스키마를 지우고, 그때
+        // 관계없는 테스트가 "Table not found" 로 깨진다.
+        "app.blockchain.production-registry-address=0x65b4d0d9f9f0e0a4b0b0f9e8d7c6b5a4d3c2b1a0",
 })
 class ChainLinkApiTests {
 

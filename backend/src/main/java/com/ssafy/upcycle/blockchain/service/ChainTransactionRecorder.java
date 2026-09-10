@@ -34,7 +34,8 @@ public class ChainTransactionRecorder {
     /** 어느 컨트랙트를 불렀는가. 주소는 설정에서 꺼내므로 호출부는 이름만 안다. */
     public enum Contract {
         MATERIAL_TOKEN,
-        MARKETPLACE
+        MARKETPLACE,
+        PRODUCTION_REGISTRY
     }
 
     private final BlockchainTransactionRepository transactionRepository;
@@ -97,6 +98,7 @@ public class ChainTransactionRecorder {
         return switch (contract) {
             case MATERIAL_TOKEN -> properties.materialTokenAddress();
             case MARKETPLACE -> properties.marketplaceAddress();
+            case PRODUCTION_REGISTRY -> properties.productionRegistryAddress();
         };
     }
 

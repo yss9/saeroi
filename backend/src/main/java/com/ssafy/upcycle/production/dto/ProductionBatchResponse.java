@@ -12,6 +12,9 @@ import java.util.List;
  * <p>투입을 함께 담는 이유는 화면이 언제나 둘을 같이 보여주기 때문이다. 나눠 두면 두 번
  * 호출하게 되고, 그 사이에 투입이 바뀌면 <b>합계와 목록이 어긋난 화면</b>이 그려진다.
  *
+ * <p>{@code evidenceHash} 가 {@code null} 이면 <b>아직 온체인에 기록되지 않은</b> 배치다.
+ * 화면이 "온체인 기록" 버튼을 언제 보여줄지 이 값으로 정한다.
+ *
  * <p>{@code upcycleRatio} 는 <b>확정 전에는 0</b> 이다. 계산은 확정 시점에 한 번 하고
  * 스냅샷으로 굳힌다 — 매번 재계산하면 소재 데이터가 바뀔 때 이미 팔린 제품의 비율이
  * 소급해 변한다.
@@ -29,6 +32,8 @@ public record ProductionBatchResponse(
         long virginUsedQuantity,
         long upcycledUsedQuantity,
         BigDecimal upcycleRatio,
+        String evidenceHash,
+        String manifestUrl,
         LocalDateTime createdAt,
         LocalDateTime confirmedAt,
         List<ProductionInputResponse> inputs) {
@@ -48,6 +53,8 @@ public record ProductionBatchResponse(
                 batch.getVirginUsedQuantity(),
                 batch.getUpcycledUsedQuantity(),
                 batch.getUpcycleRatio(),
+                batch.getEvidenceHash(),
+                batch.getManifestUrl(),
                 batch.getCreatedAt(),
                 batch.getConfirmedAt(),
                 inputs);
