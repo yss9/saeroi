@@ -8,13 +8,12 @@ import type {
   BusinessSignupSubmitValues,
 } from '../types/signup.types.ts'
 import { formatBusinessNumber, formatPhoneNumber } from '../utils/signupInputFormatters.ts'
-import { openKakaoPostcode } from '../utils/kakaoPostcode.ts'
+import { openKakaoPostcode } from '../../../utils/kakaoPostcode.ts'
 
 interface BusinessSignupFormProps {
   onSubmit: (values: BusinessSignupSubmitValues) => void | Promise<void>
   isSubmitting?: boolean
 }
-
 const businessRoles = [
   {
     value: 'SUPPLIER',
