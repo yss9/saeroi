@@ -167,6 +167,29 @@ public enum ProductionErrorCode implements ErrorCode {
             "PRODUCTION_LOCK_NOT_ACTIVE",
             "투입에 걸린 잠금이 유효하지 않습니다. 투입을 다시 확인해 주세요."),
 
+    /**
+     * 확정되지 않은 배치를 온체인에 기록하려는 경우.
+     *
+     * <p>온체인 기록은 "이 제품이 이 소재로 만들어졌다" 는 증명이다. 아직 확정되지 않은
+     * 배치는 그 사실이 성립하지 않았고, 투입이 더 바뀔 수도 있다 — 바뀐 뒤에도 체인에는
+     * 옛 내용의 해시가 남는다.
+     */
+    PRODUCTION_BATCH_NOT_CONFIRMED(
+            HttpStatus.CONFLICT,
+            "PRODUCTION_BATCH_NOT_CONFIRMED",
+            "확정된 배치만 온체인에 기록할 수 있습니다."),
+
+    /**
+     * 이미 온체인에 기록된 배치를 다시 기록하려는 경우.
+     *
+     * <p>두 번 기록되면 어느 해시가 정본인지 알 수 없다. 다시 올려야 한다면 그건 새 기록이
+     * 아니라 정정이고, 정정은 이력을 덮어쓰는 일이라 별도 절차가 필요하다.
+     */
+    PRODUCTION_BATCH_ALREADY_ON_CHAIN(
+            HttpStatus.CONFLICT,
+            "PRODUCTION_BATCH_ALREADY_ON_CHAIN",
+            "이미 온체인에 기록된 배치입니다."),
+
     PRODUCTION_INPUT_NOT_FOUND(
             HttpStatus.NOT_FOUND, "PRODUCTION_INPUT_NOT_FOUND", "투입 내역을 찾을 수 없습니다.");
 

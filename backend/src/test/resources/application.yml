@@ -10,7 +10,19 @@ spring:
   jpa:
     open-in-view: false
     hibernate:
-      ddl-auto: create-drop
+      # create-drop 이 아니라 create 다. 두 값의 차이는 "컨텍스트가 닫힐 때 테이블을
+      # 지우는가" 하나뿐인데, 그 드롭이 이 스위트에서는 사고를 만든다.
+      #
+      # 테스트 전체가 이름이 같은 in-memory H2 하나를 공유하고, @TestPropertySource 나
+      # @Import 로 설정이 다른 클래스마다 스프링 컨텍스트가 따로 만들어진다. 컨텍스트
+      # 캐시가 상한을 넘으면 오래된 것이 닫히는데, create-drop 은 그때 스키마를 통째로
+      # 지운다 — 그러면 캐시에 남아 있던 다른 컨텍스트가 다음 테스트에서
+      # "Table not found" 로 깨진다. 실제로 그렇게 WalletAuthServiceTests 23건이 한꺼번에
+      # 무너졌고, 원인이 그 클래스와 아무 상관이 없어 찾기 어려웠다.
+      #
+      # create 는 시작할 때만 지우고 만든다. 각 컨텍스트는 자기 테스트 전에 시작하므로
+      # 테이블이 없는 상태를 만나지 않는다. 데이터는 클래스마다 @BeforeEach 가 채운다.
+      ddl-auto: create
 app:
   security:
     jwt:

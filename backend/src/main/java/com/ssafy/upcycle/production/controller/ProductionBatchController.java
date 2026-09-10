@@ -4,8 +4,10 @@ import com.ssafy.upcycle.common.response.ApiResponse;
 import com.ssafy.upcycle.production.dto.ProductionBatchOpenRequest;
 import com.ssafy.upcycle.production.dto.ProductionBatchResponse;
 import com.ssafy.upcycle.production.dto.ProductionInputsRequest;
+import com.ssafy.upcycle.production.dto.ProductionChainLinkRequest;
 import com.ssafy.upcycle.production.dto.ProductionItemResponse;
 import com.ssafy.upcycle.production.service.ProductionBatchService;
+import com.ssafy.upcycle.production.service.ProductionChainLinkService;
 import com.ssafy.upcycle.production.service.ProductionConfirmService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -36,6 +38,7 @@ public class ProductionBatchController {
 
     private final ProductionBatchService productionBatchService;
     private final ProductionConfirmService productionConfirmService;
+    private final ProductionChainLinkService productionChainLinkService;
 
     /**
      * 배치를 연다. 생산자와 서명 지갑은 JWT 와 등록된 활성 지갑에서 가져온다 —
@@ -115,6 +118,28 @@ public class ProductionBatchController {
     public ApiResponse<List<ProductionItemResponse>> findItems(
             @AuthenticationPrincipal Jwt jwt, @PathVariable Long batchId) {
         return ApiResponse.success(productionBatchService.findItems(userId(jwt), batchId));
+    }
+
+    /**
+     * 온체인 기록 결과를 연결한다. <b>확정된 배치만, 생산자 본인만</b> 부를 수 있다.
+     *
+     * <p>화면이 지갑으로 {@code ProductionRegistry} 를 호출하고 영수증을 받은 뒤 그 결과를
+     * 여기로 알려 준다. 서버가 트랜잭션을 보내지 않는 이유는 서명이 브랜드 지갑의 것이고
+     * 서버에 개인키가 없기 때문이다 — 소재·거래와 같다.
+     *
+     * <p><b>체인 ID 와 컨트랙트 주소는 받지 않는다</b> — 서버 설정이 정본이다.
+     *
+     * <p>온체인 번호도 받지 않는다. {@code production_batch} 에 그 값을 담을 컬럼이 없어서,
+     * 받아도 넣을 자리가 없다. 대신 {@code evidenceHash} 와 {@code manifestUrl} 이 배치에
+     * 붙는다.
+     */
+    @PostMapping("/{batchId}/chain")
+    public ApiResponse<Void> linkOnChain(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long batchId,
+            @Valid @RequestBody ProductionChainLinkRequest request) {
+        productionChainLinkService.link(userId(jwt), batchId, request);
+        return ApiResponse.success(null);
     }
 
     /** 배치 상세. 투입 목록을 함께 담는다. */
