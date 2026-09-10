@@ -132,14 +132,18 @@ class ProductionChainLinkTests {
     void recordsTheTransactionAgainstTheConfiguredRegistry() throws Exception {
         Long batchId = confirmedBatch();
 
-        link(batchId, request()).andExpect(status().isOk());
+        link(batchId, request(batchId)).andExpect(status().isOk());
 
+        // createBatch 기록도 같은 참조 타입이라 함수 이름으로 걸러야 한다.
         assertThat(transactionRepository.findAll())
-                .filteredOn(tx -> tx.getReferenceType() == BlockchainReferenceType.PRODUCTION)
+                .filteredOn(tx -> tx.getReferenceType() == BlockchainReferenceType.PRODUCTION
+                        && "submitPlanAndLock".equals(tx.getFunctionName()))
                 .singleElement()
                 .satisfies(tx -> {
                     assertThat(tx.getReferenceId()).isEqualTo(batchId);
-                    assertThat(tx.getFunctionName()).isEqualTo("registerProduction");
+                    // 컨트랙트에 실제로 있는 함수여야 한다. 없는 이름으로 기록하면 실제
+                    // 트랜잭션과 대조할 때 전부 불일치가 된다.
+                    assertThat(tx.getFunctionName()).isEqualTo("submitPlanAndLock");
                     // 주소는 서버 설정에서 온다. 화면이 보낸 값을 쓰면 자기가 배포한
                     // 컨트랙트를 가리키는 기록을 만들 수 있다.
                     assertThat(tx.getContractAddress()).isEqualTo(REGISTRY_ADDRESS);
@@ -155,12 +159,12 @@ class ProductionChainLinkTests {
         // 해시가 붙어야 나중에 체인의 기록과 대조할 수 있다.
         Long batchId = confirmedBatch();
 
-        link(batchId, request()).andExpect(status().isOk());
+        link(batchId, request(batchId)).andExpect(status().isOk());
 
         assertThat(batchRepository.findById(batchId))
                 .get()
                 .satisfies(batch -> {
-                    assertThat(batch.getEvidenceHash()).isEqualTo(EVIDENCE_HASH);
+                    assertThat(batch.getEvidenceHash()).matches("^0x[0-9a-f]{64}$");
                     assertThat(batch.getManifestUrl()).isEqualTo("https://cdn.example.com/m.json");
                 });
     }
@@ -175,18 +179,19 @@ class ProductionChainLinkTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.evidenceHash").doesNotExist());
 
-        link(batchId, request()).andExpect(status().isOk());
+        String expectedHash = manifestHash(batchId);
+        link(batchId, request(batchId)).andExpect(status().isOk());
 
         mockMvc.perform(get(PATH + "/{id}", batchId)
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + brandToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.evidenceHash").value(EVIDENCE_HASH));
+                .andExpect(jsonPath("$.data.evidenceHash").value(expectedHash));
     }
 
     @Test
     void manifestUrlIsOptional() throws Exception {
         Long batchId = confirmedBatch();
-        Map<String, Object> request = request();
+        Map<String, Object> request = request(batchId);
         request.remove("manifestUrl");
 
         link(batchId, request).andExpect(status().isOk());
@@ -201,9 +206,13 @@ class ProductionChainLinkTests {
     @Test
     void refusesABatchThatIsNotConfirmedYet() throws Exception {
         // 투입이 더 바뀔 수 있다. 바뀐 뒤에도 체인에는 옛 내용의 해시가 남는다.
+        // manifest 도 확정된 배치만 만들 수 있어, 여기서는 상수 해시로 두드린다.
         Long batchId = openedBatch();
+        Map<String, Object> request = new HashMap<>();
+        request.put("txHash", TX_HASH);
+        request.put("evidenceHash", EVIDENCE_HASH);
 
-        link(batchId, request())
+        link(batchId, request)
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("PRODUCTION_BATCH_NOT_CONFIRMED"));
     }
@@ -212,9 +221,9 @@ class ProductionChainLinkTests {
     void refusesToRecordTheSameBatchTwice() throws Exception {
         // 두 번 기록되면 어느 해시가 정본인지 알 수 없다.
         Long batchId = confirmedBatch();
-        link(batchId, request()).andExpect(status().isOk());
+        link(batchId, request(batchId)).andExpect(status().isOk());
 
-        link(batchId, request())
+        link(batchId, request(batchId))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("PRODUCTION_BATCH_ALREADY_ON_CHAIN"));
     }
@@ -229,7 +238,7 @@ class ProductionChainLinkTests {
         mockMvc.perform(post(PATH + "/{id}/chain", batchId)
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor(otherBrand))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(body(request())))
+                        .content(body(request(batchId)))) 
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("PRODUCTION_FORBIDDEN"));
     }
@@ -237,7 +246,7 @@ class ProductionChainLinkTests {
     @Test
     void refusesAMalformedTransactionHash() throws Exception {
         Long batchId = confirmedBatch();
-        Map<String, Object> request = request();
+        Map<String, Object> request = request(batchId);
         request.put("txHash", "0xnothex");
 
         link(batchId, request).andExpect(status().isBadRequest());
@@ -246,7 +255,7 @@ class ProductionChainLinkTests {
     @Test
     void refusesAMalformedEvidenceHash() throws Exception {
         Long batchId = confirmedBatch();
-        Map<String, Object> request = request();
+        Map<String, Object> request = request(batchId);
         request.put("evidenceHash", "not-a-hash");
 
         link(batchId, request).andExpect(status().isBadRequest());
@@ -254,9 +263,13 @@ class ProductionChainLinkTests {
 
     @Test
     void requiresAuthentication() throws Exception {
+        Map<String, Object> anonymous = new HashMap<>();
+        anonymous.put("txHash", TX_HASH);
+        anonymous.put("evidenceHash", EVIDENCE_HASH);
+
         mockMvc.perform(post(PATH + "/{id}/chain", 1L)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(body(request())))
+                        .content(body(anonymous)))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -264,7 +277,7 @@ class ProductionChainLinkTests {
     void leavesNothingBehindWhenTheHashIsRejected() throws Exception {
         // 거절될 요청에 배치만 먼저 바꿔 두면 "해시는 붙었는데 기록은 없는" 순간이 생긴다.
         Long batchId = confirmedBatch();
-        Map<String, Object> request = request();
+        Map<String, Object> request = request(batchId);
         request.put("txHash", "0xnothex");
 
         link(batchId, request).andExpect(status().isBadRequest());
@@ -273,7 +286,7 @@ class ProductionChainLinkTests {
                 .get()
                 .satisfies(batch -> assertThat(batch.getEvidenceHash()).isNull());
         assertThat(transactionRepository.findAll())
-                .filteredOn(tx -> tx.getReferenceType() == BlockchainReferenceType.PRODUCTION)
+                .filteredOn(tx -> "submitPlanAndLock".equals(tx.getFunctionName()))
                 .isEmpty();
     }
 
@@ -286,13 +299,41 @@ class ProductionChainLinkTests {
                 .content(body(request)));
     }
 
-    private Map<String, Object> request() {
+    /**
+     * 요청은 <b>서버가 준 해시</b>를 그대로 싣는다. 화면이 직접 계산하지 않는 것이 계약이라
+     * 테스트도 같은 경로를 지난다.
+     */
+    private Map<String, Object> request(Long batchId) throws Exception {
         Map<String, Object> request = new HashMap<>();
         request.put("txHash", TX_HASH);
         request.put("blockNumber", 1_234L);
-        request.put("evidenceHash", EVIDENCE_HASH);
+        request.put("evidenceHash", manifestHash(batchId));
         request.put("manifestUrl", "https://cdn.example.com/m.json");
         return request;
+    }
+
+    private String manifestHash(Long batchId) throws Exception {
+        String response = mockMvc.perform(get(PATH + "/{id}/chain/manifest", batchId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + brandToken))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        return objectMapper.readTree(response).path("data").path("evidenceHash").asText();
+    }
+
+    /** {@code createBatch} 결과 연결. 이것 없이는 submitPlanAndLock 을 부를 인자가 없다. */
+    private void linkChainBatch(Long batchId) throws Exception {
+        Map<String, Object> request = new HashMap<>();
+        request.put("chainBatchId", 7L);
+        request.put("txHash", "0x" + "e".repeat(64));
+        request.put("blockNumber", 1_000L);
+
+        mockMvc.perform(post(PATH + "/{id}/chain/batch", batchId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + brandToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(request)))
+                .andExpect(status().isOk());
     }
 
     private Long confirmedBatch() throws Exception {
@@ -312,6 +353,7 @@ class ProductionChainLinkTests {
         mockMvc.perform(post(PATH + "/{id}/confirm", batchId)
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + brandToken))
                 .andExpect(status().isOk());
+        linkChainBatch(batchId);
         return batchId;
     }
 

@@ -180,6 +180,41 @@ public enum ProductionErrorCode implements ErrorCode {
             "확정된 배치만 온체인에 기록할 수 있습니다."),
 
     /**
+     * 화면이 보낸 해시가 서버가 계산한 manifest 해시와 다른 경우.
+     *
+     * <p>화면이 <b>서버가 모르는 내용</b>을 체인에 올렸다는 뜻이다. 그 해시는 나중에 재현할
+     * 수 없고, 재현할 수 없는 해시는 아무것도 증명하지 못한다 — 추적성의 마지막 한 칸이
+     * 그 대조에 걸려 있다.
+     *
+     * <p>해시는 {@code GET /{id}/chain/manifest} 가 준다. 화면이 직접 계산하지 않는다 —
+     * 계산 주체가 둘이면 필드 순서·공백·인코딩 차이로 언젠가 갈라진다.
+     */
+    PRODUCTION_MANIFEST_HASH_MISMATCH(
+            HttpStatus.BAD_REQUEST,
+            "PRODUCTION_MANIFEST_HASH_MISMATCH",
+            "서버가 만든 manifest 해시와 다릅니다. 최신 manifest 를 다시 받아 서명해 주세요."),
+
+    /**
+     * 온체인 배치 번호가 아직 연결되지 않은 경우.
+     *
+     * <p>{@code createBatch} 가 채번한 번호 없이는 {@code submitPlanAndLock} 을 부를 인자가
+     * 없다. 순서를 강제하지 않으면 화면이 <b>존재하지 않는 온체인 번호로 서명을 시도</b>하고,
+     * 사용자는 지갑 팝업까지 간 뒤에 revert 를 본다 (거래 도메인이 같은 이유로 같은 검사를 한다).
+     */
+    PRODUCTION_CHAIN_BATCH_NOT_LINKED(
+            HttpStatus.CONFLICT,
+            "PRODUCTION_CHAIN_BATCH_NOT_LINKED",
+            "온체인 배치를 먼저 생성하고 연결해야 합니다."),
+
+    /**
+     * 이미 온체인 배치 번호가 연결된 경우.
+     */
+    PRODUCTION_CHAIN_BATCH_ALREADY_LINKED(
+            HttpStatus.CONFLICT,
+            "PRODUCTION_CHAIN_BATCH_ALREADY_LINKED",
+            "이미 온체인 배치가 연결되어 있습니다."),
+
+    /**
      * 이미 온체인에 기록된 배치를 다시 기록하려는 경우.
      *
      * <p>두 번 기록되면 어느 해시가 정본인지 알 수 없다. 다시 올려야 한다면 그건 새 기록이

@@ -27,6 +27,11 @@ import java.util.List;
  * 있고 소각은 안 된</b> 중간 상태가 생기기 때문이다.
  *
  * <p><b>체인 ID 와 컨트랙트 주소는 받지 않는다</b> — 서버 설정이 정본이다.
+ *
+ * <p>온체인 순서는 {@code createBatch} → {@code submitPlanAndLock} →
+ * {@code confirmProduction} 이며, 이 요청은 마지막 단계의 결과를 알린다. 소각 자체는
+ * {@code MaterialToken.consumeLockedMaterial} 이 하지만 그것은 레지스트리가 내부에서 부르는
+ * 호출이라, 브랜드가 서명한 함수는 {@code confirmProduction} 이다.
  */
 public record ProductionConsumeChainRequest(
 
@@ -45,7 +50,10 @@ public record ProductionConsumeChainRequest(
      *
      * @param productionInputId DB 투입 id. 어느 잠금인지는 서버가 그 행에서 꺼낸다 —
      *     잠금 id 를 직접 받으면 남의 잠금을 이 배치의 것으로 보고할 수 있다
-     * @param chainLockId 온체인 {@code MaterialLock} 번호
+     * @param chainLockId 온체인 {@code MaterialLock} 번호.
+     *     <b>이벤트에는 실리지 않는다</b> — {@code submitPlanAndLock} 이 잠금을 만들지만
+     *     {@code ProductionPlanSubmitted} 에도, {@code MaterialConsumed} 에도 lockId 가 없다.
+     *     {@code ProductionRegistry.getMaterialUses(batchId)} 를 읽어 꺼낸다
      */
     public record ConsumedLock(
             @NotNull(message = "투입 id는 필수입니다.")

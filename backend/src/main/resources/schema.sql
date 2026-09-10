@@ -524,6 +524,11 @@ CREATE TABLE product_model (
 
 CREATE TABLE production_batch (
     id BIGINT NOT NULL AUTO_INCREMENT,
+    -- ProductionRegistry.createBatch 가 채번한 번호. 이후 submitPlanAndLock ·
+    -- confirmProduction · linkProductItems 가 모두 이 값을 인자로 받는다.
+    -- 서버가 들고 있지 않으면 화면이 네 단계 내내 그 번호를 붙들고 있어야 하고,
+    -- 새로고침 한 번에 잃어버린다 (material.token_id · listing.chain_listing_id 와 같은 자리).
+    chain_batch_id BIGINT NULL,
     batch_code VARCHAR(20) NOT NULL,
     batch_name VARCHAR(200) NOT NULL,
     product_model_id BIGINT NOT NULL,
@@ -541,6 +546,7 @@ CREATE TABLE production_batch (
     confirmed_at DATETIME NULL,
     CONSTRAINT pk_production_batch PRIMARY KEY (id),
     CONSTRAINT uk_production_batch_code UNIQUE (batch_code),
+    CONSTRAINT uk_production_batch_chain_id UNIQUE (chain_batch_id),
     CONSTRAINT fk_production_batch_model FOREIGN KEY (product_model_id) REFERENCES product_model (id),
     CONSTRAINT fk_production_batch_producer FOREIGN KEY (producer_id) REFERENCES users (id),
     CONSTRAINT chk_production_batch_quantities CHECK (

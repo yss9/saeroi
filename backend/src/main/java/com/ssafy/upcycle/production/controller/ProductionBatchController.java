@@ -4,12 +4,15 @@ import com.ssafy.upcycle.common.response.ApiResponse;
 import com.ssafy.upcycle.production.dto.ProductionBatchOpenRequest;
 import com.ssafy.upcycle.production.dto.ProductionBatchResponse;
 import com.ssafy.upcycle.production.dto.ProductionInputsRequest;
+import com.ssafy.upcycle.production.dto.ProductionChainBatchRequest;
 import com.ssafy.upcycle.production.dto.ProductionChainLinkRequest;
 import com.ssafy.upcycle.production.dto.ProductionConsumeChainRequest;
 import com.ssafy.upcycle.production.dto.ProductionItemResponse;
+import com.ssafy.upcycle.production.dto.ProductionManifestResponse;
 import com.ssafy.upcycle.production.service.ProductionBatchService;
 import com.ssafy.upcycle.production.service.ProductionChainLinkService;
 import com.ssafy.upcycle.production.service.ProductionConsumeChainService;
+import com.ssafy.upcycle.production.service.ProductionManifestService;
 import com.ssafy.upcycle.production.service.ProductionConfirmService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -42,6 +45,7 @@ public class ProductionBatchController {
     private final ProductionConfirmService productionConfirmService;
     private final ProductionChainLinkService productionChainLinkService;
     private final ProductionConsumeChainService productionConsumeChainService;
+    private final ProductionManifestService productionManifestService;
 
     /**
      * 배치를 연다. 생산자와 서명 지갑은 JWT 와 등록된 활성 지갑에서 가져온다 —
@@ -124,6 +128,42 @@ public class ProductionBatchController {
     }
 
     /**
+     * 온체인에 올릴 manifest 와 그 해시. <b>화면은 이 해시를 그대로 서명에 넣는다.</b>
+     *
+     * <p>직접 계산하지 않는다 — 계산 주체가 둘이면 필드 순서·공백·인코딩 차이로 같은
+     * 배치에서 브라우저마다 다른 해시가 나오고, 그러면 나중에 재현해 대조할 수 없다.
+     * 추적성의 마지막 한 칸이 그 대조에 걸려 있다.
+     *
+     * <p>내용도 서버가 이미 갖고 있다 — 투입·개체·비율은 확정 시점에 굳은 값이다.
+     */
+    @GetMapping("/{batchId}/chain/manifest")
+    public ApiResponse<ProductionManifestResponse> manifest(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable Long batchId) {
+        return ApiResponse.success(productionManifestService.build(userId(jwt), batchId));
+    }
+
+    /**
+     * {@code createBatch} 결과를 연결한다. <b>온체인 4단계 중 첫 번째다.</b>
+     *
+     * <pre>
+     *   createBatch        → POST /{id}/chain/batch     ← 여기
+     *   submitPlanAndLock  → POST /{id}/chain
+     *   confirmProduction  → POST /{id}/chain/consume
+     * </pre>
+     *
+     * <p>온체인 배치 번호를 서버가 받아 두는 이유는 뒤의 단계가 모두 그 번호를 인자로 받기
+     * 때문이다. 화면이 붙들고 있으면 새로고침 한 번에 잃어버린다.
+     */
+    @PostMapping("/{batchId}/chain/batch")
+    public ApiResponse<Void> linkChainBatch(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long batchId,
+            @Valid @RequestBody ProductionChainBatchRequest request) {
+        productionChainLinkService.linkChainBatch(userId(jwt), batchId, request);
+        return ApiResponse.success(null);
+    }
+
+    /**
      * 온체인 기록 결과를 연결한다. <b>확정된 배치만, 생산자 본인만</b> 부를 수 있다.
      *
      * <p>화면이 지갑으로 {@code ProductionRegistry} 를 호출하고 영수증을 받은 뒤 그 결과를
@@ -132,9 +172,11 @@ public class ProductionBatchController {
      *
      * <p><b>체인 ID 와 컨트랙트 주소는 받지 않는다</b> — 서버 설정이 정본이다.
      *
-     * <p>온체인 번호도 받지 않는다. {@code production_batch} 에 그 값을 담을 컬럼이 없어서,
-     * 받아도 넣을 자리가 없다. 대신 {@code evidenceHash} 와 {@code manifestUrl} 이 배치에
-     * 붙는다.
+     * <p>{@code evidenceHash} 는 {@code GET /{id}/chain/manifest} 가 준 값이어야 한다 —
+     * 다르면 화면이 서버가 모르는 내용을 체인에 올린 것이고, 그 해시는 재현할 수 없다.
+     *
+     * <p>{@code createBatch} 를 먼저 연결해야 한다. 그 번호 없이는 {@code submitPlanAndLock}
+     * 을 부를 인자가 없다.
      */
     @PostMapping("/{batchId}/chain")
     public ApiResponse<Void> linkOnChain(
