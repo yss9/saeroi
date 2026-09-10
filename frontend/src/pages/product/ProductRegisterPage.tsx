@@ -33,8 +33,10 @@ export function ProductRegisterPage() {
 
       <ProductForm onCreated={setCreated} />
 
+      {/* 마켓(/products)이 아니라 내 제품으로 보낸다 — 방금 등록한 제품은 DRAFT 라
+          마켓 목록에 없다. 거기로 보내면 "등록했는데 왜 없지" 가 된다. */}
       <p className="page__lead">
-        <Link to="/products">등록된 제품 목록 보기</Link>
+        <Link to="/brand/products">내 제품 관리로 이동</Link>
       </p>
     </main>
   )

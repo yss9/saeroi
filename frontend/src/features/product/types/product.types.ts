@@ -107,6 +107,13 @@ export interface ProductImageUpload {
   hash: string
 }
 
+/**
+ * 판매 상태 변경 동작 (`ProductModelStatusRequest.Action`).
+ *
+ * **상태가 아니라 동작이다.** `SOLD_OUT` 을 지정할 수 없고, `DISCONTINUE` 는 되돌릴 수 없다.
+ */
+export type ProductStatusAction = 'ON_SALE' | 'DISCONTINUE'
+
 /** 서버가 받는 이미지 형식. 이 밖의 형식은 `PRODUCT_IMAGE_TYPE_NOT_ALLOWED` 로 거절된다. */
 export const PRODUCT_IMAGE_CONTENT_TYPES: readonly string[] = [
   'image/jpeg',

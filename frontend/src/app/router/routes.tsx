@@ -24,6 +24,7 @@ import { BrandProcessingRequestListPage } from '../../pages/processing/BrandProc
 import { ProcessingPage } from '../../pages/processing/ProcessingPage.tsx'
 import { ProcessorProfilePage } from '../../pages/processing/ProcessorProfilePage.tsx'
 import { ProcessingPaymentCallbackPage } from '../../pages/processing/ProcessingPaymentCallbackPage.tsx'
+import { BrandProductPage } from '../../pages/product/BrandProductPage.tsx'
 import { ProductDetailPage } from '../../pages/product/ProductDetailPage.tsx'
 import { ProductListPage } from '../../pages/product/ProductListPage.tsx'
 import { ProductRegisterPage } from '../../pages/product/ProductRegisterPage.tsx'
@@ -158,6 +159,8 @@ export const routes: RouteObject[] = [
           { path: '/brand/production', element: <ProductionPage /> },
           // 제품 등록. 서버도 BRAND 만 허용하고 역할을 DB 에서 다시 읽어 판단한다.
           { path: '/brand/products/new', element: <ProductRegisterPage /> },
+          // 내 제품 관리(판매 시작·중단). 마켓 목록(/products)과 달리 DRAFT 를 포함한다.
+          { path: '/brand/products', element: <BrandProductPage /> },
         ],
       },
 
