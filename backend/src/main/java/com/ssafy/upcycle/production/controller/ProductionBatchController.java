@@ -5,9 +5,11 @@ import com.ssafy.upcycle.production.dto.ProductionBatchOpenRequest;
 import com.ssafy.upcycle.production.dto.ProductionBatchResponse;
 import com.ssafy.upcycle.production.dto.ProductionInputsRequest;
 import com.ssafy.upcycle.production.dto.ProductionChainLinkRequest;
+import com.ssafy.upcycle.production.dto.ProductionConsumeChainRequest;
 import com.ssafy.upcycle.production.dto.ProductionItemResponse;
 import com.ssafy.upcycle.production.service.ProductionBatchService;
 import com.ssafy.upcycle.production.service.ProductionChainLinkService;
+import com.ssafy.upcycle.production.service.ProductionConsumeChainService;
 import com.ssafy.upcycle.production.service.ProductionConfirmService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -39,6 +41,7 @@ public class ProductionBatchController {
     private final ProductionBatchService productionBatchService;
     private final ProductionConfirmService productionConfirmService;
     private final ProductionChainLinkService productionChainLinkService;
+    private final ProductionConsumeChainService productionConsumeChainService;
 
     /**
      * 배치를 연다. 생산자와 서명 지갑은 JWT 와 등록된 활성 지갑에서 가져온다 —
@@ -139,6 +142,29 @@ public class ProductionBatchController {
             @PathVariable Long batchId,
             @Valid @RequestBody ProductionChainLinkRequest request) {
         productionChainLinkService.link(userId(jwt), batchId, request);
+        return ApiResponse.success(null);
+    }
+
+    /**
+     * 소재 소각의 온체인 결과를 연결한다. <b>확정된 배치만, 생산자 본인만, 한 번만.</b>
+     *
+     * <p>확정은 소재를 DB 에서만 줄인다. 온체인 토큰은 그대로 남아 있어서, 체인만 보면
+     * 브랜드가 여전히 그 소재를 갖고 있는 것처럼 보인다 — 같은 소재로 두 번 업사이클했다고
+     * 주장할 수 있게 된다. 화면이 {@code consumeLockedMaterial} 로 소각한 뒤 결과를 여기로
+     * 알려 주면 두 쪽이 맞춰진다.
+     *
+     * <p><b>투입 전부를 보고해야 한다.</b> 확정이 투입 전체를 한꺼번에 소비하므로, 일부만
+     * 소각하고 보고하면 체인에 남아 있는 소재가 생긴다.
+     *
+     * <p>온체인 잠금 번호({@code chainLockId})가 이때 DB 에 붙는다 — 그 값을 채우는 경로가
+     * 지금까지 없었다.
+     */
+    @PostMapping("/{batchId}/chain/consume")
+    public ApiResponse<Void> linkConsume(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long batchId,
+            @Valid @RequestBody ProductionConsumeChainRequest request) {
+        productionConsumeChainService.linkConsume(userId(jwt), batchId, request);
         return ApiResponse.success(null);
     }
 
