@@ -161,3 +161,65 @@
 /* 버튼을 비활성으로 남기는 대신 이유를 적는다 — 비활성 버튼은 이유를 말하지 않는다. */
 .brand-product-list__hint { font-size: 0.78rem; color: #6b7280; }
 .brand-product-list__hint-link { font-size: 0.78rem; }
+
+/* ── 제품 마켓 목록 ──────────────────────────────────── */
+
+.product-list__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 1.25rem;
+}
+
+.product-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+  /* 카드 폭을 고정하지 않는다 — 화면이 좁아지면 열이 줄고, 넓어지면 늘어난다. */
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
+}
+
+.product-card {
+  border: 1px solid #ddd9cd;
+  border-radius: 8px;
+  background: #fff;
+  overflow: hidden;
+}
+.product-card__link { display: block; color: inherit; text-decoration: none; }
+.product-card__link:hover { border-color: #1f6f4a; }
+
+/* 이미지 자리를 비율로 잡아 둔다. 이미지가 늦게 오거나 없어도 카드 높이가 흔들리지 않는다. */
+.product-card__image {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  background: #f4f2ec;
+}
+.product-card__image img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.product-card__image-empty { display: block; width: 100%; height: 100%; }
+
+/* 품절은 이미지 위에 얹는다 — 카드를 훑을 때 가격보다 먼저 보여야 한다. */
+.product-card__sold-out {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(23, 32, 51, 0.55);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.product-card__body { display: flex; flex-direction: column; gap: 0.2rem; padding: 0.75rem 0.85rem 0.9rem; }
+.product-card__category { font-size: 0.75rem; color: #6b7280; }
+.product-card__name {
+  font-size: 0.95rem;
+  /* 제품명이 길면 두 줄까지만. 카드 높이가 제품마다 달라지면 격자가 어긋난다. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.product-card__price { font-size: 1.05rem; font-weight: 700; font-variant-numeric: tabular-nums; }
