@@ -1,6 +1,7 @@
 package com.ssafy.upcycle.production.dto;
 
 import com.ssafy.upcycle.material.entity.Material;
+import com.ssafy.upcycle.material.entity.MaterialLock;
 import com.ssafy.upcycle.production.entity.ProductionInput;
 
 /**
@@ -17,6 +18,10 @@ import com.ssafy.upcycle.production.entity.ProductionInput;
  *
  * <p>{@code materialLockId} 를 담는 이유는 다르다 — 투입을 취소하면 이 잠금이 풀린다는 것을
  * 화면이 설명할 수 있어야 하고, 잠금이 풀리지 않은 채 남는 사고를 눈으로 확인할 수 있다.
+ *
+ * <p>{@code chainLockId} 가 {@code null} 이면 <b>온체인 소각이 아직 보고되지 않은</b> 투입이다.
+ * DB 에서는 소비됐는데 체인에는 소재가 남아 있는 상태이고, 화면이 "온체인 소각" 버튼을
+ * 언제 보여줄지 이 값으로 정한다.
  */
 public record ProductionInputResponse(
         Long productionInputId,
@@ -28,14 +33,16 @@ public record ProductionInputResponse(
         long reusableScrapQuantity,
         long wasteQuantity,
         String wasteReason,
-        Long materialLockId) {
+        Long materialLockId,
+        Long chainLockId) {
 
     /**
      * @param material 투입된 소재. {@code null} 이면 이름 자리가 비는데, 그건 소재 행이
      *     사라졌다는 뜻이라 화면이 "알 수 없음" 으로 보여야 할 상태다. FK 가 있어 정상
      *     경로에서는 일어나지 않는다
      */
-    public static ProductionInputResponse of(ProductionInput input, Material material) {
+    public static ProductionInputResponse of(
+            ProductionInput input, Material material, MaterialLock lock) {
         return new ProductionInputResponse(
                 input.getId(),
                 input.getMaterialId(),
@@ -46,6 +53,7 @@ public record ProductionInputResponse(
                 input.getReusableScrapQuantity(),
                 input.getWasteQuantity(),
                 input.getWasteReason(),
-                input.getMaterialLockId());
+                input.getMaterialLockId(),
+                lock == null ? null : lock.getChainLockId());
     }
 }

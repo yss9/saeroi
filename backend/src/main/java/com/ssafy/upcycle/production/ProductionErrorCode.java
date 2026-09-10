@@ -190,6 +190,28 @@ public enum ProductionErrorCode implements ErrorCode {
             "PRODUCTION_BATCH_ALREADY_ON_CHAIN",
             "이미 온체인에 기록된 배치입니다."),
 
+    /**
+     * 보고한 소각이 배치의 투입과 짝이 맞지 않는 경우.
+     *
+     * <p>확정은 투입 전체를 한꺼번에 소비한다. 그중 일부만 소각하고 보고하면 DB 는 다
+     * 썼다고 하는데 체인에는 남아 있는 소재가 생기고, 그 소재로 또 만들었다고 주장할 수
+     * 있다. 반대로 없는 투입을 보고하면 그 잠금이 무엇인지 서버가 설명할 수 없다.
+     */
+    PRODUCTION_CONSUME_MISMATCH(
+            HttpStatus.BAD_REQUEST,
+            "PRODUCTION_CONSUME_MISMATCH",
+            "소각한 잠금이 이 배치의 투입과 일치하지 않습니다."),
+
+    /**
+     * 이미 소각이 기록된 배치를 다시 보고하는 경우.
+     *
+     * <p>두 번 기록되면 같은 소재를 두 번 소각한 것처럼 보인다.
+     */
+    PRODUCTION_CONSUME_ALREADY_RECORDED(
+            HttpStatus.CONFLICT,
+            "PRODUCTION_CONSUME_ALREADY_RECORDED",
+            "이미 소각이 기록된 배치입니다."),
+
     PRODUCTION_INPUT_NOT_FOUND(
             HttpStatus.NOT_FOUND, "PRODUCTION_INPUT_NOT_FOUND", "투입 내역을 찾을 수 없습니다.");
 

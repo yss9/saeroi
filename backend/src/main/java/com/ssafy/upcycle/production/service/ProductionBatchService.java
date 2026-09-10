@@ -271,9 +271,16 @@ public class ProductionBatchService {
                 .findAllById(inputs.stream().map(ProductionInput::getMaterialId).distinct().toList())
                 .stream()
                 .collect(Collectors.toMap(Material::getId, material -> material));
+        // 잠금도 한 번에 읽는다. 투입마다 다시 읽으면 소재와 같은 이유로 N+1 이다.
+        Map<Long, MaterialLock> locks = lockRepository
+                .findAllById(inputs.stream().map(ProductionInput::getMaterialLockId).toList())
+                .stream()
+                .collect(Collectors.toMap(MaterialLock::getId, lock -> lock));
         return inputs.stream()
                 .map(input -> ProductionInputResponse.of(
-                        input, materials.get(input.getMaterialId())))
+                        input,
+                        materials.get(input.getMaterialId()),
+                        locks.get(input.getMaterialLockId())))
                 .toList();
     }
 
