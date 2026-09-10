@@ -1,6 +1,7 @@
 package com.ssafy.upcycle.production.service;
 
 import com.ssafy.upcycle.blockchain.BlockchainErrorCode;
+import com.ssafy.upcycle.blockchain.config.BlockchainProperties;
 import com.ssafy.upcycle.blockchain.entity.BlockchainReferenceType;
 import com.ssafy.upcycle.blockchain.entity.BlockchainTransactionStatus;
 import com.ssafy.upcycle.blockchain.repository.BlockchainTransactionRepository;
@@ -60,19 +61,25 @@ import org.springframework.transaction.annotation.Transactional;
 public class ProductionConsumeChainService {
 
     /**
-     * {@code MaterialToken.consumeLockedMaterial}. 가공·생산용 잠금을 전량 소각한다.
+     * {@code ProductionRegistry.confirmProduction}. <b>브랜드가 서명하는 함수는 이것이다.</b>
      *
-     * <p>{@code consumeMaterialLock}(마켓 잠금 소비 후 구매자에게 이전)과 다른 함수다 —
-     * 그쪽은 소각이 아니라 이전이라 소비 기록으로 쓸 수 없다. 이름이 비슷해 섞이기 쉬워
-     * 상수로 한 곳에만 둔다.
+     * <p>실제로 소각하는 것은 {@code MaterialToken.consumeLockedMaterial} 이지만, 그것은
+     * 레지스트리가 내부에서 부르는 호출이라 <b>{@code msg.sender} 가 브랜드가 아니라
+     * 레지스트리</b>다. 그 이름으로 기록하면 브랜드가 서명하지 않은 함수를 브랜드가 서명한
+     * 것처럼 남기게 되고, 실제 트랜잭션과 대조하면 불일치가 된다.
+     *
+     * <p>{@code confirmProduction} 한 번이 잠금 소각 · 자투리 발행 · 비율 계산을 모두 한다
+     * (컨트랙트가 {@code MaterialConsumed} · {@code ProductionScrapCreated} ·
+     * {@code ProductionConfirmed} 를 함께 낸다).
      */
-    private static final String FUNCTION_NAME = "consumeLockedMaterial";
+    private static final String FUNCTION_NAME = "confirmProduction";
 
     private final ProductionBatchRepository batchRepository;
     private final ProductionInputRepository inputRepository;
     private final MaterialLockRepository lockRepository;
     private final BlockchainTransactionRepository transactionRepository;
     private final ChainTransactionRecorder recorder;
+    private final BlockchainProperties properties;
 
     /**
      * 소각 결과를 기록한다. <b>확정된 배치만, 생산자 본인만, 한 번만.</b>
@@ -87,6 +94,9 @@ public class ProductionConsumeChainService {
     public void linkConsume(
             Long producerId, Long batchId, ProductionConsumeChainRequest request) {
         recorder.requireConfigured();
+        if (!properties.hasProductionRegistry()) {
+            throw new BusinessException(BlockchainErrorCode.BLOCKCHAIN_NOT_CONFIGURED);
+        }
 
         ProductionBatch batch = batchRepository.findByIdForUpdate(batchId)
                 .orElseThrow(
@@ -108,7 +118,8 @@ public class ProductionConsumeChainService {
         }
         recorder.record(
                 producerId,
-                ChainTransactionRecorder.Contract.MATERIAL_TOKEN,
+                // 소각은 MaterialToken 이 하지만 브랜드가 서명하는 컨트랙트는 레지스트리다.
+                ChainTransactionRecorder.Contract.PRODUCTION_REGISTRY,
                 FUNCTION_NAME,
                 BlockchainReferenceType.MATERIAL,
                 batchId,

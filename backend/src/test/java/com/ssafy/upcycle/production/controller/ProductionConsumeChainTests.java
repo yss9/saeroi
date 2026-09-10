@@ -70,7 +70,7 @@ import org.springframework.transaction.annotation.Transactional;
 class ProductionConsumeChainTests {
 
     private static final String PATH = "/api/v1/production-batches";
-    private static final String MATERIAL_TOKEN = "0xbe98f5a9aa8d0480b09c689e38806accd41a0f66";
+    private static final String PRODUCTION_REGISTRY = "0x65b4d0d9f9f0e0a4b0b0f9e8d7c6b5a4d3c2b1a0";
     private static final String WALLET = "0x1234567890123456789012345678901234567890";
     private static final long CHAIN_ID = 31221L;
     private static final long HELD_QUANTITY = 100_000L;
@@ -148,20 +148,22 @@ class ProductionConsumeChainTests {
     }
 
     @Test
-    void recordsTheBurnAgainstTheMaterialTokenContract() throws Exception {
+    void recordsTheFunctionTheBrandActuallySigned() throws Exception {
         Long batchId = confirmedBatch();
         ProductionInput input = inputRepository.findAllByProductionBatchId(batchId).get(0);
 
         linkConsume(batchId, List.of(consumed(input.getId(), 42L))).andExpect(status().isOk());
 
         assertThat(transactionRepository.findAll())
-                .filteredOn(tx -> "consumeLockedMaterial".equals(tx.getFunctionName()))
+                .filteredOn(tx -> "confirmProduction".equals(tx.getFunctionName()))
                 .singleElement()
                 .satisfies(tx -> {
                     assertThat(tx.getReferenceType()).isEqualTo(BlockchainReferenceType.MATERIAL);
                     assertThat(tx.getReferenceId()).isEqualTo(batchId);
-                    // 소각은 MaterialToken 이 한다. ProductionRegistry 가 아니다.
-                    assertThat(tx.getContractAddress()).isEqualTo(MATERIAL_TOKEN);
+                    // 소각은 MaterialToken 이 하지만 브랜드가 서명하는 것은 레지스트리의
+                    // confirmProduction 이다. consumeLockedMaterial 은 레지스트리가 내부에서
+                    // 부르는 호출이라 msg.sender 가 브랜드가 아니다.
+                    assertThat(tx.getContractAddress()).isEqualTo(PRODUCTION_REGISTRY);
                     assertThat(tx.getFromWallet()).isEqualTo(WALLET);
                     assertThat(tx.getTxHash()).isEqualTo(TX_HASH);
                 });
@@ -319,7 +321,7 @@ class ProductionConsumeChainTests {
                 .extracting(MaterialLock::getChainLockId)
                 .containsOnlyNulls();
         assertThat(transactionRepository.findAll())
-                .filteredOn(tx -> "consumeLockedMaterial".equals(tx.getFunctionName()))
+                .filteredOn(tx -> "confirmProduction".equals(tx.getFunctionName()))
                 .isEmpty();
     }
 

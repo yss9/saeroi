@@ -6,6 +6,7 @@ import com.ssafy.upcycle.blockchain.entity.BlockchainReferenceType;
 import com.ssafy.upcycle.blockchain.service.ChainTransactionRecorder;
 import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.production.ProductionErrorCode;
+import com.ssafy.upcycle.production.dto.ProductionChainBatchRequest;
 import com.ssafy.upcycle.production.dto.ProductionChainLinkRequest;
 import com.ssafy.upcycle.production.entity.ProductionBatch;
 import com.ssafy.upcycle.production.repository.ProductionBatchRepository;
@@ -41,12 +42,54 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ProductionChainLinkService {
 
-    /** 컨트랙트 함수 이름. 검증 판정이 이 값을 보므로 상수로만 넘긴다. */
-    private static final String FUNCTION_NAME = "registerProduction";
+    /**
+     * {@code ProductionRegistry.submitPlanAndLock}. <b>evidenceHash 를 인자로 받는 함수가
+     * 이것뿐이다</b> — 이 엔드포인트가 받는 값이 그 해시이므로 짝이 맞는다.
+     *
+     * <p>온체인 순서는 {@code createBatch} → {@code submitPlanAndLock} →
+     * {@code confirmProduction} → {@code linkProductItems} 다. 그중 소재를 잠그고 계획
+     * 해시를 체인에 남기는 단계가 여기다.
+     *
+     * <p>검증 판정이 이 문자열을 보므로 상수로만 넘긴다. 컨트랙트에 없는 이름을 적으면
+     * 기록은 남는데 실제 트랜잭션과 대조할 때 전부 불일치가 된다.
+     */
+    private static final String FUNCTION_NAME = "submitPlanAndLock";
+
+    /** {@code ProductionRegistry.createBatch}. 온체인 배치 번호를 채번하는 첫 단계다. */
+    private static final String CREATE_BATCH = "createBatch";
 
     private final ProductionBatchRepository batchRepository;
     private final ChainTransactionRecorder recorder;
     private final BlockchainProperties properties;
+    private final ProductionManifestService manifestService;
+
+    /**
+     * {@code createBatch} 결과를 연결한다. <b>온체인 4단계 중 첫 번째다.</b>
+     *
+     * <p>뒤의 세 단계({@code submitPlanAndLock} · {@code confirmProduction} ·
+     * {@code linkProductItems})가 모두 이 번호를 인자로 받는다. 화면이 붙들고 있으면
+     * 새로고침 한 번에 잃어버리고, 그러면 이미 체인에 만들어진 배치를 다시 가리킬 수 없다.
+     */
+    @Transactional
+    public void linkChainBatch(
+            Long producerId, Long batchId, ProductionChainBatchRequest request) {
+        requireConfigured();
+        ProductionBatch batch = ownedConfirmedBatch(producerId, batchId);
+        if (batch.getChainBatchId() != null) {
+            throw new BusinessException(
+                    ProductionErrorCode.PRODUCTION_CHAIN_BATCH_ALREADY_LINKED);
+        }
+
+        recorder.record(
+                producerId,
+                ChainTransactionRecorder.Contract.PRODUCTION_REGISTRY,
+                CREATE_BATCH,
+                BlockchainReferenceType.PRODUCTION,
+                batchId,
+                request.txHash(),
+                request.blockNumber());
+        batch.linkChainBatch(request.chainBatchId());
+    }
 
     /**
      * 온체인 기록을 연결한다. <b>확정된 배치만, 생산자 본인만</b> 할 수 있다.
@@ -58,25 +101,19 @@ public class ProductionChainLinkService {
      */
     @Transactional
     public void link(Long producerId, Long batchId, ProductionChainLinkRequest request) {
-        // 소재·마켓 주소와 별개로 레지스트리 주소가 필요하다. 없는데 기록을 받으면
-        // contract_address 가 빈 행이 쌓이고, 나중에 어느 배포분이었는지 알 수 없다.
-        recorder.requireConfigured();
-        if (!properties.hasProductionRegistry()) {
-            throw new BusinessException(BlockchainErrorCode.BLOCKCHAIN_NOT_CONFIGURED);
-        }
-
-        ProductionBatch batch = batchRepository.findByIdForUpdate(batchId)
-                .orElseThrow(
-                        () -> new BusinessException(ProductionErrorCode.PRODUCTION_BATCH_NOT_FOUND));
-        if (!batch.getProducerId().equals(producerId)) {
-            throw new BusinessException(ProductionErrorCode.PRODUCTION_FORBIDDEN);
-        }
-        if (!batch.isConfirmed()) {
-            throw new BusinessException(ProductionErrorCode.PRODUCTION_BATCH_NOT_CONFIRMED);
+        requireConfigured();
+        ProductionBatch batch = ownedConfirmedBatch(producerId, batchId);
+        if (batch.getChainBatchId() == null) {
+            // createBatch 없이는 submitPlanAndLock 을 부를 인자가 없다. 순서를 강제하지
+            // 않으면 화면이 존재하지 않는 번호로 서명을 시도하고, 사용자는 지갑 팝업까지
+            // 간 뒤에 revert 를 본다.
+            throw new BusinessException(ProductionErrorCode.PRODUCTION_CHAIN_BATCH_NOT_LINKED);
         }
         if (batch.getEvidenceHash() != null) {
             throw new BusinessException(ProductionErrorCode.PRODUCTION_BATCH_ALREADY_ON_CHAIN);
         }
+        // 화면이 서버가 모르는 내용을 체인에 올리면 그 해시는 나중에 재현할 수 없다.
+        manifestService.requireMatchingHash(producerId, batchId, request.evidenceHash());
 
         // 기록이 먼저다. 트랜잭션 해시 형식이 틀려 거절될 요청에 배치만 먼저 바꿔 두면,
         // 롤백은 되지만 "해시는 붙었는데 기록은 없는" 순간이 코드 안에 존재하게 된다.
@@ -90,5 +127,29 @@ public class ProductionChainLinkService {
                 request.blockNumber());
 
         batch.linkManifest(request.evidenceHash(), request.manifestUrl());
+    }
+
+    /**
+     * 소재·마켓 주소와 별개로 레지스트리 주소가 필요하다. 없는데 기록을 받으면
+     * {@code contract_address} 가 빈 행이 쌓이고, 나중에 어느 배포분이었는지 알 수 없다.
+     */
+    private void requireConfigured() {
+        recorder.requireConfigured();
+        if (!properties.hasProductionRegistry()) {
+            throw new BusinessException(BlockchainErrorCode.BLOCKCHAIN_NOT_CONFIGURED);
+        }
+    }
+
+    private ProductionBatch ownedConfirmedBatch(Long producerId, Long batchId) {
+        ProductionBatch batch = batchRepository.findByIdForUpdate(batchId)
+                .orElseThrow(
+                        () -> new BusinessException(ProductionErrorCode.PRODUCTION_BATCH_NOT_FOUND));
+        if (!batch.getProducerId().equals(producerId)) {
+            throw new BusinessException(ProductionErrorCode.PRODUCTION_FORBIDDEN);
+        }
+        if (!batch.isConfirmed()) {
+            throw new BusinessException(ProductionErrorCode.PRODUCTION_BATCH_NOT_CONFIRMED);
+        }
+        return batch;
     }
 }

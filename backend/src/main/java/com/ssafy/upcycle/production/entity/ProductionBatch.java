@@ -76,6 +76,16 @@ public class ProductionBatch {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /**
+     * {@code ProductionRegistry.createBatch} 가 채번한 번호. 온체인 기록 전에는 {@code null}.
+     *
+     * <p>이후 {@code submitPlanAndLock} · {@code confirmProduction} ·
+     * {@code linkProductItems} 가 모두 이 값을 인자로 받는다. 서버가 들고 있지 않으면 화면이
+     * 네 단계 내내 붙들고 있어야 하고, 새로고침 한 번에 잃어버린다.
+     */
+    @Column(name = "chain_batch_id", unique = true)
+    private Long chainBatchId;
+
     /** 사람이 읽는 식별자. {@code PB-000001}. */
     @Column(name = "batch_code", nullable = false, unique = true, length = BATCH_CODE_MAX_LENGTH)
     private String batchCode;
@@ -254,6 +264,23 @@ public class ProductionBatch {
             throw new IllegalStateException("Production batch is already canceled");
         }
         this.status = ProductionBatchStatus.CANCELED;
+    }
+
+    /**
+     * 온체인 배치 번호를 연결한다. {@code createBatch} 결과를 받는 자리다.
+     *
+     * <p>한 번만 연결한다. 이미 붙은 번호를 바꾸는 것은 다른 온체인 배치를 이 배치의 것으로
+     * 둔갑시키는 것과 같다.
+     */
+    public void linkChainBatch(Long chainBatchId) {
+        if (this.chainBatchId != null) {
+            throw new IllegalStateException(
+                    "Production batch is already linked to chain batch " + this.chainBatchId);
+        }
+        if (chainBatchId == null || chainBatchId <= 0) {
+            throw new IllegalArgumentException("Chain batch id must be positive");
+        }
+        this.chainBatchId = chainBatchId;
     }
 
     /** 온체인 기록 결과를 붙인다. 확정된 배치에만 의미가 있다. */

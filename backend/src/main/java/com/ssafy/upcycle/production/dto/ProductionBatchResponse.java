@@ -12,6 +12,10 @@ import java.util.List;
  * <p>투입을 함께 담는 이유는 화면이 언제나 둘을 같이 보여주기 때문이다. 나눠 두면 두 번
  * 호출하게 되고, 그 사이에 투입이 바뀌면 <b>합계와 목록이 어긋난 화면</b>이 그려진다.
  *
+ * <p>{@code chainBatchId} 가 {@code null} 이면 아직 {@code createBatch} 를 부르지 않은
+ * 배치다. 온체인 4단계 중 어디까지 왔는지는 {@code chainBatchId} → {@code evidenceHash}
+ * 순으로 채워지는 것을 보면 된다.
+ *
  * <p>{@code evidenceHash} 가 {@code null} 이면 <b>아직 온체인에 기록되지 않은</b> 배치다.
  * 화면이 "온체인 기록" 버튼을 언제 보여줄지 이 값으로 정한다.
  *
@@ -21,6 +25,7 @@ import java.util.List;
  */
 public record ProductionBatchResponse(
         Long productionBatchId,
+        Long chainBatchId,
         String batchCode,
         String batchName,
         Long productModelId,
@@ -42,6 +47,7 @@ public record ProductionBatchResponse(
             ProductionBatch batch, List<ProductionInputResponse> inputs) {
         return new ProductionBatchResponse(
                 batch.getId(),
+                batch.getChainBatchId(),
                 batch.getBatchCode(),
                 batch.getBatchName(),
                 batch.getProductModelId(),
