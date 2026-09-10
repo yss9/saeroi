@@ -50,7 +50,6 @@ function detail(overrides: Partial<MaterialDetail> = {}): MaterialDetail {
   return {
     // 서버는 상세에서 materialId 로 준다. id 는 목록 쪽 이름이라 둘 다 채워 둔다 —
     // 화면이 잘못된 쪽을 읽으면 여기서 드러나야 한다.
-    id: 12,
     materialId: 12,
     materialCode: 'MAT-000012',
     materialType: 'DENIM',

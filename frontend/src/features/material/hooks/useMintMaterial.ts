@@ -32,6 +32,10 @@ export function useMintMaterial(materialId: number) {
       void tokenId
 
       void queryClient.invalidateQueries({ queryKey: materialKeys.detail(materialId) })
+      // 지금은 이 키를 읽는 쿼리가 없다 — 목 데이터로 돌던 소재 목록 화면을 걷어내면서
+      // useMaterials 가 함께 사라졌다. 무효화는 no-op 이지만 지우지 않는다. Backend 에
+      // `GET /api/materials` 가 생겨 목록이 부활할 때 다시 넣어야 하고, 그때 빠뜨리면
+      // 소재를 등록해도 목록이 갱신되지 않는 조용한 버그가 된다.
       void queryClient.invalidateQueries({ queryKey: materialKeys.lists() })
     },
   })

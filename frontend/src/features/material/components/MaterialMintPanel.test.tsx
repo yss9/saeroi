@@ -55,7 +55,6 @@ vi.mock('../../../config/env.ts', () => ({
 }))
 
 const material: MaterialDetail = {
-  id: 12,
   materialId: 12,
   materialCode: 'MAT-000012',
   materialType: 'DENIM',

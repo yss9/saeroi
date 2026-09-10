@@ -15,7 +15,6 @@ import { ListingDetailPage } from '../../pages/marketplace/ListingDetailPage.tsx
 import { MarketplacePage } from '../../pages/marketplace/MarketplacePage.tsx'
 import { SupplierMarketPage } from '../../pages/marketplace/SupplierMarketPage.tsx'
 import { MaterialDetailPage } from '../../pages/material/MaterialDetailPage.tsx'
-import { MaterialListPage } from '../../pages/material/MaterialListPage.tsx'
 import { MaterialRegisterPage } from '../../pages/material/MaterialRegisterPage.tsx'
 import { ConsumerMyPage } from '../../pages/mypage/ConsumerMyPage.tsx'
 import { BrandProcessingPage } from '../../pages/processing/BrandProcessingPage.tsx'
@@ -95,7 +94,6 @@ export const routes: RouteObject[] = [
   {
     element: <BrowseLayout />,
     children: [
-      { path: '/materials', element: <MaterialListPage /> },
       { path: '/materials/:materialId', element: <MaterialDetailPage /> },
       { path: '/marketplace', element: <MarketplacePage /> },
       { path: '/marketplace/:listingId', element: <ListingDetailPage /> },

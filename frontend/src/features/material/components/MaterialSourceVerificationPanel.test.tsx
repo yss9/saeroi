@@ -54,7 +54,6 @@ vi.mock('../../../config/env.ts', () => ({
 
 function material(overrides: Partial<MaterialDetail> = {}): MaterialDetail {
   return {
-    id: 12,
     materialId: 12,
     materialCode: 'MAT-000012',
     materialType: 'DENIM',

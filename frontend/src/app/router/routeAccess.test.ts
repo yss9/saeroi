@@ -3,7 +3,7 @@ import { canAccess, getRouteAccess, isRoleResolving } from './routeAccess.ts'
 
 describe('routeAccess — routes.tsx 에서 파생한 접근 조건', () => {
   it('공개 경로는 비회원도 볼 수 있다', () => {
-    for (const path of ['/', '/materials', '/marketplace', '/qr/:qrToken', '/403']) {
+    for (const path of ['/', '/materials/:materialId', '/marketplace', '/qr/:qrToken', '/403']) {
       const access = getRouteAccess(path)
       expect(access, path).toEqual({ kind: 'public' })
       expect(canAccess(access!, { isAuthenticated: false, role: null }), path).toBe(true)

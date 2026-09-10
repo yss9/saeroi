@@ -40,7 +40,6 @@ export type MaterialStatus = 'ACTIVE' | 'DEPLETED'
 
 /** 목록 카드에 필요한 만큼만. 상세는 MaterialDetail 을 쓴다. */
 export interface MaterialSummary {
-  id: number
   materialCode: string
   materialType: MaterialType
   name: string
@@ -92,8 +91,10 @@ export interface MaterialDetail extends MaterialSummary {
    * 컴파일은 통과하고 런타임에 `undefined` 가 되어 `/api/materials/undefined/chain` 같은
    * 요청이 나간다 (2026-09-08 온체인 발행에서 실제로 그렇게 500 이 났다).
    *
-   * `id` 를 지우지 않는 이유는 목록(`getMaterials`)이 아직 목이고 그쪽이 `id` 를 쓰기
-   * 때문이다. 목록 API 가 붙을 때 두 이름을 한쪽으로 맞춘다.
+   * 그래서 `id` 를 **없앴다.** 예전에는 목 데이터로 돌던 소재 목록이 `id` 를 써서
+   * 남겨 뒀는데, 그 화면을 걷어내면서 읽는 곳이 하나도 없어졌다. 서버가 주지도 않는
+   * 필드를 `number` 로 선언해 두면 `data.id` 가 컴파일을 통과한 뒤 런타임에
+   * `undefined` 가 되는 위 사고를 다시 부를 뿐이다.
    */
   materialId: number
   description: string | null
@@ -160,15 +161,6 @@ export interface MaterialLineage {
   edges: MaterialLineageEdge[]
   truncated: boolean
   message: string | null
-}
-
-/** 목록 조회 필터. Query Key 에 그대로 들어가므로 직렬화 가능해야 한다. */
-export interface MaterialListFilters {
-  materialType?: string
-  rootOrigin?: MaterialRootOrigin
-  status?: MaterialStatus
-  page?: number
-  size?: number
 }
 
 /**

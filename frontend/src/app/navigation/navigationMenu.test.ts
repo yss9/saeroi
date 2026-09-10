@@ -121,7 +121,7 @@ describe('역할별 사업자 메뉴', () => {
       '회사 정보', '보유 소재',
       // 조회 화면은 공개라 역할과 무관하게 보인다. 라우터에는 있는데 메뉴에 없어서
       // 주소를 직접 치지 않으면 못 가던 것을 넣었다.
-      '소재 마켓플레이스', '소재 둘러보기',
+      '소재 마켓플레이스',
       '소재 등록', '판매 관리', '판매 거래', '제품 둘러보기', '거래 내역',
     ])
   })
@@ -130,7 +130,7 @@ describe('역할별 사업자 메뉴', () => {
     expect(visibleLabels('BRAND')).toEqual([
       '회사 정보', '보유 소재',
       // 브랜드가 소재를 사는 입구다. 이게 메뉴에 없어서 대시보드에서 갈 수가 없었다.
-      '소재 마켓플레이스', '소재 둘러보기',
+      '소재 마켓플레이스',
       // '내 제품' 은 등록한 제품의 판매를 시작·중단하는 곳이다. '제품 둘러보기'(마켓)와
       // 다른 목록이다 — 이쪽은 아직 공개하지 않은 DRAFT 를 포함한다.
       '가공 신청', '요청 내역', '생산 관리', '제품 등록', '내 제품', '제품 둘러보기', '거래 내역',
@@ -140,7 +140,7 @@ describe('역할별 사업자 메뉴', () => {
   it('PROCESSOR 는 업체 등록·가공 작업 메뉴를 추가로 본다', () => {
     expect(visibleLabels('PROCESSOR')).toEqual([
       '회사 정보', '보유 소재',
-      '소재 마켓플레이스', '소재 둘러보기',
+      '소재 마켓플레이스',
       '업체 등록', '가공 작업', '제품 둘러보기', '거래 내역',
     ])
   })
@@ -152,7 +152,7 @@ describe('역할별 사업자 메뉴', () => {
     // 남는 것은 RoleGuard 가 없는 Protected 경로(/inventory·/trades)뿐이다.
     // 그 둘에 역할 조건을 새로 붙이지 않기로 했다 (권한 Matrix §3-3·§3-5).
     const browseAndOpen = [
-      '보유 소재', '소재 마켓플레이스', '소재 둘러보기', '제품 둘러보기', '거래 내역',
+      '보유 소재', '소재 마켓플레이스', '제품 둘러보기', '거래 내역',
     ]
     expect(visibleLabels('ADMIN')).toEqual(browseAndOpen)
     expect(visibleLabels('CONSUMER')).toEqual(browseAndOpen)
@@ -169,7 +169,7 @@ describe('역할별 사업자 메뉴', () => {
       .filter((item) => visibleLabels(null, false).includes(item.label))
 
     expect(leaked).toEqual([])
-    expect(visibleLabels(null, false)).toEqual(['소재 마켓플레이스', '소재 둘러보기'])
+    expect(visibleLabels(null, false)).toEqual(['소재 마켓플레이스'])
   })
 })
 
