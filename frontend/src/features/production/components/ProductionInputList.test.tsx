@@ -47,12 +47,16 @@ function batch(overrides: Partial<ProductionBatch> = {}): ProductionBatch {
     producedQuantity: 10,
     producerId: 5,
     producerWallet: '0x2222222222222222222222222222222222222222',
+    // 온체인 서명 전이다 — createBatch 를 알리기 전까지 null 이다.
+    chainBatchId: null,
     status: 'DRAFT',
     // 확정 전에는 서버가 전부 0 으로 준다. 화면이 이 값을 쓰면 거짓을 말한다.
     totalUsedQuantity: 0,
     virginUsedQuantity: 0,
     upcycledUsedQuantity: 0,
     upcycleRatio: 0,
+    evidenceHash: null,
+    manifestUrl: null,
     createdAt: '2026-09-08T10:00:00',
     confirmedAt: null,
     inputs: [input()],

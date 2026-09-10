@@ -237,3 +237,23 @@
   color: #6b7280;
 }
 .item-list__open { font-size: 0.8rem; }
+
+/* ── 온체인 단계 목록 ────────────────────────────────── */
+
+/* 공통 OnChainPanel 안에 들어가는 보조 표시다. 패널 자체의 스타일은 그쪽 CSS 가 갖는다. */
+.chain-steps {
+  margin: 0.75rem 0 0;
+  padding-left: 1.35rem;
+  font-size: 0.82rem;
+  color: #6b7280;
+}
+.chain-steps li + li { margin-top: 0.2rem; }
+.chain-steps__done { color: #1f6f4a; font-weight: 600; }
+/* 아직 프론트가 부를 수 없는 단계. 대기와 구분되어야 한다. */
+.chain-steps__pending {
+  margin-left: 0.35rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  background: #ece9e0;
+  font-size: 0.72rem;
+}
