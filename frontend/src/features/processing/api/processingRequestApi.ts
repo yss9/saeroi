@@ -16,7 +16,7 @@ export interface ProcessorMatch {
   region: string
   minQuantity: number
   maxQuantity: number
-  estimatedLeadDays: number | null
+  estimatedLeadTimes: Array<{ processType: ProcessType; leadDays: number }>
 }
 export interface ProcessorSearch {
   materialType: MaterialType

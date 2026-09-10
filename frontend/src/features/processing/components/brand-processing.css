@@ -109,6 +109,8 @@
 .bp-processor-body > span { display: flex; align-items: center; gap: 3px; margin: 5px 0 14px; color: #7b8997; font-size: .68rem; }
 .bp-processor-body > div { display: flex; flex-wrap: wrap; gap: 18px; color: #82909e; font-size: .68rem; }
 .bp-processor-body b { display: block; color: #52687b; font-size: .72rem; font-weight: 700; }
+.bp-lead-times b { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 3px; }
+.bp-lead-times em { padding: 2px 7px; border-radius: 5px; background: #eaf3fa; color: var(--bp-primary); font-style: normal; white-space: nowrap; }
 .bp-match-tag { position: absolute; top: 17px; right: 16px; padding: 3px 7px; border-radius: 5px; background: #e5f0f8; color: var(--bp-primary); font-size: .62rem; font-weight: 750; }
 .bp-pagination { display: flex; align-items: center; justify-content: center; gap: 13px; margin-top: 20px; font-size: .72rem; }
 .bp-pagination .bp-button { padding: 7px 10px; font-size: .67rem; }

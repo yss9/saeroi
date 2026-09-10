@@ -5,13 +5,12 @@ import { BusinessSignupForm } from './BusinessSignupForm.tsx'
 
 const openKakaoPostcode = vi.hoisted(() => vi.fn())
 
-vi.mock('../utils/kakaoPostcode.ts', () => ({ openKakaoPostcode }))
+vi.mock('../../../utils/kakaoPostcode.ts', () => ({ openKakaoPostcode }))
 
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
 })
-
 describe('BusinessSignupForm', () => {
   it('requires a business role and company information', async () => {
     const user = userEvent.setup()

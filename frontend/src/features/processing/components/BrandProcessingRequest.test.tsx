@@ -13,7 +13,7 @@ beforeEach(() => {
     accessToken: 'test-token',
     isAuthenticated: true,
   })
-  vi.mocked(apiClient.get).mockImplementation(async (url) => ({ data: url.includes('materials') ? [{ materialId: 1, materialCode: 'MAT-1', name: '폐데님', materialType: 'DENIM', quantity: 1000, lockedQuantity: 200, availableQuantity: 800 }] : { items: [{ processorId: 2, name: '새로 가공소', region: '서울', minQuantity: 1, maxQuantity: 1000, estimatedLeadDays: 3 }], total: 1, page: 0, size: 12 } }))
+  vi.mocked(apiClient.get).mockImplementation(async (url) => ({ data: url.includes('materials') ? [{ materialId: 1, materialCode: 'MAT-1', name: '폐데님', materialType: 'DENIM', quantity: 1000, lockedQuantity: 200, availableQuantity: 800 }] : { items: [{ processorId: 2, name: '새로 가공소', region: '서울', minQuantity: 1, maxQuantity: 1000, estimatedLeadTimes: [{ processType: 'CLEANING', leadDays: 3 }, { processType: 'CUTTING', leadDays: 5 }] }], total: 1, page: 0, size: 12 } }))
   vi.mocked(apiClient.post).mockResolvedValue({ data: { requestId: 7, requestCode: 'PR-7', status: 'QUOTING', quantity: 500, processTypes: ['CLEANING'], expiresAt: '2026-09-14T10:00:00', createdAt: '2026-09-07T10:00:00' } })
 })
 afterEach(() => {
@@ -47,6 +47,8 @@ it('복수 목적 검색 후 한 가공사를 선택하고 신청 및 취소한�
   const user = await conditions()
   await user.click(screen.getByLabelText('재단'))
   await user.click(screen.getByRole('button', { name: /가공사 찾기/ }))
+  expect(await screen.findByText('세척 3일')).toBeInTheDocument()
+  expect(screen.getByText('재단 5일')).toBeInTheDocument()
   await user.click(await screen.findByRole('radio', { name: /새로 가공소/ }))
   await user.click(screen.getByRole('button', { name: /신청 내용 확인/ }))
   await user.click(screen.getByRole('button', { name: '가공 신청하기' }))
