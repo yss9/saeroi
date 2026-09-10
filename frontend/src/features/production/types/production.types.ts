@@ -83,6 +83,45 @@ export interface ProductionInputRequest {
 }
 
 /**
+ * `product_item.status` — 개별 제품 개체의 상태.
+ *
+ * Backend `ProductItemStatus` 와 문자열이 일치한다.
+ */
+export type ProductItemStatus = 'IN_STOCK' | 'RESERVED' | 'SOLD'
+
+export const PRODUCT_ITEM_STATUS_LABEL: Record<ProductItemStatus, string> = {
+  IN_STOCK: '재고',
+  RESERVED: '예약',
+  SOLD: '판매 완료',
+}
+
+/**
+ * 확정으로 만들어진 제품 개체 하나.
+ *
+ * Backend 원본: `production/dto/ProductionItemResponse.java`.
+ * **QR 라벨 인쇄가 쓰는 응답이다.**
+ *
+ * ⚠️ **`qrToken` 은 인증 없이 열리는 조회 경로(`/qr/:qrToken`)의 열쇠다.** 브랜드는 이
+ * 값을 제품에 인쇄해야 하므로 화면이 받아야 하지만, 아무에게나 보이면 그 제품의 이력을
+ * 누구나 열 수 있다 — 서버가 배치 소유자에게만 준다(남의 배치는 403). 화면도 길게 늘어놓지
+ * 않고 복사·열기 동작으로 다룬다.
+ *
+ * `productModelId` 는 없다. 배치 조회의 응답이고 배치가 이미 그 값을 갖고 있어, 개체마다
+ * 반복하면 같은 값이 개수만큼 실린다.
+ */
+export interface ProductionItem {
+  productItemId: number
+  /** 사람이 읽는 개체 식별자 */
+  itemCode: string
+  /** 배치 안에서의 일련번호 (1부터) */
+  serialNumber: number
+  /** `/qr/{qrToken}` 으로 열린다 */
+  qrToken: string
+  status: ProductItemStatus
+  createdAt: string
+}
+
+/**
  * 배치 열기 요청 (`POST /v1/production-batches`).
  *
  * 요청이 정할 수 없는 값이 셋 있다 — `producerId`(JWT), `producerWallet`(등록된 활성 지갑),
