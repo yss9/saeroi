@@ -5,6 +5,7 @@ import com.ssafy.upcycle.product.ProductErrorCode;
 import com.ssafy.upcycle.product.dto.ProductModelRegisterRequest;
 import com.ssafy.upcycle.product.dto.ProductModelResponse;
 import com.ssafy.upcycle.product.dto.ProductModelStatusRequest;
+import com.ssafy.upcycle.product.dto.ProductModelUpdateRequest;
 import com.ssafy.upcycle.product.entity.ProductItemStatus;
 import com.ssafy.upcycle.product.entity.ProductModel;
 import com.ssafy.upcycle.product.entity.ProductModelStatus;
@@ -55,6 +56,37 @@ public class ProductModelRegistrationService {
         // 방금 만든 모델이라 재고는 언제나 0 이다. 세지 않고 상수를 넣으면 나중에 등록
         // 경로가 개체를 함께 만들게 됐을 때 조용히 거짓말을 한다.
         return ProductModelResponse.of(saved, countInStock(saved.getId()));
+    }
+
+    /**
+     * 제품 정보를 고친다. <b>보낸 필드만 바뀐다.</b>
+     *
+     * <p>수정 경로가 없으면 오타 하나 고치려고 제품을 새로 등록하게 되고, 그러면 단종된
+     * 제품이 쌓이는 데다 <b>이미 생산된 개체가 옛 제품에 붙어</b> 이력이 갈라진다.
+     *
+     * <p><b>단종된 제품은 고칠 수 없다.</b> 더 팔지 않기로 한 제품의 이름과 가격을 바꾸면,
+     * 그 제품을 산 사람이 나중에 보는 이력이 실제로 산 것과 달라진다.
+     *
+     * <p>대표 이미지를 바꾸면 등록과 같은 검사를 거친다 — 저장소에 없는 키를 넣으면
+     * 이미지가 깨진 제품이 되고, 그건 마켓에 올라간 뒤에야 드러난다.
+     */
+    @Transactional
+    public ProductModelResponse update(
+            Long brandId, Long productModelId, ProductModelUpdateRequest request) {
+        if (request.isEmpty() || request.hasBlankText()) {
+            throw new BusinessException(ProductErrorCode.PRODUCT_MODEL_NOTHING_TO_UPDATE);
+        }
+        ProductModel model = productModelRepository.findById(productModelId)
+                .orElseThrow(() -> new BusinessException(ProductErrorCode.PRODUCT_MODEL_NOT_FOUND));
+        requireOwner(model, brandId);
+        requireNotDiscontinued(model);
+        if (request.thumbnailUrl() != null) {
+            productImageService.requireStoredImage(request.thumbnailUrl());
+        }
+
+        model.update(
+                request.name(), request.price(), request.description(), request.thumbnailUrl());
+        return ProductModelResponse.of(model, countInStock(productModelId));
     }
 
     /**
