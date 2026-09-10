@@ -23,6 +23,14 @@ export interface ProductionBatch {
   producerId: number
   /** 배치를 연 시점의 활성 지갑. 온체인 기록에 그대로 남는다 */
   producerWallet: string
+  /**
+   * 온체인 배치 번호. `createBatch` 를 서명하고 서버에 알리기 전에는 null 이다.
+   *
+   * **뒤의 세 단계가 모두 이 번호를 인자로 받는다.** 화면이 들고 있지 않고 서버가 보관하는
+   * 이유가 그것이다 — 새로고침 한 번에 잃어버리면 이미 체인에 만들어진 배치를 다시 가리킬
+   * 수 없다.
+   */
+  chainBatchId: number | null
   status: ProductionBatchStatus
   /** 투입 합계 (gram) */
   totalUsedQuantity: number
@@ -30,6 +38,13 @@ export interface ProductionBatch {
   upcycledUsedQuantity: number
   /** 확정 전에는 0. 서버가 문자열로 줄 수도 있어(BigDecimal) 표시 전에 Number 로 좁힌다 */
   upcycleRatio: number
+  /**
+   * 체인에 올린 manifest 의 해시. `submitPlanAndLock` 결과를 알리기 전에는 null 이다.
+   *
+   * 이 값이 채워졌는지가 "계획이 체인에 기록됐는가" 의 답이다.
+   */
+  evidenceHash: string | null
+  manifestUrl: string | null
   createdAt: string
   confirmedAt: string | null
   inputs: ProductionInput[]
@@ -80,6 +95,41 @@ export interface ProductionInputRequest {
   wasteQuantity: number
   /** 200자 이하. 폐기가 없으면 비워 둔다 */
   wasteReason?: string
+}
+
+/**
+ * 온체인에 올릴 생산 manifest 와 그 해시 (`GET /{batchId}/chain/manifest`).
+ *
+ * **해시는 서버가 계산한 값을 그대로 쓴다.** 화면이 다시 계산하지 않는다 — 필드 순서·공백·
+ * 인코딩이 조금만 달라도 해시가 완전히 달라지고, 그러면 나중에 재현해 대조할 수 없다.
+ * 추적성의 마지막 한 칸이 그 대조에 걸려 있다.
+ *
+ * `manifest` 본문은 화면이 읽을 필요가 거의 없다 — 무엇을 서명하는지 사용자에게 보여줄 때만
+ * 쓴다. 서버 직렬화 규칙은 선언 순서 · 공백 없음 · UTF-8 이다.
+ */
+export interface ProductionManifest {
+  manifest: {
+    batchCode: string
+    productModelId: number
+    producedQuantity: number
+    producerWallet: string
+    /** 문자열이다 — BigDecimal 을 그대로 직렬화한다 */
+    upcycleRatio: string
+    totalUsedQuantity: number
+    virginUsedQuantity: number
+    upcycledUsedQuantity: number
+    inputs: {
+      /** DB id 가 아니라 소재 코드다 — manifest 는 체인에 남아 다른 시스템이 읽을 수 있다 */
+      materialCode: string
+      inputQuantity: number
+      productUsedQuantity: number
+      reusableScrapQuantity: number
+      wasteQuantity: number
+    }[]
+    itemCodes: string[]
+  }
+  /** `0x` + 64 hex. 서명과 서버 보고에 이 값을 그대로 쓴다 */
+  evidenceHash: string
 }
 
 /**
