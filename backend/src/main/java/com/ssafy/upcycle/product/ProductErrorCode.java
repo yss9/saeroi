@@ -43,6 +43,18 @@ public enum ProductErrorCode implements ErrorCode {
             "PRODUCT_ROLE_NOT_ALLOWED",
             "제품은 브랜드만 등록할 수 있습니다."),
 
+    /**
+     * 바꿀 내용이 없거나 빈 값을 보낸 수정 요청.
+     *
+     * <p>부분 수정이라 "안 보냄"({@code null})과 "빈 값으로 바꿈"({@code ""})을 구분해야
+     * 하는데, 이름을 빈 문자열로 만드는 것은 실수이지 의도가 아니다. 아무것도 안 보낸
+     * 요청도 마찬가지다 — 성공했다고 답할 것이 없다.
+     */
+    PRODUCT_MODEL_NOTHING_TO_UPDATE(
+            HttpStatus.BAD_REQUEST,
+            "PRODUCT_MODEL_NOTHING_TO_UPDATE",
+            "수정할 내용을 올바르게 지정해 주세요."),
+
     PRODUCT_MODEL_DISCONTINUED(
             HttpStatus.CONFLICT,
             "PRODUCT_MODEL_DISCONTINUED",

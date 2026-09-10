@@ -112,6 +112,39 @@ public class ProductModel {
         return new ProductModel(name, category, brandId, price, description, thumbnailUrl);
     }
 
+    /**
+     * 제품 정보를 고친다. <b>{@code null} 인 값은 건드리지 않는다.</b>
+     *
+     * <p>부분 수정이라 "안 보냄" 과 "빈 값으로 바꿈" 을 구분해야 하는데, 여기 오는 값은
+     * 이미 요청 DTO 가 걸러낸 것이다 — 보낸 필드는 비어 있을 수 없고, 안 보낸 필드는
+     * {@code null} 로 온다.
+     *
+     * <p><b>카테고리와 상태는 여기서 못 바꾼다.</b> 카테고리를 바꾸면 이미 그 분류로 팔린
+     * 제품의 이력이 흔들리고, 상태는 재고를 봐야 정해지는 값이라 별도 경로가 있다.
+     *
+     * <p><b>가격은 판매 중에도 바꿀 수 있다.</b> 세일을 아예 막으면 가격을 내리려고 제품을
+     * 새로 등록하게 되고, 그러면 이미 만든 개체가 옛 제품에 붙어 이력이 갈라진다.
+     * 이미 결제된 주문은 {@code product_order_item.price} 스냅샷이 지키므로 영향이 없다.
+     */
+    public void update(String name, Long price, String description, String thumbnailUrl) {
+        if (name != null) {
+            this.name = requireText(name, "name", NAME_MAX_LENGTH);
+        }
+        if (price != null) {
+            if (price < 0) {
+                throw new IllegalArgumentException("Product model price must not be negative");
+            }
+            this.price = price;
+        }
+        if (description != null) {
+            this.description = requireText(description, "description", Integer.MAX_VALUE);
+        }
+        if (thumbnailUrl != null) {
+            this.thumbnailUrl =
+                    requireText(thumbnailUrl, "thumbnail url", THUMBNAIL_URL_MAX_LENGTH);
+        }
+    }
+
     /** 판매를 시작한다. 이미 내린 제품은 다시 올리지 않는다 — 새 모델로 등록한다. */
     public void putOnSale() {
         requireNotDiscontinued("put on sale");

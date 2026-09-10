@@ -6,6 +6,7 @@ import com.ssafy.upcycle.product.dto.ProductModelRegisterRequest;
 import com.ssafy.upcycle.product.dto.ProductModelResponse;
 import com.ssafy.upcycle.product.dto.ProductModelSearchCondition;
 import com.ssafy.upcycle.product.dto.ProductModelStatusRequest;
+import com.ssafy.upcycle.product.dto.ProductModelUpdateRequest;
 import com.ssafy.upcycle.trade.dto.PageResponse;
 import com.ssafy.upcycle.product.service.ProductImageService;
 import com.ssafy.upcycle.product.service.ProductModelQueryService;
@@ -67,6 +68,26 @@ public class ProductModelController {
             @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody ProductModelRegisterRequest request) {
         return ApiResponse.success(productModelRegistrationService.register(userId(jwt), request));
+    }
+
+    /**
+     * 제품 정보를 고친다. <b>보낸 필드만 바뀐다.</b>
+     *
+     * <p>이름·가격·설명·대표 이미지를 바꾼다. 카테고리와 판매 상태는 여기서 못 바꾼다 —
+     * 카테고리를 바꾸면 이미 그 분류로 팔린 제품의 이력이 흔들리고, 상태는 재고를 봐야
+     * 정해지는 값이라 아래 경로가 맡는다.
+     *
+     * <p><b>가격은 판매 중에도 바꿀 수 있다.</b> 세일을 막으면 가격을 내리려고 제품을 새로
+     * 등록하게 되고, 그러면 이미 만든 개체가 옛 제품에 붙는다. 이미 결제된 주문은 주문
+     * 시점 단가 스냅샷이 지킨다.
+     */
+    @PatchMapping("/{productModelId}")
+    public ApiResponse<ProductModelResponse> update(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long productModelId,
+            @Valid @RequestBody ProductModelUpdateRequest request) {
+        return ApiResponse.success(
+                productModelRegistrationService.update(userId(jwt), productModelId, request));
     }
 
     /**
