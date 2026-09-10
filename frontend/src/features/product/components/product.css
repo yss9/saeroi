@@ -130,3 +130,34 @@
   overflow-wrap: anywhere;
   line-height: 1.65;
 }
+
+/* ── 브랜드 제품 관리 ────────────────────────────────── */
+
+.brand-product-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+
+.brand-product-list__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1.15rem;
+  border: 1px solid #ddd9cd;
+  border-radius: 8px;
+  background: #fff;
+  flex-wrap: wrap;
+}
+
+.brand-product-list__main { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.brand-product-list__name { font-size: 0.98rem; font-weight: 600; color: inherit; }
+.brand-product-list__meta { font-size: 0.82rem; color: #6b7280; }
+
+.brand-product-list__stock { font-size: 0.8rem; color: #1f6f4a; font-variant-numeric: tabular-nums; }
+/* 팔 수 없는 상태는 색을 낮춘다 — 판매 가능 수량과 눈으로 갈려야 한다. */
+.brand-product-list__stock--empty { color: #6b7280; }
+
+.brand-product-list__side { display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; }
+.brand-product-list__actions { display: flex; gap: 0.4rem; }
+
+/* 버튼을 비활성으로 남기는 대신 이유를 적는다 — 비활성 버튼은 이유를 말하지 않는다. */
+.brand-product-list__hint { font-size: 0.78rem; color: #6b7280; }
+.brand-product-list__hint-link { font-size: 0.78rem; }

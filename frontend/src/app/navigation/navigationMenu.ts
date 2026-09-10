@@ -41,7 +41,7 @@ export interface NavigationMenuItem {
  * 아래 순서는 각 역할이 걸러진 뒤에도 자연스럽게 읽히도록 골랐다.
  *
  *   SUPPLIER  회사 정보 · 보유 소재 · 소재 등록 · 판매 관리 · 판매 거래 · 거래 내역
- *   BRAND     회사 정보 · 보유 소재 · 가공 신청 · 요청 내역 · 생산 관리 · 제품 등록 · 거래 내역
+ *   BRAND     회사 정보 · 보유 소재 · 가공 신청 · 요청 내역 · 생산 관리 · 제품 등록 · 내 제품 · 거래 내역
  *   PROCESSOR 회사 정보 · 보유 소재 · 업체 등록 · 가공 작업 · 거래 내역
  *
  * `/inventory`, `/trades` 는 RoleGuard 가 없는 Protected 경로다 = 로그인만 하면
@@ -67,6 +67,7 @@ export const BUSINESS_MENU_ITEMS: readonly NavigationMenuItem[] = [
   { label: '요청 내역', to: '/brand/processing/requests', Icon: ClipboardText },
   { label: '생산 관리', to: '/brand/production', Icon: Buildings },
   { label: '제품 등록', to: '/brand/products/new', Icon: Tag },
+  { label: '내 제품', to: '/brand/products', Icon: Storefront },
   { label: '업체 등록', to: '/processor/profile', Icon: Buildings },
   { label: '가공 작업', to: '/processor/jobs', Icon: Factory },
   { label: '제품 둘러보기', to: '/products', Icon: Tag },
