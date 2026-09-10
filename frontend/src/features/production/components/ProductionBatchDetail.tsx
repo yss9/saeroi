@@ -14,6 +14,7 @@ import { useProductionBatch } from '../hooks/useProductionBatch.ts'
 import type { ProductionBatch, ProductionBatchStatus } from '../types/production.types.ts'
 import { MaterialInputSelect } from './MaterialInputSelect.tsx'
 import { ProductionInputList } from './ProductionInputList.tsx'
+import { ProductionItemList } from './ProductionItemList.tsx'
 import './production.css'
 
 export interface ProductionBatchDetailProps {
@@ -77,6 +78,12 @@ export function ProductionBatchDetail({ batchId }: ProductionBatchDetailProps) {
       {editable && <ConfirmSection batch={data} />}
 
       {data.status === 'CONFIRMED' && <ConfirmedResult batch={data} />}
+
+      {/* 확정으로 만들어진 개체와 QR. 확정 전에는 조회하지 않고 안내만 한다. */}
+      <section className="batch-detail__section">
+        <h2>제품 개체와 QR</h2>
+        <ProductionItemList batchId={batchId} confirmed={data.status === 'CONFIRMED'} />
+      </section>
     </div>
   )
 }
@@ -175,9 +182,8 @@ function ConfirmSection({ batch }: { batch: ProductionBatch }) {
 /**
  * 확정 결과.
  *
- * ⚠️ **만들어진 개체와 QR 토큰을 보여줄 수 없다.** 확정하면 제품 개체가 생기는데 그것을
- * 조회하는 API 가 아직 없다 (`ProductItem` 을 다루는 것은 비회원 QR 조회뿐이다).
- * QR 라벨을 인쇄하려면 토큰 목록이 필요하므로 Backend 에 요청해 둔 상태다.
+ * 만들어진 개체와 QR 은 아래 `ProductionItemList` 가 보여준다
+ * (`GET /{batchId}/items`).
  *
  * 업사이클 비율은 서버가 확정 시점에 계산해 스냅샷으로 굳힌 값이라 여기서 다시 계산하지
  * 않는다 — 다시 계산하면 소재 데이터가 바뀔 때 이미 팔린 제품의 비율이 소급해 변한다.

@@ -5,7 +5,11 @@
 // (`paymentApi.ts` 가 같은 판단을 한다.)
 
 import { apiClient } from '../../../services/apiClient.ts'
-import type { OpenProductionBatchRequest, ProductionBatch } from '../types/production.types.ts'
+import type {
+  OpenProductionBatchRequest,
+  ProductionBatch,
+  ProductionItem,
+} from '../types/production.types.ts'
 
 /**
  * 배치 열기 — `POST /v1/production-batches`
@@ -65,6 +69,23 @@ export async function getMyProductionBatches(): Promise<ProductionBatch[]> {
 export async function confirmProductionBatch(batchId: number): Promise<ProductionBatch> {
   const { data } = await apiClient.post<ProductionBatch>(
     `/v1/production-batches/${batchId}/confirm`,
+  )
+  return data
+}
+
+/**
+ * 확정으로 만들어진 제품 개체 — `GET /v1/production-batches/{batchId}/items`
+ *
+ * **QR 라벨 인쇄를 위한 조회다.** 응답의 `qrToken` 이 비회원 공개 경로(`/qr/{token}`)의
+ * 열쇠이므로 서버가 **배치 소유자에게만** 준다 — 남의 배치를 조회하면
+ * `PRODUCTION_FORBIDDEN`(403) 이다.
+ *
+ * 확정 전에는 개체가 없어 빈 배열이다. 배치가 없거나 남의 것이면 에러이지, 빈 배열이
+ * 아니다 — 그 둘을 화면이 구분할 수 있어야 한다.
+ */
+export async function getProductionItems(batchId: number): Promise<ProductionItem[]> {
+  const { data } = await apiClient.get<ProductionItem[]>(
+    `/v1/production-batches/${batchId}/items`,
   )
   return data
 }

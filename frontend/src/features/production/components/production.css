@@ -190,3 +190,50 @@
 .batch-detail__effects li + li { margin-top: 0.3rem; }
 
 .batch-detail__note { margin: 0; font-size: 0.85rem; color: #6b7280; }
+
+/* ── 제품 개체와 QR ──────────────────────────────────── */
+
+.item-list { display: flex; flex-direction: column; gap: 0.75rem; width: 100%; }
+.item-list__note,
+.item-list__summary {
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+  border-radius: 6px;
+  background: #f4f2ec;
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.item-list__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  display: block;
+  overflow-x: auto;
+}
+/* QR 주소가 공개 경로라는 사실을 표 위에 붙여 둔다 — 복사 버튼 옆에만 적으면 놓친다. */
+.item-list__caption {
+  margin-bottom: 0.5rem;
+  text-align: left;
+  font-size: 0.8rem;
+  color: #8a4b0b;
+}
+.item-list__table th,
+.item-list__table td {
+  padding: 0.55rem 0.7rem;
+  border-bottom: 1px solid #ece9e0;
+  text-align: left;
+  white-space: nowrap;
+}
+.item-list__table thead th { color: #6b7280; font-weight: 600; font-size: 0.8rem; }
+.item-list__table th[scope="row"] { font-variant-numeric: tabular-nums; color: #6b7280; }
+.item-list__code { font-family: ui-monospace, Menlo, monospace; font-size: 0.82rem; }
+
+.item-list__qr { display: flex; align-items: center; gap: 0.5rem; }
+/* 토큰은 확인용 앞자리만 보여준다. 전체는 복사로만 얻는다. */
+.item-list__token {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+.item-list__open { font-size: 0.8rem; }
