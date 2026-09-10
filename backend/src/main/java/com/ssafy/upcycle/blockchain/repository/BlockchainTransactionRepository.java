@@ -3,11 +3,20 @@ package com.ssafy.upcycle.blockchain.repository;
 import com.ssafy.upcycle.blockchain.entity.BlockchainReferenceType;
 import com.ssafy.upcycle.blockchain.entity.BlockchainTransaction;
 import com.ssafy.upcycle.blockchain.entity.BlockchainTransactionStatus;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface BlockchainTransactionRepository
         extends JpaRepository<BlockchainTransaction, Long> {
+
+    /**
+     * 한 대상에 기록된 모든 온체인 트랜잭션. 함수 이름을 가리지 않는다 —
+     * mint 링크·거래 링크·검증 등 여러 함수가 같은 대상(reference_id)을 가리킬 수 있고,
+     * Transaction 상태 조회 화면은 그 전부를 한 번에 보여준다.
+     */
+    List<BlockchainTransaction> findByReferenceTypeAndReferenceIdOrderByConfirmedAtDesc(
+            BlockchainReferenceType referenceType, Long referenceId);
 
     /**
      * 특정 대상에 대해 특정 함수 호출이 어떤 상태로 기록되어 있는지.
