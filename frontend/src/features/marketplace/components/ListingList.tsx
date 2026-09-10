@@ -1,9 +1,8 @@
-import { EmptyState, ErrorMessage, Loading } from '../../../components/common/index.ts'
+import { EmptyState, ErrorMessage, Loading, Pagination } from '../../../components/common/index.ts'
 import { useListings } from '../hooks/useListings.ts'
 import type { GetListingsParams } from '../api/getListings.ts'
 import type { Listing } from '../types/marketplace.types.ts'
 import { ListingCard } from './ListingCard.tsx'
-import { Pagination } from './Pagination.tsx'
 
 export interface ListingListProps {
   params?: GetListingsParams

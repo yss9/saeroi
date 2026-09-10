@@ -27,6 +27,7 @@ import { BrandProductPage } from '../../pages/product/BrandProductPage.tsx'
 import { ProductDetailPage } from '../../pages/product/ProductDetailPage.tsx'
 import { ProductListPage } from '../../pages/product/ProductListPage.tsx'
 import { ProductRegisterPage } from '../../pages/product/ProductRegisterPage.tsx'
+import { ProductionBatchDetailPage } from '../../pages/production/ProductionBatchDetailPage.tsx'
 import { ProductionPage } from '../../pages/production/ProductionPage.tsx'
 import { PassportPage } from '../../pages/traceability/PassportPage.tsx'
 import { PaymentReturnPage } from '../../pages/trade/PaymentReturnPage.tsx'
@@ -156,6 +157,9 @@ export const routes: RouteObject[] = [
           { path: '/brand/processing/requests/:requestId', element: <BrandProcessingRequestDetailPage /> },
           { path: '/processing/jobs/:jobId/payment/callback', element: <ProcessingPaymentCallbackPage /> },
           { path: '/brand/production', element: <ProductionPage /> },
+          // 배치 상세에서 소재를 투입하고 확정한다. 목록에서 눌러 들어가는 화면이라
+          // 사이드바에는 두지 않는다.
+          { path: '/brand/production/:batchId', element: <ProductionBatchDetailPage /> },
           // 제품 등록. 서버도 BRAND 만 허용하고 역할을 DB 에서 다시 읽어 판단한다.
           { path: '/brand/products/new', element: <ProductRegisterPage /> },
           // 내 제품 관리(판매 시작·중단). 마켓 목록(/products)과 달리 DRAFT 를 포함한다.

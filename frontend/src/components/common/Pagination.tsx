@@ -1,5 +1,5 @@
-import { Button } from '../../../components/common/index.ts'
-import type { PageResponse } from '../../../types/api.types.ts'
+import type { PageResponse } from '../../types/api.types.ts'
+import { Button } from './Button.tsx'
 
 export interface PaginationProps {
   page: PageResponse<unknown>
@@ -9,6 +9,9 @@ export interface PaginationProps {
 
 /**
  * 이전·다음 페이지 이동.
+ *
+ * marketplace 에 있던 것을 공통으로 옮겼다 — 제품 목록이 두 번째로 필요해졌고,
+ * `PageResponse` 와 콜백만 받아 도메인을 알지 못한다 (ARCHITECTURE §7 의 승격 조건).
  *
  * 페이지 번호 버튼을 나열하지 않는다. 목록이 자주 바뀌는 화면이라(다른 사람이 사면 순서가
  * 밀린다) 3페이지를 정확히 짚어 가는 것이 큰 의미가 없고, 번호 나열은 총 페이지 수가
