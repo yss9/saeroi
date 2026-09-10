@@ -2,7 +2,9 @@ package com.ssafy.upcycle.evidence.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.ssafy.upcycle.common.config.ClockConfig;
 import com.ssafy.upcycle.common.jpa.config.JpaAuditingConfig;
+import com.ssafy.upcycle.material.service.MaterialEventRecorder;
 import com.ssafy.upcycle.common.storage.FileStorageProperties;
 import com.ssafy.upcycle.common.storage.FileStorageService;
 import com.ssafy.upcycle.common.storage.LocalFileStorageService;
@@ -49,7 +51,9 @@ import org.springframework.mock.web.MockMultipartFile;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import({
     JpaAuditingConfig.class,
+    ClockConfig.class,
     EvidenceUploadService.class,
+    MaterialEventRecorder.class,
     EvidenceReferenceValidator.class,
     EvidenceAccessPolicy.class,
     EvidenceListService.class,

@@ -4,6 +4,7 @@ import static com.ssafy.upcycle.processing.ProcessingErrorCode.*;
 import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.material.entity.*;
 import com.ssafy.upcycle.material.repository.MaterialLockRepository;
+import com.ssafy.upcycle.material.service.MaterialEventRecorder;
 import com.ssafy.upcycle.processing.dto.*;
 import com.ssafy.upcycle.processing.entity.*;
 import com.ssafy.upcycle.processing.repository.ProcessingJobRepository;
@@ -23,6 +24,7 @@ public class ProcessingPaymentService {
     private final UserRepository users;
     private final PaymentGateway gateway;
     private final Clock clock;
+    private final MaterialEventRecorder eventRecorder;
     @Value("${app.payment.kakaopay.processing-return-url:http://localhost:5173/processing/jobs/{jobId}/payment/callback}")
     private String returnUrl;
 
@@ -51,6 +53,13 @@ public class ProcessingPaymentService {
         catch (IllegalStateException e) { throw new BusinessException(PROCESSING_PAYMENT_EXPIRED); }
         for (MaterialLock lock:locks.findByReferenceForUpdate(MaterialLockReferenceType.PROCESSING_JOB, jobId)) {
             if (lock.getStatus()==MaterialLockStatus.ACTIVE) lock.clearExpiryForPaidProcessingJob(jobId);
+            eventRecorder.record(
+                    lock.getMaterialId(), MaterialEventType.PROCESSING_JOB_PAID, actorId,
+                    MaterialEventReferenceType.PROCESSING_JOB, jobId, null, lock.getAmount(),
+                    "가공비 결제 승인",
+                    MaterialEventRecorder.key(
+                            MaterialEventType.PROCESSING_JOB_PAID,
+                            lock.getMaterialId(), jobId));
         }
         return ProcessingJobResponse.of(job);
     }

@@ -7,6 +7,7 @@ import com.ssafy.upcycle.common.config.ClockConfig;
 import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.common.exception.ErrorCode;
 import com.ssafy.upcycle.common.jpa.config.JpaAuditingConfig;
+import com.ssafy.upcycle.material.service.MaterialEventRecorder;
 import com.ssafy.upcycle.common.storage.FileContent;
 import com.ssafy.upcycle.common.storage.FileStorageErrorCode;
 import com.ssafy.upcycle.common.storage.FileStorageProperties;
@@ -54,9 +55,11 @@ import org.springframework.mock.web.MockMultipartFile;
     JpaAuditingConfig.class,
     ClockConfig.class,
     EvidenceUploadService.class,
+    MaterialEventRecorder.class,
     EvidenceReferenceValidator.class,
     EvidenceAccessPolicy.class,
     EvidenceAnchorPolicy.class,
+    EvidenceDeletionTransaction.class,
     EvidenceDeletionService.class,
     EvidenceContentService.class,
     EvidenceContentServiceTests.StorageTestConfig.class

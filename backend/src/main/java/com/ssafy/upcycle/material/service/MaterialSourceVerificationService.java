@@ -8,6 +8,8 @@ import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.material.MaterialErrorCode;
 import com.ssafy.upcycle.material.dto.MaterialSourceVerificationRequest;
 import com.ssafy.upcycle.material.entity.Material;
+import com.ssafy.upcycle.material.entity.MaterialEventReferenceType;
+import com.ssafy.upcycle.material.entity.MaterialEventType;
 import com.ssafy.upcycle.material.repository.MaterialRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -33,6 +35,7 @@ public class MaterialSourceVerificationService {
     private final BlockchainVerification blockchainVerification;
     private final ChainTransactionRecorder recorder;
     private final BlockchainTransactionRepository transactionRepository;
+    private final MaterialEventRecorder eventRecorder;
 
     /**
      * 발행 결과를 연결한다. <b>등록자 본인만 할 수 있다.</b>
@@ -81,5 +84,15 @@ public class MaterialSourceVerificationService {
                 materialId,
                 request.txHash(),
                 request.blockNumber());
+        eventRecorder.record(
+                materialId,
+                MaterialEventType.SOURCE_VERIFIED,
+                registrantId,
+                MaterialEventReferenceType.MATERIAL,
+                materialId,
+                null,
+                null,
+                "소재 출처 온체인 검증 확정",
+                MaterialEventRecorder.key(MaterialEventType.SOURCE_VERIFIED, materialId, materialId));
     }
 }

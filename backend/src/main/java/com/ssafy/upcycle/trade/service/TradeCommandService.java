@@ -2,6 +2,9 @@ package com.ssafy.upcycle.trade.service;
 
 import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.material.dto.MaterialQuantityUnit;
+import com.ssafy.upcycle.material.entity.MaterialEventReferenceType;
+import com.ssafy.upcycle.material.entity.MaterialEventType;
+import com.ssafy.upcycle.material.service.MaterialEventRecorder;
 import com.ssafy.upcycle.trade.TradeErrorCode;
 import com.ssafy.upcycle.trade.dto.TradeCreateRequest;
 import com.ssafy.upcycle.trade.dto.TradeQuoteResponse;
@@ -46,6 +49,7 @@ public class TradeCommandService {
     private final UserWalletRepository walletRepository;
     private final TradeCodeGenerator tradeCodeGenerator;
     private final TradeResponseAssembler tradeResponseAssembler;
+    private final MaterialEventRecorder eventRecorder;
 
     /**
      * 구매 전 금액과 구매 가능 여부를 미리 계산한다. <b>아무것도 바꾸지 않는다.</b>
@@ -136,6 +140,13 @@ public class TradeCommandService {
                 request.zipCode(),
                 request.address(),
                 request.addressDetail()));
+
+        eventRecorder.record(
+                trade.getMaterialId(), MaterialEventType.TRADE_CREATED, buyerId,
+                MaterialEventReferenceType.MATERIAL_TRADE, trade.getId(), null, quantity,
+                "소재 구매 거래 생성",
+                MaterialEventRecorder.key(
+                        MaterialEventType.TRADE_CREATED, trade.getMaterialId(), trade.getId()));
 
         return tradeResponseAssembler.of(trade);
     }

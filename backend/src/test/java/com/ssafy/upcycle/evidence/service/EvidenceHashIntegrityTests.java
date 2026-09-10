@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.ssafy.upcycle.common.config.ClockConfig;
 import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.common.jpa.config.JpaAuditingConfig;
+import com.ssafy.upcycle.material.service.MaterialEventRecorder;
 import com.ssafy.upcycle.common.storage.FileStorageProperties;
 import com.ssafy.upcycle.common.storage.FileStorageService;
 import com.ssafy.upcycle.common.storage.LocalFileStorageService;
@@ -73,6 +74,7 @@ import org.springframework.mock.web.MockMultipartFile;
     JpaAuditingConfig.class,
     ClockConfig.class,
     EvidenceUploadService.class,
+    MaterialEventRecorder.class,
     EvidenceReferenceValidator.class,
     EvidenceAccessPolicy.class,
     EvidenceAnchorPolicy.class,

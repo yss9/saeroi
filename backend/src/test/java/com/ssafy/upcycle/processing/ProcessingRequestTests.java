@@ -41,6 +41,7 @@ class ProcessingRequestTests {
     @Autowired MaterialRepository materials;
     @Autowired MaterialBalanceRepository balances;
     @Autowired MaterialLockRepository locks;
+    @Autowired MaterialEventRepository events;
     @Autowired com.ssafy.upcycle.processing.service.ProcessingRequestService service;
     @Autowired com.ssafy.upcycle.processing.service.ProcessingJobService jobService;
     @Autowired com.ssafy.upcycle.processing.repository.ProcessingRequestRepository requests;
@@ -52,7 +53,7 @@ class ProcessingRequestTests {
     @BeforeEach
     void fixture() {
         // Real persisted fixtures: missing reservation writes and transaction errors are observable.
-        for (String table : List.of("processing_input", "processing_job", "processing_quote", "material_lock", "processing_request_type", "processing_request_input",
+        for (String table : List.of("material_event", "processing_input", "processing_job", "processing_quote", "material_lock", "processing_request_type", "processing_request_input",
                 "processing_request", "processor_capability", "processor_lead_time", "processor_profile", "material_balance", "material", "user_wallet", "users")) {
             jdbc.update("delete from " + table);
         }
@@ -113,6 +114,14 @@ class ProcessingRequestTests {
         });
         assertThat(balances.findByMaterialIdAndOwnerId(materialId, brandId).orElseThrow().getQuantity()).isEqualTo(1000);
         assertThat(jdbc.queryForObject("select count(*) from processing_request_type", Long.class)).isEqualTo(2);
+        assertThat(events.findAllByMaterialIdOrderByOccurredAtAscIdAsc(
+                        materialId, org.springframework.data.domain.PageRequest.of(0, 10)).getContent())
+                .singleElement()
+                .satisfies(event -> {
+                    assertThat(event.getEventType()).isEqualTo(MaterialEventType.PROCESSING_REQUESTED);
+                    assertThat(event.getQuantity()).isEqualTo(700L);
+                    assertThat(event.getReferenceId()).isEqualTo(id);
+                });
     }
 
     @Test
@@ -501,6 +510,14 @@ class ProcessingRequestTests {
                         .contentType(MediaType.APPLICATION_JSON).content("{\"pgToken\":\"mock-token\"}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("data.status").value("PAID"));
         assertThat(locks.findAll().getFirst().getExpiresAt()).isNull();
+        assertThat(events.findAllByMaterialIdOrderByOccurredAtAscIdAsc(
+                        materialId, org.springframework.data.domain.PageRequest.of(0, 10)).getContent())
+                .extracting(event -> event.getEventType())
+                .containsExactly(
+                        MaterialEventType.PROCESSING_REQUESTED,
+                        MaterialEventType.PROCESSING_QUOTE_SUBMITTED,
+                        MaterialEventType.PROCESSING_QUOTE_SELECTED,
+                        MaterialEventType.PROCESSING_JOB_PAID);
     }
 
     @Test

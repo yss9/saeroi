@@ -14,13 +14,16 @@ import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.common.security.jwt.JwtTokenService;
 import com.ssafy.upcycle.material.entity.Material;
 import com.ssafy.upcycle.material.entity.MaterialBalance;
+import com.ssafy.upcycle.material.entity.MaterialEventType;
 import com.ssafy.upcycle.material.entity.MaterialLock;
 import com.ssafy.upcycle.material.entity.MaterialLockStatus;
 import com.ssafy.upcycle.material.entity.MaterialRootOrigin;
 import com.ssafy.upcycle.material.entity.MaterialType;
 import com.ssafy.upcycle.material.repository.MaterialBalanceRepository;
+import com.ssafy.upcycle.material.repository.MaterialEventRepository;
 import com.ssafy.upcycle.material.repository.MaterialLockRepository;
 import com.ssafy.upcycle.material.repository.MaterialRepository;
+import com.ssafy.upcycle.material.service.MaterialEventRecorder;
 import com.ssafy.upcycle.trade.entity.ListingStatus;
 import com.ssafy.upcycle.trade.entity.MaterialListing;
 import com.ssafy.upcycle.trade.entity.MaterialTrade;
@@ -56,6 +59,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
@@ -127,6 +131,12 @@ class MarketplaceApiTests {
 
     @Autowired
     private Clock clock;
+
+    @Autowired
+    private MaterialEventRecorder materialEventRecorder;
+
+    @Autowired
+    private MaterialEventRepository materialEventRepository;
 
     private User seller;
     private User buyer;
@@ -820,6 +830,13 @@ class MarketplaceApiTests {
                 .andExpect(jsonPath("$.data.status").value("PAID"))
                 .andExpect(jsonPath("$.data.paymentAmount").value(42_000))
                 .andExpect(jsonPath("$.data.paidAt").isNotEmpty());
+        assertThat(materialEventRepository.findAllByMaterialIdOrderByOccurredAtAscIdAsc(
+                        material.getId(), PageRequest.of(0, 10)).getContent())
+                .extracting(event -> event.getEventType())
+                .containsExactly(
+                        MaterialEventType.MARKETPLACE_LISTED,
+                        MaterialEventType.TRADE_CREATED,
+                        MaterialEventType.TRADE_PAID);
     }
 
     @Test
@@ -853,7 +870,8 @@ class MarketplaceApiTests {
                 tradeResponseAssembler,
                 new WrongAmountGateway(),
                 kakaoPayProperties,
-                clock);
+                clock,
+                materialEventRecorder);
 
         assertThatThrownBy(() -> service.approve(buyer.getId(), tradeId, "TOKEN"))
                 .isInstanceOf(BusinessException.class)
@@ -1312,6 +1330,7 @@ class MarketplaceApiTests {
     }
 
     private void clean() {
+        materialEventRepository.deleteAll();
         tradeRepository.deleteAll();
         listingRepository.deleteAll();
         lockRepository.deleteAll();

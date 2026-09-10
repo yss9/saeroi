@@ -4,8 +4,11 @@ import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.material.entity.MaterialBalance;
 import com.ssafy.upcycle.material.entity.MaterialLock;
 import com.ssafy.upcycle.material.entity.MaterialLockStatus;
+import com.ssafy.upcycle.material.entity.MaterialEventReferenceType;
+import com.ssafy.upcycle.material.entity.MaterialEventType;
 import com.ssafy.upcycle.material.repository.MaterialBalanceRepository;
 import com.ssafy.upcycle.material.repository.MaterialLockRepository;
+import com.ssafy.upcycle.material.service.MaterialEventRecorder;
 import com.ssafy.upcycle.trade.TradeErrorCode;
 import com.ssafy.upcycle.trade.dto.TradeReceiptResponse;
 import com.ssafy.upcycle.trade.entity.MaterialListing;
@@ -43,6 +46,7 @@ public class TradeReceiptService {
     private final MaterialBalanceRepository materialBalanceRepository;
     private final MaterialLockRepository materialLockRepository;
     private final Clock clock;
+    private final MaterialEventRecorder eventRecorder;
 
     /**
      * 구매자가 수령을 확인하고 서명한다.
@@ -76,6 +80,21 @@ public class TradeReceiptService {
         sellerBalance.decrease(trade.getQuantity());
         buyerBalance.increase(trade.getQuantity());
         trade.complete(now);
+
+        eventRecorder.record(
+                trade.getMaterialId(), MaterialEventType.TRADE_RECEIVED, buyerId,
+                MaterialEventReferenceType.MATERIAL_TRADE, trade.getId(), null,
+                trade.getQuantity(), "구매자 소재 수령 확인",
+                MaterialEventRecorder.key(
+                        MaterialEventType.TRADE_RECEIVED, trade.getMaterialId(), trade.getId()));
+        eventRecorder.record(
+                trade.getMaterialId(), MaterialEventType.OWNERSHIP_TRANSFERRED, buyerId,
+                MaterialEventReferenceType.MATERIAL_TRADE, trade.getId(), null,
+                trade.getQuantity(),
+                "소유권 이전: " + trade.getSellerId() + " -> " + trade.getBuyerId(),
+                MaterialEventRecorder.key(
+                        MaterialEventType.OWNERSHIP_TRANSFERRED,
+                        trade.getMaterialId(), trade.getId()));
 
         return TradeReceiptResponse.of(trade, buyerBalance);
     }

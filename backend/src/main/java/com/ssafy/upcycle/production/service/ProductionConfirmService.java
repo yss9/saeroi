@@ -3,6 +3,8 @@ package com.ssafy.upcycle.production.service;
 import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.material.entity.Material;
 import com.ssafy.upcycle.material.entity.MaterialBalance;
+import com.ssafy.upcycle.material.entity.MaterialEventReferenceType;
+import com.ssafy.upcycle.material.entity.MaterialEventType;
 import com.ssafy.upcycle.material.entity.MaterialLineageRelationType;
 import com.ssafy.upcycle.material.entity.MaterialLock;
 import com.ssafy.upcycle.material.entity.MaterialLockStatus;
@@ -13,6 +15,7 @@ import com.ssafy.upcycle.material.repository.MaterialRepository;
 import com.ssafy.upcycle.material.service.MaterialCodeGenerator;
 import com.ssafy.upcycle.material.service.MaterialIssuer;
 import com.ssafy.upcycle.material.service.MaterialLineageRegistrar;
+import com.ssafy.upcycle.material.service.MaterialEventRecorder;
 import com.ssafy.upcycle.product.entity.ProductItem;
 import com.ssafy.upcycle.product.repository.ProductItemRepository;
 import com.ssafy.upcycle.product.service.ProductQrTokenGenerator;
@@ -81,6 +84,7 @@ public class ProductionConfirmService {
     private final MaterialIssuer materialIssuer;
     private final UserRepository userRepository;
     private final Clock clock;
+    private final MaterialEventRecorder eventRecorder;
 
     /**
      * 배치를 확정한다.
@@ -117,7 +121,7 @@ public class ProductionConfirmService {
         Consumption consumption = validateAndCollect(inputs, producerId);
         LocalDateTime now = LocalDateTime.now(clock);
 
-        consumeMaterials(consumption, now);
+        consumeMaterials(consumption, batchId, producerId, now);
         issueScrapMaterials(inputs, consumption, batch, producerId);
         produceItems(batch);
 
@@ -186,10 +190,19 @@ public class ProductionConfirmService {
      * <p>둘을 함께 해야 한다. 잠금만 소비하면 보유량이 그대로라 같은 소재를 또 쓸 수 있고,
      * 보유량만 줄이면 잠금이 남아 가용량이 두 번 깎인다.
      */
-    private void consumeMaterials(Consumption consumption, LocalDateTime now) {
+    private void consumeMaterials(
+            Consumption consumption, Long batchId, Long producerId, LocalDateTime now) {
         for (int i = 0; i < consumption.locks.size(); i++) {
-            consumption.locks.get(i).consume(now);
+            MaterialLock lock = consumption.locks.get(i);
+            lock.consume(now);
             consumption.balances.get(i).decrease(consumption.amounts.get(i));
+            eventRecorder.record(
+                    lock.getMaterialId(), MaterialEventType.MATERIAL_CONSUMED, producerId,
+                    MaterialEventReferenceType.PRODUCTION_BATCH, batchId, null,
+                    consumption.amounts.get(i), "생산 확정으로 소재 소비",
+                    MaterialEventRecorder.key(
+                            MaterialEventType.MATERIAL_CONSUMED,
+                            lock.getMaterialId(), batchId));
         }
     }
 

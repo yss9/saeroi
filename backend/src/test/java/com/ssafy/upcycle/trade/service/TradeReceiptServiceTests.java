@@ -13,6 +13,7 @@ import com.ssafy.upcycle.material.entity.MaterialLockReferenceType;
 import com.ssafy.upcycle.material.entity.MaterialLockStatus;
 import com.ssafy.upcycle.material.repository.MaterialBalanceRepository;
 import com.ssafy.upcycle.material.repository.MaterialLockRepository;
+import com.ssafy.upcycle.material.service.MaterialEventRecorder;
 import com.ssafy.upcycle.trade.TradeErrorCode;
 import com.ssafy.upcycle.trade.dto.TradeReceiptResponse;
 import com.ssafy.upcycle.trade.entity.MaterialListing;
@@ -38,6 +39,7 @@ import org.springframework.context.annotation.Import;
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import({JpaAuditingConfig.class,
+        MaterialEventRecorder.class,
         TradeReceiptService.class,
         TradeReceiptServiceTests.ClockConfig.class})
 class TradeReceiptServiceTests {

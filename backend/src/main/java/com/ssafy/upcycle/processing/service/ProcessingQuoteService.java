@@ -2,6 +2,9 @@ package com.ssafy.upcycle.processing.service;
 
 import static com.ssafy.upcycle.processing.ProcessingErrorCode.*;
 import com.ssafy.upcycle.common.exception.BusinessException;
+import com.ssafy.upcycle.material.entity.MaterialEventReferenceType;
+import com.ssafy.upcycle.material.entity.MaterialEventType;
+import com.ssafy.upcycle.material.service.MaterialEventRecorder;
 import com.ssafy.upcycle.processing.dto.*;
 import com.ssafy.upcycle.processing.entity.*;
 import com.ssafy.upcycle.processing.repository.*;
@@ -18,7 +21,9 @@ public class ProcessingQuoteService {
     private final UserRepository users;
     private final ProcessingRequestRepository requests;
     private final ProcessingQuoteRepository quotes;
+    private final ProcessingRequestInputRepository requestInputs;
     private final Clock clock;
+    private final MaterialEventRecorder eventRecorder;
 
     @Transactional
     public ProcessingQuoteResponse submit(Long actorId, Long requestId, SubmitProcessingQuoteRequest input) {
@@ -34,6 +39,15 @@ public class ProcessingQuoteService {
             throw new BusinessException(PROCESSING_INVALID_QUOTE);
         ProcessingQuote quote = quotes.save(ProcessingQuote.submit(requestId, actorId, input.price(),
                 input.leadDays(), input.memo(), LocalDateTime.now(clock)));
+        ProcessingRequestInput requestInput = requestInputs.findByProcessingRequestId(requestId)
+                .orElseThrow(() -> new BusinessException(PROCESSING_INVALID_STATE));
+        eventRecorder.record(
+                requestInput.getMaterialId(), MaterialEventType.PROCESSING_QUOTE_SUBMITTED, actorId,
+                MaterialEventReferenceType.PROCESSING_QUOTE, quote.getId(), null,
+                requestInput.getQuantity(), "가공업체 견적 제출",
+                MaterialEventRecorder.key(
+                        MaterialEventType.PROCESSING_QUOTE_SUBMITTED,
+                        requestInput.getMaterialId(), quote.getId()));
         return ProcessingQuoteResponse.of(quote, users.findById(actorId).orElseThrow().getName());
     }
 

@@ -11,8 +11,10 @@ import com.ssafy.upcycle.common.security.jwt.JwtTokenService;
 import com.ssafy.upcycle.material.dto.MaterialQuantityUnit;
 import com.ssafy.upcycle.material.dto.MaterialRegisterRequest;
 import com.ssafy.upcycle.material.entity.MaterialRootOrigin;
+import com.ssafy.upcycle.material.entity.MaterialEventType;
 import com.ssafy.upcycle.material.entity.MaterialType;
 import com.ssafy.upcycle.material.repository.MaterialBalanceRepository;
+import com.ssafy.upcycle.material.repository.MaterialEventRepository;
 import com.ssafy.upcycle.material.repository.MaterialLockRepository;
 import com.ssafy.upcycle.material.repository.MaterialRepository;
 import com.ssafy.upcycle.material.service.MaterialRegistrationService;
@@ -78,6 +80,7 @@ class ChainLinkApiTests {
     @Autowired private MaterialLockRepository lockRepository;
     @Autowired private MaterialListingRepository listingRepository;
     @Autowired private BlockchainTransactionRepository transactionRepository;
+    @Autowired private MaterialEventRepository materialEventRepository;
 
     private Long sellerId;
     private String seller;
@@ -123,6 +126,11 @@ class ChainLinkApiTests {
         var recorded = transactionRepository.findAll();
         assertThat(recorded).hasSize(1);
         assertThat(recorded.get(0).getFunctionName()).isEqualTo("mintMaterial");
+        assertThat(materialEventRepository.findAll())
+                .extracting(event -> event.getEventType())
+                .containsExactly(
+                        MaterialEventType.MATERIAL_REGISTERED,
+                        MaterialEventType.MATERIAL_MINTED);
         assertThat(recorded.get(0).getFromWallet())
                 .as("서명자 주소도 서버가 찾는다 — 요청이 보낸 값이 아니다")
                 .isEqualTo(SELLER_WALLET);
@@ -236,6 +244,7 @@ class ChainLinkApiTests {
     }
 
     private void clean() {
+        materialEventRepository.deleteAll();
         transactionRepository.deleteAll();
         listingRepository.deleteAll();
         lockRepository.deleteAll();
