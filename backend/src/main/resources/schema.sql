@@ -149,13 +149,35 @@ CREATE TABLE processor_capability (
 CREATE TABLE processor_lead_time (
     id BIGINT NOT NULL AUTO_INCREMENT,
     processor_profile_id BIGINT NOT NULL,
+    material_type VARCHAR(50) NOT NULL,
+    process_type ENUM(
+        'CLEANING',
+        'DISASSEMBLY',
+        'SORTING',
+        'CUTTING',
+        'SHREDDING',
+        'COLOR_PROCESSING',
+        'SURFACE_FINISHING',
+        'REMANUFACTURING'
+    ) NOT NULL,
     max_quantity BIGINT NOT NULL,
     lead_days INT NOT NULL,
     CONSTRAINT pk_processor_lead_time PRIMARY KEY (id),
     CONSTRAINT fk_processor_lead_time_profile FOREIGN KEY (processor_profile_id)
         REFERENCES processor_profile (user_id),
+    CONSTRAINT uk_processor_lead_time UNIQUE (
+        processor_profile_id,
+        material_type,
+        process_type,
+        max_quantity
+    ),
     CONSTRAINT chk_processor_lead_time_values CHECK (max_quantity > 0 AND lead_days > 0),
-    INDEX idx_processor_lead_time_profile (processor_profile_id)
+    INDEX idx_processor_lead_time_lookup (
+        processor_profile_id,
+        material_type,
+        process_type,
+        max_quantity
+    )
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Material ------------------------------------------------------------------

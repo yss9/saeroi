@@ -24,7 +24,10 @@
     "region": "서울 성동구",
     "minQuantity": 1000,
     "maxQuantity": 100000,
-    "estimatedLeadDays": 3
+    "estimatedLeadTimes": [
+      { "processType": "CLEANING", "leadDays": 3 },
+      { "processType": "CUTTING", "leadDays": 5 }
+    ]
   }],
   "total": 1,
   "page": 0,
@@ -35,8 +38,9 @@
 - 활성 PROCESSOR 및 등록 프로필만 노출한다.
 - 해당 소재에서 **모든** 선택 공정을 제공하고 각 공정 수량 범위가 요청을 포함해야 한다.
 - 표시 최소 수량은 공정별 최소값 중 최댓값, 표시 최대 수량은 최대값 중 최솟값이다.
-- `processor_lead_time.max_quantity`는 구간의 포함 상한이다. 요청 무게 이상인 상한 중 가장 작은 구간의 `lead_days`를 반환한다. 예: 10000g→3일, 50000g→6일이면 10000g은3일,10001g은6일이다.
-- 구간 정보가 없으면 `estimatedLeadDays=null`로 반환한다. UI는 '업체 문의'로 표시한다. 중복 상한은 잘못된 설정이므로 정리해야 하며, 현재 조회는 과소 안내하지 않도록 큰 기간을 선택한다.
+- `processor_lead_time`은 소재·공정별 수량 구간이다. `max_quantity`는 포함 상한이며, 각 선택 공정에서 요청 무게 이상인 가장 작은 상한의 `lead_days`를 반환한다.
+- 선택한 모든 공정에 적용 가능한 소요일 구간이 있는 업체만 노출한다. `estimatedLeadTimes`는 요청한 공정 순서대로 반환하며 합산하지 않는다.
+- 검색 소요일은 비교용 정보다. 최종 전체 일정은 Processor가 견적 제출 시 작성하는 `leadDays`로 확정한다.
 - 결과 없음은 HTTP200, 빈 items, total0이다. UI에서 조건 완화 안내를 보여준다.
 - 조회는 재고를 예약하지 않는다. 실제 요청 생성 때 업체 조건과 가용량을 다시 검증한다.
 
@@ -46,7 +50,7 @@
 
 활성 BRAND의 보유 소재만 반환한다. data는 `materialId, materialCode, name, materialType, quantity, lockedQuantity, availableQuantity` 배열이다. 보유량이 양수인 ACTIVE 소재를 포함하고, 예약량은 모든 ACTIVE Lock의 합계다. 사용 가능량이 0인 소재도 보유/예약 현황 확인을 위해 포함한다.
 
-기존 `processor_lead_time` 테이블을 매핑하므로 검색 API 자체는 새 DB 테이블을 요구하지 않는다. 앞서 작성한 Processing 요청 생성 마이그레이션은 별도로 적용해야 한다.
+신규 DB는 `schema.sql`을 사용한다. 기존 DB에는 `src/main/resources/db/migrations/2026-09-10-processor-process-lead-times.sql`을 수동 적용해야 한다. 기존 전역 소요일 구간은 해당 업체의 각 소재·공정 조합으로 복제된다.
 
 ## 로컬에서 실제 API 연동 테스트
 

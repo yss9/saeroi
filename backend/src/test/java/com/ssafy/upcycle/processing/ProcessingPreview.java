@@ -80,8 +80,8 @@ public class ProcessingPreview {
         jdbc.update("insert into processor_profile(user_id,region) values (?,?)",id,region);
         for (String material:List.of("DENIM","COTTON")) for (String purpose:List.of("CLEANING","DISASSEMBLY","CUTTING")) {
             jdbc.update("insert into processor_capability(processor_profile_id,material_type,process_type,min_quantity,max_quantity) values (?,?,?,?,?)",id,material,purpose,min,max);
+            jdbc.update("insert into processor_lead_time(processor_profile_id,material_type,process_type,max_quantity,lead_days) values (?,?,?,?,?)",id,material,purpose,10000,days);
+            if (max > 10000) jdbc.update("insert into processor_lead_time(processor_profile_id,material_type,process_type,max_quantity,lead_days) values (?,?,?,?,?)",id,material,purpose,max,days+3);
         }
-        jdbc.update("insert into processor_lead_time(processor_profile_id,max_quantity,lead_days) values (?,?,?)",id,10000,days);
-        if (max > 10000) jdbc.update("insert into processor_lead_time(processor_profile_id,max_quantity,lead_days) values (?,?,?)",id,max,days+3);
     }
 }

@@ -48,27 +48,49 @@ public class ProcessorSearchService {
                 join processor_profile p on p.user_id=c.processor_profile_id
                 join users u on u.id=p.user_id
                 where u.role='PROCESSOR' and u.status='ACTIVE'
-                  and exists (select 1 from processor_lead_time configured
-                              where configured.processor_profile_id=p.user_id
-                                and configured.max_quantity>=:quantity)
                   and c.material_type=:materialType and c.process_type in (:purposes)
                   and c.min_quantity<=:quantity and c.max_quantity>=:quantity
+                  and exists (select 1 from processor_lead_time configured
+                              where configured.processor_profile_id=p.user_id
+                                and configured.material_type=c.material_type
+                                and configured.process_type=c.process_type
+                                and configured.max_quantity>=:quantity)
                 group by p.user_id,u.name,p.region
                 having count(distinct c.process_type)=:purposeCount
                 """;
         Long total = jdbc.queryForObject("select count(*) from (select p.user_id " + matching + ") matched",params,Long.class);
-        // Upper-bound bands: choose the smallest max_quantity >= request quantity.
-        // No configured covering band is returned as null rather than an invented duration.
         String select = """
-                select p.user_id,u.name,p.region,max(c.min_quantity) as min_quantity,min(c.max_quantity) as max_quantity,
-                  (select max(t.lead_days) from processor_lead_time t where t.processor_profile_id=p.user_id
-                    and t.max_quantity=(select min(t2.max_quantity) from processor_lead_time t2
-                      where t2.processor_profile_id=p.user_id and t2.max_quantity>=:quantity)) as lead_days
+                select p.user_id,u.name,p.region,max(c.min_quantity) as min_quantity,min(c.max_quantity) as max_quantity
                 """;
         var items = jdbc.query(select + matching + " order by p.user_id limit :limit offset :offset",params,
                 (rs,row) -> new ProcessorSearchResponse.Item(rs.getLong("user_id"),rs.getString("name"),
                         rs.getString("region"),rs.getLong("min_quantity"),rs.getLong("max_quantity"),
-                        rs.getObject("lead_days",Integer.class)));
+                        List.of()));
+        if (!items.isEmpty()) {
+            params.put("processorIds", items.stream().map(ProcessorSearchResponse.Item::processorId).toList());
+            Map<Long, Map<String, Integer>> estimates = new HashMap<>();
+            var leadTimeRows = jdbc.query("""
+                    select t.processor_profile_id,t.process_type,t.lead_days
+                    from processor_lead_time t
+                    where t.processor_profile_id in (:processorIds)
+                      and t.material_type=:materialType
+                      and t.process_type in (:purposes)
+                      and t.max_quantity=(select min(t2.max_quantity) from processor_lead_time t2
+                        where t2.processor_profile_id=t.processor_profile_id
+                          and t2.material_type=t.material_type
+                          and t2.process_type=t.process_type
+                          and t2.max_quantity>=:quantity)
+                    """, params, (rs, row) -> new LeadTimeRow(rs.getLong("processor_profile_id"),
+                            rs.getString("process_type"), rs.getInt("lead_days")));
+            leadTimeRows.forEach(row -> estimates
+                    .computeIfAbsent(row.processorId(), ignored -> new HashMap<>())
+                    .put(row.processType(), row.leadDays()));
+            items = items.stream().map(item -> new ProcessorSearchResponse.Item(item.processorId(), item.name(),
+                    item.region(), item.minQuantity(), item.maxQuantity(), purposes.stream()
+                            .map(process -> new ProcessorSearchResponse.EstimatedLeadTime(ProcessType.valueOf(process),
+                                    estimates.get(item.processorId()).get(process)))
+                            .toList())).toList();
+        }
         return new ProcessorSearchResponse(items,total == null ? 0 : total,(int)pageNumber,(int)pageSize);
     }
 
@@ -105,4 +127,6 @@ public class ProcessorSearchService {
             throw new BusinessException(PROCESSING_INVALID_REQUEST);
         }
     }
+
+    private record LeadTimeRow(Long processorId, String processType, int leadDays) {}
 }

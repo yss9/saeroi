@@ -5,6 +5,6 @@ import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ProcessorLeadTimeRepository extends JpaRepository<ProcessorLeadTime, Long> {
-    List<ProcessorLeadTime> findAllByProcessorProfileIdOrderByMaxQuantityAsc(Long processorId);
+    List<ProcessorLeadTime> findAllByProcessorProfileIdOrderByMaterialTypeAscProcessTypeAscMaxQuantityAsc(Long processorId);
     void deleteAllByProcessorProfileId(Long processorId);
 }

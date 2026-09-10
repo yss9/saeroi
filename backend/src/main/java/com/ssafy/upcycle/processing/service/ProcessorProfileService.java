@@ -8,8 +8,7 @@ import com.ssafy.upcycle.processing.entity.*;
 import com.ssafy.upcycle.processing.repository.*;
 import com.ssafy.upcycle.user.entity.UserRole;
 import com.ssafy.upcycle.user.repository.UserRepository;
-import java.util.HashSet;
-import java.util.List;
+import java.util.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,19 +48,14 @@ public class ProcessorProfileService {
             ProcessorCapabilitiesUpdateRequest request) {
         requireProfile(processorId);
         var pairs = new HashSet<String>();
-        long largestMax = 0;
         for (var item : request.capabilities()) {
             if (item.minQuantity() > item.maxQuantity()
                     || !pairs.add(item.materialType().name() + ':' + item.processType().name())) {
                 throw new BusinessException(PROCESSOR_CAPABILITIES_INVALID);
             }
-            largestMax = Math.max(largestMax, item.maxQuantity());
         }
-        var currentLeadTimes = leadTimes.findAllByProcessorProfileIdOrderByMaxQuantityAsc(processorId);
-        if (!currentLeadTimes.isEmpty()
-                && currentLeadTimes.get(currentLeadTimes.size() - 1).getMaxQuantity() < largestMax) {
-            throw new BusinessException(PROCESSOR_CAPABILITIES_INVALID);
-        }
+        leadTimes.deleteAllByProcessorProfileId(processorId);
+        leadTimes.flush();
         capabilities.deleteAllByProcessorProfileId(processorId);
         capabilities.flush();
         capabilities.saveAll(request.capabilities().stream()
@@ -81,19 +75,28 @@ public class ProcessorProfileService {
     public List<ProcessorLeadTimeResponse> updateLeadTimes(Long processorId,
             ProcessorLeadTimesUpdateRequest request) {
         requireProfile(processorId);
-        var bounds = new HashSet<Long>();
-        long largestBound = 0;
+        var capabilityMap = capabilities.findAllByProcessorProfileIdOrderByMaterialTypeAscProcessTypeAsc(processorId)
+                .stream().collect(java.util.stream.Collectors.toMap(
+                        item -> key(item.getMaterialType(), item.getProcessType()), item -> item));
+        var bounds = new HashSet<String>();
+        var largestBounds = new HashMap<String, Long>();
         for (var item : request.leadTimes()) {
-            if (!bounds.add(item.maxQuantity())) throw new BusinessException(PROCESSOR_LEAD_TIMES_INVALID);
-            largestBound = Math.max(largestBound, item.maxQuantity());
+            String key = key(item.materialType(), item.processType());
+            ProcessorCapability capability = capabilityMap.get(key);
+            if (capability == null || item.maxQuantity() < capability.getMinQuantity()
+                    || !bounds.add(key + ':' + item.maxQuantity())) {
+                throw new BusinessException(PROCESSOR_LEAD_TIMES_INVALID);
+            }
+            largestBounds.merge(key, item.maxQuantity(), Math::max);
         }
-        long largestCapability = capabilities.findAllByProcessorProfileIdOrderByMaterialTypeAscProcessTypeAsc(processorId)
-                .stream().mapToLong(ProcessorCapability::getMaxQuantity).max().orElse(0);
-        if (largestCapability > largestBound) throw new BusinessException(PROCESSOR_LEAD_TIMES_INVALID);
+        boolean uncovered = capabilityMap.entrySet().stream().anyMatch(entry ->
+                largestBounds.getOrDefault(entry.getKey(), 0L) < entry.getValue().getMaxQuantity());
+        if (uncovered) throw new BusinessException(PROCESSOR_LEAD_TIMES_INVALID);
         leadTimes.deleteAllByProcessorProfileId(processorId);
         leadTimes.flush();
         leadTimes.saveAll(request.leadTimes().stream()
-                .map(item -> ProcessorLeadTime.of(processorId, item.maxQuantity(), item.leadDays()))
+                .map(item -> ProcessorLeadTime.of(processorId, item.materialType(), item.processType(),
+                        item.maxQuantity(), item.leadDays()))
                 .toList());
         return leadTimeResponses(processorId);
     }
@@ -122,8 +125,13 @@ public class ProcessorProfileService {
     }
 
     private List<ProcessorLeadTimeResponse> leadTimeResponses(Long processorId) {
-        return leadTimes.findAllByProcessorProfileIdOrderByMaxQuantityAsc(processorId).stream()
-                .map(item -> new ProcessorLeadTimeResponse(item.getMaxQuantity(), item.getLeadDays()))
+        return leadTimes.findAllByProcessorProfileIdOrderByMaterialTypeAscProcessTypeAscMaxQuantityAsc(processorId).stream()
+                .map(item -> new ProcessorLeadTimeResponse(item.getMaterialType(), item.getProcessType(),
+                        item.getMaxQuantity(), item.getLeadDays()))
                 .toList();
+    }
+
+    private String key(Object materialType, Object processType) {
+        return materialType + ":" + processType;
     }
 }
