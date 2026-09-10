@@ -108,6 +108,31 @@ export interface ProductImageUpload {
 }
 
 /**
+ * 마켓 제품 목록 필터 (`GET /v1/product-models`).
+ *
+ * **아무것도 주지 않으면 "판매 중인 제품 전체, 최신순, 첫 페이지" 다.** 서버가 기본값을
+ * `ON_SALE` 로 접는다 — `DRAFT` 는 브랜드가 준비 중인 제품이라 마켓에 뜨면 안 된다.
+ * 브랜드 본인 목록은 `GET /me` 가 따로 있고 그쪽이 `DRAFT` 를 포함한다.
+ *
+ * 전 필드가 선택이고 서버가 잘못된 값에 400 을 던지지 않는다 — 목록 조회는 기본값으로
+ * 접는 편이 낫다는 판단이다 (판매 글 목록과 같다).
+ *
+ * ⚠️ **재고 0 인 제품이 목록에 온다.** 다 팔린 제품은 `SOLD_OUT` 으로 전환되어야 하지만
+ * 그 전환은 주문 처리가 하고 그 코드가 아직 없다. 화면이 `stockQuantity` 를 보고 품절로
+ * 표시해야 한다 — 숨기면 브랜드는 자기 제품이 사라진 이유를 알 수 없다.
+ */
+export interface ProductModelFilters {
+  /** 생략하면 서버가 `ON_SALE` 로 접는다 */
+  status?: ProductModelStatus
+  category?: ProductCategory
+  brandId?: number
+  /** 0-based */
+  page?: number
+  /** 기본 12, 최대 100 */
+  size?: number
+}
+
+/**
  * 판매 상태 변경 동작 (`ProductModelStatusRequest.Action`).
  *
  * **상태가 아니라 동작이다.** `SOLD_OUT` 을 지정할 수 없고, `DISCONTINUE` 는 되돌릴 수 없다.

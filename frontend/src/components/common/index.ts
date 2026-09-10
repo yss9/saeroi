@@ -26,6 +26,7 @@ export { LocalFilePreview, type LocalFilePreviewProps } from './LocalFilePreview
 export { Loading, type LoadingProps } from './Loading.tsx'
 export { Modal, type ModalProps } from './Modal.tsx'
 export { OnChainPanel, TransactionHash, type OnChainPanelProps } from './OnChainPanel.tsx'
+export { Pagination, type PaginationProps } from './Pagination.tsx'
 export { QuantityInput, type QuantityInputProps } from './QuantityInput.tsx'
 export { QUANTITY_UNIT_LABEL, type QuantityUnit } from './quantity.ts'
 export { Select, type SelectProps, type SelectOption } from './Select.tsx'
