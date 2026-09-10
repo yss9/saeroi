@@ -5,6 +5,8 @@ import com.ssafy.upcycle.material.MaterialErrorCode;
 import com.ssafy.upcycle.material.dto.MaterialRegisterRequest;
 import com.ssafy.upcycle.material.dto.MaterialRegisterResponse;
 import com.ssafy.upcycle.material.entity.Material;
+import com.ssafy.upcycle.material.entity.MaterialEventReferenceType;
+import com.ssafy.upcycle.material.entity.MaterialEventType;
 import com.ssafy.upcycle.material.entity.MaterialRootOrigin;
 import com.ssafy.upcycle.material.repository.MaterialRepository;
 import com.ssafy.upcycle.user.entity.User;
@@ -36,6 +38,7 @@ public class MaterialRegistrationService {
     private final MaterialCodeGenerator codeGenerator;
     private final MaterialCompositionRegistrar compositionRegistrar;
     private final MaterialIssuer materialIssuer;
+    private final MaterialEventRecorder eventRecorder;
 
     /**
      * 소재를 등록한다.
@@ -73,6 +76,17 @@ public class MaterialRegistrationService {
         // 판매 등록이 LISTING_QUANTITY_EXCEEDS_AVAILABLE 로 막힌다 — 보유량 조회가
         // 행을 못 찾아 0 을 돌려주기 때문이다. 발행 방식은 MaterialIssuer 가 정한다.
         materialIssuer.issue(saved.getId(), registrantId, totalQuantity);
+        eventRecorder.record(
+                saved.getId(),
+                MaterialEventType.MATERIAL_REGISTERED,
+                registrantId,
+                MaterialEventReferenceType.MATERIAL,
+                saved.getId(),
+                null,
+                totalQuantity,
+                "소재 최초 등록",
+                MaterialEventRecorder.key(
+                        MaterialEventType.MATERIAL_REGISTERED, saved.getId(), saved.getId()));
         return MaterialRegisterResponse.from(saved);
     }
 

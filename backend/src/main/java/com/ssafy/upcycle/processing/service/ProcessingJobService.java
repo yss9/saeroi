@@ -4,6 +4,7 @@ import static com.ssafy.upcycle.processing.ProcessingErrorCode.*;
 import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.material.entity.*;
 import com.ssafy.upcycle.material.repository.MaterialLockRepository;
+import com.ssafy.upcycle.material.service.MaterialEventRecorder;
 import com.ssafy.upcycle.processing.dto.*;
 import com.ssafy.upcycle.processing.entity.*;
 import com.ssafy.upcycle.processing.repository.*;
@@ -26,6 +27,7 @@ public class ProcessingJobService {
     private final UserRepository users;
     private final UserWalletRepository wallets;
     private final Clock clock;
+    private final MaterialEventRecorder eventRecorder;
 
     @Transactional
     public ProcessingJobResponse select(Long actorId, Long quoteId, SelectProcessingQuoteRequest input) {
@@ -54,6 +56,13 @@ public class ProcessingJobService {
         lock.attachToProcessingJob(request.getId(), job.getId(), job.getPaymentExpiresAt());
         jobInputs.save(new ProcessingInput(job.getId(), requestInput.getMaterialId(), requestInput.getQuantity(), lock.getId()));
         quote.select(); request.select();
+        eventRecorder.record(
+                requestInput.getMaterialId(), MaterialEventType.PROCESSING_QUOTE_SELECTED, actorId,
+                MaterialEventReferenceType.PROCESSING_JOB, job.getId(), null,
+                requestInput.getQuantity(), "견적 선택 및 가공 Job 생성",
+                MaterialEventRecorder.key(
+                        MaterialEventType.PROCESSING_QUOTE_SELECTED,
+                        requestInput.getMaterialId(), job.getId()));
         return ProcessingJobResponse.of(job);
     }
 
@@ -73,6 +82,13 @@ public class ProcessingJobService {
         if (!job.isPaymentDue(now)) return;
         for (MaterialLock lock:locks.findByReferenceForUpdate(MaterialLockReferenceType.PROCESSING_JOB, jobId)) {
             if (lock.getStatus()==MaterialLockStatus.ACTIVE) lock.expire(now);
+            eventRecorder.record(
+                    lock.getMaterialId(), MaterialEventType.PROCESSING_JOB_EXPIRED, null,
+                    MaterialEventReferenceType.PROCESSING_JOB, jobId, null, lock.getAmount(),
+                    "가공 Job 결제 기한 만료",
+                    MaterialEventRecorder.key(
+                            MaterialEventType.PROCESSING_JOB_EXPIRED,
+                            lock.getMaterialId(), jobId));
         }
         job.expire(now);
     }

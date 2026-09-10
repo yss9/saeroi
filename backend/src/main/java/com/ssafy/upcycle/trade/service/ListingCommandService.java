@@ -3,12 +3,15 @@ package com.ssafy.upcycle.trade.service;
 import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.material.dto.MaterialQuantityUnit;
 import com.ssafy.upcycle.material.entity.Material;
+import com.ssafy.upcycle.material.entity.MaterialEventReferenceType;
+import com.ssafy.upcycle.material.entity.MaterialEventType;
 import com.ssafy.upcycle.material.entity.MaterialLock;
 import com.ssafy.upcycle.material.entity.MaterialLockPurpose;
 import com.ssafy.upcycle.material.entity.MaterialLockReferenceType;
 import com.ssafy.upcycle.material.entity.MaterialLockStatus;
 import com.ssafy.upcycle.material.repository.MaterialLockRepository;
 import com.ssafy.upcycle.material.repository.MaterialRepository;
+import com.ssafy.upcycle.material.service.MaterialEventRecorder;
 import com.ssafy.upcycle.trade.TradeErrorCode;
 import com.ssafy.upcycle.trade.dto.ListingRegisterRequest;
 import com.ssafy.upcycle.trade.dto.ListingResponse;
@@ -64,6 +67,7 @@ public class ListingCommandService {
     private final UserRepository userRepository;
     private final MaterialAvailability materialAvailability;
     private final Clock clock;
+    private final MaterialEventRecorder eventRecorder;
 
     /**
      * 소재를 판매에 올린다.
@@ -103,6 +107,12 @@ public class ListingCommandService {
                 material.getId(), sellerId, quantity, request.pricePerKg(), lock.getId()));
 
         lock.assignReference(listing.getId());
+        eventRecorder.record(
+                material.getId(), MaterialEventType.MARKETPLACE_LISTED, sellerId,
+                MaterialEventReferenceType.MATERIAL_LISTING, listing.getId(), null, quantity,
+                "마켓 판매 등록 및 수량 예약",
+                MaterialEventRecorder.key(
+                        MaterialEventType.MARKETPLACE_LISTED, material.getId(), listing.getId()));
         return ListingResponse.of(listing, material, seller);
     }
 
@@ -136,6 +146,13 @@ public class ListingCommandService {
         User seller = userRepository
                 .findById(sellerId)
                 .orElseThrow(() -> new BusinessException(TradeErrorCode.LISTING_SELLER_NOT_FOUND));
+        eventRecorder.record(
+                material.getId(), MaterialEventType.MARKETPLACE_LISTING_CANCELED, sellerId,
+                MaterialEventReferenceType.MATERIAL_LISTING, listing.getId(), null, released,
+                "마켓 판매 등록 취소",
+                MaterialEventRecorder.key(
+                        MaterialEventType.MARKETPLACE_LISTING_CANCELED,
+                        material.getId(), listing.getId()));
         return ListingResponse.of(listing, material, seller);
     }
 

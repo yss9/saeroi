@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.common.exception.ErrorCode;
 import com.ssafy.upcycle.common.jpa.config.JpaAuditingConfig;
+import com.ssafy.upcycle.material.service.MaterialEventRecorder;
 import com.ssafy.upcycle.trade.TradeErrorCode;
 import com.ssafy.upcycle.trade.dto.TradeShipRequest;
 import com.ssafy.upcycle.trade.dto.TradeShipResponse;
@@ -29,6 +30,7 @@ import org.springframework.context.annotation.Import;
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import({JpaAuditingConfig.class,
+        MaterialEventRecorder.class,
         TradeShipmentService.class,
         TradeShipmentServiceTests.FixedClockConfig.class})
 class TradeShipmentServiceTests {

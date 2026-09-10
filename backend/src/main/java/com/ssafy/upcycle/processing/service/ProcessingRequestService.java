@@ -4,6 +4,7 @@ import static com.ssafy.upcycle.processing.ProcessingErrorCode.*;
 import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.material.entity.*;
 import com.ssafy.upcycle.material.repository.*;
+import com.ssafy.upcycle.material.service.MaterialEventRecorder;
 import com.ssafy.upcycle.processing.dto.*;
 import com.ssafy.upcycle.processing.entity.*;
 import com.ssafy.upcycle.processing.repository.*;
@@ -30,6 +31,7 @@ public class ProcessingRequestService {
     private final ProcessingRequestInputRepository inputs;
     private final ProcessingRequestTypeRepository types;
     private final Clock clock;
+    private final MaterialEventRecorder eventRecorder;
 
     @Transactional
     public ProcessingRequestResponse create(Long brandId, CreateProcessingRequest input) {
@@ -71,9 +73,15 @@ public class ProcessingRequestService {
         for (int i = 0; i < input.processTypes().size(); i++) {
             types.save(new ProcessingRequestType(request.getId(), input.processTypes().get(i), i + 1));
         }
-        locks.save(MaterialLock.create(material.getId(), brandId, input.quantity(),
+        MaterialLock lock = locks.save(MaterialLock.create(material.getId(), brandId, input.quantity(),
                 MaterialLockPurpose.PROCESSING, MaterialLockReferenceType.PROCESSING_REQUEST,
                 request.getId(), request.getExpiresAt()));
+        eventRecorder.record(
+                material.getId(), MaterialEventType.PROCESSING_REQUESTED, brandId,
+                MaterialEventReferenceType.PROCESSING_REQUEST, request.getId(), null,
+                input.quantity(), "가공 요청 생성 및 수량 예약",
+                MaterialEventRecorder.key(
+                        MaterialEventType.PROCESSING_REQUESTED, material.getId(), request.getId()));
         return ProcessingRequestResponse.of(request, input);
     }
 
@@ -82,7 +90,7 @@ public class ProcessingRequestService {
         requireActiveRole(actorId, UserRole.BRAND);
         ProcessingRequest request = lockedRequest(requestId);
         if (!request.getBrandId().equals(actorId)) throw new BusinessException(PROCESSING_FORBIDDEN);
-        return terminate(request, ProcessingRequestStatus.CANCELED);
+        return terminate(request, ProcessingRequestStatus.CANCELED, actorId);
     }
 
     @Transactional
@@ -90,29 +98,31 @@ public class ProcessingRequestService {
         requireActiveRole(actorId, UserRole.PROCESSOR);
         ProcessingRequest request = lockedRequest(requestId);
         if (!actorId.equals(request.getProcessorId())) throw new BusinessException(PROCESSING_FORBIDDEN);
-        return terminate(request, ProcessingRequestStatus.REJECTED);
+        return terminate(request, ProcessingRequestStatus.REJECTED, actorId);
     }
 
     @Transactional
     public void expire(Long requestId) {
         ProcessingRequest request = lockedRequest(requestId);
         if (request.isDue(LocalDateTime.now(clock))) {
-            releaseAndTerminate(request, ProcessingRequestStatus.EXPIRED);
+            releaseAndTerminate(request, ProcessingRequestStatus.EXPIRED, null);
         }
     }
 
-    private ProcessingRequestStatus terminate(ProcessingRequest request, ProcessingRequestStatus target) {
+    private ProcessingRequestStatus terminate(
+            ProcessingRequest request, ProcessingRequestStatus target, Long actorId) {
         if (request.isDue(LocalDateTime.now(clock))) {
-            releaseAndTerminate(request, ProcessingRequestStatus.EXPIRED);
+            releaseAndTerminate(request, ProcessingRequestStatus.EXPIRED, null);
         } else if (request.getStatus() == ProcessingRequestStatus.QUOTING) {
-            releaseAndTerminate(request, target);
+            releaseAndTerminate(request, target, actorId);
         } else if (request.getStatus() != target && request.getStatus() != ProcessingRequestStatus.EXPIRED) {
             throw new BusinessException(PROCESSING_INVALID_STATE);
         }
         return request.getStatus();
     }
 
-    private void releaseAndTerminate(ProcessingRequest request, ProcessingRequestStatus target) {
+    private void releaseAndTerminate(
+            ProcessingRequest request, ProcessingRequestStatus target, Long actorId) {
         LocalDateTime now = LocalDateTime.now(clock);
         for (MaterialLock lock : locks.findByReferenceForUpdate(
                 MaterialLockReferenceType.PROCESSING_REQUEST, request.getId())) {
@@ -120,6 +130,17 @@ public class ProcessingRequestService {
                 if (target == ProcessingRequestStatus.EXPIRED) lock.expire(now);
                 else lock.release(now);
             }
+            MaterialEventType eventType = switch (target) {
+                case CANCELED -> MaterialEventType.PROCESSING_REQUEST_CANCELED;
+                case REJECTED -> MaterialEventType.PROCESSING_REQUEST_REJECTED;
+                case EXPIRED -> MaterialEventType.PROCESSING_REQUEST_EXPIRED;
+                default -> throw new IllegalArgumentException("Unsupported processing terminal state");
+            };
+            eventRecorder.record(
+                    lock.getMaterialId(), eventType, actorId,
+                    MaterialEventReferenceType.PROCESSING_REQUEST, request.getId(), null,
+                    lock.getAmount(), "가공 요청 종료: " + target,
+                    MaterialEventRecorder.key(eventType, lock.getMaterialId(), request.getId()));
         }
         request.terminate(target);
     }

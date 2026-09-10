@@ -1,13 +1,8 @@
 package com.ssafy.upcycle.evidence.service;
 
-import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.common.storage.FileStorageService;
-import com.ssafy.upcycle.evidence.EvidenceErrorCode;
 import com.ssafy.upcycle.evidence.dto.EvidenceFileResponse;
 import com.ssafy.upcycle.evidence.entity.EvidenceFile;
-import com.ssafy.upcycle.evidence.repository.EvidenceFileRepository;
-import java.time.Clock;
-import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -51,18 +46,15 @@ import org.springframework.stereotype.Service;
  * 방향이다 — 고아 객체는 비용이고, 없는 파일을 가리키는 행은 고장이다.
  *
  * <p><b>그래서 이 메서드에 {@code @Transactional} 을 붙이지 않았다.</b> 붙이면 저장소 삭제가
- * 트랜잭션 안으로 들어와 위 순서가 무너진다 (커밋 전에 바이트가 사라진다). 행 변경은
- * 한 건이라 {@code saveAndFlush} 자체의 트랜잭션으로 충분하다.
+ * 트랜잭션 안으로 들어와 위 순서가 무너진다 (커밋 전에 바이트가 사라진다). 행 변경과
+ * 이벤트 추가는 {@link EvidenceDeletionTransaction} 이 먼저 하나의 트랜잭션으로 커밋한다.
  */
 @Service
 @RequiredArgsConstructor
 public class EvidenceDeletionService {
 
-    private final EvidenceFileRepository evidenceFileRepository;
-    private final EvidenceAccessPolicy accessPolicy;
-    private final EvidenceAnchorPolicy anchorPolicy;
+    private final EvidenceDeletionTransaction deletionTransaction;
     private final FileStorageService fileStorageService;
-    private final Clock clock;
 
     /**
      * 증빙 한 건을 지운다.
@@ -72,18 +64,8 @@ public class EvidenceDeletionService {
      * @return 삭제 표시가 반영된 증빙. {@code deletedAt} 이 채워져 있다
      */
     public EvidenceFileResponse delete(Long requesterId, Long evidenceFileId) {
-        EvidenceFile evidence = evidenceFileRepository
-                .findByIdAndDeletedAtIsNull(evidenceFileId)
-                .orElseThrow(() -> new BusinessException(EvidenceErrorCode.EVIDENCE_NOT_FOUND));
-
-        // 권한을 먼저 본다. 순서를 뒤집으면 권한 없는 요청자가 응답 코드로 그 소재가
-        // 온체인에 올라갔는지 알아낼 수 있다 (403 대신 409 가 오는 것으로).
-        accessPolicy.requireDeletable(requesterId, evidence);
-        anchorPolicy.requireNotAnchored(evidence);
-
-        String storageKey = evidence.getFileUrl();
-        evidence.markDeleted(LocalDateTime.now(clock), requesterId);
-        EvidenceFile deleted = evidenceFileRepository.saveAndFlush(evidence);
+        EvidenceFile deleted = deletionTransaction.markDeleted(requesterId, evidenceFileId);
+        String storageKey = deleted.getFileUrl();
 
         // 실패해도 예외를 던지지 않는 계약이다 (FileStorageService#delete). 여기서 실패하면
         // 고아 객체가 남을 뿐이고, 행은 이미 삭제로 표시돼 아무도 그 파일을 열지 못한다.

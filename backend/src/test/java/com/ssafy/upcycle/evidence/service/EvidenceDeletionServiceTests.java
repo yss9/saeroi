@@ -18,6 +18,7 @@ import com.ssafy.upcycle.evidence.repository.EvidenceFileRepository;
 import com.ssafy.upcycle.material.entity.Material;
 import com.ssafy.upcycle.material.entity.MaterialRootOrigin;
 import com.ssafy.upcycle.material.entity.MaterialType;
+import com.ssafy.upcycle.material.service.MaterialEventRecorder;
 import com.ssafy.upcycle.user.entity.User;
 import com.ssafy.upcycle.user.entity.UserRole;
 import java.nio.charset.StandardCharsets;
@@ -58,7 +59,9 @@ import org.springframework.test.util.ReflectionTestUtils;
     EvidenceAccessPolicy.class,
     EvidenceAnchorPolicy.class,
     EvidenceDeletionService.class,
+    EvidenceDeletionTransaction.class,
     EvidenceListService.class,
+    MaterialEventRecorder.class,
     EvidenceDeletionServiceTests.StorageTestConfig.class
 })
 class EvidenceDeletionServiceTests {

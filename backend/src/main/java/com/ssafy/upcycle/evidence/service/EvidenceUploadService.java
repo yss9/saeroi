@@ -10,6 +10,9 @@ import com.ssafy.upcycle.evidence.dto.EvidenceFileResponse;
 import com.ssafy.upcycle.evidence.dto.EvidenceUploadRequest;
 import com.ssafy.upcycle.evidence.entity.EvidenceFile;
 import com.ssafy.upcycle.evidence.repository.EvidenceFileRepository;
+import com.ssafy.upcycle.material.entity.MaterialEventReferenceType;
+import com.ssafy.upcycle.material.entity.MaterialEventType;
+import com.ssafy.upcycle.material.service.MaterialEventRecorder;
 import com.ssafy.upcycle.user.entity.User;
 import com.ssafy.upcycle.user.repository.UserRepository;
 import java.io.IOException;
@@ -61,6 +64,7 @@ public class EvidenceUploadService {
     private final EvidenceFileRepository evidenceFileRepository;
     private final EvidenceReferenceValidator referenceValidator;
     private final UserRepository userRepository;
+    private final MaterialEventRecorder eventRecorder;
 
     /**
      * 증빙 여러 건을 올린다.
@@ -96,6 +100,17 @@ public class EvidenceUploadService {
                             request.evidenceType(),
                             uploaderId))
                     .toList());
+            if (request.referenceType() == com.ssafy.upcycle.evidence.entity.EvidenceReferenceType.MATERIAL) {
+                for (EvidenceFile evidence : saved) {
+                    eventRecorder.record(
+                            request.referenceId(), MaterialEventType.EVIDENCE_ATTACHED, uploaderId,
+                            MaterialEventReferenceType.EVIDENCE_FILE, evidence.getId(), null, null,
+                            "소재 증빙 첨부: " + evidence.getEvidenceType(),
+                            MaterialEventRecorder.key(
+                                    MaterialEventType.EVIDENCE_ATTACHED,
+                                    request.referenceId(), evidence.getId()));
+                }
+            }
             return saved.stream().map(EvidenceFileResponse::from).toList();
         } catch (RuntimeException failure) {
             // DB 저장이 실패했거나 두 번째 파일에서 형식 오류가 났다. 이미 쓴 것을 지운다.

@@ -4,12 +4,14 @@ import com.ssafy.upcycle.blockchain.dto.ChainLinkRequest;
 import com.ssafy.upcycle.common.response.ApiResponse;
 import com.ssafy.upcycle.material.dto.MaterialBalanceResponse;
 import com.ssafy.upcycle.material.dto.MaterialDetailResponse;
+import com.ssafy.upcycle.material.dto.MaterialEventResponse;
 import com.ssafy.upcycle.material.dto.MaterialLineageResponse;
 import com.ssafy.upcycle.material.dto.MaterialRegisterRequest;
 import com.ssafy.upcycle.material.dto.MaterialRegisterResponse;
 import com.ssafy.upcycle.material.dto.MaterialSourceVerificationRequest;
 import com.ssafy.upcycle.material.dto.MyMaterialResponse;
 import com.ssafy.upcycle.material.service.MaterialChainLinkService;
+import com.ssafy.upcycle.material.service.MaterialEventQueryService;
 import com.ssafy.upcycle.material.service.MaterialLineageQueryService;
 import com.ssafy.upcycle.material.service.MaterialQueryService;
 import com.ssafy.upcycle.material.service.MaterialRegistrationService;
@@ -24,6 +26,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -54,6 +57,7 @@ public class MaterialController {
     private final MaterialLineageQueryService materialLineageQueryService;
     private final MaterialChainLinkService materialChainLinkService;
     private final MaterialSourceVerificationService materialSourceVerificationService;
+    private final MaterialEventQueryService materialEventQueryService;
 
     /**
      * 소재 등록. {@code SUPPLIER}·{@code BRAND} 만 가능하다.
@@ -122,6 +126,15 @@ public class MaterialController {
     @GetMapping("/{materialId}/lineage")
     public ApiResponse<MaterialLineageResponse> findLineage(@PathVariable Long materialId) {
         return ApiResponse.success(materialLineageQueryService.findLineage(materialId));
+    }
+
+    /** Material에 발생한 사건을 오래된 순서부터 조회한다. */
+    @GetMapping("/{materialId}/events")
+    public ApiResponse<MaterialEventResponse.Page> findEvents(
+            @PathVariable Long materialId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        return ApiResponse.success(materialEventQueryService.findEvents(materialId, page, size));
     }
 
     /**

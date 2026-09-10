@@ -13,9 +13,11 @@ import com.ssafy.upcycle.common.storage.FileReference;
 import com.ssafy.upcycle.common.storage.FileStorageService;
 import com.ssafy.upcycle.material.entity.Material;
 import com.ssafy.upcycle.material.entity.MaterialBalance;
+import com.ssafy.upcycle.material.entity.MaterialEventType;
 import com.ssafy.upcycle.material.entity.MaterialRootOrigin;
 import com.ssafy.upcycle.material.entity.MaterialType;
 import com.ssafy.upcycle.material.repository.MaterialBalanceRepository;
+import com.ssafy.upcycle.material.repository.MaterialEventRepository;
 import com.ssafy.upcycle.material.repository.MaterialRepository;
 import com.ssafy.upcycle.product.entity.ProductItem;
 import com.ssafy.upcycle.product.repository.ProductItemRepository;
@@ -40,6 +42,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -104,6 +107,9 @@ class ProductionJourneyTests {
     private ProductItemRepository productItemRepository;
 
     @Autowired
+    private MaterialEventRepository materialEventRepository;
+
+    @Autowired
     private FileStorageService fileStorageService;
 
     private User brand;
@@ -135,6 +141,13 @@ class ProductionJourneyTests {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + brandToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("CONFIRMED"));
+        assertThat(materialEventRepository.findAllByMaterialIdOrderByOccurredAtAscIdAsc(
+                        materialId, PageRequest.of(0, 10)).getContent())
+                .extracting(event -> event.getEventType())
+                .containsExactly(
+                        MaterialEventType.PRODUCTION_INPUT_RESERVED,
+                        MaterialEventType.MATERIAL_CONSUMED,
+                        MaterialEventType.CHILD_MATERIAL_CREATED);
 
         // 3. 이제 재고가 생겼고 판매를 시작할 수 있다.
         startSelling(productModelId)

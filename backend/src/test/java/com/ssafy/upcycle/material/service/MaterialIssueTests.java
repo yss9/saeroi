@@ -8,9 +8,11 @@ import com.ssafy.upcycle.material.MaterialErrorCode;
 import com.ssafy.upcycle.material.dto.MaterialQuantityUnit;
 import com.ssafy.upcycle.material.dto.MaterialRegisterRequest;
 import com.ssafy.upcycle.material.entity.MaterialBalance;
+import com.ssafy.upcycle.material.entity.MaterialEventType;
 import com.ssafy.upcycle.material.entity.MaterialRootOrigin;
 import com.ssafy.upcycle.material.entity.MaterialType;
 import com.ssafy.upcycle.material.repository.MaterialBalanceRepository;
+import com.ssafy.upcycle.material.repository.MaterialEventRepository;
 import com.ssafy.upcycle.material.repository.MaterialRepository;
 import com.ssafy.upcycle.material.dto.MaterialRegisterResponse;
 import com.ssafy.upcycle.trade.dto.ListingRegisterRequest;
@@ -28,6 +30,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.PageRequest;
 
 /**
  * <b>등록한 소재를 실제로 팔 수 있는가.</b>
@@ -66,6 +69,9 @@ class MaterialIssueTests {
     private MaterialRepository materialRepository;
 
     @Autowired
+    private MaterialEventRepository eventRepository;
+
+    @Autowired
     private UserRepository userRepository;
 
     @Autowired
@@ -101,6 +107,10 @@ class MaterialIssueTests {
         assertThat(balance.getWalletAddress())
                 .as("보유 행은 등록 시점의 활성 지갑을 스냅샷으로 들고 있어야 한다")
                 .isEqualTo(WALLET);
+        assertThat(eventRepository.findAllByMaterialIdOrderByOccurredAtAscIdAsc(
+                        materialId, PageRequest.of(0, 10)).getContent())
+                .extracting(event -> event.getEventType())
+                .containsExactly(MaterialEventType.MATERIAL_REGISTERED);
     }
 
     /**
@@ -120,6 +130,12 @@ class MaterialIssueTests {
         assertThat(materialAvailability.availableQuantity(materialId, supplierId))
                 .as("전량을 판매에 걸면 남은 가용량은 0 이다")
                 .isZero();
+        assertThat(eventRepository.findAllByMaterialIdOrderByOccurredAtAscIdAsc(
+                        materialId, PageRequest.of(0, 10)).getContent())
+                .extracting(event -> event.getEventType())
+                .containsExactly(
+                        MaterialEventType.MATERIAL_REGISTERED,
+                        MaterialEventType.MARKETPLACE_LISTED);
     }
 
     /** 판매 등록은 보유량을 넘을 수 없다. 위 테스트가 우연히 통과하는 것이 아님을 보인다. */
@@ -180,6 +196,7 @@ class MaterialIssueTests {
     }
 
     private void clean() {
+        eventRepository.deleteAll();
         balanceRepository.deleteAll();
         materialRepository.deleteAll();
         walletRepository.deleteAll();

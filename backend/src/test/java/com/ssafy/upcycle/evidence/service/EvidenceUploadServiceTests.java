@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.ssafy.upcycle.common.exception.BusinessException;
+import com.ssafy.upcycle.common.config.ClockConfig;
 import com.ssafy.upcycle.common.jpa.config.JpaAuditingConfig;
 import com.ssafy.upcycle.common.storage.FileStorageErrorCode;
 import com.ssafy.upcycle.common.storage.FileStorageProperties;
@@ -17,6 +18,9 @@ import com.ssafy.upcycle.evidence.repository.EvidenceFileRepository;
 import com.ssafy.upcycle.material.entity.Material;
 import com.ssafy.upcycle.material.entity.MaterialRootOrigin;
 import com.ssafy.upcycle.material.entity.MaterialType;
+import com.ssafy.upcycle.material.service.MaterialEventRecorder;
+import com.ssafy.upcycle.material.entity.MaterialEventType;
+import com.ssafy.upcycle.material.repository.MaterialEventRepository;
 import com.ssafy.upcycle.user.entity.User;
 import com.ssafy.upcycle.user.entity.UserRole;
 import java.nio.charset.StandardCharsets;
@@ -55,8 +59,10 @@ import org.springframework.mock.web.MockMultipartFile;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import({
     JpaAuditingConfig.class,
+    ClockConfig.class,
     EvidenceUploadService.class,
     EvidenceReferenceValidator.class,
+    MaterialEventRecorder.class,
     EvidenceUploadServiceTests.StorageTestConfig.class
 })
 class EvidenceUploadServiceTests {
@@ -90,6 +96,9 @@ class EvidenceUploadServiceTests {
 
     @Autowired
     private EvidenceFileRepository evidenceFileRepository;
+
+    @Autowired
+    private MaterialEventRepository materialEventRepository;
 
     @Autowired
     private TestEntityManager entityManager;
@@ -159,6 +168,13 @@ class EvidenceUploadServiceTests {
             assertThat(response.uploadedAt()).isNotNull();
         });
         assertThat(filesOnDisk()).isEqualTo(1);
+        assertThat(materialEventRepository.findAll())
+                .singleElement()
+                .satisfies(event -> {
+                    assertThat(event.getEventType()).isEqualTo(MaterialEventType.EVIDENCE_ATTACHED);
+                    assertThat(event.getMaterialId()).isEqualTo(materialId);
+                    assertThat(event.getReferenceId()).isEqualTo(uploaded.getFirst().evidenceFileId());
+                });
     }
 
     @Test

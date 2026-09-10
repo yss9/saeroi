@@ -2,7 +2,10 @@ package com.ssafy.upcycle.trade.service;
 
 import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.material.entity.Material;
+import com.ssafy.upcycle.material.entity.MaterialEventReferenceType;
+import com.ssafy.upcycle.material.entity.MaterialEventType;
 import com.ssafy.upcycle.material.repository.MaterialRepository;
+import com.ssafy.upcycle.material.service.MaterialEventRecorder;
 import com.ssafy.upcycle.trade.TradeErrorCode;
 import com.ssafy.upcycle.trade.dto.PaymentReadyResponse;
 import com.ssafy.upcycle.trade.dto.TradeResponse;
@@ -60,6 +63,7 @@ public class PaymentService {
     private final PaymentGateway paymentGateway;
     private final KakaoPayProperties kakaoPayProperties;
     private final Clock clock;
+    private final MaterialEventRecorder eventRecorder;
 
     /**
      * 결제를 준비하고 사용자를 보낼 결제창 주소를 돌려준다. <b>구매자만 할 수 있다.</b>
@@ -134,6 +138,12 @@ public class PaymentService {
                 approval.approvedAmount(),
                 approval.approvedAt(),
                 paymentGateway.isLive() ? PaymentMethod.KAKAO_PAY : PaymentMethod.MOCK);
+        eventRecorder.record(
+                trade.getMaterialId(), MaterialEventType.TRADE_PAID, buyerId,
+                MaterialEventReferenceType.MATERIAL_TRADE, trade.getId(), null,
+                trade.getQuantity(), "소재 거래 결제 승인",
+                MaterialEventRecorder.key(
+                        MaterialEventType.TRADE_PAID, trade.getMaterialId(), trade.getId()));
         return tradeResponseAssembler.of(trade);
     }
 
@@ -170,6 +180,13 @@ public class PaymentService {
         refundIfPaid(trade);
         trade.cancel(reason, LocalDateTime.now(clock));
         restoreListingQuantity(trade);
+
+        eventRecorder.record(
+                trade.getMaterialId(), MaterialEventType.TRADE_CANCELED, userId,
+                MaterialEventReferenceType.MATERIAL_TRADE, trade.getId(), null,
+                trade.getQuantity(), reason,
+                MaterialEventRecorder.key(
+                        MaterialEventType.TRADE_CANCELED, trade.getMaterialId(), trade.getId()));
 
         return tradeResponseAssembler.of(trade);
     }

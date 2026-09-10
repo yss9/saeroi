@@ -7,6 +7,8 @@ import com.ssafy.upcycle.blockchain.service.ChainTransactionRecorder;
 import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.material.MaterialErrorCode;
 import com.ssafy.upcycle.material.entity.Material;
+import com.ssafy.upcycle.material.entity.MaterialEventReferenceType;
+import com.ssafy.upcycle.material.entity.MaterialEventType;
 import com.ssafy.upcycle.material.repository.MaterialRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -32,6 +34,7 @@ public class MaterialChainLinkService {
 
     private final MaterialRepository materialRepository;
     private final ChainTransactionRecorder recorder;
+    private final MaterialEventRecorder eventRecorder;
 
     /**
      * 발행 결과를 연결한다. <b>등록자 본인만 할 수 있다.</b>
@@ -66,5 +69,15 @@ public class MaterialChainLinkService {
                 materialId,
                 request.txHash(),
                 request.blockNumber());
+        eventRecorder.record(
+                materialId,
+                MaterialEventType.MATERIAL_MINTED,
+                registrantId,
+                MaterialEventReferenceType.MATERIAL,
+                materialId,
+                null,
+                material.getTotalQuantity(),
+                "Material Token 발행 확정",
+                MaterialEventRecorder.key(MaterialEventType.MATERIAL_MINTED, materialId, materialId));
     }
 }

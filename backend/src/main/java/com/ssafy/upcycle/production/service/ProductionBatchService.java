@@ -3,6 +3,8 @@ package com.ssafy.upcycle.production.service;
 import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.material.entity.Material;
 import com.ssafy.upcycle.material.entity.MaterialGenerationType;
+import com.ssafy.upcycle.material.entity.MaterialEventReferenceType;
+import com.ssafy.upcycle.material.entity.MaterialEventType;
 import com.ssafy.upcycle.material.entity.MaterialLock;
 import com.ssafy.upcycle.material.entity.MaterialLockPurpose;
 import com.ssafy.upcycle.material.entity.MaterialLockReferenceType;
@@ -13,6 +15,7 @@ import com.ssafy.upcycle.material.repository.MaterialBalanceRepository;
 import com.ssafy.upcycle.material.repository.MaterialLockRepository;
 import com.ssafy.upcycle.material.repository.MaterialRepository;
 import com.ssafy.upcycle.material.service.MaterialAvailabilityPolicy;
+import com.ssafy.upcycle.material.service.MaterialEventRecorder;
 import com.ssafy.upcycle.product.entity.ProductItem;
 import com.ssafy.upcycle.product.entity.ProductModel;
 import com.ssafy.upcycle.product.repository.ProductItemRepository;
@@ -86,6 +89,7 @@ public class ProductionBatchService {
     private final UserRepository userRepository;
     private final UserWalletRepository walletRepository;
     private final Clock clock;
+    private final MaterialEventRecorder eventRecorder;
 
     /**
      * 배치를 연다. <b>{@code DRAFT} 로 시작하고 투입은 아직 없다.</b>
@@ -197,6 +201,13 @@ public class ProductionBatchService {
             outputRepository.save(
                     ProductionOutput.expect(input.getId(), input.getReusableScrapQuantity()));
         }
+        eventRecorder.record(
+                material.getId(), MaterialEventType.PRODUCTION_INPUT_RESERVED, producerId,
+                MaterialEventReferenceType.PRODUCTION_INPUT, input.getId(), null,
+                input.getInputQuantity(), "생산 배치 투입 예약",
+                MaterialEventRecorder.key(
+                        MaterialEventType.PRODUCTION_INPUT_RESERVED,
+                        material.getId(), input.getId()));
     }
 
     /**
@@ -237,6 +248,13 @@ public class ProductionBatchService {
         // 거절하고, 그건 데이터가 어긋났다는 신호라 조용히 넘어가면 안 된다.
         lockRepository.findById(input.getMaterialLockId())
                 .ifPresent(lock -> lock.release(LocalDateTime.now(clock)));
+        eventRecorder.record(
+                input.getMaterialId(), MaterialEventType.PRODUCTION_INPUT_REMOVED, producerId,
+                MaterialEventReferenceType.PRODUCTION_INPUT, input.getId(), null,
+                input.getInputQuantity(), "생산 배치 투입 제거 및 수량 해제",
+                MaterialEventRecorder.key(
+                        MaterialEventType.PRODUCTION_INPUT_REMOVED,
+                        input.getMaterialId(), input.getId()));
 
         return findDetail(producerId, batchId);
     }
@@ -329,6 +347,13 @@ public class ProductionBatchService {
             if (lock.getStatus() == MaterialLockStatus.ACTIVE) {
                 lock.release(now);
             }
+            eventRecorder.record(
+                    lock.getMaterialId(), MaterialEventType.PRODUCTION_BATCH_CANCELED, producerId,
+                    MaterialEventReferenceType.PRODUCTION_BATCH, batchId, null,
+                    lock.getAmount(), "생산 배치 취소 및 수량 해제",
+                    MaterialEventRecorder.key(
+                            MaterialEventType.PRODUCTION_BATCH_CANCELED,
+                            lock.getMaterialId(), batchId));
         }
         batch.cancel();
 
