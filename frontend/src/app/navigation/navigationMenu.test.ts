@@ -151,25 +151,25 @@ describe('역할별 사업자 메뉴', () => {
   it('ADMIN 과 CONSUMER 는 사업자 전용 메뉴를 보지 않는다', () => {
     // 남는 것은 RoleGuard 가 없는 Protected 경로(/inventory·/trades)뿐이다.
     // 그 둘에 역할 조건을 새로 붙이지 않기로 했다 (권한 Matrix §3-3·§3-5).
+    //
+    // 소재 마켓플레이스는 여기서 빠졌다 — 사업자 전용이 되었다. 업사이클링 제품을 사는
+    // CONSUMER 는 소재를 사지도 팔지도 않고, ADMIN 은 도메인 기능에 허용이 없다.
     const browseAndOpen = [
-      '보유 소재', '소재 마켓플레이스', '제품 둘러보기', '거래 내역',
+      '보유 소재', '제품 둘러보기', '거래 내역',
     ]
     expect(visibleLabels('ADMIN')).toEqual(browseAndOpen)
     expect(visibleLabels('CONSUMER')).toEqual(browseAndOpen)
   })
 
   it('미인증 사용자에게는 로그인이 필요한 메뉴가 하나도 보이지 않는다', () => {
-    // 공개 조회 화면은 비회원도 들어갈 수 있으므로 남는 것이 정상이다. 확인할 것은
-    // "로그인이 필요한 것이 새어 나오지 않는가" 이지 목록이 비었는가가 아니다.
-    //
-    // 실제로 비회원이 이 메뉴를 보는 일은 없다 — CompanyDashboardLayout 은
-    // ProtectedRoute 안이거나 BrowseLayout 이 로그인 여부를 보고 씌울 때만 그려진다.
+    // 이제 사업자 메뉴에 공개 경로가 하나도 없다. 마켓플레이스까지 로그인 뒤로
+    // 들어가면서, 비회원이 보는 것은 쇼핑몰 랜딩과 QR 여권뿐이 되었다.
     const map = getRouteAccessMap()
     const leaked = BUSINESS_MENU_ITEMS.filter((item) => map.get(item.to)?.kind !== 'public')
       .filter((item) => visibleLabels(null, false).includes(item.label))
 
     expect(leaked).toEqual([])
-    expect(visibleLabels(null, false)).toEqual(['소재 마켓플레이스'])
+    expect(visibleLabels(null, false)).toEqual([])
   })
 })
 
