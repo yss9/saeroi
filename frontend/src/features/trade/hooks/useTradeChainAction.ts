@@ -7,6 +7,7 @@ import {
   markShipped,
 } from '../../marketplace/services/marketplaceContractService.ts'
 import { inventoryKeys } from '../../inventory/api/inventoryKeys.ts'
+import { materialKeys } from '../../material/api/materialKeys.ts'
 import { tradeKeys } from '../api/tradeKeys.ts'
 
 /**
@@ -29,6 +30,11 @@ export function useTradeChainAction(tradeId: number) {
       // 수령 확인이면 양쪽 보유량이 바뀐다. 발송이면 안 바뀌지만, 두 경우를 나눠
       // 무효화하면 어느 쪽을 불렀는지 훅이 알아야 해서 의존이 늘어난다.
       void queryClient.invalidateQueries({ queryKey: inventoryKeys.all })
+      // **소재 쪽도 함께 비운다.** confirmReceipt 는 ERC1155 잔액을 판매자에서 구매자로
+      // 옮기므로 소재 상세와 보유자별 잔량(useMaterialBalances)이 함께 낡는다. 보유 목록만
+      // 비우면 소재 상세를 열어 둔 사용자는 옛 잔량을 계속 본다 — 서버 쪽 수령 확인
+      // (useConfirmTradeReceipt)이 두 캐시를 함께 비우는 것과 같은 이유다.
+      void queryClient.invalidateQueries({ queryKey: materialKeys.all })
       // 방금 바꾼 것이 바로 체인 주문 상태다. 이걸 비우지 않으면
       // TradeChainActionPanel 이 "아직 밀렸다" 를 계속 보여준다 —
       // staleTime 이 지날 때까지 사용자는 방금 한 서명이 반영되지 않았다고 읽는다.
