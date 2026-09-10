@@ -8,6 +8,7 @@ import com.ssafy.upcycle.production.dto.ProductionChainBatchRequest;
 import com.ssafy.upcycle.production.dto.ProductionChainLinkRequest;
 import com.ssafy.upcycle.production.dto.ProductionConsumeChainRequest;
 import com.ssafy.upcycle.production.dto.ProductionItemResponse;
+import com.ssafy.upcycle.production.dto.ProductionItemsChainRequest;
 import com.ssafy.upcycle.production.dto.ProductionManifestResponse;
 import com.ssafy.upcycle.production.service.ProductionBatchService;
 import com.ssafy.upcycle.production.service.ProductionChainLinkService;
@@ -207,6 +208,23 @@ public class ProductionBatchController {
             @PathVariable Long batchId,
             @Valid @RequestBody ProductionConsumeChainRequest request) {
         productionConsumeChainService.linkConsume(userId(jwt), batchId, request);
+        return ApiResponse.success(null);
+    }
+
+    /**
+     * {@code linkProductItems} 결과를 연결한다. <b>온체인 4단계 중 마지막이다.</b>
+     *
+     * <p>개체 번호는 요청으로 받지 않는다 — 컨트랙트가 받는 {@code productItemIds[]} 는 우리
+     * {@code product_item.id} 를 그대로 쓰고, 온체인에서 따로 채번하지 않는다. 화면은
+     * {@code GET /{id}/items} 의 {@code productItemId} 를 {@code serialNumber} 순서 그대로
+     * 보내면 된다.
+     */
+    @PostMapping("/{batchId}/chain/items")
+    public ApiResponse<Void> linkChainItems(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long batchId,
+            @Valid @RequestBody ProductionItemsChainRequest request) {
+        productionChainLinkService.linkProductItems(userId(jwt), batchId, request);
         return ApiResponse.success(null);
     }
 

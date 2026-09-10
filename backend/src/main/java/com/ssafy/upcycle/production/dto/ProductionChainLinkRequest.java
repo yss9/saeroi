@@ -1,6 +1,11 @@
 package com.ssafy.upcycle.production.dto;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import java.util.List;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
@@ -23,6 +28,8 @@ import jakarta.validation.constraints.Size;
  * @param blockNumber 채굴된 블록. 없어도 기록은 성립하므로 선택이다
  * @param evidenceHash 온체인에 올린 manifest 의 해시. {@code 0x} + 64 hex
  * @param manifestUrl manifest 원본 주소. 해시만으로는 무엇을 해시했는지 볼 수 없다
+ * @param lockedMaterials 이 트랜잭션이 만든 온체인 잠금들. 영수증에서만 나오는 값이라
+ *     여기서 받아 두지 않으면 3단계까지 화면이 붙들고 있어야 한다
  */
 public record ProductionChainLinkRequest(
 
@@ -37,5 +44,31 @@ public record ProductionChainLinkRequest(
         String evidenceHash,
 
         @Size(max = 500, message = "manifest 주소는 500자를 넘을 수 없습니다.")
-        String manifestUrl) {
+        String manifestUrl,
+
+        @NotEmpty(message = "잠긴 소재를 하나 이상 지정해야 합니다.")
+        @Valid
+        List<LockedMaterial> lockedMaterials) {
+
+    /**
+     * 투입 하나와 {@code submitPlanAndLock} 이 만든 온체인 잠금 번호.
+     *
+     * <p><b>여기서 받는 이유.</b> 잠금 번호는 이 트랜잭션의 영수증에서만 나온다
+     * ({@code MaterialLockCreated} 이벤트). 화면이 들고 있다가 3단계 보고에 넣게 하면
+     * 그 사이에 새로고침 한 번으로 잃어버린다 — {@code chainBatchId} 를 서버가 보관하기로
+     * 한 것과 정확히 같은 문제다.
+     *
+     * @param productionInputId DB 투입 id. 어느 잠금인지는 서버가 그 행에서 꺼낸다 —
+     *     잠금 id 를 직접 받으면 남의 잠금을 이 배치의 것으로 보고할 수 있다
+     * @param chainLockId 온체인 {@code MaterialLock} 번호
+     */
+    public record LockedMaterial(
+            @NotNull(message = "투입 id는 필수입니다.")
+            @Positive(message = "투입 id는 양수여야 합니다.")
+            Long productionInputId,
+
+            @NotNull(message = "온체인 잠금 번호는 필수입니다.")
+            @Positive(message = "온체인 잠금 번호는 양수여야 합니다.")
+            Long chainLockId) {
+    }
 }

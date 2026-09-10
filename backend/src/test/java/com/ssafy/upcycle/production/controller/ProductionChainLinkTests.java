@@ -20,12 +20,15 @@ import com.ssafy.upcycle.material.repository.MaterialRepository;
 import com.ssafy.upcycle.product.entity.ProductCategory;
 import com.ssafy.upcycle.product.entity.ProductModel;
 import com.ssafy.upcycle.product.repository.ProductModelRepository;
+import com.ssafy.upcycle.production.entity.ProductionInput;
 import com.ssafy.upcycle.production.repository.ProductionBatchRepository;
+import com.ssafy.upcycle.production.repository.ProductionInputRepository;
 import com.ssafy.upcycle.user.entity.User;
 import com.ssafy.upcycle.user.entity.UserRole;
 import com.ssafy.upcycle.user.entity.UserWallet;
 import com.ssafy.upcycle.user.repository.UserRepository;
 import com.ssafy.upcycle.user.repository.UserWalletRepository;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -73,6 +76,8 @@ class ProductionChainLinkTests {
     private static final String PATH = "/api/v1/production-batches";
     private static final String WALLET = "0x1234567890123456789012345678901234567890";
     private static final long CHAIN_ID = 31221L;
+    private static final String MATERIAL_TOKEN_ADDRESS =
+            "0xbe98f5a9aa8d0480b09c689e38806accd41a0f66";
     private static final long HELD_QUANTITY = 100_000L;
     private static final String TX_HASH =
             "0x" + "a".repeat(64);
@@ -107,7 +112,12 @@ class ProductionChainLinkTests {
     private ProductionBatchRepository batchRepository;
 
     @Autowired
+    private ProductionInputRepository inputRepository;
+
+    @Autowired
     private BlockchainTransactionRepository transactionRepository;
+
+    private long tokenSequence = 1_000L;
 
     private User brand;
     private String brandToken;
@@ -207,10 +217,11 @@ class ProductionChainLinkTests {
     void refusesABatchThatIsNotConfirmedYet() throws Exception {
         // 투입이 더 바뀔 수 있다. 바뀐 뒤에도 체인에는 옛 내용의 해시가 남는다.
         // manifest 도 확정된 배치만 만들 수 있어, 여기서는 상수 해시로 두드린다.
-        Long batchId = openedBatch();
+        Long batchId = openedBatchWithInput();
         Map<String, Object> request = new HashMap<>();
         request.put("txHash", TX_HASH);
         request.put("evidenceHash", EVIDENCE_HASH);
+        request.put("lockedMaterials", lockedMaterials(batchId));
 
         link(batchId, request)
                 .andExpect(status().isConflict())
@@ -309,7 +320,24 @@ class ProductionChainLinkTests {
         request.put("blockNumber", 1_234L);
         request.put("evidenceHash", manifestHash(batchId));
         request.put("manifestUrl", "https://cdn.example.com/m.json");
+        request.put("lockedMaterials", lockedMaterials(batchId));
         return request;
+    }
+
+    /**
+     * 투입마다 온체인 잠금 번호 하나. {@code submitPlanAndLock} 이 만든 값을 2단계 보고에서
+     * 함께 받는다 — 3단계까지 화면이 들고 오게 하면 새로고침에 잃어버린다.
+     */
+    private List<Map<String, Object>> lockedMaterials(Long batchId) {
+        List<Map<String, Object>> locked = new ArrayList<>();
+        long chainLockId = 100L;
+        for (ProductionInput input : inputRepository.findAllByProductionBatchId(batchId)) {
+            Map<String, Object> entry = new HashMap<>();
+            entry.put("productionInputId", input.getId());
+            entry.put("chainLockId", chainLockId++);
+            locked.add(entry);
+        }
+        return locked;
     }
 
     private String manifestHash(Long batchId) throws Exception {
@@ -357,6 +385,24 @@ class ProductionChainLinkTests {
         return batchId;
     }
 
+    /** 투입까지만 넣고 확정하지 않은 배치. 상태 검사에 닿으려면 투입이 있어야 한다. */
+    private Long openedBatchWithInput() throws Exception {
+        Long batchId = openedBatch();
+        Map<String, Object> input = new HashMap<>();
+        input.put("materialId", materialId);
+        input.put("inputQuantity", 30_000L);
+        input.put("productUsedQuantity", 30_000L);
+        input.put("reusableScrapQuantity", 0L);
+        input.put("wasteQuantity", 0L);
+
+        mockMvc.perform(post(PATH + "/{id}/inputs", batchId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + brandToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(Map.of("inputs", List.of(input)))))
+                .andExpect(status().isOk());
+        return batchId;
+    }
+
     private Long openedBatch() throws Exception {
         Map<String, Object> request = new HashMap<>();
         request.put("batchName", "RE:BAG 1차 생산");
@@ -386,6 +432,9 @@ class ProductionChainLinkTests {
                 null,
                 null,
                 brand.getId()));
+        // submitPlanAndLock 이 tokenIds[] 를 인자로 받으므로, 온체인 발행이 끝난 소재만
+        // manifest 에 담긴다. 발행 단계는 소재 도메인이 따로 검증하므로 여기서는 값만 채운다.
+        material.linkOnChain(++tokenSequence, CHAIN_ID, MATERIAL_TOKEN_ADDRESS);
         balanceRepository.save(
                 MaterialBalance.of(material.getId(), brand.getId(), WALLET, HELD_QUANTITY));
         return material.getId();

@@ -195,6 +195,30 @@ public enum ProductionErrorCode implements ErrorCode {
             "서버가 만든 manifest 해시와 다릅니다. 최신 manifest 를 다시 받아 서명해 주세요."),
 
     /**
+     * 투입 소재 중 온체인 발행이 안 된 것이 있는 경우.
+     *
+     * <p>{@code submitPlanAndLock} 이 {@code tokenIds[]} 를 인자로 받는데, 발행되지 않은
+     * 소재에는 그 번호가 없다. 순서를 강제하지 않으면 화면이 <b>존재하지 않는 토큰 번호로
+     * 서명을 시도</b>하고 사용자는 지갑 팝업까지 간 뒤에 revert 를 본다 — 거래 도메인이
+     * 같은 이유로 같은 검사를 한다.
+     */
+    PRODUCTION_MATERIAL_NOT_ON_CHAIN(
+            HttpStatus.CONFLICT,
+            "PRODUCTION_MATERIAL_NOT_ON_CHAIN",
+            "온체인 발행되지 않은 소재가 있습니다. 소재를 먼저 발행해 주세요."),
+
+    /**
+     * 온체인 잠금 번호가 아직 연결되지 않은 경우.
+     *
+     * <p>{@code submitPlanAndLock} 이 만든 잠금 번호를 2단계 보고에서 받아 둔다. 그것 없이
+     * 소각을 보고하면 <b>어느 온체인 잠금이 소각됐는지</b> 서버가 확인할 수 없다.
+     */
+    PRODUCTION_CHAIN_LOCKS_NOT_LINKED(
+            HttpStatus.CONFLICT,
+            "PRODUCTION_CHAIN_LOCKS_NOT_LINKED",
+            "온체인 잠금을 먼저 연결해야 합니다."),
+
+    /**
      * 온체인 배치 번호가 아직 연결되지 않은 경우.
      *
      * <p>{@code createBatch} 가 채번한 번호 없이는 {@code submitPlanAndLock} 을 부를 인자가

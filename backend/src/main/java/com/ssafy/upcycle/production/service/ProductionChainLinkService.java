@@ -8,8 +8,20 @@ import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.production.ProductionErrorCode;
 import com.ssafy.upcycle.production.dto.ProductionChainBatchRequest;
 import com.ssafy.upcycle.production.dto.ProductionChainLinkRequest;
+import com.ssafy.upcycle.production.dto.ProductionItemsChainRequest;
+import com.ssafy.upcycle.material.entity.MaterialLock;
+import com.ssafy.upcycle.material.repository.MaterialLockRepository;
 import com.ssafy.upcycle.production.entity.ProductionBatch;
+import com.ssafy.upcycle.production.entity.ProductionInput;
+import com.ssafy.upcycle.production.repository.ProductionInputRepository;
 import com.ssafy.upcycle.production.repository.ProductionBatchRepository;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -58,10 +70,15 @@ public class ProductionChainLinkService {
     /** {@code ProductionRegistry.createBatch}. 온체인 배치 번호를 채번하는 첫 단계다. */
     private static final String CREATE_BATCH = "createBatch";
 
+    /** {@code ProductionRegistry.linkProductItems}. 개체를 배치에 잇는 마지막 단계다. */
+    private static final String LINK_PRODUCT_ITEMS = "linkProductItems";
+
     private final ProductionBatchRepository batchRepository;
     private final ChainTransactionRecorder recorder;
     private final BlockchainProperties properties;
     private final ProductionManifestService manifestService;
+    private final ProductionInputRepository inputRepository;
+    private final MaterialLockRepository lockRepository;
 
     /**
      * {@code createBatch} 결과를 연결한다. <b>온체인 4단계 중 첫 번째다.</b>
@@ -114,6 +131,7 @@ public class ProductionChainLinkService {
         }
         // 화면이 서버가 모르는 내용을 체인에 올리면 그 해시는 나중에 재현할 수 없다.
         manifestService.requireMatchingHash(producerId, batchId, request.evidenceHash());
+        List<MaterialLock> locks = matchedLocks(batchId, request);
 
         // 기록이 먼저다. 트랜잭션 해시 형식이 틀려 거절될 요청에 배치만 먼저 바꿔 두면,
         // 롤백은 되지만 "해시는 붙었는데 기록은 없는" 순간이 코드 안에 존재하게 된다.
@@ -126,7 +144,69 @@ public class ProductionChainLinkService {
                 request.txHash(),
                 request.blockNumber());
 
+        for (int i = 0; i < locks.size(); i++) {
+            locks.get(i).linkChainLock(request.lockedMaterials().get(i).chainLockId());
+        }
         batch.linkManifest(request.evidenceHash(), request.manifestUrl());
+    }
+
+    /**
+     * 보고된 잠금이 배치의 투입과 정확히 짝이 맞는가.
+     *
+     * <p><b>전부여야 한다.</b> {@code submitPlanAndLock} 은 투입 전체를 한 번에 잠그므로,
+     * 일부만 보고하면 나머지는 온체인 번호를 영영 갖지 못하고 3단계에서 그 잠금이 무엇인지
+     * 확인할 수 없다.
+     *
+     * @return 요청의 순서와 <b>같은 순서로</b> 정렬된 잠금들
+     */
+    private List<MaterialLock> matchedLocks(Long batchId, ProductionChainLinkRequest request) {
+        Map<Long, ProductionInput> inputs = inputRepository.findAllByProductionBatchId(batchId)
+                .stream()
+                .collect(Collectors.toMap(ProductionInput::getId, Function.identity()));
+        if (inputs.size() != request.lockedMaterials().size()) {
+            throw new BusinessException(ProductionErrorCode.PRODUCTION_CONSUME_MISMATCH);
+        }
+
+        List<MaterialLock> locks = new ArrayList<>();
+        Set<Long> seen = new HashSet<>();
+        for (ProductionChainLinkRequest.LockedMaterial locked : request.lockedMaterials()) {
+            ProductionInput input = inputs.get(locked.productionInputId());
+            if (input == null || !seen.add(locked.productionInputId())) {
+                throw new BusinessException(ProductionErrorCode.PRODUCTION_CONSUME_MISMATCH);
+            }
+            locks.add(lockRepository.findById(input.getMaterialLockId())
+                    .orElseThrow(() -> new BusinessException(
+                            ProductionErrorCode.PRODUCTION_LOCK_NOT_ACTIVE)));
+        }
+        return locks;
+    }
+
+    /**
+     * {@code linkProductItems} 결과를 연결한다. <b>온체인 4단계 중 마지막이다.</b>
+     *
+     * <p>기록만 남긴다. 개체 번호는 우리 {@code product_item.id} 를 그대로 쓰므로 DB 에
+     * 새로 채울 값이 없다 — 온체인에서 따로 채번하지 않는다.
+     *
+     * <p>소각까지 보고된 뒤에만 받는다. 컨트랙트도 {@code CONFIRMED} 상태를 요구하고, 그
+     * 상태는 {@code confirmProduction} 이 만든다.
+     */
+    @Transactional
+    public void linkProductItems(
+            Long producerId, Long batchId, ProductionItemsChainRequest request) {
+        requireConfigured();
+        ProductionBatch batch = ownedConfirmedBatch(producerId, batchId);
+        if (batch.getChainBatchId() == null) {
+            throw new BusinessException(ProductionErrorCode.PRODUCTION_CHAIN_BATCH_NOT_LINKED);
+        }
+
+        recorder.record(
+                producerId,
+                ChainTransactionRecorder.Contract.PRODUCTION_REGISTRY,
+                LINK_PRODUCT_ITEMS,
+                BlockchainReferenceType.PRODUCTION,
+                batchId,
+                request.txHash(),
+                request.blockNumber());
     }
 
     /**
