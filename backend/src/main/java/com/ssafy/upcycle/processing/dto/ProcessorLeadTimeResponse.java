@@ -1,4 +1,8 @@
 package com.ssafy.upcycle.processing.dto;
 
-public record ProcessorLeadTimeResponse(long maxQuantity, int leadDays) {
+import com.ssafy.upcycle.material.entity.MaterialType;
+import com.ssafy.upcycle.processing.entity.ProcessType;
+
+public record ProcessorLeadTimeResponse(MaterialType materialType, ProcessType processType,
+        long maxQuantity, int leadDays) {
 }

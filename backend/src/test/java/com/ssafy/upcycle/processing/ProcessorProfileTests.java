@@ -82,15 +82,20 @@ class ProcessorProfileTests {
 
         String leadTimes = """
                 {"leadTimes":[
-                  {"maxQuantity":10000,"leadDays":7},
-                  {"maxQuantity":1000,"leadDays":3}
+                  {"materialType":"DENIM","processType":"CLEANING","maxQuantity":5000,"leadDays":7},
+                  {"materialType":"COTTON","processType":"CUTTING","maxQuantity":2000,"leadDays":3},
+                  {"materialType":"DENIM","processType":"CLEANING","maxQuantity":1000,"leadDays":2}
                 ]}
                 """;
         mvc.perform(authenticated(put("/processors/me/lead-times"), processorId, "PROCESSOR")
                         .contentType(MediaType.APPLICATION_JSON).content(leadTimes))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("data[0].maxQuantity").value(1000))
-                .andExpect(jsonPath("data[1].maxQuantity").value(10000));
+                .andExpect(jsonPath("data[0].materialType").value("COTTON"))
+                .andExpect(jsonPath("data[0].processType").value("CUTTING"))
+                .andExpect(jsonPath("data[0].maxQuantity").value(2000))
+                .andExpect(jsonPath("data[1].materialType").value("DENIM"))
+                .andExpect(jsonPath("data[1].maxQuantity").value(1000))
+                .andExpect(jsonPath("data[2].maxQuantity").value(5000));
 
         mvc.perform(authenticated(put("/processors/me/capabilities"), processorId, "PROCESSOR")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -114,7 +119,7 @@ class ProcessorProfileTests {
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("code").value("PROCESSOR_CAPABILITIES_INVALID"));
         mvc.perform(authenticated(put("/processors/me/lead-times"), processorId, "PROCESSOR")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"leadTimes\":[{\"maxQuantity\":1000,\"leadDays\":3},{\"maxQuantity\":1000,\"leadDays\":5}]}"))
+                        .content("{\"leadTimes\":[{\"materialType\":\"DENIM\",\"processType\":\"CLEANING\",\"maxQuantity\":1000,\"leadDays\":3},{\"materialType\":\"DENIM\",\"processType\":\"CLEANING\",\"maxQuantity\":1000,\"leadDays\":5}]}"))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("code").value("PROCESSOR_LEAD_TIMES_INVALID"));
 
         mvc.perform(authenticated(put("/processors/me/capabilities"), processorId, "PROCESSOR")
@@ -123,7 +128,12 @@ class ProcessorProfileTests {
                 .andExpect(status().isOk());
         mvc.perform(authenticated(put("/processors/me/lead-times"), processorId, "PROCESSOR")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"leadTimes\":[{\"maxQuantity\":1000,\"leadDays\":3}]}"))
+                        .content("{\"leadTimes\":[{\"materialType\":\"DENIM\",\"processType\":\"CLEANING\",\"maxQuantity\":1000,\"leadDays\":3}]}"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("code").value("PROCESSOR_LEAD_TIMES_INVALID"));
+
+        mvc.perform(authenticated(put("/processors/me/lead-times"), processorId, "PROCESSOR")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"leadTimes\":[{\"materialType\":\"COTTON\",\"processType\":\"CLEANING\",\"maxQuantity\":5000,\"leadDays\":3}]}"))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("code").value("PROCESSOR_LEAD_TIMES_INVALID"));
     }
 
@@ -136,7 +146,8 @@ class ProcessorProfileTests {
                         .param("quantity", "100").param("processTypes", "CLEANING"), brandId, "BRAND"))
                 .andExpect(status().isOk()).andExpect(jsonPath("data.total").value(0));
 
-        jdbc.update("insert into processor_lead_time(processor_profile_id,max_quantity,lead_days) values (?,?,?)", processorId, 1000, 3);
+        jdbc.update("insert into processor_lead_time(processor_profile_id,material_type,process_type,max_quantity,lead_days) values (?,?,?,?,?)",
+                processorId, "DENIM", "CLEANING", 1000, 3);
         mvc.perform(authenticated(get("/processors/search").param("materialType", "DENIM")
                         .param("quantity", "100").param("processTypes", "CLEANING"), brandId, "BRAND"))
                 .andExpect(status().isOk()).andExpect(jsonPath("data.total").value(1));

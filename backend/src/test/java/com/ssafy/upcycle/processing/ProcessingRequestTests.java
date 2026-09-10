@@ -71,6 +71,11 @@ class ProcessingRequestTests {
                 processorId, material, purpose, min, max);
     }
 
+    void leadTime(Long id, String material, String process, long max, int days) {
+        jdbc.update("insert into processor_lead_time(processor_profile_id, material_type, process_type, max_quantity, lead_days) values (?, ?, ?, ?, ?)",
+                id, material, process, max, days);
+    }
+
     String body(String quantity) {
         return "{\"materialId\":" + materialId + ",\"processorId\":" + processorId
                 + ",\"quantity\":" + quantity + ",\"processTypes\":[\"CLEANING\",\"CUTTING\"]}";
@@ -274,7 +279,8 @@ class ProcessingRequestTests {
     @Test
     void processorSearchMatchesEveryPurposeAndReturnsCombinedQuantityBounds() throws Exception {
         jdbc.update("update processor_capability set min_quantity=100,max_quantity=900 where process_type='CUTTING'");
-        jdbc.update("insert into processor_lead_time(processor_profile_id,max_quantity,lead_days) values (?,1000,5)", processorId);
+        leadTime(processorId, "DENIM", "CLEANING", 1000, 5);
+        leadTime(processorId, "DENIM", "CUTTING", 1000, 7);
         mvc.perform(get("/processors/search").with(jwt().jwt(j -> j.subject(brandId.toString())))
                         .param("materialType", "DENIM").param("quantity", "500")
                         .param("processTypes", "CLEANING", "CUTTING"))
@@ -282,15 +288,24 @@ class ProcessingRequestTests {
                 .andExpect(jsonPath("data.items[0].processorId").value(processorId))
                 .andExpect(jsonPath("data.items[0].minQuantity").value(100))
                 .andExpect(jsonPath("data.items[0].maxQuantity").value(900))
-                .andExpect(jsonPath("data.items[0].region").value("Seoul"));
+                .andExpect(jsonPath("data.items[0].region").value("Seoul"))
+                .andExpect(jsonPath("data.items[0].estimatedLeadTimes[0].processType").value("CLEANING"))
+                .andExpect(jsonPath("data.items[0].estimatedLeadTimes[0].leadDays").value(5))
+                .andExpect(jsonPath("data.items[0].estimatedLeadTimes[1].processType").value("CUTTING"))
+                .andExpect(jsonPath("data.items[0].estimatedLeadTimes[1].leadDays").value(7));
     }
 
     @Test
     void searchUsesTheSmallestCoveringWeightBandAndRejectsPartialMatches() throws Exception {
-        jdbc.update("insert into processor_lead_time(processor_profile_id,max_quantity,lead_days) values (?,100,2),(?,1000,5)", processorId, processorId);
-        search("100").andExpect(jsonPath("data.items[0].estimatedLeadDays").value(2));
-        search("101").andExpect(jsonPath("data.items[0].estimatedLeadDays").value(5));
-        search("1000").andExpect(jsonPath("data.items[0].estimatedLeadDays").value(5));
+        leadTime(processorId, "DENIM", "CLEANING", 100, 2);
+        leadTime(processorId, "DENIM", "CLEANING", 1000, 5);
+        leadTime(processorId, "DENIM", "CUTTING", 100, 3);
+        leadTime(processorId, "DENIM", "CUTTING", 1000, 6);
+        search("100").andExpect(jsonPath("data.items[0].estimatedLeadTimes[0].leadDays").value(2))
+                .andExpect(jsonPath("data.items[0].estimatedLeadTimes[1].leadDays").value(3));
+        search("101").andExpect(jsonPath("data.items[0].estimatedLeadTimes[0].leadDays").value(5))
+                .andExpect(jsonPath("data.items[0].estimatedLeadTimes[1].leadDays").value(6));
+        search("1000").andExpect(jsonPath("data.items[0].estimatedLeadTimes[0].leadDays").value(5));
         search("1001").andExpect(jsonPath("data.items").isEmpty());
         jdbc.update("delete from processor_capability where process_type='CUTTING'");
         search("100").andExpect(jsonPath("data.items").isEmpty()).andExpect(jsonPath("data.total").value(0));
@@ -317,14 +332,18 @@ class ProcessingRequestTests {
         Long second=users.save(User.register("second@test.com","hash","second","010",UserRole.PROCESSOR)).getId();
         jdbc.update("insert into processor_profile(user_id,region) values (?,'Busan')",second);
         jdbc.update("insert into processor_capability(processor_profile_id,material_type,process_type,min_quantity,max_quantity) values (?,'DENIM','CLEANING',1,1000),(?,'DENIM','CUTTING',1,1000)",second,second);
-        jdbc.update("insert into processor_lead_time(processor_profile_id,max_quantity,lead_days) values (?,1000,3),(?,1000,4)", processorId, second);
+        for (Long id : List.of(processorId, second)) {
+            leadTime(id, "DENIM", "CLEANING", 1000, id.equals(processorId) ? 3 : 4);
+            leadTime(id, "DENIM", "CUTTING", 1000, id.equals(processorId) ? 5 : 6);
+        }
         mvc.perform(get("/processors/search").with(jwt().jwt(j -> j.subject(brandId.toString())))
                         .param("materialType","DENIM").param("quantity","100").param("processTypes","CLEANING,CUTTING")
                         .param("page","1").param("size","1"))
                 .andExpect(status().isOk()).andExpect(jsonPath("data.total").value(2))
                 .andExpect(jsonPath("data.items.length()").value(1))
                 .andExpect(jsonPath("data.items[0].processorId").value(second))
-                .andExpect(jsonPath("data.items[0].estimatedLeadDays").value(4));
+                .andExpect(jsonPath("data.items[0].estimatedLeadTimes[0].leadDays").value(4))
+                .andExpect(jsonPath("data.items[0].estimatedLeadTimes[1].leadDays").value(6));
     }
 
     @Test
