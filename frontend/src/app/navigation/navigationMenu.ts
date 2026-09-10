@@ -15,7 +15,6 @@ import {
   Buildings,
   ClipboardText,
   Factory,
-  MagnifyingGlass,
   Package,
   ShieldCheck,
   ShoppingCart,
@@ -58,7 +57,6 @@ export const BUSINESS_MENU_ITEMS: readonly NavigationMenuItem[] = [
   // **마켓플레이스가 빠져 있던 것이 특히 문제였다** — 브랜드가 소재를 사는 입구인데
   // 대시보드 어디에도 링크가 없었다.
   { label: '소재 마켓플레이스', to: '/marketplace', Icon: ShoppingCart },
-  { label: '소재 둘러보기', to: '/materials', Icon: MagnifyingGlass },
 
   { label: '소재 등록', to: '/supplier/materials/new', Icon: ClipboardText },
   { label: '판매 관리', to: '/supplier/listings', Icon: Storefront },

@@ -30,7 +30,7 @@ describe('useVisibleMenu', () => {
     expect(result.current.items.map((item) => item.to)).toEqual([
       '/company/account', '/inventory',
       // 공개 조회 화면은 역할을 가리지 않는다.
-      '/marketplace', '/materials',
+      '/marketplace',
       '/processor/profile', '/processor/jobs', '/products', '/trades',
     ])
     expect(result.current.isResolving).toBe(false)
@@ -39,9 +39,8 @@ describe('useVisibleMenu', () => {
   it('미인증이면 로그인이 필요한 항목이 남지 않는다', () => {
     const { result } = renderHook(() => useVisibleMenu(BUSINESS_MENU_ITEMS))
 
-    // 공개 조회 화면(/marketplace · /materials)은 비회원도 들어갈 수 있으므로 남는다.
-    // 확인할 것은 로그인이 필요한 항목이 새어 나오지 않는가다.
-    expect(result.current.items.map((item) => item.to)).toEqual(['/marketplace', '/materials'])
+    // 사업자 메뉴에는 공개 경로가 하나도 없다 — 마켓플레이스까지 로그인 뒤로 갔다.
+    expect(result.current.items.map((item) => item.to)).toEqual([])
     expect(result.current.isResolving).toBe(false)
   })
 

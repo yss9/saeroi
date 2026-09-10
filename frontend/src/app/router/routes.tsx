@@ -15,7 +15,6 @@ import { ListingDetailPage } from '../../pages/marketplace/ListingDetailPage.tsx
 import { MarketplacePage } from '../../pages/marketplace/MarketplacePage.tsx'
 import { SupplierMarketPage } from '../../pages/marketplace/SupplierMarketPage.tsx'
 import { MaterialDetailPage } from '../../pages/material/MaterialDetailPage.tsx'
-import { MaterialListPage } from '../../pages/material/MaterialListPage.tsx'
 import { MaterialRegisterPage } from '../../pages/material/MaterialRegisterPage.tsx'
 import { ConsumerMyPage } from '../../pages/mypage/ConsumerMyPage.tsx'
 import { BrandProcessingPage } from '../../pages/processing/BrandProcessingPage.tsx'
@@ -83,26 +82,6 @@ export const routes: RouteObject[] = [
   // 값이라 이 경로의 유일한 접근 통제다 (§6-3, 2026-09-08).
   { path: '/qr/:qrToken', element: <PassportPage /> },
 
-  // 소재 목록은 공개 정보다. 등록·거래처럼 쓰기 동작만 인증을 요구한다.
-  //
-  // ⚠️ 다만 이 구역의 화면들이 부르는 API 는 대부분 인증을 요구한다 — SecurityConfig 가
-  // `/api/v1/auth/**` 와 헬스체크만 열어 두었다. 비회원에게 무엇을 보여줄지는 QR 공개
-  // 조회와 함께 정해야 하는 별도 결정이라 여기서 우회하지 않는다.
-  //
-  // BrowseLayout 은 가드가 아니라 껍데기 선택이다 — 로그인했으면 사이드바 안에서 보고,
-  // 비회원이면 화면만 본다. 접근 조건은 그대로 public 이라 routeAccess 파생도 바뀌지
-  // 않는다. 이게 없으면 브랜드가 소재를 사러 마켓플레이스에 들어간 순간 메뉴가 사라져,
-  // 판매 관리나 거래 내역으로 돌아갈 길이 브라우저 뒤로 가기밖에 없다.
-  {
-    element: <BrowseLayout />,
-    children: [
-      { path: '/materials', element: <MaterialListPage /> },
-      { path: '/materials/:materialId', element: <MaterialDetailPage /> },
-      { path: '/marketplace', element: <MarketplacePage /> },
-      { path: '/marketplace/:listingId', element: <ListingDetailPage /> },
-    ],
-  },
-
   // ── 로그인 필요 ───────────────────────────────────────
   {
     element: <ProtectedRoute />,
@@ -130,9 +109,29 @@ export const routes: RouteObject[] = [
       },
 
       // ── BUSINESS 공통 ──
+      //
+      // 소재 거래 구역은 <b>사업자만</b>이다. 예전에는 공개였는데 두 가지가 어긋나 있었다.
+      //
+      // 첫째, 비회원에게 화면은 뜨고 데이터는 401 이었다 — SecurityConfig 가 열어 둔 것은
+      // `/api/v1/auth/**` 와 헬스체크, QR 뿐이라 `GET /v1/listings` 가 그대로 막힌다.
+      // 필터바만 있고 목록이 비어 있는 화면이 나갔다. 둘째, 업사이클링 제품을 사는
+      // CONSUMER 에게도 메뉴가 보였다 — 소재는 소비자가 사는 물건이 아니다.
+      //
+      // <b>SUPPLIER 를 빼지 않는다.</b> 마켓플레이스에 있는 판매 글이 곧 공급업체가 올린
+      // 것이라, 막으면 자기가 올린 글이 어떻게 보이는지조차 확인할 수 없다. 구매만
+      // BRAND 로 좁혀져 있고(TradeCommandService — 온체인 `createOrder` 가 BRAND_ROLE 을
+      // 요구한다), 그 제약은 서버와 컨트랙트가 이미 두 겹으로 막는다.
+      //
+      // ADMIN 도 넣지 않는다 — 권한 Matrix §4 에서 도메인 기능에 허용이 없고 지갑이 없어
+      // 서명 흐름에 들어갈 수 없다. 다른 RoleGuard 들과 같은 판단이다.
       {
         element: <RoleGuard allow={['SUPPLIER', 'BRAND', 'PROCESSOR']} />,
-        children: [{ path: '/company/account', element: <CompanyAccountPage /> }],
+        children: [
+          { path: '/company/account', element: <CompanyAccountPage /> },
+          { path: '/materials/:materialId', element: <MaterialDetailPage /> },
+          { path: '/marketplace', element: <MarketplacePage /> },
+          { path: '/marketplace/:listingId', element: <ListingDetailPage /> },
+        ],
       },
 
       // ── SUPPLIER ──
