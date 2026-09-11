@@ -34,7 +34,27 @@ export const env = {
    * 그것이기도 하다.
    */
   besuExplorerUrl: optional(import.meta.env.VITE_BESU_EXPLORER_URL),
+  /**
+   * 로그 조회를 시작할 블록. <b>컨트랙트가 배포된 블록</b>을 넣는다.
+   *
+   * 이 값이 없으면 `queryFilter` 가 제네시스부터 훑는다. 배포 시점(2026-09-08)에는
+   * 그래도 빨랐지만 SSAFY 체인은 블록이 계속 쌓인다 — 사흘 만에 1,122만 블록이 됐고
+   * 전 구간 `eth_getLogs` 가 <b>33초</b>가 됐다. 그 33초가 MetaMask 서명 팝업 앞을
+   * 막아서, 소재 등록 버튼을 누른 사용자가 아무 반응 없는 화면을 보게 된다
+   * (배포 블록부터 조회하면 같은 질의가 455ms 다).
+   *
+   * 컨트랙트보다 앞선 블록에는 이 컨트랙트의 로그가 있을 수 없으므로 건너뛰어도
+   * 잃는 것이 없다. 값이 없으면 0 으로 떨어져 예전 동작이 된다 — 느릴 뿐 틀리지 않는다.
+   */
+  chainFromBlock: toBlockNumber(optional(import.meta.env.VITE_CHAIN_FROM_BLOCK)),
 } as const
+
+/** 블록 번호 문자열 → 정수. 10진·16진 모두 받는다. 이상한 값은 0 으로 떨어뜨린다. */
+export function toBlockNumber(raw: string | null): number {
+  if (!raw) return 0
+  const parsed = raw.startsWith('0x') || raw.startsWith('0X') ? Number(raw) : Number(raw)
+  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : 0
+}
 
 /** '1337' 또는 '0x539' 를 모두 '0x539' 로 만든다. 해석 불가면 null. */
 export function toChainIdHex(raw: string | null): string | null {
