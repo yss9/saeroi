@@ -45,6 +45,7 @@ class ProcessingRequestTests {
     @Autowired com.ssafy.upcycle.processing.service.ProcessingRequestService service;
     @Autowired com.ssafy.upcycle.processing.service.ProcessingJobService jobService;
     @Autowired com.ssafy.upcycle.processing.repository.ProcessingRequestRepository requests;
+    @Autowired com.ssafy.upcycle.material.service.MaterialVerificationStateResolver verificationStates;
     @Autowired java.time.Clock clock;
     Long brandId;
     Long processorId;
@@ -53,7 +54,7 @@ class ProcessingRequestTests {
     @BeforeEach
     void fixture() {
         // Real persisted fixtures: missing reservation writes and transaction errors are observable.
-        for (String table : List.of("material_event", "processing_input", "processing_job", "processing_quote", "material_lock", "processing_request_type", "processing_request_input",
+        for (String table : List.of("material_event", "material_lineage", "processing_output", "processing_input", "processing_job", "processing_quote", "material_lock", "processing_request_type", "processing_request_input",
                 "processing_request", "processor_capability", "processor_lead_time", "processor_profile", "material_balance", "material", "user_wallet", "users")) {
             jdbc.update("delete from " + table);
         }
@@ -543,5 +544,133 @@ class ProcessingRequestTests {
 
         assertThat(jdbc.queryForObject("select status from processing_job where id=?",String.class,jobId)).isEqualTo("EXPIRED");
         assertThat(locks.findAll().getFirst().getStatus()).isEqualTo(MaterialLockStatus.EXPIRED);
+    }
+
+    @Test
+    void confirmedProcessingResultCreatesChildMaterialAndLineageAtomically() throws Exception {
+        long jobId = startProcessingJob(300);
+
+        mvc.perform(post("/processing-jobs/{id}/result", jobId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "outputs": [
+                                    {"materialType":"COTTON","name":"재생 면사","grade":"A","quantity":200},
+                                    {"materialType":"DENIM","name":"재생 데님 조각","grade":"B","quantity":50}
+                                  ],
+                                  "evidenceHash":"0x%s",
+                                  "manifestUrl":"https://example.com/processing/manifest.json"
+                                }
+                                """.formatted("a".repeat(64))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("data.status").value("RESULT_SUBMITTED"))
+                .andExpect(jsonPath("data.lossQuantity").value(50))
+                .andExpect(jsonPath("data.processorSubmittedAt").isNotEmpty());
+
+        assertThat(jdbc.queryForObject(
+                "select count(*) from material_lineage", Long.class)).isZero();
+
+        mvc.perform(post("/processing-jobs/{id}/result/confirm", jobId)
+                        .with(jwt().jwt(j -> j.subject(brandId.toString()))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("data.status").value("CONFIRMED"))
+                .andExpect(jsonPath("data.brandReviewedAt").isNotEmpty())
+                .andExpect(jsonPath("data.completedAt").isNotEmpty());
+
+        List<Long> childIds = jdbc.queryForList(
+                "select output_material_id from processing_output where processing_job_id=? order by id",
+                Long.class, jobId);
+        assertThat(childIds).hasSize(2).doesNotContainNull();
+        assertThat(materials.findAllById(childIds))
+                .allSatisfy(child -> {
+                    assertThat(child.getGenerationType()).isEqualTo(MaterialGenerationType.PROCESSED);
+                    assertThat(child.getRootOrigin()).isEqualTo(MaterialRootOrigin.WASTE);
+                    assertThat(child.getRegistrantId()).isEqualTo(processorId);
+                });
+        assertThat(jdbc.queryForList(
+                "select parent_material_id from material_lineage where reference_id=? order by id",
+                Long.class, jobId)).containsExactly(materialId, materialId);
+        assertThat(balances.findByMaterialIdAndOwnerId(materialId, brandId).orElseThrow().getQuantity())
+                .isEqualTo(700);
+        assertThat(childIds)
+                .allSatisfy(childId -> assertThat(
+                        balances.findByMaterialIdAndOwnerId(childId, brandId).orElseThrow().getQuantity())
+                        .isPositive());
+        assertThat(childIds)
+                .allSatisfy(childId -> assertThat(verificationStates.resolve(childId))
+                        .isEqualTo(MaterialVerificationState.PROCESSING_VERIFIED));
+        assertThat(locks.findAll().getFirst().getStatus()).isEqualTo(MaterialLockStatus.CONSUMED);
+    }
+
+    @Test
+    void invalidOrUnapprovedResultNeverCreatesLineage() throws Exception {
+        long jobId = startProcessingJob(300);
+
+        mvc.perform(post("/processing-jobs/{id}/result", jobId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"outputs":[
+                                  {"materialType":"DENIM","name":"과다 산출","grade":"A","quantity":301}
+                                ]}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("code").value("PROCESSING_OUTPUT_INVALID"));
+
+        assertThat(jdbc.queryForObject(
+                "select status from processing_job where id=?", String.class, jobId))
+                .isEqualTo("PROCESSING");
+        assertThat(jdbc.queryForObject(
+                "select count(*) from processing_output where processing_job_id=?", Long.class, jobId))
+                .isZero();
+        assertThat(jdbc.queryForObject("select count(*) from material_lineage", Long.class)).isZero();
+
+        mvc.perform(post("/processing-jobs/{id}/result/confirm", jobId)
+                        .with(jwt().jwt(j -> j.subject(brandId.toString()))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("code").value("PROCESSING_INVALID_STATE"));
+        assertThat(jdbc.queryForObject("select count(*) from material_lineage", Long.class)).isZero();
+    }
+
+    private long startProcessingJob(long amount) throws Exception {
+        wallets.save(UserWallet.link(brandId, "0x" + "5".repeat(40), 31337));
+        wallets.save(UserWallet.link(processorId, "0x" + "6".repeat(40), 31337));
+        long requestId = create(amount);
+        mvc.perform(post("/processing-requests/{id}/quotes", requestId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"price\":50000,\"leadDays\":3}"))
+                .andExpect(status().isCreated());
+        long quoteId = jdbc.queryForObject(
+                "select id from processing_quote where processing_request_id=?", Long.class, requestId);
+        var selected = mvc.perform(post("/quotes/{id}/select", quoteId)
+                        .with(jwt().jwt(j -> j.subject(brandId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"paymentMethod\":\"MOCK\"}"))
+                .andExpect(status().isCreated()).andReturn();
+        long jobId = mapper.readTree(selected.getResponse().getContentAsString())
+                .path("data").path("jobId").asLong();
+        mvc.perform(post("/processing-jobs/{id}/payment", jobId)
+                        .with(jwt().jwt(j -> j.subject(brandId.toString()))))
+                .andExpect(status().isOk());
+        mvc.perform(post("/processing-jobs/{id}/payment/confirm", jobId)
+                        .with(jwt().jwt(j -> j.subject(brandId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"pgToken\":\"mock-token\"}"))
+                .andExpect(status().isOk());
+        mvc.perform(post("/processing-jobs/{id}/shipment", jobId)
+                        .with(jwt().jwt(j -> j.subject(brandId.toString()))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("data.status").value("SHIPPED"));
+        mvc.perform(post("/processing-jobs/{id}/receipt", jobId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString()))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("data.status").value("RECEIVED"));
+        mvc.perform(post("/processing-jobs/{id}/start", jobId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString()))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("data.status").value("PROCESSING"));
+        return jobId;
     }
 }

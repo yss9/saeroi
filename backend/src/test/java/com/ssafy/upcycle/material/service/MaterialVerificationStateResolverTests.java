@@ -18,7 +18,7 @@ class MaterialVerificationStateResolverTests {
 
     @Test
     void signedTradeRaisesTheMaterialToTransactionVerified() {
-        MaterialVerificationStateResolver resolver = resolverWith(true, false);
+        MaterialVerificationStateResolver resolver = resolverWith(false, true, false);
 
         assertThat(resolver.resolve(1L))
                 .isEqualTo(MaterialVerificationState.TRANSACTION_VERIFIED);
@@ -26,14 +26,14 @@ class MaterialVerificationStateResolverTests {
 
     @Test
     void onChainVerifySourceRaisesTheMaterialToSourceVerified() {
-        MaterialVerificationStateResolver resolver = resolverWith(false, true);
+        MaterialVerificationStateResolver resolver = resolverWith(false, false, true);
 
         assertThat(resolver.resolve(1L)).isEqualTo(MaterialVerificationState.SOURCE_VERIFIED);
     }
 
     @Test
     void materialWithNoEvidenceStaysRegistered() {
-        MaterialVerificationStateResolver resolver = resolverWith(false, false);
+        MaterialVerificationStateResolver resolver = resolverWith(false, false, false);
 
         assertThat(resolver.resolve(1L)).isEqualTo(MaterialVerificationState.REGISTERED);
     }
@@ -46,7 +46,7 @@ class MaterialVerificationStateResolverTests {
      */
     @Test
     void higherStageWinsWhenBothEvidencesExist() {
-        MaterialVerificationStateResolver resolver = resolverWith(true, true);
+        MaterialVerificationStateResolver resolver = resolverWith(false, true, true);
 
         assertThat(resolver.resolve(1L))
                 .isEqualTo(MaterialVerificationState.TRANSACTION_VERIFIED);
@@ -58,6 +58,7 @@ class MaterialVerificationStateResolverTests {
         Long[] askedTrade = new Long[1];
         Long[] askedChain = new Long[1];
         MaterialVerificationStateResolver resolver = new MaterialVerificationStateResolver(
+                materialId -> false,
                 materialId -> {
                     askedTrade[0] = materialId;
                     return false;
@@ -81,21 +82,26 @@ class MaterialVerificationStateResolverTests {
      * 누군가 판정할 수 없는 것을 판정하기 시작한 것이다.
      */
     @Test
-    void neverReportsStagesThatHaveNoEvidenceSource() {
+    void confirmedProcessingResultRaisesTheOutputToProcessingVerified() {
+        assertThat(resolverWith(true, true, true).resolve(1L))
+                .isEqualTo(MaterialVerificationState.PROCESSING_VERIFIED);
+    }
+
+    @Test
+    void neverReportsProductLinkedWithoutItsEvidenceSource() {
         for (boolean trade : new boolean[] {true, false}) {
             for (boolean chain : new boolean[] {true, false}) {
-                assertThat(resolverWith(trade, chain).resolve(1L))
+                assertThat(resolverWith(false, trade, chain).resolve(1L))
                         .as("trade=%s chain=%s", trade, chain)
-                        .isNotIn(
-                                MaterialVerificationState.PROCESSING_VERIFIED,
-                                MaterialVerificationState.PRODUCT_LINKED);
+                        .isNotEqualTo(MaterialVerificationState.PRODUCT_LINKED);
             }
         }
     }
 
     private MaterialVerificationStateResolver resolverWith(
-            boolean hasSignedTrade, boolean hasVerifiedSource) {
+            boolean hasConfirmedProcessing, boolean hasSignedTrade, boolean hasVerifiedSource) {
         return new MaterialVerificationStateResolver(
+                materialId -> hasConfirmedProcessing,
                 materialId -> hasSignedTrade, blockchainVerificationStub(materialId -> hasVerifiedSource));
     }
 
