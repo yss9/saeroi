@@ -167,6 +167,14 @@ export interface ProductionItem {
   serialNumber: number
   /** `/qr/{qrToken}` 으로 열린다 */
   qrToken: string
+  /**
+   * QR 이미지가 담고 있는 주소 그 자체. 서버가 조립한 절대 주소다.
+   *
+   * **토큰에 접두어를 붙이는 규칙을 화면이 따로 갖지 않는다.** 그 규칙이 두 곳이 되면
+   * 서버 설정(`app.qr.base-url`)이 바뀔 때 한쪽만 바뀌고, 그때 인쇄된 라벨과 화면이
+   * 서로 다른 주소를 가리킨다 — 이미 제품에 붙어 나간 QR 은 고칠 수 없다.
+   */
+  qrUrl: string
   status: ProductItemStatus
   createdAt: string
 }

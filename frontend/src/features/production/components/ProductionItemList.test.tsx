@@ -6,8 +6,9 @@
 //      의미 없는 요청이 늘어난다.
 //   2) **qrToken 전체를 화면에 늘어놓지 않는다.** 그 값 하나가 비회원 공개 경로의 열쇠라
 //      화면 캡처 한 장으로 다 새어 나간다.
-//   3) **복사는 절대 주소로 한다.** 라벨 만드는 사람이 도메인을 손으로 붙이면 오타가 그대로
-//      인쇄되고, 인쇄된 QR 은 고칠 수 없다.
+//   3) **주소는 서버가 준 것을 그대로 쓴다.** 화면이 토큰에 접두어를 붙여 만들면 그 규칙이
+//      두 곳이 되고, 서버 설정이 바뀔 때 한쪽만 바뀐다 — 그러면 화면에서 확인한 주소와
+//      실제로 인쇄된 QR 이 다른 곳을 가리킨다. 인쇄된 QR 은 고칠 수 없다.
 //   4) **복사 실패를 삼키지 않는다.** 클립보드는 권한·보안 컨텍스트에 따라 실패한다.
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -18,12 +19,19 @@ import { createAppError, ERROR_KIND } from '../../../utils/errors.ts'
 import type { ProductionItem } from '../types/production.types.ts'
 import { ProductionItemList } from './ProductionItemList.tsx'
 
-const api = vi.hoisted(() => ({ getProductionItems: vi.fn() }))
+const api = vi.hoisted(() => ({
+  getProductionItems: vi.fn(),
+  getProductionItemQr: vi.fn(),
+}))
 vi.mock('../api/productionBatchApi.ts', () => ({
   getProductionItems: api.getProductionItems,
+  getProductionItemQr: api.getProductionItemQr,
 }))
 
 const TOKEN = 'a1b2c3d4e5f60718293a4b5c6d7e8f90'
+// 서버가 조립해 내려주는 절대 주소. **일부러 테스트가 도는 origin 과 다르게 둔다** —
+// 화면이 이 값을 그대로 쓰는지, 아니면 토큰으로 다시 만들고 있는지가 그래야 드러난다.
+const QR_URL = `https://saeroi.example.com/qr/${TOKEN}`
 
 function item(overrides: Partial<ProductionItem> = {}): ProductionItem {
   return {
@@ -31,6 +39,7 @@ function item(overrides: Partial<ProductionItem> = {}): ProductionItem {
     itemCode: 'PI-000031-01',
     serialNumber: 1,
     qrToken: TOKEN,
+    qrUrl: QR_URL,
     status: 'IN_STOCK',
     createdAt: '2026-09-10T10:00:00',
     ...overrides,
@@ -73,6 +82,7 @@ describe('ProductionItemList', () => {
         serialNumber: 2,
         status: 'SOLD',
         qrToken: 'ffffffff11112222333344445555aaaa',
+        qrUrl: 'https://saeroi.example.com/qr/ffffffff11112222333344445555aaaa',
       }),
     ])
     renderList()
@@ -92,10 +102,7 @@ describe('ProductionItemList', () => {
     expect(screen.getByText(`${TOKEN.slice(0, 6)}…`)).toBeInTheDocument()
     expect(screen.queryByText(TOKEN)).not.toBeInTheDocument()
     // 링크의 href 에는 들어가지만(열어보기) 텍스트로는 노출되지 않는다.
-    expect(screen.getByRole('link', { name: '열어보기' })).toHaveAttribute(
-      'href',
-      `/qr/${TOKEN}`,
-    )
+    expect(screen.getByRole('link', { name: '열어보기' })).toHaveAttribute('href', QR_URL)
   })
 
   it('공개 경로라는 사실을 표에 적어 둔다', async () => {
@@ -106,18 +113,14 @@ describe('ProductionItemList', () => {
 
   // navigator 를 통째로 바꾸지 않는다 — userEvent.setup() 이 자체 클립보드 스텁을
   // 설치하므로 그것을 그대로 쓰고, 실패 경로만 spy 로 갈아 끼운다.
-  it('복사는 도메인이 붙은 절대 주소로 한다', async () => {
+  it('복사는 서버가 준 주소를 그대로 쓴다', async () => {
     const user = renderList()
     await screen.findByText('PI-000031-01')
 
     await user.click(screen.getByRole('button', { name: '주소 복사' }))
 
-    // 라벨 만드는 사람이 도메인을 손으로 붙이면 오타가 그대로 인쇄된다.
-    await waitFor(async () =>
-      expect(await navigator.clipboard.readText()).toBe(
-        `${window.location.origin}/qr/${TOKEN}`,
-      ),
-    )
+    // 화면이 토큰으로 주소를 다시 만들면 여기서 origin 이 어긋난다.
+    await waitFor(async () => expect(await navigator.clipboard.readText()).toBe(QR_URL))
     expect(await screen.findByRole('button', { name: '복사됨' })).toBeInTheDocument()
   })
 
