@@ -16,6 +16,29 @@ import { MaterialForm } from './MaterialForm.tsx'
 const api = vi.hoisted(() => ({ createMaterial: vi.fn() }))
 vi.mock('../api/createMaterial.ts', () => api)
 
+/**
+ * <b>지갑은 연결된 것으로 둔다.</b>
+ *
+ * 폼은 지갑이 없으면 DB 에 손대기 전에 멈춘다 — 체인에 영영 오르지 않을 소재를
+ * 만들지 않기 위해서다. 이 파일이 고정하려는 것은 <b>전송 본문이 Backend 계약과
+ * 맞는가</b> 이므로, 그 앞의 관문은 통과시켜 둔다. 관문 자체는 아래
+ * "지갑 미연결" describe 가 따로 지킨다.
+ */
+const wallet = vi.hoisted(() => ({ address: '0xabc' as string | null, connect: vi.fn() }))
+vi.mock('../../wallet/hooks/useWallet.ts', () => ({
+  useWallet: () => wallet,
+}))
+
+/**
+ * 서명은 이 파일의 관심사가 아니다. 실제 훅을 쓰면 window.ethereum 을 찾다 실패하고,
+ * 폼이 catch 로 삼켜 `onCreated` 가 불리지 않는다 — 전송 본문 검사와 무관한 이유로
+ * 테스트가 깨진다.
+ */
+const mint = vi.hoisted(() => ({ mint: vi.fn(), status: 'IDLE', isBusy: false, isRejected: false, error: null }))
+vi.mock('../hooks/useMintMaterialOnChain.ts', () => ({
+  useMintMaterialOnChain: () => mint,
+}))
+
 function renderForm(onCreated?: (id: number) => void): ReactElement {
   const queryClient = new QueryClient({
     defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
@@ -47,6 +70,9 @@ function submitted() {
 beforeEach(() => {
   api.createMaterial.mockReset()
   api.createMaterial.mockResolvedValue({ materialId: 42, materialCode: 'MAT-000042' })
+  wallet.address = '0xabc'
+  mint.mint.mockReset()
+  mint.mint.mockResolvedValue(true)
 })
 
 afterEach(cleanup)
@@ -207,5 +233,73 @@ describe('등록 후', () => {
 
     expect(await screen.findByText('등록에 실패했습니다.')).toBeInTheDocument()
     expect(onCreated).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * <b>지갑 없이는 소재를 만들지 않는다.</b>
+ *
+ * 예전에는 소재를 먼저 만들고 발행만 조용히 건너뛰었다. 화면은 성공으로 넘어가는데
+ * 체인에는 아무것도 없어서, 사용자는 등록했다고 믿지만 실제로는 <b>영영 체인에 오르지
+ * 않을 고아</b>가 DB 에 남는다. 온체인 증명이 이 서비스의 존재 이유라 그건 등록이 아니다.
+ *
+ * LAN 으로 붙는 팀원에게서 그대로 드러났다 — `192.168.30.118:5173` 은
+ * `localhost:5173` 과 다른 origin 이라 MetaMask 연결 승인이 따로 필요한데, 그 사실이
+ * 어디에도 표시되지 않아 "왜 서명 창이 안 뜨지" 로 시간을 썼다.
+ */
+describe('지갑 미연결', () => {
+  it('소재를 만들지 않는다', async () => {
+    // 핵심이다. 순서가 중요한데, 만든 뒤에 막으면 이미 고아가 생긴 상태다.
+    wallet.address = null
+    renderForm()
+    const user = await fillRequired()
+
+    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+
+    expect(api.createMaterial).not.toHaveBeenCalled()
+  })
+
+  it('무엇을 해야 하는지 알려준다', async () => {
+    // 조용히 멈추면 예전(조용히 건너뛰기)과 똑같이 사용자를 헤매게 한다.
+    wallet.address = null
+    renderForm()
+    const user = await fillRequired()
+
+    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('지갑을 먼저 연결해 주세요')
+    expect(screen.getByRole('button', { name: '지갑 연결' })).toBeInTheDocument()
+  })
+
+  it('주소마다 승인이 따로라는 것을 설명한다', async () => {
+    // "지갑을 연결해 주세요" 만으로는, 다른 기기에서 이미 연결해 둔 사용자가 왜 또
+    // 연결해야 하는지 알 수 없다. 이번 혼선의 원인이 정확히 이것이었다.
+    wallet.address = null
+    renderForm()
+    const user = await fillRequired()
+
+    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('지금 주소에서는 다시 승인')
+  })
+
+  it('연결 버튼은 지갑 연결을 부른다', async () => {
+    wallet.address = null
+    renderForm()
+    const user = await fillRequired()
+    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+
+    await user.click(screen.getByRole('button', { name: '지갑 연결' }))
+
+    expect(wallet.connect).toHaveBeenCalled()
+  })
+
+  it('제출 전에는 경고를 띄우지 않는다', () => {
+    // 지갑 복원은 비동기라 화면이 뜨자마자 잠깐 null 이다. 그때부터 경고를 그리면
+    // 정상적으로 연결된 사용자에게도 한 번 번쩍인다.
+    wallet.address = null
+    renderForm()
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 })
