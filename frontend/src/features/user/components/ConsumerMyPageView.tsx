@@ -78,7 +78,8 @@ function AccountHeader() {
     <header className="consumer-account-header">
       <div className="consumer-account-header__inner">
         <Link className="consumer-account-header__logo" to="/" aria-label="SAEROI 홈">
-          <img src="/img/logo.png" alt="" />
+          {/* public/ 자산 경로라 vite base 가 자동으로 안 붙는다 — /test/ 에서 404 방지 */}
+          <img src={`${import.meta.env.BASE_URL}img/logo.png`} alt="" />
         </Link>
 
         <nav className="consumer-account-header__navigation" aria-label="쇼핑 메뉴">
@@ -101,7 +102,8 @@ function AccountFooter() {
   return (
     <footer className="consumer-account-footer">
       <div>
-        <img src="/img/logo.png" alt="" />
+        {/* public/ 자산 경로라 vite base 가 자동으로 안 붙는다 — /test/ 에서 404 방지 */}
+        <img src={`${import.meta.env.BASE_URL}img/logo.png`} alt="" />
         <p>쓰임을 다한 소재에 새로운 가치를 더합니다.</p>
       </div>
       <p>© 2026 SAEROI. 모든 권리 보유.</p>

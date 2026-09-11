@@ -100,9 +100,14 @@ export function Header() {
 
   return (
     <header className="site-header">
-      <a className="site-header__logo" href="/" aria-label="SAEROI 홈">
-        <img src="/img/logo.png" alt="" />
-      </a>
+      {/* 일반 <a href="/">는 basename(/test/)을 무시하고 도메인 루트로 풀 네비게이션한다 —
+          test 스택에서는 이게 운영 메인으로 튀어나가는 것으로 드러난다. Link 로 바꿔야
+          basename 이 자동으로 반영된다. */}
+      <Link className="site-header__logo" to="/" aria-label="SAEROI 홈">
+        {/* public/ 자산 경로라 vite base 가 자동으로 안 붙는다 — basename 과 별개로
+            직접 BASE_URL 을 붙여야 /test/ 에서 404 가 안 난다. */}
+        <img src={`${import.meta.env.BASE_URL}img/logo.png`} alt="" />
+      </Link>
 
       <nav className="site-header__navigation" aria-label="주요 메뉴">
         {navigation.map((item) => (
