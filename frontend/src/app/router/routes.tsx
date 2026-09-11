@@ -26,6 +26,7 @@ import { ProcessingPaymentCallbackPage } from '../../pages/processing/Processing
 import { BrandProductPage } from '../../pages/product/BrandProductPage.tsx'
 import { ProductDetailPage } from '../../pages/product/ProductDetailPage.tsx'
 import { ProductListPage } from '../../pages/product/ProductListPage.tsx'
+import { ProductQrPage } from '../../pages/product/ProductQrPage.tsx'
 import { ProductRegisterPage } from '../../pages/product/ProductRegisterPage.tsx'
 import { ProductionBatchDetailPage } from '../../pages/production/ProductionBatchDetailPage.tsx'
 import { ProductionPage } from '../../pages/production/ProductionPage.tsx'
@@ -164,6 +165,9 @@ export const routes: RouteObject[] = [
           { path: '/brand/products/new', element: <ProductRegisterPage /> },
           // 내 제품 관리(판매 시작·중단). 마켓 목록(/products)과 달리 DRAFT 를 포함한다.
           { path: '/brand/products', element: <BrandProductPage /> },
+          // 그 제품의 QR 라벨 미리보기. 개체의 qrToken 은 공개 경로의 열쇠라 소유자
+          // 전용이어야 한다 — 로그인한 누구나 보는 /products/:id 에는 두지 않는다.
+          { path: '/brand/products/:productModelId/qr', element: <ProductQrPage /> },
         ],
       },
 

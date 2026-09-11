@@ -78,6 +78,7 @@ export function BrandProductList() {
                 {PRODUCT_CATEGORY_LABEL[product.category]} · {formatWon(product.price)}
               </span>
               <StockLine product={product} />
+              <QrLabelLink product={product} />
             </div>
 
             <div className="brand-product-list__side">
@@ -138,6 +139,32 @@ function StockLine({ product }: { product: ProductModel }) {
     <span className="brand-product-list__stock brand-product-list__stock--empty">
       {product.status === 'DRAFT' && '생산 전 · '}판매 가능 수량 0개
     </span>
+  )
+}
+
+/**
+ * 그 제품의 QR 라벨로 가는 링크.
+ *
+ * **QR 은 개체마다 붙고 개체는 생산 배치가 만든다.** 그래서 여태 라벨에 닿으려면 그 제품이
+ * 어느 배치에서 생산됐는지 기억해 생산 관리에서 찾아 들어가야 했다 — 브랜드의 일은 "이 제품
+ * 라벨을 뽑는다" 로 시작하는데 순서가 뒤바뀐 것이다.
+ *
+ * 생산 전 제품에는 두지 않는다. 개체가 없어 라벨도 없고, 눌러 보고 빈 화면을 만나게 하지
+ * 않는다 — 그 자리에는 이미 "생산해야 판매 시작 가능" 이 있다.
+ *
+ * 단종된 제품에는 남긴다. 이미 만들어진 개체의 라벨은 여전히 유효하고, 긁히거나 떨어진
+ * 라벨을 다시 인쇄해야 할 수 있다.
+ */
+function QrLabelLink({ product }: { product: ProductModel }) {
+  if (product.status === 'DRAFT' && product.stockQuantity === 0) return null
+
+  return (
+    <Link
+      to={`/brand/products/${product.productModelId}/qr`}
+      className="brand-product-list__qr"
+    >
+      QR 라벨 보기
+    </Link>
   )
 }
 

@@ -201,6 +201,37 @@ describe('BrandProductList', () => {
     )
   })
 
+  // QR 은 개체마다 붙고 개체는 생산 배치가 만든다. 그래서 여태 라벨에 닿으려면 그 제품이
+  // 어느 배치에서 생산됐는지 기억해 생산 관리에서 찾아 들어가야 했다.
+  it('생산된 제품은 QR 라벨로 가는 길을 준다', async () => {
+    api.getMyProductModels.mockResolvedValue([product({ status: 'ON_SALE', stockQuantity: 4 })])
+    renderList()
+
+    expect(await screen.findByRole('link', { name: 'QR 라벨 보기' })).toHaveAttribute(
+      'href',
+      '/brand/products/31/qr',
+    )
+  })
+
+  // 눌러 보고 빈 화면을 만나게 하지 않는다 — 개체가 없으면 라벨도 없다.
+  it('생산 전 제품에는 QR 라벨 링크를 두지 않는다', async () => {
+    api.getMyProductModels.mockResolvedValue([product({ status: 'DRAFT', stockQuantity: 0 })])
+    renderList()
+
+    await screen.findByText('업사이클 데님 토트백')
+    expect(screen.queryByRole('link', { name: 'QR 라벨 보기' })).not.toBeInTheDocument()
+  })
+
+  // 이미 만들어진 개체의 라벨은 여전히 유효하다 — 긁힌 라벨을 다시 인쇄해야 할 수 있다.
+  it('단종된 제품의 라벨은 계속 볼 수 있다', async () => {
+    api.getMyProductModels.mockResolvedValue([
+      product({ status: 'DISCONTINUED', stockQuantity: 0 }),
+    ])
+    renderList()
+
+    expect(await screen.findByRole('link', { name: 'QR 라벨 보기' })).toBeInTheDocument()
+  })
+
   it('조회가 실패하면 다시 시도할 수 있게 한다', async () => {
     api.getMyProductModels.mockRejectedValue(
       createAppError(ERROR_KIND.NETWORK_ERROR, { message: '서버에 연결할 수 없습니다.' }),
