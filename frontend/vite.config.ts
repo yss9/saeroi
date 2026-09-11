@@ -3,6 +3,12 @@ import { defineConfig, type UserConfig } from 'vite'
 import type { InlineConfig } from 'vitest'
 
 const config = {
+  // 서브패스(/test/)에 배포하는 test 스택을 위한 옵션. 값이 없으면 기본값 '/'이라
+  // 운영 빌드는 영향 없다. Jenkinsfile의 test 배포 스테이지가 build-arg → 환경변수로
+  // `VITE_BASE_PATH=/test/`를 넘긴다. Vite는 이 값으로 `import.meta.env.BASE_URL`을
+  // 자동으로 채우므로(별도 커스텀 env 불필요), router(../app/router/index.tsx)가
+  // 그 값을 그대로 `basename`으로 쓴다.
+  base: process.env.VITE_BASE_PATH || '/',
   plugins: [react()],
 
   server: {
