@@ -99,7 +99,9 @@ export const routes: RouteObject[] = [
       { path: '/products', element: <ProductListPage /> },
       { path: '/products/:productId', element: <ProductDetailPage /> },
 
-      { path: '/trades', element: <TradeListPage /> },
+      // 거래 **상세**는 로그인만 요구한다. 판매자와 구매자가 같은 주소를 쓰고 서로 다른
+      // 것을 하므로(발송 / 결제·수령) 역할로 좁힐 수 없다 — 당사자인지는 서버가
+      // seller_id·buyer_id 로 판단한다. 목록(/trades)은 아래 BRAND 구역에 있다.
       { path: '/trades/:tradeId', element: <TradeDetailPage /> },
       // 카카오페이 결제창이 돌아오는 자리. 승인·취소·실패가 모두 이 주소로 오고
       // pg_token 유무로 갈린다 (PaymentReturnPage 주석 참고).
@@ -173,6 +175,15 @@ export const routes: RouteObject[] = [
           { path: '/brand/products/new', element: <ProductRegisterPage /> },
           // 내 제품 관리(판매 시작·중단). 마켓 목록(/products)과 달리 DRAFT 를 포함한다.
           { path: '/brand/products', element: <BrandProductPage /> },
+
+          // 소재 구매 내역. **BRAND 만 구매를 끝낼 수 있다** — 서버의 수령 확인
+          // (`POST /v1/trades/{id}/receive/confirm`)이 `hasRole('BRAND')` 다. 그래서
+          // SUPPLIER·PROCESSOR 에게 이 목록은 언제나 비어 있고, 사이드바에 "거래 내역"
+          // 이 보이는데 눌러도 아무것도 없는 화면이 됐다.
+          //
+          // 판매자는 /supplier/trades 로 자기가 판 거래(side=SELL)를 본다. 상세는 위의
+          // 로그인 구역에 있어 양쪽이 모두 들어간다 — 목록만 관점이 갈린다.
+          { path: '/trades', element: <TradeListPage /> },
           // 그 제품의 QR 라벨 미리보기. 개체의 qrToken 은 공개 경로의 열쇠라 소유자
           // 전용이어야 한다 — 로그인한 누구나 보는 /products/:id 에는 두지 않는다.
           { path: '/brand/products/:productModelId/qr', element: <ProductQrPage /> },

@@ -31,7 +31,9 @@ describe('useVisibleMenu', () => {
       '/company/account', '/inventory',
       // 공개 조회 화면은 역할을 가리지 않는다.
       '/marketplace',
-      '/processor/profile', '/processor/jobs', '/products', '/trades',
+      // /trades(구매 내역)는 없다 — BRAND 전용이다. PROCESSOR 는 가공 요청으로 소재를
+      // 받고 거래로 사지 않으므로 그 목록은 언제나 비어 있었다.
+      '/processor/profile', '/processor/jobs', '/products',
     ])
     expect(result.current.isResolving).toBe(false)
   })

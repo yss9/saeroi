@@ -27,8 +27,9 @@ import { routes } from './routes.tsx'
  *
  * - `public` — 가드 밖. 비회원도 본다 (`/materials`, `/marketplace`, `/products` 등)
  * - `auth`   — ProtectedRoute 안이지만 RoleGuard 가 없다. **로그인만 하면 역할 무관.**
- *              `/inventory`, `/trades` 가 여기다. 여기에 역할 조건을 새로 붙이지 않는다
- *              — 권한 Matrix 가 그 부분을 정하지 않았다
+ *              `/inventory`, `/trades/:tradeId` 가 여기다. 거래 상세가 여기 있는 것은
+ *              판매자와 구매자가 같은 주소를 쓰기 때문이다 — 당사자인지는 서버가 판단한다.
+ *              좁혀야 한다면 이 파일이 아니라 routes.tsx 의 가드를 고친다
  * - `role`   — RoleGuard `allow` 목록에 든 역할만
  */
 export type RouteAccess =

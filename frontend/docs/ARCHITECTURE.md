@@ -224,7 +224,7 @@ IDLE → SIGNING → PENDING → CONFIRMED
 | --- | --- |
 | Public | `/`, `/login`, `/materials`, `/marketplace` |
 | **Public (비회원 필수)** | `/qr/:qrToken` |
-| Protected | `/inventory`, `/trades`, `/products` |
+| Protected | `/inventory`, `/trades/:tradeId`, `/products` |
 | Role별 | `/supplier/*`, `/brand/*`, `/processor/*`, `/admin/*` |
 | 안내 | `/403` (권한 없음), `*` (없는 경로) |
 
@@ -278,8 +278,11 @@ Role 판정의 출처는 `useAuth()`(= `authStore`) 하나입니다. JWT를 따�
 | `app/navigation/useVisibleMenu.ts` | 현재 사용자가 들어갈 수 있는 항목만 남김 |
 
 - 새 메뉴는 `navigationMenu.ts`에 `to`만 추가하면 됩니다. 노출 조건은 그 경로의 가드가 정합니다.
-- `RoleGuard`가 없는 Protected 경로(`/inventory`, `/trades`)는 **로그인만 하면 역할 무관**입니다.
-  메뉴 쪽에서 역할로 좁히지 마세요 — 권한 Matrix가 그 경로들을 역할로 좁히지 않았습니다.
+- `RoleGuard`가 없는 Protected 경로(`/inventory`, `/trades/:tradeId`)는 **로그인만 하면 역할 무관**입니다.
+  메뉴 쪽에서 역할로 좁히지 마세요 — 좁혀야 한다면 `routes.tsx`의 가드를 고칩니다.
+  구매 내역(`/trades`)이 그렇게 옮겨진 예입니다: 서버의 수령 확인이 `hasRole('BRAND')`라
+  SUPPLIER·PROCESSOR는 구매를 끝낼 수 없고 목록이 언제나 비어 있었습니다. 메뉴에서 지우지
+  않고 `routes.tsx`의 BRAND 구역으로 옮겨, 메뉴가 그 결과를 파생하게 했습니다.
 - `ADMIN`을 만능으로 두지 않습니다. 권한 Matrix에서 ADMIN은 도메인 기능에 허용이 없고
   (지갑을 가질 수 없어 서명 흐름에 들어가지 못합니다) `routes.tsx`의 `allow`에도 없습니다.
 - 역할 판정 중(`isAuthenticated && role === null`)에는 링크를 그리지 않고 `aria-busy`만 둡니다.
