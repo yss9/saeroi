@@ -55,6 +55,67 @@ class ProcessingJobDomainTests {
     }
 
     @Test
+    void paidJobMovesThroughShippingReceivingAndProcessing() {
+        LocalDateTime now = LocalDateTime.of(2026, 9, 11, 10, 0);
+        ProcessingJob job = paidJob(now);
+
+        job.ship("CJ", "1234", now.plusMinutes(1));
+        job.receive(now.plusMinutes(2));
+        job.start(now.plusMinutes(3));
+
+        assertThat(job.getStatus()).isEqualTo(ProcessingJobStatus.PROCESSING);
+        assertThat(job.getCarrier()).isEqualTo("CJ");
+        assertThat(job.getTrackingNumber()).isEqualTo("1234");
+        assertThat(job.getShippedAt()).isEqualTo(now.plusMinutes(1));
+        assertThat(job.getReceivedAt()).isEqualTo(now.plusMinutes(2));
+        assertThat(job.getStartedAt()).isEqualTo(now.plusMinutes(3));
+    }
+
+    @Test
+    void rejectedResultCanBeRevisedAndResubmitted() {
+        LocalDateTime now = LocalDateTime.of(2026, 9, 11, 10, 0);
+        ProcessingJob job = paidJob(now);
+        job.ship(null, null, now.plusMinutes(1));
+        job.receive(now.plusMinutes(2));
+        job.start(now.plusMinutes(3));
+
+        job.saveResultDraft(10, now.plusMinutes(4));
+        job.submitResult("0xsig", now.plusMinutes(5));
+        job.reject("수량을 다시 확인해 주세요", "0xreject", now.plusMinutes(6));
+        job.saveResultDraft(5, now.plusMinutes(7));
+        job.submitResult("0xresubmit", now.plusMinutes(8));
+
+        assertThat(job.getStatus()).isEqualTo(ProcessingJobStatus.RESULT_SUBMITTED);
+        assertThat(job.getResultRevision()).isEqualTo(2);
+        assertThat(job.getRejectionReason()).isNull();
+    }
+
+    @Test
+    void confirmedJobCannotBeChanged() {
+        LocalDateTime now = LocalDateTime.of(2026, 9, 11, 10, 0);
+        ProcessingJob job = paidJob(now);
+        job.ship(null, null, now.plusMinutes(1));
+        job.receive(now.plusMinutes(2));
+        job.start(now.plusMinutes(3));
+        job.saveResultDraft(0, now.plusMinutes(4));
+        job.submitResult("0xsubmit", now.plusMinutes(5));
+        job.approve("0xapprove", now.plusMinutes(6));
+
+        assertThat(job.getStatus()).isEqualTo(ProcessingJobStatus.CONFIRMED);
+        assertThatThrownBy(() -> job.reject("다시", "0xsig", now.plusMinutes(7)))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    private ProcessingJob paidJob(LocalDateTime now) {
+        ProcessingJob job = ProcessingJob.create(
+                "PJ0001", 1L, 2L, 10L, 20L,
+                "0x1111111111111111111111111111111111111111",
+                "0x2222222222222222222222222222222222222222",
+                120_000L, PaymentMethod.MOCK, now);
+        job.markPaid("payment-ref", 120_000L, now.plusMinutes(1));
+        return job;
+    }
+    @Test
     void resultLifecycleCalculatesLossAndRecordsReviewTimes() {
         LocalDateTime createdAt = LocalDateTime.of(2026, 9, 11, 9, 0);
         ProcessingJob job = ProcessingJob.create(

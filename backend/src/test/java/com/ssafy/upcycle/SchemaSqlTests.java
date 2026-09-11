@@ -42,6 +42,7 @@ class SchemaSqlTests {
             "processing_job",
             "processing_input",
             "processing_output",
+            "processing_signature_challenge",
             "product_model",
             "production_batch",
             "production_input",
@@ -73,7 +74,8 @@ class SchemaSqlTests {
                     .contains("token_id", "chain_id", "contract_address", "evidence_hash", "manifest_url")
                     .doesNotContain("verification_state");
             assertThat(readColumns(connection, "processing_job"))
-                    .contains("brand_reviewed_at", "manifest_url", "payment_method", "payment_amount")
+                    .contains("result_revision", "result_submitted_at", "approval_signature",
+                            "rejection_reason", "manifest_url", "payment_method", "payment_amount")
                     .doesNotContain("brand_approved_at", "brand_rejected_at");
             assertThat(readColumns(connection, "trade_shipping")).containsExactlyInAnyOrder(
                     "id",

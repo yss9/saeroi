@@ -7,6 +7,7 @@ import com.ssafy.upcycle.evidence.entity.EvidenceReferenceType;
 import com.ssafy.upcycle.material.entity.Material;
 import com.ssafy.upcycle.material.repository.MaterialBalanceRepository;
 import com.ssafy.upcycle.material.repository.MaterialRepository;
+import com.ssafy.upcycle.processing.repository.ProcessingJobRepository;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -55,11 +56,16 @@ public class EvidenceAccessPolicy {
 
     private final MaterialRepository materialRepository;
     private final MaterialBalanceRepository materialBalanceRepository;
+    private final ProcessingJobRepository processingJobRepository;
 
     /** 조회 권한. 통과하지 못하면 {@code 403}. */
     public void requireReadable(Long requesterId, EvidenceFile evidence) {
         if (isUploader(requesterId, evidence)) {
             return;
+        }
+        if (evidence.getReferenceType() == EvidenceReferenceType.PROCESSING_JOB) {
+            if (isProcessingParty(requesterId, evidence.getReferenceId())) return;
+            throw new BusinessException(EvidenceErrorCode.EVIDENCE_ACCESS_FORBIDDEN);
         }
         if (!isRelated(requesterId, requireCheckableMaterial(evidence))) {
             throw new BusinessException(EvidenceErrorCode.EVIDENCE_ACCESS_FORBIDDEN);
@@ -92,6 +98,9 @@ public class EvidenceAccessPolicy {
             List<EvidenceFile> evidence) {
         if (evidence.stream().anyMatch(file -> isUploader(requesterId, file))) {
             return true;
+        }
+        if (referenceType == EvidenceReferenceType.PROCESSING_JOB) {
+            return isProcessingParty(requesterId, referenceId);
         }
         return findCheckableMaterial(referenceType, referenceId)
                 .filter(material -> isRelated(requesterId, material))
@@ -131,6 +140,8 @@ public class EvidenceAccessPolicy {
         if (isUploader(requesterId, evidence)) {
             return;
         }
+        if (evidence.getReferenceType() == EvidenceReferenceType.PROCESSING_JOB)
+            throw new BusinessException(EvidenceErrorCode.EVIDENCE_DELETE_FORBIDDEN);
         Material material = requireCheckableMaterial(evidence);
         if (!isRegistrant(requesterId, material)) {
             throw new BusinessException(EvidenceErrorCode.EVIDENCE_DELETE_FORBIDDEN);
@@ -165,5 +176,11 @@ public class EvidenceAccessPolicy {
 
     private static boolean isRegistrant(Long requesterId, Material material) {
         return material.getRegistrantId().equals(requesterId);
+    }
+
+    private boolean isProcessingParty(Long requesterId, Long jobId) {
+        return processingJobRepository.findById(jobId)
+                .filter(job -> requesterId.equals(job.getBrandId()) || requesterId.equals(job.getProcessorId()))
+                .isPresent();
     }
 }

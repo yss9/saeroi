@@ -218,8 +218,8 @@ public class Material {
                 registrantId);
     }
 
-    /** Processing 승인으로 확정된 산출 소재를 만든다. 출처는 부모에서 그대로 상속한다. */
-    public static Material process(
+    /** Processing 승인으로 부모 소재에서 파생된 새 소재를 만든다. */
+    public static Material produceProcessed(
             String materialCode,
             Material parent,
             MaterialType materialType,
@@ -227,24 +227,17 @@ public class Material {
             String grade,
             long totalQuantity,
             Long registrantId) {
-        if (parent == null) {
-            throw new IllegalArgumentException("Processed material parent must not be null");
-        }
-        if (totalQuantity <= 0) {
-            throw new IllegalArgumentException("Processed material quantity must be positive");
-        }
-        return new Material(
-                materialCode,
-                requireNonNull(materialType, "material type"),
-                parent.getRootOrigin(),
-                MaterialGenerationType.PROCESSED,
-                name,
-                null,
-                grade,
-                totalQuantity,
-                null,
-                null,
-                registrantId);
+        if (parent == null) throw new IllegalArgumentException("Processing parent must not be null");
+        if (totalQuantity <= 0) throw new IllegalArgumentException("Processed quantity must be positive");
+        return new Material(materialCode, materialType, parent.getRootOrigin(),
+                MaterialGenerationType.PROCESSED, name, null, grade, totalQuantity,
+                null, null, registrantId);
+    }
+
+    /** 이전 가공 결과 서비스와의 호환용 팩토리. */
+    public static Material process(String materialCode, Material parent, MaterialType materialType,
+            String name, String grade, long totalQuantity, Long registrantId) {
+        return produceProcessed(materialCode, parent, materialType, name, grade, totalQuantity, registrantId);
     }
 
     /**
