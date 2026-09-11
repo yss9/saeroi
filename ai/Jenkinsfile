@@ -46,7 +46,10 @@ pipeline {
             steps {
                 sh '''
                     set -eu
-                    python3 -m venv .venv
+                    # docker/Dockerfile 이 python:3.12-slim 을 쓴다.
+                    # rapidocr-onnxruntime 이 3.13+ 을 지원하지 않으므로 에이전트 기본 python3 대신 3.12 를 명시한다.
+                    command -v python3.12 >/dev/null 2>&1 || { echo "python3.12 가 에이전트에 없습니다. 설치가 필요합니다."; exit 1; }
+                    python3.12 -m venv .venv
                     . .venv/bin/activate
                     python -m pip install --upgrade pip
                     if [ -f requirements.txt ]; then pip install -r requirements.txt; else pip install .; fi
