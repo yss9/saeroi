@@ -154,6 +154,8 @@
 .brand-product-list__stock { font-size: 0.8rem; color: #1f6f4a; font-variant-numeric: tabular-nums; }
 /* 팔 수 없는 상태는 색을 낮춘다 — 판매 가능 수량과 눈으로 갈려야 한다. */
 .brand-product-list__stock--empty { color: #6b7280; }
+/* 라벨 인쇄로 가는 입구. 이름·가격보다 뒤로 물러나 있어야 목록이 읽힌다. */
+.brand-product-list__qr { font-size: 0.78rem; }
 
 .brand-product-list__side { display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; }
 .brand-product-list__actions { display: flex; gap: 0.4rem; }

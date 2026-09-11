@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Button, Loading, Modal } from '../../../components/common/index.ts'
 import { useProductionItemQr } from '../hooks/useProductionItemQr.ts'
 import type { ProductionItem } from '../types/production.types.ts'
+import { qrFileName } from '../utils/qrLabel.ts'
 import './production.css'
 
 export interface ProductionItemQrProps {
@@ -52,7 +53,7 @@ export function ProductionItemQr({ batchId, item }: ProductionItemQrProps) {
                 <a
                   className="ui-button ui-button--primary ui-button--md"
                   href={qr.url}
-                  download={fileName(item)}
+                  download={qrFileName(item)}
                 >
                   이미지 저장
                 </a>
@@ -96,16 +97,4 @@ export function ProductionItemQr({ batchId, item }: ProductionItemQrProps) {
       )}
     </>
   )
-}
-
-/**
- * 저장 파일 이름.
- *
- * 개체 코드를 쓴다. 브랜드는 라벨 수십 장을 한 폴더에 내려받아 인쇄소에 넘기는데,
- * `download.png` 가 여러 개면 어느 것이 어느 개체인지 알 수 없고 **잘못된 라벨이 잘못된
- * 제품에 붙는다.** 토큰은 넣지 않는다 — 파일 이름은 목록·메신저·인쇄 의뢰서에 그대로
- * 드러나고, 그 값 하나가 공개 경로의 열쇠다.
- */
-function fileName(item: ProductionItem): string {
-  return `${item.itemCode}-qr.png`
 }

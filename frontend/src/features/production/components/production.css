@@ -263,6 +263,68 @@
 .item-qr__error { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; }
 .item-qr__message { margin: 0; font-size: 0.85rem; color: #b45309; text-align: center; }
 
+/* ── QR 라벨 미리보기 격자 ───────────────────────────── */
+
+.qr-grid { display: flex; flex-direction: column; align-items: flex-start; gap: 0.9rem; width: 100%; }
+.qr-grid__caption {
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+  border-radius: 6px;
+  background: #f4f2ec;
+  font-size: 0.82rem;
+  color: #8a4b0b;
+}
+/*
+  라벨을 나란히 놓고 보는 것이 이 화면의 목적이다 — 한 장이 빠졌거나 깨진 것은 늘어놓아야
+  눈에 들어온다. 칸 너비를 고정하지 않고 화면에 맞춰 접는다.
+*/
+.qr-grid__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 0.85rem;
+  width: 100%;
+}
+.qr-grid__item { display: flex; }
+
+.qr-card {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid #ece9e0;
+  border-radius: 8px;
+  width: 100%;
+}
+/*
+  자리를 미리 잡아 둔다. 이미지가 도착할 때마다 칸 높이가 바뀌면 격자 전체가 출렁이고,
+  방금 보던 라벨이 화면 밖으로 밀린다.
+*/
+.qr-card__frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 160px;
+  background: #fff;
+  border-radius: 6px;
+}
+.qr-card__image { width: 100%; max-width: 160px; height: auto; }
+.qr-card__error { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; padding: 0.5rem; }
+.qr-card__message { margin: 0; font-size: 0.78rem; color: #b45309; text-align: center; }
+.qr-card__caption {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+}
+.qr-card__code { font-family: ui-monospace, Menlo, monospace; color: #6b7280; }
+
 /* ── 온체인 단계 목록 ────────────────────────────────── */
 
 /* 공통 OnChainPanel 안에 들어가는 보조 표시다. 패널 자체의 스타일은 그쪽 CSS 가 갖는다. */
