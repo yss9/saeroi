@@ -46,19 +46,14 @@ pipeline {
             steps {
                 sh '''
                     set -eu
-                    # docker/Dockerfile 이 python:3.12-slim 을 쓴다.
-                    # rapidocr-onnxruntime 이 3.13+ 을 지원하지 않으므로 에이전트 기본 python3 대신 3.12 를 명시한다.
-                    command -v python3.12 >/dev/null 2>&1 || { echo "python3.12 가 에이전트에 없습니다. 설치가 필요합니다."; exit 1; }
-                    python3.12 -m venv .venv
-                    . .venv/bin/activate
-                    python -m pip install --upgrade pip
-                    if [ -f requirements.txt ]; then pip install -r requirements.txt; else pip install .; fi
-                    if [ "$HAS_TESTS" = "true" ]; then
-                        pip install pytest
-                        python -m pytest -q
-                    else
-                        echo "SKIP: tests 디렉터리가 없어 테스트를 건너뜁니다."
-                    fi
+                    # 에이전트에 python3.12 가 없다. rapidocr-onnxruntime 이 3.13+ 을 지원하지 않으므로
+                    # docker/Dockerfile 과 동일한 python:3.12-slim 컨테이너 안에서 테스트를 돌린다.
+                    docker run --rm \
+                        -u "$(id -u):$(id -g)" \
+                        -e HAS_TESTS="$HAS_TESTS" \
+                        -v "$PWD":/workspace -w /workspace \
+                        python:3.12-slim \
+                        bash docker/test.sh
                 '''
             }
         }
