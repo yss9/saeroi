@@ -1,4 +1,6 @@
 .env
+# test 스택 전용 실값. 정확히 이 이름만 막는다 — .env.test.example 은 안 걸린다.
+.env.test
 # .env 를 손보기 전 만드는 백업본에도 실값이 그대로 들어간다
 .env.bak*
 .env.*.bak

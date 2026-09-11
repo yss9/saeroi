@@ -1,0 +1,170 @@
+# test 스택 (deploy/feat/test-env, .harness/plans/2026-09-10-ec2-staging-env.md 참고)
+#
+# 운영(docker-compose.yml, 프로젝트명 circular-fashion)과 완전히 별도 프로젝트로 뜬다.
+# 각 파트 <파트>/develop 병합 시 Jenkinsfile 이 이미지를 :test 태그로 빌드하고
+# scripts/test-deploy.sh 로 해당 서비스 하나만(--no-deps) 재배포한다 — 실배포(<파트>/master) 직전과
+# 동일한 조합(모든 파트의 최신 develop)을 이 스택 하나에서 상시 재현한다.
+#
+# frontend/backend 만 예외로 운영 nginx 가 붙어 있는 `circular-fashion_web` 네트워크에 추가로
+# 조인한다 — nginx 가 `/test/` 요청을 동적 resolver(`resolver 127.0.0.11`)로 cft-frontend /
+# cft-backend 를 찾아 라우팅해야 하기 때문이다 (nginx/nginx.conf 참고). mysql/minio 는 운영과
+# 절대 같은 네트워크에 두지 않는다 — 이 프로젝트 전용 internal 네트워크로만 통신한다.
+#
+# 기동/종료: scripts/test-up.sh, scripts/test-down.sh (내부적으로 scripts/compose-test.sh 의
+# dc_test() 를 씀 — .env.test 를 명시적으로 읽는다. docker compose 는 기본으로 .env 를 읽는데
+# 그건 운영 자격증명이다).
+name: circular-fashion-test
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  frontend:
+    image: circular-fashion/frontend:test
+    container_name: cft-frontend
+    networks:
+      - web
+    logging: *default-logging
+    restart: unless-stopped
+
+  backend:
+    image: circular-fashion/backend:test
+    container_name: cft-backend
+    environment:
+      # mysql/minio 는 이 서비스 이름 그대로 이 프로젝트 전용 internal 네트워크 안에서만
+      # 해석된다 — 운영의 동명 서비스(mysql/minio, cf-mysql/cf-minio)와 네트워크가 분리돼
+      # 있어 이름이 같아도 섞이지 않는다.
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+      DB_USERNAME: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+      AI_SERVER_BASE_URL: http://ai:8000
+      APP_STORAGE_TYPE: ${STORAGE_TYPE:-local}
+      APP_STORAGE_BUCKET: ${STORAGE_BUCKET:-evidence}
+      APP_STORAGE_ENDPOINT: ${STORAGE_ENDPOINT:-http://minio:9000}
+      APP_STORAGE_ACCESS_KEY: ${MINIO_ROOT_USER:-}
+      APP_STORAGE_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ISSUER: ${JWT_ISSUER:-upcycle}
+      JWT_ACCESS_TOKEN_TTL: ${JWT_ACCESS_TOKEN_TTL:-PT30M}
+      WALLET_NONCE_TTL: ${WALLET_NONCE_TTL:-PT5M}
+      # 운영과 같은 테스트넷/컨트랙트를 재사용한다 — .env.test 에도 운영 .env 와 동일한
+      # 값을 채워 넣는다 (배경: .harness/plans/2026-09-10-ec2-staging-env.md §0).
+      BESU_RPC_URL: ${BESU_RPC_URL:-}
+      BESU_CHAIN_ID: ${BESU_CHAIN_ID:-}
+      BLOCKCHAIN_SERVICE_PRIVATE_KEY: ${BLOCKCHAIN_SERVICE_PRIVATE_KEY:-}
+      MATERIAL_TOKEN_ADDRESS: ${MATERIAL_TOKEN_ADDRESS:-}
+      PAYMENT_TOKEN_ADDRESS: ${PAYMENT_TOKEN_ADDRESS:-}
+      ESCROW_ADDRESS: ${ESCROW_ADDRESS:-}
+    volumes:
+      - test-file-storage:/app/files
+    depends_on:
+      mysql:
+        condition: service_healthy
+      # minio 는 운영과 같은 이유로 넣지 않는다 (docker-compose.yml 의 backend.depends_on 주석 참고)
+    networks:
+      - web
+      - internal
+    logging: *default-logging
+    restart: unless-stopped
+
+  ai:
+    image: circular-fashion/ai:test
+    container_name: cft-ai
+    environment:
+      AI_MODEL_PATH: ${AI_MODEL_PATH:-}
+    networks:
+      - internal
+    logging: *default-logging
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:RELEASE.2024-10-13T13-34-11Z
+    container_name: cft-minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      TZ: Asia/Seoul
+    command: server /data --console-address ":9001"
+    volumes:
+      - test-minio-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "mc ready local || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - internal
+    logging: *default-logging
+    restart: unless-stopped
+
+  minio-init:
+    image: minio/mc:RELEASE.2024-10-08T09-37-26Z
+    container_name: cft-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      STORAGE_BUCKET: ${STORAGE_BUCKET:-evidence}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        mc alias set cf http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"
+        mc mb --ignore-existing "cf/$$STORAGE_BUCKET"
+        echo "bucket ready: $$STORAGE_BUCKET"
+    networks:
+      - internal
+    logging: *default-logging
+    restart: "no"
+
+  mysql:
+    image: mysql:8.0
+    container_name: cft-mysql
+    # 호스트 포트를 열지 않는다 — 운영 mysql 이 이미 127.0.0.1:3306 을 쓰고 있고,
+    # test DB 는 내부에서만 쓰면 충분하다.
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      TZ: Asia/Seoul
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - test-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - internal
+    logging: *default-logging
+    restart: unless-stopped
+
+networks:
+  # 운영 nginx 가 붙어 있는 네트워크. 운영 docker-compose.yml 의 `name: circular-fashion` +
+  # `networks: web:` 이 실제로 만드는 네트워크 이름이 "circular-fashion_web" 이다.
+  # 운영 스택이 먼저 떠 있어야 이 네트워크가 존재한다 — 없으면 test-up.sh 가 이 지점에서 실패한다.
+  web:
+    external: true
+    name: circular-fashion_web
+  # 이 프로젝트(circular-fashion-test) 전용. 운영 internal 네트워크와 분리돼 있어
+  # mysql/minio 가 이름이 같아도 섞이지 않는다.
+  internal:
+
+volumes:
+  test-mysql-data:
+  test-minio-data:
+  test-file-storage:

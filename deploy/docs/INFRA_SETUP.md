@@ -31,6 +31,8 @@
 | MinIO (Object Storage) | 9000, 9001 | - | X | Backend만 내부 호출. 콘솔(9001)도 열지 않는다 — 루트 키 하나로 모든 증빙에 닿는다 |
 
 - 외부에 여는 포트는 **80 / 443 / 22(SSH)** 만 — SSAFY EC2는 UFW로 관리(기본 22만 허용, `init-ec2.sh`가 나머지 오픈, **enable 유지 필수**).
+- **test 스택은 새 포트를 열지 않습니다.** 기존 443 nginx 뒤에 `/test/`(프론트)·`/test/api/`(백엔드)
+  경로만 추가되고, `cft-*` 컨테이너는 포트를 host에 노출하지 않습니다 (§7-1 참고).
 - **Docker publish 포트는 UFW를 우회**하므로 호스트 전용 포트는 compose에서 `127.0.0.1:` 바인딩으로 막는다 (예: 로컬 override의 MySQL 3306).
 - (참고) GPU 서버: Jupyter `http://70.12.130.109`, 계정 `j15e104`, **Device1 지정 사용** — AI 파트 소관.
 - MySQL, Backend, AI는 Docker 내부 네트워크로만 통신한다.
@@ -256,3 +258,20 @@ circular-fashion/backend:latest
 circular-fashion/frontend:latest
 circular-fashion/ai:latest
 ```
+
+## 7-1. test 스택 (`/test`, 상시 통합 테스트 환경)
+
+목적: `<파트>/develop` 병합(=CI 통과)과 실제로 눈으로/API로 확인하는 시점 사이의 공백을
+메운다. Deploy 스테이지는 `when { branch '<파트>/master' }` 조건이라 develop 에 아무리
+병합돼도 지금까지는 EC2 에 아무것도 뜨지 않았다.
+
+- 트리거: 각 파트(`backend`/`frontend`/`ai`) `Jenkinsfile`의 `<파트>/develop` 스테이지가
+  이미지를 `:test` 태그로 빌드·push 하고, SSH로 `scripts/test-deploy.sh <service>`를 호출
+- 구성: `docker-compose.test.yml` — 별도 프로젝트 `circular-fashion-test`, 컨테이너 접두사
+  `cft-*`, 프론트/백엔드만 운영 nginx의 `circular-fashion_web` 네트워크에 추가 조인
+  (nginx가 `resolver 127.0.0.11` 동적 resolve로 찾는다), mysql/minio는 별도 internal
+  네트워크·별도 자격증명(`.env.test`)으로 운영과 완전히 분리
+- 경로: `https://j15e104.p.ssafy.io/test/`(프론트), `/test/api/`(백엔드) — 새 포트 없음
+- 배포 단위: `--no-deps`로 병합된 서비스 하나만 재기동 — 한 파트 병합이 다른 파트 서비스를
+  건드리지 않는다
+- `blockchain`은 대상 아님 (이미지 빌드 대상이 아니고 컨트랙트는 수동 배포)

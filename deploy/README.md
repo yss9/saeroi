@@ -11,8 +11,10 @@ GIT_CONVENTION에 따라 develop / feat 하위 브랜치 없이 이 브랜치에
 ```text
 ├── docker-compose.yml         # 운영 구성 (nginx, frontend, backend, ai, mysql, jenkins)
 ├── docker-compose.local.yml   # 로컬 검증용 override (placeholder 이미지)
+├── docker-compose.test.yml    # test 스택 (별도 프로젝트 circular-fashion-test, cft-* 컨테이너)
 ├── .env.example               # 환경변수 키 목록 (실값 커밋 금지)
-├── nginx/nginx.conf           # 리버스 프록시: / → frontend, /api → backend
+├── .env.test.example          # test 스택 전용 환경변수 키 목록 (실값 커밋 금지)
+├── nginx/nginx.conf           # 리버스 프록시: / → frontend, /api → backend, /test → test 스택
 ├── certbot/www/               # certbot webroot (HTTPS 인증서 발급용)
 ├── jenkins/
 │   ├── Dockerfile             # Docker CLI + 사전 설치 플러그인 포함 Jenkins 이미지
@@ -35,7 +37,10 @@ GIT_CONVENTION에 따라 develop / feat 하위 브랜치 없이 이 브랜치에
 │   ├── prune-images.sh        # 떠도는 이미지·빌드 캐시 정리 (cron 04:20, 24h 보다 오래된 것만)
 │   │                          #   ⚠️ 배포 경로에서 부르지 않는다 — 다른 파트의 빌드를 깨뜨렸다
 │   ├── install-prune-cron.sh  # prune cron 등록 (멱등)
-│   └── pull-backups.sh        # 덤프를 EC2 밖(작업용 PC)으로 반출 — 로컬에서 실행
+│   ├── pull-backups.sh        # 덤프를 EC2 밖(작업용 PC)으로 반출 — 로컬에서 실행
+│   ├── compose-test.sh        # test 스택 compose 호출의 단일 경로 (.env.test 명시적으로 읽음)
+│   ├── test-up.sh / test-down.sh   # test 스택 전체 기동/종료
+│   └── test-deploy.sh         # test 스택 서비스 단위 배포 (<파트>/develop 병합 시 Jenkins가 호출)
 └── docs/
     ├── INFRA_SETUP.md         # 구축 체크리스트 / 배경
     ├── EC2_DAY1.md            # 서버 수령 첫날 런북
@@ -140,6 +145,30 @@ SCHEMA_REF=origin/backend/master bash scripts/check-schema.sh   # 기준 브랜�
 평상시 CI는 각 파트의 develop / feat 브랜치 push에서, 배포는 각 파트 master 브랜치 push에서
 Jenkins Multibranch Pipeline이 자동 수행합니다. 배포 실패(헬스체크 불통과) 시 직전 이미지로
 자동 롤백됩니다. 단, **스마트 컨트랙트는 자동 배포하지 않고** 수동 승인 후 담당자가 직접 배포합니다.
+
+## test 스택 (`/test`)
+
+각 파트 `<파트>/develop` 병합 시(=CI 통과 후) 자동으로 갱신되는 상시 통합 테스트 환경입니다.
+운영과 별도 프로젝트(`circular-fashion-test`, `cft-*` 컨테이너)로 뜨고, 기존 443 nginx 뒤에
+새 포트 없이 `/test/` 경로만 추가해 공개합니다. 실배포(각 파트 `master`) 직전과 동일하게
+**모든 파트의 최신 develop이 한 자리에 모인 조합**을 상시 재현합니다 — 한 파트가 병합해도
+그 파트 서비스만 재배포되고 나머지는 유지됩니다.
+
+```bash
+cp .env.test.example .env.test   # 최초 1회 — 운영과 다른 자격증명 + 운영과 동일한 Besu/컨트랙트 값
+bash scripts/test-up.sh          # 전체 기동 (운영 nginx가 먼저 떠 있어야 함)
+bash scripts/test-deploy.sh backend   # 서비스 단위 재배포 (Jenkins가 develop 병합 시 호출)
+bash scripts/test-down.sh        # 종료 (기본 볼륨 보존, TEST_DOWN_VOLUMES=1 이면 완전 삭제)
+```
+
+| | 주소 |
+| --- | --- |
+| test 프론트 | https://j15e104.p.ssafy.io/test/ |
+| test 백엔드 헬스 | https://j15e104.p.ssafy.io/test/api/health |
+
+각 파트 Jenkinsfile의 `<파트>/develop` 스테이지가 이미지를 `:test` 태그로 빌드해 push하고,
+SSH로 `scripts/test-deploy.sh <service>`를 호출하는 구조입니다. `blockchain`은 이미지 빌드
+대상이 아니므로(컨트랙트는 수동 배포) test 스택에도 포함되지 않습니다.
 
 ## 주의사항
 
