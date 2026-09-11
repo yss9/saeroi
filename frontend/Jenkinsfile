@@ -51,14 +51,11 @@ pipeline {
         // 상시 통합 테스트 스택(/test) 배포. frontend/develop 병합마다 이미지를 :test 태그로
         // 새로 빌드해 deploy 파트의 scripts/test-deploy.sh 로 넘긴다.
         //
-        // VITE_API_BASE_URL 만 오버라이드한다 — 나머지 VITE_*(Besu/컨트랙트 주소)는 운영 .env
-        // 값을 그대로 재사용한다(같은 테스트넷). 상대경로 '/api' 그대로 두면 /test/ 에서 서빙된
-        // 번들이 운영 backend(/api)를 호출해 버리므로 반드시 /test/api 로 다시 빌드한다.
-        //
-        // ⚠️ Vite `base=/test/` 빌드 옵션과 React Router `basename` 은 아직 이 스테이지에
-        // 없다 — vite.config.ts / router 코드는 frontend 파트 소유라 여기서 건드리지 않는다
-        // (docs/notices/TEAM_NOTICE_2026-09-11-test-env.md 참고). 그게 들어오기 전까지
-        // `/test/` 첫 화면은 뜨지만 내부 링크 이동 시 프리픽스가 빠져 깨질 수 있다.
+        // VITE_API_BASE_URL 을 오버라이드하고 VITE_BASE_PATH 를 추가로 넘긴다 — 나머지
+        // VITE_*(Besu/컨트랙트 주소)는 운영 .env 값을 그대로 재사용한다(같은 테스트넷).
+        // 상대경로 '/api' 그대로 두면 /test/ 에서 서빙된 번들이 운영 backend(/api)를 호출해
+        // 버리므로 반드시 /test/api 로 다시 빌드한다. VITE_BASE_PATH 는 vite.config.ts 의
+        // `base` 로 들어가 자산 경로와 React Router basename 을 함께 맞춘다.
         stage('Test Deploy') {
             when { branch 'frontend/develop' }
             steps {
@@ -76,6 +73,7 @@ pipeline {
                     done <<EOF
 $(grep -E '^VITE_[A-Za-z0-9_]+=' "$ENV_FILE")
 EOF
+                    set -- "$@" --build-arg "VITE_BASE_PATH=/test/"
 
                     docker build -f docker/Dockerfile "$@" -t "$IMAGE:test" .
                 '''
