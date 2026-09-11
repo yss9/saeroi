@@ -22,6 +22,10 @@ import org.springframework.transaction.annotation.Transactional;
  * 지갑으로 보내고, 영수증의 {@code MaterialMinted} 이벤트에서 {@code tokenId} 를 꺼내
  * 이 경로로 알려 준다.
  *
+ * <p><b>보유 행도 여기서 만든다.</b> 온체인이 정본인 설정에서는 등록이 보유를 만들지
+ * 않는다 — 서명 전에 만들어 두면 지갑 팝업에서 취소한 소재가 보유 목록에 남고, 체인에는
+ * 없는 수량을 팔거나 가공에 넣을 수 있게 된다.
+ *
  * <p>{@link MaterialRegistrationService} 를 건드리지 않고 따로 둔 이유가 여기 있다 —
  * 등록과 발행은 <b>다른 시점, 다른 주체</b>의 일이다. 등록은 서버 트랜잭션 하나로 끝나지만
  * 발행은 사용자가 지갑 팝업을 확인하고 블록이 채굴되기를 기다려야 한다. 그 사이 사용자가
@@ -35,6 +39,7 @@ public class MaterialChainLinkService {
     private final MaterialRepository materialRepository;
     private final ChainTransactionRecorder recorder;
     private final MaterialEventRecorder eventRecorder;
+    private final MaterialBalanceInitializer balanceInitializer;
 
     /**
      * 발행 결과를 연결한다. <b>등록자 본인만 할 수 있다.</b>
@@ -61,6 +66,12 @@ public class MaterialChainLinkService {
 
         material.linkOnChain(
                 request.onChainId(), recorder.chainId(), recorder.materialTokenAddress());
+        // 보유 행은 여기서 만들어진다. 온체인이 정본인 설정에서는 등록 시점에 만들지 않기
+        // 때문이다 (OnChainMaterialIssuer) — 서명 전에 만들어 두면 지갑에서 취소한 소재가
+        // 보유 목록에 남고, 체인에 없는 수량을 팔거나 가공에 넣을 수 있게 된다.
+        //
+        // 오프체인 설정에서는 등록 때 이미 만들어져 있고, 그때는 아무것도 하지 않는다.
+        balanceInitializer.open(materialId, registrantId, material.getTotalQuantity());
         recorder.record(
                 registrantId,
                 ChainTransactionRecorder.Contract.MATERIAL_TOKEN,
