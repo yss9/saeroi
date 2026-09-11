@@ -19,6 +19,7 @@ import com.ssafy.upcycle.material.service.MaterialEventRecorder;
 import com.ssafy.upcycle.product.entity.ProductItem;
 import com.ssafy.upcycle.product.entity.ProductModel;
 import com.ssafy.upcycle.product.repository.ProductItemRepository;
+import com.ssafy.upcycle.product.service.ProductQrCodeGenerator;
 import com.ssafy.upcycle.product.repository.ProductModelRepository;
 import com.ssafy.upcycle.production.ProductionErrorCode;
 import com.ssafy.upcycle.production.dto.ProductionBatchOpenRequest;
@@ -83,6 +84,7 @@ public class ProductionBatchService {
     private final ProductionBatchCodeGenerator codeGenerator;
     private final ProductModelRepository productModelRepository;
     private final ProductItemRepository productItemRepository;
+    private final ProductQrCodeGenerator qrCodeGenerator;
     private final MaterialRepository materialRepository;
     private final MaterialBalanceRepository balanceRepository;
     private final MaterialLockRepository lockRepository;
@@ -318,8 +320,40 @@ public class ProductionBatchService {
         requireOwner(batch, producerId);
         return productItemRepository.findAllByProductionBatchId(batchId).stream()
                 .sorted(Comparator.comparingInt(ProductItem::getSerialNumber))
-                .map(ProductionItemResponse::from)
+                .map(item -> ProductionItemResponse.of(item, qrCodeGenerator.urlFor(item.getQrToken())))
                 .toList();
+    }
+
+    /**
+     * 개체의 QR 이미지. <b>라벨 인쇄가 쓴다.</b>
+     *
+     * <p>개체를 {@code qrToken} 이 아니라 id 로 받는다. 토큰으로 받으면 경로가 공개 열쇠를
+     * 그대로 드러내고, <b>아무나 남의 QR 이미지를 만들어낼 수 있다.</b> 배치 소유자만 자기
+     * 개체의 라벨을 뽑는다.
+     *
+     * <p>개체가 그 배치의 것인지 따로 본다. 소유자 검사를 통과했더라도 개체 번호만 믿으면
+     * 남의 배치 개체 라벨을 받아 갈 수 있다.
+     */
+    @Transactional(readOnly = true)
+    public byte[] qrImage(Long producerId, Long batchId, Long productItemId, Integer size) {
+        ProductionBatch batch = batchRepository.findById(batchId)
+                .orElseThrow(
+                        () -> new BusinessException(ProductionErrorCode.PRODUCTION_BATCH_NOT_FOUND));
+        requireOwner(batch, producerId);
+
+        ProductItem item = productItemRepository.findById(productItemId)
+                .filter(found -> found.getProductionBatchId().equals(batchId))
+                .orElseThrow(
+                        () -> new BusinessException(ProductionErrorCode.PRODUCTION_ITEM_NOT_FOUND));
+        try {
+            return size == null
+                    ? qrCodeGenerator.pngFor(item.getQrToken())
+                    : qrCodeGenerator.pngFor(item.getQrToken(), size);
+        } catch (IllegalArgumentException invalidSize) {
+            // 생성 모듈은 IllegalArgumentException 을 던진다. 그대로 두면 500 이 나가는데,
+            // 크기는 사용자가 고칠 수 있는 입력이다.
+            throw new BusinessException(ProductionErrorCode.PRODUCTION_QR_SIZE_INVALID);
+        }
     }
 
     /**

@@ -271,6 +271,28 @@ public enum ProductionErrorCode implements ErrorCode {
             "PRODUCTION_CONSUME_ALREADY_RECORDED",
             "이미 소각이 기록된 배치입니다."),
 
+    /**
+     * 이 배치의 개체가 아닌 것을 가리키는 경우.
+     *
+     * <p>개체 번호만 믿으면 <b>남의 배치 개체 라벨을 받아 갈 수 있다</b>. 배치 소유자
+     * 검사를 통과했더라도 개체가 그 배치의 것인지는 따로 봐야 한다.
+     */
+    PRODUCTION_ITEM_NOT_FOUND(
+            HttpStatus.NOT_FOUND, "PRODUCTION_ITEM_NOT_FOUND", "개체를 찾을 수 없습니다."),
+
+    /**
+     * QR 이미지 크기가 허용 범위를 벗어난 경우.
+     *
+     * <p>너무 작으면 인쇄 후 스캔이 되지 않고, 상한이 없으면 요청 하나로 수십 MB PNG 를
+     * 만들 수 있다. 생성 모듈도 같은 검사를 하지만 그쪽은
+     * {@code IllegalArgumentException} 이라 그대로 두면 500 이 나간다 — 사용자가 고칠 수
+     * 있는 입력이므로 400 으로 바꾼다.
+     */
+    PRODUCTION_QR_SIZE_INVALID(
+            HttpStatus.BAD_REQUEST,
+            "PRODUCTION_QR_SIZE_INVALID",
+            "QR 크기는 128 이상 2048 이하여야 합니다."),
+
     PRODUCTION_INPUT_NOT_FOUND(
             HttpStatus.NOT_FOUND, "PRODUCTION_INPUT_NOT_FOUND", "투입 내역을 찾을 수 없습니다.");
 
