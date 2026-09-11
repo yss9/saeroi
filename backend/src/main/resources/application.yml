@@ -59,6 +59,12 @@ app:
       return-url: ${KAKAOPAY_RETURN_URL:http://localhost:5173/trades/{tradeId}/payment/return}
       # 가공비 결제는 거래 결제와 승인 API가 다르므로 별도의 복귀 화면을 사용한다.
       processing-return-url: ${KAKAOPAY_PROCESSING_RETURN_URL:http://localhost:5173/processing/jobs/{jobId}/payment/callback}
+  qr:
+    # QR 이 담을 Passport 주소. 뒤에 /{qrToken} 이 붙는다.
+    #
+    # ⚠️ 프론트의 Passport 라우트와 반드시 같아야 한다. 어긋나면 인쇄되어 제품에 붙어 나간
+    #    QR 이 전부 죽는데, 그건 되돌릴 수 없다 — 그래서 비어 있으면 기동을 실패시킨다.
+    base-url: ${QR_BASE_URL:}
   blockchain:
     # 배포된 컨트랙트 좌표. 정본은 blockchain/deployments/ssafy.json 이다.
     #

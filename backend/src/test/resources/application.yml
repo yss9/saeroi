@@ -24,6 +24,10 @@ spring:
       # 테이블이 없는 상태를 만나지 않는다. 데이터는 클래스마다 @BeforeEach 가 채운다.
       ddl-auto: create
 app:
+  qr:
+    # 기동 필수값이라 테스트에도 넣는다. 실제 프론트 주소일 필요는 없다 —
+    # 여기서 보는 것은 조립 규칙이지 그 주소가 열리는지가 아니다.
+    base-url: https://upcycle.test/passport
   security:
     jwt:
       secret: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
