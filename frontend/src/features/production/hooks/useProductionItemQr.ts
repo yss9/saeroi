@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { AppError } from '../../../utils/errors.ts'
 import { getProductionItemQr } from '../api/productionBatchApi.ts'
-import { productionKeys } from '../api/productionKeys.ts'
+import { productionItemKeys } from '../api/productionKeys.ts'
 
 export interface UseProductionItemQrResult {
   /** `<img src>` 에 넣을 blob URL. 아직 못 받았으면 null */
@@ -33,7 +33,7 @@ export function useProductionItemQr(
   enabled: boolean,
 ): UseProductionItemQrResult {
   const query = useQuery<Blob, AppError>({
-    queryKey: [...productionKeys.detail(batchId), 'items', productItemId, 'qr'],
+    queryKey: productionItemKeys.qr(batchId, productItemId),
     queryFn: () => getProductionItemQr(batchId, productItemId),
     enabled,
     staleTime: Infinity,

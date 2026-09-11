@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useIsFetching } from '@tanstack/react-query'
 import {
   Button,
   EmptyState,
@@ -7,6 +8,7 @@ import {
   StatusBadge,
   type StatusTone,
 } from '../../../components/common/index.ts'
+import { productionItemKeys } from '../api/productionKeys.ts'
 import { useProductionItemQr } from '../hooks/useProductionItemQr.ts'
 import { useProductionItems } from '../hooks/useProductionItems.ts'
 import {
@@ -50,6 +52,11 @@ export function ProductionItemQrGrid({ batchId }: ProductionItemQrGridProps) {
   const { data, isPending, isError, error, refetch } = useProductionItems(batchId)
   const [visible, setVisible] = useState(PAGE_SIZE)
 
+  // **아직 오는 중인 라벨이 있으면 인쇄를 막는다.** 그 자리는 종이에 빈 칸으로 나가고,
+  // 빈 라벨이 붙은 제품은 스캔되지 않는다. 카드마다 상태를 위로 올리는 대신 캐시에
+  // 물어본다 — 같은 접두사를 쓰므로 이 배치의 이미지 요청이 그대로 세어진다.
+  const loading = useIsFetching({ queryKey: productionItemKeys.all(batchId) }) > 0
+
   if (isPending) return <Loading variant="skeleton" rows={3} label="제품 개체를 불러오는 중" />
   if (isError) return <ErrorMessage error={error} onRetry={() => void refetch()} />
 
@@ -72,6 +79,30 @@ export function ProductionItemQrGrid({ batchId }: ProductionItemQrGridProps) {
         있는 공개 경로입니다 — 인쇄 외의 용도로 공유하지 마세요.
       </p>
 
+      <div className="qr-grid__actions">
+        {/*
+          **화면에 그려진 것만 인쇄된다.** 아직 받지 않은 라벨은 종이에 빈 칸으로 나가므로
+          장수를 버튼에 적고, 남은 것이 있으면 그 사실을 옆에 적는다 — 20장짜리 배치에서
+          12장만 인쇄된 것을 인쇄물을 세어 보고 알게 하지 않는다.
+        */}
+        <Button onClick={() => window.print()} disabled={loading}>
+          {loading ? '라벨을 불러오는 중' : `라벨 ${shown.length}장 인쇄`}
+        </Button>
+
+        {/* 남은 장수를 적는다. "더 보기" 만 있으면 몇 장이 더 있는지 알 수 없다. */}
+        {rest > 0 && (
+          <Button variant="secondary" onClick={() => setVisible((count) => count + PAGE_SIZE)}>
+            {rest}장 더 보기
+          </Button>
+        )}
+      </div>
+
+      {rest > 0 && (
+        <p className="qr-grid__hint">
+          {rest}장은 아직 불러오지 않았습니다. 더 보기를 누르면 함께 인쇄됩니다.
+        </p>
+      )}
+
       <ul className="qr-grid__list">
         {shown.map((item) => (
           <li key={item.productItemId} className="qr-grid__item">
@@ -79,13 +110,6 @@ export function ProductionItemQrGrid({ batchId }: ProductionItemQrGridProps) {
           </li>
         ))}
       </ul>
-
-      {/* 남은 장수를 적는다. "더 보기" 만 있으면 몇 장이 더 있는지 알 수 없다. */}
-      {rest > 0 && (
-        <Button variant="secondary" onClick={() => setVisible((count) => count + PAGE_SIZE)}>
-          {rest}장 더 보기
-        </Button>
-      )}
     </section>
   )
 }
