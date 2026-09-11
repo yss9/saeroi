@@ -74,10 +74,18 @@ CREATE TABLE company_profile (
     zip_code VARCHAR(20) NOT NULL,
     address VARCHAR(255) NOT NULL,
     address_detail VARCHAR(255) NULL,
+    latitude DECIMAL(10,7) NULL,
+    longitude DECIMAL(10,7) NULL,
     introduction TEXT NULL,
     logo_url VARCHAR(500) NULL,
     CONSTRAINT pk_company_profile PRIMARY KEY (user_id),
-    CONSTRAINT fk_company_profile_user FOREIGN KEY (user_id) REFERENCES users (id)
+    CONSTRAINT fk_company_profile_user FOREIGN KEY (user_id) REFERENCES users (id),
+    CONSTRAINT chk_company_profile_latitude
+        CHECK (latitude IS NULL OR latitude BETWEEN -90 AND 90),
+    CONSTRAINT chk_company_profile_longitude
+        CHECK (longitude IS NULL OR longitude BETWEEN -180 AND 180),
+    CONSTRAINT chk_company_profile_coordinates_pair
+        CHECK ((latitude IS NULL) = (longitude IS NULL))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE consumer_address (

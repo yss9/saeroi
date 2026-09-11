@@ -15,7 +15,15 @@ public enum CompanyErrorCode implements ErrorCode {
             "COMPANY_PROFILE_FORBIDDEN",
             "업체 정보를 이용할 수 없는 계정입니다."),
     COMPANY_PROFILE_NOT_FOUND(
-            HttpStatus.NOT_FOUND, "COMPANY_PROFILE_NOT_FOUND", "등록된 업체 정보를 찾을 수 없습니다.");
+            HttpStatus.NOT_FOUND, "COMPANY_PROFILE_NOT_FOUND", "등록된 업체 정보를 찾을 수 없습니다."),
+    COMPANY_ADDRESS_NOT_FOUND(
+            HttpStatus.UNPROCESSABLE_ENTITY,
+            "COMPANY_ADDRESS_NOT_FOUND",
+            "입력한 주소의 위치를 찾을 수 없습니다."),
+    COMPANY_GEOLOCATION_UNAVAILABLE(
+            HttpStatus.SERVICE_UNAVAILABLE,
+            "COMPANY_GEOLOCATION_UNAVAILABLE",
+            "주소 위치 확인을 잠시 이용할 수 없습니다.");
 
     private final HttpStatus status;
     private final String code;

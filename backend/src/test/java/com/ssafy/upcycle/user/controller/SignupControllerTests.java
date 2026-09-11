@@ -1,25 +1,34 @@
 package com.ssafy.upcycle.user.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ssafy.upcycle.common.exception.BusinessException;
+import com.ssafy.upcycle.user.CompanyErrorCode;
 import com.ssafy.upcycle.user.entity.CompanyProfile;
 import com.ssafy.upcycle.user.entity.User;
 import com.ssafy.upcycle.user.entity.UserRole;
 import com.ssafy.upcycle.user.repository.CompanyProfileRepository;
 import com.ssafy.upcycle.user.repository.UserRepository;
+import com.ssafy.upcycle.user.geolocation.AddressGeocoder;
+import com.ssafy.upcycle.user.geolocation.GeoCoordinates;
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
 
 @SpringBootTest
@@ -43,6 +52,15 @@ class SignupControllerTests {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @MockitoBean
+    private AddressGeocoder addressGeocoder;
+
+    @BeforeEach
+    void setUpGeocoding() {
+        when(addressGeocoder.geocode(anyString())).thenReturn(new GeoCoordinates(
+                new BigDecimal("37.5012345"), new BigDecimal("127.0123456")));
+    }
 
     @Test
     void consumerSignupIsPublicAndPersistsAnEncodedConsumerAccount() throws Exception {
@@ -105,6 +123,23 @@ class SignupControllerTests {
         assertThat(profile.getZipCode()).isEqualTo("06236");
         assertThat(profile.getAddress()).isEqualTo("서울특별시 강남구 테헤란로 1");
         assertThat(profile.getAddressDetail()).isEqualTo("2층");
+        assertThat(profile.getLatitude()).isEqualByComparingTo("37.5012345");
+        assertThat(profile.getLongitude()).isEqualByComparingTo("127.0123456");
+    }
+
+    @Test
+    void rejectsBusinessSignupWhenTheAddressCannotBeLocatedWithoutSavingTheAccount() throws Exception {
+        when(addressGeocoder.geocode(anyString()))
+                .thenThrow(new BusinessException(CompanyErrorCode.COMPANY_ADDRESS_NOT_FOUND));
+
+        mockMvc.perform(post("/api/v1/auth/signup/business")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(businessBody(UserRole.SUPPLIER))))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("COMPANY_ADDRESS_NOT_FOUND"));
+
+        assertThat(userRepository.findByEmail("company@example.com")).isEmpty();
+        assertThat(companyProfileRepository.count()).isZero();
     }
 
     @Test

@@ -1,9 +1,11 @@
 package com.ssafy.upcycle.user.entity;
 
+import com.ssafy.upcycle.user.geolocation.GeoCoordinates;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -34,6 +36,12 @@ public class CompanyProfile {
     @Column(name = "address_detail", length = 255)
     private String addressDetail;
 
+    @Column(name = "latitude", precision = 10, scale = 7)
+    private BigDecimal latitude;
+
+    @Column(name = "longitude", precision = 10, scale = 7)
+    private BigDecimal longitude;
+
     @Column(name = "introduction", columnDefinition = "TEXT")
     private String introduction;
 
@@ -46,13 +54,15 @@ public class CompanyProfile {
             String businessNumber,
             String zipCode,
             String address,
-            String addressDetail) {
+            String addressDetail,
+            GeoCoordinates coordinates) {
         this.userId = requireNonNull(userId, "userId");
         this.companyName = requireText(companyName, "companyName", 200);
         this.businessNumber = requireText(businessNumber, "businessNumber", 50);
         this.zipCode = requireText(zipCode, "zipCode", 20);
         this.address = requireText(address, "address", 255);
         this.addressDetail = optionalText(addressDetail, "addressDetail", 255);
+        updateCoordinates(coordinates);
     }
 
     public static CompanyProfile register(
@@ -61,9 +71,10 @@ public class CompanyProfile {
             String businessNumber,
             String zipCode,
             String address,
-            String addressDetail) {
+            String addressDetail,
+            GeoCoordinates coordinates) {
         return new CompanyProfile(
-                userId, companyName, businessNumber, zipCode, address, addressDetail);
+                userId, companyName, businessNumber, zipCode, address, addressDetail, coordinates);
     }
 
     /**
@@ -78,12 +89,21 @@ public class CompanyProfile {
             String address,
             String addressDetail,
             String introduction,
-            String logoUrl) {
+            String logoUrl,
+            GeoCoordinates coordinates) {
         this.zipCode = requireText(zipCode, "zipCode", 20);
         this.address = requireText(address, "address", 255);
         this.addressDetail = optionalText(addressDetail, "addressDetail", 255);
         this.introduction = optionalText(introduction, "introduction", 65_535);
         this.logoUrl = optionalText(logoUrl, "logoUrl", 500);
+        updateCoordinates(coordinates);
+    }
+
+    /** 기존 업체 행의 일회성 backfill에서 주소는 유지하고 좌표만 채우는 경로. */
+    public void updateCoordinates(GeoCoordinates coordinates) {
+        GeoCoordinates required = requireNonNull(coordinates, "coordinates");
+        this.latitude = required.latitude();
+        this.longitude = required.longitude();
     }
 
     private static <T> T requireNonNull(T value, String field) {

@@ -2,6 +2,7 @@ package com.ssafy.upcycle.user.dto;
 
 import com.ssafy.upcycle.user.entity.UserRole;
 import com.ssafy.upcycle.user.entity.UserStatus;
+import java.math.BigDecimal;
 
 /**
  * 사업자 계정 본인의 업체 정보. {@code GET/PUT /api/v1/companies/me} 의 데이터다.
@@ -20,6 +21,8 @@ public record CompanyProfileResponse(
         String zipCode,
         String address,
         String addressDetail,
+        BigDecimal latitude,
+        BigDecimal longitude,
         String introduction,
         String logoUrl,
         UserRole role,

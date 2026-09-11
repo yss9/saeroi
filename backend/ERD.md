@@ -170,6 +170,7 @@ MySQL 8 은 부분 UNIQUE(`... WHERE is_active = TRUE`)를 지원하지 않는�
 | user_id | BIGINT FK UNIQUE |
 | company_name, business_number | VARCHAR |
 | zip_code, address, address_detail | VARCHAR |
+| latitude, longitude | DECIMAL(10,7) NULL · WGS84, 기존 행 backfill 전까지 NULL 허용 |
 | introduction, logo_url | TEXT / VARCHAR |
 
 | consumer_address (1:N, 소비자) |  |
