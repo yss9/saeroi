@@ -60,6 +60,23 @@ pipeline {
             }
         }
 
+        // 상시 통합 테스트 스택(/test) 배포. ai/develop 병합마다 이미지를 :test 태그로 새로
+        // 빌드해 deploy 파트의 scripts/test-deploy.sh 로 넘긴다. 소스가 아직 없으면(HAS_DEPS/
+        // HAS_DOCKERFILE = false) 위 Docker Build/Deploy 와 같은 이유로 조용히 건너뛴다.
+        stage('Test Deploy') {
+            when {
+                allOf {
+                    branch 'ai/develop'
+                    environment name: 'HAS_DEPS',       value: 'true'
+                    environment name: 'HAS_DOCKERFILE', value: 'true'
+                }
+            }
+            steps {
+                sh 'docker build -f docker/Dockerfile -t $IMAGE:test .'
+                sh 'flock -w 900 /var/jenkins_home/cf-deploy.lock bash $DEPLOY_DIR/scripts/test-deploy.sh ai'
+            }
+        }
+
         stage('Docker Build') {
             when {
                 allOf {
