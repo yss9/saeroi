@@ -5,6 +5,7 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { queryClient } from '../services/queryClient.ts'
 import type { UserRole } from '../types/role.types.ts'
 
 export interface AuthUser {
@@ -35,9 +36,15 @@ export const useAuthStore = create<AuthState>()(
       accessToken: null,
       isAuthenticated: false,
 
-      signIn: (user, accessToken) => set({ user, accessToken, isAuthenticated: true }),
+      signIn: (user, accessToken) => {
+        queryClient.clear()
+        set({ user, accessToken, isAuthenticated: true })
+      },
 
-      signOut: () => set({ user: null, accessToken: null, isAuthenticated: false }),
+      signOut: () => {
+        queryClient.clear()
+        set({ user: null, accessToken: null, isAuthenticated: false })
+      },
 
       patchUser: (patch) =>
         set((state) => (state.user ? { user: { ...state.user, ...patch } } : state)),

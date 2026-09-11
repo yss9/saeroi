@@ -8,7 +8,8 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import userEvent from '@testing-library/user-event'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createAppError, ERROR_KIND } from '../../../utils/errors.ts'
 import type { InventoryItem } from '../types/inventory.types.ts'
@@ -42,9 +43,14 @@ function renderTable() {
     <QueryClientProvider client={queryClient}>
       <MemoryRouter>
         <InventoryTable />
+        <output aria-label="현재 경로">{<LocationPath />}</output>
       </MemoryRouter>
     </QueryClientProvider>,
   )
+}
+
+function LocationPath() {
+  return useLocation().pathname
 }
 
 beforeEach(() => {
@@ -113,6 +119,18 @@ describe('단위 표시', () => {
 })
 
 describe('티켓 표시 항목', () => {
+  it('소재 행의 빈 영역을 클릭하면 상세로 이동한다', async () => {
+    const user = userEvent.setup()
+    api.getMyMaterials.mockResolvedValue([item()])
+    renderTable()
+
+    const materialRow = (await screen.findByText('MAT-000042')).closest('tr')
+    if (materialRow === null) throw new Error('소재 행을 찾을 수 없습니다.')
+    await user.click(materialRow)
+
+    expect(screen.getByLabelText('현재 경로')).toHaveTextContent('/materials/42')
+  })
+
   it('소재 · 보유 수량 · 판매 가능량 · 상태 · 기준 시각을 모두 보여준다', async () => {
     api.getMyMaterials.mockResolvedValue([item()])
     renderTable()

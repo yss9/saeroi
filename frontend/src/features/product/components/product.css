@@ -145,6 +145,13 @@
   border-radius: 8px;
   background: #fff;
   flex-wrap: wrap;
+  cursor: pointer;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.brand-product-list__item:hover {
+  border-color: var(--ui-color-primary);
+  box-shadow: 0 2px 8px rgba(16, 34, 56, 0.08);
 }
 
 .brand-product-list__main { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }

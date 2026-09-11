@@ -100,7 +100,7 @@ test('견적 선택은 확인 단계를 거친 뒤 Job을 생성한다', async (
     fee: 120_000,
     paymentMethod: 'MOCK',
     paymentReference: null,
-    paymentAmount: 120_000,
+    paymentAmount: 0,
     status: 'CREATED',
     paymentExpiresAt: '2026-09-09T03:15:00',
     createdAt: '2026-09-09T03:00:00',
@@ -117,13 +117,14 @@ test('견적 선택은 확인 단계를 거친 뒤 Job을 생성한다', async (
   expect(apiClient.post).toHaveBeenCalledWith('/v1/quotes/31/select', { paymentMethod: 'MOCK' })
   expect((await screen.findAllByText('JOB-091')).length).toBeGreaterThan(0)
   expect(screen.getByText('견적 선택이 완료되었습니다.')).toBeInTheDocument()
+  expect(screen.getByText('결제 금액').parentElement).toHaveTextContent('120,000원')
 })
 
 test('생성된 Job에서 결제를 준비하고 Mock 승인까지 진행한다', async () => {
   const user = userEvent.setup()
   const job = {
     jobId: 91, jobCode: 'JOB-091', requestId: 17, quoteId: 31, brandId: 3, processorId: 8,
-    fee: 120_000, paymentMethod: 'MOCK', paymentReference: null, paymentAmount: 120_000,
+    fee: 120_000, paymentMethod: 'MOCK', paymentReference: null, paymentAmount: 0,
     status: 'CREATED', paymentExpiresAt: '2026-09-09T03:15:00', createdAt: '2026-09-09T03:00:00',
   }
   vi.mocked(apiClient.post).mockImplementation((url: string) => {

@@ -15,7 +15,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createAppError, ERROR_KIND } from '../../../utils/errors.ts'
 import type { ProductModel } from '../types/product.types.ts'
@@ -56,10 +56,15 @@ function renderList() {
     <QueryClientProvider client={queryClient}>
       <MemoryRouter>
         <BrandProductList />
+        <output aria-label="현재 경로">{<LocationPath />}</output>
       </MemoryRouter>
     </QueryClientProvider>,
   )
   return userEvent.setup()
+}
+
+function LocationPath() {
+  return useLocation().pathname
 }
 
 /** 제품 한 줄. 이름으로 찾는다. */
@@ -79,6 +84,16 @@ afterEach(() => {
 })
 
 describe('BrandProductList', () => {
+  it('제품 행의 빈 영역을 클릭하면 상세로 이동한다', async () => {
+    const user = renderList()
+
+    const productRow = (await screen.findByText('업사이클 데님 토트백')).closest('li')
+    if (productRow === null) throw new Error('제품 행을 찾을 수 없습니다.')
+    await user.click(productRow)
+
+    expect(screen.getByLabelText('현재 경로')).toHaveTextContent('/products/31')
+  })
+
   it('등록만 된 제품도 보여준다', async () => {
     renderList()
 
@@ -127,6 +142,7 @@ describe('BrandProductList', () => {
     await waitFor(() =>
       expect(api.changeProductModelStatus).toHaveBeenCalledWith(31, 'ON_SALE'),
     )
+    expect(screen.getByLabelText('현재 경로')).toHaveTextContent('/')
   })
 
   it('판매 가능 수량을 보여준다', async () => {

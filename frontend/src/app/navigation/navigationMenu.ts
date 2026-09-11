@@ -63,6 +63,7 @@ export const BUSINESS_MENU_ITEMS: readonly NavigationMenuItem[] = [
   { label: '판매 거래', to: '/supplier/trades', Icon: Truck },
   { label: '가공 신청', to: '/brand/processing', Icon: Factory },
   { label: '요청 내역', to: '/brand/processing/requests', Icon: ClipboardText },
+  { label: '가공 진행', to: '/brand/processing/jobs', Icon: Factory },
   { label: '생산 관리', to: '/brand/production', Icon: Buildings },
   { label: '제품 등록', to: '/brand/products/new', Icon: Tag },
   { label: '내 제품', to: '/brand/products', Icon: Storefront },

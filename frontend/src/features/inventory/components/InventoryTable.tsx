@@ -7,6 +7,7 @@ import {
   ROOT_ORIGIN_LABEL,
 } from '../../material/types/material.types.ts'
 import { formatKg } from '../../../utils/quantity.ts'
+import { useClickNavigation } from '../../../utils/useClickNavigation.ts'
 import { useMyMaterials } from '../hooks/useMyMaterials.ts'
 
 /**
@@ -25,6 +26,7 @@ import { useMyMaterials } from '../hooks/useMyMaterials.ts'
  * 총 발행량은 소재 상세에서 보면 되므로 이 표에 넣지 않는다.
  */
 export function InventoryTable() {
+  const followClick = useClickNavigation()
   const { data, isPending, isError, error, refetch } = useMyMaterials()
 
   if (isPending) return <Loading variant="skeleton" rows={4} label="보유 소재를 불러오는 중" />
@@ -62,7 +64,7 @@ export function InventoryTable() {
         </thead>
         <tbody>
           {data.map((item) => (
-            <tr key={item.materialId}>
+            <tr key={item.materialId} onClick={(event) => followClick(event, `/materials/${item.materialId}`)}>
               <td>
                 <Link to={`/materials/${item.materialId}`}>{item.name}</Link>
                 <span className="inventory-table__code">{item.materialCode}</span>

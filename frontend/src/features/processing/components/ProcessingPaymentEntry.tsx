@@ -18,7 +18,7 @@ export function ProcessingPaymentEntry({ job }: { job: ProcessingJob }) {
   return (
     <section className="br-payment" aria-labelledby="processing-payment-title">
       <div className="br-payment__title"><CreditCard aria-hidden="true" /><div><h3 id="processing-payment-title">가공비 결제</h3><span>{job.jobCode}</span></div></div>
-      <dl><div><dt>결제 금액</dt><dd>{won(job.paymentAmount)}</dd></div><div><dt>결제 기한</dt><dd>{date(job.paymentExpiresAt)}</dd></div></dl>
+      <dl><div><dt>결제 금액</dt><dd>{won(job.fee)}</dd></div><div><dt>결제 기한</dt><dd>{date(job.paymentExpiresAt)}</dd></div></dl>
       <p className="br-payment__deadline"><Clock aria-hidden="true" />기한 내 결제하지 않으면 Job과 소재 Lock이 자동으로 만료됩니다.</p>
       {payment.phase === 'FAILED' && <p className="br-payment__error" role="alert">{message(payment.error)}</p>}
       {payment.phase === 'AWAITING' && payment.ready?.live === false ? (

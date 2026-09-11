@@ -10,6 +10,7 @@ import {
   type StatusTone,
 } from '../../../components/common/index.ts'
 import { formatWon } from '../../../utils/quantity.ts'
+import { useClickNavigation } from '../../../utils/useClickNavigation.ts'
 import { useChangeProductModelStatus } from '../hooks/useChangeProductModelStatus.ts'
 import { useMyProductModels } from '../hooks/useMyProductModels.ts'
 import {
@@ -44,6 +45,7 @@ const TONE: Record<ProductModelStatus, StatusTone> = {
  * 않고 왜 못 누르는지 미리 적는다.
  */
 export function BrandProductList() {
+  const followClick = useClickNavigation()
   const { data, isPending, isError, error, refetch } = useMyProductModels()
   const change = useChangeProductModelStatus()
 
@@ -69,7 +71,7 @@ export function BrandProductList() {
 
       <ul className="brand-product-list">
         {data.map((product) => (
-          <li key={product.productModelId} className="brand-product-list__item">
+          <li key={product.productModelId} className="brand-product-list__item" onClick={(event) => followClick(event, `/products/${product.productModelId}`)}>
             <div className="brand-product-list__main">
               <Link to={`/products/${product.productModelId}`} className="brand-product-list__name">
                 {product.name}
