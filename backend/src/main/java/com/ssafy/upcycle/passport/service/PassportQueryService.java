@@ -7,6 +7,9 @@ import com.ssafy.upcycle.product.entity.ProductItem;
 import com.ssafy.upcycle.product.entity.ProductModel;
 import com.ssafy.upcycle.product.repository.ProductItemRepository;
 import com.ssafy.upcycle.product.repository.ProductModelRepository;
+import com.ssafy.upcycle.traceability.dto.ProductJourneyResponse;
+import com.ssafy.upcycle.traceability.service.ProductJourneyQueryService;
+import com.ssafy.upcycle.user.repository.CompanyProfileRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +24,8 @@ public class PassportQueryService {
 
     private final ProductItemRepository productItemRepository;
     private final ProductModelRepository productModelRepository;
+    private final CompanyProfileRepository companyProfileRepository;
+    private final ProductJourneyQueryService productJourneyQueryService;
 
     @Transactional(readOnly = true)
     public PassportResponse findByQrToken(String qrToken) {
@@ -31,7 +36,11 @@ public class PassportQueryService {
         // 그 자체가 이 요청과 무관한 버그다.
         ProductModel model = productModelRepository.findById(item.getProductModelId())
                 .orElseThrow(() -> new BusinessException(PassportErrorCode.QR_TOKEN_NOT_FOUND));
-        return PassportResponse.of(item, model);
+        String brandName = companyProfileRepository.findById(model.getBrandId())
+                .map(profile -> profile.getCompanyName())
+                .orElse(null);
+        ProductJourneyResponse journey = productJourneyQueryService.findJourney(item).orElse(null);
+        return PassportResponse.of(item, model, brandName, journey);
     }
 
     /**

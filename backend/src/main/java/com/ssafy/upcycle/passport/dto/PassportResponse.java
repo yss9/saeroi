@@ -3,6 +3,7 @@ package com.ssafy.upcycle.passport.dto;
 import com.ssafy.upcycle.product.entity.ProductItem;
 import com.ssafy.upcycle.product.entity.ProductItemStatus;
 import com.ssafy.upcycle.product.entity.ProductModel;
+import com.ssafy.upcycle.traceability.dto.ProductJourneyResponse;
 import java.time.LocalDateTime;
 
 /**
@@ -12,11 +13,9 @@ import java.time.LocalDateTime;
  * 담으면 {@code qrToken} 을 우회해 {@code /api/v1/product-models/{id}} 같은 인증 경로를
  * 순서대로 훑어볼 실마리가 된다. 사람이 읽는 {@code itemCode} 만 내려준다.
  *
- * <p><b>{@code traceabilityAvailable} 이 지금은 언제나 {@code false} 다.</b> 원재료 출처·
- * 가공 이력을 이으려면 Production 도메인(생산 배치·투입·산출)이 있어야 하는데 아직 없다
- * ({@code product} 패키지에는 {@code package-info.java} 뿐이다). 그 도메인이 생기기 전에
- * 이 필드를 지우지 않고 얹어 둔 것은, 나중에 값이 채워질 때 프론트가 이미 그 분기를
- * 갖고 있게 하기 위해서다 — 필드를 나중에 추가하는 것보다 값만 바뀌는 쪽이 안전하다.
+ * <p>{@code journey}는 생산 배치와 소재 혈통이 정상적으로 연결된 개체에만 채워진다.
+ * 마이그레이션 이전의 불완전 데이터는 제품 정보까지 실패시키지 않고
+ * {@code traceabilityAvailable=false}로 구분한다.
  */
 public record PassportResponse(
         String itemCode,
@@ -24,15 +23,29 @@ public record PassportResponse(
         ProductItemStatus itemStatus,
         LocalDateTime issuedAt,
         PassportProductSummary product,
-        boolean traceabilityAvailable) {
+        boolean traceabilityAvailable,
+        ProductJourneyResponse journey) {
 
-    public static PassportResponse of(ProductItem item, ProductModel model) {
+    public static PassportResponse of(
+            ProductItem item,
+            ProductModel model,
+            String brandName,
+            ProductJourneyResponse journey) {
         return new PassportResponse(
                 item.getItemCode(),
                 item.getSerialNumber(),
                 item.getStatus(),
                 item.getCreatedAt(),
-                PassportProductSummary.of(model),
-                false);
+                PassportProductSummary.of(model, brandName, imageUrl(item)),
+                journey != null,
+                journey);
+    }
+
+    /**
+     * 대표 이미지는 저장 키가 아니라 공개 경로로 내려준다. 저장 키에는 브랜드 내부 id 가
+     * 들어 있고, 화면이 토큰에 접두어를 붙여 주소를 만들면 그 규칙이 두 곳으로 갈라진다.
+     */
+    private static String imageUrl(ProductItem item) {
+        return "/api/v1/qr/" + item.getQrToken() + "/thumbnail";
     }
 }
