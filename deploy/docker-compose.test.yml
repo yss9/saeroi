@@ -66,6 +66,12 @@ services:
       # 이 값이 없으면 브라우저가 same-origin POST 에도 싣는 Origin 헤더가 걸려 로그인이
       # 403 "Invalid CORS request"로 막힌다 (운영도 동일하게 걸려 있었다, 같이 수정).
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+      # 키가 없으면 좌표 없는 업체가 저장되지 않도록 backend 가 사업자 회원가입·주소 변경
+      # 자체를 의도적으로 거절한다 (KakaoGeocodingProperties.isConfigured(), 2026-09-11
+      # 발견). 운영과 같은 값을 재사용한다 — 카카오 키는 도메인이 아니라 앱 단위라 test용을
+      # 따로 받을 필요 없다.
+      KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:-}
+      KAKAO_GEOCODING_BASE_URL: ${KAKAO_GEOCODING_BASE_URL:-https://dapi.kakao.com}
       # backend/develop 에서 새로 필수화된 값 (QR 이 제품에 인쇄되므로 빈 값이면 ProductQrConfig
       # 가 기동 자체를 막는다). `:-` 기본값을 쓴다 — `:?`는 MINIO_ROOT_PASSWORD 와 같은 이유로
       # 안 쓴다: 파일 전체가 매 호출마다 보간되므로 무관한 서비스 배포(`up --no-deps frontend`)
