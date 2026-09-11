@@ -325,6 +325,69 @@
 }
 .qr-card__code { font-family: ui-monospace, Menlo, monospace; color: #6b7280; }
 
+.qr-grid__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+/* 인쇄되지 않는 장수를 눈에 띄게 적는다 — 인쇄물을 세어 보고 알게 하지 않는다. */
+.qr-grid__hint { margin: 0; font-size: 0.8rem; color: #8a4b0b; }
+
+/* ── 라벨 인쇄 ────────────────────────────────────────
+   제품 태그에 붙일 라벨을 종이에 뽑는다. 화면과 종이는 목적이 달라 규칙도 다르다.
+   ──────────────────────────────────────────────────── */
+
+@media print {
+  /*
+    라벨만 남긴다. 사이드바·머리말·버튼이 함께 인쇄되면 첫 줄이 통째로 밀려 라벨 한 줄이
+    종이 밖으로 나간다. display:none 대신 visibility 를 쓰는 이유는 조상 요소(셸·페이지
+    래퍼)를 지우지 않고 그 안의 격자만 남기기 위해서다.
+
+    ⚠️ **`body:has(.qr-grid)` 로 가둔다.** 이 파일의 CSS 는 앱 전체에 실린다 — 조건 없이
+    적으면 라벨 격자가 없는 화면에서 Ctrl+P 를 눌렀을 때 빈 종이가 나온다.
+  */
+  body:has(.qr-grid) * { visibility: hidden; }
+  body:has(.qr-grid) .qr-grid,
+  body:has(.qr-grid) .qr-grid * { visibility: visible; }
+  .qr-grid {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    gap: 0;
+  }
+
+  /* 화면 안내와 조작은 종이에 둘 자리가 없다. */
+  .qr-grid__caption,
+  .qr-grid__actions,
+  .qr-grid__hint,
+  .qr-card .ui-button,
+  .qr-card .ui-badge {
+    display: none;
+  }
+
+  /*
+    한 줄에 넷. 화면처럼 폭에 맞춰 접게 두면 인쇄 미리보기마다 장수가 달라져, 자를 위치를
+    가늠할 수 없다.
+  */
+  .qr-grid__list {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6mm;
+  }
+
+  /*
+    라벨 한 장이 페이지 경계에 걸쳐 잘리면 그 장은 못 쓴다. 테두리는 자르는 선이라
+    화면보다 진하게 둔다.
+  */
+  .qr-card {
+    break-inside: avoid;
+    border: 1px solid #999;
+    padding: 3mm;
+    gap: 2mm;
+  }
+  /* 40mm. 이보다 작으면 인쇄 후 스캔이 어렵다 — 모듈 하나가 잉크 번짐에 묻힌다. */
+  .qr-card__frame { min-height: auto; }
+  .qr-card__image { width: 40mm; max-width: 40mm; height: 40mm; }
+  /* 어느 개체의 라벨인지 종이 위에서도 알아야 한다. 붙이기 전에 짝을 맞춘다. */
+  .qr-card__caption { font-size: 8pt; }
+}
+
 /* ── 온체인 단계 목록 ────────────────────────────────── */
 
 /* 공통 OnChainPanel 안에 들어가는 보조 표시다. 패널 자체의 스타일은 그쪽 CSS 가 갖는다. */

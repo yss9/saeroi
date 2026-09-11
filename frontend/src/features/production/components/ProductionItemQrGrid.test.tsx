@@ -8,6 +8,8 @@
 //   3) **한 장이 실패해도 나머지는 보인다.** 라벨 한 장 때문에 화면 전체가 죽으면 브랜드는
 //      아무 것도 인쇄하지 못한다.
 //   4) **저장 파일 이름이 개체 코드다.** 이름이 같으면 잘못된 라벨이 잘못된 제품에 붙는다.
+//   5) **다 받기 전에는 인쇄시키지 않는다.** 아직 오지 않은 라벨은 종이에 빈 칸으로 나가고,
+//      빈 라벨이 붙은 제품은 스캔되지 않는다.
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
@@ -70,6 +72,48 @@ afterEach(() => {
 })
 
 describe('ProductionItemQrGrid', () => {
+  describe('인쇄', () => {
+    it('그려진 장수를 적고 브라우저 인쇄를 연다', async () => {
+      const print = vi.spyOn(window, 'print').mockImplementation(() => {})
+      const user = renderGrid()
+      await waitFor(() => expect(drawnLabels()).toHaveLength(3))
+
+      await user.click(screen.getByRole('button', { name: '라벨 3장 인쇄' }))
+
+      expect(print).toHaveBeenCalled()
+    })
+
+    // 이 테스트가 이 파일의 존재 이유다 — 빈 라벨이 붙은 제품은 스캔되지 않는다.
+    it('라벨을 아직 받는 중이면 인쇄를 막는다', async () => {
+      // 영원히 도착하지 않는 이미지. "받는 중" 상태를 붙잡아 둔다.
+      api.getProductionItemQr.mockReturnValue(new Promise(() => {}))
+      renderGrid()
+
+      expect(await screen.findByRole('button', { name: '라벨을 불러오는 중' })).toBeDisabled()
+    })
+
+    // 20장짜리 배치에서 12장만 인쇄된 것을 인쇄물을 세어 보고 알게 하지 않는다.
+    it('아직 불러오지 않은 장수를 인쇄 전에 알린다', async () => {
+      api.getProductionItems.mockResolvedValue(items(20))
+      renderGrid()
+      await waitFor(() => expect(drawnLabels()).toHaveLength(12))
+
+      expect(screen.getByRole('button', { name: '라벨 12장 인쇄' })).toBeInTheDocument()
+      expect(screen.getByText(/8장은 아직 불러오지 않았습니다/)).toBeInTheDocument()
+    })
+
+    it('더 보기로 전부 불러오면 그 장수로 인쇄한다', async () => {
+      api.getProductionItems.mockResolvedValue(items(20))
+      const user = renderGrid()
+      await waitFor(() => expect(drawnLabels()).toHaveLength(12))
+
+      await user.click(screen.getByRole('button', { name: '8장 더 보기' }))
+
+      expect(await screen.findByRole('button', { name: '라벨 20장 인쇄' })).toBeInTheDocument()
+      expect(screen.queryByText(/아직 불러오지 않았습니다/)).not.toBeInTheDocument()
+    })
+  })
+
   it('개체마다 라벨을 그린다', async () => {
     renderGrid()
 

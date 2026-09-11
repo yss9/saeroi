@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import type { AppError } from '../../../utils/errors.ts'
 import { getProductionItems } from '../api/productionBatchApi.ts'
-import { productionKeys } from '../api/productionKeys.ts'
+import { productionItemKeys } from '../api/productionKeys.ts'
 import type { ProductionItem } from '../types/production.types.ts'
 
 /**
@@ -15,7 +15,7 @@ import type { ProductionItem } from '../types/production.types.ts'
  */
 export function useProductionItems(batchId: number, enabled = true) {
   return useQuery<ProductionItem[], AppError>({
-    queryKey: [...productionKeys.detail(batchId), 'items'],
+    queryKey: productionItemKeys.all(batchId),
     queryFn: () => getProductionItems(batchId),
     enabled,
   })
