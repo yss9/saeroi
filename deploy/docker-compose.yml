@@ -114,18 +114,27 @@ services:
       BESU_CHAIN_ID: ${BESU_CHAIN_ID:-}
       BLOCKCHAIN_SERVICE_PRIVATE_KEY: ${BLOCKCHAIN_SERVICE_PRIVATE_KEY:-}
       # 컨트랙트 주소. 프론트가 VITE_* 로 받는 것과 별개로, 백엔드가 Web3j 로 컨트랙트를
-      # 호출하려면 서버에도 필요하다. 이 세 줄이 없어서 주입 경로가 아예 없었다.
+      # 호출하려면 서버에도 필요하다.
+      #
+      # 2026-09-11 정정: 이전에 여기 있던 PAYMENT_TOKEN_ADDRESS/ESCROW_ADDRESS 는
+      # backend application.yml 이 실제로 읽는 이름이 아니었다(죽은 키 — 초기 기획 문서의
+      # Escrow/PaymentToken 이 이후 폐기됐는데 이름만 남아있었다). 실제 property 는
+      # app.blockchain.material-token-address / marketplace-address /
+      # production-registry-address 세 개뿐이고 env 키는 MATERIAL_TOKEN_ADDRESS /
+      # MARKETPLACE_ADDRESS / PRODUCTION_REGISTRY_ADDRESS 다. 정본은
+      # blockchain/develop:deployments/ssafy.json. processingRegistry 는 backend 가
+      # 안 읽는다(프론트가 VITE_PROCESSING_CONTRACT_ADDRESS 로 직접 온체인 조회).
       #
       # `:-` 기본값을 반드시 붙인다. 이게 없으면 .env 에 키가 없을 때 compose 가 경고를 내고
       # 빈 값을 넣는데, 그보다 위험한 건 application.yml 쪽이다 — OS 환경변수가 yml 보다
       # 우선하므로 yml 에서 ${MATERIAL_TOKEN_ADDRESS} 를 기본값 없이 읽으면 키가 빠지는 순간
       # 기동 자체가 깨진다. 여기서 항상 정의되게 만들어 그 경로를 막는다.
       #
-      # 값 자체는 1번의 실배포 후에 채운다. 주소가 바뀌면 backend 는 컨테이너 재생성으로
-      # 반영되지만(restart 로는 안 된다), frontend 는 이미지 재빌드가 필요하다.
+      # 주소가 바뀌면 backend 는 컨테이너 재생성으로 반영되지만(restart 로는 안 된다),
+      # frontend 는 이미지 재빌드가 필요하다(VITE_* 는 빌드 시점 인라인).
       MATERIAL_TOKEN_ADDRESS: ${MATERIAL_TOKEN_ADDRESS:-}
-      PAYMENT_TOKEN_ADDRESS: ${PAYMENT_TOKEN_ADDRESS:-}
-      ESCROW_ADDRESS: ${ESCROW_ADDRESS:-}
+      MARKETPLACE_ADDRESS: ${MARKETPLACE_ADDRESS:-}
+      PRODUCTION_REGISTRY_ADDRESS: ${PRODUCTION_REGISTRY_ADDRESS:-}
     volumes:
       - file-storage:/app/files
     depends_on:
