@@ -17,6 +17,21 @@ import { MaterialForm } from './MaterialForm.tsx'
 const api = vi.hoisted(() => ({ createMaterial: vi.fn() }))
 vi.mock('../api/createMaterial.ts', () => api)
 
+/**
+ * 지갑·서명은 이 파일의 관심사가 아니다 — 여기서 고정하는 것은 구성·발생 사유의
+ * 전송 본문이다. 폼은 지갑이 없으면 DB 에 손대기 전에 멈추므로(체인에 오르지 않을
+ * 소재를 만들지 않기 위해서다) 그 관문만 통과시켜 둔다.
+ * 관문 자체는 MaterialForm.test.tsx 의 "지갑 미연결" 이 지킨다.
+ */
+vi.mock('../../wallet/hooks/useWallet.ts', () => ({
+  useWallet: () => ({ address: '0xabc', connect: vi.fn() }),
+}))
+
+const mint = vi.hoisted(() => ({ mint: vi.fn(), status: 'IDLE', isBusy: false, isRejected: false, error: null }))
+vi.mock('../hooks/useMintMaterialOnChain.ts', () => ({
+  useMintMaterialOnChain: () => mint,
+}))
+
 function renderForm() {
   const queryClient = new QueryClient({
     defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
@@ -51,6 +66,8 @@ function submitted() {
 beforeEach(() => {
   api.createMaterial.mockReset()
   api.createMaterial.mockResolvedValue({ materialId: 42, materialCode: 'MAT-000042' })
+  mint.mint.mockReset()
+  mint.mint.mockResolvedValue(true)
 })
 
 afterEach(cleanup)

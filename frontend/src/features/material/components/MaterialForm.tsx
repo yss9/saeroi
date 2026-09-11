@@ -6,6 +6,7 @@ import { useCreateMaterial } from '../hooks/useCreateMaterial.ts'
 import { useWallet } from '../../wallet/hooks/useWallet.ts'
 import { useMintMaterialOnChain } from '../hooks/useMintMaterialOnChain.ts'
 import { evidencePlaceholder } from '../services/evidencePlaceholder.ts'
+import './material.css'
 import { WIRE_UNIT } from '../types/materialQuantity.ts'
 import {
   COMPOSITION_MAX_TOTAL,
@@ -158,19 +159,35 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
     created: CreateMaterialResponse
     request: CreateMaterialRequest
   } | null>(null)
+  // 제출을 눌러 봤는데 지갑이 없었다. 처음부터 경고를 띄우지 않는 이유는, 지갑 복원이
+  // 비동기라 화면이 뜨자마자 잠깐 `null` 이기 때문이다. 그때 경고부터 보이면 정상적으로
+  // 연결된 사용자에게도 한 번 번쩍인다.
+  const [walletRequired, setWalletRequired] = useState(false)
 
   const onSubmit = handleSubmit(async (values) => {
+    // **지갑이 없으면 DB 에 손대기 전에 멈춘다.**
+    //
+    // 예전에는 소재를 먼저 만들고 발행만 조용히 건너뛰었다. 화면은 성공으로 넘어가는데
+    // 체인에는 아무것도 없고, 사용자는 등록됐다고 믿는다. 온체인 증명이 이 서비스의
+    // 존재 이유라 그 상태는 등록이 아니라 **영영 체인에 오르지 않을 고아**다.
+    //
+    // 특히 LAN 으로 붙는 팀원에게서 그대로 드러났다 — `192.168.30.118:5173` 은
+    // `localhost:5173` 과 다른 origin 이라 MetaMask 연결 승인이 따로 필요한데,
+    // 그 사실이 어디에도 표시되지 않아 "왜 서명 창이 안 뜨지" 로 시간을 썼다.
+    //
+    // 순서가 중요하다. `mutateAsync` 뒤에서 막으면 이미 만들어진 소재가 남는다.
+    if (wallet.address === null) {
+      setWalletRequired(true)
+      return
+    }
+    setWalletRequired(false)
+
     try {
       // 서명 또는 서버 연결이 실패하면 이미 만든 DB 소재를 기억한다. 다음 제출에서는
       // 소재를 또 만들지 않고 같은 소재의 온체인 단계만 이어서 수행한다.
       const request = pendingRegistration?.request ?? toRequest(values)
       const created = pendingRegistration?.created ?? (await mutateAsync(request))
       if (pendingRegistration === null) setPendingRegistration({ created, request })
-
-      if (wallet.address === null) {
-        onCreated?.(created.materialId)
-        return
-      }
 
       const linked = await mint.mint({
         materialId: created.materialId,
@@ -361,6 +378,27 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
 
       {isError && <ErrorMessage error={error} />}
       {mint.error && !mint.isRejected && <ErrorMessage error={mint.error} />}
+
+      {/*
+        지갑 없이 제출했을 때만 보여준다. 무엇을 해야 하는지까지 적는다 —
+        "지갑을 연결해 주세요" 만으로는, 다른 기기에서 이미 연결해 둔 사용자가
+        왜 또 연결해야 하는지 알 수 없다. 승인은 주소(origin)마다 따로다.
+      */}
+      {walletRequired && wallet.address === null && (
+        <div className="material-form__wallet-required" role="alert">
+          <p>
+            <strong>지갑을 먼저 연결해 주세요.</strong> 소재는 등록과 동시에 온체인에
+            발행되고, 그 서명은 등록자 지갑만 할 수 있습니다.
+          </p>
+          <p>
+            다른 주소(예: <code>localhost</code>)에서 연결해 두었더라도 <b>지금 주소에서는
+            다시 승인</b>해야 합니다. MetaMask 의 연결 승인은 주소마다 따로 저장됩니다.
+          </p>
+          <Button type="button" variant="secondary" size="sm" onClick={wallet.connect}>
+            지갑 연결
+          </Button>
+        </div>
+      )}
 
       <Button type="submit" loading={isPending || mint.isBusy}>
         {mint.status === 'SIGNING'
