@@ -72,6 +72,14 @@ services:
       # 따로 받을 필요 없다.
       KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:-}
       KAKAO_GEOCODING_BASE_URL: ${KAKAO_GEOCODING_BASE_URL:-https://dapi.kakao.com}
+      # secret-key 가 없으면 MockPaymentGateway 로 대체될 뿐 기동은 막지 않는다(Geocoding
+      # 과 다름). test 는 **운영과 다른(DEV/샌드박스) 키를 쓴다** — 실제 청구가 나가는
+      # 운영 키를 test 환경에 두지 않는다. return-url 들은 /test 프리픽스가 필요하다
+      # (frontend basename 과 맞춰야 결제 완료 후 돌아올 때 라우팅이 깨지지 않는다).
+      KAKAOPAY_SECRET_KEY: ${KAKAOPAY_SECRET_KEY:-}
+      KAKAOPAY_CID: ${KAKAOPAY_CID:-TC0ONETIME}
+      KAKAOPAY_RETURN_URL: ${KAKAOPAY_RETURN_URL:-https://j15e104.p.ssafy.io/test/trades/{tradeId}/payment/return}
+      KAKAOPAY_PROCESSING_RETURN_URL: ${KAKAOPAY_PROCESSING_RETURN_URL:-https://j15e104.p.ssafy.io/test/processing/jobs/{jobId}/payment/callback}
       # backend/develop 에서 새로 필수화된 값 (QR 이 제품에 인쇄되므로 빈 값이면 ProductQrConfig
       # 가 기동 자체를 막는다). `:-` 기본값을 쓴다 — `:?`는 MINIO_ROOT_PASSWORD 와 같은 이유로
       # 안 쓴다: 파일 전체가 매 호출마다 보간되므로 무관한 서비스 배포(`up --no-deps frontend`)

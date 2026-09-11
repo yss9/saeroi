@@ -99,6 +99,15 @@ services:
       # 이 값은 인프라가 만들어낼 수 없다.
       KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:-}
       KAKAO_GEOCODING_BASE_URL: ${KAKAO_GEOCODING_BASE_URL:-https://dapi.kakao.com}
+      # application.yml 의 app.payment.kakaopay.*. secret-key 가 없으면 MockPaymentGateway 로
+      # 대체되어 실제 청구가 안 나간다(경고만 남고 기동은 된다 — Geocoding 과 달리 거절하지
+      # 않는다). return-url/processing-return-url 은 기본값이 localhost:5173 이라 여기서
+      # 넘기지 않으면 결제 완료 후 실제 도메인이 아니라 로컬호스트로 리다이렉트되어 깨진다
+      # (2026-09-11 발견 — 결제 자체는 되는데 완료 화면 연결이 끊기는 형태로 드러난다).
+      KAKAOPAY_SECRET_KEY: ${KAKAOPAY_SECRET_KEY:-}
+      KAKAOPAY_CID: ${KAKAOPAY_CID:-TC0ONETIME}
+      KAKAOPAY_RETURN_URL: ${KAKAOPAY_RETURN_URL:-https://j15e104.p.ssafy.io/trades/{tradeId}/payment/return}
+      KAKAOPAY_PROCESSING_RETURN_URL: ${KAKAOPAY_PROCESSING_RETURN_URL:-https://j15e104.p.ssafy.io/processing/jobs/{jobId}/payment/callback}
       # 블록체인 연동. RPC/체인 ID 는 2026-09-01 수령해 .env 에 채워져 있고,
       # 컨테이너 안에서 scripts/check-besu.sh 로 실제 도달까지 확인했다.
       BESU_RPC_URL: ${BESU_RPC_URL:-}
