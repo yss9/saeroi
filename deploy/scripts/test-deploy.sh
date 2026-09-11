@@ -15,6 +15,17 @@ SERVICE="${1:?사용법: test-deploy.sh <backend|frontend|ai>}"
 IMAGE="circular-fashion/${SERVICE}:test"
 CONTAINER="cft-${SERVICE}"
 
+# docker-compose.test.yml 의 서비스 키는 backend/frontend 가 아니라 test-backend/
+# test-frontend 다 — 운영과 같은 circular-fashion_web 네트워크에 붙을 때 Compose 가
+# 서비스 키를 네트워크 별칭으로 자동 등록하는데, "backend"/"frontend" 를 그대로 쓰면
+# 운영 cf-backend/cf-frontend 와 별칭이 충돌해 nginx 재시작 시 운영 트래픽이 test 로
+# 샐 수 있다. ai/mysql/minio 는 internal 전용이라 충돌이 없어 그대로 둔다.
+case "$SERVICE" in
+    backend)  COMPOSE_SVC="test-backend" ;;
+    frontend) COMPOSE_SVC="test-frontend" ;;
+    *)        COMPOSE_SVC="$SERVICE" ;;
+esac
+
 DEPLOY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$DEPLOY_DIR"
 . "$DEPLOY_DIR/scripts/compose-test.sh"
@@ -26,21 +37,25 @@ if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
 fi
 
 # 2) 롤백 대상 확보 — 지금 떠 있는 test 컨테이너의 이미지 ID.
-#    그 이미지가 이 파트의 :test 이미지일 때만 롤백 대상으로 삼는다 (첫 배포엔 없음).
+#    태그가 아니라 "circular-fashion/${SERVICE}:" 로 시작하는 태그가 하나라도 있으면
+#    롤백 대상으로 삼는다(운영 deploy-service.sh 와 동일한 판정). 정확히 ":test" 태그만
+#    찾으면 안 된다 — Jenkinsfile 이 새 이미지를 빌드하며 ":test" 를 새 이미지로 옮기고 나면
+#    지금 떠 있는(이전) 이미지는 그 태그를 이미 잃은 뒤이기 때문이다. Jenkinsfile 이 같이
+#    붙이는 ":test-$BUILD_NUMBER" 처럼 서비스별 다른 태그가 하나라도 남아있으면 잡아낸다.
 ROLLBACK_ID=""
 PREVIOUS_ID="$(docker inspect --format '{{.Image}}' "$CONTAINER" 2>/dev/null || true)"
 if [ -n "$PREVIOUS_ID" ]; then
     PREVIOUS_TAGS="$(docker inspect --format '{{join .RepoTags ","}}' "$PREVIOUS_ID" 2>/dev/null || true)"
     case ",$PREVIOUS_TAGS," in
-        *",circular-fashion/${SERVICE}:test,"*) ROLLBACK_ID="$PREVIOUS_ID" ;;
+        *",circular-fashion/${SERVICE}:"*) ROLLBACK_ID="$PREVIOUS_ID" ;;
     esac
 fi
 if [ -z "$ROLLBACK_ID" ]; then
-    echo "INFO: 롤백 대상 없음 (현재 컨테이너가 ${SERVICE}:test 이미지가 아님 — 첫 배포로 간주)."
+    echo "INFO: 롤백 대상 없음 (현재 컨테이너가 ${SERVICE} 이미지가 아님 — 첫 배포로 간주)."
 fi
 
 # 3) 해당 서비스만 재기동 (--no-deps: mysql/minio 등은 건드리지 않는다)
-dc_test up -d --no-deps "$SERVICE"
+dc_test up -d --no-deps "$COMPOSE_SVC"
 
 # 4) 실제로 :test 이미지가 떴는지 확인.
 ACTUAL="$(docker inspect --format '{{.Config.Image}}' "$CONTAINER" 2>/dev/null || echo unknown)"
@@ -49,16 +64,16 @@ if [ "$ACTUAL" != "$IMAGE" ]; then
     exit 1
 fi
 
-# 5) 헬스체크. scripts/health-check.sh 를 /test/ 베이스로 재사용한다.
-#    주의: health-check.sh 의 "origin" 체크(컨테이너 안에서 http://backend:8080/... 로 직접
-#    묻는 부분)는 여전히 운영 컨테이너를 가리킨다 — test 전용 origin 체크는 아직 없다.
-#    여기서 신뢰할 판정은 "edge"(HEALTHCHECK_WEB_BASE 경유) 결과뿐이다.
-if ! HEALTHCHECK_WEB_BASE="https://j15e104.p.ssafy.io/test" bash scripts/health-check.sh "$SERVICE"; then
+# 5) 헬스체크. scripts/health-check.sh 를 /test/ 베이스 + test compose 모드로 재사용한다.
+#    HEALTHCHECK_COMPOSE=test 를 주면 health-check.sh 내부의 컨테이너 상태 확인이
+#    운영이 아니라 cft-* 컨테이너를 본다 (이전엔 항상 운영 컨테이너를 봐서, 운영 쪽
+#    상태와 무관하게 test 배포가 실패/롤백될 수 있는 버그가 있었다).
+if ! HEALTHCHECK_COMPOSE=test HEALTHCHECK_WEB_BASE="https://j15e104.p.ssafy.io/test" bash scripts/health-check.sh "$SERVICE"; then
     if [ -n "$ROLLBACK_ID" ]; then
         echo "ROLLBACK: 헬스체크 실패 — $IMAGE 를 이전 이미지($ROLLBACK_ID)로 되돌립니다."
         docker tag "$ROLLBACK_ID" "$IMAGE"
-        dc_test up -d --no-deps "$SERVICE"
-        if HEALTHCHECK_WEB_BASE="https://j15e104.p.ssafy.io/test" bash scripts/health-check.sh "$SERVICE"; then
+        dc_test up -d --no-deps "$COMPOSE_SVC"
+        if HEALTHCHECK_COMPOSE=test HEALTHCHECK_WEB_BASE="https://j15e104.p.ssafy.io/test" bash scripts/health-check.sh "$SERVICE"; then
             echo "ROLLBACK 완료: 이전 버전으로 복구되었습니다. 이번 빌드는 배포되지 않았습니다."
         else
             echo "ROLLBACK 실패: 이전 이미지로도 헬스체크가 통과하지 않습니다. 수동 확인이 필요합니다."
