@@ -368,6 +368,14 @@ a.ui-button { text-decoration: none; }
 }
 
 /* ── 보유 소재 표 ───────────────────────────────────────── */
+.inventory-table tbody tr {
+  cursor: pointer;
+}
+
+.inventory-table tbody tr:hover {
+  background: color-mix(in srgb, var(--ui-color-primary) 5%, transparent);
+}
+
 .inventory-table a {
   color: var(--ui-color-text);
   font-weight: 600;
@@ -425,6 +433,10 @@ a.ui-button { text-decoration: none; }
 .inventory-table__origin {
   font-size: 13px;
   color: var(--ui-color-muted);
+}
+
+.material-lineage__card--clickable {
+  cursor: pointer;
 }
 
 /* ── 페이지 이동 ─────────────────────────────────────── */

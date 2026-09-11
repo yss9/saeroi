@@ -31,6 +31,7 @@ export type ProcessingJobStatus =
   | 'RESULT_SUBMITTED'
   | 'CONFIRMED'
   | 'REJECTED'
+  | 'EXPIRED'
 
 export const PROCESS_TYPE_LABEL: Record<ProcessType, string> = {
   CLEANING: '세척',

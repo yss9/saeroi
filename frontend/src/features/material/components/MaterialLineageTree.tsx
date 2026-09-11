@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { EmptyState, ErrorMessage, Loading } from '../../../components/common/index.ts'
 import { useMaterialLineage } from '../hooks/useMaterialLineage.ts'
+import { useClickNavigation } from '../../../utils/useClickNavigation.ts'
 import {
   LINEAGE_RELATION_LABEL,
   type MaterialLineage,
@@ -85,10 +86,14 @@ function MaterialLineageCard({
   node: MaterialLineageNode
   isTarget: boolean
 }) {
+  const followClick = useClickNavigation()
   // 조회 중인 소재는 링크로 만들지 않는다. 자기 페이지로 가는 링크는 눌러도
   // 아무 일이 없어 사용자가 고장으로 읽는다.
   return (
-    <article className={`material-lineage__card${isTarget ? ' material-lineage__card--current' : ''}`}>
+    <article
+      className={`material-lineage__card${isTarget ? ' material-lineage__card--current' : ' material-lineage__card--clickable'}`}
+      onClick={isTarget ? undefined : (event) => followClick(event, `/materials/${node.materialId}`)}
+    >
       <p className="material-lineage__code">
         {isTarget ? node.materialCode : <Link to={`/materials/${node.materialId}`}>{node.materialCode}</Link>}
       </p>

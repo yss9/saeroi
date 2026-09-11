@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { StatusBadge } from '../../../components/common/index.ts'
 import { formatKg, formatWon } from '../../../utils/quantity.ts'
+import { useClickNavigation } from '../../../utils/useClickNavigation.ts'
 import { ROOT_ORIGIN_LABEL } from '../../material/types/material.types.ts'
 import {
   LISTING_STATUS_LABEL,
@@ -27,11 +28,12 @@ const STATUS_TONE: Record<ListingStatus, 'success' | 'neutral' | 'danger'> = {
  * 12kg 만 남았을 때 "원래 작은 물량" 처럼 보인다. 얼마나 팔렸는지가 구매 판단에 들어간다.
  */
 export function ListingCard({ listing, actions }: ListingCardProps) {
+  const followClick = useClickNavigation()
   const soldQuantity = listing.totalQuantity - listing.availableQuantity
   const soldRatio = listing.totalQuantity > 0 ? soldQuantity / listing.totalQuantity : 0
 
   return (
-    <article className="listing-card">
+    <article className="listing-card" onClick={(event) => followClick(event, `/marketplace/${listing.listingId}`)}>
       <header className="listing-card__header">
         <h3 className="listing-card__name">
           <Link to={`/marketplace/${listing.listingId}`}>{listing.materialName}</Link>

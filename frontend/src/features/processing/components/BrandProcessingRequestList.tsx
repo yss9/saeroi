@@ -1,6 +1,7 @@
 import { ArrowLeft, ArrowRight, Factory, FileText, Package, Plus, Storefront } from '@phosphor-icons/react'
 import { Link } from 'react-router-dom'
 import { isAppError } from '../../../utils/errors.ts'
+import { useClickNavigation } from '../../../utils/useClickNavigation.ts'
 import { useBrandProcessingRequests } from '../hooks/useBrandProcessingRequests.ts'
 import { PROCESS_TYPE_LABEL, type ProcessingRequestStatus } from '../types/processing.types.ts'
 import './brand-processing-list.css'
@@ -31,6 +32,7 @@ const errorMessage = (error: unknown) => isAppError(error) || error instanceof E
   : '요청 목록을 불러오지 못했어요.'
 
 export function BrandProcessingRequestList() {
+  const followClick = useClickNavigation()
   const requests = useBrandProcessingRequests()
   const pageCount = requests.data
     ? Math.max(1, Math.ceil(requests.data.total / requests.data.size))
@@ -88,7 +90,7 @@ export function BrandProcessingRequestList() {
               <span>요청</span><span>소재·가공</span><span>지정 가공사</span><span>수량</span><span>기간</span><span>상태</span><span>견적</span>
             </div>
             {requests.data.items.map(item => (
-              <article className="br-list__row" role="row" key={item.requestId}>
+              <article className="br-list__row" role="row" key={item.requestId} onClick={(event) => followClick(event, `/brand/processing/requests/${item.requestId}`)}>
                 <div className="br-list__request"><strong>{item.requestCode}</strong><span>{localDate(item.createdAt)} 요청</span></div>
                 <div className="br-list__material">
                   <strong>{item.materialName}</strong>

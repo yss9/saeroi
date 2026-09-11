@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { apiClient } from '../../services/apiClient.ts'
 import { useAuthStore } from '../../stores/authStore.ts'
@@ -41,9 +41,14 @@ function renderPage() {
         <CompanyDashboardLayout>
           <BrandProcessingRequestListPage />
         </CompanyDashboardLayout>
+        <output aria-label="현재 경로">{<LocationPath />}</output>
       </MemoryRouter>
     </QueryClientProvider>,
   )
+}
+
+function LocationPath() {
+  return useLocation().pathname
 }
 
 beforeEach(() => {
@@ -78,6 +83,17 @@ test('Brand가 자신이 보낸 가공 요청과 지정 가공사를 확인한�
     params: { page: 0, size: 20 },
     signal: expect.any(AbortSignal),
   })
+})
+
+test('가공 요청 행의 빈 영역을 클릭하면 상세로 이동한다', async () => {
+  const user = userEvent.setup()
+  renderPage()
+
+  const requestRow = (await screen.findByText('PR-017')).closest('article')
+  if (requestRow === null) throw new Error('가공 요청 행을 찾을 수 없습니다.')
+  await user.click(requestRow)
+
+  expect(screen.getByLabelText('현재 경로')).toHaveTextContent('/brand/processing/requests/17')
 })
 
 test('상태 필터를 바꾸면 첫 페이지부터 다시 조회한다', async () => {

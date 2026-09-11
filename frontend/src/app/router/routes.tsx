@@ -23,6 +23,8 @@ import { BrandProcessingRequestListPage } from '../../pages/processing/BrandProc
 import { ProcessingPage } from '../../pages/processing/ProcessingPage.tsx'
 import { ProcessorProfilePage } from '../../pages/processing/ProcessorProfilePage.tsx'
 import { ProcessingPaymentCallbackPage } from '../../pages/processing/ProcessingPaymentCallbackPage.tsx'
+import { ProcessingJobDetailPage } from '../../pages/processing/ProcessingJobDetailPage.tsx'
+import { BrandProcessingJobListPage } from '../../pages/processing/BrandProcessingJobListPage.tsx'
 import { BrandProductPage } from '../../pages/product/BrandProductPage.tsx'
 import { ProductDetailPage } from '../../pages/product/ProductDetailPage.tsx'
 import { ProductListPage } from '../../pages/product/ProductListPage.tsx'
@@ -103,6 +105,11 @@ export const routes: RouteObject[] = [
       // pg_token 유무로 갈린다 (PaymentReturnPage 주석 참고).
       { path: '/trades/:tradeId/payment/return', element: <PaymentReturnPage /> },
 
+      {
+        element: <RoleGuard allow={['BRAND', 'PROCESSOR']} />,
+        children: [{ path: '/processing/jobs/:jobId', element: <ProcessingJobDetailPage /> }],
+      },
+
       // ── CONSUMER ──
       {
         element: <RoleGuard allow={['CONSUMER']} />,
@@ -156,6 +163,7 @@ export const routes: RouteObject[] = [
           { path: '/brand/processing', element: <BrandProcessingPage /> },
           { path: '/brand/processing/requests', element: <BrandProcessingRequestListPage /> },
           { path: '/brand/processing/requests/:requestId', element: <BrandProcessingRequestDetailPage /> },
+          { path: '/brand/processing/jobs', element: <BrandProcessingJobListPage /> },
           { path: '/processing/jobs/:jobId/payment/callback', element: <ProcessingPaymentCallbackPage /> },
           { path: '/brand/production', element: <ProductionPage /> },
           // 배치 상세에서 소재를 투입하고 확정한다. 목록에서 눌러 들어가는 화면이라
