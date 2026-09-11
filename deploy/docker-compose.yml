@@ -92,6 +92,13 @@ services:
       # 도메인이 로그인 자체가 막혀 있던 상태였다(2026-09-11 /test 스택 로그인 테스트 중 발견,
       # curl 로 운영에서도 재현 확인). 반드시 실제 서비스 도메인을 넣어야 한다.
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+      # application.yml 의 app.geocoding.kakao.*. 키가 없으면 좌표 없는 업체가 저장되지
+      # 않도록 backend 가 **사업자 회원가입·주소 변경 자체를 의도적으로 거절**한다
+      # (KakaoGeocodingProperties.isConfigured(), 2026-09-11 발견 — 이 값 자체가 없어서
+      # 전달 경로가 아예 없었다). 카카오 디벨로퍼스에서 REST API 키를 발급받아 채울 것 —
+      # 이 값은 인프라가 만들어낼 수 없다.
+      KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:-}
+      KAKAO_GEOCODING_BASE_URL: ${KAKAO_GEOCODING_BASE_URL:-https://dapi.kakao.com}
       # 블록체인 연동. RPC/체인 ID 는 2026-09-01 수령해 .env 에 채워져 있고,
       # 컨테이너 안에서 scripts/check-besu.sh 로 실제 도달까지 확인했다.
       BESU_RPC_URL: ${BESU_RPC_URL:-}

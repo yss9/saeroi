@@ -72,6 +72,7 @@
 | Backend | `SPRING_DATASOURCE_*`, `JWT_SECRET`, `JWT_ISSUER`, `JWT_ACCESS_TOKEN_TTL`, `AI_SERVER_BASE_URL` | Infra + Backend 합의 |
 | Backend (지갑 인증) | `WALLET_NONCE_TTL` — 서명 nonce 유효시간(ISO-8601 Duration, 기본 `PT5M`) | Backend `app.auth.wallet.nonce-ttl` |
 | Backend (CORS) | `CORS_ALLOWED_ORIGINS` — 콤마 구분 허용 origin, 기본값은 `localhost:5173`뿐이라 **실제 서비스 도메인을 반드시 넣어야 한다** (없으면 로그인이 403 "Invalid CORS request"로 막힌다, 2026-09-11 발견) | Backend `app.cors.allowed-origins` |
+| Backend (주소 검증) | `KAKAO_REST_API_KEY` — 없으면 **사업자 회원가입·주소 변경이 의도적으로 거절된다** (좌표 없는 업체 저장 방지, 2026-09-11 발견). [카카오 디벨로퍼스](https://developers.kakao.com)에서 앱 생성 후 발급 — 인프라가 값을 만들어낼 수 없다 | Backend `app.geocoding.kakao.rest-api-key` |
 | Blockchain | `BESU_RPC_URL`, `BESU_CHAIN_ID` (수령 완료), `BLOCKCHAIN_SERVICE_PRIVATE_KEY`, `*_ADDRESS` (대기) | 1번 Blockchain 담당 |
 | Frontend 빌드 | `VITE_API_BASE_URL`, `VITE_BESU_*`, `VITE_*_ADDRESS` | 빌드 시점 주입 |
 | Jenkins | `JENKINS_ADMIN_ID/PASSWORD`, `JENKINS_EXTERNAL_URL`, `GITLAB_USERNAME/TOKEN` | Infra가 생성 (JCasC에서 사용) |
