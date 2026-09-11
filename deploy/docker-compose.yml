@@ -86,6 +86,12 @@ services:
       # application.yml 의 app.auth.wallet.nonce-ttl. yml 쪽에 PT5M 기본값이 있지만
       # 여기서도 `:-` 를 붙여 .env 에 키가 없을 때 compose 경고가 나지 않게 한다.
       WALLET_NONCE_TTL: ${WALLET_NONCE_TTL:-PT5M}
+      # application.yml 의 app.cors.allowed-origins. 이 값을 안 넘기면 기본값(localhost:5173)만
+      # 허용되는데, 최신 브라우저는 same-origin POST 에도 Origin 헤더를 실어 보내서 Spring 의
+      # CorsConfigurationSource 가 그걸 그대로 걸러 "Invalid CORS request" 403 을 낸다 — 운영
+      # 도메인이 로그인 자체가 막혀 있던 상태였다(2026-09-11 /test 스택 로그인 테스트 중 발견,
+      # curl 로 운영에서도 재현 확인). 반드시 실제 서비스 도메인을 넣어야 한다.
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
       # 블록체인 연동. RPC/체인 ID 는 2026-09-01 수령해 .env 에 채워져 있고,
       # 컨테이너 안에서 scripts/check-besu.sh 로 실제 도달까지 확인했다.
       BESU_RPC_URL: ${BESU_RPC_URL:-}
