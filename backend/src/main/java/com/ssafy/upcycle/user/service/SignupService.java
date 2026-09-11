@@ -8,6 +8,8 @@ import com.ssafy.upcycle.user.dto.UserSummaryResponse;
 import com.ssafy.upcycle.user.entity.CompanyProfile;
 import com.ssafy.upcycle.user.entity.User;
 import com.ssafy.upcycle.user.entity.UserRole;
+import com.ssafy.upcycle.user.geolocation.AddressGeocoder;
+import com.ssafy.upcycle.user.geolocation.GeoCoordinates;
 import com.ssafy.upcycle.user.repository.CompanyProfileRepository;
 import com.ssafy.upcycle.user.repository.UserRepository;
 import java.util.Locale;
@@ -23,14 +25,17 @@ public class SignupService {
     private final UserRepository userRepository;
     private final CompanyProfileRepository companyProfileRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AddressGeocoder addressGeocoder;
 
     public SignupService(
             UserRepository userRepository,
             CompanyProfileRepository companyProfileRepository,
-            PasswordEncoder passwordEncoder) {
+            PasswordEncoder passwordEncoder,
+            AddressGeocoder addressGeocoder) {
         this.userRepository = userRepository;
         this.companyProfileRepository = companyProfileRepository;
         this.passwordEncoder = passwordEncoder;
+        this.addressGeocoder = addressGeocoder;
     }
 
     @Transactional
@@ -46,6 +51,9 @@ public class SignupService {
             throw new BusinessException(SignupErrorCode.INVALID_BUSINESS_ROLE);
         }
 
+        String address = request.address().trim();
+        GeoCoordinates coordinates = addressGeocoder.geocode(address);
+
         User user = registerUser(
                 request.email(),
                 request.password(),
@@ -57,8 +65,9 @@ public class SignupService {
                 request.companyName().trim(),
                 request.businessNumber().trim(),
                 request.zipCode().trim(),
-                request.address().trim(),
-                normalizeOptional(request.addressDetail())));
+                address,
+                normalizeOptional(request.addressDetail()),
+                coordinates));
         return UserSummaryResponse.from(user);
     }
 

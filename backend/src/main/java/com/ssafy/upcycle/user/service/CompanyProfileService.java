@@ -8,6 +8,8 @@ import com.ssafy.upcycle.user.dto.CompanyProfileResponse;
 import com.ssafy.upcycle.user.dto.CompanyProfileUpdateRequest;
 import com.ssafy.upcycle.user.entity.CompanyProfile;
 import com.ssafy.upcycle.user.entity.User;
+import com.ssafy.upcycle.user.geolocation.AddressGeocoder;
+import com.ssafy.upcycle.user.geolocation.GeoCoordinates;
 import com.ssafy.upcycle.user.repository.CompanyProfileRepository;
 import com.ssafy.upcycle.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +37,7 @@ public class CompanyProfileService {
 
     private final UserRepository users;
     private final CompanyProfileRepository profiles;
+    private final AddressGeocoder addressGeocoder;
 
     @Transactional(readOnly = true)
     public CompanyProfileResponse myProfile(Long userId) {
@@ -47,16 +50,29 @@ public class CompanyProfileService {
     public CompanyProfileResponse updateMyProfile(Long userId, CompanyProfileUpdateRequest request) {
         User user = requireBusinessUser(userId);
         CompanyProfile profile = requireProfile(userId);
+        String address = request.address().trim();
+        GeoCoordinates coordinates = currentOrGeocodedCoordinates(profile, address);
 
         user.updateContact(request.representativeName(), request.companyPhone());
         profile.updateProfile(
                 request.zipCode(),
-                request.address(),
+                address,
                 request.addressDetail(),
                 request.introduction(),
-                request.logoUrl());
+                request.logoUrl(),
+                coordinates);
 
         return toResponse(user, profile);
+    }
+
+    private GeoCoordinates currentOrGeocodedCoordinates(
+            CompanyProfile profile, String requestedAddress) {
+        if (requestedAddress.equals(profile.getAddress())
+                && profile.getLatitude() != null
+                && profile.getLongitude() != null) {
+            return new GeoCoordinates(profile.getLatitude(), profile.getLongitude());
+        }
+        return addressGeocoder.geocode(requestedAddress);
     }
 
     private User requireBusinessUser(Long userId) {
@@ -80,6 +96,8 @@ public class CompanyProfileService {
                 profile.getZipCode(),
                 profile.getAddress(),
                 profile.getAddressDetail(),
+                profile.getLatitude(),
+                profile.getLongitude(),
                 profile.getIntroduction(),
                 profile.getLogoUrl(),
                 user.getRole(),

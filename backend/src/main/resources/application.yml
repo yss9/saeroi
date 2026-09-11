@@ -40,6 +40,14 @@ spring:
       hibernate:
         format_sql: true
 app:
+  geocoding:
+    kakao:
+      # 주소를 WGS84 좌표로 변환할 카카오 REST API 키. 키가 없으면
+      # 좌표 없는 새 업체가 저장되지 않도록 업체 가입·주소 변경을 거절한다.
+      rest-api-key: ${KAKAO_REST_API_KEY:}
+      base-url: ${KAKAO_GEOCODING_BASE_URL:https://dapi.kakao.com}
+      # 기존 company_profile의 NULL 좌표를 기동 시 보완할 때만 임시로 true.
+      backfill-enabled: ${COMPANY_GEOLOCATION_BACKFILL_ENABLED:false}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
   security:

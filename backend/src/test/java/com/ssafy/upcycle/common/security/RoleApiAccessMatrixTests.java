@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -21,6 +23,9 @@ import com.ssafy.upcycle.user.repository.CompanyProfileRepository;
 import com.ssafy.upcycle.user.repository.UserRepository;
 import com.ssafy.upcycle.user.repository.UserWalletRepository;
 import com.ssafy.upcycle.user.repository.WalletNonceRepository;
+import com.ssafy.upcycle.user.geolocation.AddressGeocoder;
+import com.ssafy.upcycle.user.geolocation.GeoCoordinates;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.LinkedHashSet;
@@ -48,6 +53,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 /**
  * S15P21E104-293 — <b>{@code docs/superpowers/specs/2026-09-08-role-permission-matrix.md} §3 표를
@@ -146,6 +152,8 @@ class RoleApiAccessMatrixTests {
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
 
+    @MockitoBean private AddressGeocoder addressGeocoder;
+
     @Autowired private UserRepository userRepository;
     @Autowired private UserWalletRepository walletRepository;
     @Autowired private WalletNonceRepository walletNonceRepository;
@@ -177,6 +185,8 @@ class RoleApiAccessMatrixTests {
     @BeforeAll
     void seed() throws Exception {
         clean();
+        when(addressGeocoder.geocode(anyString())).thenReturn(new GeoCoordinates(
+                new BigDecimal("37.5012345"), new BigDecimal("127.0123456")));
         tokens.put(UserRole.SUPPLIER, signUpBusinessAndLogin(UserRole.SUPPLIER,
                 "0xaaaa000000000000000000000000000000000001"));
         tokens.put(UserRole.BRAND, signUpBusinessAndLogin(UserRole.BRAND,

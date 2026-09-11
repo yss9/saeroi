@@ -1,6 +1,9 @@
 package com.ssafy.upcycle.user.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -10,8 +13,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.ssafy.upcycle.user.entity.CompanyProfile;
 import com.ssafy.upcycle.user.entity.User;
 import com.ssafy.upcycle.user.entity.UserRole;
+import com.ssafy.upcycle.common.exception.BusinessException;
+import com.ssafy.upcycle.user.CompanyErrorCode;
 import com.ssafy.upcycle.user.repository.CompanyProfileRepository;
 import com.ssafy.upcycle.user.repository.UserRepository;
+import com.ssafy.upcycle.user.geolocation.AddressGeocoder;
+import com.ssafy.upcycle.user.geolocation.GeoCoordinates;
+import java.math.BigDecimal;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,6 +30,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 /**
  * {@code GET/PUT /api/v1/companies/me}. -130/-133 (업체 정보 API + 테스트).
@@ -42,16 +51,21 @@ class CompanyControllerTests {
     @Autowired
     private CompanyProfileRepository companyProfileRepository;
 
+    @MockitoBean
+    private AddressGeocoder addressGeocoder;
+
     private Long supplierId;
 
     @BeforeEach
     void setUp() {
         clean();
+        when(addressGeocoder.geocode(anyString())).thenReturn(coordinates("37.5012345", "127.0123456"));
         User supplier = userRepository.save(
                 User.register("company-supplier@test.com", "{noop}x", "김대표", "010-1111-2222", UserRole.SUPPLIER));
         supplierId = supplier.getId();
         companyProfileRepository.save(CompanyProfile.register(
-                supplierId, "새로이 텍스타일", "123-45-67890", "06236", "서울특별시 강남구 테헤란로 212", "3층"));
+                supplierId, "새로이 텍스타일", "123-45-67890", "06236", "서울특별시 강남구 테헤란로 212", "3층",
+                coordinates("37.5012345", "127.0123456")));
     }
 
     @AfterEach
@@ -88,6 +102,8 @@ class CompanyControllerTests {
                 .andExpect(jsonPath("$.data.representativeName").value("김대표"))
                 .andExpect(jsonPath("$.data.companyPhone").value("010-1111-2222"))
                 .andExpect(jsonPath("$.data.address").value("서울특별시 강남구 테헤란로 212"))
+                .andExpect(jsonPath("$.data.latitude").value(37.5012345))
+                .andExpect(jsonPath("$.data.longitude").value(127.0123456))
                 .andExpect(jsonPath("$.data.role").value("SUPPLIER"))
                 .andExpect(jsonPath("$.data.status").value("ACTIVE"));
     }
@@ -119,7 +135,8 @@ class CompanyControllerTests {
         User otherSupplier = userRepository.save(
                 User.register("company-other@test.com", "{noop}x", "박대표", "010-5555-6666", UserRole.SUPPLIER));
         companyProfileRepository.save(CompanyProfile.register(
-                otherSupplier.getId(), "다른 업체", "999-88-77777", "12345", "부산광역시 해운대구", null));
+                otherSupplier.getId(), "다른 업체", "999-88-77777", "12345", "부산광역시 해운대구", null,
+                coordinates("35.1631000", "129.1635000")));
 
         mockMvc.perform(authenticated(get("/api/v1/companies/me"), otherSupplier.getId(), "SUPPLIER"))
                 .andExpect(status().isOk())
@@ -165,6 +182,8 @@ class CompanyControllerTests {
         CompanyProfile reloadedProfile = companyProfileRepository.findById(supplierId).orElseThrow();
         assertThat(reloadedProfile.getAddress()).isEqualTo("서울특별시 중구 세종대로 110");
         assertThat(reloadedProfile.getIntroduction()).isEqualTo("업사이클 원단 공급업체입니다.");
+        assertThat(reloadedProfile.getLatitude()).isEqualByComparingTo("37.5012345");
+        assertThat(reloadedProfile.getLongitude()).isEqualByComparingTo("127.0123456");
     }
 
     @Test
@@ -226,5 +245,60 @@ class CompanyControllerTests {
                         .content(body))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("COMPANY_PROFILE_FORBIDDEN"));
+    }
+
+    @Test
+    void keepsThePreviousAddressWhenGeocodingIsUnavailable() throws Exception {
+        when(addressGeocoder.geocode(anyString()))
+                .thenThrow(new BusinessException(CompanyErrorCode.COMPANY_GEOLOCATION_UNAVAILABLE));
+        String body = """
+                {
+                  "representativeName": "이신임",
+                  "companyPhone": "02-9999-8888",
+                  "zipCode": "04524",
+                  "address": "서울특별시 중구 세종대로 110",
+                  "addressDetail": "5층"
+                }
+                """;
+
+        mockMvc.perform(authenticated(put("/api/v1/companies/me"), supplierId, "SUPPLIER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("COMPANY_GEOLOCATION_UNAVAILABLE"));
+
+        CompanyProfile unchanged = companyProfileRepository.findById(supplierId).orElseThrow();
+        assertThat(unchanged.getAddress()).isEqualTo("서울특별시 강남구 테헤란로 212");
+        assertThat(unchanged.getLatitude()).isEqualByComparingTo("37.5012345");
+        assertThat(unchanged.getLongitude()).isEqualByComparingTo("127.0123456");
+    }
+
+    @Test
+    void updatesNonLocationFieldsWithoutGeocodingTheSameAddressAgain() throws Exception {
+        org.mockito.Mockito.reset(addressGeocoder);
+        String body = """
+                {
+                  "representativeName": "이신임",
+                  "companyPhone": "02-9999-8888",
+                  "zipCode": "06236",
+                  "address": "서울특별시 강남구 테헤란로 212",
+                  "addressDetail": "4층",
+                  "introduction": "소개만 변경"
+                }
+                """;
+
+        mockMvc.perform(authenticated(put("/api/v1/companies/me"), supplierId, "SUPPLIER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.introduction").value("소개만 변경"))
+                .andExpect(jsonPath("$.data.latitude").value(37.5012345))
+                .andExpect(jsonPath("$.data.longitude").value(127.0123456));
+
+        verifyNoInteractions(addressGeocoder);
+    }
+
+    private GeoCoordinates coordinates(String latitude, String longitude) {
+        return new GeoCoordinates(new BigDecimal(latitude), new BigDecimal(longitude));
     }
 }

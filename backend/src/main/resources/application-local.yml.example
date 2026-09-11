@@ -23,6 +23,13 @@ spring:
     password: 여기에_MySQL_비밀번호
 
 app:
+  geocoding:
+    kakao:
+      # Kakao Developers 앱의 REST API 키. JavaScript 키가 아니다.
+      rest-api-key: 여기에_카카오_REST_API_키
+      # 기존 업체 좌표 backfill이 필요한 한 번만 true로 기동 후 다시 false.
+      backfill-enabled: false
+
   qr:
     # 필수. 비어 있으면 기동하지 않는다 — 잘못된 주소로 인쇄된 QR 은 되돌릴 수 없다.
     base-url: http://localhost:5173/passport
