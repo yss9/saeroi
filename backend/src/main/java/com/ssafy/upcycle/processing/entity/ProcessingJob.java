@@ -36,7 +36,12 @@ public class ProcessingJob {
     @Column(name = "payment_amount", nullable = false) private long paymentAmount;
     @Enumerated(EnumType.STRING) @Column(nullable = false) private ProcessingJobStatus status;
     @Column(name = "payment_expires_at", nullable = false) private LocalDateTime paymentExpiresAt;
+    @Column(name = "processor_submitted_at") private LocalDateTime processorSubmittedAt;
+    @Column(name = "brand_reviewed_at") private LocalDateTime brandReviewedAt;
     @Column(name = "created_at", nullable = false, updatable = false) private LocalDateTime createdAt;
+    @Column(name = "shipped_at") private LocalDateTime shippedAt;
+    @Column(name = "received_at") private LocalDateTime receivedAt;
+    @Column(name = "completed_at") private LocalDateTime completedAt;
 
     public static ProcessingJob create(String code, Long requestId, Long quoteId, Long brandId,
             Long processorId, String brandWallet, String processorWallet, long fee,
@@ -68,5 +73,59 @@ public class ProcessingJob {
     public void expire(LocalDateTime now) {
         if (!isPaymentDue(now)) throw new IllegalStateException("Job payment is not due");
         status = ProcessingJobStatus.EXPIRED;
+    }
+
+    public void ship(LocalDateTime at) {
+        requireStatus(ProcessingJobStatus.PAID, "ship");
+        shippedAt = requireTimestamp(at);
+        status = ProcessingJobStatus.SHIPPED;
+    }
+
+    public void receive(LocalDateTime at) {
+        requireStatus(ProcessingJobStatus.SHIPPED, "receive");
+        receivedAt = requireTimestamp(at);
+        status = ProcessingJobStatus.RECEIVED;
+    }
+
+    public void startProcessing() {
+        requireStatus(ProcessingJobStatus.RECEIVED, "start processing");
+        status = ProcessingJobStatus.PROCESSING;
+    }
+
+    public void submitResult(
+            long inputQuantity,
+            long outputQuantity,
+            String evidenceHash,
+            String manifestUrl,
+            LocalDateTime at) {
+        requireStatus(ProcessingJobStatus.PROCESSING, "submit result");
+        if (inputQuantity <= 0 || outputQuantity <= 0 || outputQuantity > inputQuantity) {
+            throw new IllegalArgumentException("Output quantity must be positive and not exceed input quantity");
+        }
+        this.lossQuantity = inputQuantity - outputQuantity;
+        this.evidenceHash = evidenceHash;
+        this.manifestUrl = manifestUrl;
+        this.processorSubmittedAt = requireTimestamp(at);
+        this.status = ProcessingJobStatus.RESULT_SUBMITTED;
+    }
+
+    public void confirmResult(LocalDateTime at) {
+        requireStatus(ProcessingJobStatus.RESULT_SUBMITTED, "confirm result");
+        LocalDateTime reviewedAt = requireTimestamp(at);
+        this.brandReviewedAt = reviewedAt;
+        this.completedAt = reviewedAt;
+        this.status = ProcessingJobStatus.CONFIRMED;
+    }
+
+    private void requireStatus(ProcessingJobStatus expected, String action) {
+        if (status != expected) {
+            throw new IllegalStateException(
+                    "Processing job can only " + action + " while " + expected + " but was " + status);
+        }
+    }
+
+    private LocalDateTime requireTimestamp(LocalDateTime at) {
+        if (at == null) throw new IllegalArgumentException("Processing job timestamp is required");
+        return at;
     }
 }

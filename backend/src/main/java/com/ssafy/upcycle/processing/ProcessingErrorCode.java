@@ -24,7 +24,10 @@ public enum ProcessingErrorCode implements ErrorCode {
     PROCESSING_WALLET_NOT_FOUND(HttpStatus.CONFLICT, "Brand와 Processor 모두 활성 지갑이 필요합니다."),
     PROCESSING_PAYMENT_NOT_PREPARED(HttpStatus.CONFLICT, "결제 준비가 필요합니다."),
     PROCESSING_PAYMENT_EXPIRED(HttpStatus.CONFLICT, "결제 가능 시간이 만료되었습니다."),
-    PROCESSING_PAYMENT_AMOUNT_MISMATCH(HttpStatus.CONFLICT, "승인 금액이 견적 금액과 일치하지 않습니다.");
+    PROCESSING_PAYMENT_AMOUNT_MISMATCH(HttpStatus.CONFLICT, "승인 금액이 견적 금액과 일치하지 않습니다."),
+    PROCESSING_OUTPUT_INVALID(HttpStatus.BAD_REQUEST, "가공 산출물의 항목과 수량을 확인해 주세요."),
+    PROCESSING_LOCK_NOT_ACTIVE(HttpStatus.CONFLICT, "가공에 예약된 소재 잠금을 사용할 수 없습니다."),
+    PROCESSING_BALANCE_INVALID(HttpStatus.CONFLICT, "가공 투입 소재의 보유 수량이 부족합니다.");
 
     private final HttpStatus status;
     private final String message;
