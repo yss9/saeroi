@@ -22,7 +22,8 @@ export function AuthLayout({
     <div className="auth-entry">
       <header className="auth-entry__header">
         <Link className="auth-entry__logo" to="/" aria-label="SAEROI 홈">
-          <img src="/img/logo.png" alt="" />
+          {/* public/ 자산 경로라 vite base 가 자동으로 안 붙는다 — /test/ 에서 404 방지 */}
+          <img src={`${import.meta.env.BASE_URL}img/logo.png`} alt="" />
         </Link>
         <Link className="auth-entry__home-link" to="/">
           <ArrowLeft aria-hidden="true" />

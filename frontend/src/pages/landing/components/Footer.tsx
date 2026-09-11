@@ -38,7 +38,9 @@ export function Footer() {
             test 스택에서는 이게 운영 메인으로 튀어나가는 것으로 드러난다. Link 로 바꿔야
             basename 이 자동으로 반영된다. */}
         <Link className="site-footer__logo" to="/" aria-label="SAEROI 홈">
-          <img src="/img/logo.png" alt="" />
+          {/* public/ 자산 경로라 vite base 가 자동으로 안 붙는다 — basename 과 별개로
+              직접 BASE_URL 을 붙여야 /test/ 에서 404 가 안 난다. */}
+          <img src={`${import.meta.env.BASE_URL}img/logo.png`} alt="" />
         </Link>
         <p>쓰임을 다한 소재에 새로운 가치를 더합니다.</p>
         <div className="site-footer__socials" aria-label="소셜 미디어">
