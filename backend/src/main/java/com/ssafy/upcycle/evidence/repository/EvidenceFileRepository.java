@@ -37,4 +37,7 @@ public interface EvidenceFileRepository extends JpaRepository<EvidenceFile, Long
      * 넣어 두면 빼먹을 자리가 없다.
      */
     Optional<EvidenceFile> findByIdAndDeletedAtIsNull(Long id);
+
+    long countByReferenceTypeAndReferenceIdAndDeletedAtIsNull(
+            EvidenceReferenceType referenceType, Long referenceId);
 }

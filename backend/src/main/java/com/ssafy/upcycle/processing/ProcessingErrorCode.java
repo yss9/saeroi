@@ -25,6 +25,11 @@ public enum ProcessingErrorCode implements ErrorCode {
     PROCESSING_PAYMENT_NOT_PREPARED(HttpStatus.CONFLICT, "결제 준비가 필요합니다."),
     PROCESSING_PAYMENT_EXPIRED(HttpStatus.CONFLICT, "결제 가능 시간이 만료되었습니다."),
     PROCESSING_PAYMENT_AMOUNT_MISMATCH(HttpStatus.CONFLICT, "승인 금액이 견적 금액과 일치하지 않습니다."),
+    PROCESSING_RESULT_INVALID(HttpStatus.BAD_REQUEST, "산출 수량 합계와 Loss 합계가 투입 수량과 일치해야 합니다."),
+    PROCESSING_EVIDENCE_REQUIRED(HttpStatus.CONFLICT, "가공 결과 제출 전 증빙 파일을 한 개 이상 등록해 주세요."),
+    PROCESSING_SIGNATURE_CHALLENGE_NOT_FOUND(HttpStatus.NOT_FOUND, "유효한 서명 요청을 찾을 수 없습니다."),
+    PROCESSING_SIGNATURE_CHALLENGE_INVALID(HttpStatus.CONFLICT, "서명 요청이 만료되었거나 현재 작업 내용과 일치하지 않습니다."),
+    PROCESSING_SIGNATURE_MISMATCH(HttpStatus.UNAUTHORIZED, "MetaMask 서명자가 작업 지갑과 일치하지 않습니다."),
     PROCESSING_OUTPUT_INVALID(HttpStatus.BAD_REQUEST, "가공 산출물의 항목과 수량을 확인해 주세요."),
     PROCESSING_LOCK_NOT_ACTIVE(HttpStatus.CONFLICT, "가공에 예약된 소재 잠금을 사용할 수 없습니다."),
     PROCESSING_BALANCE_INVALID(HttpStatus.CONFLICT, "가공 투입 소재의 보유 수량이 부족합니다.");

@@ -4,6 +4,8 @@ import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.evidence.EvidenceErrorCode;
 import com.ssafy.upcycle.evidence.entity.EvidenceReferenceType;
 import com.ssafy.upcycle.material.repository.MaterialRepository;
+import com.ssafy.upcycle.processing.entity.ProcessingJobStatus;
+import com.ssafy.upcycle.processing.repository.ProcessingJobRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -32,16 +34,29 @@ import org.springframework.stereotype.Component;
 public class EvidenceReferenceValidator {
 
     private final MaterialRepository materialRepository;
+    private final ProcessingJobRepository processingJobRepository;
 
     public void requireExists(EvidenceReferenceType referenceType, Long referenceId) {
         boolean exists = switch (referenceType) {
             case MATERIAL -> materialRepository.existsById(referenceId);
-            case PROCESSING_JOB, PRODUCTION_BATCH, PRODUCTION_INPUT ->
+            case PROCESSING_JOB -> processingJobRepository.existsById(referenceId);
+            case PRODUCTION_BATCH, PRODUCTION_INPUT ->
                     throw new BusinessException(
                             EvidenceErrorCode.EVIDENCE_REFERENCE_NOT_SUPPORTED);
         };
         if (!exists) {
             throw new BusinessException(EvidenceErrorCode.EVIDENCE_REFERENCE_NOT_FOUND);
         }
+    }
+
+    public void requireUploadable(Long actorId, EvidenceReferenceType referenceType, Long referenceId) {
+        requireExists(referenceType, referenceId);
+        if (referenceType != EvidenceReferenceType.PROCESSING_JOB) return;
+        boolean allowed = processingJobRepository.findById(referenceId)
+                .filter(job -> job.getProcessorId().equals(actorId))
+                .filter(job -> job.getStatus() == ProcessingJobStatus.PROCESSING
+                        || job.getStatus() == ProcessingJobStatus.REJECTED)
+                .isPresent();
+        if (!allowed) throw new BusinessException(EvidenceErrorCode.EVIDENCE_ACCESS_FORBIDDEN);
     }
 }

@@ -35,8 +35,8 @@ services:
       CORS_ALLOWED_ORIGINS: "http://localhost:5173,http://127.0.0.1:5173"
       KAKAOPAY_SECRET_KEY: ${KAKAOPAY_SECRET_KEY:-}
       KAKAOPAY_CID: ${KAKAOPAY_CID:-TC0ONETIME}
-      KAKAOPAY_RETURN_URL: "http://localhost:5173/trades/{tradeId}/payment/return"
-      KAKAOPAY_PROCESSING_RETURN_URL: "http://localhost:5173/processing/jobs/{jobId}/payment/callback"
+      KAKAOPAY_RETURN_URL: ${KAKAOPAY_RETURN_URL:-http://localhost:5173/trades/{tradeId}/payment/return}
+      KAKAOPAY_PROCESSING_RETURN_URL: ${KAKAOPAY_PROCESSING_RETURN_URL:-http://localhost:5173/processing/jobs/{jobId}/payment/callback}
       KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:-}
       COMPANY_GEOLOCATION_BACKFILL_ENABLED: ${COMPANY_GEOLOCATION_BACKFILL_ENABLED:-false}
       BESU_CHAIN_ID: ${BESU_CHAIN_ID:-31221}

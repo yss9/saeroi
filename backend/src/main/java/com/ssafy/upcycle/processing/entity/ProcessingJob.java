@@ -36,12 +36,21 @@ public class ProcessingJob {
     @Column(name = "payment_amount", nullable = false) private long paymentAmount;
     @Enumerated(EnumType.STRING) @Column(nullable = false) private ProcessingJobStatus status;
     @Column(name = "payment_expires_at", nullable = false) private LocalDateTime paymentExpiresAt;
-    @Column(name = "processor_submitted_at") private LocalDateTime processorSubmittedAt;
-    @Column(name = "brand_reviewed_at") private LocalDateTime brandReviewedAt;
-    @Column(name = "created_at", nullable = false, updatable = false) private LocalDateTime createdAt;
+    @Column(name = "carrier", length = 50) private String carrier;
+    @Column(name = "tracking_number", length = 100) private String trackingNumber;
+    @Column(name = "result_revision", nullable = false) private int resultRevision;
+    @Column(name = "rejection_reason", length = 500) private String rejectionReason;
+    @Column(name = "result_submit_signature", length = 132) private String resultSubmitSignature;
+    @Column(name = "approval_signature", length = 132) private String approvalSignature;
+    @Column(name = "rejection_signature", length = 132) private String rejectionSignature;
     @Column(name = "shipped_at") private LocalDateTime shippedAt;
     @Column(name = "received_at") private LocalDateTime receivedAt;
+    @Column(name = "started_at") private LocalDateTime startedAt;
+    @Column(name = "result_drafted_at") private LocalDateTime resultDraftedAt;
+    @Column(name = "result_submitted_at") private LocalDateTime resultSubmittedAt;
+    @Column(name = "rejected_at") private LocalDateTime rejectedAt;
     @Column(name = "completed_at") private LocalDateTime completedAt;
+    @Column(name = "created_at", nullable = false, updatable = false) private LocalDateTime createdAt;
 
     public static ProcessingJob create(String code, Long requestId, Long quoteId, Long brandId,
             Long processorId, String brandWallet, String processorWallet, long fee,
@@ -53,7 +62,8 @@ public class ProcessingJob {
         job.jobCode = code; job.processingRequestId = requestId; job.processingQuoteId = quoteId;
         job.brandId = brandId; job.processorId = processorId; job.brandWallet = brandWallet;
         job.processorWallet = processorWallet; job.fee = fee; job.paymentMethod = method;
-        job.lossQuantity = 0; job.paymentAmount = 0; job.status = ProcessingJobStatus.CREATED;
+        job.lossQuantity = 0; job.paymentAmount = 0; job.resultRevision = 0;
+        job.status = ProcessingJobStatus.CREATED;
         job.createdAt = now; job.paymentExpiresAt = now.plusMinutes(15);
         return job;
     }
@@ -75,57 +85,124 @@ public class ProcessingJob {
         status = ProcessingJobStatus.EXPIRED;
     }
 
+    public void ship(String carrier, String trackingNumber, LocalDateTime at) {
+        requireState(ProcessingJobStatus.PAID);
+        this.carrier = normalizeOptional(carrier, 50);
+        this.trackingNumber = normalizeOptional(trackingNumber, 100);
+        requireTime(at);
+        this.shippedAt = at;
+        this.status = ProcessingJobStatus.SHIPPED;
+    }
+
+    /** 이전 API와의 호환용 전이. 배송사 정보가 없는 요청도 같은 상태 머신을 사용한다. */
     public void ship(LocalDateTime at) {
-        requireStatus(ProcessingJobStatus.PAID, "ship");
-        shippedAt = requireTimestamp(at);
-        status = ProcessingJobStatus.SHIPPED;
+        ship(null, null, at);
     }
 
     public void receive(LocalDateTime at) {
-        requireStatus(ProcessingJobStatus.SHIPPED, "receive");
-        receivedAt = requireTimestamp(at);
-        status = ProcessingJobStatus.RECEIVED;
+        requireState(ProcessingJobStatus.SHIPPED);
+        this.receivedAt = requireTime(at);
+        this.status = ProcessingJobStatus.RECEIVED;
     }
 
+    public void start(LocalDateTime at) {
+        requireState(ProcessingJobStatus.RECEIVED);
+        this.startedAt = requireTime(at);
+        this.status = ProcessingJobStatus.PROCESSING;
+    }
+
+    /** 이전 API와의 호환용 전이. */
     public void startProcessing() {
-        requireStatus(ProcessingJobStatus.RECEIVED, "start processing");
-        status = ProcessingJobStatus.PROCESSING;
+        start(LocalDateTime.now());
     }
 
-    public void submitResult(
-            long inputQuantity,
-            long outputQuantity,
-            String evidenceHash,
-            String manifestUrl,
-            LocalDateTime at) {
-        requireStatus(ProcessingJobStatus.PROCESSING, "submit result");
-        if (inputQuantity <= 0 || outputQuantity <= 0 || outputQuantity > inputQuantity) {
-            throw new IllegalArgumentException("Output quantity must be positive and not exceed input quantity");
+    public void saveResultDraft(long lossQuantity, LocalDateTime at) {
+        if (status != ProcessingJobStatus.PROCESSING && status != ProcessingJobStatus.REJECTED) {
+            throw new IllegalStateException("Result draft cannot be saved");
         }
-        this.lossQuantity = inputQuantity - outputQuantity;
-        this.evidenceHash = evidenceHash;
-        this.manifestUrl = manifestUrl;
-        this.processorSubmittedAt = requireTimestamp(at);
+        if (lossQuantity < 0) throw new IllegalArgumentException("Loss quantity cannot be negative");
+        this.lossQuantity = lossQuantity;
+        this.resultRevision++;
+        this.resultDraftedAt = requireTime(at);
+        this.rejectionReason = null;
+        this.rejectionSignature = null;
+        this.rejectedAt = null;
+    }
+
+    public void submitResult(String signature, LocalDateTime at) {
+        if ((status != ProcessingJobStatus.PROCESSING && status != ProcessingJobStatus.REJECTED)
+                || resultRevision <= 0) throw new IllegalStateException("Result cannot be submitted");
+        this.resultSubmitSignature = requireSignature(signature);
+        this.resultSubmittedAt = requireTime(at);
         this.status = ProcessingJobStatus.RESULT_SUBMITTED;
     }
 
-    public void confirmResult(LocalDateTime at) {
-        requireStatus(ProcessingJobStatus.RESULT_SUBMITTED, "confirm result");
-        LocalDateTime reviewedAt = requireTimestamp(at);
-        this.brandReviewedAt = reviewedAt;
-        this.completedAt = reviewedAt;
+    /** 이전 결과 제출 API를 최종 상태 모델에 연결한다. */
+    public void submitResult(long inputQuantity, long outputQuantity, String evidenceHash,
+            String manifestUrl, LocalDateTime at) {
+        requireState(ProcessingJobStatus.PROCESSING);
+        if (inputQuantity <= 0 || outputQuantity <= 0 || outputQuantity > inputQuantity)
+            throw new IllegalArgumentException("Output quantity must be positive and not exceed input quantity");
+        this.lossQuantity = inputQuantity - outputQuantity;
+        this.evidenceHash = normalizeOptional(evidenceHash, 66);
+        this.manifestUrl = normalizeOptional(manifestUrl, 500);
+        this.resultRevision++;
+        this.resultDraftedAt = requireTime(at);
+        this.resultSubmittedAt = at;
+        this.status = ProcessingJobStatus.RESULT_SUBMITTED;
+    }
+
+    public void reject(String reason, String signature, LocalDateTime at) {
+        requireState(ProcessingJobStatus.RESULT_SUBMITTED);
+        if (reason == null || reason.isBlank() || reason.trim().length() > 500)
+            throw new IllegalArgumentException("Rejection reason is required");
+        this.rejectionReason = reason.trim();
+        this.rejectionSignature = requireSignature(signature);
+        this.rejectedAt = requireTime(at);
+        this.status = ProcessingJobStatus.REJECTED;
+    }
+
+    public void approve(String signature, LocalDateTime at) {
+        requireState(ProcessingJobStatus.RESULT_SUBMITTED);
+        this.approvalSignature = requireSignature(signature);
+        this.completedAt = requireTime(at);
         this.status = ProcessingJobStatus.CONFIRMED;
     }
 
-    private void requireStatus(ProcessingJobStatus expected, String action) {
-        if (status != expected) {
-            throw new IllegalStateException(
-                    "Processing job can only " + action + " while " + expected + " but was " + status);
-        }
+    /** 이전 결과 승인 API를 최종 상태 모델에 연결한다. */
+    public void confirmResult(LocalDateTime at) {
+        requireState(ProcessingJobStatus.RESULT_SUBMITTED);
+        this.completedAt = requireTime(at);
+        this.status = ProcessingJobStatus.CONFIRMED;
     }
 
-    private LocalDateTime requireTimestamp(LocalDateTime at) {
-        if (at == null) throw new IllegalArgumentException("Processing job timestamp is required");
+    public LocalDateTime getProcessorSubmittedAt() {
+        return resultSubmittedAt;
+    }
+
+    public LocalDateTime getBrandReviewedAt() {
+        return completedAt;
+    }
+
+    private void requireState(ProcessingJobStatus expected) {
+        if (status != expected) throw new IllegalStateException("Expected job state " + expected);
+    }
+
+    private static LocalDateTime requireTime(LocalDateTime at) {
+        if (at == null) throw new IllegalArgumentException("Transition time is required");
         return at;
+    }
+
+    private static String requireSignature(String signature) {
+        if (signature == null || signature.isBlank() || signature.length() > 132)
+            throw new IllegalArgumentException("Signature is required");
+        return signature;
+    }
+
+    private static String normalizeOptional(String value, int max) {
+        if (value == null || value.isBlank()) return null;
+        String normalized = value.trim();
+        if (normalized.length() > max) throw new IllegalArgumentException("Shipping field is too long");
+        return normalized;
     }
 }

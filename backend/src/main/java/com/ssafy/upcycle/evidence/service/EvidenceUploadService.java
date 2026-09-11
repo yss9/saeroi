@@ -80,7 +80,7 @@ public class EvidenceUploadService {
     public List<EvidenceFileResponse> upload(
             Long uploaderId, EvidenceUploadRequest request, List<MultipartFile> files) {
         requireActiveUploader(uploaderId);
-        referenceValidator.requireExists(request.referenceType(), request.referenceId());
+        referenceValidator.requireUploadable(uploaderId, request.referenceType(), request.referenceId());
         requireUploadableFiles(files);
 
         FileReference reference =

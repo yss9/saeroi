@@ -3,13 +3,18 @@ package com.ssafy.upcycle.processing;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.assertj.core.api.Assertions.assertThat;
+import static com.ssafy.upcycle.user.WalletTestSignatures.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ssafy.upcycle.material.entity.*;
 import com.ssafy.upcycle.material.repository.*;
+import com.ssafy.upcycle.evidence.entity.*;
+import com.ssafy.upcycle.evidence.repository.EvidenceFileRepository;
+import com.ssafy.upcycle.processing.repository.ProcessingOutputRepository;
 import com.ssafy.upcycle.user.entity.User;
 import com.ssafy.upcycle.user.entity.UserRole;
 import com.ssafy.upcycle.user.repository.UserRepository;
@@ -28,6 +33,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.web3j.crypto.Credentials;
 
 @SpringBootTest(properties = {"app.processing.expiry.enabled=false",
         "spring.datasource.url=jdbc:h2:mem:processing-tests;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1"})
@@ -42,11 +48,14 @@ class ProcessingRequestTests {
     @Autowired MaterialBalanceRepository balances;
     @Autowired MaterialLockRepository locks;
     @Autowired MaterialEventRepository events;
+    @Autowired MaterialLineageRepository lineages;
+    @Autowired ProcessingOutputRepository outputs;
+    @Autowired EvidenceFileRepository evidenceFiles;
     @Autowired com.ssafy.upcycle.processing.service.ProcessingRequestService service;
     @Autowired com.ssafy.upcycle.processing.service.ProcessingJobService jobService;
     @Autowired com.ssafy.upcycle.processing.repository.ProcessingRequestRepository requests;
-    @Autowired com.ssafy.upcycle.material.service.MaterialVerificationStateResolver verificationStates;
     @Autowired java.time.Clock clock;
+    @Autowired com.ssafy.upcycle.material.service.MaterialVerificationStateResolver verificationStates;
     Long brandId;
     Long processorId;
     Long materialId;
@@ -54,7 +63,8 @@ class ProcessingRequestTests {
     @BeforeEach
     void fixture() {
         // Real persisted fixtures: missing reservation writes and transaction errors are observable.
-        for (String table : List.of("material_event", "material_lineage", "processing_output", "processing_input", "processing_job", "processing_quote", "material_lock", "processing_request_type", "processing_request_input",
+        for (String table : List.of("processing_signature_challenge", "evidence_file", "material_lineage", "processing_output",
+                "material_event", "processing_input", "processing_job", "processing_quote", "material_lock", "processing_request_type", "processing_request_input",
                 "processing_request", "processor_capability", "processor_lead_time", "processor_profile", "material_balance", "material", "user_wallet", "users")) {
             jdbc.update("delete from " + table);
         }
@@ -522,6 +532,92 @@ class ProcessingRequestTests {
     }
 
     @Test
+    void completesSignedWorkflowConsumesInputAndCreatesBrandOwnedChildMaterial() throws Exception {
+        String brandWallet = Credentials.create(KEY_PAIR).getAddress();
+        String processorWallet = Credentials.create(OTHER_KEY_PAIR).getAddress();
+        wallets.save(UserWallet.link(brandId, brandWallet, 31337));
+        wallets.save(UserWallet.link(processorId, processorWallet, 31337));
+        long requestId = create(300);
+        mvc.perform(post("/processing-requests/{id}/quotes", requestId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"price\":10000,\"leadDays\":2}"))
+                .andExpect(status().isCreated());
+        long quoteId = jdbc.queryForObject("select id from processing_quote where processing_request_id=?",
+                Long.class, requestId);
+        var selected = mvc.perform(post("/quotes/{id}/select", quoteId)
+                        .with(jwt().jwt(j -> j.subject(brandId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"paymentMethod\":\"MOCK\"}"))
+                .andExpect(status().isCreated()).andReturn();
+        long jobId = mapper.readTree(selected.getResponse().getContentAsString()).path("data").path("jobId").asLong();
+
+        mvc.perform(post("/processing-jobs/{id}/payment", jobId)
+                        .with(jwt().jwt(j -> j.subject(brandId.toString()))))
+                .andExpect(status().isOk());
+        mvc.perform(post("/processing-jobs/{id}/payment/confirm", jobId)
+                        .with(jwt().jwt(j -> j.subject(brandId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"pgToken\":\"mock-token\"}"))
+                .andExpect(status().isOk());
+        mvc.perform(patch("/processing-jobs/{id}/ship", jobId)
+                        .with(jwt().jwt(j -> j.subject(brandId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"carrier\":\"CJ\",\"trackingNumber\":\"1234\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("data.status").value("SHIPPED"));
+        mvc.perform(patch("/processing-jobs/{id}/receive", jobId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString()))))
+                .andExpect(status().isOk()).andExpect(jsonPath("data.status").value("RECEIVED"));
+        mvc.perform(patch("/processing-jobs/{id}/start", jobId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString()))))
+                .andExpect(status().isOk()).andExpect(jsonPath("data.status").value("PROCESSING"));
+        mvc.perform(post("/processing-jobs/{id}/results", jobId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"lossQuantity\":100,\"outputs\":[{\"materialType\":\"DENIM\",\"grade\":\"A\",\"name\":\"재생 데님\",\"quantity\":200}]}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("data.resultRevision").value(1));
+        evidenceFiles.save(EvidenceFile.record(EvidenceReferenceType.PROCESSING_JOB, jobId,
+                "processing/result.jpg", "0x" + "a".repeat(64), EvidenceType.AFTER_PHOTO, processorId));
+
+        var submitChallenge = mvc.perform(post("/processing-jobs/{id}/signature-challenge", jobId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"action\":\"RESULT_SUBMIT\"}"))
+                .andExpect(status().isOk()).andReturn();
+        var submitData = mapper.readTree(submitChallenge.getResponse().getContentAsString()).path("data");
+        mvc.perform(post("/processing-jobs/{id}/results/submit", jobId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(java.util.Map.of(
+                                "challengeId", submitData.path("challengeId").asLong(),
+                                "signature", sign(submitData.path("message").asText(), OTHER_KEY_PAIR)))))
+                .andExpect(status().isOk()).andExpect(jsonPath("data.status").value("RESULT_SUBMITTED"));
+
+        var approvalChallenge = mvc.perform(post("/processing-jobs/{id}/signature-challenge", jobId)
+                        .with(jwt().jwt(j -> j.subject(brandId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"action\":\"APPROVE\"}"))
+                .andExpect(status().isOk()).andReturn();
+        var approvalData = mapper.readTree(approvalChallenge.getResponse().getContentAsString()).path("data");
+        mvc.perform(post("/processing-jobs/{id}/approve", jobId)
+                        .with(jwt().jwt(j -> j.subject(brandId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(java.util.Map.of(
+                                "challengeId", approvalData.path("challengeId").asLong(),
+                                "signature", sign(approvalData.path("message").asText(), KEY_PAIR)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("data.status").value("CONFIRMED"))
+                .andExpect(jsonPath("data.outputs[0].materialId").isNumber());
+
+        assertThat(balances.findByMaterialIdAndOwnerId(materialId, brandId).orElseThrow().getQuantity())
+                .isEqualTo(700);
+        assertThat(locks.findAll().getFirst().getStatus()).isEqualTo(MaterialLockStatus.CONSUMED);
+        var output = outputs.findAllByProcessingJobIdOrderById(jobId).getFirst();
+        assertThat(output.getOutputMaterialId()).isNotNull();
+        assertThat(balances.findByMaterialIdAndOwnerId(output.getOutputMaterialId(), brandId).orElseThrow().getQuantity())
+                .isEqualTo(200);
+        assertThat(lineages.findAllByChildMaterialId(output.getOutputMaterialId())).singleElement()
+                .satisfies(link -> assertThat(link.getParentMaterialId()).isEqualTo(materialId));
+    }
+
+    @Test
     void unpaidJobExpiresAfterDeadlineAndReleasesItsLock() throws Exception {
         wallets.save(UserWallet.link(brandId, "0x" + "3".repeat(40), 31337));
         wallets.save(UserWallet.link(processorId, "0x" + "4".repeat(40), 31337));
@@ -545,7 +641,6 @@ class ProcessingRequestTests {
         assertThat(jdbc.queryForObject("select status from processing_job where id=?",String.class,jobId)).isEqualTo("EXPIRED");
         assertThat(locks.findAll().getFirst().getStatus()).isEqualTo(MaterialLockStatus.EXPIRED);
     }
-
     @Test
     void confirmedProcessingResultCreatesChildMaterialAndLineageAtomically() throws Exception {
         long jobId = startProcessingJob(300);

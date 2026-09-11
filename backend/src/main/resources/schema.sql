@@ -482,11 +482,20 @@ CREATE TABLE processing_job (
         'EXPIRED'
     ) NOT NULL DEFAULT 'CREATED',
     payment_expires_at DATETIME NOT NULL,
-    processor_submitted_at DATETIME NULL,
-    brand_reviewed_at DATETIME NULL,
+    carrier VARCHAR(50) NULL,
+    tracking_number VARCHAR(100) NULL,
+    result_revision INT NOT NULL DEFAULT 0,
+    rejection_reason VARCHAR(500) NULL,
+    result_submit_signature VARCHAR(132) NULL,
+    approval_signature VARCHAR(132) NULL,
+    rejection_signature VARCHAR(132) NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     shipped_at DATETIME NULL,
     received_at DATETIME NULL,
+    started_at DATETIME NULL,
+    result_drafted_at DATETIME NULL,
+    result_submitted_at DATETIME NULL,
+    rejected_at DATETIME NULL,
     completed_at DATETIME NULL,
     CONSTRAINT pk_processing_job PRIMARY KEY (id),
     CONSTRAINT uk_processing_job_code UNIQUE (job_code),
@@ -534,10 +543,31 @@ CREATE TABLE processing_output (
     CONSTRAINT fk_processing_output_job_input FOREIGN KEY (processing_job_id, processing_input_id)
         REFERENCES processing_input (processing_job_id, id),
     CONSTRAINT fk_processing_output_material FOREIGN KEY (output_material_id) REFERENCES material (id),
-    CONSTRAINT chk_processing_output_quantity CHECK (quantity >= 0),
+    CONSTRAINT chk_processing_output_quantity CHECK (quantity > 0),
     INDEX idx_processing_output_job_input (processing_job_id, processing_input_id),
     INDEX idx_processing_output_input (processing_input_id),
     INDEX idx_processing_output_material (output_material_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE processing_signature_challenge (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    processing_job_id BIGINT NOT NULL,
+    actor_id BIGINT NOT NULL,
+    action ENUM('RESULT_SUBMIT', 'APPROVE', 'REJECT') NOT NULL,
+    wallet_address VARCHAR(42) NOT NULL,
+    chain_id BIGINT NOT NULL,
+    result_revision INT NOT NULL,
+    payload_hash CHAR(64) NOT NULL,
+    nonce CHAR(32) NOT NULL,
+    message TEXT NOT NULL,
+    expires_at DATETIME NOT NULL,
+    used_at DATETIME NULL,
+    CONSTRAINT pk_processing_signature_challenge PRIMARY KEY (id),
+    CONSTRAINT fk_processing_signature_job FOREIGN KEY (processing_job_id) REFERENCES processing_job (id),
+    CONSTRAINT fk_processing_signature_actor FOREIGN KEY (actor_id) REFERENCES users (id),
+    CONSTRAINT chk_processing_signature_chain CHECK (chain_id > 0),
+    CONSTRAINT chk_processing_signature_revision CHECK (result_revision > 0),
+    INDEX idx_processing_signature_job_actor_action (processing_job_id, actor_id, action, used_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Product model / Production ------------------------------------------------

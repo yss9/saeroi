@@ -218,10 +218,10 @@ class EvidenceUploadServiceTests {
 
     @Test
     void rejectsReferenceTypesThatCannotBeCheckedYet() throws Exception {
-        // processing·production 은 엔티티가 없어 존재를 확인할 방법이 없다.
+        // production 은 아직 증빙 대상 소유권을 확인할 방법이 없다.
         // "없는 대상" 과 다른 코드를 주어야 사용자가 맞는 요청을 계속 고치지 않는다.
         var unsupported = new EvidenceUploadRequest(
-                EvidenceReferenceType.PROCESSING_JOB, 1L, EvidenceType.PROCESS_PHOTO);
+                EvidenceReferenceType.PRODUCTION_BATCH, 1L, EvidenceType.PROCESS_PHOTO);
 
         assertThatThrownBy(() ->
                         uploadService.upload(uploaderId, unsupported, List.of(jpeg("a.jpg"))))

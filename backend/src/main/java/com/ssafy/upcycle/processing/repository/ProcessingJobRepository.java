@@ -14,4 +14,6 @@ public interface ProcessingJobRepository extends JpaRepository<ProcessingJob, Lo
     Optional<ProcessingJob> findForUpdate(@Param("id") Long id);
     List<ProcessingJob> findTop100ByStatusAndPaymentExpiresAtLessThanEqualOrderById(
             ProcessingJobStatus status, LocalDateTime now);
+    @Query("select j from ProcessingJob j where j.brandId=:actorId or j.processorId=:actorId order by j.createdAt desc, j.id desc")
+    List<ProcessingJob> findAllForActor(@Param("actorId") Long actorId);
 }
