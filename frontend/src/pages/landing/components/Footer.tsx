@@ -1,5 +1,6 @@
 import { CaretDown, InstagramLogo, YoutubeLogo } from '@phosphor-icons/react'
 import { useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { footerNavigation } from '../content.ts'
 
 type NewsletterFeedback =
@@ -33,9 +34,12 @@ export function Footer() {
   return (
     <footer id="about" className="site-footer">
       <div className="site-footer__intro">
-        <a className="site-footer__logo" href="/" aria-label="SAEROI 홈">
+        {/* 일반 <a href="/">는 basename(/test/)을 무시하고 도메인 루트로 풀 네비게이션한다 —
+            test 스택에서는 이게 운영 메인으로 튀어나가는 것으로 드러난다. Link 로 바꿔야
+            basename 이 자동으로 반영된다. */}
+        <Link className="site-footer__logo" to="/" aria-label="SAEROI 홈">
           <img src="/img/logo.png" alt="" />
-        </a>
+        </Link>
         <p>쓰임을 다한 소재에 새로운 가치를 더합니다.</p>
         <div className="site-footer__socials" aria-label="소셜 미디어">
           <a href="#instagram" aria-label="SAEROI 인스타그램"><InstagramLogo aria-hidden="true" /></a>
