@@ -24,6 +24,11 @@ public interface MaterialTradeRepository extends JpaRepository<MaterialTrade, Lo
 
     List<MaterialTrade> findAllByListingId(Long listingId);
 
+    /** 공개 Journey 가 현재 제품 브랜드로 들어온 소재의 마지막 이동을 찾을 때 쓴다. */
+    Optional<MaterialTrade>
+            findFirstByMaterialIdAndBuyerIdAndStatusOrderByReceivedAtDesc(
+                    Long materialId, Long buyerId, TradeStatus status);
+
     /**
      * 이 소재에 구매자가 서명한 거래가 있는지. 소재의 검증 단계 판정에 쓴다.
      *
