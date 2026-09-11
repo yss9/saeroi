@@ -16,10 +16,28 @@
 set -uo pipefail
 DEPLOY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$DEPLOY_DIR"
-. "$DEPLOY_DIR/scripts/compose.sh"
 
 SERVICE="${1:-}"
 FAIL=0
+
+# test 스택(scripts/test-deploy.sh)이 HEALTHCHECK_COMPOSE=test 로 이 스크립트를 부르면
+# 컨테이너 상태를 cft-* 로 본다. 이게 없던 시절엔 이 스크립트가 무조건 운영 compose 를
+# source 해서, test 배포의 컨테이너 상태 확인이 실제로는 운영 컨테이너(cf-backend 등)를
+# 보고 있었다 — 운영 쪽 상태와 무관하게 test 배포가 실패/롤백되거나, 반대로 test 쪽
+# 진짜 장애를 못 잡는 문제였다. 서비스 키도 다르다 — docker-compose.test.yml 은 네트워크
+# 별칭 충돌을 피하려고 backend/frontend 를 test-backend/test-frontend 로 등록해 둔다.
+if [ "${HEALTHCHECK_COMPOSE:-}" = "test" ]; then
+    . "$DEPLOY_DIR/scripts/compose-test.sh"
+    dc() { dc_test "$@"; }
+    case "$SERVICE" in
+        backend)  DC_SERVICE="test-backend" ;;
+        frontend) DC_SERVICE="test-frontend" ;;
+        *)        DC_SERVICE="$SERVICE" ;;
+    esac
+else
+    . "$DEPLOY_DIR/scripts/compose.sh"
+    DC_SERVICE="$SERVICE"
+fi
 
 # nginx 의 443 server_name. 에지로 물을 때 Host 헤더로 넘겨야 올바른 server 블록에 붙는다.
 DOMAIN="${HEALTHCHECK_DOMAIN:-j15e104.p.ssafy.io}"
@@ -40,10 +58,10 @@ fi
 EDGE="${HEALTHCHECK_WEB_BASE:-$EDGE}"
 
 echo "── 컨테이너 상태 ─────────────────────────"
-dc ps ${SERVICE:+"$SERVICE"}
+dc ps ${DC_SERVICE:+"$DC_SERVICE"}
 
 if [ -n "$SERVICE" ]; then
-    STATE=$(dc ps --format '{{.State}}' "$SERVICE" 2>/dev/null || echo "missing")
+    STATE=$(dc ps --format '{{.State}}' "$DC_SERVICE" 2>/dev/null || echo "missing")
     if [ "$STATE" != "running" ]; then
         echo "FAIL: $SERVICE 컨테이너가 running 상태가 아님 ($STATE)"
         FAIL=1
@@ -83,13 +101,23 @@ probe_origin() {
     probe "$1" "$2"
 }
 
+# test 모드에서는 컨테이너 이름(cft-*)으로 직접 묻는다 — "backend"/"frontend"라는
+# 이름은 이제 운영에만 등록된 별칭이라(별칭 충돌 수정 참고) 항상 운영 origin을 가리킨다.
+if [ "${HEALTHCHECK_COMPOSE:-}" = "test" ]; then
+    ORIGIN_BACKEND="cft-backend"
+    ORIGIN_FRONTEND="cft-frontend"
+else
+    ORIGIN_BACKEND="backend"
+    ORIGIN_FRONTEND="frontend"
+fi
+
 case "${SERVICE:-all}" in
     frontend)
-        probe_origin "frontend origin" "http://frontend:80/"
+        probe_origin "frontend origin" "http://$ORIGIN_FRONTEND:80/"
         probe_edge   "nginx → frontend" "/"
         ;;
     backend)
-        probe_origin "backend origin " "http://backend:8080/api/health"
+        probe_origin "backend origin " "http://$ORIGIN_BACKEND:8080/api/health"
         probe_edge   "nginx → backend " "/api/health"
         ;;
     ai)
