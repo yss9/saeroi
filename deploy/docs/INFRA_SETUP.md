@@ -74,8 +74,8 @@
 | Backend (CORS) | `CORS_ALLOWED_ORIGINS` — 콤마 구분 허용 origin, 기본값은 `localhost:5173`뿐이라 **실제 서비스 도메인을 반드시 넣어야 한다** (없으면 로그인이 403 "Invalid CORS request"로 막힌다, 2026-09-11 발견) | Backend `app.cors.allowed-origins` |
 | Backend (주소 검증) | `KAKAO_REST_API_KEY` — 없으면 **사업자 회원가입·주소 변경이 의도적으로 거절된다** (좌표 없는 업체 저장 방지, 2026-09-11 발견). [카카오 디벨로퍼스](https://developers.kakao.com)에서 앱 생성 후 발급 — 인프라가 값을 만들어낼 수 없다 | Backend `app.geocoding.kakao.rest-api-key` |
 | Backend (결제) | `KAKAOPAY_SECRET_KEY`(운영 PRD / test는 DEV 키 구분), `KAKAOPAY_CID`(기본 `TC0ONETIME`), `KAKAOPAY_RETURN_URL`, `KAKAOPAY_PROCESSING_RETURN_URL` — return-url 기본값이 `localhost:5173`이라 반드시 실제 도메인으로 넘겨야 한다(2026-09-11 발견) | Backend `app.payment.kakaopay.*` |
-| Blockchain | `BESU_RPC_URL`, `BESU_CHAIN_ID` (수령 완료), `BLOCKCHAIN_SERVICE_PRIVATE_KEY`, `*_ADDRESS` (대기) | 1번 Blockchain 담당 |
-| Frontend 빌드 | `VITE_API_BASE_URL`, `VITE_BESU_*`, `VITE_*_ADDRESS` | 빌드 시점 주입 |
+| Blockchain | `BESU_RPC_URL`, `BESU_CHAIN_ID`, `BLOCKCHAIN_SERVICE_PRIVATE_KEY`, `MATERIAL_TOKEN_ADDRESS`, `MARKETPLACE_ADDRESS`, `PRODUCTION_REGISTRY_ADDRESS` — 정본은 `blockchain/develop:deployments/ssafy.json`. Escrow는 안 쓴다(폐기). 2026-09-11 확정: 이전 `PAYMENT_TOKEN_ADDRESS`/`ESCROW_ADDRESS`는 backend가 안 읽는 죽은 키였다 | 1번 Blockchain 담당 |
+| Frontend 빌드 | `VITE_API_BASE_URL`, `VITE_BESU_*`, `VITE_MATERIAL_CONTRACT_ADDRESS`, `VITE_MARKETPLACE_CONTRACT_ADDRESS`, `VITE_PROCESSING_CONTRACT_ADDRESS`, `VITE_PRODUCTION_CONTRACT_ADDRESS` — 2026-09-11 확정: 이전 `VITE_*_TOKEN_ADDRESS`/`VITE_ESCROW_ADDRESS`는 `docker/Dockerfile`의 실제 ARG 이름과 달라 값이 조용히 버려지는 죽은 키였다 | 빌드 시점 주입 |
 | Jenkins | `JENKINS_ADMIN_ID/PASSWORD`, `JENKINS_EXTERNAL_URL`, `GITLAB_USERNAME/TOKEN` | Infra가 생성 (JCasC에서 사용) |
 | Object Storage | `STORAGE_TYPE`(`local`/`s3`, 없으면 `local`), `STORAGE_BUCKET`(기본 `evidence`), `STORAGE_ENDPOINT`(기본 `http://minio:9000`), `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD` | Infra가 생성 |
 
