@@ -238,6 +238,31 @@
 }
 .item-list__open { font-size: 0.8rem; }
 
+/* ── 개체 QR 이미지 (모달 안) ─────────────────────────── */
+
+.item-qr { display: flex; flex-direction: column; align-items: center; gap: 0.85rem; }
+/*
+  흰 바탕을 깐다. QR 은 밝은 배경 위에서만 스캔되는데 PNG 가 투명 배경으로 올 수 있고,
+  그러면 어두운 화면에서 미리보기가 읽히지 않아 라벨이 잘못됐다고 오해한다.
+*/
+.item-qr__image {
+  width: min(320px, 60vw);
+  height: auto;
+  background: #fff;
+  padding: 0.5rem;
+  border-radius: 6px;
+}
+.item-qr__note {
+  margin: 0;
+  max-width: 22rem;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: #6b7280;
+  text-align: center;
+}
+.item-qr__error { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; }
+.item-qr__message { margin: 0; font-size: 0.85rem; color: #b45309; text-align: center; }
+
 /* ── 온체인 단계 목록 ────────────────────────────────── */
 
 /* 공통 OnChainPanel 안에 들어가는 보조 표시다. 패널 자체의 스타일은 그쪽 CSS 가 갖는다. */

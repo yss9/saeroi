@@ -56,6 +56,8 @@
   cursor: pointer;
 }
 .ui-button:disabled { opacity: 0.55; cursor: not-allowed; }
+/* 링크를 버튼 모양으로 쓸 때. 내려받기처럼 브라우저가 직접 해야 하는 동작은 <a> 여야 한다 */
+a.ui-button { text-decoration: none; }
 .ui-button--sm { padding: 0.35em 0.8em; font-size: 0.875rem; }
 .ui-button--md { padding: 0.55em 1.1em; font-size: 1rem; }
 .ui-button--lg { padding: 0.75em 1.5em; font-size: 1.0625rem; }

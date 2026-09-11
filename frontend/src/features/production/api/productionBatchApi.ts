@@ -89,3 +89,35 @@ export async function getProductionItems(batchId: number): Promise<ProductionIte
   )
   return data
 }
+
+/**
+ * 개체의 QR 이미지 — `GET /v1/production-batches/{batchId}/items/{itemId}/qr`
+ *
+ * **라벨 인쇄가 쓰는 경로다.** PNG 바이트를 그대로 내려준다 (기본 512px).
+ *
+ * **`<img src>` 로는 못 쓴다** — 인증이 필요한데 브라우저는 `<img>` 요청에 Authorization
+ * 헤더를 붙이지 않는다. 여기서 바이트를 받아 화면이 blob URL 로 바꿔 쓴다
+ * (`useProductionItemQr`) — `getProductThumbnail` 과 같은 구조다.
+ *
+ * **개체를 id 로 지목한다.** 토큰으로 받으면 경로 자체가 공개 열쇠를 드러내고, 아무나 남의
+ * QR 라벨을 만들어낼 수 있다. 서버도 배치 소유자에게만 준다 —
+ * 남의 배치는 `PRODUCTION_FORBIDDEN`(403), 다른 배치의 개체는
+ * `PRODUCTION_ITEM_NOT_FOUND`(404).
+ *
+ * **왜 서버가 그리는가** — 브랜드는 배치 하나에 라벨 수십 장을 한 번에 인쇄한다. 인쇄물은
+ * 한 번 나가면 되돌릴 수 없으므로 모든 라벨이 같은 방식(같은 오류정정 수준·여백)으로
+ * 만들어졌다는 보장이 중요하다. 프론트가 그리면 그 보장이 브라우저마다 갈라진다.
+ *
+ * 크기는 보내지 않는다. 서버 기본값 512px 이 라벨 인쇄에 맞춰진 값이고, 범위를 벗어난 값은
+ * `PRODUCTION_QR_SIZE_INVALID`(400) 로 거절된다 — 화면이 고를 이유가 없다.
+ */
+export async function getProductionItemQr(
+  batchId: number,
+  productItemId: number,
+): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>(
+    `/v1/production-batches/${batchId}/items/${productItemId}/qr`,
+    { responseType: 'blob' },
+  )
+  return data
+}
