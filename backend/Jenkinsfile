@@ -44,6 +44,19 @@ pipeline {
             }
         }
 
+        // 상시 통합 테스트 스택(/test) 배포. backend/develop 병합마다 이미지를 :test 태그로
+        // 새로 빌드해 deploy 파트의 scripts/test-deploy.sh 로 넘긴다 — 운영(:latest, backend/master)
+        // 과는 완전히 분리된 태그·컨테이너(cft-backend)라 서로 섞이지 않는다.
+        // deploy-service.sh 계열과 같은 flock 락을 공유해 EC2 단일 Docker 데몬 위에서의
+        // 동시 배포/빌드 경합을 피한다 (2026-09-07 실사고 재발 방지).
+        stage('Test Deploy') {
+            when { branch 'backend/develop' }
+            steps {
+                sh 'docker build -f docker/Dockerfile -t $IMAGE:test .'
+                sh 'flock -w 900 /var/jenkins_home/cf-deploy.lock bash $DEPLOY_DIR/scripts/test-deploy.sh backend'
+            }
+        }
+
         stage('Docker Build') {
             // CI 브랜치에서는 이미지를 만들지 않는다 — 브랜치명에 슬래시가 있어 도커 태그로 쓸 수 없고,
             // feat 브랜치 이미지가 EC2 디스크를 먹으며 latest 오염 위험도 있다.
