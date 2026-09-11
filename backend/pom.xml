@@ -21,6 +21,7 @@
         <aws.sdk.version>2.29.52</aws.sdk.version>
         <java.version>21</java.version>
         <querydsl.version>5.1.0</querydsl.version>
+        <zxing.version>3.5.3</zxing.version>
         <web3j.version>4.12.3</web3j.version>
     </properties>
 
@@ -97,6 +98,21 @@
             <groupId>org.web3j</groupId>
             <artifactId>crypto</artifactId>
             <version>${web3j.version}</version>
+        </dependency>
+        <!--
+            제품 QR 이미지 생성에만 쓴다. core 가 인코딩을, javase 가 BitMatrix 를 PNG 로
+            옮기는 일을 맡는다 — 스캔(디코딩)은 사용자의 휴대폰 카메라가 하므로 서버에는
+            필요 없지만, 만든 QR 이 실제로 읽히는지 확인하는 테스트가 core 의 디코더를 쓴다.
+        -->
+        <dependency>
+            <groupId>com.google.zxing</groupId>
+            <artifactId>core</artifactId>
+            <version>${zxing.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.zxing</groupId>
+            <artifactId>javase</artifactId>
+            <version>${zxing.version}</version>
         </dependency>
         <dependency>
             <groupId>com.mysql</groupId>
