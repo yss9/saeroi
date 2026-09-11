@@ -14,6 +14,7 @@ import {
   type BurnReasonOnChain,
   type RootOriginOnChain,
 } from '../../../config/abi/onchainEnums.ts'
+import { env } from '../../../config/env.ts'
 import { getReadContract, getWriteContract } from '../../../services/blockchain/contractFactory.ts'
 import { requireOnChainRole } from '../../../services/blockchain/onChainRole.ts'
 import type { ChainLinkPayload } from '../../../services/blockchain/chainLinkApi.ts'
@@ -93,9 +94,13 @@ export async function findMintedMaterial(
 ): Promise<ChainLinkPayload | null> {
   try {
     const contract = getReadContract('materialToken')
+    // **제네시스부터 훑지 않는다.** 컨트랙트가 배포된 블록부터 본다 — 그 앞에는 이
+    // 컨트랙트의 로그가 존재할 수 없다. 0 부터 조회하면 SSAFY 체인에서 33초가 걸리고
+    // (2026-09-11 실측, 블록 1,122만) 그 시간이 통째로 **서명 팝업 앞을 막는다.**
+    // 같은 질의가 배포 블록부터면 455ms 다.
     const events = await contract.queryFilter(
       contract.filters.MaterialMinted(registrar, null, null),
-      0,
+      env.chainFromBlock,
       'latest',
     )
 
