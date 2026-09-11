@@ -53,6 +53,12 @@ services:
       JWT_ISSUER: ${JWT_ISSUER:-upcycle}
       JWT_ACCESS_TOKEN_TTL: ${JWT_ACCESS_TOKEN_TTL:-PT30M}
       WALLET_NONCE_TTL: ${WALLET_NONCE_TTL:-PT5M}
+      # backend/develop 에서 새로 필수화된 값 (QR 이 제품에 인쇄되므로 빈 값이면 ProductQrConfig
+      # 가 기동 자체를 막는다). `:-` 기본값을 쓴다 — `:?`는 MINIO_ROOT_PASSWORD 와 같은 이유로
+      # 안 쓴다: 파일 전체가 매 호출마다 보간되므로 무관한 서비스 배포(`up --no-deps frontend`)
+      # 까지 이 값 하나 때문에 전부 실패하게 된다. 값이 비면 backend 스스로 명확히 실패한다.
+      # 운영 .env.example 에는 아직 없다 — backend/master 가 이 기능을 받을 때 그쪽에도 추가할 것.
+      QR_BASE_URL: ${QR_BASE_URL:-}
       # 운영과 같은 테스트넷/컨트랙트를 재사용한다 — .env.test 에도 운영 .env 와 동일한
       # 값을 채워 넣는다 (배경: .harness/plans/2026-09-10-ec2-staging-env.md §0).
       BESU_RPC_URL: ${BESU_RPC_URL:-}
