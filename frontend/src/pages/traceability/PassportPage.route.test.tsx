@@ -21,8 +21,15 @@ function passport(): ProductPassport {
     serialNumber: 1,
     itemStatus: 'SOLD',
     issuedAt: '2026-09-08T10:00:00',
-    product: { name: 'RE:BAG', category: 'BAG', description: '폐데님으로 만든 가방입니다.' },
+    product: {
+      name: 'RE:BAG',
+      brandName: 'ReWeave',
+      category: 'BAG',
+      description: '폐데님으로 만든 가방입니다.',
+      imageUrl: '/api/v1/qr/token/thumbnail',
+    },
     traceabilityAvailable: false,
+    journey: null,
   }
 }
 
