@@ -43,7 +43,7 @@ export function MaterialBalanceTable({ materialId }: MaterialBalanceTableProps) 
         <caption className="ui-visually-hidden">보유자별 잔량</caption>
         <thead>
           <tr>
-            <th scope="col">보유자</th>
+            <th scope="col" className="is-tight">보유자</th>
             <th scope="col" className="is-numeric">보유 수량</th>
             <th scope="col" className="is-numeric">잠긴 수량</th>
             <th scope="col" className="is-numeric">판매 가능량</th>
