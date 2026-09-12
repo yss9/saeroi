@@ -81,6 +81,11 @@
   border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius);
 }
+/* 카드 전체 너비로 늘어나지 않게 한다 — 삭제는 그 파일 하나에 대한 동작이라
+   버튼도 파일만큼만 차지해야 한다. */
+.evidence__list li > button {
+  align-self: flex-start;
+}
 .evidence__list p {
   margin: 0;
 }
