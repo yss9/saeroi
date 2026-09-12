@@ -42,3 +42,36 @@
   background: var(--ui-color-bg);
   font-size: 0.875em;
 }
+
+/*
+ * 온체인 발행 진행 표시.
+ *
+ * warning 이 아니라 primary 를 쓴다 — 사용자가 뭘 기다려야 하는 정상 진행 상태이지,
+ * 주의를 요구하는 상황이 아니다.
+ */
+.material-form__mint-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 1rem 0;
+  padding: 1rem 1.125rem;
+  border: 1px solid var(--ui-color-primary);
+  border-radius: var(--ui-radius);
+  background: var(--ui-color-primary-soft);
+}
+
+.material-form__mint-progress p {
+  margin: 0;
+  color: var(--ui-color-text);
+  line-height: 1.6;
+}
+
+.material-form__mint-progress progress {
+  width: 100%;
+  height: 0.5rem;
+}
+
+.material-form__mint-progress span {
+  font-size: 0.875rem;
+  color: var(--ui-color-muted);
+}

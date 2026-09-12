@@ -104,32 +104,35 @@ export function EvidenceUpload({ referenceType, referenceId, readOnly }: Evidenc
     <div className="evidence">
       {!readOnly && (
         <div className="evidence__form">
-          <Select
-            label="증빙 종류"
-            options={MATERIAL_EVIDENCE_TYPES.map((value) => ({
-              value,
-              label: EVIDENCE_TYPE_LABEL[value],
-            }))}
-            value={evidenceType}
-            onChange={(event) => setEvidenceType(event.target.value as EvidenceType)}
-          />
+          {/* 종류 선택과 파일 선택은 한 번에 정하는 짝이라 같은 행에 좌우로 둔다. */}
+          <div className="evidence__form-row">
+            <Select
+              label="증빙 종류"
+              options={MATERIAL_EVIDENCE_TYPES.map((value) => ({
+                value,
+                label: EVIDENCE_TYPE_LABEL[value],
+              }))}
+              value={evidenceType}
+              onChange={(event) => setEvidenceType(event.target.value as EvidenceType)}
+            />
 
-          {/*
-            형식·크기·개수 검증과 거절 문구는 모두 공통 컴포넌트가 한다 (S15P21E104-253).
-            여기서 다시 세면 같은 규칙이 두 곳에 생기고, 상한을 고칠 때 한쪽이 남는다.
-            도메인이 하는 일은 **정책 값을 넘기는 것**뿐이다.
-          */}
-          <FileUploader
-            label="파일 선택"
-            hint={`사진(jpg·png·webp)과 pdf 를 최대 ${EVIDENCE_MAX_FILES}개, 개당 10MB 까지 올릴 수 있습니다.`}
-            accept={EVIDENCE_ACCEPT}
-            multiple
-            maxSizeBytes={EVIDENCE_MAX_FILE_SIZE}
-            maxFiles={EVIDENCE_MAX_FILES}
-            uploading={upload.isPending}
-            progress={upload.progress}
-            onChange={setSelected}
-          />
+            {/*
+              형식·크기·개수 검증과 거절 문구는 모두 공통 컴포넌트가 한다 (S15P21E104-253).
+              여기서 다시 세면 같은 규칙이 두 곳에 생기고, 상한을 고칠 때 한쪽이 남는다.
+              도메인이 하는 일은 **정책 값을 넘기는 것**뿐이다.
+            */}
+            <FileUploader
+              label="파일 선택"
+              hint={`사진(jpg·png·webp)과 pdf 를 최대 ${EVIDENCE_MAX_FILES}개, 개당 10MB 까지 올릴 수 있습니다.`}
+              accept={EVIDENCE_ACCEPT}
+              multiple
+              maxSizeBytes={EVIDENCE_MAX_FILE_SIZE}
+              maxFiles={EVIDENCE_MAX_FILES}
+              uploading={upload.isPending}
+              progress={upload.progress}
+              onChange={setSelected}
+            />
+          </div>
 
           {selected.length > 0 && (
             <>
