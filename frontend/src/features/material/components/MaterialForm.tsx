@@ -238,7 +238,7 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
       <Input
         label="수량 (kg)"
         type="number"
-        step="0.001"
+        step="0.1"
         placeholder="20.5"
         error={errors.quantityKg?.message}
         {...register('quantityKg', {
