@@ -5,6 +5,7 @@ import { kgToGram } from '../../../utils/quantity.ts'
 import { useCreateMaterial } from '../hooks/useCreateMaterial.ts'
 import { useWallet } from '../../wallet/hooks/useWallet.ts'
 import { useMintMaterialOnChain } from '../hooks/useMintMaterialOnChain.ts'
+import type { ChainLinkStatus } from '../../../hooks/useOnChainLink.ts'
 import { evidencePlaceholder } from '../services/evidencePlaceholder.ts'
 import './material.css'
 import { WIRE_UNIT } from '../types/materialQuantity.ts'
@@ -90,6 +91,22 @@ const FIBER_TYPE_OPTIONS: readonly { value: MaterialFiberType; label: string }[]
 
 /** 서버 `total_quantity` 는 BIGINT 지만, 실수로 자릿수를 더 누른 입력을 여기서 먼저 막는다. */
 const MAX_QUANTITY_KG = 1_000_000
+
+/**
+ * 온체인 발행 단계별 진행률 표시.
+ *
+ * 실제 블록 승인 수·가스 소모 같은 값을 알 수 없어 <b>단계에 고정값을 붙인 근사치</b>다.
+ * 그래도 없는 것보다 낫다 — 등록 버튼을 누른 뒤 화면이 몇 초간 가만히 있으면 사용자는
+ * 멈췄다고 오해하고 새로고침하거나 다시 누른다. IDLE·FAILED 는 표에 없다 —
+ * 진행 중이 아니거나 에러 메시지가 대신 보여준다.
+ */
+const MINT_STAGE: Partial<Record<ChainLinkStatus, { percent: number; label: string }>> = {
+  SIGNING: { percent: 20, label: '지갑 서명을 기다리는 중' },
+  PENDING: { percent: 55, label: '블록 확정을 기다리는 중' },
+  CONFIRMED: { percent: 80, label: '온체인 결과를 기록하는 중' },
+  LINKING: { percent: 80, label: '온체인 결과를 기록하는 중' },
+  LINKED: { percent: 100, label: '발행 완료' },
+}
 
 /**
  * 소재 등록 폼.
@@ -400,16 +417,27 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
         </div>
       )}
 
+      {/*
+        온체인 발행 진행 표시. 등록 버튼을 누르면 서버 저장 → 지갑 서명 → 블록 확정 →
+        서버 기록까지 한 번에 이어지는데, 그 사이 화면이 조용하면 사용자는 멈췄다고
+        오해한다. 이 패널이 떠 있는 동안은 버튼 텍스트로 단계를 또 설명하지 않는다 —
+        같은 정보를 두 곳에 쓰면 한쪽만 고쳤을 때 어긋난다.
+      */}
+      {MINT_STAGE[mint.status] && (
+        <div className="material-form__mint-progress" role="status">
+          <p>
+            소재를 온체인에 발행하는 중입니다. 완료되면 자동으로 보유 소재 목록으로
+            이동합니다.
+          </p>
+          <progress max={100} value={MINT_STAGE[mint.status]?.percent} />
+          <span>
+            {MINT_STAGE[mint.status]?.label} ({MINT_STAGE[mint.status]?.percent}%)
+          </span>
+        </div>
+      )}
+
       <Button type="submit" loading={isPending || mint.isBusy}>
-        {mint.status === 'SIGNING'
-          ? '지갑에서 서명해 주세요'
-          : mint.status === 'PENDING'
-            ? '블록 확정을 기다리는 중…'
-            : mint.status === 'LINKING'
-              ? '온체인 결과를 기록하는 중…'
-              : pendingRegistration
-                ? '소재 등록 완료하기'
-                : '소재 등록'}
+        {pendingRegistration && !mint.isBusy ? '소재 등록 완료하기' : '소재 등록'}
       </Button>
     </form>
   )
