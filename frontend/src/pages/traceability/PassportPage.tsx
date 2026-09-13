@@ -19,7 +19,7 @@ export function PassportPage() {
   if (!qrToken) return <ErrorMessage error="잘못된 주소입니다." />
 
   return (
-    <main className="page">
+    <main className="passport-page">
       <PassportView qrToken={qrToken} />
     </main>
   )

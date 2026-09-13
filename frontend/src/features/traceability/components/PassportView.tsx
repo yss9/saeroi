@@ -1,7 +1,9 @@
+import { CheckCircle, ShieldCheck } from '@phosphor-icons/react'
 import { ErrorMessage, Loading } from '../../../components/common/index.ts'
 import { getPassportThumbnailUrl } from '../api/getPassport.ts'
 import { usePassport } from '../hooks/usePassport.ts'
 import type { PassportItemStatus, ProductPassport } from '../types/traceability.types.ts'
+import { JourneyExplorer } from './JourneyExplorer.tsx'
 import './passport.css'
 
 export interface PassportViewProps {
@@ -17,66 +19,100 @@ const CATEGORY_LABEL: Record<ProductPassport['product']['category'], string> = {
   ETC: '기타',
 }
 
-/**
- * 이 개체가 어떤 상태인지를 블록체인 용어 없이 말한다 (S15P21E104-109).
- * `verification_state` 같은 내부 상태 이름을 그대로 노출하지 않는다 — 소비자는
- * "이게 진짜 내가 받은 그 제품이 맞는가" 를 궁금해하지 트랜잭션 상태를 궁금해하지 않는다.
- */
 const ITEM_STATUS_MESSAGE: Record<PassportItemStatus, string> = {
-  IN_STOCK: '아직 판매되지 않은 제품입니다.',
-  RESERVED: '구매가 진행 중인 제품입니다.',
-  SOLD: '제품 사용 확인 완료',
+  IN_STOCK: '판매 준비 중',
+  RESERVED: '구매 진행 중',
+  SOLD: '구매 및 여정 확인 완료',
 }
 
-/**
- * QR Passport 공개 화면.
- *
- * **소재 출처·거래·가공 확인은 아직 없다.** `traceabilityAvailable` 이 `false` 인 동안은
- * "제품 확인" 한 단계만 보여준다 — 없는 이력을 확인된 것처럼 그리면 위조 여부를
- * 가리는 이 화면의 존재 이유가 무너진다. Production 도메인이 생겨 값이 채워지면
- * 아래 `stages` 에 소재 출처·거래·가공 단계를 추가한다.
- */
+function formatIssuedAt(value: string): string {
+  return new Intl.DateTimeFormat('ko-KR', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date(value))
+}
+
+/** 로그인 없이 QR 토큰만으로 확인하는 제품별 공개 Journey 화면. */
 export function PassportView({ qrToken }: PassportViewProps) {
   const { data, isPending, isError, error, refetch } = usePassport(qrToken)
 
   if (isPending) return <Loading variant="skeleton" />
   if (isError) return <ErrorMessage error={error} onRetry={() => void refetch()} />
 
-  const stages = [
-    { key: 'PRODUCT', label: '제품 확인', confirmed: true },
-    { key: 'MATERIAL_ORIGIN', label: '소재 출처 확인', confirmed: data.traceabilityAvailable },
-    { key: 'TRADE', label: '거래 확인', confirmed: data.traceabilityAvailable },
-    { key: 'PROCESSING', label: '가공 과정 확인', confirmed: data.traceabilityAvailable },
-  ] as const
-
   return (
     <article className="passport">
-      <img
-        className="passport__thumbnail"
-        src={getPassportThumbnailUrl(qrToken)}
-        alt={`${data.product.name} 대표 이미지`}
-      />
-
-      <header className="passport__header">
-        <h1>{data.product.name}</h1>
-        <p className="passport__item-code">{data.itemCode}</p>
+      <header className="passport-brandbar">
+        <a className="passport-brandbar__logo" href="/" aria-label="SAEROI 홈">
+          SAEROI
+        </a>
+        <div className="passport-brandbar__message">
+          <span>A KINDER TOMORROW</span>
+          <span>IN STYLE</span>
+        </div>
       </header>
-      <p className="passport__category">{CATEGORY_LABEL[data.product.category]}</p>
 
-      <p>{ITEM_STATUS_MESSAGE[data.itemStatus]}</p>
+      <div className="passport__content">
+        <section className="passport-product" aria-labelledby="passport-product-title">
+          <img
+            className="passport-product__image"
+            src={getPassportThumbnailUrl(qrToken)}
+            alt={`${data.product.name} 대표 이미지`}
+          />
 
-      <p className="passport__description">{data.product.description}</p>
+          <div className="passport-product__identity">
+            <p className="passport-product__eyebrow">PRODUCT JOURNEY</p>
+            <h1 id="passport-product-title">{data.product.name}</h1>
+            <p className="passport-product__brand">
+              {data.product.brandName ?? CATEGORY_LABEL[data.product.category]}
+            </p>
+            <p className="passport-product__description">{data.product.description}</p>
+            <span className="passport-product__verified">
+              <ShieldCheck size={18} weight="fill" aria-hidden="true" />
+              Verified Upcycled Product
+            </span>
+          </div>
 
-      <ul className="passport__stages">
-        {stages.map((stage) => (
-          <li
-            key={stage.key}
-            className={`passport__stage${stage.confirmed ? '' : ' passport__stage--pending'}`}
-          >
-            {stage.confirmed ? `${stage.label} 완료` : `${stage.label} 준비 중`}
-          </li>
-        ))}
-      </ul>
+          <dl className="passport-product__meta">
+            <div>
+              <dt>제품 ID</dt>
+              <dd>{data.itemCode}</dd>
+            </div>
+            <div>
+              <dt>시리얼 번호</dt>
+              <dd>#{String(data.serialNumber).padStart(4, '0')}</dd>
+            </div>
+            <div>
+              <dt>기록 발행일</dt>
+              <dd>{formatIssuedAt(data.issuedAt)}</dd>
+            </div>
+          </dl>
+
+          <div className="passport-product__status">
+            <CheckCircle size={20} weight="fill" aria-hidden="true" />
+            <span>{ITEM_STATUS_MESSAGE[data.itemStatus]}</span>
+          </div>
+        </section>
+
+        {data.traceabilityAvailable && data.journey ? (
+          <>
+            {data.journey.truncated ? (
+              <p className="passport__notice" role="status">
+                {data.journey.message ?? '표시 가능한 범위의 여정 기록만 제공됩니다.'}
+              </p>
+            ) : null}
+            <JourneyExplorer journey={data.journey} />
+          </>
+        ) : (
+          <section className="passport-empty" aria-label="여정 준비 상태">
+            <ShieldCheck size={38} weight="duotone" aria-hidden="true" />
+            <div>
+              <h2>제품 여정을 준비하고 있습니다.</h2>
+              <p>제품 정보는 확인되었으며, 연결된 Journey 기록은 아직 제공되지 않습니다.</p>
+            </div>
+          </section>
+        )}
+      </div>
     </article>
   )
 }
