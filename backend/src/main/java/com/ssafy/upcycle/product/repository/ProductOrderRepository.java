@@ -6,6 +6,8 @@ import jakarta.persistence.LockModeType;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -22,6 +24,13 @@ public interface ProductOrderRepository extends JpaRepository<ProductOrder, Long
     List<ProductOrder> findAllByBuyerIdAndStatus(Long buyerId, ProductOrderStatus status);
 
     List<ProductOrder> findAllByBrandIdAndStatus(Long brandId, ProductOrderStatus status);
+
+    Page<ProductOrder> findAllByBuyerId(Long buyerId, Pageable pageable);
+
+    Page<ProductOrder> findAllByBuyerIdAndStatus(
+            Long buyerId, ProductOrderStatus status, Pageable pageable);
+
+    long countByBuyerIdAndStatus(Long buyerId, ProductOrderStatus status);
 
     /**
      * 결제 마감을 넘긴 미결제 주문. 배치가 이 목록을 정리하며 잡아 둔 개체를 재고로 되돌린다.

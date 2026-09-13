@@ -1,6 +1,7 @@
 package com.ssafy.upcycle.product.repository;
 
 import com.ssafy.upcycle.product.entity.ProductOrderItem;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -15,6 +16,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface ProductOrderItemRepository extends JpaRepository<ProductOrderItem, Long> {
 
     List<ProductOrderItem> findAllByProductOrderId(Long productOrderId);
+
+    List<ProductOrderItem> findAllByProductOrderIdInOrderByIdAsc(Collection<Long> productOrderIds);
 
     Optional<ProductOrderItem> findByProductItemId(Long productItemId);
 

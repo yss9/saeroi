@@ -32,6 +32,21 @@ public enum ProductErrorCode implements ErrorCode {
             "PRODUCT_BRAND_SUSPENDED",
             "정지된 계정입니다."),
 
+    PRODUCT_ORDER_BUYER_NOT_FOUND(
+            HttpStatus.NOT_FOUND,
+            "PRODUCT_ORDER_BUYER_NOT_FOUND",
+            "주문자를 찾을 수 없습니다."),
+
+    PRODUCT_ORDER_BUYER_SUSPENDED(
+            HttpStatus.FORBIDDEN,
+            "PRODUCT_ORDER_BUYER_SUSPENDED",
+            "정지된 계정입니다."),
+
+    PRODUCT_ORDER_ROLE_NOT_ALLOWED(
+            HttpStatus.FORBIDDEN,
+            "PRODUCT_ORDER_ROLE_NOT_ALLOWED",
+            "소비자 계정만 제품 주문을 조회할 수 있습니다."),
+
     /**
      * 브랜드가 아닌 계정이 제품을 올리려는 경우.
      *

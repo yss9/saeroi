@@ -9,8 +9,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * 찍으므로, 브라우저가 바로 열리는 주소여야 한다.
  *
  * <pre>
- *   base-url = https://upcycle.example.com/passport
- *   →  https://upcycle.example.com/passport/a3f97b2c...
+ *   base-url = https://upcycle.example.com/qr
+ *   →  https://upcycle.example.com/qr/a3f97b2c...
  * </pre>
  *
  * <p><b>프론트의 Passport 라우트와 반드시 같아야 한다.</b> 어긋나면 이미 인쇄되어 제품에
