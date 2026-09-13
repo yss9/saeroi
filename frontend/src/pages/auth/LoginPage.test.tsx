@@ -42,6 +42,7 @@ describe('LoginPage', () => {
   it('직접 로그인한 Brand를 기본 가공 요청 화면으로 보낸다', async () => {
     vi.spyOn(apiClient, 'post').mockResolvedValue({ data: {
       accessToken: 'token',
+      refreshToken: 'refresh-token',
       user: { id: 7, email: 'brand@test.com', name: '브랜드', phone: '010', role: 'BRAND', status: 'ACTIVE', createdAt: '2026-09-09T00:00:00' },
     } })
     const user = userEvent.setup()

@@ -20,7 +20,11 @@ import { FORBIDDEN_PATH, RoleGuard } from './RoleGuard.tsx'
 function signInAs(role: UserRole) {
   useAuthStore
     .getState()
-    .signIn({ id: 1, email: 'a@b.c', name: '테스터', role, walletAddress: null }, 'test-token')
+    .signIn(
+      { id: 1, email: 'a@b.c', name: '테스터', role, walletAddress: null },
+      'test-token',
+      'refresh-token',
+    )
 }
 
 afterEach(() => {
@@ -127,6 +131,7 @@ describe('RoleGuard', () => {
         state: {
           user: { id: 1, email: 'a@b.c', name: '테스터', role: 'SUPPLIER', walletAddress: null },
           accessToken: 'test-token',
+          refreshToken: 'refresh-token',
         },
         version: 0,
       }),

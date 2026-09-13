@@ -75,7 +75,7 @@ useEffect(() => { setMaterialsInStore(data) }, [data])
 
 | Store | 담는 것 |
 | --- | --- |
-| `authStore` | `user`, `accessToken`, `isAuthenticated` |
+| `authStore` | `user`, `accessToken`, `refreshToken`, `isAuthenticated` |
 | `walletStore` | `address`, `chainId`, `isConnected` |
 | `uiStore` | 사이드바 열림 여부, 전역 Modal |
 
@@ -117,7 +117,7 @@ Page → Feature Component → Custom Hook → TanStack Query → Feature API �
 
 - Component에서 `axios`를 직접 import하지 않습니다.
 - API URL을 Component에 하드코딩하지 않습니다. Base URL은 `config/env.ts` 한 곳입니다.
-- `apiClient`가 하는 일: 토큰 주입, `ApiResponse` 봉투 제거, 401 처리, `AppError` 정규화.
+- `apiClient`가 하는 일: 토큰 주입, `ApiResponse` 봉투 제거, 401 재발급·재시도, `AppError` 정규화.
   덕분에 Feature API 함수는 알맹이 타입만 다루면 됩니다.
 
 ### Query Key 규칙

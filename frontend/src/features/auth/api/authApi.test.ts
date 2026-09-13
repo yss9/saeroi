@@ -11,6 +11,7 @@ const REQUEST = {
 
 const RESPONSE: LoginResponse = {
   accessToken: 'jwt-access-token',
+  refreshToken: 'refresh-token',
   user: {
     id: 1,
     email: REQUEST.email,

@@ -112,7 +112,7 @@ describe('LandingPage', () => {
         role: account.role,
         walletAddress: null,
       }
-      useAuthStore.getState().signIn(signedInUser, 'access-token')
+      useAuthStore.getState().signIn(signedInUser, 'access-token', 'refresh-token')
       const user = userEvent.setup()
       renderLandingPage()
 
@@ -138,6 +138,7 @@ describe('LandingPage', () => {
         walletAddress: null,
       },
       'access-token',
+      'refresh-token',
     )
     const user = userEvent.setup()
     renderLandingPage()

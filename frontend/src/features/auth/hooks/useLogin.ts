@@ -15,7 +15,7 @@ export function useLogin() {
 
   return useMutation<LoginResponse, AppError, LoginRequest>({
     mutationFn: login,
-    onSuccess: ({ user, accessToken }) => {
+    onSuccess: ({ user, accessToken, refreshToken }) => {
       signIn(
         {
           id: user.id,
@@ -26,6 +26,7 @@ export function useLogin() {
           walletAddress: null,
         },
         accessToken,
+        refreshToken,
       )
     },
   })
