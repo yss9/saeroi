@@ -105,19 +105,24 @@ function stageIcon(stage: JourneyStageType, size = 20) {
   return <Icon size={size} weight="duotone" aria-hidden="true" />
 }
 
-function useReducedMotion() {
-  const [reduced, setReduced] = useState(false)
+function useMediaQuery(query: string) {
+  const [matches, setMatches] = useState(() => (
+    typeof window.matchMedia === 'function' && window.matchMedia(query).matches
+  ))
 
   useEffect(() => {
     if (typeof window.matchMedia !== 'function') return
-    const media = window.matchMedia('(prefers-reduced-motion: reduce)')
-    const update = () => setReduced(media.matches)
-    update()
+    const media = window.matchMedia(query)
+    const update = () => setMatches(media.matches)
     media.addEventListener('change', update)
     return () => media.removeEventListener('change', update)
-  }, [])
+  }, [query])
 
-  return reduced
+  return matches
+}
+
+function useReducedMotion() {
+  return useMediaQuery('(prefers-reduced-motion: reduce)')
 }
 
 export function JourneyExplorer({ journey }: { journey: ProductJourney }) {
@@ -128,6 +133,7 @@ export function JourneyExplorer({ journey }: { journey: ProductJourney }) {
     ?? null
   ))
   const [viewMode, setViewMode] = useState<ViewMode>('MAP')
+  const isMobile = useMediaQuery('(max-width: 760px)')
 
   const handleStageChange = (nextStage: JourneyStageType) => {
     const nextStageInfo = journey.stages.find((item) => item.stage === nextStage)
@@ -138,6 +144,18 @@ export function JourneyExplorer({ journey }: { journey: ProductJourney }) {
       ?? null
     setActiveStage(nextStage)
     setActiveNodeId(firstNode)
+  }
+
+  if (isMobile) {
+    return (
+      <MobileJourneyExplorer
+        journey={journey}
+        activeStage={activeStage}
+        activeNodeId={activeNodeId}
+        onChangeStage={handleStageChange}
+        onSelectNode={setActiveNodeId}
+      />
+    )
   }
 
   return (
@@ -193,6 +211,90 @@ export function JourneyExplorer({ journey }: { journey: ProductJourney }) {
   )
 }
 
+function MobileJourneyExplorer({
+  journey,
+  activeStage,
+  activeNodeId,
+  onChangeStage,
+  onSelectNode,
+}: {
+  journey: ProductJourney
+  activeStage: JourneyStageType
+  activeNodeId: string | null
+  onChangeStage: (stage: JourneyStageType) => void
+  onSelectNode: (nodeId: string) => void
+}) {
+  const handleMapNodeSelect = (nodeId: string) => {
+    const node = journey.nodes.find((item) => item.nodeId === nodeId)
+    if (node && node.stage !== activeStage) onChangeStage(node.stage)
+    onSelectNode(nodeId)
+  }
+
+  return (
+    <section className="journey-explorer journey-explorer--mobile" aria-label="모바일 제품 여정">
+      <header className="mobile-journey__intro">
+        <div>
+          <p>PRODUCT JOURNEY</p>
+          <h2>여정 확인</h2>
+        </div>
+        <span>{journey.nodes.length}개의 기록 지점</span>
+      </header>
+
+      <JourneyCanvas
+        journey={journey}
+        activeStage={activeStage}
+        activeNodeId={activeNodeId}
+        viewMode="MAP"
+        compact
+        showEntireJourney
+        onSelectNode={handleMapNodeSelect}
+      />
+
+      <section className="mobile-journey__stages" aria-labelledby="mobile-journey-stages-title">
+        <div className="mobile-journey__section-heading">
+          <h2 id="mobile-journey-stages-title">여정 단계</h2>
+          <p>단계를 누르면 지도와 상세 기록이 함께 바뀝니다.</p>
+        </div>
+        <JourneyStepper
+          stages={journey.stages}
+          activeStage={activeStage}
+          onChange={onChangeStage}
+        />
+      </section>
+
+      <JourneyDetailPanel
+        journey={journey}
+        activeStage={activeStage}
+        activeNodeId={activeNodeId}
+        onSelectNode={onSelectNode}
+      />
+
+      <MobileJourneySummary journey={journey} />
+    </section>
+  )
+}
+
+function MobileJourneySummary({ journey }: { journey: ProductJourney }) {
+  return (
+    <div className="mobile-journey__summary" aria-label="제품 여정 요약">
+      <section>
+        <Leaf size={23} weight="duotone" aria-hidden="true" />
+        <div>
+          <span>업사이클 소재</span>
+          <strong>{Math.round(journey.upcycleRatio)}%</strong>
+        </div>
+      </section>
+      <section className={journey.blockchainVerified ? 'is-verified' : ''}>
+        <ShieldCheck size={23} weight="duotone" aria-hidden="true" />
+        <div>
+          <span>Journey 기록</span>
+          <strong>{journey.blockchainVerified ? '검증 완료' : '확인 중'}</strong>
+        </div>
+      </section>
+    </div>
+  )
+}
+
 function JourneyStepper({
   stages,
   activeStage,
@@ -234,12 +336,16 @@ function JourneyCanvas({
   activeStage,
   activeNodeId,
   viewMode,
+  compact = false,
+  showEntireJourney = false,
   onSelectNode,
 }: {
   journey: ProductJourney
   activeStage: JourneyStageType
   activeNodeId: string | null
   viewMode: ViewMode
+  compact?: boolean
+  showEntireJourney?: boolean
   onSelectNode: (nodeId: string) => void
 }) {
   const reducedMotion = useReducedMotion()
@@ -249,7 +355,7 @@ function JourneyCanvas({
   )
   const activeIndex = stageIndex(activeStage)
   const visibleEdges = journey.edges.filter((edge) =>
-    viewMode === 'FLOW' || stageIndex(edge.stage) <= activeIndex,
+    viewMode === 'FLOW' || showEntireJourney || stageIndex(edge.stage) <= activeIndex,
   )
   const connectedIds = new Set(
     journey.edges
@@ -258,18 +364,19 @@ function JourneyCanvas({
   )
   const visibleNodes = journey.nodes.filter((node) =>
     viewMode === 'FLOW'
+      || showEntireJourney
       || stageIndex(node.stage) <= activeIndex
       || connectedIds.has(node.nodeId),
   )
 
   return (
-    <div className={`journey-canvas journey-canvas--${viewMode.toLowerCase()}`}>
+    <div className={`journey-canvas journey-canvas--${viewMode.toLowerCase()}${compact ? ' journey-canvas--compact' : ''}`}>
       <div className="journey-canvas__heading">
         <span>{viewMode === 'MAP' ? 'Journey Map' : 'Flow View'}</span>
         <strong>{STAGE_LABEL[activeStage]}</strong>
       </div>
       <svg
-        viewBox="0 0 1000 620"
+        viewBox={compact && viewMode === 'MAP' ? '240 0 560 620' : '0 0 1000 620'}
         role="img"
         aria-label={`${STAGE_LABEL[activeStage]} 업체 위치와 이동 경로`}
       >
