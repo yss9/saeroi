@@ -126,7 +126,7 @@ class ProductionQrApiTests {
                 .getResponse()
                 .getContentAsByteArray();
 
-        assertThat(decodeQr(png)).endsWith("/passport/" + item.getQrToken());
+        assertThat(decodeQr(png)).endsWith("/qr/" + item.getQrToken());
     }
 
     @Test

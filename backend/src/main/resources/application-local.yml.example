@@ -32,7 +32,7 @@ app:
 
   qr:
     # 필수. 비어 있으면 기동하지 않는다 — 잘못된 주소로 인쇄된 QR 은 되돌릴 수 없다.
-    base-url: http://localhost:5173/passport
+    base-url: http://localhost:5173/qr
 
   security:
     jwt:
