@@ -4,6 +4,8 @@ import com.ssafy.upcycle.common.response.ApiResponse;
 import com.ssafy.upcycle.user.dto.EmailLoginRequest;
 import com.ssafy.upcycle.user.dto.EmailLoginResponse;
 import com.ssafy.upcycle.user.service.EmailLoginService;
+import com.ssafy.upcycle.user.service.RefreshTokenCookieWriter;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -18,9 +20,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class EmailAuthController {
 
     private final EmailLoginService emailLoginService;
+    private final RefreshTokenCookieWriter refreshTokenCookieWriter;
 
     @PostMapping("/login")
-    public ApiResponse<EmailLoginResponse> login(@Valid @RequestBody EmailLoginRequest request) {
-        return ApiResponse.success(emailLoginService.login(request));
+    public ApiResponse<EmailLoginResponse> login(
+            @Valid @RequestBody EmailLoginRequest request,
+            HttpServletResponse response) {
+        EmailLoginResponse result = emailLoginService.login(request);
+        refreshTokenCookieWriter.write(response, result.refreshToken());
+        return ApiResponse.success(result);
     }
 }

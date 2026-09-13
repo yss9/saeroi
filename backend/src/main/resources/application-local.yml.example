@@ -34,6 +34,11 @@ app:
     # 필수. 비어 있으면 기동하지 않는다 — 잘못된 주소로 인쇄된 QR 은 되돌릴 수 없다.
     base-url: http://localhost:5173/passport
 
+  auth:
+    refresh-token:
+      # 로컬 HTTP에서만 false. 운영 환경은 반드시 true로 유지한다.
+      cookie-secure: false
+
   security:
     jwt:
       # Base64 로 인코딩된 32바이트 이상이어야 한다. 아니면 부팅이 실패한다

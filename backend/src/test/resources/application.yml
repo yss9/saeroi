@@ -36,5 +36,7 @@ app:
   auth:
     refresh-token:
       ttl: P14D
+      cookie-secure: true
+      cookie-same-site: Strict
     wallet:
       nonce-ttl: PT5M

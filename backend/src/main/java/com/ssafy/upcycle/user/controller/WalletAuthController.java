@@ -5,7 +5,9 @@ import com.ssafy.upcycle.user.dto.WalletLoginResponse;
 import com.ssafy.upcycle.user.dto.WalletNonceRequest;
 import com.ssafy.upcycle.user.dto.WalletNonceResponse;
 import com.ssafy.upcycle.user.dto.WalletVerifyRequest;
+import com.ssafy.upcycle.user.service.RefreshTokenCookieWriter;
 import com.ssafy.upcycle.user.service.WalletAuthService;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -29,6 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class WalletAuthController {
 
     private final WalletAuthService walletAuthService;
+    private final RefreshTokenCookieWriter refreshTokenCookieWriter;
 
     @PostMapping("/nonce")
     public ApiResponse<WalletNonceResponse> issueNonce(@Valid @RequestBody WalletNonceRequest request) {
@@ -36,7 +39,11 @@ public class WalletAuthController {
     }
 
     @PostMapping("/verify")
-    public ApiResponse<WalletLoginResponse> verify(@Valid @RequestBody WalletVerifyRequest request) {
-        return ApiResponse.success(walletAuthService.verify(request));
+    public ApiResponse<WalletLoginResponse> verify(
+            @Valid @RequestBody WalletVerifyRequest request,
+            HttpServletResponse response) {
+        WalletLoginResponse result = walletAuthService.verify(request);
+        refreshTokenCookieWriter.write(response, result.refreshToken());
+        return ApiResponse.success(result);
     }
 }
