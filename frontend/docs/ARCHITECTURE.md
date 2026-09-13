@@ -75,7 +75,7 @@ useEffect(() => { setMaterialsInStore(data) }, [data])
 
 | Store | 담는 것 |
 | --- | --- |
-| `authStore` | `user`, `accessToken`, `refreshToken`, `isAuthenticated` |
+| `authStore` | `user`, `accessToken`, `isAuthenticated` (Refresh Token은 HttpOnly 쿠키) |
 | `walletStore` | `address`, `chainId`, `isConnected` |
 | `uiStore` | 사이드바 열림 여부, 전역 Modal |
 

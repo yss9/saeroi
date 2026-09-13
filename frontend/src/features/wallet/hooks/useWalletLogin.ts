@@ -29,7 +29,6 @@ import { getChainIdNumber, getWalletAddress, signMessage } from '../services/wal
 export interface WalletLoginResult {
   user: AuthUser
   accessToken: string
-  refreshToken: string
 }
 
 /** 이메일 로그인(useLogin)과 달리 방금 검증한 주소를 그대로 채운다. */
@@ -79,14 +78,14 @@ export function useWalletLogin() {
 
       // nonce 를 함께 보낸다. 서버가 어느 발급분에 대한 서명인지 특정해야
       // 정확히 그 한 건만 1회용으로 소모할 수 있다.
-      const { accessToken, refreshToken, user } = await verifyWalletSignature({
+      const { accessToken, user } = await verifyWalletSignature({
         walletAddress: address,
         nonce,
         signature,
       })
 
-      return { accessToken, refreshToken, user: toAuthUser(user, address) }
+      return { accessToken, user: toAuthUser(user, address) }
     },
-    onSuccess: ({ user, accessToken, refreshToken }) => signIn(user, accessToken, refreshToken),
+    onSuccess: ({ user, accessToken }) => signIn(user, accessToken),
   })
 }

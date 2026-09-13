@@ -10,7 +10,6 @@ beforeEach(() => {
   useAuthStore.setState({
     user: null,
     accessToken: null,
-    refreshToken: null,
     isAuthenticated: false,
   })
 })
@@ -22,13 +21,12 @@ describe('계정별 서버 캐시', () => {
     useAuthStore.getState().signIn(
       { id: 2, email: 'branda@test.com', name: 'BrandA', role: 'BRAND', walletAddress: null },
       'brand-token',
-      'brand-refresh-token',
     )
 
     expect(queryClient.getQueryData(inventoryKey)).toBeUndefined()
   })
 
-  it('현재 세션의 Refresh Token과 일치할 때 두 토큰을 함께 교체한다', () => {
+  it('재발급을 시작한 세션과 일치할 때 Access Token을 교체한다', () => {
     const user = {
       id: 2,
       email: 'branda@test.com',
@@ -36,17 +34,16 @@ describe('계정별 서버 캐시', () => {
       role: 'BRAND' as const,
       walletAddress: null,
     }
-    useAuthStore.getState().signIn(user, 'old-access', 'old-refresh')
+    useAuthStore.getState().signIn(user, 'old-access')
 
-    const rotated = useAuthStore
+    const refreshed = useAuthStore
       .getState()
-      .rotateTokens('old-refresh', 'new-access', 'new-refresh')
+      .refreshAccessToken(user.id, 'old-access', 'new-access')
 
-    expect(rotated).toBe(true)
+    expect(refreshed).toBe(true)
     expect(useAuthStore.getState()).toMatchObject({
       user,
       accessToken: 'new-access',
-      refreshToken: 'new-refresh',
       isAuthenticated: true,
     })
   })
@@ -55,17 +52,34 @@ describe('계정별 서버 캐시', () => {
     useAuthStore.getState().signIn(
       { id: 2, email: 'branda@test.com', name: 'BrandA', role: 'BRAND', walletAddress: null },
       'current-access',
-      'current-refresh',
     )
 
-    const rotated = useAuthStore
+    const refreshed = useAuthStore
       .getState()
-      .rotateTokens('stale-refresh', 'stale-access-2', 'stale-refresh-2')
+      .refreshAccessToken(2, 'stale-access', 'stale-access-2')
 
-    expect(rotated).toBe(false)
+    expect(refreshed).toBe(false)
     expect(useAuthStore.getState()).toMatchObject({
       accessToken: 'current-access',
-      refreshToken: 'current-refresh',
+    })
+  })
+
+  it('Refresh Token을 localStorage에 저장하지 않는다', () => {
+    useAuthStore.getState().signIn(
+      { id: 2, email: 'branda@test.com', name: 'BrandA', role: 'BRAND', walletAddress: null },
+      'access-token',
+    )
+
+    const persisted = JSON.parse(localStorage.getItem('saeroi.auth') ?? '{}')
+    expect(persisted.state).toEqual({
+      user: {
+        id: 2,
+        email: 'branda@test.com',
+        name: 'BrandA',
+        role: 'BRAND',
+        walletAddress: null,
+      },
+      accessToken: 'access-token',
     })
   })
 
@@ -75,6 +89,6 @@ describe('계정별 서버 캐시', () => {
     useAuthStore.getState().signOut()
 
     expect(queryClient.getQueryData(inventoryKey)).toBeUndefined()
-    expect(useAuthStore.getState().refreshToken).toBeNull()
+    expect(useAuthStore.getState().accessToken).toBeNull()
   })
 })

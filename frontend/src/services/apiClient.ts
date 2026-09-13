@@ -12,7 +12,7 @@
 
 import axios, { AxiosError, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
 import { env } from '../config/env.ts'
-import { getAccessToken, getRefreshToken, useAuthStore } from '../stores/authStore.ts'
+import { getAccessToken, useAuthStore } from '../stores/authStore.ts'
 import type { ApiEnvelope, ValidationError } from '../types/api.types.ts'
 import { createAppError, ERROR_KIND, isAppError, type AppError } from '../utils/errors.ts'
 
@@ -29,9 +29,8 @@ declare module 'axios' {
   }
 }
 
-interface RefreshedTokens {
+interface RefreshedAccessToken {
   accessToken: string
-  refreshToken: string
 }
 
 const REFRESH_PATH = '/v1/auth/refresh'
@@ -39,6 +38,8 @@ let refreshInFlight: Promise<void> | null = null
 
 export const apiClient = axios.create({
   baseURL: env.apiBaseUrl,
+  // Refresh Token은 HttpOnly 쿠키이므로 교차 Origin 개발 환경에서도 쿠키를 주고받는다.
+  withCredentials: true,
   timeout: 10_000,
   headers: { 'Content-Type': 'application/json' },
 })
@@ -83,9 +84,16 @@ async function handleResponseError(error: unknown): Promise<AxiosResponse> {
   }
 
   const config = error.config
-  const refreshToken = getRefreshToken()
+  const session = useAuthStore.getState()
 
-  if (!config || config.skipTokenRefresh || config.retriedAfterTokenRefresh || !refreshToken) {
+  if (
+    !config ||
+    config.skipTokenRefresh ||
+    config.retriedAfterTokenRefresh ||
+    !session.user ||
+    !session.accessToken ||
+    !session.isAuthenticated
+  ) {
     handleUnauthorized()
     return Promise.reject(normalizeAxiosError(error))
   }
@@ -131,8 +139,8 @@ function getOrStartTokenRefresh(): Promise<void> {
 }
 
 async function refreshSession(): Promise<void> {
-  const currentRefreshToken = getRefreshToken()
-  if (!currentRefreshToken) {
+  const session = useAuthStore.getState()
+  if (!session.user || !session.accessToken || !session.isAuthenticated) {
     throw createAppError(ERROR_KIND.API_ERROR, {
       code: 'INVALID_REFRESH_TOKEN',
       status: 401,
@@ -140,37 +148,32 @@ async function refreshSession(): Promise<void> {
     })
   }
 
-  const { data } = await apiClient.post<RefreshedTokens>(
+  const { data } = await apiClient.post<RefreshedAccessToken>(
     REFRESH_PATH,
-    { refreshToken: currentRefreshToken },
+    undefined,
     { skipAuth: true, skipTokenRefresh: true },
   )
 
-  if (!isTokenPair(data)) {
+  if (!isRefreshedAccessToken(data)) {
     throw createAppError(ERROR_KIND.UNKNOWN, {
       message: '토큰 재발급 응답 형식이 올바르지 않습니다.',
     })
   }
 
-  const rotated = useAuthStore
+  const refreshed = useAuthStore
     .getState()
-    .rotateTokens(currentRefreshToken, data.accessToken, data.refreshToken)
-  if (!rotated) {
+    .refreshAccessToken(session.user.id, session.accessToken, data.accessToken)
+  if (!refreshed) {
     throw createAppError(ERROR_KIND.UNKNOWN, {
       message: '로그인 상태가 변경되어 토큰을 갱신하지 않았습니다.',
     })
   }
 }
 
-function isTokenPair(value: unknown): value is RefreshedTokens {
+function isRefreshedAccessToken(value: unknown): value is RefreshedAccessToken {
   if (!value || typeof value !== 'object') return false
-  const candidate = value as Partial<RefreshedTokens>
-  return (
-    typeof candidate.accessToken === 'string' &&
-    candidate.accessToken.length > 0 &&
-    typeof candidate.refreshToken === 'string' &&
-    candidate.refreshToken.length > 0
-  )
+  const candidate = value as Partial<RefreshedAccessToken>
+  return typeof candidate.accessToken === 'string' && candidate.accessToken.length > 0
 }
 
 /** axios 가 던진 무엇이든 AppError 로 바꾼다. */
@@ -212,5 +215,5 @@ function normalizeAxiosError(error: unknown): AppError {
  */
 function handleUnauthorized(): void {
   const state = useAuthStore.getState()
-  if (state.user || state.accessToken || state.refreshToken || state.isAuthenticated) state.signOut()
+  if (state.user || state.accessToken || state.isAuthenticated) state.signOut()
 }

@@ -16,12 +16,11 @@ export interface LoginRequest {
   password: string
 }
 
-export interface TokenPair {
+export interface AccessTokenResponse {
   accessToken: string
-  refreshToken: string
 }
 
-export interface LoginResponse extends TokenPair {
+export interface LoginResponse extends AccessTokenResponse {
   user: UserProfile
 }
 

@@ -28,10 +28,11 @@ describe('requestWalletNonce', () => {
 
     await requestWalletNonce({ walletAddress: ADDRESS, chainId: 1337 })
 
-    expect(post).toHaveBeenCalledWith('/v1/auth/wallet/nonce', {
-      walletAddress: ADDRESS,
-      chainId: 1337,
-    })
+    expect(post).toHaveBeenCalledWith(
+      '/v1/auth/wallet/nonce',
+      { walletAddress: ADDRESS, chainId: 1337 },
+      { skipAuth: true, skipTokenRefresh: true },
+    )
   })
 
   it('봉투가 벗겨진 알맹이를 그대로 돌려준다', async () => {
@@ -46,19 +47,19 @@ describe('requestWalletNonce', () => {
 
 describe('verifyWalletSignature', () => {
   it('nonce 를 포함해 보낸다', async () => {
-    const post = respondWith({ accessToken: 'jwt', refreshToken: 'refresh', user: {} })
+    const post = respondWith({ accessToken: 'jwt', user: {} })
 
     await verifyWalletSignature({ walletAddress: ADDRESS, nonce: NONCE, signature: SIGNATURE })
 
-    expect(post).toHaveBeenCalledWith('/v1/auth/wallet/verify', {
-      walletAddress: ADDRESS,
-      nonce: NONCE,
-      signature: SIGNATURE,
-    })
+    expect(post).toHaveBeenCalledWith(
+      '/v1/auth/wallet/verify',
+      { walletAddress: ADDRESS, nonce: NONCE, signature: SIGNATURE },
+      { skipAuth: true, skipTokenRefresh: true },
+    )
   })
 
-  it('두 토큰과 user 를 돌려준다', async () => {
-    const payload = { accessToken: 'jwt', refreshToken: 'refresh', user: { id: 1 } }
+  it('Access Token과 user를 돌려준다', async () => {
+    const payload = { accessToken: 'jwt', user: { id: 1 } }
     respondWith(payload)
 
     await expect(

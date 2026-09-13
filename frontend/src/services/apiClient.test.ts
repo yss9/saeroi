@@ -55,7 +55,6 @@ describe('apiClient', () => {
     useAuthStore.setState({
       user: null,
       accessToken: null,
-      refreshToken: null,
       isAuthenticated: false,
     })
   })
@@ -67,7 +66,6 @@ describe('apiClient', () => {
   it('토큰이 있으면 Authorization 헤더를 붙인다', async () => {
     useAuthStore.setState({
       accessToken: 'access-token',
-      refreshToken: 'refresh-token',
       isAuthenticated: true,
       user: FIXTURE_USER,
     })
@@ -159,38 +157,18 @@ describe('apiClient', () => {
     ).rejects.toMatchObject({ kind: ERROR_KIND.NETWORK_ERROR, status: null })
   })
 
-  it('Refresh Token이 없는 세션에서 401 을 받으면 인증 상태를 비운다', async () => {
-    useAuthStore.setState({
-      accessToken: 'stale-token',
-      refreshToken: null,
-      isAuthenticated: true,
-      user: FIXTURE_USER,
-    })
-
-    await expect(
-      apiClient.get('/materials', {
-        adapter: async (config) =>
-          Promise.reject(
-            httpError(config, 401, errorEnvelope('TOKEN_EXPIRED', '토큰이 만료되었습니다.')),
-          ),
-      }),
-    ).rejects.toMatchObject({ status: 401 })
-
-    const state = useAuthStore.getState()
-    expect(state.isAuthenticated).toBe(false)
-    expect(state.accessToken).toBeNull()
-    expect(state.refreshToken).toBeNull()
+  it('HttpOnly Refresh Token 쿠키를 주고받도록 credentials를 포함한다', () => {
+    expect(apiClient.defaults.withCredentials).toBe(true)
   })
 
   it('401 을 받으면 토큰을 재발급하고 원래 요청을 한 번 재시도한다', async () => {
     useAuthStore.setState({
       accessToken: 'old-access',
-      refreshToken: 'old-refresh',
       isAuthenticated: true,
       user: FIXTURE_USER,
     })
     const refresh = vi.spyOn(apiClient, 'post').mockResolvedValue({
-      data: { accessToken: 'new-access', refreshToken: 'new-refresh' },
+      data: { accessToken: 'new-access' },
     } as AxiosResponse)
     let attempts = 0
     const authorizationHeaders: Array<string | undefined> = []
@@ -210,7 +188,7 @@ describe('apiClient', () => {
 
     expect(refresh).toHaveBeenCalledWith(
       '/v1/auth/refresh',
-      { refreshToken: 'old-refresh' },
+      undefined,
       { skipAuth: true, skipTokenRefresh: true },
     )
     expect(attempts).toBe(2)
@@ -218,7 +196,6 @@ describe('apiClient', () => {
     expect(response.data).toEqual([{ id: 1 }])
     expect(useAuthStore.getState()).toMatchObject({
       accessToken: 'new-access',
-      refreshToken: 'new-refresh',
       isAuthenticated: true,
     })
   })
@@ -226,7 +203,6 @@ describe('apiClient', () => {
   it('여러 요청이 동시에 401 을 받아도 재발급 요청은 하나만 공유한다', async () => {
     useAuthStore.setState({
       accessToken: 'old-access',
-      refreshToken: 'old-refresh',
       isAuthenticated: true,
       user: FIXTURE_USER,
     })
@@ -255,7 +231,7 @@ describe('apiClient', () => {
     const second = expiringRequest('/trades')
     await vi.waitFor(() => expect(refresh).toHaveBeenCalledTimes(1))
     releaseRefresh!({
-      data: { accessToken: 'new-access', refreshToken: 'new-refresh' },
+      data: { accessToken: 'new-access' },
     } as AxiosResponse)
 
     const responses = await Promise.all([first, second])
@@ -263,10 +239,9 @@ describe('apiClient', () => {
     expect(refresh).toHaveBeenCalledTimes(1)
   })
 
-  it('재발급이 실패하면 두 토큰을 지우고 로그아웃한다', async () => {
+  it('재발급이 실패하면 Access Token을 지우고 로그아웃한다', async () => {
     useAuthStore.setState({
       accessToken: 'old-access',
-      refreshToken: 'expired-refresh',
       isAuthenticated: true,
       user: FIXTURE_USER,
     })
@@ -290,7 +265,6 @@ describe('apiClient', () => {
     expect(useAuthStore.getState()).toMatchObject({
       user: null,
       accessToken: null,
-      refreshToken: null,
       isAuthenticated: false,
     })
   })
@@ -298,12 +272,11 @@ describe('apiClient', () => {
   it('재발급 뒤 재시도한 요청도 401이면 반복하지 않고 로그아웃한다', async () => {
     useAuthStore.setState({
       accessToken: 'old-access',
-      refreshToken: 'old-refresh',
       isAuthenticated: true,
       user: FIXTURE_USER,
     })
     const refresh = vi.spyOn(apiClient, 'post').mockResolvedValue({
-      data: { accessToken: 'new-access', refreshToken: 'new-refresh' },
+      data: { accessToken: 'new-access' },
     } as AxiosResponse)
     let attempts = 0
 
@@ -323,7 +296,6 @@ describe('apiClient', () => {
     expect(useAuthStore.getState()).toMatchObject({
       user: null,
       accessToken: null,
-      refreshToken: null,
       isAuthenticated: false,
     })
   })

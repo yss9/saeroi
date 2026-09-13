@@ -11,7 +11,6 @@ const REQUEST = {
 
 const RESPONSE: LoginResponse = {
   accessToken: 'jwt-access-token',
-  refreshToken: 'refresh-token',
   user: {
     id: 1,
     email: REQUEST.email,
@@ -35,7 +34,10 @@ describe('login', () => {
 
     await login(REQUEST)
 
-    expect(post).toHaveBeenCalledWith('/v1/auth/login', REQUEST)
+    expect(post).toHaveBeenCalledWith('/v1/auth/login', REQUEST, {
+      skipAuth: true,
+      skipTokenRefresh: true,
+    })
   })
 
   it('공통 응답 봉투가 벗겨진 로그인 결과를 그대로 반환한다', async () => {

@@ -157,7 +157,7 @@ describe('성공 흐름', () => {
     installProvider(provider)
     markConnected()
     api.requestWalletNonce.mockResolvedValue(nonceResponse())
-    api.verifyWalletSignature.mockResolvedValue({ accessToken: 'jwt', refreshToken: 'refresh-token', user: USER })
+    api.verifyWalletSignature.mockResolvedValue({ accessToken: 'jwt', user: USER })
     const onSuccess = vi.fn()
 
     renderWithClient(<WalletLoginButton onSuccess={onSuccess} />)
@@ -192,7 +192,6 @@ describe('성공 흐름', () => {
       const state = useAuthStore.getState()
       expect(state.isAuthenticated).toBe(true)
       expect(state.accessToken).toBe('jwt')
-      expect(state.refreshToken).toBe('refresh-token')
       expect(state.user?.walletAddress).toBe(CHECKSUM)
       expect(state.user?.id).toBe(USER.id)
     })
@@ -208,7 +207,7 @@ describe('성공 흐름', () => {
         release = resolve
       }),
     )
-    api.verifyWalletSignature.mockResolvedValue({ accessToken: 'jwt', refreshToken: 'refresh-token', user: USER })
+    api.verifyWalletSignature.mockResolvedValue({ accessToken: 'jwt', user: USER })
 
     renderWithClient(<WalletLoginButton />)
     await userEvent.click(screen.getByRole('button', { name: '지갑으로 로그인' }))
@@ -358,7 +357,7 @@ describe('실패 흐름', () => {
       createAppError(ERROR_KIND.API_ERROR, { code: 'NONCE_EXPIRED', message: '만료' }),
     )
     api.requestWalletNonce.mockResolvedValue(nonceResponse())
-    api.verifyWalletSignature.mockResolvedValue({ accessToken: 'jwt', refreshToken: 'refresh-token', user: USER })
+    api.verifyWalletSignature.mockResolvedValue({ accessToken: 'jwt', user: USER })
 
     renderWithClient(<WalletLoginButton />)
     await userEvent.click(screen.getByRole('button', { name: '지갑으로 로그인' }))

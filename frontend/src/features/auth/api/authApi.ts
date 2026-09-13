@@ -12,6 +12,9 @@ import { apiClient } from '../../../services/apiClient.ts'
 import type { LoginRequest, LoginResponse } from '../types/auth.types.ts'
 
 export async function login(payload: LoginRequest): Promise<LoginResponse> {
-  const { data } = await apiClient.post<LoginResponse>('/v1/auth/login', payload)
+  const { data } = await apiClient.post<LoginResponse>('/v1/auth/login', payload, {
+    skipAuth: true,
+    skipTokenRefresh: true,
+  })
   return data
 }
