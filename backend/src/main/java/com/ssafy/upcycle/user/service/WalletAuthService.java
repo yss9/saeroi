@@ -1,8 +1,6 @@
 package com.ssafy.upcycle.user.service;
 
 import com.ssafy.upcycle.common.exception.BusinessException;
-import com.ssafy.upcycle.common.security.jwt.AccessToken;
-import com.ssafy.upcycle.common.security.jwt.JwtTokenService;
 import com.ssafy.upcycle.user.WalletAuthErrorCode;
 import com.ssafy.upcycle.user.config.WalletAuthProperties;
 import com.ssafy.upcycle.user.dto.UserSummaryResponse;
@@ -19,7 +17,6 @@ import com.ssafy.upcycle.user.repository.UserWalletRepository;
 import com.ssafy.upcycle.user.repository.WalletNonceRepository;
 import java.time.Clock;
 import java.time.LocalDateTime;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,7 +42,7 @@ public class WalletAuthService {
     private final WalletNonceRepository walletNonceRepository;
     private final WalletSignatureVerifier signatureVerifier;
     private final WalletNonceGenerator nonceGenerator;
-    private final JwtTokenService jwtTokenService;
+    private final RefreshTokenService refreshTokenService;
     private final WalletAuthProperties properties;
     private final Clock clock;
 
@@ -138,10 +135,9 @@ public class WalletAuthService {
         wallet.markVerified(now);
 
         User user = requireWalletCapableUser(wallet.getUserId());
-        AccessToken token =
-                jwtTokenService.issueAccessToken(String.valueOf(user.getId()), List.of(user.getRole().name()));
-
-        return new WalletLoginResponse(token.value(), UserSummaryResponse.from(user));
+        IssuedTokenPair tokens = refreshTokenService.issueFor(user);
+        return new WalletLoginResponse(
+                tokens.accessToken(), tokens.refreshToken(), UserSummaryResponse.from(user));
     }
 
     /**

@@ -107,6 +107,7 @@ class WalletAuthControllerTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.data.refreshToken").isNotEmpty())
                 .andExpect(jsonPath("$.data.user.id").value(userId))
                 .andExpect(jsonPath("$.data.user.email").value("supplier@example.com"))
                 .andExpect(jsonPath("$.data.user.name").value("공급자"))

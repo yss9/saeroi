@@ -66,6 +66,7 @@ class EmailAuthControllerTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.data.refreshToken").isNotEmpty())
                 .andExpect(jsonPath("$.data.user.id").value(user.getId()))
                 .andExpect(jsonPath("$.data.user.email").value(EMAIL))
                 .andExpect(jsonPath("$.data.user.name").value("소비자"))

@@ -34,5 +34,7 @@ app:
       issuer: upcycle-test
       access-token-ttl: PT30M
   auth:
+    refresh-token:
+      ttl: P14D
     wallet:
       nonce-ttl: PT5M
