@@ -1005,6 +1005,317 @@
   }
 }
 
+@media (max-width: 760px) {
+  .passport__content {
+    width: min(100% - 24px, 560px);
+    padding-top: 14px;
+  }
+
+  .passport-product {
+    grid-template-columns: 92px minmax(0, 1fr);
+    gap: 13px;
+    min-height: 0;
+    padding: 12px;
+    border-radius: 15px;
+  }
+
+  .passport-product__image {
+    width: 92px;
+    border-radius: 11px;
+  }
+
+  .passport-product__eyebrow {
+    margin-bottom: 3px;
+    font-size: 8px;
+  }
+
+  .passport-product__identity h1 {
+    font-family: inherit;
+    font-size: clamp(21px, 6.5vw, 28px);
+    font-weight: 750;
+  }
+
+  .passport-product__brand {
+    margin: 2px 0 5px;
+    font-size: 14px;
+  }
+
+  .passport-product__description {
+    margin-bottom: 7px;
+    font-size: 10px;
+    -webkit-line-clamp: 1;
+  }
+
+  .passport-product__verified {
+    font-size: 9px;
+  }
+
+  .passport-product__meta {
+    grid-column: 1 / -1;
+    grid-template-columns: 1fr 1fr 1fr;
+    border-top: 1px solid #ebe8e1;
+  }
+
+  .passport-product__meta div,
+  .passport-product__meta div:last-child {
+    grid-column: auto;
+    gap: 4px;
+    padding: 10px 8px 2px;
+    border-top: 0;
+    border-left: 1px solid #ebe8e1;
+  }
+
+  .passport-product__meta div:first-child {
+    border-left: 0;
+  }
+
+  .passport-product__meta dt {
+    font-size: 9px;
+  }
+
+  .passport-product__meta dd {
+    overflow: hidden;
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .passport-product__status {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+    justify-content: center;
+    max-width: none;
+    padding: 8px 10px;
+    font-size: 10px;
+  }
+
+  .journey-explorer--mobile {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+  .mobile-journey__intro {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 2px 3px;
+  }
+
+  .mobile-journey__intro p,
+  .mobile-journey__intro h2 {
+    margin: 0;
+  }
+
+  .mobile-journey__intro p {
+    color: #517894;
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+  }
+
+  .mobile-journey__intro h2 {
+    margin-top: 2px;
+    font-size: 21px;
+  }
+
+  .mobile-journey__intro > span {
+    padding: 6px 9px;
+    border-radius: 999px;
+    background: #eaf2f5;
+    color: #557184;
+    font-size: 9px;
+    font-weight: 650;
+  }
+
+  .journey-canvas--compact {
+    order: 1;
+    padding: 7px;
+    border-radius: 15px;
+  }
+
+  .journey-canvas--compact svg {
+    width: 100%;
+    min-height: 0;
+    aspect-ratio: 0.9 / 1;
+  }
+
+  .journey-canvas--compact .journey-canvas__heading {
+    top: 20px;
+    left: 20px;
+  }
+
+  .journey-canvas--compact .journey-canvas__heading span {
+    font-size: 8px;
+  }
+
+  .journey-canvas--compact .journey-canvas__heading strong {
+    font-size: 17px;
+  }
+
+  .journey-canvas--compact .journey-canvas__legend {
+    right: 15px;
+    bottom: 15px;
+    gap: 9px;
+    font-size: 8px;
+  }
+
+  .journey-canvas--compact .journey-node__halo {
+    r: 31px;
+  }
+
+  .journey-canvas--compact .journey-node__body {
+    r: 21px;
+  }
+
+  .mobile-journey__stages {
+    order: 2;
+    padding: 17px 10px 14px;
+    border: 1px solid rgba(27, 60, 86, 0.1);
+    border-radius: 15px;
+    background: rgba(255, 255, 255, 0.86);
+    box-shadow: 0 12px 35px rgba(43, 55, 66, 0.05);
+  }
+
+  .mobile-journey__section-heading {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 15px;
+    padding: 0 5px 11px;
+  }
+
+  .mobile-journey__section-heading h2,
+  .mobile-journey__section-heading p {
+    margin: 0;
+  }
+
+  .mobile-journey__section-heading h2 {
+    flex: none;
+    font-size: 17px;
+  }
+
+  .mobile-journey__section-heading p {
+    color: #7c8993;
+    font-size: 9px;
+    line-height: 1.5;
+    text-align: right;
+  }
+
+  .journey-explorer--mobile .journey-stepper {
+    margin: 0;
+  }
+
+  .journey-explorer--mobile .journey-stepper li:not(:last-child)::after {
+    top: 31px;
+  }
+
+  .journey-explorer--mobile .journey-stepper button {
+    padding-inline: 2px;
+  }
+
+  .journey-explorer--mobile .journey-stepper__number {
+    display: none;
+  }
+
+  .journey-explorer--mobile .journey-stepper__icon {
+    width: 42px;
+    height: 42px;
+    border-width: 3px;
+  }
+
+  .journey-explorer--mobile .journey-stepper__label {
+    margin-top: 6px;
+    font-size: 9px;
+    line-height: 1.25;
+    word-break: keep-all;
+  }
+
+  .journey-explorer--mobile .journey-stepper__status {
+    display: none;
+  }
+
+  .journey-explorer--mobile > .journey-detail {
+    order: 3;
+    min-height: 0;
+    padding: 17px;
+    border-radius: 15px;
+    box-shadow: 0 12px 35px rgba(43, 55, 66, 0.05);
+  }
+
+  .journey-explorer--mobile .journey-detail__header {
+    grid-template-columns: auto 1fr auto;
+    padding-bottom: 14px;
+  }
+
+  .journey-explorer--mobile .journey-detail__icon {
+    width: 42px;
+    height: 42px;
+  }
+
+  .journey-explorer--mobile .journey-detail__header h2 {
+    font-size: 18px;
+  }
+
+  .journey-explorer--mobile .journey-detail__selector {
+    margin-top: 12px;
+    scrollbar-width: none;
+  }
+
+  .journey-explorer--mobile .journey-detail__selector::-webkit-scrollbar {
+    display: none;
+  }
+
+  .journey-explorer--mobile .journey-detail__facts {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .mobile-journey__summary {
+    order: 4;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 9px;
+  }
+
+  .mobile-journey__summary section {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+    padding: 13px;
+    border: 1px solid rgba(27, 60, 86, 0.1);
+    border-radius: 13px;
+    background: rgba(255, 255, 255, 0.82);
+    color: #317354;
+  }
+
+  .mobile-journey__summary section > svg {
+    flex: none;
+  }
+
+  .mobile-journey__summary section div {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .mobile-journey__summary span {
+    overflow: hidden;
+    color: #79847f;
+    font-size: 8px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-journey__summary strong {
+    margin-top: 2px;
+    color: #264f40;
+    font-size: 12px;
+  }
+}
+
 @media (max-width: 560px) {
   .passport-brandbar {
     min-height: 60px;
@@ -1019,66 +1330,11 @@
     display: none;
   }
 
-  .passport-product {
-    gap: 15px;
-    padding: 14px;
-  }
-
-  .passport-product__identity h1 {
-    font-size: 24px;
-  }
-
-  .passport-product__verified {
+  .passport-product__meta dd {
     font-size: 10px;
   }
 
-  .passport-product__meta {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .passport-product__meta div {
-    padding: 10px;
-    border-top: 1px solid #e5e2db;
-  }
-
-  .passport-product__meta div:last-child {
-    grid-column: 1 / -1;
-    border-left: 0;
-  }
-
-  .journey-stepper__icon {
-    width: 42px;
-    height: 42px;
-    border-width: 3px;
-  }
-
-  .journey-stepper li:not(:last-child)::after {
-    top: 36px;
-  }
-
-  .journey-stepper__label {
-    font-size: 9px;
-  }
-
-  .journey-canvas {
-    padding: 6px;
-  }
-
-  .journey-canvas svg {
-    min-height: 370px;
-  }
-
-  .journey-canvas__heading {
-    top: 18px;
-    left: 18px;
-  }
-
-  .journey-canvas__legend {
-    right: 16px;
-    bottom: 16px;
-  }
-
-  .journey-detail__facts {
+  .journey-explorer--mobile .journey-detail__facts {
     grid-template-columns: 1fr;
   }
 }

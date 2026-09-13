@@ -135,6 +135,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   vi.resetAllMocks()
+  vi.unstubAllGlobals()
 })
 
 describe('PassportView', () => {
@@ -167,6 +168,33 @@ describe('PassportView', () => {
 
     await user.click(screen.getByRole('button', { name: 'Flow View' }))
     expect(screen.getByRole('button', { name: 'Flow View' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: '에코사이클' })).toHaveClass('is-active')
+  })
+
+  it('모바일에서는 지도와 단계별 상세만 간결하게 보여준다', async () => {
+    vi.stubGlobal('matchMedia', vi.fn((query: string) => ({
+      matches: query === '(max-width: 760px)',
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(() => false),
+    })))
+    const user = userEvent.setup()
+    renderView()
+
+    expect(await screen.findByRole('region', { name: '모바일 제품 여정' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '여정 확인' })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: /업체 위치와 이동 경로/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Flow View' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'ReWeave 상세 보기' }))
+    expect(screen.getByRole('button', { name: /브랜드 제작 완료/ })).toHaveAttribute('aria-current', 'step')
+
+    await user.click(screen.getByRole('button', { name: /가공 완료/ }))
+    await user.click(screen.getByRole('button', { name: '에코사이클' }))
     expect(screen.getByRole('button', { name: '에코사이클' })).toHaveClass('is-active')
   })
 
