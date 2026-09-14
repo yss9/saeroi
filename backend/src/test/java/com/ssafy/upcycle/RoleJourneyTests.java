@@ -486,7 +486,10 @@ class RoleJourneyTests {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json(Map.of(
                                 "name", "소비자", "email", email,
-                                "phone", "010-0000-0009", "password", PASSWORD))))
+                                "phone", "010-0000-0009", "password", PASSWORD,
+                                "zipCode", "06236",
+                                "address", "서울특별시 강남구 테헤란로 212",
+                                "addressDetail", "5층"))))
                 .andExpect(status().isOk());
         return login(email);
     }

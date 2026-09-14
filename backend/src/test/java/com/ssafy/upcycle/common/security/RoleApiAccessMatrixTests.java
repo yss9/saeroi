@@ -294,6 +294,12 @@ class RoleApiAccessMatrixTests {
                 args("POST", "/api/v1/wallets"),
                 args("GET", "/api/v1/wallets/me"),
                 args("DELETE", "/api/v1/wallets/" + ABSENT_ID),
+                // 소비자 배송지 — 로그인 없이는 단 한 줄도 보여서는 안 된다(남의 집 주소다)
+                args("GET", "/api/v1/consumers/me/addresses"),
+                args("POST", "/api/v1/consumers/me/addresses"),
+                args("PUT", "/api/v1/consumers/me/addresses/" + ABSENT_ID),
+                args("DELETE", "/api/v1/consumers/me/addresses/" + ABSENT_ID),
+                args("PATCH", "/api/v1/consumers/me/addresses/" + ABSENT_ID + "/default"),
                 // §3-3 소재
                 args("POST", "/api/materials"),
                 args("GET", "/api/materials/me"),
@@ -805,6 +811,7 @@ class RoleApiAccessMatrixTests {
         MockHttpServletRequestBuilder builder = switch (method) {
             case "GET" -> MockMvcRequestBuilders.get(path);
             case "POST" -> MockMvcRequestBuilders.post(path);
+            case "PUT" -> MockMvcRequestBuilders.put(path);
             case "PATCH" -> MockMvcRequestBuilders.patch(path);
             case "DELETE" -> MockMvcRequestBuilders.delete(path);
             default -> throw new IllegalArgumentException("지원하지 않는 메서드: " + method);
@@ -898,7 +905,10 @@ class RoleApiAccessMatrixTests {
         mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/auth/signup/consumer")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json(Map.of("name", "소비자", "email", email,
-                                "phone", "010-0000-0009", "password", PASSWORD))))
+                                "phone", "010-0000-0009", "password", PASSWORD,
+                                "zipCode", "06236",
+                                "address", "서울특별시 강남구 테헤란로 212",
+                                "addressDetail", "5층"))))
                 .andExpect(status().isOk());
         return login(email);
     }
