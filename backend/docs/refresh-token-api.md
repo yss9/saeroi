@@ -50,6 +50,20 @@ Cookie: refresh_token=<opaque token>
 정지된 계정은 `403 USER_SUSPENDED`로 거부한다. 명시적인 교차 Origin 배치에서는 브라우저가
 쿠키를 주고받도록 클라이언트 요청에 credentials 옵션이 필요하다.
 
+## 로그아웃
+
+```http
+POST /api/v1/auth/logout
+Cookie: refresh_token=<opaque token>
+```
+
+현재 브라우저 세션의 Refresh Token을 무효화하고 같은 이름과 경로의 쿠키를 즉시 만료시킨다.
+쿠키가 없거나 이미 무효화된 경우에도 성공하므로 반복 호출할 수 있다.
+
+이미 발급된 Access Token은 서버가 상태를 저장하지 않는 JWT이므로 남은 수명 동안 유효하며,
+클라이언트가 로그아웃과 동시에 제거한다. 이후에는 무효화된 Refresh Token으로 새 Access Token을
+발급받을 수 없다.
+
 ## 설정
 
 ```dotenv
@@ -60,5 +74,4 @@ REFRESH_TOKEN_COOKIE_SAME_SITE=Strict
 ```
 
 TTL은 ISO-8601 Duration 형식이며 양수여야 한다. 운영에서는 cookie-secure를 반드시 true로
-유지한다. HTTP 로컬 개발에서는 false로 덮어쓸 수 있다. Refresh Token을 이용한 로그아웃·전체
-무효화는 별도 기능 범위다.
+유지한다. HTTP 로컬 개발에서는 false로 덮어쓸 수 있다.

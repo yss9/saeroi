@@ -25,4 +25,21 @@ class RefreshTokenCookieWriterTests {
                 .contains("HttpOnly")
                 .contains("SameSite=Strict");
     }
+
+    @Test
+    void clearsTheRefreshTokenCookieWithTheSameSecurityAttributesAndPath() {
+        RefreshTokenCookieWriter writer = new RefreshTokenCookieWriter(
+                new RefreshTokenProperties(Duration.ofDays(14), true, "Strict"));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        writer.clear(response);
+
+        assertThat(response.getHeader("Set-Cookie"))
+                .startsWith("refresh_token=;")
+                .contains("Path=/api/v1/auth")
+                .contains("Max-Age=0")
+                .contains("Secure")
+                .contains("HttpOnly")
+                .contains("SameSite=Strict");
+    }
 }

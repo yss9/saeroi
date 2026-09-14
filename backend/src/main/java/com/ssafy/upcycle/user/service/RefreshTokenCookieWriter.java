@@ -2,6 +2,7 @@ package com.ssafy.upcycle.user.service;
 
 import com.ssafy.upcycle.user.config.RefreshTokenProperties;
 import jakarta.servlet.http.HttpServletResponse;
+import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
@@ -24,6 +25,18 @@ public class RefreshTokenCookieWriter {
                 .sameSite(properties.cookieSameSite())
                 .path(COOKIE_PATH)
                 .maxAge(properties.ttl())
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+    }
+
+    /** 로그인 때 사용한 이름과 경로로 만료 쿠키를 내려 브라우저의 Refresh Token을 삭제한다. */
+    public void clear(HttpServletResponse response) {
+        ResponseCookie cookie = ResponseCookie.from(COOKIE_NAME, "")
+                .httpOnly(true)
+                .secure(properties.cookieSecure())
+                .sameSite(properties.cookieSameSite())
+                .path(COOKIE_PATH)
+                .maxAge(Duration.ZERO)
                 .build();
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
