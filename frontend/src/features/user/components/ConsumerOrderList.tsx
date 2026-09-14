@@ -1,6 +1,15 @@
 import { ArrowRight } from '@phosphor-icons/react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { EmptyState, StatusBadge, type StatusTone } from '../../../components/common/index.ts'
+import {
+  Button,
+  ConfirmModal,
+  EmptyState,
+  ErrorMessage,
+  StatusBadge,
+  type StatusTone,
+} from '../../../components/common/index.ts'
+import { useConfirmProductOrderDelivery } from '../hooks/useConfirmProductOrderDelivery.ts'
 import { useConsumerOrderThumbnail } from '../hooks/useConsumerOrderThumbnail.ts'
 import type {
   ConsumerOrderViewStatus,
@@ -37,6 +46,11 @@ const orderStatusMeta: Record<ConsumerOrderViewStatus, { label: string; tone: St
  * 방금부터인지 알 수 없어 사용자는 결국 브랜드에 묻게 된다.
  */
 export function ConsumerOrderList({ orders }: { orders: readonly ConsumerRecentOrder[] }) {
+  const confirm = useConfirmProductOrderDelivery()
+
+  // 되돌릴 수 없다. 확인을 거칠 대상을 들고 있는다.
+  const [confirming, setConfirming] = useState<ConsumerRecentOrder | null>(null)
+
   if (orders.length === 0) {
     return (
       <section className="consumer-mypage-card" aria-labelledby="orders-title">
@@ -70,16 +84,49 @@ export function ConsumerOrderList({ orders }: { orders: readonly ConsumerRecentO
         <span className="consumer-section-heading__note">최신순</span>
       </div>
 
+      {/* 수령 확인 실패는 목록 위에 둔다. 어느 줄에서 눌렀는지는 버튼이 제자리에 남아 안다. */}
+      {confirm.isError && <ErrorMessage error={confirm.error} />}
+
       <div className="consumer-recent-orders">
         {orders.map((order) => (
-          <OrderCard key={order.id} order={order} />
+          <OrderCard
+            key={order.id}
+            order={order}
+            busy={confirm.isPending && confirm.variables === order.orderId}
+            onConfirmDelivery={() => setConfirming(order)}
+          />
         ))}
       </div>
+
+      {/*
+        받았다고 말하면 되돌릴 수 없다. 주문에 제품이 여럿이면 한 줄에서 눌러도 그 주문이
+        통째로 완료되므로, 어느 주문인지 문장에 넣는다.
+      */}
+      <ConfirmModal
+        open={confirming !== null}
+        title="배송을 받으셨나요?"
+        message={`${confirming?.orderNumber ?? ''} 주문을 수령 완료로 표시합니다. 되돌릴 수 없습니다.`}
+        confirmLabel="수령 확인"
+        loading={confirm.isPending}
+        onConfirm={() => {
+          if (confirming === null) return
+          confirm.mutate(confirming.orderId, { onSettled: () => setConfirming(null) })
+        }}
+        onClose={() => setConfirming(null)}
+      />
     </section>
   )
 }
 
-function OrderCard({ order }: { order: ConsumerRecentOrder }) {
+function OrderCard({
+  order,
+  busy,
+  onConfirmDelivery,
+}: {
+  order: ConsumerRecentOrder
+  busy: boolean
+  onConfirmDelivery: () => void
+}) {
   const status = orderStatusMeta[order.status]
 
   return (
@@ -110,6 +157,16 @@ function OrderCard({ order }: { order: ConsumerRecentOrder }) {
 
       <div className="consumer-order-item__status">
         <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
+        {/*
+          **배송 중일 때만 나온다.** 받았다고 말하는 쪽은 구매자다 — 브랜드가 발송을
+          처리해도 주문은 배송 중에서 멈추고, 여기서 눌러야 완료가 된다.
+        */}
+        {order.status === 'SHIPPING' && (
+          <Button size="sm" loading={busy} onClick={onConfirmDelivery}>
+            배송 완료 확인
+          </Button>
+        )}
+
         {order.journeyUrl ? (
           <a className="consumer-journey-link" href={order.journeyUrl}>
             제품 여정 보기 <ArrowRight aria-hidden="true" />

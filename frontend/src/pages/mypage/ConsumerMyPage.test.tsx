@@ -26,6 +26,7 @@ const data: ConsumerMyPageData = {
   recentOrders: [
     {
       id: 'PO-001:ITEM-001',
+      orderId: 1,
       orderNumber: 'PO-001',
       orderedAt: '2026-09-12T10:30:00',
       productName: '데님 서클 백',
@@ -44,6 +45,7 @@ const data: ConsumerMyPageData = {
     },
     {
       id: 'PO-002:ITEM-002',
+      orderId: 2,
       orderNumber: 'PO-002',
       orderedAt: '2026-09-13T11:30:00',
       productName: '업사이클 파우치',
