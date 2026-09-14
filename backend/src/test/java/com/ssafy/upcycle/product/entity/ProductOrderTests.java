@@ -42,7 +42,7 @@ class ProductOrderTests {
     void orderWalksTheHappyPathInOrder() {
         ProductOrder order = order();
 
-        order.markPaid("T1234", 89_000L, NOW);
+        order.markPaid("T1234", 89_000L, NOW, PaymentMethod.MOCK);
         assertThat(order.getStatus()).isEqualTo(ProductOrderStatus.PAID);
         assertThat(order.getPaymentReference()).isEqualTo("T1234");
 
@@ -67,7 +67,7 @@ class ProductOrderTests {
     @Test
     void unshippedOrderCannotBeDelivered() {
         ProductOrder order = order();
-        order.markPaid("T1234", 89_000L, NOW);
+        order.markPaid("T1234", 89_000L, NOW, PaymentMethod.MOCK);
 
         assertThatThrownBy(() -> order.confirmDelivery(NOW))
                 .isInstanceOf(IllegalStateException.class);
@@ -88,7 +88,7 @@ class ProductOrderTests {
         ProductOrder created = order();
         assertThat(created.isCancelable()).isTrue();
 
-        created.markPaid("T1234", 89_000L, NOW);
+        created.markPaid("T1234", 89_000L, NOW, PaymentMethod.MOCK);
         assertThat(created.isCancelable()).isTrue();
 
         created.ship(NOW);
@@ -111,7 +111,7 @@ class ProductOrderTests {
     @Test
     void paidOrderNeverExpires() {
         ProductOrder order = order();
-        order.markPaid("T1234", 89_000L, NOW);
+        order.markPaid("T1234", 89_000L, NOW, PaymentMethod.MOCK);
 
         assertThat(order.isPaymentExpiredAt(NOW.plusDays(1))).isFalse();
     }
@@ -132,7 +132,7 @@ class ProductOrderTests {
 
     private ProductOrder shippedOrder() {
         ProductOrder order = order();
-        order.markPaid("T1234", 89_000L, NOW);
+        order.markPaid("T1234", 89_000L, NOW, PaymentMethod.MOCK);
         order.ship(NOW);
         return order;
     }

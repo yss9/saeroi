@@ -237,7 +237,7 @@ class ProductOrderControllerTests {
                 now.plusMinutes(30));
         if (state != OrderState.CREATED) {
             item.markSold();
-            order.markPaid("PAY-" + orderCode, 129_000, now);
+            order.markPaid("PAY-" + orderCode, 129_000, now, PaymentMethod.MOCK);
         }
         if (state == OrderState.SHIPPED || state == OrderState.DELIVERED) {
             order.ship(now.plusDays(1));

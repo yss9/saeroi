@@ -104,7 +104,7 @@ class ProductOrderCreateApiTests {
     // ── 성공 ────────────────────────────────────────────────
 
     @Test
-    void buyingTakesOneItemOutOfStockAndRecordsWhereToSendIt() throws Exception {
+    void buyingHoldsOneItemAndRecordsWhereToSendIt() throws Exception {
         Long itemId = saveItem(1);
 
         mockMvc.perform(orderRequest(consumerId, body(modelId, addressId)))
@@ -113,8 +113,9 @@ class ProductOrderCreateApiTests {
                 .andExpect(jsonPath("$.data.items.length()").value(1))
                 .andExpect(jsonPath("$.data.items[0].price").value(PRICE));
 
+        // 아직 팔린 것이 아니다. 결제 승인 전까지는 잡아만 둔다.
         assertThat(productItemRepository.findById(itemId).orElseThrow().getStatus())
-                .isEqualTo(ProductItemStatus.SOLD);
+                .isEqualTo(ProductItemStatus.RESERVED);
         assertThat(productOrderItemRepository.count()).isEqualTo(1);
 
         // 배송지가 없으면 결제된 주문을 어디로 보낼지 알 수 없다.
@@ -128,16 +129,17 @@ class ProductOrderCreateApiTests {
     }
 
     @Test
-    void theOrderIsPaidSoTheJourneyIsVisibleRightAway() throws Exception {
-        // 결제 엔드포인트가 아직 없어서 CREATED 로 두면 그 주문을 PAID 로 옮길 방법이 없다 —
-        // 마이페이지에 "결제 대기" 로 영원히 남고 journeyUrl 도 계속 null 이다.
+    void theOrderWaitsForPaymentBeforeItCountsAsSold() throws Exception {
+        // 카카오페이는 결제창에서 사용자가 인증해야 청구된다. 그 전에 PAID 로 적으면
+        // 돈이 오지 않은 주문이 팔린 것으로 남는다.
         saveItem(1);
 
         mockMvc.perform(orderRequest(consumerId, body(modelId, addressId)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.status").value(ProductOrderStatus.PAID.name()))
-                .andExpect(jsonPath("$.data.paidAt").isNotEmpty())
-                .andExpect(jsonPath("$.data.items[0].journeyUrl").isNotEmpty());
+                .andExpect(jsonPath("$.data.status").value(ProductOrderStatus.CREATED.name()))
+                .andExpect(jsonPath("$.data.paidAt").doesNotExist())
+                // 결제 전 주문은 여정을 보여주지 않는다 — 아직 그 사람의 물건이 아니다.
+                .andExpect(jsonPath("$.data.items[0].journeyUrl").doesNotExist());
     }
 
     @Test
@@ -168,7 +170,7 @@ class ProductOrderCreateApiTests {
                 .andExpect(status().isOk());
 
         assertThat(productItemRepository.findById(oldest).orElseThrow().getStatus())
-                .isEqualTo(ProductItemStatus.SOLD);
+                .isEqualTo(ProductItemStatus.RESERVED);
     }
 
     // ── 재고 ────────────────────────────────────────────────
@@ -185,9 +187,9 @@ class ProductOrderCreateApiTests {
                 .andExpect(status().isOk());
 
         assertThat(productItemRepository.findById(first).orElseThrow().getStatus())
-                .isEqualTo(ProductItemStatus.SOLD);
+                .isEqualTo(ProductItemStatus.RESERVED);
         assertThat(productItemRepository.findById(second).orElseThrow().getStatus())
-                .isEqualTo(ProductItemStatus.SOLD);
+                .isEqualTo(ProductItemStatus.RESERVED);
         assertThat(productOrderItemRepository.count()).isEqualTo(2);
     }
 

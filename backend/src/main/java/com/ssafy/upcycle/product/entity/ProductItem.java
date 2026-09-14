@@ -134,9 +134,22 @@ public class ProductItem {
         this.status = ProductItemStatus.RESERVED;
     }
 
-    /** 주문이 취소되어 다시 팔 수 있게 된다. */
+    /** 결제 전 주문이 취소되어 다시 팔 수 있게 된다. */
     public void release() {
         requireStatus(ProductItemStatus.RESERVED, "release");
+        this.status = ProductItemStatus.IN_STOCK;
+    }
+
+    /**
+     * 주문이 취소되어 재고로 돌아간다. <b>결제가 끝난 개체도 돌아올 수 있다.</b>
+     *
+     * <p>{@link #release} 와 달리 {@code SOLD} 를 받는 것이 이 메서드의 이유다. 결제된 주문도
+     * 발송 전까지는 취소되고, 그때 환불이 먼저 끝난 뒤 이 개체가 다시 팔릴 수 있어야 한다.
+     * 취소 순서와 환불 보장은 {@code ProductOrderPaymentService#cancel} 이 책임진다.
+     *
+     * <p>이미 재고면 아무 일도 하지 않는다 — 취소 정리가 두 번 들어와도 같은 결과여야 한다.
+     */
+    public void returnToStock() {
         this.status = ProductItemStatus.IN_STOCK;
     }
 

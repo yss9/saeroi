@@ -164,8 +164,33 @@ public class ProductOrder {
         this.orderCode = requireText(orderCode, "order code", ORDER_CODE_MAX_LENGTH);
     }
 
-    /** 결제가 승인되었다. */
-    public void markPaid(String paymentReference, long paymentAmount, LocalDateTime paidAt) {
+    /**
+     * 결제창을 열기 전에 PG 가 준 {@code tid} 를 적어 둔다. <b>아직 청구되지 않았다.</b>
+     *
+     * <p>사용자가 결제창에서 돌아왔을 때 서버가 이 값을 알고 있어야 승인을 요청할 수 있다.
+     * 화면이 다시 보내게 하면 남의 결제를 승인시키는 입구가 된다.
+     *
+     * <p>덮어쓰기를 허용한다 — 결제창을 닫고 다시 여는 것은 정상 행동이고, 승인되지 않은
+     * 이전 tid 는 PG 쪽에서 만료된다.
+     */
+    public void preparePayment(String paymentReference) {
+        requireStatus(ProductOrderStatus.CREATED, "prepare payment for");
+        this.paymentReference =
+                requireText(paymentReference, "payment reference", PAYMENT_REFERENCE_MAX_LENGTH);
+    }
+
+    /**
+     * 결제가 승인되었다.
+     *
+     * <p>{@code paymentMethod} 를 여기서 다시 적는 이유는, 주문 생성 시점의 값은 <b>희망</b>일
+     * 뿐이기 때문이다. 실제로 어느 게이트웨이가 붙는지는 설정이 정하고
+     * ({@code PaymentGatewayConfig}), 청구한 쪽을 기록해야 나중에 정산에서 대조할 수 있다.
+     */
+    public void markPaid(
+            String paymentReference,
+            long paymentAmount,
+            LocalDateTime paidAt,
+            PaymentMethod paymentMethod) {
         requireStatus(ProductOrderStatus.CREATED, "pay");
         if (paymentAmount < 0) {
             throw new IllegalArgumentException("Product order payment amount must not be negative");
@@ -173,6 +198,7 @@ public class ProductOrder {
         this.paymentReference = paymentReference;
         this.paymentAmount = paymentAmount;
         this.paidAt = requireTimestamp(paidAt);
+        this.paymentMethod = requireNonNull(paymentMethod, "payment method");
         this.status = ProductOrderStatus.PAID;
     }
 
