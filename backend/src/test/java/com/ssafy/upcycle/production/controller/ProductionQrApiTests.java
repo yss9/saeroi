@@ -126,7 +126,9 @@ class ProductionQrApiTests {
                 .getResponse()
                 .getContentAsByteArray();
 
-        assertThat(decodeQr(png)).endsWith("/qr/" + item.getQrToken());
+        // 접두어를 여기 적지 않는다 — 그 값은 설정이고, 배포마다 다르다.
+        // 확인할 것은 "스캔하면 이 개체의 토큰이 붙은 주소가 나온다" 이다.
+        assertThat(decodeQr(png)).endsWith("/" + item.getQrToken());
     }
 
     @Test
