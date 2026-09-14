@@ -824,6 +824,7 @@
 /* 못 사는 이유. 버튼만 잠그면 사용자는 자기가 뭘 잘못했다고 생각한다. */
 .purchase-panel__blocked { margin: 0; font-size: 0.83rem; color: #8a4b0b; }
 .purchase-panel__note { margin: 0; font-size: 0.78rem; line-height: 1.6; color: #6b7280; }
+.purchase-panel__done { margin: 0; font-size: 0.88rem; color: #1f6f4a; font-weight: 600; }
 
 /* ── 내 프로필 카드 ───────────────────────────────────── */
 

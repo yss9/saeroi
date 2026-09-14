@@ -1,14 +1,14 @@
 // 구매하기.
 //
-// **결제 단계가 없다.** 결제 수단이 정해지지 않아 주문만 만들고 마이페이지에서 확인하게
-// 한다. 그래서 틀리면 안 되는 지점이 보통의 결제 화면과 다르다.
+// **누르면 사이트를 떠난다.** 주문을 만든 뒤 카카오페이 결제창으로 이동한다. 그래서 이
+// 컴포넌트가 지는 책임은 "떠나기 전" 까지다.
 //
 //   1) **받을 곳을 먼저 보여준다.** 주문하고 나서야 옛 주소였다는 것을 알게 되는 것이
 //      가장 나쁘다.
 //   2) **기본 배송지가 없으면 누르지 못한다.** 서버가 받을 곳을 요구한다.
 //   3) **못 사는 이유를 적는다.** 버튼만 잠그면 사용자는 자기가 뭘 잘못했다고 생각한다.
-//   4) **성공하면 주문 내역으로 보낸다.** 결제창이 뜨지 않아, 같은 화면에 남으면 눌렀는데
-//      아무 일도 없는 것처럼 보인다.
+//   4) **주문을 만든 뒤 반드시 결제 준비까지 간다.** 주문만 만들고 멈추면 개체가 묶인 채
+//      남고, 제품 개체는 한 점씩이라 그 제품이 즉시 품절로 보인다.
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
@@ -22,17 +22,23 @@ import { ProductPurchasePanel } from './ProductPurchasePanel.tsx'
 const api = vi.hoisted(() => ({
   getConsumerAddresses: vi.fn(),
   createProductOrder: vi.fn(),
+  readyProductOrderPayment: vi.fn(),
+  approveProductOrderPayment: vi.fn(),
+  cancelProductOrder: vi.fn(),
 }))
 vi.mock('../api/consumerAddressApi.ts', () => ({
   getConsumerAddresses: api.getConsumerAddresses,
 }))
 vi.mock('../api/createProductOrder.ts', () => ({ createProductOrder: api.createProductOrder }))
+vi.mock('../api/productOrderPaymentApi.ts', () => ({
+  readyProductOrderPayment: api.readyProductOrderPayment,
+  approveProductOrderPayment: api.approveProductOrderPayment,
+  cancelProductOrder: api.cancelProductOrder,
+}))
 
-const navigate = vi.hoisted(() => vi.fn())
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
-  return { ...actual, useNavigate: () => navigate }
-})
+// 결제창으로 떠나는 것은 브라우저가 하는 일이다. 여기서 볼 것은 "어디로 보냈는가" 다.
+const location = vi.hoisted(() => ({ href: '' }))
+vi.stubGlobal('location', location)
 
 function address(overrides: Partial<ConsumerAddress> = {}): ConsumerAddress {
   return {
@@ -63,8 +69,16 @@ function renderPanel(props: Partial<Parameters<typeof ProductPurchasePanel>[0]> 
 }
 
 beforeEach(() => {
+  location.href = ''
   api.getConsumerAddresses.mockResolvedValue([address()])
-  api.createProductOrder.mockResolvedValue({ orderCode: 'PO-010' })
+  api.createProductOrder.mockResolvedValue({ orderId: 12, orderCode: 'PO-010' })
+  api.readyProductOrderPayment.mockResolvedValue({
+    tid: 'T1234',
+    redirectUrl: 'https://kakao.example/pay/12',
+    totalPrice: 79_000,
+    live: true,
+  })
+  api.cancelProductOrder.mockResolvedValue(undefined)
 })
 afterEach(() => {
   cleanup()
@@ -86,9 +100,8 @@ describe('ProductPurchasePanel', () => {
     )
   })
 
-  // 이 테스트가 이 파일의 존재 이유다 — 결제창이 뜨지 않아, 같은 화면에 남으면 눌렀는데
-  // 아무 일도 없는 것처럼 보인다.
-  it('구매하면 기본 배송지로 주문을 만들고 주문 내역으로 보낸다', async () => {
+  // 이 테스트가 이 파일의 존재 이유다 — 주문만 만들고 멈추면 개체가 묶인 채 남는다.
+  it('구매하면 주문을 만들고 결제창으로 보낸다', async () => {
     const user = renderPanel()
     await screen.findByText('김수령')
 
@@ -99,7 +112,48 @@ describe('ProductPurchasePanel', () => {
       productModelId: 31,
       addressId: 9,
     })
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/mypage/orders'))
+    await waitFor(() => expect(api.readyProductOrderPayment).toHaveBeenCalledWith(12))
+    await waitFor(() => expect(location.href).toBe('https://kakao.example/pay/12'))
+  })
+
+  // 주문은 만들어졌는데 준비가 실패하면 개체가 묶인 채 남는다. 제품 개체는 한 점씩이라
+  // 그 제품이 즉시 품절로 보인다.
+  it('결제 준비가 실패하면 주문을 되돌린다', async () => {
+    api.readyProductOrderPayment.mockRejectedValue(
+      createAppError(ERROR_KIND.API_ERROR, { message: 'PG 호출 실패', status: 502 }),
+    )
+    const user = renderPanel()
+    await screen.findByText('김수령')
+
+    await user.click(screen.getByRole('button', { name: '구매하기' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('PG 호출 실패')
+    await waitFor(() => expect(api.cancelProductOrder).toHaveBeenCalledWith(12))
+    expect(location.href).toBe('')
+  })
+
+  // 결제 키가 없는 환경에서는 결제창이 열리지 않는다. 안 알리면 "눌렀는데 아무 일도 안
+  // 난다" 로 읽힌다.
+  it('결제 키가 없으면 그 사실을 알리고 승인만 진행한다', async () => {
+    api.readyProductOrderPayment.mockResolvedValue({
+      tid: 'T1234',
+      redirectUrl: '',
+      totalPrice: 79_000,
+      live: false,
+    })
+    api.approveProductOrderPayment.mockResolvedValue({ orderId: 12, orderCode: 'PO-010' })
+    const user = renderPanel()
+    await screen.findByText('김수령')
+
+    await user.click(screen.getByRole('button', { name: '구매하기' }))
+
+    expect(await screen.findByText(/결제 키가 없어 결제창이 열리지 않습니다/)).toBeInTheDocument()
+    expect(location.href).toBe('')
+
+    await user.click(screen.getByRole('button', { name: '결제 승인 (시연)' }))
+
+    await waitFor(() => expect(api.approveProductOrderPayment).toHaveBeenCalled())
+    expect(api.approveProductOrderPayment.mock.calls[0][0]).toBe(12)
   })
 
   it('기본 배송지가 없으면 주문할 수 없다고 알린다', async () => {
@@ -118,13 +172,13 @@ describe('ProductPurchasePanel', () => {
     expect(screen.getByRole('button', { name: '구매하기' })).toBeDisabled()
   })
 
-  it('결제가 아직 없다는 것을 적는다', async () => {
+  it('누르면 결제창으로 간다는 것을 미리 적는다', async () => {
     renderPanel()
 
-    expect(await screen.findByText(/결제 단계는 아직 준비 중입니다/)).toBeInTheDocument()
+    expect(await screen.findByText(/카카오페이 결제창으로 이동합니다/)).toBeInTheDocument()
   })
 
-  it('주문이 실패하면 이동하지 않고 이유를 보여준다', async () => {
+  it('주문이 실패하면 떠나지 않고 이유를 보여준다', async () => {
     api.createProductOrder.mockRejectedValue(
       createAppError(ERROR_KIND.API_ERROR, { message: '재고가 없습니다.', status: 409 }),
     )
@@ -134,6 +188,8 @@ describe('ProductPurchasePanel', () => {
     await user.click(screen.getByRole('button', { name: '구매하기' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('재고가 없습니다')
-    expect(navigate).not.toHaveBeenCalled()
+    expect(location.href).toBe('')
+    // 주문 자체가 안 만들어졌으므로 되돌릴 것도 없다.
+    expect(api.cancelProductOrder).not.toHaveBeenCalled()
   })
 })

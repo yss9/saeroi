@@ -19,6 +19,7 @@ import { MaterialRegisterPage } from '../../pages/material/MaterialRegisterPage.
 import { ConsumerAddressPage } from '../../pages/mypage/ConsumerAddressPage.tsx'
 import { ConsumerMyPage } from '../../pages/mypage/ConsumerMyPage.tsx'
 import { ConsumerOrdersPage } from '../../pages/mypage/ConsumerOrdersPage.tsx'
+import { ProductOrderReturnPage } from '../../pages/mypage/ProductOrderReturnPage.tsx'
 import { BrandProcessingPage } from '../../pages/processing/BrandProcessingPage.tsx'
 import { BrandProcessingRequestDetailPage } from '../../pages/processing/BrandProcessingRequestDetailPage.tsx'
 import { BrandProcessingRequestListPage } from '../../pages/processing/BrandProcessingRequestListPage.tsx'
@@ -102,6 +103,12 @@ export const routes: RouteObject[] = [
       { path: '/mypage/orders', element: <ConsumerOrdersPage /> },
       // 배송지 관리. 마이페이지의 기본 배송지 카드에서 "편집" 으로 들어간다.
       { path: '/mypage/addresses', element: <ConsumerAddressPage /> },
+      // 카카오페이 결제창이 돌아오는 자리. 승인·취소·실패가 모두 이 주소로 오고
+      // pg_token 유무로 갈린다.
+      //
+      // ⚠️ 경로가 서버 설정(app.payment.kakao.product-order-return-url)과 같아야 한다.
+      // 어긋나면 결제를 마친 사용자가 없는 페이지에 떨어지고, 묶인 개체도 풀리지 않는다.
+      { path: '/orders/:orderId/payment/return', element: <ProductOrderReturnPage /> },
     ],
   },
 

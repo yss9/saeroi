@@ -1,7 +1,7 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { Button, ErrorMessage, Loading } from '../../../components/common/index.ts'
 import { useConsumerAddresses } from '../hooks/useConsumerAddresses.ts'
-import { useCreateProductOrder } from '../hooks/useCreateProductOrder.ts'
+import { useProductOrderPayment } from '../hooks/useProductOrderPayment.ts'
 import './consumer-mypage.css'
 
 export interface ProductPurchasePanelProps {
@@ -15,9 +15,13 @@ export interface ProductPurchasePanelProps {
 /**
  * 구매하기.
  *
- * **결제 단계가 없다.** 결제 수단이 정해지지 않아 주문만 만들고 마이페이지에서 확인하게
- * 한다. 그래서 "결제하기" 가 아니라 "구매하기" 이고, 누르면 결제창 대신 주문 내역으로
- * 넘어간다 — 결제를 기다리는 화면이 없다는 것을 동선으로 알린다.
+ * **누르면 사이트를 떠난다.** 주문을 만든 뒤 카카오페이 결제창으로 이동하고, 인증을 마치면
+ * 복귀 화면(`/orders/:orderId/payment/return`)이 승인을 끝낸다. 그래서 이 컴포넌트가 보는
+ * 것은 "떠나기 전" 까지다.
+ *
+ * ⚠️ **주문을 만드는 순간 개체가 묶인다.** 제품 개체는 한 점씩이라 한 건만 묶여도 그 제품이
+ * 즉시 품절로 보인다 — 결제를 포기하면 반드시 취소가 나가야 하고, 그 책임은 복귀 화면과
+ * 이 훅(준비 실패 시)이 나눠 진다.
  *
  * **받을 곳을 먼저 보여준다.** 기본 배송지가 없으면 주문을 만들 수 없고(서버가 받을 곳을
  * 요구한다), 있더라도 어디로 가는지 모르고 누르게 하면 안 된다 — 주문하고 나서야 옛
@@ -28,9 +32,8 @@ export function ProductPurchasePanel({
   purchasable,
   blockedReason,
 }: ProductPurchasePanelProps) {
-  const navigate = useNavigate()
   const addresses = useConsumerAddresses()
-  const order = useCreateProductOrder()
+  const payment = useProductOrderPayment()
 
   const defaultAddress = addresses.data?.find((address) => address.isDefault)
 
@@ -63,31 +66,52 @@ export function ProductPurchasePanel({
         </p>
       )}
 
-      {/* 주문 실패는 버튼 옆에 둔다 — 목록 위에 띄우면 누른 자리에서 보이지 않는다. */}
-      {order.isError && <ErrorMessage error={order.error} />}
+      {/* 실패는 버튼 옆에 둔다 — 목록 위에 띄우면 누른 자리에서 보이지 않는다. */}
+      {payment.message && <ErrorMessage error={payment.message} />}
 
       {blockedReason && <p className="purchase-panel__blocked">{blockedReason}</p>}
 
-      <Button
-        fullWidth
-        loading={order.isPending}
-        disabled={!purchasable || defaultAddress === undefined}
-        onClick={() => {
-          if (defaultAddress === undefined) return
-          order.mutate(
-            { productModelId, addressId: defaultAddress.addressId },
-            // 주문이 만들어진 것을 확인할 수 있는 곳으로 보낸다. 같은 화면에 남겨 두면
-            // 눌렀는데 아무 일도 없는 것처럼 보인다 — 결제창이 뜨지 않기 때문에 더 그렇다.
-            { onSuccess: () => navigate('/mypage/orders') },
-          )
-        }}
-      >
-        구매하기
-      </Button>
+      {payment.phase === 'SUCCEEDED' ? (
+        <p className="purchase-panel__done">
+          결제가 완료되었습니다. <Link to="/mypage/orders">주문 내역</Link>에서 확인하세요.
+        </p>
+      ) : payment.live === false ? (
+        // 결제 키가 없는 환경이다. 결제창이 열리지 않으므로 그 사실을 알리고 여기서 끝낸다 —
+        // 안 알리면 "버튼을 눌렀는데 아무 일도 안 난다" 로 읽힌다.
+        <>
+          <p className="purchase-panel__blocked">
+            이 환경에는 결제 키가 없어 결제창이 열리지 않습니다. 시연용으로 승인만 진행합니다.
+          </p>
+          {/*
+            `isBusy` 를 쓰지 않는다. 준비를 마친 뒤의 상태는 AWAITING_PG 인데, 실제 PG 에서는
+            그것이 "결제창으로 떠나는 중" 이라 버튼을 잠가야 하지만 여기서는 떠나지 않는다 —
+            그대로 잠그면 승인 버튼이 영원히 눌리지 않는다.
+          */}
+          <Button
+            fullWidth
+            loading={payment.phase === 'CONFIRMING'}
+            onClick={() => void payment.approve()}
+          >
+            결제 승인 (시연)
+          </Button>
+        </>
+      ) : (
+        <Button
+          fullWidth
+          loading={payment.isBusy}
+          disabled={!purchasable || defaultAddress === undefined}
+          onClick={() => {
+            if (defaultAddress === undefined) return
+            void payment.purchase({ productModelId, addressId: defaultAddress.addressId })
+          }}
+        >
+          구매하기
+        </Button>
+      )}
 
       <p className="purchase-panel__note">
-        결제 단계는 아직 준비 중입니다. 지금은 주문만 만들어지고, 마이페이지 주문 내역에서
-        확인할 수 있습니다.
+        구매하기를 누르면 카카오페이 결제창으로 이동합니다. 결제를 마치기 전까지는 청구되지
+        않습니다.
       </p>
     </section>
   )

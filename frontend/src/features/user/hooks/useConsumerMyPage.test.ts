@@ -8,7 +8,8 @@ import { toConsumerMyPageData } from './useConsumerMyPage.ts'
 const orders: ConsumerOrderPage = {
   content: [
     {
-      orderCode: 'PO-001',
+      orderId: 1,
+    orderCode: 'PO-001',
       brandName: 'ReWeave',
       totalPrice: 178000,
       status: 'PAID',
