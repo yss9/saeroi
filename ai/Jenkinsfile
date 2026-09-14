@@ -48,10 +48,15 @@ pipeline {
                     set -eu
                     # 에이전트에 python3.12 가 없다. rapidocr-onnxruntime 이 3.13+ 을 지원하지 않으므로
                     # docker/Dockerfile 과 동일한 python:3.12-slim 컨테이너 안에서 테스트를 돌린다.
+                    # Jenkins 는 cf-jenkins 컨테이너에서 돌고 docker.sock 으로 호스트 데몬에 명령을 보낸다.
+                    # -v 의 왼쪽 경로는 호스트 기준으로 해석되는데 jenkins_home 이 named volume 이라
+                    # 호스트에는 /var/jenkins_home/workspace/... 가 없다. Docker 가 빈 디렉터리를 만들어
+                    # 마운트해버려서 /workspace 가 비었고 docker/test.sh 를 못 찾았다.
+                    # --volumes-from 으로 cf-jenkins 의 볼륨을 물려받아 $PWD 를 그대로 쓴다.
                     docker run --rm \
                         -u "$(id -u):$(id -g)" \
                         -e HAS_TESTS="$HAS_TESTS" \
-                        -v "$PWD":/workspace -w /workspace \
+                        --volumes-from cf-jenkins -w "$PWD" \
                         python:3.12-slim \
                         bash docker/test.sh
                 '''
