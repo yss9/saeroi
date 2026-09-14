@@ -86,11 +86,31 @@ export const routes: RouteObject[] = [
   // 값이라 이 경로의 유일한 접근 통제다 (§6-3, 2026-09-08).
   { path: '/qr/:qrToken', element: <PassportPage /> },
 
+  // ── CONSUMER ─────────────────────────────────────────
+  //
+  // **사업자 셸 밖이다.** 소비자 계정 화면은 로고·쇼핑 메뉴·푸터를 스스로 갖고 있어
+  // (`ConsumerAccountLayout`), `ProtectedRoute` 의 사이드바 셸 안에 넣으면 화면 안에 화면이
+  // 또 있는 모양이 된다. 로그인 여부는 `RoleGuard` 가 함께 본다 — 미인증은 /login,
+  // 역할이 다르면 /403 으로 갈린다.
+  {
+    element: <RoleGuard allow={['CONSUMER']} />,
+    children: [
+      { path: '/mypage', element: <ConsumerMyPage /> },
+      // 배송지 관리. 마이페이지의 기본 배송지 카드에서 들어간다.
+      { path: '/mypage/addresses', element: <ConsumerAddressPage /> },
+    ],
+  },
+
   // ── 로그인 필요 ───────────────────────────────────────
   {
     element: <ProtectedRoute />,
     children: [
-      { path: '/inventory', element: <InventoryPage /> },
+      // 보유 소재는 사업자만 본다. 소비자는 소재를 보유하지 않고, ADMIN 은 도메인 기능에
+      // 허용이 없다(권한 Matrix §4) — 둘에게는 언제나 빈 목록이 보이던 메뉴였다.
+      {
+        element: <RoleGuard allow={['SUPPLIER', 'BRAND', 'PROCESSOR']} />,
+        children: [{ path: '/inventory', element: <InventoryPage /> }],
+      },
 
       // 제품은 로그인 뒤에만 본다. 조회 API 와 대표 이미지 모두 인증을 요구하므로
       // 공개 라우트로 두면 비회원에게 401 로 빈 화면이 나간다.
@@ -111,17 +131,6 @@ export const routes: RouteObject[] = [
       {
         element: <RoleGuard allow={['BRAND', 'PROCESSOR']} />,
         children: [{ path: '/processing/jobs/:jobId', element: <ProcessingJobDetailPage /> }],
-      },
-
-      // ── CONSUMER ──
-      {
-        element: <RoleGuard allow={['CONSUMER']} />,
-        children: [
-          { path: '/mypage', element: <ConsumerMyPage /> },
-          // 배송지 관리. 마이페이지의 기본 배송지 카드에서 들어간다 — 목록에서 눌러
-          // 들어가는 화면이라 사이드바에는 두지 않는다.
-          { path: '/mypage/addresses', element: <ConsumerAddressPage /> },
-        ],
       },
 
       // ── BUSINESS 공통 ──

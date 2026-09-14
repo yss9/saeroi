@@ -156,15 +156,12 @@ describe('역할별 사업자 메뉴', () => {
   // 단 한 칸도 허용이 없고(지갑이 없어 서명 흐름에 못 들어간다), routes.tsx 의
   // allow 목록에도 없다. 여기서 편의로 열어 주면 정의와 화면이 갈라진다.
   it('ADMIN 과 CONSUMER 는 사업자 전용 메뉴를 보지 않는다', () => {
-    // 남는 것은 RoleGuard 가 없는 Protected 경로(/inventory)와 로그인만 요구하는
-    // 조회 화면(/products)뿐이다.
+    // 남는 것은 로그인만 요구하는 조회 화면(/products) 하나다.
     //
-    // 소재 마켓플레이스는 여기서 빠졌다 — 사업자 전용이 되었다. 업사이클링 제품을 사는
-    // CONSUMER 는 소재를 사지도 팔지도 않고, ADMIN 은 도메인 기능에 허용이 없다.
-    // 소재 구매 내역도 BRAND 전용이 되어 함께 빠졌다.
-    const browseAndOpen = [
-      '보유 소재', '제품 둘러보기',
-    ]
+    // 소재 마켓플레이스·구매 내역·보유 소재가 차례로 빠졌다. 업사이클링 제품을 사는
+    // CONSUMER 는 소재를 사지도 팔지도 보유하지도 않고, ADMIN 은 도메인 기능에 허용이 없다
+    // (권한 Matrix §4). 셋 다 그 역할에게는 언제나 비어 있는 화면이었다.
+    const browseAndOpen = ['제품 둘러보기']
     expect(visibleLabels('ADMIN')).toEqual(browseAndOpen)
     expect(visibleLabels('CONSUMER')).toEqual(browseAndOpen)
   })

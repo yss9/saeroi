@@ -128,6 +128,45 @@ describe('consumer mypage route', () => {
     expect(get).toHaveBeenCalledWith('/v1/product-orders/me/summary')
   })
 
+  /** 소비자로 로그인시킨다. 셸 검사에서 여러 번 쓴다. */
+  function signInAsConsumer() {
+    useAuthStore.setState({
+      user: {
+        id: 5,
+        name: '새로이 고객',
+        email: 'consumer@saeroi.test',
+        role: 'CONSUMER',
+        walletAddress: null,
+      },
+      accessToken: 'test-token',
+      isAuthenticated: true,
+    })
+  }
+
+  // 이 테스트가 이 파일의 존재 이유다 — 소비자 계정 화면은 로고·쇼핑 메뉴·푸터를 스스로
+  // 갖고 있어서, 사업자 대시보드 셸 안에 들어가면 화면 안에 화면이 또 있는 모양이 된다.
+  it('사업자 대시보드 셸을 씌우지 않는다', async () => {
+    mockMyPageApi()
+    signInAsConsumer()
+
+    renderRoute('/mypage')
+    await screen.findByRole('heading', { name: '새로이 고객님, 반갑습니다.' })
+
+    expect(screen.queryByRole('navigation', { name: '사업자 대시보드 메뉴' })).not.toBeInTheDocument()
+    // 자기 껍데기는 그대로 있다. 셸만 빠진 것이지 머리말까지 사라지면 나갈 길이 없다.
+    expect(screen.getByRole('navigation', { name: '쇼핑 메뉴' })).toBeInTheDocument()
+  })
+
+  // 소비자는 소재를 보유하지 않는다. 언제나 비어 있는 화면으로 데려가지 않는다.
+  it('보유 소재로는 들어가지 못한다', async () => {
+    mockMyPageApi()
+    signInAsConsumer()
+
+    renderRoute('/inventory')
+
+    expect(await screen.findByRole('heading', { name: '접근 권한이 없습니다' })).toBeInTheDocument()
+  })
+
   it('revokes the server session before clearing the consumer session', async () => {
     mockMyPageApi()
     const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ data: null } as AxiosResponse)

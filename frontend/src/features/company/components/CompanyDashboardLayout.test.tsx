@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { AxiosResponse } from 'axios'
 import { MemoryRouter } from 'react-router-dom'
@@ -48,6 +48,20 @@ afterEach(() => {
 })
 
 describe('CompanyDashboardLayout', () => {
+  // 소비자에게 이 사이드바는 거의 계정 메뉴다. 마이페이지가 목록 끝에 붙어 있으면
+  // 자기 계정으로 돌아가는 길이 숨는다.
+  it('계정 메뉴를 사이드바 맨 위에 둔다', () => {
+    setBusinessUser('CONSUMER')
+    renderLayout()
+
+    const nav = screen.getByRole('navigation', { name: '사업자 대시보드 메뉴' })
+    const labels = within(nav)
+      .getAllByRole('link')
+      .map((link) => link.textContent?.trim())
+
+    expect(labels[0]).toBe('마이페이지')
+  })
+
   it('renders role-specific navigation without duplicating other roles', () => {
     setBusinessUser('SUPPLIER')
     renderLayout()

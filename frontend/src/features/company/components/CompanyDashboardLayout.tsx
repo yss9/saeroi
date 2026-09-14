@@ -29,9 +29,28 @@ import './company-dashboard.css'
  * 먼저 온 쪽을 남긴다 — 사업자 메뉴의 이름이 사이드바 문맥에 맞고, 겹치지 않는
  * 마이페이지·관리자 페이지는 그대로 따라 들어온다.
  */
-const MENU_ITEMS = [...BUSINESS_MENU_ITEMS, ...ACCOUNT_MENU_ITEMS].filter(
+const UNIQUE_MENU_ITEMS = [...BUSINESS_MENU_ITEMS, ...ACCOUNT_MENU_ITEMS].filter(
   (item, index, items) => items.findIndex((other) => other.to === item.to) === index,
 )
+
+/** 계정 항목의 경로. 중복 제거가 끝난 뒤 순서를 잡는 데 쓴다. */
+const ACCOUNT_PATHS = new Set(ACCOUNT_MENU_ITEMS.map((item) => item.to))
+
+/**
+ * 계정 항목을 맨 위로.
+ *
+ * **소비자에게 이 사이드바는 거의 계정 메뉴다.** 사업자 항목이 역할 필터에 거의 다 걸러져
+ * "제품 둘러보기" 정도만 남는데, 그 아래에 마이페이지가 붙어 있으면 자기 계정으로 돌아가는
+ * 길이 목록 끝에 숨는다.
+ *
+ * 중복 제거는 위에서 이미 끝났다 — 순서를 바꾸려고 이어 붙이는 차례를 뒤집으면, 같은
+ * 경로가 양쪽에 있을 때 남는 **이름**까지 바뀐다(사업자 메뉴의 이름이 사이드바 문맥에 맞다).
+ * 그래서 거르기와 줄 세우기를 나눈다.
+ */
+const MENU_ITEMS = [
+  ...UNIQUE_MENU_ITEMS.filter((item) => ACCOUNT_PATHS.has(item.to)),
+  ...UNIQUE_MENU_ITEMS.filter((item) => !ACCOUNT_PATHS.has(item.to)),
+]
 
 interface CompanyDashboardLayoutProps {
   children: ReactNode
