@@ -75,6 +75,21 @@ $(grep -E '^VITE_[A-Za-z0-9_]+=' "$ENV_FILE")
 EOF
                     set -- "$@" --build-arg "VITE_BASE_PATH=/test/"
 
+                    # .env 의 VITE_ 키가 Dockerfile 에 ARG 로 선언돼 있는지 확인한다.
+                    # 선언이 없으면 docker 는 "build-args were not consumed" 경고만 내고 값을 버린다.
+                    # 빌드는 성공하고 번들에는 빈 문자열이 들어가서, "값을 안 채웠을 때"와 증상이
+                    # 똑같아 구분이 안 된다. master 의 Docker Build 스테이지에만 이 검사가 있어서
+                    # test 스택은 조용히 느려지는 채로 넘어간 적이 있다(VITE_CHAIN_FROM_BLOCK).
+                    MISSING=""
+                    for KEY in $(grep -oE '^VITE_[A-Za-z0-9_]+' "$ENV_FILE"); do
+                        grep -qE "^ARG[[:space:]]+$KEY([[:space:]]|=|$)" docker/Dockerfile || MISSING="$MISSING $KEY"
+                    done
+                    if [ -n "$MISSING" ]; then
+                        echo "FAIL: docker/Dockerfile 에 ARG 선언이 없는 키:$MISSING"
+                        echo "      선언이 없으면 값이 번들에 들어가지 않는다. Dockerfile 에 ARG 를 추가할 것."
+                        exit 1
+                    fi
+
                     # :test 하나만 찍으면 다음 빌드가 그 태그를 새 이미지로 옮기는 순간
                     # 지금 뜬 이미지가 태그를 전부 잃어 test-deploy.sh 가 롤백 대상을 못 찾는다.
                     docker build -f docker/Dockerfile "$@" -t "$IMAGE:test" -t "$IMAGE:test-$BUILD_NUMBER" .
