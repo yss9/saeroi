@@ -3,7 +3,10 @@ import type { ProductOrderStatus } from '../../product/types/product.types.ts'
 import { consumerOrderKeys } from '../api/consumerOrderKeys.ts'
 import { getMyProductOrders } from '../api/getMyProductOrders.ts'
 import { getMyProductOrderSummary } from '../api/getMyProductOrderSummary.ts'
+import { useConsumerAddresses } from './useConsumerAddresses.ts'
+import type { ConsumerAddress } from '../types/consumerAddress.types.ts'
 import type {
+  ConsumerAddressSummary,
   ConsumerMyPageData,
   ConsumerOrderViewStatus,
   ConsumerProfileSummary,
@@ -15,7 +18,13 @@ import type {
 
 const RECENT_ORDER_SIZE = 20
 
-/** 로그인 정보와 실제 주문 API 두 건을 마이페이지 View Model로 조립한다. */
+/**
+ * 로그인 정보와 주문·배송지 API를 마이페이지 View Model로 조립한다.
+ *
+ * **배송지는 이 화면을 막지 않는다.** 주문 현황을 보러 온 사용자를 배송지 조회 실패로
+ * 세우지 않는다 — 못 받으면 기본 배송지 자리가 "등록된 배송지가 없습니다"가 될 뿐이고,
+ * 그 자리에 관리 화면으로 가는 링크가 있다.
+ */
 export function useConsumerMyPage(profile: ConsumerProfileSummary | null) {
   const enabled = profile !== null
   const orders = useQuery({
@@ -29,8 +38,16 @@ export function useConsumerMyPage(profile: ConsumerProfileSummary | null) {
     enabled,
   })
 
+  // 주소록은 이 화면 말고 배송지 관리 화면도 쓴다. 같은 키를 보므로 한 번만 받는다.
+  const addresses = useConsumerAddresses()
+
   const data = profile && orders.data && summary.data
-    ? toConsumerMyPageData(profile, orders.data, summary.data)
+    ? toConsumerMyPageData(
+        profile,
+        orders.data,
+        summary.data,
+        toAddressSummary(addresses.data?.find((address) => address.isDefault)),
+      )
     : null
 
   return {
@@ -60,6 +77,7 @@ export function toConsumerMyPageData(
   profile: ConsumerProfileSummary,
   orders: ConsumerOrderPage,
   summary: ConsumerOrderStatusSummaryResponse,
+  defaultAddress: ConsumerAddressSummary | null = null,
 ): ConsumerMyPageData {
   return {
     profile,
@@ -84,8 +102,26 @@ export function toConsumerMyPageData(
       status: toViewStatus(order.status),
       journeyUrl: item.journeyUrl,
     }))),
-    // 현재 Backend에는 consumer_address 조회 API가 없다. 목 주소를 보여주는 것보다
-    // 빈 상태를 정확히 표시하고 배송지 API가 추가될 때 연결하는 편이 안전하다.
-    defaultAddress: null,
+    // 없으면 null 이다. 주소를 받기 전에 가입한 계정은 배송지가 0건이고 그것은 정상이다.
+    defaultAddress,
+  }
+}
+
+/**
+ * 배송지 응답을 화면 View Model 로.
+ *
+ * 필드 이름이 다르다 (`receiverName` ↔ `recipientName`). 화면이 Backend DTO 를 직접 쓰지
+ * 않기로 한 규칙 때문인데, 그 덕에 응답이 바뀌어도 카드 컴포넌트는 그대로다.
+ */
+function toAddressSummary(address: ConsumerAddress | undefined): ConsumerAddressSummary | null {
+  if (!address) return null
+  return {
+    id: address.addressId,
+    recipientName: address.receiverName,
+    phone: address.receiverPhone,
+    postalCode: address.zipCode,
+    addressLine1: address.address,
+    addressLine2: address.addressDetail ?? undefined,
+    isDefault: address.isDefault,
   }
 }

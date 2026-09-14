@@ -7,7 +7,7 @@ import type {
   ConsumerSignupSubmitValues,
 } from '../types/signup.types.ts'
 import { openKakaoPostcode } from '../../../utils/kakaoPostcode.ts'
-import { formatPhoneNumber } from '../utils/signupInputFormatters.ts'
+import { formatPhoneNumber } from '../../../utils/phone.ts'
 
 interface ConsumerSignupFormProps {
   onSubmit: (values: ConsumerSignupSubmitValues) => void | Promise<void>

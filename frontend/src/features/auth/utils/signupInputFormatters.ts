@@ -8,20 +8,5 @@ export function formatBusinessNumber(value: string) {
   return `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`
 }
 
-export function formatPhoneNumber(value: string) {
-  const rawDigits = digitsOnly(value)
-  const isSeoulNumber = rawDigits.startsWith('02')
-  const digits = rawDigits.slice(0, isSeoulNumber ? 10 : 11)
-
-  if (isSeoulNumber) {
-    if (digits.length <= 2) return digits
-    if (digits.length <= 5) return `${digits.slice(0, 2)}-${digits.slice(2)}`
-    if (digits.length <= 9) return `${digits.slice(0, 2)}-${digits.slice(2, 5)}-${digits.slice(5)}`
-    return `${digits.slice(0, 2)}-${digits.slice(2, 6)}-${digits.slice(6)}`
-  }
-
-  if (digits.length <= 3) return digits
-  if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`
-  if (digits.length <= 10) return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`
-  return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`
-}
+// formatPhoneNumber 는 src/utils/phone.ts 로 옮겼다 — 배송지 주소록도 같은 모양으로
+// 연락처를 받는다. 사업자등록번호는 가입 화면에만 있어 여기 남는다.

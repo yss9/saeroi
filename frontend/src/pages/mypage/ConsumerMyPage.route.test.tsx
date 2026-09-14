@@ -44,12 +44,22 @@ const orderPage = {
   hasNext: false,
 }
 
+/**
+ * 이 화면은 요청 셋으로 그려진다 — 주문 목록·주문 요약·배송지 목록.
+ *
+ * URL 로 갈라 각각 다른 모양을 돌려준다. 하나로 뭉뚱그리면 배송지 자리에 주문 페이지가
+ * 실려 `addresses.find is not a function` 으로 화면이 통째로 죽는다.
+ */
 function mockMyPageApi() {
   return vi.spyOn(apiClient, 'get').mockImplementation(async (url) => {
-    const data = url === '/v1/product-orders/me/summary'
-      ? { created: 0, paid: 0, shipped: 0, delivered: 1 }
-      : orderPage
-    return { data } as AxiosResponse
+    if (url === '/v1/product-orders/me/summary') {
+      return { data: { created: 0, paid: 0, shipped: 0, delivered: 1 } } as AxiosResponse
+    }
+    // 배송지가 0건인 계정. 주소를 받기 전에 가입한 사람이고, 빈 배열이 정상이다.
+    if (url === '/v1/consumers/me/addresses') {
+      return { data: [] } as AxiosResponse
+    }
+    return { data: orderPage } as AxiosResponse
   })
 }
 
