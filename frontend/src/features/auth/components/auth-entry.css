@@ -472,15 +472,19 @@
   margin: 0 0 18px;
 }
 
-.business-signup__address-search {
+/* 개인·사업자 가입이 같은 주소 검색을 쓴다. 한쪽만 손대면 같은 입력이 두 모양이 된다. */
+.business-signup__address-search,
+.consumer-signup__address-search {
   position: relative;
 }
 
-.business-signup__address-search .ui-field__control {
+.business-signup__address-search .ui-field__control,
+.consumer-signup__address-search .ui-field__control {
   padding-right: 112px;
 }
 
-.business-signup__address-search > button {
+.business-signup__address-search > button,
+.consumer-signup__address-search > button {
   position: absolute;
   top: 29px;
   right: 6px;
@@ -500,26 +504,31 @@
   cursor: pointer;
 }
 
-.business-signup__address-search > button:hover {
+.business-signup__address-search > button:hover,
+.consumer-signup__address-search > button:hover {
   background: rgb(33 106 159 / 0.14);
 }
 
-.business-signup__address-search > button:disabled {
+.business-signup__address-search > button:disabled,
+.consumer-signup__address-search > button:disabled {
   cursor: wait;
   opacity: 0.6;
 }
 
-.business-signup__address-search > button:focus-visible {
+.business-signup__address-search > button:focus-visible,
+.consumer-signup__address-search > button:focus-visible {
   outline: 3px solid rgb(33 106 159 / 0.22);
   outline-offset: 2px;
 }
 
-.business-signup__address-search > button svg {
+.business-signup__address-search > button svg,
+.consumer-signup__address-search > button svg {
   width: 16px;
   height: 16px;
 }
 
-.business-signup__address-error {
+.business-signup__address-error,
+.consumer-signup__address-error {
   margin: -7px 0 16px;
   color: var(--ui-color-danger);
   font-size: 0.8rem;
