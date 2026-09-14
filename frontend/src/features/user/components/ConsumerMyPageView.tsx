@@ -19,8 +19,10 @@ import {
 import type {
   ConsumerMyPageData,
   ConsumerOrderStage,
+  ConsumerRecentOrder,
   ConsumerOrderViewStatus,
 } from '../types/consumerMyPage.types.ts'
+import { useConsumerOrderThumbnail } from '../hooks/useConsumerOrderThumbnail.ts'
 import { toErrorMessage } from '../../../utils/errors.ts'
 import './consumer-mypage.css'
 
@@ -40,7 +42,7 @@ const orderStageMeta: Record<
   ConsumerOrderStage,
   { label: string; description: string }
 > = {
-  PAYMENT_COMPLETED: { label: '결제 완료', description: '주문을 확인하고 있어요' },
+  PAYMENT_PENDING: { label: '결제 대기', description: '결제를 기다리고 있어요' },
   PREPARING: { label: '상품 준비', description: '브랜드에서 준비 중이에요' },
   SHIPPING: { label: '배송 중', description: '새로운 쓰임이 오고 있어요' },
   DELIVERED: { label: '배송 완료', description: '배송이 완료됐어요' },
@@ -50,11 +52,10 @@ const orderStatusMeta: Record<
   ConsumerOrderViewStatus,
   { label: string; tone: StatusTone }
 > = {
-  PAYMENT_COMPLETED: { label: '결제 완료', tone: 'info' },
+  PAYMENT_PENDING: { label: '결제 대기', tone: 'warning' },
   PREPARING: { label: '상품 준비', tone: 'warning' },
   SHIPPING: { label: '배송 중', tone: 'info' },
   DELIVERED: { label: '배송 완료', tone: 'success' },
-  CANCELED: { label: '주문 취소', tone: 'neutral' },
 }
 
 const accountNavigation = [
@@ -164,7 +165,7 @@ function RecentOrders({ data }: { data: ConsumerMyPageData }) {
           <p className="consumer-section-heading__eyebrow">RECENT ORDERS</p>
           <h2 id="recent-orders-title">최근 주문</h2>
         </div>
-        <span className="consumer-section-heading__note">최근 3개월</span>
+        <span className="consumer-section-heading__note">최신순</span>
       </div>
 
       {data.recentOrders.length === 0 ? (
@@ -179,7 +180,7 @@ function RecentOrders({ data }: { data: ConsumerMyPageData }) {
             const status = orderStatusMeta[order.status]
             return (
               <article className="consumer-order-item" key={order.id} aria-label={`${order.productName} 주문`}>
-                <img src={order.thumbnailUrl} alt={order.thumbnailAlt} />
+                <OrderThumbnail order={order} />
                 <div className="consumer-order-item__content">
                   <div className="consumer-order-item__meta">
                     <time dateTime={order.orderedAt}>{dateFormatter.format(new Date(order.orderedAt))}</time>
@@ -187,14 +188,25 @@ function RecentOrders({ data }: { data: ConsumerMyPageData }) {
                   </div>
                   <p className="consumer-order-item__brand">{order.brandName}</p>
                   <h3>{order.productName}</h3>
+                  <span className="consumer-order-item__code">{order.itemCode}</span>
                   <p className="consumer-order-item__price">
-                    {priceFormatter.format(order.totalAmount)}
-                    {order.itemCount > 1 && ` · ${order.itemCount}개`}
+                    {priceFormatter.format(order.itemPrice)}
+                    {order.itemCount > 1 && (
+                      <small>
+                        주문 총 {order.itemCount}개 · {priceFormatter.format(order.totalAmount)}
+                      </small>
+                    )}
                   </p>
                 </div>
                 <div className="consumer-order-item__status">
                   <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
-                  <span>상세 화면은 다음 단계에서 연결됩니다.</span>
+                  {order.journeyUrl ? (
+                    <a className="consumer-journey-link" href={order.journeyUrl}>
+                      제품 여정 보기 <ArrowRight aria-hidden="true" />
+                    </a>
+                  ) : (
+                    <span>결제 완료 후 제품 여정 확인 가능</span>
+                  )}
                 </div>
               </article>
             )
@@ -202,6 +214,20 @@ function RecentOrders({ data }: { data: ConsumerMyPageData }) {
         </div>
       )}
     </section>
+  )
+}
+
+function OrderThumbnail({ order }: { order: ConsumerRecentOrder }) {
+  const thumbnail = useConsumerOrderThumbnail(order.thumbnailUrl)
+
+  return (
+    <div className="consumer-order-item__thumbnail">
+      {thumbnail.url ? (
+        <img src={thumbnail.url} alt={order.thumbnailAlt} />
+      ) : (
+        <span aria-hidden="true" />
+      )}
+    </div>
   )
 }
 
