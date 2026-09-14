@@ -78,7 +78,8 @@ export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps
           쇼핑몰로 나가는 길은 옆의 "쇼핑몰" 버튼이 따로 맡는다. 그쪽은 의도한 이탈이다.
         */}
         <Link className="company-dashboard__logo" to={homePath} aria-label="대시보드 홈">
-          <img src="/img/logo.png" alt="" />
+          {/* public/ 자산 경로라 vite base 가 자동으로 안 붙는다 — /test/ 에서 404 방지 */}
+          <img src={`${import.meta.env.BASE_URL}img/logo.png`} alt="" />
         </Link>
         <div className="company-dashboard__identity">
           <span>{user?.name ?? '회사 계정'}</span>

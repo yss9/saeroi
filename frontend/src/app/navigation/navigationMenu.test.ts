@@ -33,7 +33,10 @@ function allowFromMatchedBranch(path: string): readonly UserRole[] | null {
 function signInAs(role: UserRole) {
   useAuthStore
     .getState()
-    .signIn({ id: 1, email: 'a@b.c', name: '테스터', role, walletAddress: null }, 'test-token')
+    .signIn(
+      { id: 1, email: 'a@b.c', name: '테스터', role, walletAddress: null },
+      'test-token',
+    )
 }
 
 beforeEach(() => {

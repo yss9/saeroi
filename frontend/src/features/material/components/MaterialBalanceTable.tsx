@@ -38,32 +38,34 @@ export function MaterialBalanceTable({ materialId }: MaterialBalanceTableProps) 
   }
 
   return (
-    <table className="material-balance-table">
-      <caption>보유자별 잔량</caption>
-      <thead>
-        <tr>
-          <th scope="col">보유자</th>
-          <th scope="col">보유 수량</th>
-          <th scope="col">잠긴 수량</th>
-          <th scope="col">판매 가능량</th>
-          <th scope="col">기준 시각</th>
-        </tr>
-      </thead>
-      <tbody>
-        {data.map((balance) => (
-          <tr key={balance.ownerId}>
-            <td>{shortenAddress(balance.walletAddress)}</td>
-            <td>{formatKg(balance.quantity)}</td>
-            <td>{formatKg(balance.lockedQuantity)}</td>
-            {/* 음수를 그대로 보여준다. Math.max(0, ...) 로 감추지 않는다. */}
-            <td>{formatKg(balance.available)}</td>
-            <td>
-              <time dateTime={balance.syncedAt}>{formatSyncedAt(balance.syncedAt)}</time>
-            </td>
+    <div className="ui-table-scroll">
+      <table className="ui-table material-balance-table">
+        <caption className="ui-visually-hidden">보유자별 잔량</caption>
+        <thead>
+          <tr>
+            <th scope="col" className="is-tight">보유자</th>
+            <th scope="col" className="is-numeric">보유 수량</th>
+            <th scope="col" className="is-numeric">잠긴 수량</th>
+            <th scope="col" className="is-numeric">판매 가능량</th>
+            <th scope="col" className="is-tight">기준 시각</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {data.map((balance) => (
+            <tr key={balance.ownerId}>
+              <td>{shortenAddress(balance.walletAddress)}</td>
+              <td className="is-numeric">{formatKg(balance.quantity)}</td>
+              <td className="is-numeric">{formatKg(balance.lockedQuantity)}</td>
+              {/* 음수를 그대로 보여준다. Math.max(0, ...) 로 감추지 않는다. */}
+              <td className="is-numeric">{formatKg(balance.available)}</td>
+              <td className="is-tight">
+                <time dateTime={balance.syncedAt}>{formatSyncedAt(balance.syncedAt)}</time>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }
 

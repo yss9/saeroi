@@ -1,7 +1,6 @@
 // 증빙 업로드 (S15P21E104-165).
 //
-// 증빙은 **지울 수 없다** — 파일 해시가 온체인에 기록된다. 그래서 여기서 막는 것은
-// 사용자가 되돌릴 수 없는 실수를 하게 만드는 화면 동작이다.
+// 화면이 여기서 막는 것은 사용자가 되돌릴 수 없는 실수를 하게 만드는 동작이다.
 //
 //   1) 무엇이 올라가는지 모른 채 올리게 한다
 //   2) 실패했는데 선택이 사라져 무엇을 골랐는지 알 수 없게 한다
@@ -14,6 +13,11 @@
 // 종류별 개수만 주고(`visibility: 'SUMMARY'`, `files` 키 자체가 없다), 그것을 빈
 // 배열처럼 다루면 "아직 증빙이 올라오지 않았습니다" 가 뜬다 — 있는 것을 없다고
 // 말하는 화면이 된다.
+//
+// 삭제는 소프트 삭제이고 **판정은 서버가 한다** (`EvidenceDeletionService`). 화면은
+// 업로더·소재 등록자인지, 온체인에 고정됐는지를 다시 계산하지 않고 서버 응답을
+// 그대로 보여준다 — 그래서 여기서 확인하는 것은 "화면이 지우기 전에 확인시키고,
+// 서버가 거절하면 그 이유를 그대로 보여주는가" 다.
 //
 // 모킹 경계는 API 모듈이다. FormData 조립까지 실제로 통과시킨다.
 
@@ -29,10 +33,12 @@ const api = vi.hoisted(() => ({
   getEvidence: vi.fn(),
   uploadEvidence: vi.fn(),
   getEvidenceContent: vi.fn(),
+  deleteEvidence: vi.fn(),
 }))
 vi.mock('../api/getEvidence.ts', () => ({ getEvidence: api.getEvidence }))
 vi.mock('../api/uploadEvidence.ts', () => ({ uploadEvidence: api.uploadEvidence }))
 vi.mock('../api/getEvidenceContent.ts', () => ({ getEvidenceContent: api.getEvidenceContent }))
+vi.mock('../api/deleteEvidence.ts', () => ({ deleteEvidence: api.deleteEvidence }))
 
 const HASH = `0x${'ab'.repeat(32)}`
 
@@ -98,6 +104,7 @@ beforeEach(() => {
   api.getEvidence.mockReset().mockResolvedValue(EMPTY_LIST)
   api.uploadEvidence.mockReset().mockResolvedValue([evidence()])
   api.getEvidenceContent.mockReset().mockResolvedValue(new Blob(['bytes'], { type: 'image/jpeg' }))
+  api.deleteEvidence.mockReset().mockResolvedValue(evidence({ deletedAt: '2026-09-13T10:00:00' }))
 })
 
 afterEach(cleanup)
@@ -245,16 +252,6 @@ describe('목록', () => {
     expect(list.queryByText(/준비 중/)).not.toBeInTheDocument()
   })
 
-  it('삭제를 제안하지 않는다', async () => {
-    // 삭제 버튼을 두면 사용자는 되돌릴 수 있다고 믿는다. 해시가 온체인에 있으면
-    // 파일을 지워도 "무엇의 해시인지 알 수 없는 상태" 만 만든다.
-    api.getEvidence.mockResolvedValue(fullList([evidence()]))
-    renderUpload()
-
-    await screen.findByRole('list', { name: '등록된 증빙' })
-    expect(screen.queryByRole('button', { name: /삭제|지우기|제거/ })).not.toBeInTheDocument()
-  })
-
   it('조회 실패는 다시 시도할 수 있다', async () => {
     api.getEvidence.mockRejectedValue(
       createAppError(ERROR_KIND.API_ERROR, { message: '증빙을 불러오지 못했습니다.' }),
@@ -263,6 +260,76 @@ describe('목록', () => {
 
     expect(await screen.findByText('증빙을 불러오지 못했습니다.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '다시 시도' })).toBeInTheDocument()
+  })
+})
+
+describe('삭제', () => {
+  it('확인 없이는 지우지 않는다', async () => {
+    api.getEvidence.mockResolvedValue(fullList([evidence()]))
+    const user = renderUpload()
+
+    const list = within(await screen.findByRole('list', { name: '등록된 증빙' }))
+    await user.click(list.getByRole('button', { name: '삭제' }))
+
+    expect(api.deleteEvidence).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: '지우기' })).toBeInTheDocument()
+  })
+
+  it('확인하면 지우고 목록을 다시 받는다', async () => {
+    // 응답으로 캐시를 직접 고치지 않는다 — 목록을 무효화해 다시 받는다. 그래서
+    // getEvidence 가 다시 불렸는지까지 본다.
+    api.getEvidence.mockResolvedValue(fullList([evidence({ evidenceFileId: 9 })]))
+    const user = renderUpload()
+
+    const list = within(await screen.findByRole('list', { name: '등록된 증빙' }))
+    await user.click(list.getByRole('button', { name: '삭제' }))
+    await user.click(screen.getByRole('button', { name: '지우기' }))
+
+    expect(api.deleteEvidence).toHaveBeenCalledWith(9)
+    await waitFor(() => expect(api.getEvidence).toHaveBeenCalledTimes(2))
+  })
+
+  it('닫으면 지우지 않는다', async () => {
+    api.getEvidence.mockResolvedValue(fullList([evidence()]))
+    const user = renderUpload()
+
+    const list = within(await screen.findByRole('list', { name: '등록된 증빙' }))
+    await user.click(list.getByRole('button', { name: '삭제' }))
+    await user.click(screen.getByRole('button', { name: '취소' }))
+
+    expect(api.deleteEvidence).not.toHaveBeenCalled()
+  })
+
+  it('온체인에 고정됐으면 서버가 거절한 이유를 그대로 보여준다', async () => {
+    // 누가 지울 수 있는지·언제 고정되는지는 서버(EvidenceAnchorPolicy)가 판정한다.
+    // 화면은 그 판정을 다시 하지 않고 에러 메시지를 그대로 보여준다.
+    api.getEvidence.mockResolvedValue(fullList([evidence()]))
+    api.deleteEvidence.mockRejectedValue(
+      createAppError(ERROR_KIND.API_ERROR, {
+        message: '온체인에 기록된 증빙은 지울 수 없습니다.',
+        code: 'EVIDENCE_ANCHORED_ON_CHAIN',
+        status: 409,
+      }),
+    )
+    const user = renderUpload()
+
+    const list = within(await screen.findByRole('list', { name: '등록된 증빙' }))
+    await user.click(list.getByRole('button', { name: '삭제' }))
+    await user.click(screen.getByRole('button', { name: '지우기' }))
+
+    expect(
+      await screen.findByText('온체인에 기록된 증빙은 지울 수 없습니다.'),
+    ).toBeInTheDocument()
+  })
+
+  it('읽기 전용에서는 삭제 버튼이 없다', async () => {
+    // readOnly 는 남의 소재를 볼 때 쓴다 — 업로드 폼과 마찬가지로 파괴적 동작도
+    // 감춘다.
+    api.getEvidence.mockResolvedValue(fullList([evidence()]))
+    renderUpload(12, true)
+
+    await screen.findByRole('list', { name: '등록된 증빙' })
+    expect(screen.queryByRole('button', { name: '삭제' })).not.toBeInTheDocument()
   })
 })
 

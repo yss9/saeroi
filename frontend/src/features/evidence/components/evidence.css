@@ -19,6 +19,23 @@
   gap: 0.5rem;
 }
 
+/* 종류 선택과 파일 선택은 한 번에 정하는 짝이라 좌우로 나란히 둔다.
+   좁은 화면에서는 다시 세로로 쌓는다 — 드롭 영역이 눌려서 좁아지면 못 쓴다. */
+.evidence__form-row {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+.evidence__form-row > .ui-field {
+  flex: 1;
+  min-width: 0;
+}
+@media (max-width: 640px) {
+  .evidence__form-row {
+    flex-direction: column;
+  }
+}
+
 /* 올릴 파일 · 등록된 증빙 모두 목록이지만 불릿은 필요 없다 — 각 줄이 카드다. */
 .evidence__selected,
 .evidence__list,
@@ -63,6 +80,11 @@
   padding: 0.75rem;
   border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius);
+}
+/* 카드 전체 너비로 늘어나지 않게 한다 — 삭제는 그 파일 하나에 대한 동작이라
+   버튼도 파일만큼만 차지해야 한다. */
+.evidence__list li > button {
+  align-self: flex-start;
 }
 .evidence__list p {
   margin: 0;

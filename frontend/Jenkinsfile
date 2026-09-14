@@ -75,7 +75,9 @@ $(grep -E '^VITE_[A-Za-z0-9_]+=' "$ENV_FILE")
 EOF
                     set -- "$@" --build-arg "VITE_BASE_PATH=/test/"
 
-                    docker build -f docker/Dockerfile "$@" -t "$IMAGE:test" .
+                    # :test 하나만 찍으면 다음 빌드가 그 태그를 새 이미지로 옮기는 순간
+                    # 지금 뜬 이미지가 태그를 전부 잃어 test-deploy.sh 가 롤백 대상을 못 찾는다.
+                    docker build -f docker/Dockerfile "$@" -t "$IMAGE:test" -t "$IMAGE:test-$BUILD_NUMBER" .
                 '''
                 sh 'flock -w 900 /var/jenkins_home/cf-deploy.lock bash $DEPLOY_DIR/scripts/test-deploy.sh frontend'
             }

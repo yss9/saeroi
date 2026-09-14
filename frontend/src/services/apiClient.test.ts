@@ -5,10 +5,10 @@
 // axios 의 요청/응답 인터셉터 체인 전체를 통과시켜 검증한다.
 
 import { AxiosError, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiClient } from './apiClient.ts'
 import { useAuthStore, type AuthUser } from '../stores/authStore.ts'
-import { ERROR_KIND } from '../utils/errors.ts'
+import { createAppError, ERROR_KIND } from '../utils/errors.ts'
 
 const FIXTURE_USER: AuthUser = {
   id: 1,
@@ -52,11 +52,23 @@ function networkError(config: InternalAxiosRequestConfig): AxiosError {
 
 describe('apiClient', () => {
   beforeEach(() => {
-    useAuthStore.setState({ user: null, accessToken: null, isAuthenticated: false })
+    useAuthStore.setState({
+      user: null,
+      accessToken: null,
+      isAuthenticated: false,
+    })
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
   })
 
   it('토큰이 있으면 Authorization 헤더를 붙인다', async () => {
-    useAuthStore.setState({ accessToken: 'access-token', isAuthenticated: true, user: FIXTURE_USER })
+    useAuthStore.setState({
+      accessToken: 'access-token',
+      isAuthenticated: true,
+      user: FIXTURE_USER,
+    })
     let captured: string | undefined
 
     await apiClient.get('/materials', {
@@ -145,8 +157,101 @@ describe('apiClient', () => {
     ).rejects.toMatchObject({ kind: ERROR_KIND.NETWORK_ERROR, status: null })
   })
 
-  it('401 을 받으면 인증 상태를 비운다', async () => {
-    useAuthStore.setState({ accessToken: 'stale-token', isAuthenticated: true, user: FIXTURE_USER })
+  it('HttpOnly Refresh Token 쿠키를 주고받도록 credentials를 포함한다', () => {
+    expect(apiClient.defaults.withCredentials).toBe(true)
+  })
+
+  it('401 을 받으면 토큰을 재발급하고 원래 요청을 한 번 재시도한다', async () => {
+    useAuthStore.setState({
+      accessToken: 'old-access',
+      isAuthenticated: true,
+      user: FIXTURE_USER,
+    })
+    const refresh = vi.spyOn(apiClient, 'post').mockResolvedValue({
+      data: { accessToken: 'new-access' },
+    } as AxiosResponse)
+    let attempts = 0
+    const authorizationHeaders: Array<string | undefined> = []
+
+    const response = await apiClient.get('/materials', {
+      adapter: async (config) => {
+        attempts += 1
+        authorizationHeaders.push(config.headers.get('Authorization') as string | undefined)
+        if (attempts === 1) {
+          return Promise.reject(
+            httpError(config, 401, errorEnvelope('TOKEN_EXPIRED', '토큰이 만료되었습니다.')),
+          )
+        }
+        return okResponse(config, envelope([{ id: 1 }]))
+      },
+    })
+
+    expect(refresh).toHaveBeenCalledWith(
+      '/v1/auth/refresh',
+      undefined,
+      { skipAuth: true, skipTokenRefresh: true },
+    )
+    expect(attempts).toBe(2)
+    expect(authorizationHeaders).toEqual(['Bearer old-access', 'Bearer new-access'])
+    expect(response.data).toEqual([{ id: 1 }])
+    expect(useAuthStore.getState()).toMatchObject({
+      accessToken: 'new-access',
+      isAuthenticated: true,
+    })
+  })
+
+  it('여러 요청이 동시에 401 을 받아도 재발급 요청은 하나만 공유한다', async () => {
+    useAuthStore.setState({
+      accessToken: 'old-access',
+      isAuthenticated: true,
+      user: FIXTURE_USER,
+    })
+    let releaseRefresh: ((response: AxiosResponse) => void) | undefined
+    const refresh = vi.spyOn(apiClient, 'post').mockReturnValue(
+      new Promise((resolve) => {
+        releaseRefresh = resolve
+      }),
+    )
+
+    function expiringRequest(path: string) {
+      let attempts = 0
+      return apiClient.get(path, {
+        adapter: async (config) => {
+          attempts += 1
+          return attempts === 1
+            ? Promise.reject(
+                httpError(config, 401, errorEnvelope('TOKEN_EXPIRED', '만료되었습니다.')),
+              )
+            : okResponse(config, envelope(path))
+        },
+      })
+    }
+
+    const first = expiringRequest('/materials')
+    const second = expiringRequest('/trades')
+    await vi.waitFor(() => expect(refresh).toHaveBeenCalledTimes(1))
+    releaseRefresh!({
+      data: { accessToken: 'new-access' },
+    } as AxiosResponse)
+
+    const responses = await Promise.all([first, second])
+    expect(responses.map((response) => response.data)).toEqual(['/materials', '/trades'])
+    expect(refresh).toHaveBeenCalledTimes(1)
+  })
+
+  it('재발급이 실패하면 Access Token을 지우고 로그아웃한다', async () => {
+    useAuthStore.setState({
+      accessToken: 'old-access',
+      isAuthenticated: true,
+      user: FIXTURE_USER,
+    })
+    vi.spyOn(apiClient, 'post').mockRejectedValue(
+      createAppError(ERROR_KIND.API_ERROR, {
+        code: 'REFRESH_TOKEN_EXPIRED',
+        status: 401,
+        message: 'Refresh Token이 만료되었습니다.',
+      }),
+    )
 
     await expect(
       apiClient.get('/materials', {
@@ -155,11 +260,44 @@ describe('apiClient', () => {
             httpError(config, 401, errorEnvelope('TOKEN_EXPIRED', '토큰이 만료되었습니다.')),
           ),
       }),
+    ).rejects.toMatchObject({ code: 'REFRESH_TOKEN_EXPIRED' })
+
+    expect(useAuthStore.getState()).toMatchObject({
+      user: null,
+      accessToken: null,
+      isAuthenticated: false,
+    })
+  })
+
+  it('재발급 뒤 재시도한 요청도 401이면 반복하지 않고 로그아웃한다', async () => {
+    useAuthStore.setState({
+      accessToken: 'old-access',
+      isAuthenticated: true,
+      user: FIXTURE_USER,
+    })
+    const refresh = vi.spyOn(apiClient, 'post').mockResolvedValue({
+      data: { accessToken: 'new-access' },
+    } as AxiosResponse)
+    let attempts = 0
+
+    await expect(
+      apiClient.get('/materials', {
+        adapter: async (config) => {
+          attempts += 1
+          return Promise.reject(
+            httpError(config, 401, errorEnvelope('TOKEN_EXPIRED', '토큰이 만료되었습니다.')),
+          )
+        },
+      }),
     ).rejects.toMatchObject({ status: 401 })
 
-    const state = useAuthStore.getState()
-    expect(state.isAuthenticated).toBe(false)
-    expect(state.accessToken).toBeNull()
+    expect(refresh).toHaveBeenCalledTimes(1)
+    expect(attempts).toBe(2)
+    expect(useAuthStore.getState()).toMatchObject({
+      user: null,
+      accessToken: null,
+      isAuthenticated: false,
+    })
   })
 
   it('이미 로그아웃 상태에서 401 을 받아도 signOut 을 다시 부르지 않는다', async () => {

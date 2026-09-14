@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import {
   Button,
+  ConfirmModal,
   EmptyState,
   ErrorMessage,
   FileUploader,
@@ -8,6 +9,7 @@ import {
   Loading,
   Select,
 } from '../../../components/common/index.ts'
+import { useDeleteEvidence } from '../hooks/useDeleteEvidence.ts'
 import { useEvidence } from '../hooks/useEvidence.ts'
 import { useUploadEvidence } from '../hooks/useUploadEvidence.ts'
 import {
@@ -16,6 +18,7 @@ import {
   EVIDENCE_MAX_FILE_SIZE,
   EVIDENCE_TYPE_LABEL,
   MATERIAL_EVIDENCE_TYPES,
+  type EvidenceFile,
   type EvidenceReferenceType,
   type EvidenceType,
 } from '../types/evidence.types.ts'
@@ -32,11 +35,18 @@ export interface EvidenceUploadProps {
 /**
  * 증빙 업로드 + 목록. S15P21E104-165.
  *
- * <h2>증빙은 지울 수 없다</h2>
+ * <h2>삭제는 소프트 삭제이고, 판정은 서버가 한다</h2>
  *
- * <p>파일 해시가 온체인에 기록되므로 잘못 올린 것을 되돌릴 방법이 없다. 그래서 이 화면은
- * <b>올리기 전에 무엇이 올라가는지 보여주고, 올린 뒤에는 지우기를 제안하지 않는다.</b>
- * 삭제 버튼을 두면 사용자는 되돌릴 수 있다고 믿는다.
+ * <p>`DELETE /api/evidence/{id}` 는 행을 지우지 않고 `deletedAt` 만 채운다 — `fileHash` 가
+ * 나중에 온체인 manifest 에서 발견되면 무엇의 해시인지 알 수 있어야 하기 때문이다
+ * ({@code EvidenceDeletionService} 주석). 그래서 <b>이 화면은 누가 지울 수 있는지 다시
+ * 판단하지 않는다</b> — 업로더·소재 등록자가 아니면 403(`EVIDENCE_DELETE_FORBIDDEN`),
+ * 이미 온체인에 고정됐으면 409(`EVIDENCE_ANCHORED_ON_CHAIN`)를 서버가 돌려주고, 화면은
+ * 그 에러 메시지를 그대로 보여준다.
+ *
+ * <p>올리기 전에 무엇이 올라가는지 보여주는 이유는 여전히 유효하다 — 지울 수 있는 경우도
+ * 있지만 <b>항상 지울 수 있는 것은 아니므로</b>, 잘못 고른 파일을 업로드 전에 걸러내는
+ * 편이 여전히 최선이다.
  *
  * <h2>목록은 보는 사람에 따라 범위가 다르다 (S15P21E104-286 §6-1)</h2>
  *
@@ -82,9 +92,12 @@ export interface EvidenceUploadProps {
 export function EvidenceUpload({ referenceType, referenceId, readOnly }: EvidenceUploadProps) {
   const [evidenceType, setEvidenceType] = useState<EvidenceType>('BEFORE_PHOTO')
   const [selected, setSelected] = useState<File[]>([])
+  // 지우려는 파일 하나만 든다 — 확인 모달은 한 번에 하나만 뜬다.
+  const [pendingDelete, setPendingDelete] = useState<EvidenceFile | null>(null)
 
   const list = useEvidence(referenceType, referenceId)
   const upload = useUploadEvidence()
+  const remove = useDeleteEvidence()
 
   if (referenceId === null) return <ErrorMessage error="잘못된 주소입니다." />
 
@@ -104,32 +117,35 @@ export function EvidenceUpload({ referenceType, referenceId, readOnly }: Evidenc
     <div className="evidence">
       {!readOnly && (
         <div className="evidence__form">
-          <Select
-            label="증빙 종류"
-            options={MATERIAL_EVIDENCE_TYPES.map((value) => ({
-              value,
-              label: EVIDENCE_TYPE_LABEL[value],
-            }))}
-            value={evidenceType}
-            onChange={(event) => setEvidenceType(event.target.value as EvidenceType)}
-          />
+          {/* 종류 선택과 파일 선택은 한 번에 정하는 짝이라 같은 행에 좌우로 둔다. */}
+          <div className="evidence__form-row">
+            <Select
+              label="증빙 종류"
+              options={MATERIAL_EVIDENCE_TYPES.map((value) => ({
+                value,
+                label: EVIDENCE_TYPE_LABEL[value],
+              }))}
+              value={evidenceType}
+              onChange={(event) => setEvidenceType(event.target.value as EvidenceType)}
+            />
 
-          {/*
-            형식·크기·개수 검증과 거절 문구는 모두 공통 컴포넌트가 한다 (S15P21E104-253).
-            여기서 다시 세면 같은 규칙이 두 곳에 생기고, 상한을 고칠 때 한쪽이 남는다.
-            도메인이 하는 일은 **정책 값을 넘기는 것**뿐이다.
-          */}
-          <FileUploader
-            label="파일 선택"
-            hint={`사진(jpg·png·webp)과 pdf 를 최대 ${EVIDENCE_MAX_FILES}개, 개당 10MB 까지 올릴 수 있습니다.`}
-            accept={EVIDENCE_ACCEPT}
-            multiple
-            maxSizeBytes={EVIDENCE_MAX_FILE_SIZE}
-            maxFiles={EVIDENCE_MAX_FILES}
-            uploading={upload.isPending}
-            progress={upload.progress}
-            onChange={setSelected}
-          />
+            {/*
+              형식·크기·개수 검증과 거절 문구는 모두 공통 컴포넌트가 한다 (S15P21E104-253).
+              여기서 다시 세면 같은 규칙이 두 곳에 생기고, 상한을 고칠 때 한쪽이 남는다.
+              도메인이 하는 일은 **정책 값을 넘기는 것**뿐이다.
+            */}
+            <FileUploader
+              label="파일 선택"
+              hint={`사진(jpg·png·webp)과 pdf 를 최대 ${EVIDENCE_MAX_FILES}개, 개당 10MB 까지 올릴 수 있습니다.`}
+              accept={EVIDENCE_ACCEPT}
+              multiple
+              maxSizeBytes={EVIDENCE_MAX_FILE_SIZE}
+              maxFiles={EVIDENCE_MAX_FILES}
+              uploading={upload.isPending}
+              progress={upload.progress}
+              onChange={setSelected}
+            />
+          </div>
 
           {selected.length > 0 && (
             <>
@@ -239,6 +255,22 @@ export function EvidenceUpload({ referenceType, referenceId, readOnly }: Evidenc
                     들어올 수 없다.
                   */}
                   <EvidencePreview file={file} />
+                  {/*
+                    누가 지울 수 있는지는 서버가 판정한다 (업로더·소재 등록자만, 온체인
+                    고정 전까지). 여기서 다시 가리면 보유자에게는 안 보였다가 서버 정책이
+                    바뀌면 화면이 따라가지 못한다 — 버튼은 항상 보여주고 거절은 에러
+                    메시지로 알린다.
+                  */}
+                  {!readOnly && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setPendingDelete(file)}
+                    >
+                      삭제
+                    </Button>
+                  )}
                 </li>
               ))}
             </ul>
@@ -251,6 +283,33 @@ export function EvidenceUpload({ referenceType, referenceId, readOnly }: Evidenc
             </p>
           )}
         </>
+      )}
+
+      {remove.isError && <ErrorMessage error={remove.error} />}
+
+      {/*
+        열려 있을 때만 마운트한다. `<dialog>` 는 항상 DOM 에 있으면 닫혀 있어도
+        닫기 버튼("×") 같은 마크업이 문서에 남는다 — 이 화면이 끼는 다른 페이지의
+        "이 문구가 없어야 한다" 류 단언과 부딪힌다.
+      */}
+      {pendingDelete && (
+        <ConfirmModal
+          open
+          title="증빙을 지울까요?"
+          message={`${EVIDENCE_TYPE_LABEL[pendingDelete.evidenceType]} 파일을 지웁니다. 온체인에 이미 기록된 증빙은 지울 수 없습니다.`}
+          // 파일 목록의 트리거 버튼과 이름이 같으면("삭제") 테스트도 사용자도 어느 쪽을
+          // 눌렀는지 구분할 수 없다. 모달의 확인 버튼은 "지우기" 로 갈라 둔다.
+          confirmLabel="지우기"
+          destructive
+          loading={remove.isPending}
+          onConfirm={() => {
+            remove.mutate(
+              { evidenceFileId: pendingDelete.evidenceFileId, referenceType, referenceId },
+              { onSettled: () => setPendingDelete(null) },
+            )
+          }}
+          onClose={() => setPendingDelete(null)}
+        />
       )}
     </div>
   )

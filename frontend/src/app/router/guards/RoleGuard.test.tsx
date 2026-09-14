@@ -20,7 +20,10 @@ import { FORBIDDEN_PATH, RoleGuard } from './RoleGuard.tsx'
 function signInAs(role: UserRole) {
   useAuthStore
     .getState()
-    .signIn({ id: 1, email: 'a@b.c', name: '테스터', role, walletAddress: null }, 'test-token')
+    .signIn(
+      { id: 1, email: 'a@b.c', name: '테스터', role, walletAddress: null },
+      'test-token',
+    )
 }
 
 afterEach(() => {
@@ -127,6 +130,7 @@ describe('RoleGuard', () => {
         state: {
           user: { id: 1, email: 'a@b.c', name: '테스터', role: 'SUPPLIER', walletAddress: null },
           accessToken: 'test-token',
+          refreshToken: 'refresh-token',
         },
         version: 0,
       }),
@@ -134,6 +138,10 @@ describe('RoleGuard', () => {
 
     // 동기 스토리지이므로 await 없이도 이 호출이 끝나면 상태가 채워져 있어야 한다.
     void useAuthStore.persist.rehydrate()
+
+    expect(JSON.parse(localStorage.getItem('saeroi.auth') ?? '{}').state).not.toHaveProperty(
+      'refreshToken',
+    )
 
     renderGuardedRoute(['SUPPLIER'])
     expect(screen.getByText('공급자 전용 화면')).toBeInTheDocument()
