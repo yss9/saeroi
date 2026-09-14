@@ -28,7 +28,7 @@ export function ProcessorRequestList() {
 
   return <div className="pr-shell pr-shell--embedded">
       <div className="pr-content">
-        <div className="pr-heading"><div><span>PROCESSING REQUESTS</span><h1>견적 요청</h1><p>Brand가 보낸 가공 요청을 확인하고 조건을 검토하세요.</p></div><div className="pr-heading-icon"><FileText size={28} weight="duotone" /></div></div>
+        <div className="pr-heading"><div><span>PROCESSING REQUESTS</span><h1>견적 요청</h1></div><div className="pr-heading-icon"><FileText size={28} weight="duotone" /></div></div>
         <section className="pr-summary" aria-label="요청 현황">
           <article><span>조회 결과</span><strong>{requests.data?.total ?? 0}<small>건</small></strong><p>현재 조건에 맞는 요청</p></article>
           <article><span>현재 페이지 · 견적 대기</span><strong>{requests.data?.items.filter(item => item.status === 'QUOTING').length ?? 0}<small>건</small></strong><p>견적 검토가 필요해요</p></article>
@@ -41,7 +41,7 @@ export function ProcessorRequestList() {
           : requests.isError ? <section className="pr-state pr-error" role="alert"><strong>목록을 불러오지 못했어요</strong><p>{errorMessage(requests.error)}</p><button onClick={() => void requests.refetch()}>다시 시도</button></section>
           : !requests.data?.items.length ? <section className="pr-state"><FileText size={38} /><strong>{requests.status ? '조건에 맞는 요청이 없어요' : '아직 들어온 요청이 없어요'}</strong><p>{requests.status ? '다른 상태 필터를 선택해 요청을 확인해 보세요.' : '새 요청이 도착하면 이곳에서 확인할 수 있어요.'}</p></section>
           : <section className="pr-list-card">
-            <div className="pr-list-title"><div><h2>들어온 요청</h2><p>총 {requests.data.total}건의 가공 요청이 있어요.</p></div><span>{requests.data.total} REQUESTS</span></div>
+            <div className="pr-list-title"><div><h2>들어온 요청</h2></div><span>{requests.data.total} REQUESTS</span></div>
             <div className="pr-table" role="table" aria-label="가공 요청 목록">
               <div className="pr-row pr-table-head" role="row"><span>요청 정보</span><span>소재 / 가공</span><span>수량</span><span>요청일</span><span>상태</span></div>
               {requests.data.items.map(item => <div className="pr-entry" key={item.requestId}><article className="pr-row" role="row">

@@ -13,7 +13,6 @@ export function TradeListPage() {
     <main className="page">
       <header className="page__header">
         <h1>구매 내역</h1>
-        <p className="page__lead">구매한 소재의 결제·배송·수령 상태를 확인합니다.</p>
       </header>
       <TradeList />
     </main>

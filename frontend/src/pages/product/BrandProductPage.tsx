@@ -14,10 +14,6 @@ export function BrandProductPage() {
     <main className="page">
       <header className="page__header">
         <h1>내 제품</h1>
-        <p className="page__lead">
-          등록한 제품의 판매를 시작하거나 중단합니다. 판매를 시작하려면 생산으로 개체가
-          만들어져 있어야 합니다.
-        </p>
       </header>
 
       <p className="page__lead">

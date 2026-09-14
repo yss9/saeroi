@@ -55,9 +55,6 @@ export function ProductQrPage() {
 
       <header className="page__header">
         <h1>QR 라벨{product.data ? ` · ${product.data.name}` : ''}</h1>
-        <p className="page__lead">
-          생산된 개체마다 QR 이 하나씩 있습니다. 인쇄될 이미지를 그대로 미리 보고 저장합니다.
-        </p>
       </header>
 
       {id === null ? (

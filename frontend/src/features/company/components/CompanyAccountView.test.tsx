@@ -39,6 +39,8 @@ describe('CompanyAccountView', () => {
     expect(screen.getByText('123-45-67890')).toBeInTheDocument()
     expect(screen.getByText('김새로')).toBeInTheDocument()
     expect(screen.getByText('활성 계정')).toBeInTheDocument()
+    expect(screen.queryByText('가입 시 등록한 회사 기본 정보입니다.')).not.toBeInTheDocument()
+    expect(screen.queryByText('회사 계정의 연락 및 위치 정보입니다.')).not.toBeInTheDocument()
   })
 
   it('shows wallet registration entry and a registered address', () => {

@@ -44,7 +44,6 @@ export function BrandProcessingRequestList() {
         <div>
           <span>PROCESSING REQUESTS</span>
           <h1>가공 요청 내역</h1>
-          <p>내가 요청한 소재 가공의 견적 진행 상태와 지정 가공사를 확인하세요.</p>
         </div>
         <Link to="/brand/processing"><Plus aria-hidden="true" />새 가공 신청</Link>
       </header>

@@ -192,7 +192,6 @@ export function JourneyExplorer({ journey }: { journey: ProductJourney }) {
             Flow View
           </button>
         </div>
-        <p>업체를 선택하면 상세 기록을 확인할 수 있습니다.</p>
       </div>
 
       <JourneyStepper
@@ -264,7 +263,6 @@ function MobileJourneyExplorer({
       <section className="mobile-journey__stages" aria-labelledby="mobile-journey-stages-title">
         <div className="mobile-journey__section-heading">
           <h2 id="mobile-journey-stages-title">여정 단계</h2>
-          <p>단계를 누르면 지도와 상세 기록이 함께 바뀝니다.</p>
         </div>
         <JourneyStepper
           stages={journey.stages}
@@ -739,7 +737,6 @@ function JourneyMetrics({ journey }: { journey: ProductJourney }) {
         <div>
           <p className="journey-metrics__eyebrow">TRACEABILITY</p>
           <h2>{journey.blockchainVerified ? '블록체인 검증 완료' : '기록 확인 중'}</h2>
-          <p>각 업체의 이력과 제품 연결 기록을 확인할 수 있습니다.</p>
         </div>
       </section>
     </div>

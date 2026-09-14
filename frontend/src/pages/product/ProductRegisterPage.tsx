@@ -23,10 +23,6 @@ export function ProductRegisterPage() {
     <main className="page">
       <header className="page__header">
         <h1>제품 등록</h1>
-        <p className="page__lead">
-          업사이클 제품을 등록합니다. 등록한 제품은 생산으로 개체가 만들어진 뒤 판매를 시작할
-          수 있습니다.
-        </p>
       </header>
 
       {created && <ProductCreatedSummary product={created} />}

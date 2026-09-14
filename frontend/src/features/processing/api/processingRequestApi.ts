@@ -19,9 +19,9 @@ export interface ProcessorMatch {
   estimatedLeadTimes: Array<{ processType: ProcessType; leadDays: number }>
 }
 export interface ProcessorSearch {
-  materialType: MaterialType
-  quantity: number
-  processTypes: ProcessType[]
+  materialType?: MaterialType
+  quantity?: number
+  processTypes?: ProcessType[]
   page: number
   size: number
 }
@@ -105,7 +105,7 @@ export interface ProcessingRequestListFilter {
 }
 export const processingRequestApi = {
   materials: async () => (await apiClient.get<OwnedProcessingMaterial[]>('/v1/processing-requests/materials')).data,
-  search: async (filters: ProcessorSearch, signal?: AbortSignal) => (await apiClient.get<{ items: ProcessorMatch[]; total: number; page: number; size: number }>('/v1/processors/search', { params: { ...filters, processTypes: filters.processTypes.join(',') }, signal })).data,
+  search: async (filters: ProcessorSearch, signal?: AbortSignal) => (await apiClient.get<{ items: ProcessorMatch[]; total: number; page: number; size: number }>('/v1/processors/search', { params: { ...filters, ...(filters.processTypes ? { processTypes: filters.processTypes.join(',') } : {}) }, signal })).data,
   create: async (input: ProcessingRequestInput) => (await apiClient.post<CreatedProcessingRequest>('/v1/processing-requests', input)).data,
   cancel: async (id: number) => (await apiClient.post<ProcessingRequestStatus>(`/v1/processing-requests/${id}/cancel`)).data,
   submitQuote: async (requestId: number, input: SubmitProcessingQuoteInput) => (await apiClient.post<SubmittedProcessingQuote>(`/v1/processing-requests/${requestId}/quotes`, input)).data,
