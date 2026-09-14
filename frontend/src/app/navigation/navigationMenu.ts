@@ -39,15 +39,19 @@ export interface NavigationMenuItem {
  * 역할→메뉴 매핑이 되어(= 두 번째 정의) routes.tsx 와 어긋날 수 있다.
  * 아래 순서는 각 역할이 걸러진 뒤에도 자연스럽게 읽히도록 골랐다.
  *
- *   SUPPLIER  회사 정보 · 보유 소재 · 소재 등록 · 판매 관리 · 판매 거래 · 거래 내역
- *   BRAND     회사 정보 · 보유 소재 · 가공 신청 · 요청 내역 · 생산 관리 · 제품 등록 · 내 제품 · 거래 내역
- *   PROCESSOR 회사 정보 · 보유 소재 · 업체 등록 · 가공 작업 · 거래 내역
+ *   SUPPLIER  회사 정보 · 보유 소재 · 소재 등록 · 판매 관리 · 판매 거래
+ *   BRAND     회사 정보 · 보유 소재 · 가공 신청 · 요청 내역 · 생산 관리 · 제품 등록 · 내 제품 · 구매 내역
+ *   PROCESSOR 회사 정보 · 보유 소재 · 업체 등록 · 가공 작업
  *
- * `/inventory`, `/trades` 는 RoleGuard 가 없는 Protected 경로다 = 로그인만 하면
- * 역할 무관. 예전 사이드바는 이 둘에 역할 조건을 직접 붙여(SUPPLIER 는 거래 내역만,
- * PROCESSOR 는 둘 다 없음) 라우터에 없는 규칙을 화면에만 만들어 두고 있었다.
- * 권한 Matrix(§3-3·§3-5)도 그 경로들을 역할로 좁히지 않았으므로,
- * 새 조건을 붙이는 대신 라우터 정의에 맞춘다.
+ * `/inventory` 는 RoleGuard 가 없는 Protected 경로다 = 로그인만 하면 역할 무관.
+ * 예전 사이드바는 여기에 역할 조건을 직접 붙여 라우터에 없는 규칙을 화면에만 만들어
+ * 두고 있었다. 그런 조건은 이 파일에 두지 않는다 — 좁혀야 한다면 routes.tsx 의
+ * 가드를 고친다.
+ *
+ * **구매 내역(`/trades`)이 그렇게 좁혀진 예다.** SUPPLIER·PROCESSOR 에게 언제나 비어
+ * 있었는데(서버의 수령 확인이 BRAND 전용이라 그 역할은 구매를 끝낼 수 없다) 메뉴에는
+ * 보였다. 메뉴에서 지우는 대신 routes.tsx 에서 BRAND 구역으로 옮겼고, 이 파일은 그
+ * 결과를 따른다.
  */
 export const BUSINESS_MENU_ITEMS: readonly NavigationMenuItem[] = [
   { label: '회사 정보', to: '/company/account', Icon: Buildings },
@@ -70,7 +74,7 @@ export const BUSINESS_MENU_ITEMS: readonly NavigationMenuItem[] = [
   { label: '업체 등록', to: '/processor/profile', Icon: Buildings },
   { label: '가공 작업', to: '/processor/jobs', Icon: Factory },
   { label: '제품 둘러보기', to: '/products', Icon: Tag },
-  { label: '거래 내역', to: '/trades', Icon: Swap },
+  { label: '구매 내역', to: '/trades', Icon: Swap },
 ]
 
 /**
