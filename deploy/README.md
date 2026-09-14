@@ -166,6 +166,15 @@ bash scripts/test-down.sh        # 종료 (기본 볼륨 보존, TEST_DOWN_VOLUM
 | test 프론트 | https://j15e104.p.ssafy.io/test/ |
 | test 백엔드 헬스 | https://j15e104.p.ssafy.io/test/api/health |
 
+**backend 배포 전 스키마 preflight (test 전용, 자동)**: `test-deploy.sh backend`는 `cft-mysql`을
+`origin/backend/develop`의 `schema.sql` 기준으로 대조(`check-schema.sh`)한 뒤 배포합니다.
+"없는 테이블만 있고 컬럼/타입 불일치는 전혀 없는" 경우에 한해, 해당 테이블을 만드는
+`db/migrations/*.sql` 파일(그 파일이 `CREATE TABLE`만 포함하고 `ALTER TABLE`이 하나도 없을
+때만)을 mysqldump 백업 후 자동 적용합니다. 컬럼 누락·타입 불일치가 섞여 있거나 매칭되는
+CREATE-전용 마이그레이션 파일을 찾지 못하면 자동 적용하지 않고 배포를 막습니다 — 이 경우
+위 "backend 배포 전에 반드시" 절차대로 사람이 직접 확인해야 합니다. 운영 배포(`deploy-service.sh`)에는
+이 자동 적용이 없습니다.
+
 각 파트 Jenkinsfile의 `<파트>/develop` 스테이지가 이미지를 `:test` 태그로 빌드해 push하고,
 SSH로 `scripts/test-deploy.sh <service>`를 호출하는 구조입니다. `blockchain`은 이미지 빌드
 대상이 아니므로(컨트랙트는 수동 배포) test 스택에도 포함되지 않습니다.
