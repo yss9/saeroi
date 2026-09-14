@@ -1,0 +1,145 @@
+// 주문 내역과 수령 확인.
+//
+// **받았다고 말하는 쪽은 구매자다.** 브랜드가 발송을 처리해도 주문은 배송 중에서 멈추고,
+// 소비자가 여기서 확인해야 배송 완료가 된다 (소재 거래와 같은 2-Track, 다만 서명은 없다).
+//
+// 틀리면 안 되는 지점 넷.
+//
+//   1) **배송 중일 때만 누를 수 있다.** 아직 안 떠난 주문이나 이미 끝난 주문에 버튼이
+//      있으면 눌러 보고 서버 거절로 알게 된다.
+//   2) **되돌릴 수 없으니 확인을 거친다.** 어느 주문인지 문장에 넣는다 — 주문에 제품이
+//      여럿이면 한 줄에서 눌러도 그 주문이 통째로 완료된다.
+//   3) **주문 번호로 부른다.** 목록의 한 줄은 개체라, 개체 코드로 부르면 서버가 못 찾는다.
+//   4) **배송 현황에 날짜가 남는다.** 상태 배지만으로는 "언제" 를 알 수 없다.
+
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createAppError, ERROR_KIND } from '../../../utils/errors.ts'
+import type { ConsumerRecentOrder } from '../types/consumerMyPage.types.ts'
+import { ConsumerOrderList } from './ConsumerOrderList.tsx'
+
+const api = vi.hoisted(() => ({ confirmProductOrderDelivery: vi.fn() }))
+vi.mock('../api/confirmProductOrderDelivery.ts', () => api)
+
+vi.mock('../hooks/useConsumerOrderThumbnail.ts', () => ({
+  useConsumerOrderThumbnail: () => ({ url: null }),
+}))
+
+function order(overrides: Partial<ConsumerRecentOrder> = {}): ConsumerRecentOrder {
+  return {
+    id: 'PO-001:ITEM-001',
+    orderId: 12,
+    orderNumber: 'PO-001',
+    orderedAt: '2026-09-12T10:30:00',
+    productName: '데님 서클 백',
+    brandName: 'ReWeave',
+    thumbnailUrl: '/api/v1/product-models/10/thumbnail',
+    thumbnailAlt: '데님 서클 백 대표 이미지',
+    itemCode: 'ITEM-001',
+    itemCount: 1,
+    itemPrice: 129_000,
+    totalAmount: 129_000,
+    status: 'SHIPPING',
+    journeyUrl: 'http://localhost:5173/qr/journey-token',
+    paidAt: '2026-09-12T10:35:00',
+    shippedAt: '2026-09-13T09:00:00',
+    deliveredAt: null,
+    ...overrides,
+  }
+}
+
+function renderList(orders: ConsumerRecentOrder[] = [order()]) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>
+        <ConsumerOrderList orders={orders} />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+  return userEvent.setup()
+}
+
+beforeEach(() => {
+  api.confirmProductOrderDelivery.mockResolvedValue({ orderId: 12, orderCode: 'PO-001' })
+})
+afterEach(() => {
+  cleanup()
+  vi.restoreAllMocks()
+  vi.resetAllMocks()
+})
+
+describe('ConsumerOrderList', () => {
+  // 이 테스트가 이 파일의 존재 이유다.
+  it('배송 중인 주문을 수령 확인한다', async () => {
+    const user = renderList()
+
+    await user.click(screen.getByRole('button', { name: '배송 완료 확인' }))
+
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByText(/PO-001 주문을 수령 완료로 표시합니다/)).toBeInTheDocument()
+    expect(api.confirmProductOrderDelivery).not.toHaveBeenCalled()
+
+    await user.click(within(dialog).getByRole('button', { name: '수령 확인' }))
+
+    // 목록의 한 줄은 개체다. 개체 코드로 부르면 서버가 못 찾는다.
+    await waitFor(() => expect(api.confirmProductOrderDelivery).toHaveBeenCalled())
+    expect(api.confirmProductOrderDelivery.mock.calls[0][0]).toBe(12)
+  })
+
+  it('아직 배송 중이 아니면 수령 확인을 두지 않는다', () => {
+    renderList([order({ status: 'PREPARING', shippedAt: null })])
+
+    expect(screen.queryByRole('button', { name: '배송 완료 확인' })).not.toBeInTheDocument()
+  })
+
+  it('이미 배송 완료된 주문에는 두지 않는다', () => {
+    renderList([order({ status: 'DELIVERED', deliveredAt: '2026-09-14T15:00:00' })])
+
+    expect(screen.queryByRole('button', { name: '배송 완료 확인' })).not.toBeInTheDocument()
+    // 배송 현황의 마지막 칸에 날짜가 찍힌다. ("배송 완료" 는 배지와 단계 이름 양쪽에 있어
+    // 그 문구로는 무엇을 본 것인지 드러나지 않는다.)
+    const progress = screen.getByRole('list', { name: '배송 현황' })
+    expect(within(progress).queryByText('대기')).not.toBeInTheDocument()
+  })
+
+  it('수령 확인이 실패하면 이유를 보여준다', async () => {
+    api.confirmProductOrderDelivery.mockRejectedValue(
+      createAppError(ERROR_KIND.API_ERROR, {
+        message: '배송 중인 주문만 수령 확인할 수 있습니다.',
+        status: 409,
+      }),
+    )
+    const user = renderList()
+
+    await user.click(screen.getByRole('button', { name: '배송 완료 확인' }))
+    await user.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: '수령 확인' }),
+    )
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('배송 중인 주문만')
+  })
+
+  // 상태 배지는 "지금 어디쯤" 만 말하고 "언제" 를 말하지 않는다.
+  it('배송 현황에 지나온 단계를 적는다', () => {
+    renderList()
+
+    const progress = screen.getByRole('list', { name: '배송 현황' })
+    const steps = within(progress).getAllByRole('listitem')
+    expect(steps).toHaveLength(4)
+    // 아직 오지 않은 단계도 지우지 않는다 — 안 보이면 지금이 마지막인지 알 수 없다.
+    expect(within(progress).getByText('대기')).toBeInTheDocument()
+  })
+
+  it('주문이 없으면 둘러보기로 데려간다', () => {
+    renderList([])
+
+    expect(screen.getByText('주문 내역이 없습니다')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '상품 둘러보기' })).toHaveAttribute('href', '/products')
+  })
+})

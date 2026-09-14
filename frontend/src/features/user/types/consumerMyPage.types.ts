@@ -35,6 +35,13 @@ export type ConsumerOrderViewStatus = (typeof CONSUMER_ORDER_VIEW_STATUSES)[numb
 
 export interface ConsumerRecentOrder {
   id: string
+  /**
+   * 수령 확인이 쓰는 주문 번호.
+   *
+   * **이 목록의 한 줄은 주문이 아니라 개체다** — 주문 하나에 제품이 여럿이면 줄이 여럿이
+   * 된다. 그런데 수령 확인은 주문 단위라, 어느 줄에서 눌러도 그 주문 전체가 완료된다.
+   */
+  orderId: number
   orderNumber: string
   orderedAt: string
   productName: string
