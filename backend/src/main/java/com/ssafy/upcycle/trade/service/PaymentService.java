@@ -64,6 +64,7 @@ public class PaymentService {
     private final KakaoPayProperties kakaoPayProperties;
     private final Clock clock;
     private final MaterialEventRecorder eventRecorder;
+    private final TradeNotificationService businessNotifications;
 
     /**
      * 결제를 준비하고 사용자를 보낼 결제창 주소를 돌려준다. <b>구매자만 할 수 있다.</b>
@@ -144,6 +145,7 @@ public class PaymentService {
                 trade.getQuantity(), "소재 거래 결제 승인",
                 MaterialEventRecorder.key(
                         MaterialEventType.TRADE_PAID, trade.getMaterialId(), trade.getId()));
+        businessNotifications.paid(trade);
         return tradeResponseAssembler.of(trade);
     }
 
@@ -187,6 +189,7 @@ public class PaymentService {
                 trade.getQuantity(), reason,
                 MaterialEventRecorder.key(
                         MaterialEventType.TRADE_CANCELED, trade.getMaterialId(), trade.getId()));
+        businessNotifications.canceled(trade, userId);
 
         return tradeResponseAssembler.of(trade);
     }

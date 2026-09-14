@@ -14,6 +14,7 @@ import com.ssafy.upcycle.processing.entity.ProcessingJob;
 import com.ssafy.upcycle.processing.entity.ProcessingJobStatus;
 import com.ssafy.upcycle.processing.repository.ProcessingInputRepository;
 import com.ssafy.upcycle.processing.repository.ProcessingJobRepository;
+import com.ssafy.upcycle.notification.entity.NotificationType;
 import com.ssafy.upcycle.user.entity.User;
 import com.ssafy.upcycle.user.entity.UserRole;
 import com.ssafy.upcycle.user.repository.UserRepository;
@@ -32,6 +33,7 @@ public class ProcessingLifecycleService {
     private final UserRepository users;
     private final MaterialEventRecorder eventRecorder;
     private final Clock clock;
+    private final ProcessingNotificationService businessNotifications;
 
     @Transactional
     public ProcessingJobResponse ship(Long actorId, Long jobId) {
@@ -75,7 +77,17 @@ public class ProcessingLifecycleService {
                 input.getMaterialId(), eventType, actorId,
                 MaterialEventReferenceType.PROCESSING_JOB, jobId, null, input.getQuantity(),
                 description, MaterialEventRecorder.key(eventType, input.getMaterialId(), jobId));
+        businessNotifications.jobEvent(job, notificationType(eventType));
         return ProcessingJobResponse.of(job);
+    }
+
+    private NotificationType notificationType(MaterialEventType eventType) {
+        return switch (eventType) {
+            case PROCESSING_MATERIAL_SHIPPED -> NotificationType.PROCESSING_MATERIAL_SHIPPED;
+            case PROCESSING_MATERIAL_RECEIVED -> NotificationType.PROCESSING_MATERIAL_RECEIVED;
+            case PROCESSING_STARTED -> NotificationType.PROCESSING_STARTED;
+            default -> throw new IllegalArgumentException("Unsupported processing lifecycle event");
+        };
     }
 
     private void requireActiveRole(Long actorId, UserRole role) {

@@ -20,6 +20,7 @@ class SchemaSqlTests {
 
     private static final Set<String> EXPECTED_TABLES = Set.of(
             "users",
+            "user_notification",
             "user_wallet",
             "wallet_nonce",
             "company_profile",

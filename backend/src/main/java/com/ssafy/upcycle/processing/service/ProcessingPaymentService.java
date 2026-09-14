@@ -25,6 +25,7 @@ public class ProcessingPaymentService {
     private final PaymentGateway gateway;
     private final Clock clock;
     private final MaterialEventRecorder eventRecorder;
+    private final ProcessingNotificationService businessNotifications;
     @Value("${app.payment.kakaopay.processing-return-url:http://localhost:5173/processing/jobs/{jobId}/payment/callback}")
     private String returnUrl;
 
@@ -61,6 +62,7 @@ public class ProcessingPaymentService {
                             MaterialEventType.PROCESSING_JOB_PAID,
                             lock.getMaterialId(), jobId));
         }
+        businessNotifications.paymentCompleted(job);
         return ProcessingJobResponse.of(job);
     }
 

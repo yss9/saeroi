@@ -10,6 +10,7 @@ import com.ssafy.upcycle.material.entity.MaterialType;
 import com.ssafy.upcycle.material.repository.MaterialBalanceRepository;
 import com.ssafy.upcycle.material.repository.MaterialLockRepository;
 import com.ssafy.upcycle.material.repository.MaterialRepository;
+import com.ssafy.upcycle.notification.repository.UserNotificationRepository;
 import com.ssafy.upcycle.trade.dto.ListingRegisterRequest;
 import com.ssafy.upcycle.trade.dto.TradeCreateRequest;
 import com.ssafy.upcycle.trade.entity.MaterialListing;
@@ -91,6 +92,9 @@ class ConcurrentPurchaseTests {
 
     @Autowired
     private MaterialTradeRepository tradeRepository;
+
+    @Autowired
+    private UserNotificationRepository notificationRepository;
 
     private Long listingId;
 
@@ -223,6 +227,7 @@ class ConcurrentPurchaseTests {
     }
 
     private void clean() {
+        notificationRepository.deleteAll();
         tradeRepository.deleteAll();
         listingRepository.deleteAll();
         lockRepository.deleteAll();

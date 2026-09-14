@@ -50,6 +50,7 @@ public class TradeCommandService {
     private final TradeCodeGenerator tradeCodeGenerator;
     private final TradeResponseAssembler tradeResponseAssembler;
     private final MaterialEventRecorder eventRecorder;
+    private final TradeNotificationService businessNotifications;
 
     /**
      * 구매 전 금액과 구매 가능 여부를 미리 계산한다. <b>아무것도 바꾸지 않는다.</b>
@@ -147,6 +148,7 @@ public class TradeCommandService {
                 "소재 구매 거래 생성",
                 MaterialEventRecorder.key(
                         MaterialEventType.TRADE_CREATED, trade.getMaterialId(), trade.getId()));
+        businessNotifications.created(trade);
 
         return tradeResponseAssembler.of(trade);
     }

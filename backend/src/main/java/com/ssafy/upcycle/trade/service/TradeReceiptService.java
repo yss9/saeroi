@@ -47,6 +47,7 @@ public class TradeReceiptService {
     private final MaterialLockRepository materialLockRepository;
     private final Clock clock;
     private final MaterialEventRecorder eventRecorder;
+    private final TradeNotificationService businessNotifications;
 
     /**
      * 구매자가 수령을 확인하고 서명한다.
@@ -95,6 +96,7 @@ public class TradeReceiptService {
                 MaterialEventRecorder.key(
                         MaterialEventType.OWNERSHIP_TRANSFERRED,
                         trade.getMaterialId(), trade.getId()));
+        businessNotifications.received(trade);
 
         return TradeReceiptResponse.of(trade, buyerBalance);
     }

@@ -27,6 +27,7 @@ public class TradeShipmentService {
     private final TradeShippingRepository tradeShippingRepository;
     private final Clock clock;
     private final MaterialEventRecorder eventRecorder;
+    private final TradeNotificationService businessNotifications;
 
     /**
      * 판매자가 소재를 발송한다. 2-Track 중 보낸 측의 기록이다.
@@ -59,6 +60,7 @@ public class TradeShipmentService {
                 trade.getQuantity(), "판매자가 소재 발송",
                 MaterialEventRecorder.key(
                         MaterialEventType.TRADE_SHIPPED, trade.getMaterialId(), trade.getId()));
+        businessNotifications.shipped(trade);
 
         return TradeShipResponse.of(trade, shipping);
     }

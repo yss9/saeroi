@@ -24,6 +24,7 @@ public class ProcessingQuoteService {
     private final ProcessingRequestInputRepository requestInputs;
     private final Clock clock;
     private final MaterialEventRecorder eventRecorder;
+    private final ProcessingNotificationService businessNotifications;
 
     @Transactional
     public ProcessingQuoteResponse submit(Long actorId, Long requestId, SubmitProcessingQuoteRequest input) {
@@ -48,6 +49,7 @@ public class ProcessingQuoteService {
                 MaterialEventRecorder.key(
                         MaterialEventType.PROCESSING_QUOTE_SUBMITTED,
                         requestInput.getMaterialId(), quote.getId()));
+        businessNotifications.quoteSubmitted(request);
         return ProcessingQuoteResponse.of(quote, users.findById(actorId).orElseThrow().getName());
     }
 

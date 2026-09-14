@@ -63,7 +63,7 @@ class ProcessingRequestTests {
     @BeforeEach
     void fixture() {
         // Real persisted fixtures: missing reservation writes and transaction errors are observable.
-        for (String table : List.of("processing_signature_challenge", "evidence_file", "material_lineage", "processing_output",
+        for (String table : List.of("user_notification", "processing_signature_challenge", "evidence_file", "material_lineage", "processing_output",
                 "material_event", "processing_input", "processing_job", "processing_quote", "material_lock", "processing_request_type", "processing_request_input",
                 "processing_request", "processor_capability", "processor_lead_time", "processor_profile", "material_balance", "material", "user_wallet", "users")) {
             jdbc.update("delete from " + table);
@@ -133,6 +133,9 @@ class ProcessingRequestTests {
                     assertThat(event.getQuantity()).isEqualTo(700L);
                     assertThat(event.getReferenceId()).isEqualTo(id);
                 });
+        assertNotification(
+                "PROCESSING_REQUEST_RECEIVED", processorId,
+                "PROCESSING_REQUEST", id, "/processor/jobs");
     }
 
     @Test
@@ -615,6 +618,25 @@ class ProcessingRequestTests {
                 .isEqualTo(200);
         assertThat(lineages.findAllByChildMaterialId(output.getOutputMaterialId())).singleElement()
                 .satisfies(link -> assertThat(link.getParentMaterialId()).isEqualTo(materialId));
+        assertThat(jdbc.queryForList(
+                "select type from user_notification where recipient_id=? order by id",
+                String.class,
+                processorId))
+                .containsExactly(
+                        "PROCESSING_REQUEST_RECEIVED",
+                        "PROCESSING_QUOTE_SELECTED",
+                        "PROCESSING_PAYMENT_COMPLETED",
+                        "PROCESSING_MATERIAL_SHIPPED",
+                        "PROCESSING_RESULT_APPROVED");
+        assertThat(jdbc.queryForList(
+                "select type from user_notification where recipient_id=? order by id",
+                String.class,
+                brandId))
+                .containsExactly(
+                        "PROCESSING_QUOTE_RECEIVED",
+                        "PROCESSING_MATERIAL_RECEIVED",
+                        "PROCESSING_STARTED",
+                        "PROCESSING_RESULT_SUBMITTED");
     }
 
     @Test
@@ -767,5 +789,19 @@ class ProcessingRequestTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("data.status").value("PROCESSING"));
         return jobId;
+    }
+
+    private void assertNotification(
+            String type, Long recipientId, String referenceType, Long referenceId, String targetPath) {
+        assertThat(jdbc.queryForMap(
+                "select recipient_id, type, reference_type, reference_id, target_path "
+                        + "from user_notification where type=? and reference_id=?",
+                type,
+                referenceId))
+                .containsEntry("recipient_id", recipientId)
+                .containsEntry("type", type)
+                .containsEntry("reference_type", referenceType)
+                .containsEntry("reference_id", referenceId)
+                .containsEntry("target_path", targetPath);
     }
 }

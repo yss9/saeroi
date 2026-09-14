@@ -24,6 +24,8 @@ import com.ssafy.upcycle.material.repository.MaterialEventRepository;
 import com.ssafy.upcycle.material.repository.MaterialLockRepository;
 import com.ssafy.upcycle.material.repository.MaterialRepository;
 import com.ssafy.upcycle.material.service.MaterialEventRecorder;
+import com.ssafy.upcycle.notification.entity.NotificationType;
+import com.ssafy.upcycle.notification.repository.UserNotificationRepository;
 import com.ssafy.upcycle.trade.entity.ListingStatus;
 import com.ssafy.upcycle.trade.entity.MaterialListing;
 import com.ssafy.upcycle.trade.entity.MaterialTrade;
@@ -41,6 +43,7 @@ import com.ssafy.upcycle.trade.repository.MaterialTradeRepository;
 import com.ssafy.upcycle.trade.repository.TradeShippingRepository;
 import com.ssafy.upcycle.trade.service.PaymentService;
 import com.ssafy.upcycle.trade.service.TradeResponseAssembler;
+import com.ssafy.upcycle.trade.service.TradeNotificationService;
 import com.ssafy.upcycle.user.entity.User;
 import com.ssafy.upcycle.user.entity.UserRole;
 import com.ssafy.upcycle.user.entity.UserWallet;
@@ -137,6 +140,12 @@ class MarketplaceApiTests {
 
     @Autowired
     private MaterialEventRepository materialEventRepository;
+
+    @Autowired
+    private UserNotificationRepository notificationRepository;
+
+    @Autowired
+    private TradeNotificationService tradeNotificationService;
 
     private User seller;
     private User buyer;
@@ -840,6 +849,54 @@ class MarketplaceApiTests {
     }
 
     @Test
+    void notifiesCounterpartiesAcrossTheTradeLifecycle() throws Exception {
+        Long listingId = registerListing(20_000L);
+        Long tradeId = jsonLong(purchase(listingId, 3_000L), "tradeId");
+        payFor(tradeId);
+        mockMvc.perform(patch("/api/v1/trades/" + tradeId + "/ship")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + sellerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"carrier\":\"CJ대한통운\",\"trackingNumber\":\"123456789012\"}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/trades/" + tradeId + "/receive/confirm")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken))
+                .andExpect(status().isOk());
+
+        assertThat(notificationRepository
+                .findAllByRecipientIdOrderByCreatedAtDescIdDesc(
+                        seller.getId(), PageRequest.of(0, 20))
+                .getContent())
+                .extracting(notification -> notification.getType())
+                .containsExactly(
+                        NotificationType.TRADE_RECEIVED,
+                        NotificationType.TRADE_PAID,
+                        NotificationType.TRADE_CREATED);
+        assertThat(notificationRepository
+                .findAllByRecipientIdOrderByCreatedAtDescIdDesc(
+                        buyer.getId(), PageRequest.of(0, 20))
+                .getContent())
+                .extracting(notification -> notification.getType())
+                .containsExactly(NotificationType.TRADE_SHIPPED);
+    }
+
+    @Test
+    void sellerCancellationNotifiesTheBuyer() throws Exception {
+        Long listingId = registerListing(20_000L);
+        Long tradeId = jsonLong(purchase(listingId, 3_000L), "tradeId");
+
+        mockMvc.perform(post("/api/v1/trades/" + tradeId + "/cancel")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + sellerToken))
+                .andExpect(status().isOk());
+
+        assertThat(notificationRepository
+                .findAllByRecipientIdOrderByCreatedAtDescIdDesc(
+                        buyer.getId(), PageRequest.of(0, 20))
+                .getContent())
+                .extracting(notification -> notification.getType())
+                .containsExactly(NotificationType.TRADE_CANCELED);
+    }
+
+    @Test
     void refusesToApproveWithoutReady() throws Exception {
         // 준비를 건너뛰고 승인을 부르면 서버가 쓸 tid 가 없다. 클라이언트가 tid 를 보내게
         // 두었다면 남의 결제 번호로 승인을 시도할 수 있었다.
@@ -871,7 +928,8 @@ class MarketplaceApiTests {
                 new WrongAmountGateway(),
                 kakaoPayProperties,
                 clock,
-                materialEventRecorder);
+                materialEventRecorder,
+                tradeNotificationService);
 
         assertThatThrownBy(() -> service.approve(buyer.getId(), tradeId, "TOKEN"))
                 .isInstanceOf(BusinessException.class)
@@ -1330,6 +1388,7 @@ class MarketplaceApiTests {
     }
 
     private void clean() {
+        notificationRepository.deleteAll();
         materialEventRepository.deleteAll();
         tradeRepository.deleteAll();
         listingRepository.deleteAll();
