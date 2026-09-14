@@ -32,6 +32,7 @@ public class ProcessingRequestService {
     private final ProcessingRequestTypeRepository types;
     private final Clock clock;
     private final MaterialEventRecorder eventRecorder;
+    private final ProcessingNotificationService businessNotifications;
 
     @Transactional
     public ProcessingRequestResponse create(Long brandId, CreateProcessingRequest input) {
@@ -82,6 +83,7 @@ public class ProcessingRequestService {
                 input.quantity(), "가공 요청 생성 및 수량 예약",
                 MaterialEventRecorder.key(
                         MaterialEventType.PROCESSING_REQUESTED, material.getId(), request.getId()));
+        businessNotifications.requestCreated(request, input.quantity());
         return ProcessingRequestResponse.of(request, input);
     }
 
@@ -143,6 +145,7 @@ public class ProcessingRequestService {
                     MaterialEventRecorder.key(eventType, lock.getMaterialId(), request.getId()));
         }
         request.terminate(target);
+        businessNotifications.requestTerminated(request, target, actorId);
     }
 
     private ProcessingRequest lockedRequest(Long id) {

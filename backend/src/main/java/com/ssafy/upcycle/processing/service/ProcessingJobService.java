@@ -28,6 +28,7 @@ public class ProcessingJobService {
     private final UserWalletRepository wallets;
     private final Clock clock;
     private final MaterialEventRecorder eventRecorder;
+    private final ProcessingNotificationService businessNotifications;
 
     @Transactional
     public ProcessingJobResponse select(Long actorId, Long quoteId, SelectProcessingQuoteRequest input) {
@@ -63,6 +64,7 @@ public class ProcessingJobService {
                 MaterialEventRecorder.key(
                         MaterialEventType.PROCESSING_QUOTE_SELECTED,
                         requestInput.getMaterialId(), job.getId()));
+        businessNotifications.quoteSelected(job);
         return ProcessingJobResponse.of(job);
     }
 
@@ -91,6 +93,7 @@ public class ProcessingJobService {
                             lock.getMaterialId(), jobId));
         }
         job.expire(now);
+        businessNotifications.jobExpired(job);
     }
 
     private void requireActiveBrand(Long id) {

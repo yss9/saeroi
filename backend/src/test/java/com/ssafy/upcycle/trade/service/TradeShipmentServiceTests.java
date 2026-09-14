@@ -26,6 +26,7 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -34,6 +35,9 @@ import org.springframework.context.annotation.Import;
         TradeShipmentService.class,
         TradeShipmentServiceTests.FixedClockConfig.class})
 class TradeShipmentServiceTests {
+
+    @MockitoBean
+    private TradeNotificationService businessNotifications;
 
     private static final long SELLER_ID = 10L;
     private static final long BUYER_ID = 11L;

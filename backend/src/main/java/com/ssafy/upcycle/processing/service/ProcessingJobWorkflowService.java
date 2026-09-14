@@ -8,6 +8,7 @@ import com.ssafy.upcycle.evidence.repository.EvidenceFileRepository;
 import com.ssafy.upcycle.material.entity.*;
 import com.ssafy.upcycle.material.repository.*;
 import com.ssafy.upcycle.material.service.*;
+import com.ssafy.upcycle.notification.entity.NotificationType;
 import com.ssafy.upcycle.processing.dto.*;
 import com.ssafy.upcycle.processing.entity.*;
 import com.ssafy.upcycle.processing.repository.*;
@@ -35,6 +36,7 @@ public class ProcessingJobWorkflowService {
     private final MaterialLineageRegistrar lineageRegistrar;
     private final MaterialEventRecorder eventRecorder;
     private final Clock clock;
+    private final ProcessingNotificationService businessNotifications;
 
     @Transactional(readOnly = true)
     public List<ProcessingJobResponse> list(Long actorId) {
@@ -55,6 +57,7 @@ public class ProcessingJobWorkflowService {
         ProcessingJob job = lockJob(jobId); requireBrand(job, actorId);
         job.ship(request.carrier(), request.trackingNumber(), now());
         recordInput(job, MaterialEventType.PROCESSING_MATERIAL_SHIPPED, actorId, "가공 소재 발송");
+        businessNotifications.jobEvent(job, NotificationType.PROCESSING_MATERIAL_SHIPPED);
         return response(job);
     }
 
@@ -63,6 +66,7 @@ public class ProcessingJobWorkflowService {
         ProcessingJob job = lockJob(jobId); requireProcessor(job, actorId);
         job.receive(now());
         recordInput(job, MaterialEventType.PROCESSING_MATERIAL_RECEIVED, actorId, "가공업체 소재 수령");
+        businessNotifications.jobEvent(job, NotificationType.PROCESSING_MATERIAL_RECEIVED);
         return response(job);
     }
 
@@ -71,6 +75,7 @@ public class ProcessingJobWorkflowService {
         ProcessingJob job = lockJob(jobId); requireProcessor(job, actorId);
         job.start(now());
         recordInput(job, MaterialEventType.PROCESSING_STARTED, actorId, "가공 시작");
+        businessNotifications.jobEvent(job, NotificationType.PROCESSING_STARTED);
         return response(job);
     }
 
@@ -103,6 +108,7 @@ public class ProcessingJobWorkflowService {
                 request.challengeId(), request.signature(), null);
         job.submitResult(signature, now());
         recordInput(job, MaterialEventType.PROCESSING_RESULT_SUBMITTED, actorId, "가공 결과 제출");
+        businessNotifications.jobEvent(job, NotificationType.PROCESSING_RESULT_SUBMITTED);
         return response(job);
     }
 
@@ -113,6 +119,7 @@ public class ProcessingJobWorkflowService {
                 request.challengeId(), request.signature(), request.reason());
         job.reject(request.reason(), signature, now());
         recordInput(job, MaterialEventType.PROCESSING_RESULT_REJECTED, actorId, "가공 결과 반려: " + request.reason().trim());
+        businessNotifications.jobEvent(job, NotificationType.PROCESSING_RESULT_REJECTED);
         return response(job);
     }
 
@@ -151,6 +158,7 @@ public class ProcessingJobWorkflowService {
         }
         job.approve(signature, now);
         recordInput(job, MaterialEventType.PROCESSING_RESULT_APPROVED, actorId, "가공 결과 승인");
+        businessNotifications.jobEvent(job, NotificationType.PROCESSING_RESULT_APPROVED);
         return response(job);
     }
 

@@ -28,6 +28,7 @@ import com.ssafy.upcycle.processing.entity.ProcessingOutput;
 import com.ssafy.upcycle.processing.repository.ProcessingInputRepository;
 import com.ssafy.upcycle.processing.repository.ProcessingJobRepository;
 import com.ssafy.upcycle.processing.repository.ProcessingOutputRepository;
+import com.ssafy.upcycle.notification.entity.NotificationType;
 import com.ssafy.upcycle.user.entity.User;
 import com.ssafy.upcycle.user.entity.UserRole;
 import com.ssafy.upcycle.user.repository.UserRepository;
@@ -53,6 +54,7 @@ public class ProcessingResultService {
     private final MaterialEventRecorder eventRecorder;
     private final UserRepository users;
     private final Clock clock;
+    private final ProcessingNotificationService businessNotifications;
 
     @Transactional
     public ProcessingJobResponse submit(
@@ -81,6 +83,7 @@ public class ProcessingResultService {
                 MaterialEventReferenceType.PROCESSING_JOB, jobId, null, outputQuantity,
                 "가공 결과 제출", MaterialEventRecorder.key(
                         MaterialEventType.PROCESSING_RESULT_SUBMITTED, input.getMaterialId(), jobId));
+        businessNotifications.jobEvent(job, NotificationType.PROCESSING_RESULT_SUBMITTED);
         return ProcessingJobResponse.of(job);
     }
 
@@ -134,6 +137,7 @@ public class ProcessingResultService {
                 input.getQuantity() - job.getLossQuantity(), "가공 결과 승인",
                 MaterialEventRecorder.key(
                         MaterialEventType.PROCESSING_RESULT_CONFIRMED, parent.getId(), jobId));
+        businessNotifications.jobEvent(job, NotificationType.PROCESSING_RESULT_APPROVED);
         return ProcessingJobResponse.of(job);
     }
 
