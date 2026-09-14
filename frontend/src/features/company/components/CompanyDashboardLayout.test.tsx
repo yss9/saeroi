@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { AxiosResponse } from 'axios'
 import { MemoryRouter } from 'react-router-dom'
@@ -37,6 +37,7 @@ function renderLayout() {
 beforeEach(() => {
   localStorage.clear()
   vi.spyOn(apiClient, 'get').mockResolvedValue({ data: [] } as AxiosResponse)
+  vi.spyOn(apiClient, 'post').mockResolvedValue({ data: null } as AxiosResponse)
 })
 
 afterEach(() => {
@@ -89,8 +90,12 @@ describe('CompanyDashboardLayout', () => {
 
     await user.click(screen.getByRole('button', { name: '로그아웃' }))
 
-    expect(useAuthStore.getState().isAuthenticated).toBe(false)
+    await waitFor(() => expect(useAuthStore.getState().isAuthenticated).toBe(false))
     expect(useAuthStore.getState().user).toBeNull()
+    expect(apiClient.post).toHaveBeenCalledWith('/v1/auth/logout', undefined, {
+      skipAuth: true,
+      skipTokenRefresh: true,
+    })
   })
 
   it('shows the persistent wallet status beside the business account shortcut', async () => {

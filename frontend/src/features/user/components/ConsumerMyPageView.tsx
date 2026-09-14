@@ -21,6 +21,7 @@ import type {
   ConsumerOrderStage,
   ConsumerOrderViewStatus,
 } from '../types/consumerMyPage.types.ts'
+import { toErrorMessage } from '../../../utils/errors.ts'
 import './consumer-mypage.css'
 
 export type ConsumerMyPageViewState =
@@ -31,6 +32,8 @@ export type ConsumerMyPageViewState =
 export interface ConsumerMyPageViewProps {
   state: ConsumerMyPageViewState
   onSignOut?: () => void
+  signOutPending?: boolean
+  signOutError?: unknown
 }
 
 const orderStageMeta: Record<
@@ -241,9 +244,13 @@ function DefaultAddress({ data }: { data: ConsumerMyPageData }) {
 function ConsumerMyPageReady({
   data,
   onSignOut,
+  signOutPending = false,
+  signOutError,
 }: {
   data: ConsumerMyPageData
   onSignOut?: () => void
+  signOutPending?: boolean
+  signOutError?: unknown
 }) {
   return (
     <main className="consumer-mypage-main">
@@ -262,10 +269,11 @@ function ConsumerMyPageReady({
         <div className="consumer-mypage-hero__account">
           <span>{data.profile.email}</span>
           {onSignOut && (
-            <button type="button" onClick={onSignOut}>
-              <SignOut aria-hidden="true" /> 로그아웃
+            <button type="button" disabled={signOutPending} onClick={onSignOut}>
+              <SignOut aria-hidden="true" /> {signOutPending ? '로그아웃 중…' : '로그아웃'}
             </button>
           )}
+          {signOutError ? <p role="alert">{toErrorMessage(signOutError)}</p> : null}
         </div>
       </section>
 
@@ -303,14 +311,24 @@ function ConsumerMyPageReady({
   )
 }
 
-export function ConsumerMyPageView({ state, onSignOut }: ConsumerMyPageViewProps) {
+export function ConsumerMyPageView({
+  state,
+  onSignOut,
+  signOutPending,
+  signOutError,
+}: ConsumerMyPageViewProps) {
   return (
     <div className="consumer-mypage">
       <a className="consumer-skip-link" href="#consumer-main-content">본문으로 건너뛰기</a>
       <AccountHeader />
       <div id="consumer-main-content">
         {state.status === 'ready' ? (
-          <ConsumerMyPageReady data={state.data} onSignOut={onSignOut} />
+          <ConsumerMyPageReady
+            data={state.data}
+            onSignOut={onSignOut}
+            signOutPending={signOutPending}
+            signOutError={signOutError}
+          />
         ) : (
           <PageStatus state={state} />
         )}

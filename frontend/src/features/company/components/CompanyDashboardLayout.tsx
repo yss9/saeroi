@@ -7,6 +7,7 @@ import {
 } from '../../../app/navigation/navigationMenu.ts'
 import { useVisibleMenu } from '../../../app/navigation/useVisibleMenu.ts'
 import { useAuth } from '../../auth/hooks/useAuth.ts'
+import { useLogout } from '../../auth/hooks/useLogout.ts'
 import { getRoleHomePath } from '../../auth/utils/roleHomePath.ts'
 import { BusinessWalletStatus } from '../../wallet/components/BusinessWalletStatus.tsx'
 import { ROLE_LABEL } from '../../../types/role.types.ts'
@@ -38,7 +39,8 @@ interface CompanyDashboardLayoutProps {
 export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const navigate = useNavigate()
-  const { user, signOut } = useAuth()
+  const { user } = useAuth()
+  const logout = useLogout()
   const isBusinessUser = Boolean(user && isBusinessUserRole(user.role))
   // 역할→메뉴 매핑을 이 파일이 들고 있지 않다. routes.tsx 의 RoleGuard 정의에서
   // 파생된다 (app/navigation/navigationMenu.ts 머리말). 예전에는 여기에 역할별 배열이
@@ -57,8 +59,9 @@ export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps
   )
 
   function handleSignOut() {
-    signOut()
-    navigate('/', { replace: true })
+    logout.mutate(undefined, {
+      onSuccess: () => navigate('/', { replace: true }),
+    })
   }
 
   // 역할마다 대시보드 홈이 다르다. 역할을 아직 모르면(판정 보류) 회사 정보로 보낸다 —
@@ -101,10 +104,16 @@ export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps
               </Link>
             </>
           ) : null}
-          <button className="company-dashboard__signout-button" type="button" onClick={handleSignOut}>
+          <button
+            className="company-dashboard__signout-button"
+            type="button"
+            disabled={logout.isPending}
+            onClick={handleSignOut}
+          >
             <SignOut aria-hidden="true" />
-            <span>로그아웃</span>
+            <span>{logout.isPending ? '로그아웃 중…' : '로그아웃'}</span>
           </button>
+          {logout.error ? <span role="alert">{logout.error.message}</span> : null}
           <button
             className="company-dashboard__menu-button"
             type="button"

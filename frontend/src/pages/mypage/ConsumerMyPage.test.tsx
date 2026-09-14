@@ -70,4 +70,30 @@ describe('ConsumerMyPageView', () => {
 
     expect(onSignOut).toHaveBeenCalledOnce()
   })
+
+  it('shows pending and failed sign-out states', () => {
+    const data = createConsumerMyPageMock(profile)
+    const { rerender } = render(
+      <MemoryRouter>
+        <ConsumerMyPageView
+          state={{ status: 'ready', data }}
+          onSignOut={() => undefined}
+          signOutPending
+        />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('button', { name: '로그아웃 중…' })).toBeDisabled()
+
+    rerender(
+      <MemoryRouter>
+        <ConsumerMyPageView
+          state={{ status: 'ready', data }}
+          onSignOut={() => undefined}
+          signOutError="로그아웃에 실패했습니다."
+        />
+      </MemoryRouter>,
+    )
+    expect(screen.getByRole('alert')).toHaveTextContent('로그아웃에 실패했습니다.')
+  })
 })
