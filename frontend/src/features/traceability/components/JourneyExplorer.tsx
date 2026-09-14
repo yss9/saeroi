@@ -521,9 +521,9 @@ function JourneyCanvas({
                 </g>
                 {viewMode === 'FLOW' ? (
                   <g className="journey-node__flow-label">
-                    <rect x="-68" y="32" width="136" height="47" rx="10" />
-                    <text textAnchor="middle" y="51">{node.companyName ?? STAGE_LABEL[node.stage]}</text>
-                    <text className="journey-node__location" textAnchor="middle" y="68">
+                    <rect x="-78" y="32" width="156" height="54" rx="11" />
+                    <text textAnchor="middle" y="54">{node.companyName ?? STAGE_LABEL[node.stage]}</text>
+                    <text className="journey-node__location" textAnchor="middle" y="73">
                       {compactLocation(node.locationName)}
                     </text>
                   </g>
@@ -1010,9 +1010,9 @@ const KOREA_REGION_LINES: Array<Array<[number, number]>> = [
 
 function projectGeo(latitude: number, longitude: number): Point {
   return {
-    // 위도 36도 부근의 경도 간 실제 거리 비율을 반영해 한반도가 가로로 늘어나지 않게 투영한다.
-    x: 500 + (longitude - 127.65) * 82,
-    y: 35 + ((38.75 - latitude) / (38.75 - 33.1)) * 535,
+    // 카드 안에서 경로와 마커가 충분한 간격을 갖도록 대한민국 영역을 확대해 투영한다.
+    x: 500 + (longitude - 127.65) * 94,
+    y: 10 + ((38.75 - latitude) / (38.75 - 33.1)) * 590,
   }
 }
 

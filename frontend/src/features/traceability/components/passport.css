@@ -80,9 +80,9 @@
 
 .passport-product__identity h1 {
   margin: 0;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: inherit;
   font-size: clamp(27px, 2.4vw, 39px);
-  font-weight: 500;
+  font-weight: 750;
   letter-spacing: -0.025em;
 }
 
@@ -357,28 +357,27 @@
 }
 
 .journey-canvas__heading {
-  position: absolute;
-  top: 28px;
-  left: 30px;
-  z-index: 2;
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  pointer-events: none;
+  align-items: baseline;
+  gap: 10px;
+  min-height: 42px;
+  padding: 4px 12px 12px;
+  border-bottom: 1px solid rgba(38, 56, 73, 0.08);
 }
 
 .journey-canvas__heading span {
   color: #678298;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 750;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
 .journey-canvas__heading strong {
-  font-family: Georgia, "Times New Roman", serif;
+  color: #182b40;
+  font-family: inherit;
   font-size: 20px;
-  font-weight: 500;
+  font-weight: 750;
 }
 
 .journey-canvas svg {
@@ -386,6 +385,7 @@
   width: 100%;
   min-height: 485px;
   max-height: 610px;
+  font-family: inherit;
 }
 
 .journey-map-backdrop > rect {
@@ -423,7 +423,7 @@
 
 .journey-flow-backdrop__stage text {
   fill: var(--stage-color);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 750;
 }
 
@@ -570,13 +570,13 @@
 
 .journey-node__flow-label text {
   fill: #26384a;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
 }
 
 .journey-node__flow-label .journey-node__location {
   fill: #7d8993;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 500;
 }
 
@@ -642,14 +642,14 @@
 
 .journey-detail__header p {
   color: var(--stage-color);
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.16em;
 }
 
 .journey-detail__header h2 {
   margin-top: 2px;
-  font-size: 21px;
+  font-size: 25px;
 }
 
 .journey-detail__status {
@@ -657,7 +657,7 @@
   border-radius: 999px;
   background: #edf5f0;
   color: #317152;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -681,15 +681,15 @@
 
 .journey-detail__selector button {
   flex: none;
-  max-width: 150px;
+  max-width: 190px;
   overflow: hidden;
-  padding: 7px 10px;
+  padding: 9px 13px;
   border: 1px solid #dce2e6;
   border-radius: 999px;
   background: white;
   color: #5e6e7c;
   cursor: pointer;
-  font-size: 10px;
+  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -713,7 +713,7 @@
 }
 
 .journey-detail__company strong {
-  font-size: 17px;
+  font-size: 19px;
 }
 
 .journey-detail__company span,
@@ -722,7 +722,7 @@
   align-items: center;
   gap: 6px;
   color: #75828c;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .journey-detail__facts {
@@ -740,7 +740,7 @@
 
 .journey-detail__facts dd {
   margin: 7px 0 0;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 650;
 }
 
@@ -750,7 +750,7 @@
   border-left: 3px solid var(--stage-color);
   background: color-mix(in srgb, var(--stage-color) 5%, white);
   color: #596a77;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.65;
   white-space: pre-wrap;
 }
@@ -762,9 +762,9 @@
 
 .journey-detail__section h3,
 .journey-detail__movements h3 {
-  margin: 0 0 9px;
+  margin: 0 0 12px;
   color: #293c4f;
-  font-size: 12px;
+  font-size: 15px;
 }
 
 .journey-detail__chips {
@@ -882,16 +882,17 @@
 }
 
 .journey-detail__movements li {
-  padding: 9px 0;
+  padding: 14px 0;
   border-bottom: 1px solid #eceae5;
 }
 
 .journey-detail__movements li div {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  gap: 6px;
+  gap: 9px;
   min-width: 0;
-  font-size: 11px;
+  font-size: 13px;
 }
 
 .journey-detail__movements li div span,
@@ -903,9 +904,9 @@
 
 .journey-detail__movements li small {
   display: block;
-  margin-top: 4px;
+  margin-top: 6px;
   color: #87929a;
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .journey-detail__empty {
@@ -1227,16 +1228,16 @@
   }
 
   .journey-canvas--compact .journey-canvas__heading {
-    top: 20px;
-    left: 20px;
+    min-height: 37px;
+    padding: 5px 10px 10px;
   }
 
   .journey-canvas--compact .journey-canvas__heading span {
-    font-size: 8px;
+    font-size: 10px;
   }
 
   .journey-canvas--compact .journey-canvas__heading strong {
-    font-size: 17px;
+    font-size: 18px;
   }
 
   .journey-canvas--compact .journey-canvas__legend {
