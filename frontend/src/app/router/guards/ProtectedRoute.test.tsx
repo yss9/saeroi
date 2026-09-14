@@ -89,15 +89,17 @@ describe('ProtectedRoute', () => {
     expect(toAccount).toHaveLength(1)
   })
 
-  it('소비자에게는 사업자 메뉴가 아니라 마이페이지만 보인다', () => {
-    // 메뉴를 합쳐 놓았으므로 역할 필터가 실제로 도는지 확인해야 한다 —
-    // 안 돌면 소비자가 판매 관리 링크를 보게 된다.
+  // 소비자가 이 가드 안에서 닿는 곳은 제품 목록과 상세뿐이다. 거기에 사업자 사이드바를
+  // 붙이면 옷을 고르는 화면에 회사 정보·보유 소재 같은 남의 업무 메뉴가 따라붙는다.
+  it('소비자에게는 사업자 셸 대신 쇼핑 껍데기를 씌운다', () => {
     setUser('CONSUMER')
-    renderAt('/mypage')
+    renderAt('/products')
 
-    expect(screen.getByRole('link', { name: /마이페이지/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '보호된 본문' })).toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: '사업자 대시보드 메뉴' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /판매 관리/ })).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: /소재 등록/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /지갑/ })).not.toBeInTheDocument()
+    // 나갈 길은 남는다 — 머리말의 쇼핑 메뉴가 그 역할을 한다.
+    expect(screen.getByRole('navigation', { name: '쇼핑 메뉴' })).toBeInTheDocument()
   })
 })
