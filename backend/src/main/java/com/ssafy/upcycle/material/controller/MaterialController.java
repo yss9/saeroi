@@ -5,6 +5,7 @@ import com.ssafy.upcycle.common.response.ApiResponse;
 import com.ssafy.upcycle.material.dto.MaterialBalanceResponse;
 import com.ssafy.upcycle.material.dto.MaterialDetailResponse;
 import com.ssafy.upcycle.material.dto.MaterialEventResponse;
+import com.ssafy.upcycle.material.dto.MaterialJourneyResponse;
 import com.ssafy.upcycle.material.dto.MaterialLineageResponse;
 import com.ssafy.upcycle.material.dto.MaterialRegisterRequest;
 import com.ssafy.upcycle.material.dto.MaterialRegisterResponse;
@@ -12,6 +13,7 @@ import com.ssafy.upcycle.material.dto.MaterialSourceVerificationRequest;
 import com.ssafy.upcycle.material.dto.MyMaterialResponse;
 import com.ssafy.upcycle.material.service.MaterialChainLinkService;
 import com.ssafy.upcycle.material.service.MaterialEventQueryService;
+import com.ssafy.upcycle.material.service.MaterialJourneyQueryService;
 import com.ssafy.upcycle.material.service.MaterialLineageQueryService;
 import com.ssafy.upcycle.material.service.MaterialQueryService;
 import com.ssafy.upcycle.material.service.MaterialRegistrationService;
@@ -58,6 +60,7 @@ public class MaterialController {
     private final MaterialChainLinkService materialChainLinkService;
     private final MaterialSourceVerificationService materialSourceVerificationService;
     private final MaterialEventQueryService materialEventQueryService;
+    private final MaterialJourneyQueryService materialJourneyQueryService;
 
     /**
      * 소재 등록. {@code SUPPLIER}·{@code BRAND} 만 가능하다.
@@ -135,6 +138,19 @@ public class MaterialController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
         return ApiResponse.success(materialEventQueryService.findEvents(materialId, page, size));
+    }
+
+    /**
+     * Material Journey Timeline. {@code /events} 의 원시 로그에 단계 분류·행위자 표시명·
+     * 지갑·온체인 해시를 얹은 화면용 조립본이다 (S15P21E104-73).
+     *
+     * <p>혈통 그래프({@code /lineage})와는 다른 것을 보여준다 — 저쪽은 "이 소재가 어느
+     * 소재에서 나왔고 어느 소재로 이어졌는가"(공간), 이쪽은 "이 소재에 무슨 일이 있었는가"
+     * (시간)다. 화면은 둘을 나란히 둔다.
+     */
+    @GetMapping("/{materialId}/journey")
+    public ApiResponse<MaterialJourneyResponse> findJourney(@PathVariable Long materialId) {
+        return ApiResponse.success(materialJourneyQueryService.findJourney(materialId));
     }
 
     /**
