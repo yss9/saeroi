@@ -143,6 +143,23 @@ class ProductOrderCreateApiTests {
     }
 
     @Test
+    void theResponseCarriesTheNumberTheNextCallNeeds() throws Exception {
+        // 결제·취소 경로가 받는 것은 orderId 다. 이 값이 응답에 없으면 화면은 주문을 만든
+        // 직후 결제를 이어갈 번호를 알 수 없다 — orderCode 는 그 경로가 받는 값이 아니다.
+        saveItem(1);
+
+        String response = mockMvc.perform(orderRequest(consumerId, body(modelId, addressId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.orderId").isNumber())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        long orderId = objectMapper.readTree(response).path("data").path("orderId").asLong();
+        assertThat(productOrderRepository.findById(orderId)).isPresent();
+    }
+
+    @Test
     void theOrderCodeIsSomethingAPersonCanReadOutLoud() throws Exception {
         // 고객이 문의할 때 대는 값이다. 임시 코드가 밖으로 새면 그 번호로는 아무것도 못 찾는다.
         saveItem(1);

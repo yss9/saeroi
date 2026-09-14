@@ -158,6 +158,7 @@ public class ProductOrderQueryService {
                 .map(orderItem -> toItemResponse(order, orderItem, lookup))
                 .toList();
         return new ProductOrderResponse(
+                order.getId(),
                 order.getOrderCode(),
                 lookup.brandNames().getOrDefault(order.getBrandId(), "알 수 없는 브랜드"),
                 order.getTotalPrice(),

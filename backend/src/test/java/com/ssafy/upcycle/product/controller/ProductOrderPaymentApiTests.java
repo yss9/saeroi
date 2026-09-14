@@ -142,6 +142,39 @@ class ProductOrderPaymentApiTests {
     // ── 준비 ────────────────────────────────────────────────
 
     @Test
+    void theOrderCreationResponseAloneIsEnoughToStartPaying() throws Exception {
+        // 프론트가 실제로 걷는 길이다. 생성 응답만 보고 다음 호출을 할 수 없으면,
+        // 주문은 만들어졌는데 결제로 넘어갈 수 없는 상태가 된다.
+        Map<String, Object> request = new HashMap<>();
+        request.put("productModelId", modelId);
+        request.put("addressId", addressId);
+
+        String created = mockMvc.perform(withJwt(post(BASE), consumerId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        long orderId = objectMapper.readTree(created).path("data").path("orderId").asLong();
+
+        mockMvc.perform(withJwt(post(BASE + "/" + orderId + "/payment/ready"), consumerId))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void theReadyResponseNamesTheOrderNotATrade() throws Exception {
+        // 소재 거래용 응답을 그대로 쓰면 이 번호가 거래 번호처럼 보인다.
+        // 실제로는 주문 번호이고, 결제·취소 경로가 받는 값도 그것이다.
+        Long orderId = placeOrder();
+
+        mockMvc.perform(withJwt(post(BASE + "/" + orderId + "/payment/ready"), consumerId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.orderId").value(orderId))
+                .andExpect(jsonPath("$.data.tradeId").doesNotExist());
+    }
+
+    @Test
     void readyHandsBackTheCheckoutWindowWithoutChargingAnything() throws Exception {
         Long orderId = placeOrder();
 
