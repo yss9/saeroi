@@ -101,6 +101,9 @@ export function toConsumerMyPageData(
       totalAmount: order.totalPrice,
       status: toViewStatus(order.status),
       journeyUrl: item.journeyUrl,
+      paidAt: order.paidAt,
+      shippedAt: order.shippedAt,
+      deliveredAt: order.deliveredAt,
     }))),
     // 없으면 null 이다. 주소를 받기 전에 가입한 계정은 배송지가 0건이고 그것은 정상이다.
     defaultAddress,

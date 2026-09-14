@@ -1,29 +1,11 @@
-import {
-  ArrowRight,
-  House,
-  MapPin,
-  Package,
-  Receipt,
-  SignOut,
-  User,
-} from '@phosphor-icons/react'
+import { ArrowRight, MapPin, PencilSimple } from '@phosphor-icons/react'
 import { Link } from 'react-router-dom'
-import {
-  EmptyState,
-  ErrorMessage,
-  Loading,
-  StatusBadge,
-  type StatusTone,
-} from '../../../components/common/index.ts'
+import { EmptyState, ErrorMessage, Loading } from '../../../components/common/index.ts'
 import type {
   ConsumerMyPageData,
   ConsumerOrderStage,
-  ConsumerRecentOrder,
-  ConsumerOrderViewStatus,
 } from '../types/consumerMyPage.types.ts'
-import { useConsumerOrderThumbnail } from '../hooks/useConsumerOrderThumbnail.ts'
 import { ConsumerAccountLayout } from './ConsumerAccountLayout.tsx'
-import { toErrorMessage } from '../../../utils/errors.ts'
 import './consumer-mypage.css'
 
 export type ConsumerMyPageViewState =
@@ -38,66 +20,82 @@ export interface ConsumerMyPageViewProps {
   signOutError?: unknown
 }
 
-const orderStageMeta: Record<
-  ConsumerOrderStage,
-  { label: string; description: string }
-> = {
+const orderStageMeta: Record<ConsumerOrderStage, { label: string; description: string }> = {
   PAYMENT_PENDING: { label: '결제 대기', description: '결제를 기다리고 있어요' },
   PREPARING: { label: '상품 준비', description: '브랜드에서 준비 중이에요' },
   SHIPPING: { label: '배송 중', description: '새로운 쓰임이 오고 있어요' },
   DELIVERED: { label: '배송 완료', description: '배송이 완료됐어요' },
 }
 
-const orderStatusMeta: Record<
-  ConsumerOrderViewStatus,
-  { label: string; tone: StatusTone }
-> = {
-  PAYMENT_PENDING: { label: '결제 대기', tone: 'warning' },
-  PREPARING: { label: '상품 준비', tone: 'warning' },
-  SHIPPING: { label: '배송 중', tone: 'info' },
-  DELIVERED: { label: '배송 완료', tone: 'success' },
+/**
+ * 마이페이지 홈.
+ *
+ * **내 정보와 기본 배송지만 둔다.** 주문 목록은 `/mypage/orders` 로 나갔다 — 한 화면에
+ * 전부 쌓아 두면 주문이 늘어날수록 배송지처럼 짧은 정보가 목록 아래로 밀려 내려간다.
+ *
+ * 주문 현황은 **주문이 있을 때만** 나온다. 한 건도 없는 사람에게 0 이 네 칸 늘어선 표는
+ * 알려주는 것이 없고, 첫 화면의 절반을 차지한다.
+ */
+export function ConsumerMyPageView({
+  state,
+  onSignOut,
+  signOutPending,
+  signOutError,
+}: ConsumerMyPageViewProps) {
+  const profile = state.status === 'ready' ? state.data.profile : null
+
+  return (
+    <ConsumerAccountLayout
+      current="home"
+      profile={profile}
+      onSignOut={onSignOut}
+      signOutPending={signOutPending}
+      signOutError={signOutError}
+    >
+      {state.status === 'ready' ? (
+        <>
+          <OrderOverview data={state.data} />
+          <DefaultAddress data={state.data} />
+        </>
+      ) : (
+        <PageStatus state={state} />
+      )}
+    </ConsumerAccountLayout>
+  )
 }
-
-const accountNavigation = [
-  { label: '마이페이지 홈', href: '#overview' },
-  { label: '주문 내역', href: '#recent-orders' },
-  { label: '배송지 관리', href: '#default-address' },
-  { label: '회원 정보', href: '#account-summary' },
-]
-
-const priceFormatter = new Intl.NumberFormat('ko-KR', {
-  style: 'currency',
-  currency: 'KRW',
-  maximumFractionDigits: 0,
-})
-
-const dateFormatter = new Intl.DateTimeFormat('ko-KR', {
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-})
 
 function PageStatus({ state }: { state: Exclude<ConsumerMyPageViewState, { status: 'ready' }> }) {
   return (
-    <main className="consumer-mypage-status">
+    <div className="consumer-mypage-status">
       {state.status === 'loading' ? (
         <Loading label="마이페이지 정보를 불러오는 중" variant="skeleton" rows={6} />
       ) : (
         <ErrorMessage error={state.error} onRetry={state.onRetry} />
       )}
-    </main>
+    </div>
   )
 }
 
+/**
+ * 주문 현황.
+ *
+ * **한 건도 없으면 그리지 않는다.** 0 이 네 칸 늘어선 표는 "아직 주문이 없다" 를 말하는
+ * 가장 나쁜 방법이다 — 처음 온 사람은 그 표가 무엇을 세는 것인지조차 모른다.
+ */
 function OrderOverview({ data }: { data: ConsumerMyPageData }) {
+  const total = data.orderStages.reduce((sum, stage) => sum + stage.count, 0)
+  if (total === 0) return null
+
   return (
-    <section id="overview" className="consumer-mypage-card consumer-order-overview" aria-labelledby="order-overview-title">
+    <section className="consumer-mypage-card consumer-order-overview" aria-labelledby="order-overview-title">
       <div className="consumer-section-heading">
         <div>
           <p className="consumer-section-heading__eyebrow">ORDER STATUS</p>
           <h2 id="order-overview-title">주문 현황</h2>
         </div>
-        <a href="#recent-orders">전체 주문 보기 <ArrowRight aria-hidden="true" /></a>
+        <Link to="/mypage/orders">
+          전체 주문 보기 <ArrowRight aria-hidden="true" />
+        </Link>
       </div>
 
       <ol className="consumer-order-steps">
@@ -119,85 +117,17 @@ function OrderOverview({ data }: { data: ConsumerMyPageData }) {
   )
 }
 
-function RecentOrders({ data }: { data: ConsumerMyPageData }) {
-  return (
-    <section id="recent-orders" className="consumer-mypage-card" aria-labelledby="recent-orders-title">
-      <div className="consumer-section-heading">
-        <div>
-          <p className="consumer-section-heading__eyebrow">RECENT ORDERS</p>
-          <h2 id="recent-orders-title">최근 주문</h2>
-        </div>
-        <span className="consumer-section-heading__note">최신순</span>
-      </div>
-
-      {data.recentOrders.length === 0 ? (
-        <EmptyState
-          title="최근 주문이 없습니다"
-          description="새로운 쓰임을 발견하고 첫 주문을 시작해 보세요."
-          action={<Link className="consumer-text-link" to="/products">상품 둘러보기</Link>}
-        />
-      ) : (
-        <div className="consumer-recent-orders">
-          {data.recentOrders.map((order) => {
-            const status = orderStatusMeta[order.status]
-            return (
-              <article className="consumer-order-item" key={order.id} aria-label={`${order.productName} 주문`}>
-                <OrderThumbnail order={order} />
-                <div className="consumer-order-item__content">
-                  <div className="consumer-order-item__meta">
-                    <time dateTime={order.orderedAt}>{dateFormatter.format(new Date(order.orderedAt))}</time>
-                    <span>{order.orderNumber}</span>
-                  </div>
-                  <p className="consumer-order-item__brand">{order.brandName}</p>
-                  <h3>{order.productName}</h3>
-                  <span className="consumer-order-item__code">{order.itemCode}</span>
-                  <p className="consumer-order-item__price">
-                    {priceFormatter.format(order.itemPrice)}
-                    {order.itemCount > 1 && (
-                      <small>
-                        주문 총 {order.itemCount}개 · {priceFormatter.format(order.totalAmount)}
-                      </small>
-                    )}
-                  </p>
-                </div>
-                <div className="consumer-order-item__status">
-                  <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
-                  {order.journeyUrl ? (
-                    <a className="consumer-journey-link" href={order.journeyUrl}>
-                      제품 여정 보기 <ArrowRight aria-hidden="true" />
-                    </a>
-                  ) : (
-                    <span>결제 완료 후 제품 여정 확인 가능</span>
-                  )}
-                </div>
-              </article>
-            )
-          })}
-        </div>
-      )}
-    </section>
-  )
-}
-
-function OrderThumbnail({ order }: { order: ConsumerRecentOrder }) {
-  const thumbnail = useConsumerOrderThumbnail(order.thumbnailUrl)
-
-  return (
-    <div className="consumer-order-item__thumbnail">
-      {thumbnail.url ? (
-        <img src={thumbnail.url} alt={order.thumbnailAlt} />
-      ) : (
-        <span aria-hidden="true" />
-      )}
-    </div>
-  )
-}
-
+/**
+ * 기본 배송지.
+ *
+ * 카드는 **기본 배송지 하나만** 보여준다. 나머지를 보고 고치는 곳은 관리 화면이고,
+ * "편집" 이 그리로 데려간다 — 주문할 때 실제로 쓰이는 주소가 무엇인지가 이 자리의 질문이다.
+ */
 function DefaultAddress({ data }: { data: ConsumerMyPageData }) {
   const address = data.defaultAddress
 
   return (
-    <section id="default-address" className="consumer-mypage-card consumer-address-card" aria-labelledby="default-address-title">
+    <section className="consumer-mypage-card consumer-address-card" aria-labelledby="default-address-title">
       <div className="consumer-section-heading">
         <div>
           <p className="consumer-section-heading__eyebrow">DELIVERY</p>
@@ -213,13 +143,16 @@ function DefaultAddress({ data }: { data: ConsumerMyPageData }) {
             <strong>{address.recipientName}</strong>
           </div>
           <address>
-            <span>[{address.postalCode}] {address.addressLine1}</span>
+            <span>
+              [{address.postalCode}] {address.addressLine1}
+            </span>
             {address.addressLine2 && <span>{address.addressLine2}</span>}
             <span>{address.phone}</span>
           </address>
-          {/* 카드는 기본 배송지 하나만 보여준다. 나머지를 보고 고치는 곳은 관리 화면이다. */}
           <p>
-            <Link to="/mypage/addresses">배송지 관리</Link>
+            <Link className="consumer-address-card__edit" to="/mypage/addresses">
+              <PencilSimple aria-hidden="true" /> 편집
+            </Link>
           </p>
         </div>
       ) : (
@@ -230,97 +163,5 @@ function DefaultAddress({ data }: { data: ConsumerMyPageData }) {
         />
       )}
     </section>
-  )
-}
-
-function ConsumerMyPageReady({
-  data,
-  onSignOut,
-  signOutPending = false,
-  signOutError,
-}: {
-  data: ConsumerMyPageData
-  onSignOut?: () => void
-  signOutPending?: boolean
-  signOutError?: unknown
-}) {
-  return (
-    <main className="consumer-mypage-main">
-      <nav className="consumer-breadcrumb" aria-label="현재 위치">
-        <Link to="/"><House aria-hidden="true" /> 홈</Link>
-        <span aria-hidden="true">/</span>
-        <span aria-current="page">마이페이지</span>
-      </nav>
-
-      <section id="account-summary" className="consumer-mypage-hero" aria-labelledby="consumer-mypage-title">
-        <div>
-          <p className="consumer-mypage-hero__eyebrow">MY SAEROI</p>
-          <h1 id="consumer-mypage-title">{data.profile.name}님, 반갑습니다.</h1>
-          <p>나의 주문과 배송 정보를 한곳에서 편안하게 확인하세요.</p>
-        </div>
-        <div className="consumer-mypage-hero__account">
-          <span>{data.profile.email}</span>
-          {onSignOut && (
-            <button type="button" disabled={signOutPending} onClick={onSignOut}>
-              <SignOut aria-hidden="true" /> {signOutPending ? '로그아웃 중…' : '로그아웃'}
-            </button>
-          )}
-          {signOutError ? <p role="alert">{toErrorMessage(signOutError)}</p> : null}
-        </div>
-      </section>
-
-      <div className="consumer-mypage-layout">
-        <aside className="consumer-account-sidebar">
-          <div>
-            <p>MY ACCOUNT</p>
-            <strong>{data.profile.name}</strong>
-            <span>{data.profile.email}</span>
-          </div>
-          <nav aria-label="마이페이지 메뉴">
-            {accountNavigation.map((item, index) => (
-              <a key={item.href} href={item.href} aria-current={index === 0 ? 'page' : undefined}>
-                {index === 0 && <User aria-hidden="true" />}
-                {index === 1 && <Receipt aria-hidden="true" />}
-                {index === 2 && <MapPin aria-hidden="true" />}
-                {index === 3 && <Package aria-hidden="true" />}
-                <span>{item.label}</span>
-              </a>
-            ))}
-          </nav>
-          <div className="consumer-account-sidebar__note">
-            <span>SAEROI CIRCULAR CHOICE</span>
-            <p>당신의 선택이 소재의 다음 여정을 만듭니다.</p>
-          </div>
-        </aside>
-
-        <div className="consumer-mypage-content">
-          <OrderOverview data={data} />
-          <RecentOrders data={data} />
-          <DefaultAddress data={data} />
-        </div>
-      </div>
-    </main>
-  )
-}
-
-export function ConsumerMyPageView({
-  state,
-  onSignOut,
-  signOutPending,
-  signOutError,
-}: ConsumerMyPageViewProps) {
-  return (
-    <ConsumerAccountLayout>
-      {state.status === 'ready' ? (
-        <ConsumerMyPageReady
-          data={state.data}
-          onSignOut={onSignOut}
-          signOutPending={signOutPending}
-          signOutError={signOutError}
-        />
-      ) : (
-        <PageStatus state={state} />
-      )}
-    </ConsumerAccountLayout>
   )
 }
