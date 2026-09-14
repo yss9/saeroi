@@ -132,9 +132,10 @@ describe('consumer mypage route', () => {
     renderRoute('/mypage')
 
     expect(await screen.findByRole('heading', { name: '새로이 고객님, 반갑습니다.' })).toBeInTheDocument()
-    // 주문 목록은 홈이 아니라 /mypage/orders 에 있다. 홈에는 현황과 배송지만 둔다.
+    // 주문 목록도 주문 현황도 홈이 아니라 /mypage/orders 에 있다. 홈은 프로필만 본다.
     expect(screen.queryByRole('heading', { name: '데님 서클 백' })).not.toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: '주문 현황' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '주문 현황' })).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '내 프로필' })).toBeInTheDocument()
     expect(get).toHaveBeenCalledWith('/v1/product-orders/me', {
       params: { page: 0, size: 20 },
     })
@@ -156,6 +157,8 @@ describe('consumer mypage route', () => {
     // 상태 배지만으로는 "언제" 를 알 수 없다. 지나온 단계에 날짜가 적힌다.
     const progress = screen.getByRole('list', { name: '배송 현황' })
     expect(within(progress).getAllByRole('listitem')).toHaveLength(4)
+    // 상태별 건수는 목록 바로 아래에서 이어 본다.
+    expect(screen.getByRole('heading', { name: '주문 현황' })).toBeInTheDocument()
   })
 
   it('사이드바로 주문 내역과 배송지 관리를 오간다', async () => {
@@ -166,6 +169,7 @@ describe('consumer mypage route', () => {
     await screen.findByRole('heading', { name: '새로이 고객님, 반갑습니다.' })
 
     const menu = screen.getByRole('navigation', { name: '마이페이지 메뉴' })
+    expect(within(menu).getByRole('link', { name: '내 프로필' })).toHaveAttribute('href', '/mypage')
     expect(within(menu).getByRole('link', { name: '주문 내역' })).toHaveAttribute(
       'href',
       '/mypage/orders',
