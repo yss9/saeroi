@@ -106,6 +106,11 @@ public class CompanyProfile {
         this.longitude = required.longitude();
     }
 
+    /** 대표 이미지 업로드가 주소나 소개를 다시 보내지 않고 저장 키만 바꾸는 경로. */
+    public void updateLogoUrl(String logoUrl) {
+        this.logoUrl = optionalText(logoUrl, "logoUrl", 500);
+    }
+
     private static <T> T requireNonNull(T value, String field) {
         if (value == null) {
             throw new IllegalArgumentException("CompanyProfile " + field + " must not be null");

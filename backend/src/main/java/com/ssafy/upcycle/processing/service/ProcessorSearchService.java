@@ -23,9 +23,16 @@ public class ProcessorSearchService {
     public ProcessorSearchResponse search(Long brandId, String materialType, String quantity,
             List<String> processTypes, String page, String size) {
         requireBrand(brandId);
-        long grams = unsignedNumber(quantity);
         long pageNumber = unsignedNumber(page);
         long pageSize = unsignedNumber(size);
+        if (pageNumber > Integer.MAX_VALUE || pageSize < 1 || pageSize > 50)
+            throw new BusinessException(PROCESSING_INVALID_REQUEST);
+        boolean filtersEmpty = (materialType == null || materialType.isBlank())
+                && (quantity == null || quantity.isBlank())
+                && (processTypes == null || processTypes.isEmpty());
+        if (filtersEmpty) return browse(pageNumber, pageSize);
+
+        long grams = unsignedNumber(quantity);
         List<String> purposes;
         try {
             MaterialType.valueOf(materialType);
@@ -34,8 +41,8 @@ public class ProcessorSearchService {
         } catch (IllegalArgumentException | NullPointerException exception) {
             throw new BusinessException(PROCESSING_INVALID_REQUEST);
         }
-        if (grams == 0 || pageNumber > Integer.MAX_VALUE || pageSize < 1 || pageSize > 50
-                || new HashSet<>(purposes).size() != purposes.size()) throw new BusinessException(PROCESSING_INVALID_REQUEST);
+        if (grams == 0 || new HashSet<>(purposes).size() != purposes.size())
+            throw new BusinessException(PROCESSING_INVALID_REQUEST);
         var params = new HashMap<String,Object>();
         params.put("materialType",materialType);
         params.put("quantity",grams);
@@ -92,6 +99,31 @@ public class ProcessorSearchService {
                             .toList())).toList();
         }
         return new ProcessorSearchResponse(items,total == null ? 0 : total,(int)pageNumber,(int)pageSize);
+    }
+
+    private ProcessorSearchResponse browse(long pageNumber, long pageSize) {
+        var params = new HashMap<String, Object>();
+        params.put("limit", pageSize);
+        params.put("offset", pageNumber * pageSize);
+        String registered = """
+                from processor_profile p
+                join users u on u.id=p.user_id
+                join processor_capability c on c.processor_profile_id=p.user_id
+                where u.role='PROCESSOR' and u.status='ACTIVE'
+                  and exists (select 1 from processor_lead_time configured
+                              where configured.processor_profile_id=p.user_id
+                                and configured.material_type=c.material_type
+                                and configured.process_type=c.process_type
+                                and configured.max_quantity>=c.min_quantity)
+                group by p.user_id,u.name,p.region
+                """;
+        Long total = jdbc.queryForObject("select count(*) from (select p.user_id " + registered + ") registered", params, Long.class);
+        var items = jdbc.query("""
+                select p.user_id,u.name,p.region,min(c.min_quantity) as min_quantity,max(c.max_quantity) as max_quantity
+                """ + registered + " order by p.user_id limit :limit offset :offset", params,
+                (rs, row) -> new ProcessorSearchResponse.Item(rs.getLong("user_id"), rs.getString("name"),
+                        rs.getString("region"), rs.getLong("min_quantity"), rs.getLong("max_quantity"), List.of()));
+        return new ProcessorSearchResponse(items, total == null ? 0 : total, (int) pageNumber, (int) pageSize);
     }
 
     @Transactional(readOnly = true)
