@@ -1,5 +1,13 @@
 /* 배송지 주소록. 소비자 마이페이지 안에서 쓰인다. */
 
+/* 관리 화면 머리말. 마이페이지 카드 안에 들어가므로 여백만 맞춘다. */
+.consumer-address-page__lead {
+  margin: 0 0 1rem;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: #6b7280;
+}
+
 .address-book {
   display: flex;
   flex-direction: column;

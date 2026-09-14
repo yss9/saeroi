@@ -4,7 +4,6 @@ import {
   MapPin,
   Package,
   Receipt,
-  ShoppingBag,
   SignOut,
   User,
 } from '@phosphor-icons/react'
@@ -23,6 +22,7 @@ import type {
   ConsumerOrderViewStatus,
 } from '../types/consumerMyPage.types.ts'
 import { useConsumerOrderThumbnail } from '../hooks/useConsumerOrderThumbnail.ts'
+import { ConsumerAccountLayout } from './ConsumerAccountLayout.tsx'
 import { toErrorMessage } from '../../../utils/errors.ts'
 import './consumer-mypage.css'
 
@@ -76,44 +76,6 @@ const dateFormatter = new Intl.DateTimeFormat('ko-KR', {
   month: '2-digit',
   day: '2-digit',
 })
-
-function AccountHeader() {
-  return (
-    <header className="consumer-account-header">
-      <div className="consumer-account-header__inner">
-        <Link className="consumer-account-header__logo" to="/" aria-label="SAEROI 홈">
-          {/* public/ 자산 경로라 vite base 가 자동으로 안 붙는다 — /test/ 에서 404 방지 */}
-          <img src={`${import.meta.env.BASE_URL}img/logo.png`} alt="" />
-        </Link>
-
-        <nav className="consumer-account-header__navigation" aria-label="쇼핑 메뉴">
-          <Link to="/products">쇼핑</Link>
-          <Link to="/marketplace">소재 마켓</Link>
-          <Link to="/#featured-brands">브랜드</Link>
-          <Link to="/#about">스토리</Link>
-        </nav>
-
-        <Link className="consumer-account-header__shop-link" to="/products">
-          <ShoppingBag aria-hidden="true" />
-          <span>쇼핑 계속하기</span>
-        </Link>
-      </div>
-    </header>
-  )
-}
-
-function AccountFooter() {
-  return (
-    <footer className="consumer-account-footer">
-      <div>
-        {/* public/ 자산 경로라 vite base 가 자동으로 안 붙는다 — /test/ 에서 404 방지 */}
-        <img src={`${import.meta.env.BASE_URL}img/logo.png`} alt="" />
-        <p>쓰임을 다한 소재에 새로운 가치를 더합니다.</p>
-      </div>
-      <p>© 2026 SAEROI. 모든 권리 보유.</p>
-    </footer>
-  )
-}
 
 function PageStatus({ state }: { state: Exclude<ConsumerMyPageViewState, { status: 'ready' }> }) {
   return (
@@ -348,22 +310,17 @@ export function ConsumerMyPageView({
   signOutError,
 }: ConsumerMyPageViewProps) {
   return (
-    <div className="consumer-mypage">
-      <a className="consumer-skip-link" href="#consumer-main-content">본문으로 건너뛰기</a>
-      <AccountHeader />
-      <div id="consumer-main-content">
-        {state.status === 'ready' ? (
-          <ConsumerMyPageReady
-            data={state.data}
-            onSignOut={onSignOut}
-            signOutPending={signOutPending}
-            signOutError={signOutError}
-          />
-        ) : (
-          <PageStatus state={state} />
-        )}
-      </div>
-      <AccountFooter />
-    </div>
+    <ConsumerAccountLayout>
+      {state.status === 'ready' ? (
+        <ConsumerMyPageReady
+          data={state.data}
+          onSignOut={onSignOut}
+          signOutPending={signOutPending}
+          signOutError={signOutError}
+        />
+      ) : (
+        <PageStatus state={state} />
+      )}
+    </ConsumerAccountLayout>
   )
 }

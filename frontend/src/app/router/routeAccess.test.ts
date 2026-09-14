@@ -52,7 +52,7 @@ describe('routeAccess — routes.tsx 에서 파생한 접근 조건', () => {
   // 것을 하므로(발송 / 결제·수령) 역할로 좁히면 한쪽이 자기 거래를 못 본다 — 당사자인지는
   // 서버가 seller_id·buyer_id 로 판단한다.
   it('가드 없는 Protected 경로는 로그인만 요구한다', () => {
-    for (const path of ['/inventory', '/trades/:tradeId', '/products', '/products/:productId']) {
+    for (const path of ['/trades/:tradeId', '/products', '/products/:productId']) {
       expect(getRouteAccess(path), path).toEqual({ kind: 'auth' })
     }
     expect(canAccess({ kind: 'auth' }, { isAuthenticated: false, role: null })).toBe(false)
@@ -64,6 +64,15 @@ describe('routeAccess — routes.tsx 에서 파생한 접근 조건', () => {
     // 구매를 끝낼 수 없고, 목록이 언제나 비어 있었다. 상세(/trades/:tradeId)는 그대로
     // 로그인만 요구한다.
     expect(getRouteAccess('/trades')).toEqual({ kind: 'role', allow: ['BRAND'] })
+    // 보유 소재는 사업자만이다. 소비자는 소재를 보유하지 않고 ADMIN 은 도메인 기능에
+    // 허용이 없어, 둘에게는 언제나 비어 있는 목록이 메뉴에 보이고 있었다.
+    expect(getRouteAccess('/inventory')).toEqual({
+      kind: 'role',
+      allow: ['SUPPLIER', 'BRAND', 'PROCESSOR'],
+    })
+    // 소비자 계정 화면은 사업자 셸 밖이지만 RoleGuard 가 그대로 역할을 본다.
+    expect(getRouteAccess('/mypage')).toEqual({ kind: 'role', allow: ['CONSUMER'] })
+    expect(getRouteAccess('/mypage/addresses')).toEqual({ kind: 'role', allow: ['CONSUMER'] })
     expect(getRouteAccess('/mypage')).toEqual({ kind: 'role', allow: ['CONSUMER'] })
     expect(getRouteAccess('/company/account')).toEqual({
       kind: 'role',

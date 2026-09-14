@@ -32,6 +32,8 @@ const INTENTIONALLY_BARE: ReadonlyMap<string, string> = new Map([
   ['/signup/business', '인증 흐름'],
   ['/signup/complete', '가입 직후. 아직 로그인 상태가 아니다'],
   ['/qr/:qrToken', 'QR 로 들어오는 비회원 입구. 사업자 껍데기가 어울리지 않는다'],
+  ['/mypage', '소비자 계정 화면. ConsumerAccountLayout 이 자체 머리말·푸터를 갖는다'],
+  ['/mypage/addresses', '소비자 계정 화면. 마이페이지와 같은 껍데기를 쓴다'],
 ])
 
 interface Walked {
