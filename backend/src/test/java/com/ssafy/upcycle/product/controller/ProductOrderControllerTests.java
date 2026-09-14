@@ -144,7 +144,9 @@ class ProductOrderControllerTests {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + consumerToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.totalElements").value(1))
-                .andExpect(jsonPath("$.data.content[0].orderCode").value(mine.getOrderCode()));
+                .andExpect(jsonPath("$.data.content[0].orderCode").value(mine.getOrderCode()))
+                // 목록에서 바로 결제를 이어가려면 여기서도 orderId 를 얻을 수 있어야 한다.
+                .andExpect(jsonPath("$.data.content[0].orderId").value(mine.getId()));
     }
 
     @Test

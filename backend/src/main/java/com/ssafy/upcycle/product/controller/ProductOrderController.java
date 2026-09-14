@@ -3,6 +3,7 @@ package com.ssafy.upcycle.product.controller;
 import com.ssafy.upcycle.common.response.ApiResponse;
 import com.ssafy.upcycle.product.dto.ProductOrderCancelRequest;
 import com.ssafy.upcycle.product.dto.ProductOrderCreateRequest;
+import com.ssafy.upcycle.product.dto.ProductOrderPaymentReadyResponse;
 import com.ssafy.upcycle.product.dto.ProductOrderResponse;
 import com.ssafy.upcycle.product.dto.ProductOrderSearchCondition;
 import com.ssafy.upcycle.product.dto.ProductOrderStatusSummaryResponse;
@@ -11,7 +12,6 @@ import com.ssafy.upcycle.product.service.ProductOrderPaymentService;
 import com.ssafy.upcycle.product.service.ProductOrderQueryService;
 import com.ssafy.upcycle.trade.dto.PageResponse;
 import com.ssafy.upcycle.trade.dto.PaymentApproveRequest;
-import com.ssafy.upcycle.trade.dto.PaymentReadyResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
@@ -45,7 +45,7 @@ public class ProductOrderController {
      * 바로 승인 단계로 갈 수 있다 ({@code live} 로 판단한다).
      */
     @PostMapping("/{orderId}/payment/ready")
-    public ApiResponse<PaymentReadyResponse> readyPayment(
+    public ApiResponse<ProductOrderPaymentReadyResponse> readyPayment(
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable @Positive(message = "주문 id는 양수여야 합니다.") Long orderId) {
         return ApiResponse.success(productOrderPaymentService.ready(userId(jwt), orderId));

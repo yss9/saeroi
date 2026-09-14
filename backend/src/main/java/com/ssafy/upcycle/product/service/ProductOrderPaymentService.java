@@ -2,6 +2,7 @@ package com.ssafy.upcycle.product.service;
 
 import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.product.ProductErrorCode;
+import com.ssafy.upcycle.product.dto.ProductOrderPaymentReadyResponse;
 import com.ssafy.upcycle.product.dto.ProductOrderResponse;
 import com.ssafy.upcycle.product.entity.CanceledProductOrder;
 import com.ssafy.upcycle.product.entity.CanceledProductOrderItem;
@@ -18,7 +19,6 @@ import com.ssafy.upcycle.product.repository.ProductOrderItemRepository;
 import com.ssafy.upcycle.product.repository.ProductOrderRepository;
 import com.ssafy.upcycle.product.repository.ProductShippingRepository;
 import com.ssafy.upcycle.trade.TradeErrorCode;
-import com.ssafy.upcycle.trade.dto.PaymentReadyResponse;
 import com.ssafy.upcycle.trade.entity.PaymentMethod;
 import com.ssafy.upcycle.trade.payment.KakaoPayProperties;
 import com.ssafy.upcycle.trade.payment.PaymentApproval;
@@ -87,7 +87,7 @@ public class ProductOrderPaymentService {
      * 승인되지 않은 이전 tid 는 PG 쪽에서 만료된다.
      */
     @Transactional
-    public PaymentReadyResponse ready(Long buyerId, Long orderId) {
+    public ProductOrderPaymentReadyResponse ready(Long buyerId, Long orderId) {
         ProductOrder order = requireOwnOrder(buyerId, orderId);
         requireStatus(order, ProductOrderStatus.CREATED);
 
@@ -99,7 +99,7 @@ public class ProductOrderPaymentService {
                 kakaoPayProperties.productOrderReturnUrlFor(order.getId())));
 
         order.preparePayment(ready.tid());
-        return new PaymentReadyResponse(
+        return new ProductOrderPaymentReadyResponse(
                 order.getId(),
                 ready.tid(),
                 ready.redirectUrl(),
