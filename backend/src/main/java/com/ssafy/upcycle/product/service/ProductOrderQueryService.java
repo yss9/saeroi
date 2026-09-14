@@ -69,6 +69,24 @@ public class ProductOrderQueryService {
         return PageResponse.from(orders.map(order -> toResponse(order, lookup)));
     }
 
+    /**
+     * 본인 주문 한 건.
+     *
+     * <p>주문 생성 직후 응답을 만드는 데도 쓴다({@code ProductOrderCommandService}).
+     * 응답 조립을 두 곳에 두면 목록과 생성 응답이 서로 다른 모양으로 갈라진다.
+     *
+     * <p>{@code orderId} 를 받지만 본인 주문이 아니면 "없음" 으로 답한다 — 403 은
+     * 남의 주문이 존재한다는 사실을 흘린다.
+     */
+    @Transactional(readOnly = true)
+    public ProductOrderResponse findMyOrder(Long buyerId, Long orderId) {
+        requireActiveConsumer(buyerId);
+        ProductOrder order = productOrderRepository.findById(orderId)
+                .filter(found -> found.getBuyerId().equals(buyerId))
+                .orElseThrow(() -> new BusinessException(ProductErrorCode.PRODUCT_ORDER_NOT_FOUND));
+        return toResponse(order, loadLookup(List.of(order)));
+    }
+
     /** 목록 페이지 크기와 무관한 상태별 전체 주문 수. */
     @Transactional(readOnly = true)
     public ProductOrderStatusSummaryResponse summarizeMyOrders(Long buyerId) {

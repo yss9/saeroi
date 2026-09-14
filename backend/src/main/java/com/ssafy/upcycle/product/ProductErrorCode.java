@@ -118,7 +118,42 @@ public enum ProductErrorCode implements ErrorCode {
     PRODUCT_MODEL_HAS_NO_STOCK(
             HttpStatus.UNPROCESSABLE_ENTITY,
             "PRODUCT_MODEL_HAS_NO_STOCK",
-            "판매할 재고가 없습니다. 생산이 확정되어야 판매를 시작할 수 있습니다.");
+            "판매할 재고가 없습니다. 생산이 확정되어야 판매를 시작할 수 있습니다."),
+
+    /**
+     * 살 수 있는 상태가 아닌 제품을 주문하려는 경우.
+     *
+     * <p>{@code DRAFT} 는 아직 노출되지 않은 제품이고, {@code DISCONTINUED} 는 남은 개체가
+     * 있어도 브랜드가 더 팔지 않기로 한 상태다. 재고만 보고 통과시키면 내린 제품이
+     * 계속 팔린다.
+     */
+    PRODUCT_ORDER_MODEL_NOT_ON_SALE(
+            HttpStatus.CONFLICT,
+            "PRODUCT_ORDER_MODEL_NOT_ON_SALE",
+            "현재 구매할 수 없는 제품입니다."),
+
+    /**
+     * 주문 순간 남은 개체가 없는 경우.
+     *
+     * <p>{@code PRODUCT_MODEL_HAS_NO_STOCK} 과 나누어 둔다 — 그쪽은 브랜드가 판매를
+     * 시작하려할 때의 안내라 문구가 판매자용이다. 소비자에게는 "품절" 이어야 한다.
+     */
+    PRODUCT_ORDER_OUT_OF_STOCK(
+            HttpStatus.CONFLICT,
+            "PRODUCT_ORDER_OUT_OF_STOCK",
+            "품절되었습니다."),
+
+    /** 본인의 배송지가 아니거나 없는 id 를 가리킨 경우. 둘을 같은 답으로 덮는다. */
+    PRODUCT_ORDER_ADDRESS_NOT_FOUND(
+            HttpStatus.NOT_FOUND,
+            "PRODUCT_ORDER_ADDRESS_NOT_FOUND",
+            "배송지를 찾을 수 없습니다."),
+
+    /** 남의 주문을 가리키는 경우도 이것이다 — 403 은 그 주문이 존재한다는 사실을 흘린다. */
+    PRODUCT_ORDER_NOT_FOUND(
+            HttpStatus.NOT_FOUND,
+            "PRODUCT_ORDER_NOT_FOUND",
+            "주문을 찾을 수 없습니다.");
 
     private final HttpStatus status;
     private final String code;
