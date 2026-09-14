@@ -54,9 +54,9 @@ const SECTIONS: Record<
 > = {
   home: {
     to: '/mypage',
-    label: '마이페이지 홈',
+    label: '내 프로필',
     title: (name) => `${name}님, 반갑습니다.`,
-    lead: '내 정보와 기본 배송지를 확인합니다.',
+    lead: '당신의 선택이 소재의 다음 여정을 만듭니다.',
     Icon: User,
   },
   orders: {
@@ -126,8 +126,11 @@ export function ConsumerAccountLayout({
             <h1 id="consumer-mypage-title">{section.title(profile?.name ?? '고객')}</h1>
             <p>{section.lead}</p>
           </div>
+          {/*
+            이메일을 여기서 뺐다. 바로 아래 프로필 카드가 같은 값을 적고 있어, 큰 글씨
+            옆에 한 번 더 두면 화면에서 가장 눈에 띄는 자리를 중복이 차지한다.
+          */}
           <div className="consumer-mypage-hero__account">
-            {profile && <span>{profile.email}</span>}
             {onSignOut && (
               <button type="button" disabled={signOutPending} onClick={onSignOut}>
                 <SignOut aria-hidden="true" /> {signOutPending ? '로그아웃 중…' : '로그아웃'}
@@ -166,10 +169,6 @@ export function ConsumerAccountLayout({
                 )
               })}
             </nav>
-            <div className="consumer-account-sidebar__note">
-              <span>SAEROI CIRCULAR CHOICE</span>
-              <p>당신의 선택이 소재의 다음 여정을 만듭니다.</p>
-            </div>
           </aside>
 
           <div className="consumer-mypage-content">{children}</div>
@@ -192,7 +191,10 @@ function AccountHeader() {
 
         <nav className="consumer-account-header__navigation" aria-label="쇼핑 메뉴">
           <Link to="/products">쇼핑</Link>
-          <Link to="/marketplace">소재 마켓</Link>
+          {/*
+            소재 마켓은 사업자끼리 소재를 사고파는 곳이다. 소비자 머리말에 두면 눌러서
+            들어갔다가 권한 없음 화면을 만난다 — /marketplace 는 사업자 전용이다.
+          */}
           <Link to="/#featured-brands">브랜드</Link>
           <Link to="/#about">스토리</Link>
         </nav>

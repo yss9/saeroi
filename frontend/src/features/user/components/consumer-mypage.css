@@ -285,25 +285,6 @@
   height: 19px;
 }
 
-.consumer-account-sidebar__note {
-  padding: 22px 24px 25px;
-  color: #fff;
-  background: var(--consumer-blue-dark);
-}
-
-.consumer-account-sidebar__note span {
-  color: var(--consumer-orange);
-  font-size: 0.62rem;
-  font-weight: 800;
-  letter-spacing: 0.11em;
-}
-
-.consumer-account-sidebar__note p {
-  margin: 10px 0 0;
-  font-size: 0.85rem;
-  line-height: 1.55;
-}
-
 .consumer-mypage-content {
   display: flex;
   min-width: 0;

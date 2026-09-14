@@ -118,37 +118,24 @@ describe('ConsumerMyPageView', () => {
     )
   })
 
-  // 홈에 주문을 통째로 쌓아 두면 주문이 늘어날수록 배송지가 목록 아래로 밀려 내려간다.
-  it('주문 목록은 홈에 두지 않고 주문 내역으로 보낸다', () => {
+  // 주문이 늘어날수록 내 정보와 배송지처럼 짧고 자주 보는 것이 목록 아래로 밀려 내려간다.
+  it('주문 목록과 주문 현황을 홈에 두지 않는다', () => {
     renderView({ status: 'ready', data })
 
     expect(screen.queryByRole('article', { name: /주문$/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /전체 주문 보기/ })).toHaveAttribute(
+    expect(screen.queryByRole('heading', { name: '주문 현황' })).not.toBeInTheDocument()
+    // 사이드바로 간다. 홈에서 따로 안내할 자리를 만들지 않는다.
+    expect(screen.getByRole('link', { name: '주문 내역' })).toHaveAttribute(
       'href',
       '/mypage/orders',
     )
   })
 
-  // 이 테스트가 이 파일의 존재 이유다 — 0 이 네 칸 늘어선 표는 처음 온 사람에게
-  // 무엇을 세는 것인지조차 알려주지 않는다.
-  it('주문이 한 건도 없으면 주문 현황을 그리지 않는다', () => {
-    renderView({
-      status: 'ready',
-      data: {
-        ...data,
-        orderStages: data.orderStages.map((stage) => ({ ...stage, count: 0 })),
-      },
-    })
-
-    expect(screen.queryByRole('heading', { name: '주문 현황' })).not.toBeInTheDocument()
-    // 프로필은 그대로 있다.
-    expect(screen.getByRole('heading', { name: '내 프로필' })).toBeInTheDocument()
-  })
-
-  it('주문이 있으면 현황을 바로 보여준다', () => {
+  // 사이드바 첫 항목이 이 화면을 가리킨다. "마이페이지 홈" 은 무엇이 있는지 말하지 않는다.
+  it('사이드바에서 이 화면을 내 프로필이라고 부른다', () => {
     renderView({ status: 'ready', data })
 
-    expect(screen.getByRole('heading', { name: '주문 현황' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '내 프로필' })).toHaveAttribute('href', '/mypage')
   })
 
   it('renders loading, error, and empty states separately', () => {

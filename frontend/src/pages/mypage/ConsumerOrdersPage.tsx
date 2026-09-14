@@ -4,6 +4,7 @@ import { useAuth } from '../../features/auth/hooks/useAuth.ts'
 import { useLogout } from '../../features/auth/hooks/useLogout.ts'
 import { ConsumerAccountLayout } from '../../features/user/components/ConsumerAccountLayout.tsx'
 import { ConsumerOrderList } from '../../features/user/components/ConsumerOrderList.tsx'
+import { ConsumerOrderSummary } from '../../features/user/components/ConsumerOrderSummary.tsx'
 import { useConsumerMyPage } from '../../features/user/hooks/useConsumerMyPage.ts'
 
 /**
@@ -11,6 +12,9 @@ import { useConsumerMyPage } from '../../features/user/hooks/useConsumerMyPage.t
  *
  * **마이페이지 홈에서 떼어 낸 화면이다.** 홈에 주문을 통째로 쌓아 두면 주문이 늘어날수록
  * 배송지처럼 짧은 정보가 목록 아래로 밀려 내려간다.
+ *
+ * 주문 현황(상태별 건수)도 여기 있다. 목록 바로 아래에서 이어 보는 값이라, 홈에 두면
+ * "몇 건이 배송 중인가" 를 확인한 뒤 다시 이 화면으로 건너와야 한다.
  *
  * 홈과 같은 훅을 쓴다. 요청이 늘지 않는다 — 같은 Query 키를 보므로 홈에서 이미 받아 둔
  * 응답을 그대로 쓴다.
@@ -44,7 +48,11 @@ export function ConsumerOrdersPage() {
           />
         </div>
       ) : (
-        <ConsumerOrderList orders={myPage.data.recentOrders} />
+        <>
+          <ConsumerOrderList orders={myPage.data.recentOrders} />
+          {/* 목록이 "무엇을 샀나" 라면 이 표는 "지금 몇 건이 어디까지 왔나" 다. */}
+          <ConsumerOrderSummary stages={myPage.data.orderStages} />
+        </>
       )}
     </ConsumerAccountLayout>
   )
