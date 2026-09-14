@@ -15,7 +15,9 @@ import {
 } from '@phosphor-icons/react'
 import { useEffect, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
+import { Modal, TransactionHash } from '../../../components/common/index.ts'
 import type {
+  BlockchainProof,
   JourneyEdge,
   JourneyNode,
   JourneyStage,
@@ -92,8 +94,17 @@ function formatQuantity(grams: number): string {
   return `${new Intl.NumberFormat('ko-KR').format(grams)} g`
 }
 
-function shortHash(hash: string): string {
-  return `${hash.slice(0, 8)}…${hash.slice(-6)}`
+const REFERENCE_TYPE_LABEL: Record<BlockchainProof['referenceType'], string> = {
+  MATERIAL: '소재 발행',
+  TRADE: '거래',
+  PROCESSING: '가공',
+  PRODUCTION: '생산',
+}
+
+const PROOF_STATUS_LABEL: Record<BlockchainProof['status'], string> = {
+  PENDING: '확정 대기',
+  SUCCESS: '확정됨',
+  FAILED: '실패',
 }
 
 function stageIndex(stage: JourneyStageType): number {
@@ -533,6 +544,8 @@ function JourneyDetailPanel({
 }
 
 function NodeDetail({ node }: { node: JourneyNode }) {
+  const [selectedProof, setSelectedProof] = useState<BlockchainProof | null>(null)
+
   return (
     <div className="journey-detail__body">
       <div className="journey-detail__company">
@@ -581,14 +594,21 @@ function NodeDetail({ node }: { node: JourneyNode }) {
         <section className="journey-detail__section journey-detail__proofs">
           <h3>블록체인 기록</h3>
           {node.blockchainProofs.map((proof) => (
-            <div key={proof.txHash}>
+            <button
+              key={proof.txHash}
+              type="button"
+              className="journey-detail__proof-row"
+              onClick={() => setSelectedProof(proof)}
+            >
               <ShieldCheck size={18} weight="duotone" />
               <span>{proof.functionName}</span>
-              <code title={proof.txHash}>{shortHash(proof.txHash)}</code>
-            </div>
+              <span className="journey-detail__proof-more">자세히</span>
+            </button>
           ))}
         </section>
       ) : null}
+
+      <BlockchainProofModal proof={selectedProof} onClose={() => setSelectedProof(null)} />
 
       {node.evidenceSummary.length > 0 ? (
         <section className="journey-detail__section journey-detail__evidence">
@@ -600,6 +620,60 @@ function NodeDetail({ node }: { node: JourneyNode }) {
         </section>
       ) : null}
     </div>
+  )
+}
+
+/**
+ * 블록체인 기록 상세. 목록에서는 한 줄로 보이던 것을 눌렀을 때만 전체 값을 보여준다.
+ *
+ * <p>Hash·주소 표시와 익스플로러 이동은 여기서 새로 만들지 않고 {@link TransactionHash}
+ * (온체인 서명 패널이 이미 쓰는 공통 컴포넌트)를 그대로 쓴다 — 같은 값을 두 군데서 서로
+ * 다르게 자르거나, 한쪽만 익스플로러 링크가 되는 어긋남을 막는다.
+ */
+function BlockchainProofModal({
+  proof,
+  onClose,
+}: {
+  proof: BlockchainProof | null
+  onClose: () => void
+}) {
+  return (
+    <Modal open={proof !== null} onClose={onClose} title="블록체인 기록 상세">
+      {proof && (
+        <dl className="journey-proof-modal">
+          <div>
+            <dt>대상</dt>
+            <dd>{REFERENCE_TYPE_LABEL[proof.referenceType]}</dd>
+          </div>
+          <div>
+            <dt>호출 함수</dt>
+            <dd>{proof.functionName}</dd>
+          </div>
+          <div>
+            <dt>상태</dt>
+            <dd>{PROOF_STATUS_LABEL[proof.status]}</dd>
+          </div>
+          <div>
+            <dt>트랜잭션</dt>
+            <dd>
+              <TransactionHash hash={proof.txHash} />
+            </dd>
+          </div>
+          <div>
+            <dt>컨트랙트</dt>
+            <dd title={proof.contractAddress}>{proof.contractAddress}</dd>
+          </div>
+          <div>
+            <dt>확정 블록</dt>
+            <dd>{proof.blockNumber !== null ? proof.blockNumber.toLocaleString('ko-KR') : '대기 중'}</dd>
+          </div>
+          <div>
+            <dt>확정 시각</dt>
+            <dd>{formatDate(proof.confirmedAt)}</dd>
+          </div>
+        </dl>
+      )}
+    </Modal>
   )
 }
 
