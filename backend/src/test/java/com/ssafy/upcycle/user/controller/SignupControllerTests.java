@@ -194,6 +194,9 @@ class SignupControllerTests {
         body.put("email", email);
         body.put("phone", "010-1234-5678");
         body.put("password", PASSWORD);
+        body.put("zipCode", "06236");
+        body.put("address", "서울특별시 강남구 테헤란로 212");
+        body.put("addressDetail", "5층");
         return body;
     }
 

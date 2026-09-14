@@ -57,4 +57,19 @@ public enum UserRole {
     public boolean canRegisterProduct() {
         return this == BRAND;
     }
+
+    /**
+     * 배송지 주소록({@code consumer_address})을 갖는 역할인가.
+     *
+     * <p>{@code CONSUMER} 뿐이다. 사업자 3종은 {@code company_profile} 이 주소를 갖는다 —
+     * 한 계정이 두 주소 체계를 갖게 두면 "어디로 보내야 하는가" 에 답이 둘이 된다.
+     * {@code ADMIN} 은 물건을 받는 주체가 아니다.
+     *
+     * <p>{@link #canOwnWallet} 의 정확한 여집합처럼 보이지만 <b>그렇게 쓰면 안 된다</b>.
+     * {@code ADMIN} 이 양쪽 모두에서 빠지기 때문이고, 두 판정이 우연히 맞물린 것을 규칙으로
+     * 굳히면 역할이 하나 늘어날 때 조용히 어긋난다.
+     */
+    public boolean hasDeliveryAddressBook() {
+        return this == CONSUMER;
+    }
 }
