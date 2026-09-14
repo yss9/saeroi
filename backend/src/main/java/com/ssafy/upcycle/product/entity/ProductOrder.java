@@ -39,7 +39,20 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @EntityListeners(AuditingEntityListener.class)
 public class ProductOrder {
 
-    private static final int ORDER_CODE_MAX_LENGTH = 30;
+    /**
+     * {@code order_code} 컬럼 길이. {@code ProductOrderCodeGenerator} 가 참조한다 —
+     * 두 곳에 숫자를 두면 한쪽만 바뀔 때 조용히 길이가 어긋난다.
+     */
+    public static final int ORDER_CODE_MAX_LENGTH = 30;
+
+    /**
+     * INSERT 를 통과시키기 위한 임시 코드의 접두어.
+     *
+     * <p>{@code order_code} 가 NOT NULL UNIQUE 라 INSERT 시점에 값이 있어야 하는데,
+     * 사람이 읽는 주문번호는 AUTO_INCREMENT 로 확정된 id 에서 만든다.
+     * {@code MaterialCodeGenerator} 와 같은 2단계다.
+     */
+    public static final String TEMPORARY_CODE_PREFIX = "TMP-";
     private static final int PAYMENT_REFERENCE_MAX_LENGTH = 100;
 
     @Id
@@ -135,6 +148,20 @@ public class ProductOrder {
             LocalDateTime paymentDeadline) {
         return new ProductOrder(
                 orderCode, buyerId, brandId, totalPrice, paymentMethod, paymentDeadline);
+    }
+
+    /**
+     * 임시 코드를 확정된 주문번호로 교체한다.
+     *
+     * <p><b>이미 정식 코드가 붙은 주문은 거부한다.</b> 주문번호는 고객이 문의할 때
+     * 대는 식별자라, 나중에 바뀌면 고객이 적어 둔 번호로는 아무것도 찾지 못한다.
+     */
+    public void assignCode(String orderCode) {
+        if (!this.orderCode.startsWith(TEMPORARY_CODE_PREFIX)) {
+            throw new IllegalStateException(
+                    "Product order code is already assigned: " + this.orderCode);
+        }
+        this.orderCode = requireText(orderCode, "order code", ORDER_CODE_MAX_LENGTH);
     }
 
     /** 결제가 승인되었다. */
