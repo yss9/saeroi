@@ -426,7 +426,7 @@ class PassportControllerTests {
                 129_000,
                 PaymentMethod.MOCK,
                 now.plusMinutes(30)));
-        order.markPaid("payment-1", 129_000, now.plusMinutes(1));
+        order.markPaid("payment-1", 129_000, now.plusMinutes(1), PaymentMethod.MOCK);
         order.ship(now.plusDays(1));
         order.confirmDelivery(now.plusDays(2));
         productOrderItemRepository.save(ProductOrderItem.of(
@@ -480,7 +480,7 @@ class PassportControllerTests {
                 129_000,
                 PaymentMethod.MOCK,
                 now.plusMinutes(30)));
-        order.markPaid("payment-2", 129_000, now.plusMinutes(1));
+        order.markPaid("payment-2", 129_000, now.plusMinutes(1), PaymentMethod.MOCK);
         order.ship(now.plusDays(1));
         productOrderItemRepository.save(ProductOrderItem.of(
                 order.getId(), item.getId(), model.getId(), 129_000));

@@ -298,6 +298,9 @@ class RoleApiAccessMatrixTests {
                 // 제품 주문 — 구매자는 JWT 에서만 얻는다. 로그인 없이 주문이 들어오면
                 // 그 주문은 주인이 없다.
                 args("POST", "/api/v1/product-orders"),
+                args("POST", "/api/v1/product-orders/" + ABSENT_ID + "/payment/ready"),
+                args("POST", "/api/v1/product-orders/" + ABSENT_ID + "/payment/approve"),
+                args("POST", "/api/v1/product-orders/" + ABSENT_ID + "/cancel"),
                 args("GET", "/api/v1/consumers/me/addresses"),
                 args("POST", "/api/v1/consumers/me/addresses"),
                 args("PUT", "/api/v1/consumers/me/addresses/" + ABSENT_ID),

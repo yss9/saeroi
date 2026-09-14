@@ -24,6 +24,7 @@ public record KakaoPayProperties(
         String cid,
         String secretKey,
         String returnUrl,
+        String productOrderReturnUrl,
         java.time.Duration timeout) {
 
     private static final String DEFAULT_BASE_URL = "https://open-api.kakaopay.com";
@@ -34,12 +35,17 @@ public record KakaoPayProperties(
     private static final String DEFAULT_RETURN_URL =
             "http://localhost:5173/trades/{tradeId}/payment/return";
 
+    private static final String DEFAULT_PRODUCT_ORDER_RETURN_URL =
+            "http://localhost:5173/orders/{orderId}/payment/return";
+
     private static final java.time.Duration DEFAULT_TIMEOUT = java.time.Duration.ofSeconds(10);
 
     public KakaoPayProperties {
         baseUrl = orDefault(baseUrl, DEFAULT_BASE_URL);
         cid = orDefault(cid, TEST_CID);
         returnUrl = orDefault(returnUrl, DEFAULT_RETURN_URL);
+        productOrderReturnUrl =
+                orDefault(productOrderReturnUrl, DEFAULT_PRODUCT_ORDER_RETURN_URL);
         timeout = timeout == null ? DEFAULT_TIMEOUT : timeout;
     }
 
@@ -57,6 +63,18 @@ public record KakaoPayProperties(
      */
     public String returnUrlFor(Long tradeId) {
         return returnUrl.replace("{tradeId}", String.valueOf(tradeId));
+    }
+
+    /**
+     * 제품 주문의 복귀 주소. 소재 거래와 <b>화면이 다르므로</b> 경로도 달라야 한다 —
+     * 소비자는 거래 상세 화면을 열 수 없다.
+     *
+     * <p>{@link #returnUrl} 하나를 나눠 쓰지 않고 별도 설정을 두는 이유는, 두 흐름의 복귀
+     * 화면이 서로 다른 라우트이기 때문이다. 한 값에 {@code {tradeId\}} 와
+     * {@code {orderId\}} 를 섞어 넣으면 한쪽이 치환되지 않은 채로 결제창에 넘어간다.
+     */
+    public String productOrderReturnUrlFor(Long orderId) {
+        return productOrderReturnUrl.replace("{orderId}", String.valueOf(orderId));
     }
 
     private static String orDefault(String value, String fallback) {

@@ -22,6 +22,8 @@ import com.ssafy.upcycle.user.entity.User;
 import com.ssafy.upcycle.user.entity.UserRole;
 import com.ssafy.upcycle.user.repository.ConsumerAddressRepository;
 import com.ssafy.upcycle.user.repository.UserRepository;
+import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -32,15 +34,15 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * 소비자의 제품 주문 생성.
  *
- * <p><b>결제 단계가 아직 없다.</b> 제품 주문에는 결제 엔드포인트가 하나도 없어서
- * {@code CREATED} 로 만들면 그 주문을 {@code PAID} 로 옮길 방법이 없다 — 마이페이지에
- * "결제 대기" 로 영원히 남고 {@code journeyUrl} 도 계속 {@code null} 이다. 그래서 결제를
- * 건너뛰고 {@code MOCK} 으로 승인된 것처럼 기록한다. 결제가 붙을 때 이 서비스에서
- * {@link ProductOrder#markPaid} 호출만 떼어 내면 된다.
+ * <p><b>주문은 결제 전 상태로 만들어진다.</b> 개체는 {@code RESERVED} 로 잡아 두고
+ * {@code CREATED} 로 남긴다 — 돈이 오가는 것은 {@code ProductOrderPaymentService} 가 승인을
+ * 마칠 때다. 소재 거래와 같은 2단계이고 이유도 같다: 카카오페이는 결제창에서 사용자가
+ * 인증해야 청구되므로 그 전에 팔린 것으로 기록할 수 없다.
  *
- * <p>{@code payment_reference} 는 비워 둔다. PG 승인 tid 를 담는 칸인데 PG 를 거치지 않았으므로
- * 넣을 값이 없다 — 가짜 값을 넣으면 나중에 정산에서 대조할 수 없는 행이 된다.
- * {@code payment_method} 가 {@code MOCK} 인 것이 "PG 를 안 거쳤다" 는 표시다.
+ * <p><b>그래서 결제 마감이 함께 찍힌다.</b> 사용자가 결제창을 닫으면 그 주문은
+ * {@code CREATED} 로 남고 개체는 묶인 채다. 마감을 넘긴 주문은
+ * {@code ProductOrderExpiryWorker} 가 정리하고 개체를 재고로 되돌린다. 이 정리가 없으면
+ * 결제를 포기할 때마다 제품이 한 점씩 영구히 사라진다.
  *
  * <p><b>소재 거래와 달리 소유권 이전도, 온체인 기록도 없다.</b> 소재는 생산 확정 시점에 이미
  * 소비됐고 소비자는 지갑을 쓰지 않는다.
@@ -48,6 +50,14 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class ProductOrderCommandService {
+
+    /**
+     * 결제창을 열어 둘 수 있는 시간. 이 시간을 넘긴 미결제 주문은 배치가 정리한다.
+     *
+     * <p>짧으면 결제 중인 사용자의 주문이 사라지고, 길면 팔 수 있는 제품이 그만큼 오래
+     * 묶인다. 제품 개체는 한 점씩이라 한 건이 묶이면 그 제품은 바로 품절로 보인다.
+     */
+    private static final Duration PAYMENT_WINDOW = Duration.ofMinutes(30);
 
     private final ProductOrderRepository productOrderRepository;
     private final ProductOrderItemRepository productOrderItemRepository;
@@ -58,6 +68,7 @@ public class ProductOrderCommandService {
     private final UserRepository userRepository;
     private final ProductOrderCodeGenerator orderCodeGenerator;
     private final ProductOrderQueryService productOrderQueryService;
+    private final Clock clock;
 
     @Transactional
     public ProductOrderResponse place(Long buyerId, ProductOrderCreateRequest request) {
@@ -66,20 +77,18 @@ public class ProductOrderCommandService {
         ConsumerAddress address = requireOwnAddress(buyerId, request.addressId());
         ProductItem item = takeFromStock(model.getId());
 
-        LocalDateTime now = LocalDateTime.now();
         ProductOrder order = productOrderRepository.saveAndFlush(ProductOrder.place(
                 orderCodeGenerator.placeholder(),
                 buyerId,
                 model.getBrandId(),
                 model.getPrice(),
-                PaymentMethod.MOCK,
-                null));
+                // 희망 수단일 뿐이다. 실제로 청구한 게이트웨이는 승인 시점에 다시 기록한다.
+                PaymentMethod.KAKAO_PAY,
+                LocalDateTime.now(clock).plus(PAYMENT_WINDOW)));
         order.assignCode(orderCodeGenerator.of(order.getId()));
-        order.markPaid(null, model.getPrice(), now);
 
-        // 개체는 잡았다가 곧바로 팔린다. 결제가 붙으면 그 사이에 결제 대기 구간이 생긴다.
+        // 결제 전까지 다른 사람이 같은 개체를 못 사게 잡아 둔다. 파는 것은 승인 시점이다.
         item.reserve();
-        item.markSold();
 
         productOrderItemRepository.save(ProductOrderItem.of(
                 order.getId(), item.getId(), model.getId(), model.getPrice()));
