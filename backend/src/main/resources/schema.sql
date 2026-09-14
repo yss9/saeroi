@@ -674,6 +674,11 @@ CREATE TABLE product_item (
     serial_number INT NOT NULL,
     item_code VARCHAR(50) NOT NULL,
     qr_token CHAR(32) NOT NULL,
+    -- S15P21E104-141: 최초 생성된 QR PNG의 FileStorageService 저장 키. 요청마다 새로
+    -- 렌더링하지 않고 한 번 저장한 이미지를 재사용한다. NULL이면 아직 저장된 적 없음(다음
+    -- 조회 시점에 채워진다) — 기본 크기(DEFAULT_SIZE) 렌더만 캐시하고, 커스텀 size 요청은
+    -- 캐시하지 않는다(크기별로 키가 갈리면 캐시 무효화 로직이 따로 필요해진다).
+    qr_image_key VARCHAR(255) NULL,
     status ENUM('IN_STOCK', 'RESERVED', 'SOLD') NOT NULL DEFAULT 'IN_STOCK',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT pk_product_item PRIMARY KEY (id),

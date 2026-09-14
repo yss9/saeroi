@@ -789,6 +789,7 @@ NOT (material.root_origin = 'WASTE' AND material.generation_type = 'INITIAL')
 | serial_number | INT | 배치 내 순번 |
 | item_code | VARCHAR(50) UNIQUE | RE:BAG #001 |
 | qr_token | CHAR(32) UNIQUE | 추측 불가 랜덤값 |
+| qr_image_key | VARCHAR(255) NULL | 최초 생성된 기본 크기 QR PNG의 FileStorageService 저장 키 (S15P21E104-141) |
 | status | ENUM | IN_STOCK / RESERVED / SOLD |
 | created_at | DATETIME |  |
 
