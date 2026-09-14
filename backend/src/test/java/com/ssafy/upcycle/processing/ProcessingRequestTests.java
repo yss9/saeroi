@@ -721,6 +721,24 @@ class ProcessingRequestTests {
     }
 
     @Test
+    void processorBrowseReturnsEveryCompletelyRegisteredProcessorWithoutFilters() throws Exception {
+        leadTime(processorId, "DENIM", "CLEANING", 1000, 5);
+        leadTime(processorId, "DENIM", "CUTTING", 1000, 7);
+        Long incomplete = users.save(User.register("incomplete@test.com", "hash", "incomplete", "010", UserRole.PROCESSOR)).getId();
+        jdbc.update("insert into processor_profile(user_id,region) values (?,'Busan')", incomplete);
+        jdbc.update("insert into processor_capability(processor_profile_id,material_type,process_type,min_quantity,max_quantity) values (?,'DENIM','CLEANING',1,2000)", incomplete);
+
+        mvc.perform(get("/api/v1/processors/search").with(jwt().jwt(j -> j.subject(brandId.toString())))
+                        .param("page", "0").param("size", "12"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("data.total").value(1))
+                .andExpect(jsonPath("data.items[0].processorId").value(processorId))
+                .andExpect(jsonPath("data.items[0].minQuantity").value(1))
+                .andExpect(jsonPath("data.items[0].maxQuantity").value(1000))
+                .andExpect(jsonPath("data.items[0].estimatedLeadTimes").isEmpty());
+    }
+
+    @Test
     void invalidOrUnapprovedResultNeverCreatesLineage() throws Exception {
         long jobId = startProcessingJob(300);
 

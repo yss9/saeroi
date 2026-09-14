@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 public enum ProcessingErrorCode implements ErrorCode {
     PROCESSOR_PROFILE_FORBIDDEN(HttpStatus.FORBIDDEN, "가공업체 계정만 업체 정보를 등록하거나 조회할 수 있습니다."),
     PROCESSOR_PROFILE_NOT_FOUND(HttpStatus.NOT_FOUND, "등록된 가공업체 프로필을 찾을 수 없습니다."),
+    PROCESSOR_PROFILE_IMAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "등록된 가공업체 대표 이미지를 찾을 수 없습니다."),
     PROCESSOR_CAPABILITIES_INVALID(HttpStatus.BAD_REQUEST, "소재·공정별 최소/최대 수량을 확인해 주세요. 수량은 양의 정수이며 동일 조합은 한 번만 등록할 수 있습니다."),
     PROCESSOR_LEAD_TIMES_INVALID(HttpStatus.BAD_REQUEST, "소재·공정별 수량 구간과 소요일을 확인해 주세요. 각 가공 조건의 전체 수량 범위를 포함해야 합니다."),
     PROCESSING_FORBIDDEN(HttpStatus.FORBIDDEN, "해당 가공 요청을 처리할 권한이 없습니다."),
