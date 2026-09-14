@@ -17,12 +17,15 @@ export interface CreateProductOrderRequest {
 /**
  * 제품 주문 — `POST /v1/product-orders`
  *
- * ⚠️ **아직 서버에 없는 경로다.** 결제 수단이 정해지지 않아 결제를 건너뛰고 주문만
- * 만들기로 했고, 그 엔드포인트를 요청해 둔 상태다. 반영 전에는 404 가 돌아온다.
+ * **돈이 움직이지 않는다.** 주문만 `CREATED` 로 만들어지고, 결제는 카카오페이 2단계로
+ * 이어진다 (`productOrderPaymentApi.ts`). 그래서 이 응답의 `paidAt` 과 `items[].journeyUrl`
+ * 은 아직 null 이다 — 승인이 끝나야 채워진다.
  *
- * **결제를 건너뛰므로 주문은 곧바로 결제 완료 상태로 들어온다고 가정한다** — 그래야
- * 마이페이지의 주문 현황과 제품 여정(결제 전에는 `journeyUrl` 이 null 이다)이 바로
- * 보인다. 서버가 `CREATED` 로 만들면 화면은 "결제 대기" 로 보여주고, 그것도 맞는 동작이다.
+ * ⚠️ **이 순간 개체가 `RESERVED` 로 잡힌다.** 제품 개체는 한 점씩이라 한 건만 묶여도 그
+ * 제품이 즉시 품절로 보인다. 결제를 포기하면 반드시 `cancelProductOrder` 를 불러야 한다.
+ *
+ * 거절 조건: 품절(`PRODUCT_ORDER_OUT_OF_STOCK`), 판매 중이 아닌 제품
+ * (`PRODUCT_ORDER_MODEL_NOT_ON_SALE`), 없거나 남의 배송지(`PRODUCT_ORDER_ADDRESS_NOT_FOUND`).
  */
 export async function createProductOrder(
   request: CreateProductOrderRequest,
