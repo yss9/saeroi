@@ -9,6 +9,7 @@ import {
 } from '../../components/common/index.ts'
 import { MaterialBalanceTable } from '../../features/material/components/MaterialBalanceTable.tsx'
 import { EvidenceUpload } from '../../features/evidence/components/EvidenceUpload.tsx'
+import { MaterialJourneyTimeline } from '../../features/material/components/MaterialJourneyTimeline.tsx'
 import { MaterialLineageTree } from '../../features/material/components/MaterialLineageTree.tsx'
 import { MaterialMintPanel } from '../../features/material/components/MaterialMintPanel.tsx'
 import { MaterialSourceVerificationPanel } from '../../features/material/components/MaterialSourceVerificationPanel.tsx'
@@ -191,6 +192,14 @@ export function MaterialDetailPage() {
       <section aria-labelledby="material-history">
         <h2 id="material-history">소재 이력</h2>
         <MaterialLineageTree materialId={id} />
+      </section>
+
+      <section aria-labelledby="material-journey">
+        <h2 id="material-journey">진행 상황</h2>
+        {/* 위 소재 이력(혈통)이 "어느 소재에서 와서 어느 소재로 이어졌는가"(공간)를
+            보여준다면, 이 목록은 "이 소재에 무슨 일이 언제 있었는가"(시간)를 보여준다
+            (S15P21E104-73/-77). */}
+        <MaterialJourneyTimeline materialId={id} />
       </section>
 
       <section aria-labelledby="material-evidence">

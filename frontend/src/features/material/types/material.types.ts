@@ -163,6 +163,70 @@ export interface MaterialLineage {
   message: string | null
 }
 
+/** Journey Timeline이 사건을 묶는 4단계 (S15P21E104-70). 저장되지 않고 서버가 조회 시 파생한다. */
+export type MaterialJourneyStage = 'SOURCE' | 'TRANSACTION' | 'PROCESSING' | 'PRODUCT_LINK'
+
+export const MATERIAL_JOURNEY_STAGE_LABEL: Record<MaterialJourneyStage, string> = {
+  SOURCE: '출처',
+  TRANSACTION: '거래',
+  PROCESSING: '가공',
+  PRODUCT_LINK: '제품 연결',
+}
+
+/**
+ * 이벤트 종류별 한글 표시. 서버 enum이 40종에 가까워 여기서는 화면에 실제로 흔히
+ * 나오는 것만 사람이 읽는 문구로 바꾸고, 나머지는 타입 문자열을 그대로 보여준다 —
+ * 새 이벤트 종류가 추가돼도 화면이 깨지지 않는 편이 라벨을 매번 맞추는 것보다 낫다.
+ */
+export const MATERIAL_EVENT_TYPE_LABEL: Partial<Record<string, string>> = {
+  MATERIAL_HISTORY_IMPORTED: '이력 소재 등록',
+  MATERIAL_REGISTERED: '소재 등록',
+  MATERIAL_DERIVED: '소재 파생',
+  CHILD_MATERIAL_CREATED: '파생 소재 생성',
+  MATERIAL_MINTED: '온체인 발행',
+  SOURCE_VERIFIED: '출처 검증',
+  EVIDENCE_ATTACHED: '증빙 첨부',
+  EVIDENCE_DELETED: '증빙 삭제',
+  MARKETPLACE_LISTED: '판매 등록',
+  MARKETPLACE_LISTING_CANCELED: '판매 취소',
+  MARKETPLACE_LISTING_LINKED_ON_CHAIN: '판매 등록 온체인 기록',
+  TRADE_CREATED: '구매 요청',
+  TRADE_PAID: '결제 완료',
+  TRADE_CANCELED: '거래 취소',
+  TRADE_LINKED_ON_CHAIN: '거래 온체인 기록',
+  TRADE_SHIPPED: '발송',
+  TRADE_RECEIVED: '수령 확인',
+  OWNERSHIP_TRANSFERRED: '소유권 이전',
+  PROCESSING_REQUESTED: '가공 요청',
+  PROCESSING_QUOTE_SELECTED: '견적 선택',
+  PROCESSING_MATERIAL_SHIPPED: '가공 소재 발송',
+  PROCESSING_MATERIAL_RECEIVED: '가공 소재 수령',
+  PROCESSING_STARTED: '가공 시작',
+  PROCESSING_RESULT_SUBMITTED: '가공 결과 제출',
+  PROCESSING_RESULT_APPROVED: '가공 결과 승인',
+  PROCESSING_RESULT_CONFIRMED: '가공 결과 확정',
+  PROCESSING_RESULT_REJECTED: '가공 결과 반려',
+  PRODUCTION_INPUT_RESERVED: '생산 투입',
+  PRODUCTION_INPUT_REMOVED: '생산 투입 해제',
+  MATERIAL_CONSUMED: '소재 소비',
+}
+
+export interface MaterialJourneyEntry {
+  eventType: string
+  stage: MaterialJourneyStage
+  actorWallet: string | null
+  actorName: string | null
+  quantity: number | null
+  timestamp: string
+  txHash: string | null
+  detail: string | null
+}
+
+export interface MaterialJourney {
+  materialId: number
+  events: MaterialJourneyEntry[]
+}
+
 /**
  * `POST /api/materials` 요청 본문. **Backend 계약(MR !99)과 정확히 일치한다.**
  *

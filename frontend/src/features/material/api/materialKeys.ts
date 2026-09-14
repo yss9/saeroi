@@ -27,4 +27,7 @@ export const materialKeys = {
    * 가공·생산으로 혈통이 늘어나면 상세 무효화 한 번으로 함께 갱신된다.
    */
   lineage: (materialId: string | number) => [...keys.detail(materialId), 'lineage'] as const,
+
+  /** Journey Timeline. `lineage`와 같은 이유로 `detail(id)` 아래에 둔다. */
+  journey: (materialId: string | number) => [...keys.detail(materialId), 'journey'] as const,
 } as const
