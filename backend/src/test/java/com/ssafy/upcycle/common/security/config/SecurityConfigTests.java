@@ -65,7 +65,10 @@ class SecurityConfigTests {
                         "http://localhost:5173"))
                 .andExpect(header().string(
                         HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS,
-                        org.hamcrest.Matchers.containsString("POST")));
+                        org.hamcrest.Matchers.containsString("POST")))
+                .andExpect(header().string(
+                        HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS,
+                        "true"));
     }
 
     @Test

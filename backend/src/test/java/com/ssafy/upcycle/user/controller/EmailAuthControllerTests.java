@@ -60,12 +60,13 @@ class EmailAuthControllerTests {
 
     @Test
     void loginIsPublicAndReturnsATokenAndProfileWithoutThePassword() throws Exception {
-        String response = mockMvc.perform(post("/api/v1/auth/login")
+        var result = mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(loginBody(EMAIL, PASSWORD)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.data.refreshToken").doesNotExist())
                 .andExpect(jsonPath("$.data.user.id").value(user.getId()))
                 .andExpect(jsonPath("$.data.user.email").value(EMAIL))
                 .andExpect(jsonPath("$.data.user.name").value("소비자"))
@@ -73,11 +74,13 @@ class EmailAuthControllerTests {
                 .andExpect(jsonPath("$.data.user.role").value("CONSUMER"))
                 .andExpect(jsonPath("$.data.user.status").value("ACTIVE"))
                 .andExpect(jsonPath("$.data.user.password").doesNotExist())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
+                .andReturn();
 
+        String response = result.getResponse().getContentAsString();
         assertThat(response).doesNotContain(PASSWORD, user.getPassword());
+        assertThat(result.getResponse().getHeader("Set-Cookie"))
+                .startsWith("refresh_token=")
+                .contains("Path=/api/v1/auth", "Max-Age=1209600", "Secure", "HttpOnly", "SameSite=Strict");
     }
 
     @Test

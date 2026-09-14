@@ -97,6 +97,12 @@ app:
     # "운영인데 설정이 빠져 조용히 오프체인으로 돌았다" 가 가장 나쁘다.
     on-chain: ${MATERIAL_ON_CHAIN:false}
   auth:
+    refresh-token:
+      # Access Token은 짧게 유지하고 이 기간 동안 재발급해 사용자의 로그인 상태를 연장한다.
+      ttl: ${JWT_REFRESH_TOKEN_TTL:P14D}
+      # 운영에서는 HTTPS에서만 전송한다. HTTP 로컬 개발만 명시적으로 false로 덮어쓴다.
+      cookie-secure: ${REFRESH_TOKEN_COOKIE_SECURE:true}
+      cookie-same-site: ${REFRESH_TOKEN_COOKIE_SAME_SITE:Strict}
     wallet:
       # 지갑 서명용 1회용 nonce 유효 시간. 사용자가 MetaMask 팝업을 확인하는 데 걸리는
       # 시간보다 넉넉하되, 탈취된 nonce 가 살아 있는 창은 짧아야 한다.

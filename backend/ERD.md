@@ -183,7 +183,7 @@ MySQL 8 은 부분 UNIQUE(`... WHERE is_active = TRUE`)를 지원하지 않는�
 | refresh_token |  |
 | --- | --- |
 | id, user_id | BIGINT |
-| token | VARCHAR(500) UNIQUE |
+| token_hash | VARCHAR(255) UNIQUE · 원문 미저장(SHA-256) |
 | expires_at, revoked_at, created_at | DATETIME |
 
 ### processor_profile / processor_capability / processor_lead_time
