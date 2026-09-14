@@ -432,12 +432,23 @@
   padding-bottom: 0;
 }
 
-.consumer-order-item > img {
+.consumer-order-item__thumbnail {
   width: 104px;
   height: 104px;
   border-radius: 12px;
-  object-fit: cover;
+  overflow: hidden;
   background: var(--consumer-cream-soft);
+}
+
+.consumer-order-item__thumbnail img,
+.consumer-order-item__thumbnail > span {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.consumer-order-item__thumbnail img {
+  object-fit: cover;
 }
 
 .consumer-order-item__content {
@@ -462,14 +473,30 @@
 }
 
 .consumer-order-item h3 {
-  margin: 0 0 8px;
+  margin: 0 0 5px;
   font-size: 1.02rem;
 }
 
+.consumer-order-item__code {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--consumer-muted);
+  font-size: 0.7rem;
+}
+
 .consumer-order-item__price {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 10px;
   margin: 0;
   font-size: 0.88rem;
   font-weight: 700;
+}
+
+.consumer-order-item__price small {
+  color: var(--consumer-muted);
+  font-size: 0.7rem;
+  font-weight: 500;
 }
 
 .consumer-order-item__status {
@@ -484,6 +511,25 @@
   color: var(--consumer-muted);
   font-size: 0.67rem;
   line-height: 1.4;
+}
+
+.consumer-journey-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--consumer-blue);
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.consumer-journey-link:hover {
+  text-decoration: underline;
+}
+
+.consumer-journey-link svg {
+  width: 14px;
+  height: 14px;
 }
 
 .consumer-address-card .consumer-section-heading > svg {
@@ -690,7 +736,7 @@
     gap: 15px;
   }
 
-  .consumer-order-item > img {
+  .consumer-order-item__thumbnail {
     width: 82px;
     height: 82px;
   }
