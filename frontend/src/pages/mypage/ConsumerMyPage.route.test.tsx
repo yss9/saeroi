@@ -100,6 +100,21 @@ afterEach(() => {
 })
 
 describe('consumer mypage route', () => {
+  /** 소비자로 로그인시킨다. 여러 테스트가 쓴다. */
+  function signInAsConsumer() {
+    useAuthStore.setState({
+      user: {
+        id: 5,
+        name: '새로이 고객',
+        email: 'consumer@saeroi.test',
+        role: 'CONSUMER',
+        walletAddress: null,
+      },
+      accessToken: 'test-token',
+      isAuthenticated: true,
+    })
+  }
+
   it('loads authenticated consumer orders and exposes the product journey', async () => {
     const get = mockMyPageApi()
     useAuthStore.setState({
@@ -117,31 +132,49 @@ describe('consumer mypage route', () => {
     renderRoute('/mypage')
 
     expect(await screen.findByRole('heading', { name: '새로이 고객님, 반갑습니다.' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: '데님 서클 백' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '제품 여정 보기' })).toHaveAttribute(
-      'href',
-      'http://localhost:5173/qr/journey-token',
-    )
+    // 주문 목록은 홈이 아니라 /mypage/orders 에 있다. 홈에는 현황과 배송지만 둔다.
+    expect(screen.queryByRole('heading', { name: '데님 서클 백' })).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '주문 현황' })).toBeInTheDocument()
     expect(get).toHaveBeenCalledWith('/v1/product-orders/me', {
       params: { page: 0, size: 20 },
     })
     expect(get).toHaveBeenCalledWith('/v1/product-orders/me/summary')
   })
 
-  /** 소비자로 로그인시킨다. 셸 검사에서 여러 번 쓴다. */
-  function signInAsConsumer() {
-    useAuthStore.setState({
-      user: {
-        id: 5,
-        name: '새로이 고객',
-        email: 'consumer@saeroi.test',
-        role: 'CONSUMER',
-        walletAddress: null,
-      },
-      accessToken: 'test-token',
-      isAuthenticated: true,
-    })
-  }
+  // 주문 내역은 별도 화면이다. 배송 현황을 함께 본다.
+  it('주문 내역에서 주문과 배송 현황, 제품 여정을 보여준다', async () => {
+    mockMyPageApi()
+    signInAsConsumer()
+
+    renderRoute('/mypage/orders')
+
+    expect(await screen.findByRole('heading', { name: '데님 서클 백' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '제품 여정 보기' })).toHaveAttribute(
+      'href',
+      'http://localhost:5173/qr/journey-token',
+    )
+    // 상태 배지만으로는 "언제" 를 알 수 없다. 지나온 단계에 날짜가 적힌다.
+    const progress = screen.getByRole('list', { name: '배송 현황' })
+    expect(within(progress).getAllByRole('listitem')).toHaveLength(4)
+  })
+
+  it('사이드바로 주문 내역과 배송지 관리를 오간다', async () => {
+    mockMyPageApi()
+    signInAsConsumer()
+
+    renderRoute('/mypage')
+    await screen.findByRole('heading', { name: '새로이 고객님, 반갑습니다.' })
+
+    const menu = screen.getByRole('navigation', { name: '마이페이지 메뉴' })
+    expect(within(menu).getByRole('link', { name: '주문 내역' })).toHaveAttribute(
+      'href',
+      '/mypage/orders',
+    )
+    expect(within(menu).getByRole('link', { name: '배송지 관리' })).toHaveAttribute(
+      'href',
+      '/mypage/addresses',
+    )
+  })
 
   // 이 테스트가 이 파일의 존재 이유다 — 소비자 계정 화면은 로고·쇼핑 메뉴·푸터를 스스로
   // 갖고 있어서, 사업자 대시보드 셸 안에 들어가면 화면 안에 화면이 또 있는 모양이 된다.

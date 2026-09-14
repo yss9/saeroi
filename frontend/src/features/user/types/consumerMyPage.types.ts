@@ -47,6 +47,15 @@ export interface ConsumerRecentOrder {
   totalAmount: number
   status: ConsumerOrderViewStatus
   journeyUrl: string | null
+  /**
+   * 배송 현황에 찍히는 시각들. 아직 지나지 않은 단계는 null 이다.
+   *
+   * **상태 하나만으로는 "언제" 를 말할 수 없다.** 배송 중이라는 배지만 보면 어제 떠난
+   * 것인지 방금 떠난 것인지 알 수 없어, 사용자는 결국 브랜드에 묻게 된다.
+   */
+  paidAt: string | null
+  shippedAt: string | null
+  deliveredAt: string | null
 }
 
 export interface ConsumerAddressSummary {

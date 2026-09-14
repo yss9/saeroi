@@ -38,6 +38,9 @@ const data: ConsumerMyPageData = {
       totalAmount: 129000,
       status: 'DELIVERED',
       journeyUrl: 'http://localhost:5173/qr/journey-token',
+      paidAt: '2026-09-12T10:35:00',
+      shippedAt: '2026-09-13T09:00:00',
+      deliveredAt: '2026-09-14T15:00:00',
     },
     {
       id: 'PO-002:ITEM-002',
@@ -53,6 +56,9 @@ const data: ConsumerMyPageData = {
       totalAmount: 49000,
       status: 'PAYMENT_PENDING',
       journeyUrl: null,
+      paidAt: null,
+      shippedAt: null,
+      deliveredAt: null,
     },
   ],
   defaultAddress: {
@@ -79,19 +85,46 @@ function renderView(
 afterEach(cleanup)
 
 describe('ConsumerMyPageView', () => {
-  it('renders real order summaries and each product journey action', () => {
+  it('내 정보와 기본 배송지를 보여준다', () => {
     renderView({ status: 'ready', data })
 
     expect(screen.getByRole('heading', { name: '새로이 고객님, 반갑습니다.' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: '주문 현황' })).toBeInTheDocument()
-    expect(screen.getAllByRole('article', { name: /주문$/ })).toHaveLength(2)
-    expect(screen.getByText('ITEM-001')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '제품 여정 보기' })).toHaveAttribute(
-      'href',
-      'http://localhost:5173/qr/journey-token',
-    )
-    expect(screen.getByText('결제 완료 후 제품 여정 확인 가능')).toBeInTheDocument()
     expect(screen.getByText('서울특별시 강남구 테헤란로 212', { exact: false })).toBeInTheDocument()
+    // 편집이 배송지 관리로 데려간다.
+    expect(screen.getByRole('link', { name: /편집/ })).toHaveAttribute('href', '/mypage/addresses')
+  })
+
+  // 홈에 주문을 통째로 쌓아 두면 주문이 늘어날수록 배송지가 목록 아래로 밀려 내려간다.
+  it('주문 목록은 홈에 두지 않고 주문 내역으로 보낸다', () => {
+    renderView({ status: 'ready', data })
+
+    expect(screen.queryByRole('article', { name: /주문$/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /전체 주문 보기/ })).toHaveAttribute(
+      'href',
+      '/mypage/orders',
+    )
+  })
+
+  // 이 테스트가 이 파일의 존재 이유다 — 0 이 네 칸 늘어선 표는 처음 온 사람에게
+  // 무엇을 세는 것인지조차 알려주지 않는다.
+  it('주문이 한 건도 없으면 주문 현황을 그리지 않는다', () => {
+    renderView({
+      status: 'ready',
+      data: {
+        ...data,
+        orderStages: data.orderStages.map((stage) => ({ ...stage, count: 0 })),
+      },
+    })
+
+    expect(screen.queryByRole('heading', { name: '주문 현황' })).not.toBeInTheDocument()
+    // 프로필과 배송지는 그대로 있다.
+    expect(screen.getByRole('heading', { name: '기본 배송지' })).toBeInTheDocument()
+  })
+
+  it('주문이 있으면 현황을 바로 보여준다', () => {
+    renderView({ status: 'ready', data })
+
+    expect(screen.getByRole('heading', { name: '주문 현황' })).toBeInTheDocument()
   })
 
   it('renders loading, error, and empty states separately', () => {
@@ -115,7 +148,6 @@ describe('ConsumerMyPageView', () => {
         />
       </MemoryRouter>,
     )
-    expect(screen.getByText('최근 주문이 없습니다')).toBeInTheDocument()
     expect(screen.getByText('등록된 배송지가 없습니다')).toBeInTheDocument()
   })
 

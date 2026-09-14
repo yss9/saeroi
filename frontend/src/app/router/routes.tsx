@@ -18,6 +18,7 @@ import { MaterialDetailPage } from '../../pages/material/MaterialDetailPage.tsx'
 import { MaterialRegisterPage } from '../../pages/material/MaterialRegisterPage.tsx'
 import { ConsumerAddressPage } from '../../pages/mypage/ConsumerAddressPage.tsx'
 import { ConsumerMyPage } from '../../pages/mypage/ConsumerMyPage.tsx'
+import { ConsumerOrdersPage } from '../../pages/mypage/ConsumerOrdersPage.tsx'
 import { BrandProcessingPage } from '../../pages/processing/BrandProcessingPage.tsx'
 import { BrandProcessingRequestDetailPage } from '../../pages/processing/BrandProcessingRequestDetailPage.tsx'
 import { BrandProcessingRequestListPage } from '../../pages/processing/BrandProcessingRequestListPage.tsx'
@@ -96,7 +97,10 @@ export const routes: RouteObject[] = [
     element: <RoleGuard allow={['CONSUMER']} />,
     children: [
       { path: '/mypage', element: <ConsumerMyPage /> },
-      // 배송지 관리. 마이페이지의 기본 배송지 카드에서 들어간다.
+      // 주문 내역. 홈에 주문을 통째로 쌓아 두면 주문이 늘어날수록 배송지처럼 짧은 정보가
+      // 목록 아래로 밀려 내려간다.
+      { path: '/mypage/orders', element: <ConsumerOrdersPage /> },
+      // 배송지 관리. 마이페이지의 기본 배송지 카드에서 "편집" 으로 들어간다.
       { path: '/mypage/addresses', element: <ConsumerAddressPage /> },
     ],
   },

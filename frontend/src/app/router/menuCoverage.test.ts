@@ -29,6 +29,7 @@ const NOT_IN_MENU: ReadonlyMap<string, string> = new Map([
   ['/403', '가드가 보내는 안내 화면'],
   ['/admin', '관리자 전용. ACCOUNT_MENU_ITEMS 가 따로 들고 있다'],
   ['/mypage', '소비자 홈. ACCOUNT_MENU_ITEMS 가 따로 들고 있다'],
+  ['/mypage/orders', '주문 내역. 마이페이지 사이드바에서 들어간다'],
   ['/mypage/addresses', '배송지 관리. 마이페이지의 기본 배송지 카드에서 들어간다'],
 ])
 
