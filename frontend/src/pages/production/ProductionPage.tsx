@@ -16,10 +16,6 @@ export function ProductionPage() {
     <main className="page">
       <header className="page__header">
         <h1>생산 관리</h1>
-        <p className="page__lead">
-          제품을 만들 배치를 열고 보유 소재를 투입합니다. 확정하면 소재가 소비되고 제품
-          개체가 만들어집니다.
-        </p>
       </header>
 
       <section className="page__section">

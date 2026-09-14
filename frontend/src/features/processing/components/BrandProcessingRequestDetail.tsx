@@ -54,7 +54,7 @@ export function BrandProcessingRequestDetail({ requestId }: Props) {
     <section className="br-detail">
       <Link className="br-detail__back" to="/brand/processing/requests"><ArrowLeft aria-hidden="true" />요청 목록</Link>
       <header className="br-detail__heading">
-        <div><span>PROCESSING REQUEST DETAIL</span><h1>{request.requestCode}</h1><p>가공 요청 정보와 제출된 견적을 확인하세요.</p></div>
+        <div><span>PROCESSING REQUEST DETAIL</span><h1>{request.requestCode}</h1></div>
         <span className={`br-detail__request-status is-${request.status.toLowerCase()}`}>{requestStatusLabel[request.status]}</span>
       </header>
 

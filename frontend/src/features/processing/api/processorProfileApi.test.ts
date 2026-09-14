@@ -28,4 +28,17 @@ describe('processor profile API', () => {
     expect(put).toHaveBeenNthCalledWith(2, '/v1/processors/me/capabilities', { capabilities: [{ materialType: 'DENIM', processType: 'CLEANING', minQuantity: 100, maxQuantity: 500 }] })
     expect(put).toHaveBeenNthCalledWith(3, '/v1/processors/me/lead-times', { leadTimes: [{ materialType: 'DENIM', processType: 'CLEANING', maxQuantity: 500, leadDays: 3 }] })
   })
+
+  it('대표 이미지를 multipart로 업로드하고 blob으로 조회한다', async () => {
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ data: { imageUrl: '/api/v1/processors/me/profile/image' } } as AxiosResponse)
+    const get = vi.spyOn(apiClient, 'get').mockResolvedValue({ data: new Blob(['logo'], { type: 'image/png' }) } as AxiosResponse)
+    const file = new File(['logo'], 'logo.png', { type: 'image/png' })
+
+    await processorProfileApi.uploadImage(file)
+    await processorProfileApi.getImage()
+
+    expect(post).toHaveBeenCalledWith('/v1/processors/me/profile/image', expect.any(FormData), { headers: { 'Content-Type': undefined } })
+    expect((post.mock.calls[0][1] as FormData).get('file')).toBe(file)
+    expect(get).toHaveBeenCalledWith('/v1/processors/me/profile/image', { responseType: 'blob' })
+  })
 })

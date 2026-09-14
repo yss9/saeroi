@@ -102,7 +102,7 @@ describe('행위자·수량·해시 표시', () => {
     renderTimeline()
 
     expect(await screen.findByTitle('0x' + 'b'.repeat(64))).toBeInTheDocument()
-    expect(screen.queryByText(/tx /)).not.toHaveTextContent('null')
+    expect(screen.queryByText('null')).not.toBeInTheDocument()
   })
 })
 

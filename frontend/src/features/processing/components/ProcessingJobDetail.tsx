@@ -41,7 +41,7 @@ function ProcessingJobDetailContent({ jobId, job, role, flow }: {
   const save=()=>flow.saveResult.mutate({lossQuantity:Number(loss),outputs:rows.map(row=>({...row,quantity:Number(row.quantity)}))})
   return <section className="pj-detail">
     <Link to={role==='PROCESSOR'?'/processor/jobs':'/brand/processing/jobs'}><ArrowLeft/>목록으로</Link>
-    <header><div><span>PROCESSING JOB</span><h1>{job.jobCode}</h1><p>소재 배송, 가공 결과와 승인 상태를 한곳에서 관리합니다.</p></div><b className={`pj-status is-${job.status.toLowerCase()}`}>{statusLabel[job.status]}</b></header>
+    <header><div><span>PROCESSING JOB</span><h1>{job.jobCode}</h1></div><b className={`pj-status is-${job.status.toLowerCase()}`}>{statusLabel[job.status]}</b></header>
     <div className="pj-progress">{['PAID','SHIPPED','RECEIVED','PROCESSING','RESULT_SUBMITTED','CONFIRMED'].map((value,index)=><span className={['PAID','SHIPPED','RECEIVED','PROCESSING','RESULT_SUBMITTED','CONFIRMED'].indexOf(job.status)>=index?'is-done':''} key={value}>{index+1}</span>)}</div>
     <section className="pj-panel"><h2><Package/>투입 정보</h2><dl><div><dt>소재</dt><dd>#{job.inputMaterialId}</dd></div><div><dt>투입 수량</dt><dd>{job.inputQuantity.toLocaleString()} g</dd></div><div><dt>가공비</dt><dd>{job.fee.toLocaleString()}원</dd></div><div><dt>Loss</dt><dd>{job.lossQuantity.toLocaleString()} g</dd></div></dl></section>
 

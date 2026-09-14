@@ -64,8 +64,7 @@
 .bp-purposes { min-width: 0; padding: 0; border: 0; margin: 28px 0 0; }
 .bp-purposes legend { font-size: .78rem; font-weight: 800; }
 .bp-purposes legend span { margin-left: 8px; padding: 3px 7px; border-radius: 5px; background: #eaf3fa; color: var(--bp-primary); font-size: .66rem; font-weight: 700; }
-.bp-purposes > p { margin: 8px 0 13px; color: var(--bp-muted); font-size: .72rem; }
-.bp-purposes > div { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
+.bp-purposes > div { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; margin-top: 12px; }
 .bp-purposes label { min-height: 43px; padding: 9px 5px; border: 1px solid var(--bp-border); border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 6px; color: #596779; cursor: pointer; font-size: .72rem; white-space: nowrap; }
 .bp-purposes label:hover { border-color: #9fbdd2; background: #f7fafc; }
 .bp-purposes label.is-selected { border-color: var(--bp-primary); background: #edf5fb; color: var(--bp-primary-dark); font-weight: 750; box-shadow: inset 0 0 0 1px var(--bp-primary); }
@@ -73,6 +72,7 @@
 
 .bp-form-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 30px; padding-top: 22px; border-top: 1px solid #edf0f3; }
 .bp-form-footer > span { color: #8b96a3; font-size: .68rem; }
+.bp-form-footer--end { justify-content: flex-end; }
 .bp-button { min-height: 42px; padding: 10px 17px; border: 1px solid #d5dfe7; border-radius: 8px; background: #fff; color: #405467; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: .76rem; font-weight: 750; white-space: nowrap; }
 .bp-button:hover { border-color: #aec5d6; background: #f4f8fb; }
 .bp-primary { border-color: var(--bp-primary); background: var(--bp-primary); color: #fff; box-shadow: 0 4px 10px rgba(33, 106, 159, .14); }
@@ -85,17 +85,19 @@
 .bp-summary-list > div:last-child { border-bottom: 0; }
 .bp-summary-list dt { flex-shrink: 0; color: #83909f; }
 .bp-summary-list dd { margin: 0; overflow-wrap: anywhere; text-align: right; font-weight: 700; }
-.bp-tip { margin-top: 16px; padding: 24px 22px; border: 1px solid #dce8f1; border-radius: 14px; background: linear-gradient(145deg, #eef6fb, #f8fbfd); color: var(--bp-primary); }
-.bp-tip h3 { margin: 8px 0; color: var(--bp-primary-dark); font-size: .85rem; }
-.bp-tip p { margin: 0; color: #677d8e; font-size: .71rem; line-height: 1.9; }
 .bp-side-note { display: flex; align-items: flex-start; gap: 7px; margin: 17px 0 0; padding: 0 4px; color: #8b96a3; font-size: .67rem; }
 .bp-side-note svg { flex-shrink: 0; }
 
 .bp-state { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 45px 12px; color: #6c7c8c; text-align: center; }
 .bp-state h3 { margin: 8px 0 0; color: var(--bp-primary-dark); font-size: 1rem; }
 .bp-state p { margin: 0 0 12px; font-size: .76rem; }
-.bp-search-conditions { display: flex; flex-wrap: wrap; gap: 7px 15px; padding: 12px 14px; border: 1px solid #dce8f1; border-radius: 9px; background: #f3f8fc; color: #466b86; font-size: .72rem; }
-.bp-search-conditions button { margin-left: auto; border: 0; background: none; color: var(--bp-primary); font-size: .71rem; font-weight: 700; text-decoration: underline; }
+.bp-processor-directory { margin-top: 28px; padding-top: 28px; border-top: 1px solid #dce3e9; }
+.bp-directory-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.bp-directory-heading .bp-section-title { margin-bottom: 16px; }
+.bp-directory-heading > strong { color: var(--bp-primary); font-size: .8rem; }
+.bp-active-filters { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 20px; }
+.bp-active-filters span { padding: 5px 9px; border: 1px solid #d4e4ef; border-radius: 999px; background: #f3f8fc; color: #466b86; font-size: .68rem; font-weight: 700; }
+.bp-active-filters button { margin-left: auto; padding: 4px 2px; border: 0; background: transparent; color: var(--bp-primary); font-size: .68rem; font-weight: 750; text-decoration: underline; }
 .bp-results-count { margin: 24px 0 12px; font-size: .76rem; }
 .bp-results-count strong { color: var(--bp-primary); }
 .bp-results-count > span { float: right; color: #8794a1; font-size: .68rem; }

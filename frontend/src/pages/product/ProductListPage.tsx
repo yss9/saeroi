@@ -13,9 +13,6 @@ export function ProductListPage() {
     <main className="page">
       <header className="page__header">
         <h1>제품</h1>
-        <p className="page__lead">
-          업사이클 소재로 만든 제품입니다. 제품을 열면 어떤 소재로 만들어졌는지 볼 수 있습니다.
-        </p>
       </header>
 
       <ProductList />

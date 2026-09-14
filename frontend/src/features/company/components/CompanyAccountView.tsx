@@ -61,7 +61,6 @@ export function CompanyAccountView({ state, walletState, onRetryWallet }: Compan
         <div>
           <p>COMPANY ACCOUNT</p>
           <h1 id="company-account-title">회사 정보</h1>
-          <span>사업자 계정과 등록된 회사 정보를 확인할 수 있습니다.</span>
         </div>
         <StatusBadge tone={data.status === 'ACTIVE' ? 'success' : 'neutral'}>
           {data.status === 'ACTIVE' ? '활성 계정' : '상태 확인 필요'}
@@ -85,7 +84,6 @@ export function CompanyAccountView({ state, walletState, onRetryWallet }: Compan
             <Buildings aria-hidden="true" />
             <div>
               <h2>사업자 정보</h2>
-              <p>가입 시 등록한 회사 기본 정보입니다.</p>
             </div>
           </div>
           <dl>
@@ -101,7 +99,6 @@ export function CompanyAccountView({ state, walletState, onRetryWallet }: Compan
             <Envelope aria-hidden="true" />
             <div>
               <h2>연락처 정보</h2>
-              <p>회사 계정의 연락 및 위치 정보입니다.</p>
             </div>
           </div>
           <dl>
@@ -120,7 +117,6 @@ export function CompanyAccountView({ state, walletState, onRetryWallet }: Compan
           <span className="company-account__wallet-icon" aria-hidden="true"><Wallet /></span>
           <div>
             <h2>블록체인 지갑</h2>
-            <p>블록체인 네트워크 인증에 사용할 사업자 지갑을 관리합니다.</p>
           </div>
           <StatusBadge tone={walletBadge.tone}>{walletBadge.label}</StatusBadge>
         </div>
