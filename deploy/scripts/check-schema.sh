@@ -47,6 +47,12 @@
 #   SCHEMA_REF=origin/backend/master bash ...       # 다른 기준으로 대조
 #   SCHEMA_FILE=/tmp/schema.sql bash ...            # git ref 대신 로컬 파일을 기준으로
 #   bash scripts/check-schema.sh --ddl              # 부족한 것의 DDL 을 출력만 한다
+#   MYSQL_CONTAINER=cft-mysql MYSQL_ENV_FILE=.env.test bash ...   # test 스택 대조
+#   SAFE_MISSING_TABLES_FILE=/tmp/t.txt bash ...    # 없는 테이블만 있고 컬럼/타입
+#                                                    # 불일치가 전혀 없을 때만, 그
+#                                                    # 테이블 이름들을 이 파일에 씀
+#                                                    # (자동 적용 판단용 — 사람이
+#                                                    # 보라는 원칙은 그대로 유지)
 #
 # 이 스크립트는 **읽기만 한다.** ALTER 나 CREATE 를 실행하지 않는다 —
 # 무엇을 적용할지는 사람이 보고 결정해야 한다.
@@ -60,7 +66,7 @@ cd "$DEPLOY_DIR"
 SCHEMA_REF="${SCHEMA_REF:-origin/backend/develop}"
 SCHEMA_PATH="src/main/resources/schema.sql"
 CONTAINER="${MYSQL_CONTAINER:-cf-mysql}"
-ENV_FILE="$DEPLOY_DIR/.env"
+ENV_FILE="$DEPLOY_DIR/${MYSQL_ENV_FILE:-.env}"
 EMIT_DDL=0
 [ "${1:-}" = "--ddl" ] && EMIT_DDL=1
 
@@ -276,8 +282,8 @@ if [ $MYSQL_RC -ne 0 ]; then
     sed 's/^/  /' "$MYSQL_ERR" >&2
     {
         printf '\n힌트\n'
-        printf '  - Access denied    → .env 의 MYSQL_ROOT_PASSWORD 확인\n'
-        printf '  - Unknown database → .env 의 MYSQL_DATABASE 확인 (현재: %s)\n' "$DB_NAME"
+        printf '  - Access denied    → %s 의 MYSQL_ROOT_PASSWORD 확인\n' "$ENV_FILE"
+        printf '  - Unknown database → %s 의 MYSQL_DATABASE 확인 (현재: %s)\n' "$ENV_FILE" "$DB_NAME"
     } >&2
     exit 2
 fi
@@ -288,11 +294,11 @@ if [ -z "$LIVE_TABLES" ]; then
     log "현재 $SCHEMA_REF 는 엔티티가 15개이므로 schema.sql 전체를 적용해야 한다."
     log ""
     log "적용 순서:"
-    log "  1) bash scripts/backup-mysql.sh                       # 먼저 백업"
+    log "  1) bash scripts/backup-mysql.sh                       # 먼저 백업 (운영 기준 — test 는 직접 mysqldump)"
     log "  2) git show $SCHEMA_REF:$SCHEMA_PATH \\"
-    log "       | docker exec -i -e MYSQL_PWD=\"\$(sed -n 's/^MYSQL_ROOT_PASSWORD=//p' .env)\" \\"
+    log "       | docker exec -i -e MYSQL_PWD=\"\$(sed -n 's/^MYSQL_ROOT_PASSWORD=//p' $ENV_FILE)\" \\"
     log "         $CONTAINER mysql -uroot $DB_NAME"
-    log "  3) bash scripts/check-schema.sh                       # OK 확인"
+    log "  3) MYSQL_CONTAINER=$CONTAINER MYSQL_ENV_FILE=${MYSQL_ENV_FILE:-.env} bash scripts/check-schema.sh   # OK 확인"
     exit 1
 fi
 
@@ -353,6 +359,19 @@ if [ ${#MISSING_TABLES[@]} -eq 0 ] && [ ${#MISSING_COLUMNS[@]} -eq 0 ] && [ ${#T
     log "OK: 부족한 테이블·컬럼 없음, 컬럼 타입도 일치. 배포해도 validate 가 통과한다."
     log "    (NULL 허용·DEFAULT·인덱스는 대조하지 않는다 — 스크립트 상단 주석 참고)"
     exit 0
+fi
+
+# ── SAFE_MISSING_TABLES_FILE ─────────────────────────────────────────
+# 호출자(예: test-deploy.sh)가 "없는 테이블만 있고, 없는 컬럼·타입 불일치는 전혀
+# 없는" 안전한 경우를 기계적으로 판별해 자동 적용을 시도할 수 있도록, 그 조건을
+# 만족할 때만 없는 테이블 이름을 파일로 남긴다. 없는 컬럼 추가나 타입 변경은
+# 기존 행의 데이터를 건드릴 수 있어(위 2026-09-08 사고) 여기 포함하지 않는다 —
+# 새 테이블 CREATE 만 "기존 데이터에 영향 없음"이 기계적으로 보장되는 경우다.
+if [ -n "${SAFE_MISSING_TABLES_FILE:-}" ]; then
+    rm -f "$SAFE_MISSING_TABLES_FILE"
+    if [ ${#MISSING_TABLES[@]} -gt 0 ] && [ ${#MISSING_COLUMNS[@]} -eq 0 ] && [ ${#TYPE_MISMATCHES[@]} -eq 0 ]; then
+        printf '%s\n' "${MISSING_TABLES[@]}" > "$SAFE_MISSING_TABLES_FILE"
+    fi
 fi
 
 if [ ${#MISSING_TABLES[@]} -gt 0 ]; then

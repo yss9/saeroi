@@ -54,6 +54,90 @@ if [ -z "$ROLLBACK_ID" ]; then
     echo "INFO: 롤백 대상 없음 (현재 컨테이너가 ${SERVICE} 이미지가 아님 — 첫 배포로 간주)."
 fi
 
+# 2.5) backend 는 스키마 preflight — ddl-auto: validate 라 새 마이그레이션이 DB 에
+#      먼저 적용돼 있지 않으면 Hibernate 가 기동 즉시 죽는다(2026-09-14 user_notification
+#      실사고, scripts/check-schema.sh 상단 주석의 2026-09-07 운영 사고와 같은 패턴).
+#      배포 전에 잡아서, 마이그레이션 미적용 상태로 backend 를 죽이는 대신 배포 자체를 막는다.
+#
+#      test 스택에 한해서 "없는 테이블만 있고, 없는 컬럼·타입 불일치는 전혀 없는" 경우는
+#      db/migrations/*.sql 에서 해당 테이블을 만드는 파일을 자동 적용한다. 단, 그 파일이
+#      CREATE TABLE 외에 ALTER TABLE 을 하나라도 포함하면(기존 테이블 변경 — 데이터에
+#      영향 가능) 자동 적용하지 않고 사람에게 넘긴다. 운영(deploy-service.sh)에는 이
+#      자동 적용을 넣지 않는다 — check-schema.sh 자체 원칙("사람이 보고 결정")은 운영에서
+#      그대로 유지한다.
+if [ "$SERVICE" = "backend" ]; then
+    SAFE_TABLES_FILE="$(mktemp)"
+    trap 'rm -f "$SAFE_TABLES_FILE"' EXIT
+    if ! MYSQL_CONTAINER=cft-mysql MYSQL_ENV_FILE=.env.test SAFE_MISSING_TABLES_FILE="$SAFE_TABLES_FILE" \
+            bash scripts/check-schema.sh; then
+        if [ -s "$SAFE_TABLES_FILE" ]; then
+            echo "INFO: 없는 테이블만 발견됨 — 대응 마이그레이션 자동 적용을 시도합니다."
+            MIGRATIONS_DIR="src/main/resources/db/migrations"
+            APPLY_FILES=()
+            AUTO_OK=1
+            while IFS= read -r table; do
+                [ -n "$table" ] || continue
+                MATCH=""
+                for mf in $(git ls-tree -r origin/backend/develop --name-only -- "$MIGRATIONS_DIR" 2>/dev/null); do
+                    if git show "origin/backend/develop:$mf" 2>/dev/null \
+                            | grep -qiE "^CREATE TABLE( IF NOT EXISTS)? \`?${table}\`? "; then
+                        MATCH="$mf"
+                        break
+                    fi
+                done
+                if [ -z "$MATCH" ]; then
+                    echo "FAIL: 테이블 $table 을 만드는 마이그레이션 파일을 찾지 못했습니다 — 수동 확인 필요."
+                    AUTO_OK=0
+                    break
+                fi
+                if [ "$(git show "origin/backend/develop:$MATCH" | grep -c '^ALTER TABLE')" -gt 0 ]; then
+                    echo "FAIL: $MATCH 는 테이블 $table 외에 기존 테이블 ALTER 도 포함합니다 — 자동 적용은 CREATE 전용 파일만 허용, 수동 확인 필요."
+                    AUTO_OK=0
+                    break
+                fi
+                case " ${APPLY_FILES[*]:-} " in
+                    *" $MATCH "*) ;;
+                    *) APPLY_FILES+=("$MATCH") ;;
+                esac
+            done < "$SAFE_TABLES_FILE"
+
+            if [ "$AUTO_OK" -eq 1 ] && [ ${#APPLY_FILES[@]} -gt 0 ]; then
+                DB_NAME="$(sed -n 's/^MYSQL_DATABASE=//p' .env.test | head -1)"
+                ROOT_PW="$(sed -n 's/^MYSQL_ROOT_PASSWORD=//p' .env.test | head -1)"
+                mkdir -p "$HOME/backups/mysql"
+                STAMP="$(date '+%Y%m%d-%H%M%S')"
+                BACKUP_TARGET="$HOME/backups/mysql/${DB_NAME}-test-${STAMP}-before-auto-migration.sql.gz"
+                docker exec -e MYSQL_PWD="$ROOT_PW" cft-mysql \
+                    mysqldump -uroot --single-transaction --routines --triggers "$DB_NAME" \
+                    | gzip > "$BACKUP_TARGET"
+                echo "INFO: 자동 적용 전 백업: $BACKUP_TARGET"
+                for mf in "${APPLY_FILES[@]}"; do
+                    echo "INFO: 적용 중: $mf"
+                    git show "origin/backend/develop:$mf" \
+                        | docker exec -e MYSQL_PWD="$ROOT_PW" -i cft-mysql mysql -uroot "$DB_NAME"
+                done
+                if ! MYSQL_CONTAINER=cft-mysql MYSQL_ENV_FILE=.env.test bash scripts/check-schema.sh; then
+                    echo "FAIL: 자동 적용 후에도 스키마가 맞지 않습니다 — 수동 확인 필요."
+                    exit 1
+                fi
+                echo "INFO: 자동 적용 완료, 스키마 preflight 통과."
+            else
+                echo "FAIL: 일부 테이블은 자동 적용할 수 없습니다. 수동으로 적용한 뒤 다시 배포하세요."
+                echo "      (DDL 초안: MYSQL_CONTAINER=cft-mysql MYSQL_ENV_FILE=.env.test bash scripts/check-schema.sh --ddl)"
+                exit 1
+            fi
+        else
+            echo "FAIL: test DB 스키마가 배포하려는 backend(origin/backend/develop) 기준과 다릅니다."
+            echo "      없는 컬럼·타입 불일치가 섞여 있어 자동 적용하지 않습니다 — 기존 데이터에 영향 줄 수 있습니다."
+            echo "      위 내용을 cft-mysql 에 먼저 수동 적용한 뒤 다시 배포하세요."
+            echo "      (DDL 초안: MYSQL_CONTAINER=cft-mysql MYSQL_ENV_FILE=.env.test bash scripts/check-schema.sh --ddl)"
+            exit 1
+        fi
+    fi
+    rm -f "$SAFE_TABLES_FILE"
+    trap - EXIT
+fi
+
 # 3) 해당 서비스만 재기동 (--no-deps: mysql/minio 등은 건드리지 않는다)
 dc_test up -d --no-deps "$COMPOSE_SVC"
 
