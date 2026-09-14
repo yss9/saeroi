@@ -9,6 +9,7 @@ import { useVisibleMenu } from '../../../app/navigation/useVisibleMenu.ts'
 import { useAuth } from '../../auth/hooks/useAuth.ts'
 import { useLogout } from '../../auth/hooks/useLogout.ts'
 import { getRoleHomePath } from '../../auth/utils/roleHomePath.ts'
+import { NotificationCenter } from '../../notification/components/NotificationCenter.tsx'
 import { BusinessWalletStatus } from '../../wallet/components/BusinessWalletStatus.tsx'
 import { ROLE_LABEL } from '../../../types/role.types.ts'
 import { BUSINESS_ROLE_LABEL, isBusinessUserRole } from '../types/companyAccount.types.ts'
@@ -97,6 +98,7 @@ export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps
           </Link>
           {isBusinessUser ? (
             <>
+              <NotificationCenter enabled={isBusinessUser} />
               <BusinessWalletStatus />
               <Link className="company-dashboard__account-link" to="/company/account" aria-label="마이페이지">
                 <UserCircle aria-hidden="true" />

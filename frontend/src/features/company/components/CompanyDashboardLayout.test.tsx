@@ -147,4 +147,12 @@ describe('CompanyDashboardLayout', () => {
     expect(screen.getByRole('link', { name: '가공 신청' })).toHaveAttribute('href', '/brand/processing')
     expect(screen.getByRole('link', { name: '요청 내역' })).toHaveAttribute('href', '/brand/processing/requests')
   })
+
+  it('소비자에게는 사업자 알림 센터를 표시하지 않는다', () => {
+    setBusinessUser('CONSUMER')
+    renderLayout()
+
+    expect(screen.queryByRole('button', { name: /알림/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '새 알림 없음' })).not.toBeInTheDocument()
+  })
 })
