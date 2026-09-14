@@ -11,7 +11,7 @@ export interface ConsumerProfileSummary {
 }
 
 export const CONSUMER_ORDER_STAGES = [
-  'PAYMENT_COMPLETED',
+  'PAYMENT_PENDING',
   'PREPARING',
   'SHIPPING',
   'DELIVERED',
@@ -25,26 +25,28 @@ export interface ConsumerOrderStageSummary {
 }
 
 export const CONSUMER_ORDER_VIEW_STATUSES = [
-  'PAYMENT_COMPLETED',
+  'PAYMENT_PENDING',
   'PREPARING',
   'SHIPPING',
   'DELIVERED',
-  'CANCELED',
 ] as const
 
 export type ConsumerOrderViewStatus = (typeof CONSUMER_ORDER_VIEW_STATUSES)[number]
 
 export interface ConsumerRecentOrder {
-  id: number
+  id: string
   orderNumber: string
   orderedAt: string
   productName: string
   brandName: string
   thumbnailUrl: string
   thumbnailAlt: string
+  itemCode: string
   itemCount: number
+  itemPrice: number
   totalAmount: number
   status: ConsumerOrderViewStatus
+  journeyUrl: string | null
 }
 
 export interface ConsumerAddressSummary {
