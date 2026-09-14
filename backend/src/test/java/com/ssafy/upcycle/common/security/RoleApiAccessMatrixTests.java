@@ -301,6 +301,8 @@ class RoleApiAccessMatrixTests {
                 args("POST", "/api/v1/product-orders/" + ABSENT_ID + "/payment/ready"),
                 args("POST", "/api/v1/product-orders/" + ABSENT_ID + "/payment/approve"),
                 args("POST", "/api/v1/product-orders/" + ABSENT_ID + "/cancel"),
+                args("PATCH", "/api/v1/product-orders/" + ABSENT_ID + "/ship"),
+                args("POST", "/api/v1/product-orders/" + ABSENT_ID + "/receive/confirm"),
                 args("GET", "/api/v1/consumers/me/addresses"),
                 args("POST", "/api/v1/consumers/me/addresses"),
                 args("PUT", "/api/v1/consumers/me/addresses/" + ABSENT_ID),
