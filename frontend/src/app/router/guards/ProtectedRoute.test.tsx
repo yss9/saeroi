@@ -68,7 +68,10 @@ describe('ProtectedRoute', () => {
     expect(screen.getByRole('heading', { name: '보호된 본문' })).toBeInTheDocument()
     // 셸이 씌워졌다는 증거. 이 링크가 없으면 사용자는 이 화면에서 나갈 방법이 없다.
     expect(screen.getByRole('link', { name: /판매 관리/ })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /거래 내역/ })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /판매 거래/ })).toBeInTheDocument()
+    // 구매 내역은 BRAND 전용이라 SUPPLIER 에게는 없다. 셸이 씌워졌는지는 위의 두 링크로
+    // 이미 확인된다 — 없어야 할 링크가 여기 남아 있으면 셸 검사가 메뉴 정책과 엉킨다.
+    expect(screen.queryByRole('link', { name: /구매 내역/ })).not.toBeInTheDocument()
   })
 
   it('같은 곳으로 가는 항목을 두 번 그리지 않는다', () => {

@@ -11,6 +11,15 @@ import { useTrade } from '../../features/trade/hooks/useTrade.ts'
 import { formatKg, formatWon } from '../../utils/quantity.ts'
 
 /**
+ * 돌아갈 목록.
+ *
+ * 문구와 경로를 한 쌍으로 묶는다 — 따로 두면 "판매 거래" 라고 적힌 링크가 구매 내역으로
+ * 가는 조합이 만들어진다. 실제로 이 화면은 같은 판단을 네 군데에서 한다.
+ */
+const PURCHASES = { to: '/trades', label: '구매 내역' } as const
+const SALES = { to: '/supplier/trades', label: '판매 거래' } as const
+
+/**
  * 거래 상세.
  *
  * **판매자와 구매자가 같은 주소를 쓰고 서로 다른 것을 한다.** 거래에는 양쪽이 각자
@@ -27,16 +36,18 @@ export function TradeDetailPage() {
   const parsed = Number(tradeId)
   const id = Number.isInteger(parsed) && parsed > 0 ? parsed : null
 
-  const { user } = useAuth()
+  const { user, role } = useAuth()
   const { data, isPending, isError, error, refetch } = useTrade(id)
 
-  // 조회 전에는 이 사람이 판매자인지 알 수 없다 (판정에 data 가 필요하다).
-  // 그래서 실패·로딩 화면에서는 누구나 갈 수 있는 거래 내역으로 보낸다 —
-  // 출구가 아예 없는 것보다 낫고, 틀린 목록으로 보내지도 않는다.
+  // 조회 전에는 이 사람이 판매자인지 알 수 없다 (판정에 data 가 필요하다). 그래서 역할로
+  // 고른다 — **구매 내역(/trades)은 BRAND 전용이라 판매자를 그리로 보내면 /403 이 된다.**
+  // 역할은 거래를 읽기 전에도 알 수 있어 이 구간에서 쓸 수 있는 유일한 단서다.
+  const fallback = role === 'BRAND' ? PURCHASES : SALES
+
   if (id === null) {
     return (
       <main className="page">
-        <BackLink to="/trades" label="거래 내역" />
+        <BackLink {...fallback} />
         <ErrorMessage error="잘못된 주소입니다." />
       </main>
     )
@@ -44,7 +55,7 @@ export function TradeDetailPage() {
   if (isPending) {
     return (
       <main className="page">
-        <BackLink to="/trades" label="거래 내역" />
+        <BackLink {...fallback} />
         <Loading variant="skeleton" />
       </main>
     )
@@ -52,7 +63,7 @@ export function TradeDetailPage() {
   if (isError) {
     return (
       <main className="page">
-        <BackLink to="/trades" label="거래 내역" />
+        <BackLink {...fallback} />
         <ErrorMessage error={error} onRetry={() => void refetch()} />
       </main>
     )
@@ -64,11 +75,10 @@ export function TradeDetailPage() {
   return (
     <main className="page">
       {/* 판매자와 구매자가 서로 다른 목록에서 들어온다. 위치에 맞는 곳으로 돌려보낸다 —
-          판매자를 /trades(내 구매 내역)로 보내면 방금 본 거래가 없는 목록이 열린다. */}
-      <BackLink
-        to={isSeller ? '/supplier/trades' : '/trades'}
-        label={isSeller ? '판매 거래' : '거래 내역'}
-      />
+          판매자를 /trades(내 구매 내역)로 보내면 방금 본 거래가 없는 목록이 열린다.
+          여기서는 역할이 아니라 이 거래에서의 위치로 고른다. 이미 거래를 읽었으므로
+          그쪽이 더 정확하다 (BRAND 가 판매자 자리에 서는 재판매도 맞게 처리된다). */}
+      <BackLink {...(isSeller ? SALES : PURCHASES)} />
 
       <header className="page__header">
         <h1>{data.materialName}</h1>

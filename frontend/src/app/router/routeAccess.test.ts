@@ -47,9 +47,12 @@ describe('routeAccess — routes.tsx 에서 파생한 접근 조건', () => {
   })
 
   // RoleGuard 가 없는 Protected 경로. 로그인만 하면 역할과 무관하게 들어간다.
-  // 여기에 역할 조건을 새로 붙이지 않는다 — 권한 Matrix 가 정하지 않은 부분이다.
+  //
+  // **거래 상세가 여기 있는 것이 중요하다.** 판매자와 구매자가 같은 주소를 쓰고 서로 다른
+  // 것을 하므로(발송 / 결제·수령) 역할로 좁히면 한쪽이 자기 거래를 못 본다 — 당사자인지는
+  // 서버가 seller_id·buyer_id 로 판단한다.
   it('가드 없는 Protected 경로는 로그인만 요구한다', () => {
-    for (const path of ['/inventory', '/trades', '/trades/:tradeId', '/products', '/products/:productId']) {
+    for (const path of ['/inventory', '/trades/:tradeId', '/products', '/products/:productId']) {
       expect(getRouteAccess(path), path).toEqual({ kind: 'auth' })
     }
     expect(canAccess({ kind: 'auth' }, { isAuthenticated: false, role: null })).toBe(false)
@@ -57,6 +60,10 @@ describe('routeAccess — routes.tsx 에서 파생한 접근 조건', () => {
   })
 
   it('RoleGuard 가 걸린 경로는 allow 목록을 그대로 파생한다', () => {
+    // 구매 내역은 BRAND 전용이다 — 서버의 수령 확인이 hasRole('BRAND') 라 다른 역할은
+    // 구매를 끝낼 수 없고, 목록이 언제나 비어 있었다. 상세(/trades/:tradeId)는 그대로
+    // 로그인만 요구한다.
+    expect(getRouteAccess('/trades')).toEqual({ kind: 'role', allow: ['BRAND'] })
     expect(getRouteAccess('/mypage')).toEqual({ kind: 'role', allow: ['CONSUMER'] })
     expect(getRouteAccess('/company/account')).toEqual({
       kind: 'role',
