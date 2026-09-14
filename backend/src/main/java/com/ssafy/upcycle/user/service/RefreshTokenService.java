@@ -68,6 +68,20 @@ public class RefreshTokenService {
         return issue(user, now);
     }
 
+    /** 현재 브라우저 세션의 Refresh Token을 무효화한다. 로그아웃은 반복 호출해도 성공한다. */
+    @Transactional
+    public void revoke(String rawToken) {
+        String tokenHash;
+        try {
+            tokenHash = codec.hash(rawToken);
+        } catch (IllegalArgumentException exception) {
+            return;
+        }
+
+        refreshTokenRepository.findByTokenHash(tokenHash).ifPresent(token ->
+                refreshTokenRepository.revokeIfActive(token.getId(), LocalDateTime.now(clock)));
+    }
+
     private IssuedTokenPair issue(User user, LocalDateTime now) {
         AccessToken accessToken = jwtTokenService.issueAccessToken(
                 String.valueOf(user.getId()), List.of(user.getRole().name()));

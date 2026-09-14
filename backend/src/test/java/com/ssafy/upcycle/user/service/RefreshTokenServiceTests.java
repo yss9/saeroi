@@ -125,6 +125,42 @@ class RefreshTokenServiceTests {
     }
 
     @Test
+    void revokesTheCurrentSessionsRefreshToken() {
+        IssuedTokenPair issued = service.issueFor(user);
+
+        service.revoke(issued.refreshToken());
+
+        assertThat(refreshTokenRepository.findByTokenHash(codec.hash(issued.refreshToken())))
+                .get()
+                .satisfies(token -> assertThat(token.isRevoked()).isTrue());
+        assertThatThrownBy(() -> service.refresh(issued.refreshToken()))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode())
+                                .isEqualTo(TokenRefreshErrorCode.INVALID_REFRESH_TOKEN));
+    }
+
+    @Test
+    void revokingAMissingOrUnknownTokenIsIdempotent() {
+        service.revoke(null);
+        service.revoke("unknown-token");
+        service.revoke("unknown-token");
+
+        assertThat(refreshTokenRepository.findAll()).isEmpty();
+    }
+
+    @Test
+    void revokingAnAlreadyRevokedTokenIsIdempotent() {
+        IssuedTokenPair issued = service.issueFor(user);
+
+        service.revoke(issued.refreshToken());
+        service.revoke(issued.refreshToken());
+
+        assertThat(refreshTokenRepository.findByTokenHash(codec.hash(issued.refreshToken())))
+                .get()
+                .satisfies(token -> assertThat(token.isRevoked()).isTrue());
+    }
+
+    @Test
     void suspendedUsersCannotRefreshTheirSession() {
         IssuedTokenPair issued = service.issueFor(user);
         user.suspend();
