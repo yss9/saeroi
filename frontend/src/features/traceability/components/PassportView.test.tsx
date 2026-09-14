@@ -50,6 +50,16 @@ function journey(): ProductJourney {
         latitude: 37.544,
         longitude: 127.056,
         materials: [{ name: '폐데님 A', materialType: 'DENIM', rootOrigin: 'WASTE', batchQuantityGrams: 800 }],
+        blockchainProofs: [{
+          referenceType: 'MATERIAL',
+          chainId: 31221,
+          contractAddress: '0xBE98f5A9aA8d0480B09C689e38806aCcD41a0f66',
+          functionName: 'mintMaterial',
+          txHash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcd',
+          blockNumber: 11221171,
+          status: 'SUCCESS',
+          confirmedAt: '2026-09-01T00:05:00',
+        }],
       }),
       node({
         nodeId: 'source-b',
@@ -213,6 +223,26 @@ describe('PassportView', () => {
     await screen.findByRole('heading', { name: 'RE:BAG' })
 
     expect(container.querySelectorAll('img')).toHaveLength(1)
+  })
+
+  it('블록체인 기록을 누르면 상세 모달에 전체 값을 보여준다', async () => {
+    const user = userEvent.setup()
+    renderView()
+    await screen.findByRole('heading', { name: 'RE:BAG' })
+
+    await user.click(screen.getByRole('button', { name: /원단 등록/ }))
+    await user.click(screen.getByRole('button', { name: /mintMaterial/ }))
+
+    expect(await screen.findByRole('heading', { name: '블록체인 기록 상세' })).toBeInTheDocument()
+    expect(screen.getByText('소재 발행')).toBeInTheDocument()
+    expect(screen.getByText('확정됨')).toBeInTheDocument()
+    expect(screen.getByText('0xBE98f5A9aA8d0480B09C689e38806aCcD41a0f66')).toBeInTheDocument()
+    expect(screen.getByText('11,221,171')).toBeInTheDocument()
+    // 해시는 공통 TransactionHash 컴포넌트가 그리므로 값 자체만 확인한다 —
+    // 링크 여부는 VITE_BESU_EXPLORER_URL 설정에 달려 있어 이 테스트의 관심사가 아니다.
+    expect(screen.getByTitle(
+      '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcd',
+    )).toBeInTheDocument()
   })
 
   it('연결된 Journey가 없으면 확인된 것처럼 표시하지 않는다', async () => {
