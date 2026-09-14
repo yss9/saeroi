@@ -1,9 +1,13 @@
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import userEvent from '@testing-library/user-event'
+import type { AxiosResponse } from 'axios'
 import { MemoryRouter } from 'react-router-dom'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ShopProvider } from '../../features/shop/ShopContext.tsx'
+import { apiClient } from '../../services/apiClient.ts'
 import { useAuthStore, type AuthUser } from '../../stores/authStore.ts'
+import { createAppError, ERROR_KIND } from '../../utils/errors.ts'
 import { LandingPage } from './LandingPage.tsx'
 
 beforeEach(() => {
@@ -14,15 +18,25 @@ afterEach(() => {
   cleanup()
   useAuthStore.getState().signOut()
   window.history.replaceState(null, '', '/')
+  vi.restoreAllMocks()
 })
 
 function renderLandingPage() {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  })
+
   return render(
-    <MemoryRouter>
-      <ShopProvider>
-        <LandingPage />
-      </ShopProvider>
-    </MemoryRouter>,
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>
+        <ShopProvider>
+          <LandingPage />
+        </ShopProvider>
+      </MemoryRouter>
+    </QueryClientProvider>,
   )
 }
 
@@ -129,6 +143,7 @@ describe('LandingPage', () => {
   )
 
   it('signs out from the account menu', async () => {
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ data: null } as AxiosResponse)
     useAuthStore.getState().signIn(
       {
         id: 1,
@@ -145,8 +160,36 @@ describe('LandingPage', () => {
     await user.click(screen.getByRole('button', { name: '계정 메뉴' }))
     await user.click(screen.getByRole('button', { name: '로그아웃' }))
 
-    expect(useAuthStore.getState().isAuthenticated).toBe(false)
+    await waitFor(() => expect(useAuthStore.getState().isAuthenticated).toBe(false))
+    expect(post).toHaveBeenCalledWith('/v1/auth/logout', undefined, {
+      skipAuth: true,
+      skipTokenRefresh: true,
+    })
     expect(screen.getByRole('button', { name: '계정 메뉴' })).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('keeps the session when server-side token revocation fails', async () => {
+    vi.spyOn(apiClient, 'post').mockRejectedValue(createAppError(ERROR_KIND.NETWORK_ERROR))
+    useAuthStore.getState().signIn(
+      {
+        id: 1,
+        email: 'member@saeroi.kr',
+        name: '김새로이',
+        role: 'CONSUMER',
+        walletAddress: null,
+      },
+      'access-token',
+    )
+    const user = userEvent.setup()
+    renderLandingPage()
+
+    await user.click(screen.getByRole('button', { name: '계정 메뉴' }))
+    await user.click(screen.getByRole('button', { name: '로그아웃' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      '서버에 연결할 수 없습니다. 네트워크를 확인해 주세요.',
+    )
+    expect(useAuthStore.getState().isAuthenticated).toBe(true)
   })
 
   it('closes the account menu with Escape and restores trigger focus', async () => {

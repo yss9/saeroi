@@ -18,3 +18,11 @@ export async function login(payload: LoginRequest): Promise<LoginResponse> {
   })
   return data
 }
+
+/** 현재 브라우저의 Refresh Token을 무효화하고 HttpOnly 쿠키를 삭제한다. */
+export async function logout(): Promise<void> {
+  await apiClient.post('/v1/auth/logout', undefined, {
+    skipAuth: true,
+    skipTokenRefresh: true,
+  })
+}

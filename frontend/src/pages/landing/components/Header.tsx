@@ -13,6 +13,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { ROLE_HOME_MENU_ITEMS } from '../../../app/navigation/navigationMenu.ts'
 import { useVisibleMenu } from '../../../app/navigation/useVisibleMenu.ts'
 import { useAuth } from '../../../features/auth/hooks/useAuth.ts'
+import { useLogout } from '../../../features/auth/hooks/useLogout.ts'
 import { BUSINESS_ROLES } from '../../../features/company/types/companyAccount.types.ts'
 import { useShop } from '../../../features/shop/ShopContext.tsx'
 import type { UserRole } from '../../../types/role.types.ts'
@@ -35,7 +36,8 @@ function getAccountTypeLabel(role: UserRole) {
 
 export function Header() {
   const { cartCount } = useShop()
-  const { user, isAuthenticated, signOut } = useAuth()
+  const { user, isAuthenticated } = useAuth()
+  const logout = useLogout()
   const navigate = useNavigate()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isAccountOpen, setIsAccountOpen] = useState(false)
@@ -87,9 +89,12 @@ export function Header() {
   }
 
   function handleSignOut() {
-    signOut()
-    setIsAccountOpen(false)
-    navigate('/', { replace: true })
+    logout.mutate(undefined, {
+      onSuccess: () => {
+        setIsAccountOpen(false)
+        navigate('/', { replace: true })
+      },
+    })
   }
 
   // 역할별 "내 홈" 링크. 어느 역할이 어디로 가는지를 이 파일이 정하지 않는다 —
@@ -156,11 +161,13 @@ export function Header() {
                   <button
                     className="site-header__account-link site-header__account-link--muted"
                     type="button"
+                    disabled={logout.isPending}
                     onClick={handleSignOut}
                   >
                     <SignOut aria-hidden="true" />
-                    로그아웃
+                    {logout.isPending ? '로그아웃 중…' : '로그아웃'}
                   </button>
+                  {logout.error ? <p role="alert">{logout.error.message}</p> : null}
                 </>
               ) : (
                 <>

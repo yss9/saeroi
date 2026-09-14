@@ -2,10 +2,12 @@ import { useNavigate } from 'react-router-dom'
 import { ConsumerMyPageView } from '../../features/user/components/ConsumerMyPageView.tsx'
 import { createConsumerMyPageMock } from '../../features/user/mocks/consumerMyPage.mock.ts'
 import { useAuth } from '../../features/auth/hooks/useAuth.ts'
+import { useLogout } from '../../features/auth/hooks/useLogout.ts'
 
 export function ConsumerMyPage() {
   const navigate = useNavigate()
-  const { user, signOut } = useAuth()
+  const { user } = useAuth()
+  const logout = useLogout()
 
   if (!user) {
     return (
@@ -24,10 +26,11 @@ export function ConsumerMyPage() {
   return (
     <ConsumerMyPageView
       state={{ status: 'ready', data }}
-      onSignOut={() => {
-        signOut()
-        navigate('/', { replace: true })
-      }}
+      onSignOut={() => logout.mutate(undefined, {
+        onSuccess: () => navigate('/', { replace: true }),
+      })}
+      signOutPending={logout.isPending}
+      signOutError={logout.error}
     />
   )
 }
