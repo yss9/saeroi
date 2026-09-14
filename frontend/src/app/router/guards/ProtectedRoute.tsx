@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { CompanyDashboardLayout } from '../../../features/company/components/CompanyDashboardLayout.tsx'
+import { ConsumerShopLayout } from '../../../features/user/components/ConsumerAccountLayout.tsx'
 import { useAuth } from '../../../features/auth/hooks/useAuth.ts'
 
 /**
@@ -14,7 +15,7 @@ import { useAuth } from '../../../features/auth/hooks/useAuth.ts'
  * Backend 에서 인가를 빠뜨리면 데이터가 샌다.
  */
 export function ProtectedRoute() {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, role } = useAuth()
   const location = useLocation()
 
   if (!isAuthenticated) {
@@ -30,6 +31,17 @@ export function ProtectedRoute() {
   //
   // 로그인이 확인된 모든 화면이 이 게이트를 지나므로 여기 한 곳이면 전부 덮인다.
   // 각 화면에 넣는 방식은 새 화면이 생길 때마다 빠뜨리게 된다.
+  // **소비자에게는 쇼핑 껍데기를 씌운다.** 이 가드 안에서 소비자가 닿는 곳은 제품 목록과
+  // 상세뿐인데, 거기에 사업자 사이드바(회사 정보·보유 소재…)를 붙이면 옷을 고르는 화면에
+  // 남의 업무 메뉴가 따라붙는다. 계정 화면과 같은 머리말·푸터라 오갈 때 위아래가 그대로다.
+  if (role === 'CONSUMER') {
+    return (
+      <ConsumerShopLayout>
+        <Outlet />
+      </ConsumerShopLayout>
+    )
+  }
+
   return (
     <CompanyDashboardLayout>
       <Outlet />

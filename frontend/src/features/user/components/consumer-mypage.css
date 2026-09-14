@@ -814,3 +814,64 @@
 }
 
 .consumer-address-card__edit svg { width: 15px; height: 15px; }
+
+/* ── 구매 패널 (제품 상세) ────────────────────────────── */
+
+.purchase-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 20px;
+  padding: 20px;
+  border: 1px solid #e4e9ee;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.purchase-panel h3 { margin: 0; font-size: 0.95rem; }
+
+.purchase-panel__address {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.purchase-panel__address a { margin-top: 4px; font-size: 0.8rem; }
+.purchase-panel__empty { margin: 0; font-size: 0.85rem; line-height: 1.6; }
+/* 못 사는 이유. 버튼만 잠그면 사용자는 자기가 뭘 잘못했다고 생각한다. */
+.purchase-panel__blocked { margin: 0; font-size: 0.83rem; color: #8a4b0b; }
+.purchase-panel__note { margin: 0; font-size: 0.78rem; line-height: 1.6; color: #6b7280; }
+
+/* ── 내 프로필 카드 ───────────────────────────────────── */
+
+.consumer-profile-card__fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px 24px;
+  margin: 0;
+}
+
+.consumer-profile-card__fields > div { display: flex; flex-direction: column; gap: 4px; }
+
+.consumer-profile-card__fields dt {
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #8fa3b3;
+}
+
+.consumer-profile-card__fields dd { margin: 0; font-size: 0.88rem; line-height: 1.55; }
+
+.consumer-profile-card__fields address {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-style: normal;
+}
+
+/* 없는 값은 회색으로 낮춘다 — 등록된 값과 눈으로 갈려야 한다. */
+.consumer-profile-card__empty { color: #9ca3af; }
+
+.consumer-profile-card__actions { margin: 4px 0 0; }

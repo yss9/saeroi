@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -63,7 +63,9 @@ const data: ConsumerMyPageData = {
   ],
   defaultAddress: {
     id: 1,
-    recipientName: '새로이 고객',
+    // 계정 이름과 일부러 다르게 둔다 — 받는 사람이 본인이 아닐 수 있고, 화면이 두 값을
+    // 섞어 쓰고 있지 않은지가 그래야 드러난다.
+    recipientName: '김수령',
     phone: '010-1234-5678',
     postalCode: '06220',
     addressLine1: '서울특별시 강남구 테헤란로 212',
@@ -85,13 +87,35 @@ function renderView(
 afterEach(cleanup)
 
 describe('ConsumerMyPageView', () => {
-  it('내 정보와 기본 배송지를 보여준다', () => {
+  // 배송지만 덩그러니 있으면 이 화면이 무엇을 보여주는 곳인지 읽히지 않는다.
+  it('이름·이메일·연락처·기본 배송지를 프로필로 묶어 보여준다', () => {
     renderView({ status: 'ready', data })
 
     expect(screen.getByRole('heading', { name: '새로이 고객님, 반갑습니다.' })).toBeInTheDocument()
-    expect(screen.getByText('서울특별시 강남구 테헤란로 212', { exact: false })).toBeInTheDocument()
-    // 편집이 배송지 관리로 데려간다.
-    expect(screen.getByRole('link', { name: /편집/ })).toHaveAttribute('href', '/mypage/addresses')
+    const profile = screen.getByRole('heading', { name: '내 프로필' }).closest('section')
+    expect(profile).not.toBeNull()
+
+    const card = within(profile as HTMLElement)
+    expect(card.getByText('새로이 고객')).toBeInTheDocument()
+    expect(card.getByText('김수령')).toBeInTheDocument()
+    expect(card.getByText('consumer@saeroi.test')).toBeInTheDocument()
+    expect(card.getByText('010-1234-5678')).toBeInTheDocument()
+    expect(card.getByText('서울특별시 강남구 테헤란로 212', { exact: false })).toBeInTheDocument()
+    expect(card.getByRole('link', { name: /배송지 편집/ })).toHaveAttribute(
+      'href',
+      '/mypage/addresses',
+    )
+  })
+
+  // 주소를 받기 전에 가입한 계정이다. 등록으로 데려간다.
+  it('배송지가 없으면 등록으로 데려간다', () => {
+    renderView({ status: 'ready', data: { ...data, defaultAddress: null } })
+
+    expect(screen.getByText('주문한 제품을 받을 곳을 등록해 주세요.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /배송지 등록/ })).toHaveAttribute(
+      'href',
+      '/mypage/addresses',
+    )
   })
 
   // 홈에 주문을 통째로 쌓아 두면 주문이 늘어날수록 배송지가 목록 아래로 밀려 내려간다.
@@ -117,8 +141,8 @@ describe('ConsumerMyPageView', () => {
     })
 
     expect(screen.queryByRole('heading', { name: '주문 현황' })).not.toBeInTheDocument()
-    // 프로필과 배송지는 그대로 있다.
-    expect(screen.getByRole('heading', { name: '기본 배송지' })).toBeInTheDocument()
+    // 프로필은 그대로 있다.
+    expect(screen.getByRole('heading', { name: '내 프로필' })).toBeInTheDocument()
   })
 
   it('주문이 있으면 현황을 바로 보여준다', () => {
@@ -148,7 +172,7 @@ describe('ConsumerMyPageView', () => {
         />
       </MemoryRouter>,
     )
-    expect(screen.getByText('등록된 배송지가 없습니다')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '내 프로필' })).toBeInTheDocument()
   })
 
   it('calls the sign-out action from the account summary', async () => {

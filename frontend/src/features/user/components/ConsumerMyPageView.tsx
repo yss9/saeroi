@@ -1,6 +1,6 @@
-import { ArrowRight, MapPin, PencilSimple } from '@phosphor-icons/react'
+import { ArrowRight, PencilSimple, UserCircle } from '@phosphor-icons/react'
 import { Link } from 'react-router-dom'
-import { EmptyState, ErrorMessage, Loading } from '../../../components/common/index.ts'
+import { ErrorMessage, Loading } from '../../../components/common/index.ts'
 import type {
   ConsumerMyPageData,
   ConsumerOrderStage,
@@ -30,7 +30,7 @@ const orderStageMeta: Record<ConsumerOrderStage, { label: string; description: s
 /**
  * 마이페이지 홈.
  *
- * **내 정보와 기본 배송지만 둔다.** 주문 목록은 `/mypage/orders` 로 나갔다 — 한 화면에
+ * **내 프로필과 주문 현황만 둔다.** 주문 목록은 `/mypage/orders` 로 나갔다 — 한 화면에
  * 전부 쌓아 두면 주문이 늘어날수록 배송지처럼 짧은 정보가 목록 아래로 밀려 내려간다.
  *
  * 주문 현황은 **주문이 있을 때만** 나온다. 한 건도 없는 사람에게 0 이 네 칸 늘어선 표는
@@ -54,8 +54,8 @@ export function ConsumerMyPageView({
     >
       {state.status === 'ready' ? (
         <>
+          <ProfileCard data={state.data} />
           <OrderOverview data={state.data} />
-          <DefaultAddress data={state.data} />
         </>
       ) : (
         <PageStatus state={state} />
@@ -118,50 +118,66 @@ function OrderOverview({ data }: { data: ConsumerMyPageData }) {
 }
 
 /**
- * 기본 배송지.
+ * 내 프로필.
  *
- * 카드는 **기본 배송지 하나만** 보여준다. 나머지를 보고 고치는 곳은 관리 화면이고,
- * "편집" 이 그리로 데려간다 — 주문할 때 실제로 쓰이는 주소가 무엇인지가 이 자리의 질문이다.
+ * **계정 정보와 기본 배송지를 한 장에 둔다.** 배송지만 덩그러니 있으면 이 화면이 무엇을
+ * 보여주는 곳인지 읽히지 않는다 — 배송지를 다루는 곳은 따로 있고(`/mypage/addresses`),
+ * 여기서의 질문은 "내 계정이 지금 어떤 상태인가" 다.
+ *
+ * 연락처와 주소는 **기본 배송지의 값**이다. 계정에 적은 전화번호와 다를 수 있어 그렇게
+ * 적는다 — 물건이 실제로 가는 곳과 받을 사람이 여기 보여야 할 값이다.
  */
-function DefaultAddress({ data }: { data: ConsumerMyPageData }) {
+function ProfileCard({ data }: { data: ConsumerMyPageData }) {
   const address = data.defaultAddress
 
   return (
-    <section className="consumer-mypage-card consumer-address-card" aria-labelledby="default-address-title">
+    <section className="consumer-mypage-card consumer-profile-card" aria-labelledby="profile-title">
       <div className="consumer-section-heading">
         <div>
-          <p className="consumer-section-heading__eyebrow">DELIVERY</p>
-          <h2 id="default-address-title">기본 배송지</h2>
+          <p className="consumer-section-heading__eyebrow">MY PROFILE</p>
+          <h2 id="profile-title">내 프로필</h2>
         </div>
-        <MapPin aria-hidden="true" />
+        <UserCircle aria-hidden="true" />
       </div>
 
-      {address ? (
-        <div className="consumer-address-card__content">
-          <div>
-            <span className="consumer-address-card__label">기본 배송지</span>
-            <strong>{address.recipientName}</strong>
-          </div>
-          <address>
-            <span>
-              [{address.postalCode}] {address.addressLine1}
-            </span>
-            {address.addressLine2 && <span>{address.addressLine2}</span>}
-            <span>{address.phone}</span>
-          </address>
-          <p>
-            <Link className="consumer-address-card__edit" to="/mypage/addresses">
-              <PencilSimple aria-hidden="true" /> 편집
-            </Link>
-          </p>
+      <dl className="consumer-profile-card__fields">
+        <div>
+          <dt>이름</dt>
+          <dd>{data.profile.name}</dd>
         </div>
-      ) : (
-        <EmptyState
-          title="등록된 배송지가 없습니다"
-          description="주문한 제품을 받을 곳을 등록해 주세요."
-          action={<Link to="/mypage/addresses">배송지 등록하기</Link>}
-        />
-      )}
+        <div>
+          <dt>이메일</dt>
+          <dd>{data.profile.email}</dd>
+        </div>
+        <div>
+          <dt>연락처</dt>
+          <dd>{address ? address.phone : <span className="consumer-profile-card__empty">등록된 배송지가 없습니다</span>}</dd>
+        </div>
+        <div>
+          <dt>기본 배송지</dt>
+          <dd>
+            {address ? (
+              <address>
+                <span>{address.recipientName}</span>
+                <span>
+                  [{address.postalCode}] {address.addressLine1}
+                </span>
+                {address.addressLine2 && <span>{address.addressLine2}</span>}
+              </address>
+            ) : (
+              <span className="consumer-profile-card__empty">
+                주문한 제품을 받을 곳을 등록해 주세요.
+              </span>
+            )}
+          </dd>
+        </div>
+      </dl>
+
+      <p className="consumer-profile-card__actions">
+        <Link className="consumer-address-card__edit" to="/mypage/addresses">
+          <PencilSimple aria-hidden="true" /> {address ? '배송지 편집' : '배송지 등록'}
+        </Link>
+      </p>
     </section>
   )
 }

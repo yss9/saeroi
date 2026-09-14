@@ -14,6 +14,27 @@ import './consumer-mypage.css'
  * 마이페이지와 배송지 관리가 함께 쓴다 — 두 화면이 다른 껍데기를 쓰면 오갈 때마다 머리말과
  * 푸터가 바뀐다.
  */
+/**
+ * 소비자가 쇼핑할 때의 껍데기.
+ *
+ * 머리말과 푸터만 있고 **사이드바가 없다.** 제품을 고르는 화면에서는 계정 메뉴가 할 일이
+ * 없고, 사업자 대시보드 사이드바는 더더욱 그렇다 — 소비자에게 "보유 소재" 나 "회사 정보"
+ * 옆에서 옷을 고르라고 하는 셈이다.
+ *
+ * 계정 화면(`ConsumerAccountLayout`)과 머리말·푸터를 공유한다. 쇼핑하다 마이페이지로
+ * 넘어갈 때 위아래가 그대로 남아야 한 사이트로 읽힌다.
+ */
+export function ConsumerShopLayout({ children }: { children: ReactNode }) {
+  return (
+    <div className="consumer-mypage">
+      <a className="consumer-skip-link" href="#consumer-main-content">본문으로 건너뛰기</a>
+      <AccountHeader />
+      <div id="consumer-main-content">{children}</div>
+      <AccountFooter />
+    </div>
+  )
+}
+
 /** 계정 화면 셋. 사이드바가 이 순서로 서고, 현재 위치 표시도 이 값으로 한다. */
 export type ConsumerAccountSection = 'home' | 'orders' | 'addresses'
 
