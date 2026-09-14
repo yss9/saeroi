@@ -229,12 +229,16 @@ function DefaultAddress({ data }: { data: ConsumerMyPageData }) {
             {address.addressLine2 && <span>{address.addressLine2}</span>}
             <span>{address.phone}</span>
           </address>
-          <p>배송지 추가·수정 기능은 배송지 관리 단계에서 연결됩니다.</p>
+          {/* 카드는 기본 배송지 하나만 보여준다. 나머지를 보고 고치는 곳은 관리 화면이다. */}
+          <p>
+            <Link to="/mypage/addresses">배송지 관리</Link>
+          </p>
         </div>
       ) : (
         <EmptyState
           title="등록된 배송지가 없습니다"
-          description="배송지 관리 화면이 연결되면 첫 배송지를 등록할 수 있습니다."
+          description="주문한 제품을 받을 곳을 등록해 주세요."
+          action={<Link to="/mypage/addresses">배송지 등록하기</Link>}
         />
       )}
     </section>

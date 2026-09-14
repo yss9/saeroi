@@ -7,7 +7,8 @@ import type {
   BusinessSignupFormValues,
   BusinessSignupSubmitValues,
 } from '../types/signup.types.ts'
-import { formatBusinessNumber, formatPhoneNumber } from '../utils/signupInputFormatters.ts'
+import { formatPhoneNumber } from '../../../utils/phone.ts'
+import { formatBusinessNumber } from '../utils/signupInputFormatters.ts'
 import { openKakaoPostcode } from '../../../utils/kakaoPostcode.ts'
 
 interface BusinessSignupFormProps {

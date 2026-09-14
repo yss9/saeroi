@@ -16,6 +16,7 @@ import { MarketplacePage } from '../../pages/marketplace/MarketplacePage.tsx'
 import { SupplierMarketPage } from '../../pages/marketplace/SupplierMarketPage.tsx'
 import { MaterialDetailPage } from '../../pages/material/MaterialDetailPage.tsx'
 import { MaterialRegisterPage } from '../../pages/material/MaterialRegisterPage.tsx'
+import { ConsumerAddressPage } from '../../pages/mypage/ConsumerAddressPage.tsx'
 import { ConsumerMyPage } from '../../pages/mypage/ConsumerMyPage.tsx'
 import { BrandProcessingPage } from '../../pages/processing/BrandProcessingPage.tsx'
 import { BrandProcessingRequestDetailPage } from '../../pages/processing/BrandProcessingRequestDetailPage.tsx'
@@ -115,7 +116,12 @@ export const routes: RouteObject[] = [
       // ── CONSUMER ──
       {
         element: <RoleGuard allow={['CONSUMER']} />,
-        children: [{ path: '/mypage', element: <ConsumerMyPage /> }],
+        children: [
+          { path: '/mypage', element: <ConsumerMyPage /> },
+          // 배송지 관리. 마이페이지의 기본 배송지 카드에서 들어간다 — 목록에서 눌러
+          // 들어가는 화면이라 사이드바에는 두지 않는다.
+          { path: '/mypage/addresses', element: <ConsumerAddressPage /> },
+        ],
       },
 
       // ── BUSINESS 공통 ──
