@@ -190,6 +190,47 @@ class ProductJourneyQueryServiceTests {
     }
 
     @Test
+    void carriesTheAnchoredTransactionFieldsIntoTheNodesProof() {
+        // S15P21E104-127: blockchainVerified 는 "증명이 있는가"만 보고, 그 증명의 각 필드가
+        // 실제 blockchain_transaction 행과 한 글자도 다르지 않은지는 아무도 확인하지 않았다.
+        // 화면은 이 값을 그대로 링크·해시 표시에 쓰므로 여기서 어긋나면 QR 스캔한 소비자가
+        // 잘못된 트랜잭션으로 안내받는다.
+        User brand = company("리위브", UserRole.BRAND);
+        Material denim = sourceMaterial(company("한빛섬유", UserRole.SUPPLIER));
+        ProductionBatch batch = confirmBatch(openBatch(brand, denim));
+        BlockchainTransaction sourceProof =
+                anchor(BlockchainReferenceType.MATERIAL, denim.getId(), "verifySource");
+        anchor(BlockchainReferenceType.PRODUCTION, batch.getId(), "confirmProduction");
+
+        ProductJourneyResponse journey =
+                productJourneyQueryService.findJourney(item(batch)).orElseThrow();
+
+        ProductJourneyResponse.Node sourceNode = journey.nodes().stream()
+                .filter(candidate -> candidate.nodeId().equals("source-1"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(sourceNode.blockchainProofs())
+                .extracting(
+                        ProductJourneyResponse.BlockchainProof::referenceType,
+                        ProductJourneyResponse.BlockchainProof::chainId,
+                        ProductJourneyResponse.BlockchainProof::contractAddress,
+                        ProductJourneyResponse.BlockchainProof::functionName,
+                        ProductJourneyResponse.BlockchainProof::txHash,
+                        ProductJourneyResponse.BlockchainProof::blockNumber,
+                        ProductJourneyResponse.BlockchainProof::status,
+                        ProductJourneyResponse.BlockchainProof::confirmedAt)
+                .containsExactly(tuple(
+                        "MATERIAL",
+                        sourceProof.getChainId(),
+                        sourceProof.getContractAddress(),
+                        "verifySource",
+                        sourceProof.getTxHash(),
+                        sourceProof.getBlockNumber(),
+                        sourceProof.getStatus(),
+                        sourceProof.getConfirmedAt()));
+    }
+
+    @Test
     void reportsBlockchainUnverifiedWhenOneCompanyNodeHasNoProof() {
         User brand = company("리위브", UserRole.BRAND);
         Material denim = sourceMaterial(company("한빛섬유", UserRole.SUPPLIER));
@@ -333,10 +374,10 @@ class ProductJourneyQueryServiceTests {
                 UUID.randomUUID().toString().replace("-", "")));
     }
 
-    private void anchor(
+    private BlockchainTransaction anchor(
             BlockchainReferenceType referenceType, Long referenceId, String functionName) {
         long id = ++sequence;
-        blockchainTransactionRepository.save(BlockchainTransaction.confirmed(
+        return blockchainTransactionRepository.save(BlockchainTransaction.confirmed(
                 31_221L,
                 "0x" + "a".repeat(40),
                 "0x" + String.format("%064d", id),

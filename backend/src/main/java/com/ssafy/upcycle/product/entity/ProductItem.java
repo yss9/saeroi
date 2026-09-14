@@ -74,6 +74,13 @@ public class ProductItem {
     @Column(name = "qr_token", nullable = false, columnDefinition = "CHAR(32)", unique = true)
     private String qrToken;
 
+    /**
+     * 기본 크기 QR PNG 를 처음 만든 뒤 저장한 {@link com.ssafy.upcycle.common.storage.FileStorageService}
+     * 키. 아직 한 번도 만들어지지 않았으면 {@code null} — 그 시점에 처음 렌더링하고 채운다.
+     */
+    @Column(name = "qr_image_key")
+    private String qrImageKey;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private ProductItemStatus status;
@@ -141,6 +148,20 @@ public class ProductItem {
 
     public boolean isInStock() {
         return this.status == ProductItemStatus.IN_STOCK;
+    }
+
+    /**
+     * 처음 렌더링한 기본 크기 QR PNG 를 저장한 뒤 그 키를 기록한다.
+     *
+     * <p>이미 키가 있으면 덮어쓰지 않는다 — 같은 토큰으로 다시 그려도 PNG 바이트는 항상
+     * 같으므로 재저장할 이유가 없고, 호출부(<code>ProductionBatchService</code>)가 먼저
+     * {@link #getQrImageKey()} 로 캐시 적중 여부를 본 뒤에만 이 메서드를 부른다.
+     */
+    public void attachQrImage(String storageKey) {
+        if (storageKey == null || storageKey.isBlank()) {
+            throw new IllegalArgumentException("QR image storage key must not be blank");
+        }
+        this.qrImageKey = storageKey;
     }
 
     private void requireStatus(ProductItemStatus expected, String action) {

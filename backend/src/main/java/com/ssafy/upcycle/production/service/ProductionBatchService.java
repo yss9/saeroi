@@ -1,6 +1,10 @@
 package com.ssafy.upcycle.production.service;
 
 import com.ssafy.upcycle.common.exception.BusinessException;
+import com.ssafy.upcycle.common.storage.FileReference;
+import com.ssafy.upcycle.common.storage.FileStorageErrorCode;
+import com.ssafy.upcycle.common.storage.FileStorageService;
+import com.ssafy.upcycle.common.storage.StoredFile;
 import com.ssafy.upcycle.material.entity.Material;
 import com.ssafy.upcycle.material.entity.MaterialGenerationType;
 import com.ssafy.upcycle.material.entity.MaterialEventReferenceType;
@@ -38,6 +42,9 @@ import com.ssafy.upcycle.user.entity.User;
 import com.ssafy.upcycle.user.entity.UserRole;
 import com.ssafy.upcycle.user.repository.UserRepository;
 import com.ssafy.upcycle.user.repository.UserWalletRepository;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -85,6 +92,7 @@ public class ProductionBatchService {
     private final ProductModelRepository productModelRepository;
     private final ProductItemRepository productItemRepository;
     private final ProductQrCodeGenerator qrCodeGenerator;
+    private final FileStorageService fileStorageService;
     private final MaterialRepository materialRepository;
     private final MaterialBalanceRepository balanceRepository;
     private final MaterialLockRepository lockRepository;
@@ -333,8 +341,13 @@ public class ProductionBatchService {
      *
      * <p>개체가 그 배치의 것인지 따로 본다. 소유자 검사를 통과했더라도 개체 번호만 믿으면
      * 남의 배치 개체 라벨을 받아 갈 수 있다.
+     *
+     * <p><b>기본 크기(size 생략)만 저장소에 캐시한다(S15P21E104-141).</b> 커스텀 크기는
+     * 요청마다 새로 그린다 — 크기별로 캐시하면 키가 갈리고 무효화 로직이 따로 필요해지는데,
+     * 라벨 인쇄가 실제로 쓰는 것은 기본 크기뿐이다. 쓰기가 섞여 들어오므로 더 이상
+     * {@code readOnly} 트랜잭션이 아니다.
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public byte[] qrImage(Long producerId, Long batchId, Long productItemId, Integer size) {
         ProductionBatch batch = batchRepository.findById(batchId)
                 .orElseThrow(
@@ -346,14 +359,48 @@ public class ProductionBatchService {
                 .orElseThrow(
                         () -> new BusinessException(ProductionErrorCode.PRODUCTION_ITEM_NOT_FOUND));
         try {
-            return size == null
-                    ? qrCodeGenerator.pngFor(item.getQrToken())
-                    : qrCodeGenerator.pngFor(item.getQrToken(), size);
+            return size == null ? cachedDefaultQrImage(item) : qrCodeGenerator.pngFor(item.getQrToken(), size);
         } catch (IllegalArgumentException invalidSize) {
             // 생성 모듈은 IllegalArgumentException 을 던진다. 그대로 두면 500 이 나가는데,
             // 크기는 사용자가 고칠 수 있는 입력이다.
             throw new BusinessException(ProductionErrorCode.PRODUCTION_QR_SIZE_INVALID);
         }
+    }
+
+    /**
+     * 기본 크기 QR PNG 를 한 번만 그려 저장소에 남기고, 다음부터는 그 바이트를 그대로
+     * 돌려준다.
+     *
+     * <p>같은 토큰으로 다시 그려도 PNG 바이트는 항상 같으므로(결정적 렌더링), 매 요청 렌더링은
+     * 순수한 낭비다 — 배치 하나에 수십 개체, 라벨 인쇄는 여러 번 반복된다.
+     *
+     * <p>저장소에 키는 있는데 실제 객체가 지워진 경우(수동 정리 등) {@code FILE_NOT_FOUND} 를
+     * 그대로 사용자에게 보이면 복구할 방법이 없어 보인다. 다시 그려 저장하는 편이 낫다.
+     */
+    private byte[] cachedDefaultQrImage(ProductItem item) {
+        String existingKey = item.getQrImageKey();
+        if (existingKey != null) {
+            try (InputStream stream = fileStorageService.read(existingKey).stream()) {
+                return stream.readAllBytes();
+            } catch (BusinessException missing) {
+                if (missing.getErrorCode() != FileStorageErrorCode.FILE_NOT_FOUND) {
+                    throw missing;
+                }
+                // 행은 있는데 객체가 없다 — 아래에서 다시 그려 저장한다.
+            } catch (IOException unreadable) {
+                throw new BusinessException(FileStorageErrorCode.FILE_STORAGE_FAILED);
+            }
+        }
+
+        byte[] png = qrCodeGenerator.pngFor(item.getQrToken());
+        StoredFile stored = fileStorageService.store(
+                new FileReference("PRODUCT_QR", item.getId()),
+                item.getQrToken() + ".png",
+                "image/png",
+                new ByteArrayInputStream(png),
+                png.length);
+        item.attachQrImage(stored.storageKey());
+        return png;
     }
 
     /**

@@ -13,6 +13,7 @@ import com.google.zxing.client.j2se.BufferedImageLuminanceSource;
 import com.google.zxing.common.HybridBinarizer;
 import com.google.zxing.qrcode.QRCodeReader;
 import com.ssafy.upcycle.common.security.jwt.JwtTokenService;
+import com.ssafy.upcycle.common.storage.FileStorageService;
 import com.ssafy.upcycle.material.entity.Material;
 import com.ssafy.upcycle.material.entity.MaterialBalance;
 import com.ssafy.upcycle.material.entity.MaterialRootOrigin;
@@ -93,6 +94,9 @@ class ProductionQrApiTests {
     @Autowired
     private MaterialBalanceRepository balanceRepository;
 
+    @Autowired
+    private FileStorageService fileStorageService;
+
     private User brand;
     private String brandToken;
     private Long productModelId;
@@ -140,6 +144,26 @@ class ProductionQrApiTests {
                 .andExpect(header().string(
                         HttpHeaders.CACHE_CONTROL, "private, max-age=31536000, immutable"))
                 .andExpect(header().string("X-Content-Type-Options", "nosniff"));
+    }
+
+    @Test
+    void storesTheDefaultSizeImageOnceAndReusesItOnTheNextRequest() throws Exception {
+        // S15P21E104-141: 기본 크기는 요청마다 새로 그리지 않고 한 번만 저장소에 남긴다.
+        byte[] first = qr(null).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsByteArray();
+
+        String storageKey = productItemRepository.findById(item.getId()).orElseThrow()
+                .getQrImageKey();
+        assertThat(storageKey).isNotNull();
+        assertThat(fileStorageService.exists(storageKey)).isTrue();
+
+        byte[] second = qr(null).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsByteArray();
+        assertThat(second).isEqualTo(first);
+        // 커스텀 크기는 캐시되지 않는다 — 저장 키가 기본 크기 요청 이전과 그대로여야 한다.
+        qr(256).andExpect(status().isOk());
+        assertThat(productItemRepository.findById(item.getId()).orElseThrow().getQrImageKey())
+                .isEqualTo(storageKey);
     }
 
     @Test
