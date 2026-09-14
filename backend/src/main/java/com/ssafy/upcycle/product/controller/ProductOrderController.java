@@ -6,8 +6,11 @@ import com.ssafy.upcycle.product.dto.ProductOrderCreateRequest;
 import com.ssafy.upcycle.product.dto.ProductOrderPaymentReadyResponse;
 import com.ssafy.upcycle.product.dto.ProductOrderResponse;
 import com.ssafy.upcycle.product.dto.ProductOrderSearchCondition;
+import com.ssafy.upcycle.product.dto.ProductOrderShipRequest;
+import com.ssafy.upcycle.product.dto.ProductOrderShipResponse;
 import com.ssafy.upcycle.product.dto.ProductOrderStatusSummaryResponse;
 import com.ssafy.upcycle.product.service.ProductOrderCommandService;
+import com.ssafy.upcycle.product.service.ProductOrderDeliveryService;
 import com.ssafy.upcycle.product.service.ProductOrderPaymentService;
 import com.ssafy.upcycle.product.service.ProductOrderQueryService;
 import com.ssafy.upcycle.trade.dto.PageResponse;
@@ -19,7 +22,9 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -36,6 +41,45 @@ public class ProductOrderController {
     private final ProductOrderQueryService productOrderQueryService;
     private final ProductOrderCommandService productOrderCommandService;
     private final ProductOrderPaymentService productOrderPaymentService;
+    private final ProductOrderDeliveryService productOrderDeliveryService;
+
+    /**
+     * 브랜드가 제품을 발송한다. 결제가 끝난 주문만 가능하다.
+     *
+     * <p>{@code @PreAuthorize} 는 BRAND 역할까지만 가린다. <b>그 주문을 판 브랜드인지는
+     * 서비스가 주문의 {@code brand_id} 로 다시 판정한다</b> — 역할만 보면 다른 브랜드의
+     * 주문을 발송 처리할 수 있게 된다.
+     *
+     * <p>발송 이후에는 취소가 막힌다. 물건이 나갔는데 주문만 없애면 그 개체가 어디에도
+     * 속하지 않게 된다.
+     */
+    @PatchMapping("/{orderId}/ship")
+    @PreAuthorize("hasRole('BRAND')")
+    public ApiResponse<ProductOrderShipResponse> ship(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable @Positive(message = "주문 id는 양수여야 합니다.") Long orderId,
+            @Valid @RequestBody(required = false) ProductOrderShipRequest request) {
+        return ApiResponse.success(productOrderDeliveryService.ship(
+                userId(jwt), orderId,
+                request == null ? new ProductOrderShipRequest(null, null) : request));
+    }
+
+    /**
+     * 소비자가 수령을 확인한다. <b>주문이 끝나는 지점이다.</b>
+     *
+     * <p>구매자 본인만 할 수 있다. 브랜드가 대신 눌러 완료시킬 수 있으면 2-Track 을 둔
+     * 의미가 없어진다 — 받았다고 말할 수 있는 사람은 받은 사람뿐이다.
+     *
+     * <p>소재 거래와 달리 서명이 없다. 소비자는 지갑을 쓰지 않으므로 확인 행위 자체가
+     * 유일한 근거다.
+     */
+    @PostMapping("/{orderId}/receive/confirm")
+    public ApiResponse<ProductOrderResponse> confirmReceipt(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable @Positive(message = "주문 id는 양수여야 합니다.") Long orderId) {
+        return ApiResponse.success(
+                productOrderDeliveryService.confirmReceipt(userId(jwt), orderId));
+    }
 
     /**
      * 결제 준비. 구매자만 가능하다. <b>아직 청구되지 않는다.</b>

@@ -153,7 +153,47 @@ public enum ProductErrorCode implements ErrorCode {
     PRODUCT_ORDER_NOT_FOUND(
             HttpStatus.NOT_FOUND,
             "PRODUCT_ORDER_NOT_FOUND",
-            "주문을 찾을 수 없습니다.");
+            "주문을 찾을 수 없습니다."),
+
+    /**
+     * 그 주문을 판 브랜드가 아닌 계정이 발송 처리를 시도한 경우.
+     *
+     * <p>구매자도 여기 걸린다 — 보내는 쪽은 파는 브랜드다. 주문 자체는 존재를 숨길 필요가
+     * 없어 404 가 아니다 — 브랜드는 자신에게 들어온 주문을 목록에서 이미 본다.
+     */
+    PRODUCT_ORDER_NOT_SELLER(
+            HttpStatus.FORBIDDEN,
+            "PRODUCT_ORDER_NOT_SELLER",
+            "본인이 판매한 주문만 발송 처리할 수 있습니다."),
+
+    PRODUCT_ORDER_ALREADY_SHIPPED(
+            HttpStatus.CONFLICT,
+            "PRODUCT_ORDER_ALREADY_SHIPPED",
+            "이미 발송 처리된 주문입니다."),
+
+    /** 결제되지 않은 주문. 돈을 받기 전에 물건을 보내면 되돌릴 근거가 없다. */
+    PRODUCT_ORDER_NOT_SHIPPABLE(
+            HttpStatus.CONFLICT,
+            "PRODUCT_ORDER_NOT_SHIPPABLE",
+            "결제가 끝난 주문만 발송할 수 있습니다."),
+
+    /** 발송되지 않은 주문을 받았다고 할 수는 없다. */
+    PRODUCT_ORDER_NOT_DELIVERABLE(
+            HttpStatus.CONFLICT,
+            "PRODUCT_ORDER_NOT_DELIVERABLE",
+            "발송된 주문만 수령 확인할 수 있습니다."),
+
+    /** 주문은 있는데 배송지 행이 없는 경우. 정상 흐름에서는 나오지 않는다. */
+    PRODUCT_ORDER_SHIPPING_NOT_FOUND(
+            HttpStatus.NOT_FOUND,
+            "PRODUCT_ORDER_SHIPPING_NOT_FOUND",
+            "주문의 배송 정보를 찾을 수 없습니다."),
+
+    /** 택배사 없는 운송장 번호는 조회할 수 없어 기록해도 쓸모가 없다. */
+    PRODUCT_ORDER_TRACKING_WITHOUT_CARRIER(
+            HttpStatus.BAD_REQUEST,
+            "PRODUCT_ORDER_TRACKING_WITHOUT_CARRIER",
+            "운송장 번호를 입력하려면 택배사도 함께 입력해 주세요.");
 
     private final HttpStatus status;
     private final String code;
