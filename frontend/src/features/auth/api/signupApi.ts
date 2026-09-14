@@ -12,6 +12,9 @@ export async function signupConsumer(values: ConsumerSignupSubmitValues): Promis
     name: values.name.trim(),
     email: values.email.trim(),
     phone: values.phone.trim(),
+    zipCode: values.zipCode.trim(),
+    address: values.address.trim(),
+    addressDetail: values.addressDetail.trim(),
     password: values.password,
   }
   const { data } = await apiClient.post<UserProfile>('/v1/auth/signup/consumer', payload)
