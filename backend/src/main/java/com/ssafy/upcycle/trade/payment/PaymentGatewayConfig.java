@@ -35,6 +35,28 @@ public class PaymentGatewayConfig {
         }
         log.info("KakaoPay gateway enabled (cid={}, baseUrl={})",
                 properties.cid(), properties.baseUrl());
+        warnIfReturnUrlIsLocal("return-url", properties.returnUrl());
+        warnIfReturnUrlIsLocal("product-order-return-url", properties.productOrderReturnUrl());
         return new KakaoPayGateway(properties, builder);
+    }
+
+    /**
+     * 실결제인데 복귀 주소가 개발자 PC 를 가리키고 있으면 크게 남긴다.
+     *
+     * <p>이 조합은 <b>결제를 통째로 실패시킨다.</b> 카카오페이가 그런 {@code approval_url} 을
+     * 거부하는데, 화면에는 "결제 처리 중 오류" 만 뜨고 원인은 서버 로그에만 있다. 배포에서
+     * 환경변수를 빠뜨린 경우가 전부라 <b>기동 시점에 드러나야</b> 한다 — 사용자가 결제
+     * 버튼을 누른 뒤에 알게 되면 이미 늦다.
+     *
+     * <p>기동을 막지는 않는다. 결제 하나 때문에 서비스 전체가 뜨지 않는 것은 과하고,
+     * 이 값이 틀려도 나머지 기능은 정상이다.
+     */
+    private static void warnIfReturnUrlIsLocal(String name, String url) {
+        if (url.contains("localhost") || url.contains("127.0.0.1")) {
+            log.warn("KakaoPay is live but {} points at a local address: {} "
+                    + "— KakaoPay will reject it and every payment will fail. "
+                    + "Set the matching KAKAOPAY_*_URL environment variable to the real domain.",
+                    name, url);
+        }
     }
 }
