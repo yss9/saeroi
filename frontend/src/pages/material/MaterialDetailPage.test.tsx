@@ -9,7 +9,8 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import userEvent from '@testing-library/user-event'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type {
   MaterialBalance,
@@ -132,10 +133,18 @@ function renderPage(path = '/materials/12') {
       <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route path="/materials/:materialId" element={<MaterialDetailPage />} />
+          {/* 실제 SupplierMarketPage 대신 도착 경로만 확인하는 자리표시자 —
+              이 테스트가 확인할 것은 이동 경로지 판매 등록 화면 자체가 아니다. */}
+          <Route path="/supplier/listings" element={<LocationProbe />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   )
+}
+
+function LocationProbe() {
+  const location = useLocation()
+  return <output aria-label="현재 경로">{location.pathname + location.search}</output>
 }
 
 beforeEach(() => {
@@ -317,6 +326,19 @@ describe('판매 정보 (S15P21E104-438/439)', () => {
     expect(await screen.findByText('14,000원 / kg')).toBeInTheDocument()
     const link = screen.getByRole('link', { name: '수거 데님 원단' })
     expect(link).toHaveAttribute('href', '/marketplace/501')
+  })
+})
+
+describe('보유 소재 팔기', () => {
+  it('누르면 그 소재를 미리 고른 채 판매 등록 화면으로 이동한다', async () => {
+    const user = userEvent.setup()
+    api.getMaterial.mockResolvedValue(detail())
+    renderPage()
+
+    const button = await screen.findByRole('button', { name: '보유 소재 팔기' })
+    await user.click(button)
+
+    expect(screen.getByLabelText('현재 경로')).toHaveTextContent('/supplier/listings?materialId=12')
   })
 })
 

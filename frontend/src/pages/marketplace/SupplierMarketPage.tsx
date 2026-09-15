@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Button, ConfirmModal, EmptyState } from '../../components/common/index.ts'
 import { ListingForm } from '../../features/marketplace/components/ListingForm.tsx'
 import { ListingList } from '../../features/marketplace/components/ListingList.tsx'
@@ -6,6 +7,7 @@ import { MaterialSelect } from '../../features/marketplace/components/MaterialSe
 import { useCancelListing } from '../../features/marketplace/hooks/useCancelListing.ts'
 import { useListingChainAction } from '../../features/marketplace/hooks/useListingChainAction.ts'
 import { ListingChainCancelButton } from '../../features/marketplace/components/ListingChainCancelButton.tsx'
+import { useMyMaterials } from '../../features/inventory/hooks/useMyMaterials.ts'
 import type { Listing } from '../../features/marketplace/types/marketplace.types.ts'
 import type { InventoryItem } from '../../features/inventory/types/inventory.types.ts'
 import { useAuthStore } from '../../stores/authStore.ts'
@@ -32,6 +34,30 @@ export function SupplierMarketPage() {
   // 내 판매글만 본다. 서버가 이 필터를 강제하지 않는 것은 의도적이다 — 판매자별 보기는
   // 권한이 아니라 필터이고, 어차피 전체 목록에 다 나와 있는 정보다.
   const sellerId = useAuthStore((state) => state.user?.id)
+
+  // 소재 상세("보유 소재 팔기")에서 ?materialId= 로 넘어온 경우 그 소재를 미리 골라 둔다.
+  // MaterialSelect 가 이미 같은 쿼리 키로 목록을 받으므로 여기서 또 불러도 요청은
+  // 한 번만 나간다 — TanStack Query 캐시 공유.
+  //
+  // useEffect 로 하지 않는다. 데이터를 늦게 받아와 반영하는 것은 "렌더 중 상태 조정"이지
+  // 외부 시스템 동기화가 아니다 — 이펙트에서 setState를 부르면 불필요한 리렌더가
+  // 한 번 더 낀다 (react-hooks/set-state-in-effect). 대신 목록이 도착한 렌더에서
+  // 바로 처리하고, 처리했다는 사실만 다음 렌더를 위해 남긴다.
+  const [searchParams] = useSearchParams()
+  const initialMaterialId = Number(searchParams.get('materialId'))
+  const { data: myMaterials } = useMyMaterials()
+  const [appliedMaterialId, setAppliedMaterialId] = useState<number | null>(null)
+
+  if (
+    Number.isInteger(initialMaterialId) &&
+    initialMaterialId > 0 &&
+    myMaterials !== undefined &&
+    appliedMaterialId !== initialMaterialId
+  ) {
+    setAppliedMaterialId(initialMaterialId)
+    const match = myMaterials.find((item) => item.materialId === initialMaterialId)
+    if (match) setSelected(match)
+  }
 
   return (
     <main className="page">
