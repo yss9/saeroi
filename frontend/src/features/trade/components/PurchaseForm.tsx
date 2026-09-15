@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import { Controller, useForm, useWatch } from 'react-hook-form'
+import { MagnifyingGlass } from '@phosphor-icons/react'
 import { Button, ErrorMessage, Input } from '../../../components/common/index.ts'
+import { openKakaoPostcode } from '../../../utils/kakaoPostcode.ts'
 import { QuantityInput } from '../../../components/common/QuantityInput.tsx'
 import { calculateTotalPrice, formatKg, formatWon, kgToGram } from '../../../utils/quantity.ts'
 import type { Listing } from '../../marketplace/types/marketplace.types.ts'
 import { useCreateTrade } from '../hooks/useCreateTrade.ts'
 import { useTradeOnChain } from '../hooks/useTradeOnChain.ts'
 import type { CreateTradeRequest, Trade } from '../types/trade.types.ts'
+import './trade.css'
 
 export interface PurchaseFormProps {
   listing: Listing
@@ -41,6 +44,8 @@ export function PurchaseForm({ listing, onCreated }: PurchaseFormProps) {
     control,
     register,
     handleSubmit,
+    setValue,
+    setFocus,
     formState: { errors },
   } = useForm<PurchaseFormValues>({
     defaultValues: {
@@ -52,6 +57,33 @@ export function PurchaseForm({ listing, onCreated }: PurchaseFormProps) {
       addressDetail: '',
     },
   })
+
+  const [addressSearchError, setAddressSearchError] = useState('')
+  const [isSearchingAddress, setIsSearchingAddress] = useState(false)
+
+  /**
+   * 주소는 <b>검색으로만</b> 채운다. 가입·배송지 화면과 같은 판단이다 — 이 값이 택배
+   * 송장에 인쇄되므로 오타가 그대로 배송 사고가 되고, 우편번호와 주소가 서로 다른 곳을
+   * 가리켜도 폼은 그것을 알 수 없다.
+   *
+   * 이 화면만 직접 타이핑으로 남아 있었다. 소재를 사는 브랜드가 다른 화면과 다른 방식으로
+   * 주소를 넣게 되고, 그쪽에서 걸러지던 실수가 여기서는 그대로 통과했다.
+   */
+  async function searchAddress() {
+    setAddressSearchError('')
+    setIsSearchingAddress(true)
+    try {
+      await openKakaoPostcode(({ zonecode, address: found }) => {
+        setValue('zipCode', zonecode, { shouldDirty: true, shouldValidate: true })
+        setValue('address', found, { shouldDirty: true, shouldValidate: true })
+        setFocus('addressDetail')
+      })
+    } catch {
+      setAddressSearchError('주소 검색을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.')
+    } finally {
+      setIsSearchingAddress(false)
+    }
+  }
 
   const { mutateAsync, isPending, isError, error } = useCreateTrade()
   const chain = useTradeOnChain()
@@ -175,23 +207,38 @@ export function PurchaseForm({ listing, onCreated }: PurchaseFormProps) {
 
         <Input
           label="우편번호"
+          inputMode="numeric"
           autoComplete="postal-code"
+          placeholder="06236"
+          readOnly
           error={errors.zipCode?.message}
-          {...register('zipCode', {
-            required: '우편번호를 입력해 주세요.',
-            maxLength: { value: 20, message: '우편번호는 20자를 넘을 수 없습니다.' },
-          })}
+          {...register('zipCode', { required: '주소 검색으로 우편번호를 채워 주세요.' })}
         />
 
-        <Input
-          label="주소"
-          autoComplete="street-address"
-          error={errors.address?.message}
-          {...register('address', {
-            required: '주소를 입력해 주세요.',
-            maxLength: { value: 255, message: '주소는 255자를 넘을 수 없습니다.' },
-          })}
-        />
+        <div className="purchase-form__address-search">
+          <Input
+            label="주소"
+            autoComplete="street-address"
+            placeholder="주소 검색을 이용해 주세요."
+            readOnly
+            error={errors.address?.message}
+            {...register('address', {
+              required: '주소를 검색해 주세요.',
+              maxLength: { value: 255, message: '주소는 255자를 넘을 수 없습니다.' },
+            })}
+          />
+          <button type="button" onClick={() => void searchAddress()} disabled={isSearchingAddress}>
+            <MagnifyingGlass aria-hidden="true" />
+            {isSearchingAddress ? '불러오는 중' : '주소 검색'}
+          </button>
+        </div>
+
+        {/* 두 칸이 읽기 전용이라, 검색이 실패하면 손으로 메울 방법이 없다. */}
+        {addressSearchError ? (
+          <p className="purchase-form__address-error" role="alert">
+            {addressSearchError}
+          </p>
+        ) : null}
 
         <Input
           label="상세 주소"

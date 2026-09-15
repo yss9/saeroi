@@ -2,7 +2,6 @@ import { useParams } from 'react-router-dom'
 import { BackLink, ErrorMessage, Loading } from '../../components/common/index.ts'
 import { useAuth } from '../../features/auth/hooks/useAuth.ts'
 import { PaymentPanel } from '../../features/trade/components/PaymentPanel.tsx'
-import { TradeChainActionPanel } from '../../features/trade/components/TradeChainActionPanel.tsx'
 import { TradeChainPanel } from '../../features/trade/components/TradeChainPanel.tsx'
 import { ReceiptPanel } from '../../features/trade/components/ReceiptPanel.tsx'
 import { ShipmentPanel } from '../../features/trade/components/ShipmentPanel.tsx'
@@ -118,8 +117,17 @@ export function TradeDetailPage() {
               것은 "누가 무엇을 얼마나 사기로 했는가" 뿐이다. 그래서 결제 실패와 체인 실패가
               서로를 막지 않도록 패널을 나란히 둔다. */}
           <TradeChainPanel trade={data} />
+          {/*
+            <b>온체인 수령 버튼을 따로 두지 않는다.</b> ReceiptPanel 의 「수령 확인」이
+            서버 기록에 성공하면 곧바로 `chain.receive` 로 이어간다.
+
+            예전에는 여기에 TradeChainActionPanel 이 함께 있어서 같은 시점에 버튼이 둘
+            보였다. 온체인 버튼을 먼저 누르면 서버는 모른 채 체인만 앞서가고, 이어서
+            「수령 확인」을 누르면 이미 RECEIVED 인 주문에 다시 서명하려다 되돌려진다
+            ("order is not shipped"). 사용자에게는 둘 다 눌러야 하는 것처럼 보이는데
+            순서에 따라 한쪽이 반드시 실패하는 화면이었다.
+          */}
           <ReceiptPanel trade={data} />
-          <TradeChainActionPanel trade={data} viewer="BUYER" />
         </>
       )}
 
@@ -127,8 +135,8 @@ export function TradeDetailPage() {
           "결제하기" 버튼이 보이면 자기가 결제해야 하는 것처럼 읽힌다. */}
       {isSeller && (
         <>
+          {/* 발송도 같다 — ShipmentPanel 이 서버 기록 뒤에 `chain.ship` 을 이어서 부른다. */}
           <ShipmentPanel trade={data} />
-          <TradeChainActionPanel trade={data} viewer="SELLER" />
         </>
       )}
 

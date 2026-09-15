@@ -20,6 +20,17 @@ import { PurchaseForm } from './PurchaseForm.tsx'
 const api = vi.hoisted(() => ({ createTrade: vi.fn() }))
 vi.mock('../api/createTrade.ts', () => api)
 
+/**
+ * 우편번호 검색을 모킹한다. 실제 구현은 카카오 CDN 스크립트를 주입하고 팝업을 띄우므로
+ * 테스트 환경에서는 뜨지 않는다.
+ *
+ * **주소 칸이 `readOnly` 가 되었다.** 택배 송장에 인쇄될 값이라 오타가 그대로 배송
+ * 사고가 되고, 우편번호와 주소가 서로 다른 곳을 가리켜도 폼은 그것을 알 수 없다.
+ * 그래서 타이핑이 아니라 검색으로만 채운다 — 가입·배송지 화면과 같은 판단이다.
+ */
+const postcode = vi.hoisted(() => ({ openKakaoPostcode: vi.fn() }))
+vi.mock('../../../utils/kakaoPostcode.ts', () => postcode)
+
 const LISTING: Listing = {
   listingId: 1,
   chainListingId: null,
@@ -66,8 +77,13 @@ afterEach(() => {
 async function fillAddress(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText('수취인'), '브랜드 B 자재팀')
   await user.type(screen.getByLabelText('연락처'), '010-0000-0000')
-  await user.type(screen.getByLabelText('우편번호'), '06236')
-  await user.type(screen.getByLabelText('주소'), '서울 강남구 테헤란로 1')
+  // 검색 버튼을 눌러 채운다. 두 칸은 readOnly 라 타이핑으로는 들어가지 않는다.
+  postcode.openKakaoPostcode.mockImplementationOnce(
+    async (onComplete: (s: { zonecode: string; address: string }) => void) => {
+      onComplete({ zonecode: '06236', address: '서울 강남구 테헤란로 1' })
+    },
+  )
+  await user.click(screen.getByRole('button', { name: '주소 검색' }))
 }
 
 describe('PurchaseForm', () => {
@@ -129,7 +145,7 @@ describe('PurchaseForm', () => {
     await user.click(screen.getByRole('button', { name: '구매 요청' }))
 
     expect(await screen.findByText('수취인 이름을 입력해 주세요.')).toBeInTheDocument()
-    expect(screen.getByText('주소를 입력해 주세요.')).toBeInTheDocument()
+    expect(screen.getByText('주소를 검색해 주세요.')).toBeInTheDocument()
     expect(api.createTrade).not.toHaveBeenCalled()
   })
 
@@ -174,5 +190,50 @@ describe('PurchaseForm', () => {
   it('판매가 끝난 소재는 구매 버튼이 잠긴다', () => {
     renderForm({ ...LISTING, status: 'SOLD_OUT', availableQuantity: 0 })
     expect(screen.getByRole('button', { name: '판매가 종료된 소재입니다' })).toBeDisabled()
+  })
+})
+
+/**
+ * <b>주소는 검색으로만 채운다.</b>
+ *
+ * 이 화면만 직접 타이핑으로 남아 있었다 — 가입·배송지·가공업체 등록은 모두 카카오
+ * 우편번호 검색을 쓴다. 소재를 사는 브랜드가 다른 화면과 다른 방식으로 주소를 넣게
+ * 되고, 그쪽에서 걸러지던 오타가 여기서는 그대로 통과해 송장에 인쇄됐다.
+ */
+describe('주소 검색', () => {
+  it('우편번호와 주소는 직접 입력할 수 없다', () => {
+    // readOnly 가 풀리면 검증이 의미를 잃는다 — 우편번호와 주소가 서로 다른 곳을
+    // 가리켜도 폼은 알 수 없다.
+    renderForm()
+
+    expect(screen.getByLabelText('우편번호')).toHaveAttribute('readonly')
+    expect(screen.getByLabelText('주소')).toHaveAttribute('readonly')
+  })
+
+  it('검색 결과가 두 칸을 함께 채운다', async () => {
+    renderForm()
+    const user = userEvent.setup()
+    postcode.openKakaoPostcode.mockImplementationOnce(
+      async (onComplete: (s: { zonecode: string; address: string }) => void) => {
+        onComplete({ zonecode: '13529', address: '경기 성남시 분당구 판교역로 235' })
+      },
+    )
+
+    await user.click(screen.getByRole('button', { name: '주소 검색' }))
+
+    expect(screen.getByLabelText('우편번호')).toHaveValue('13529')
+    expect(screen.getByLabelText('주소')).toHaveValue('경기 성남시 분당구 판교역로 235')
+  })
+
+  it('검색이 실패하면 그 사실을 알린다', async () => {
+    // 두 칸이 읽기 전용이라, 실패를 말해 주지 않으면 사용자가 손으로 메울 수도 없이
+    // 막힌다. 조용히 아무 일도 안 일어나는 것이 가장 나쁘다.
+    renderForm()
+    const user = userEvent.setup()
+    postcode.openKakaoPostcode.mockRejectedValueOnce(new Error('script blocked'))
+
+    await user.click(screen.getByRole('button', { name: '주소 검색' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('주소 검색을 불러오지 못했어요')
   })
 })
