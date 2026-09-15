@@ -6,7 +6,7 @@
 //   2) **택배사 없는 운송장** — 서버가 거절하는 조합이라 제출 후에야 알게 되면 헛수고다.
 //   3) **확인 없는 발송** — 발송하면 취소가 막힌다. 되돌릴 수 없다.
 //
-// 모킹 경계는 API 모듈 하나다 (InventoryTable.test 와 같은 방식).
+// 모킹 경계는 API 모듈 하나다 (InventoryList.test 와 같은 방식).
 // vitest 에 globals 가 없어 cleanup 을 직접 부른다.
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
