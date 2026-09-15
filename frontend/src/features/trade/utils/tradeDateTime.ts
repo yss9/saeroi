@@ -6,7 +6,7 @@
  * 나란히 놓인다.
  *
  * `components/common` 으로 올리지 않았다. 지금 쓰는 곳이 trade 도메인뿐이고, 다른 도메인은
- * 각자 자기 표기를 갖고 있다 (InventoryTable, MaterialBalanceTable). 두 번째 도메인이
+ * 각자 자기 표기를 갖고 있다 (InventoryList, MaterialBalanceTable). 두 번째 도메인이
  * 같은 것을 필요로 할 때 옮긴다 (ARCHITECTURE §7).
  */
 

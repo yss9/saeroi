@@ -28,8 +28,10 @@ import { ProcessorProfilePage } from '../../pages/processing/ProcessorProfilePag
 import { ProcessingPaymentCallbackPage } from '../../pages/processing/ProcessingPaymentCallbackPage.tsx'
 import { ProcessingJobDetailPage } from '../../pages/processing/ProcessingJobDetailPage.tsx'
 import { BrandProcessingJobListPage } from '../../pages/processing/BrandProcessingJobListPage.tsx'
+import { BrandOrderPage } from '../../pages/product/BrandOrderPage.tsx'
 import { BrandProductPage } from '../../pages/product/BrandProductPage.tsx'
 import { ProductDetailPage } from '../../pages/product/ProductDetailPage.tsx'
+import { ProductEditPage } from '../../pages/product/ProductEditPage.tsx'
 import { ProductListPage } from '../../pages/product/ProductListPage.tsx'
 import { ProductQrPage } from '../../pages/product/ProductQrPage.tsx'
 import { ProductRegisterPage } from '../../pages/product/ProductRegisterPage.tsx'
@@ -201,6 +203,11 @@ export const routes: RouteObject[] = [
           { path: '/brand/products/new', element: <ProductRegisterPage /> },
           // 내 제품 관리(판매 시작·중단). 마켓 목록(/products)과 달리 DRAFT 를 포함한다.
           { path: '/brand/products', element: <BrandProductPage /> },
+          // 제품 수정. 목록에서 눌러 들어가는 화면이라 사이드바에는 두지 않는다.
+          { path: '/brand/products/:productModelId/edit', element: <ProductEditPage /> },
+          // 들어온 주문의 발송 처리. 제품 관리와 나눈다 — 그쪽은 "무엇을 파는가" 이고
+          // 여기는 "무엇을 오늘 보내야 하는가" 라 주기가 다르다.
+          { path: '/brand/orders', element: <BrandOrderPage /> },
 
           // 소재 구매 내역. **BRAND 만 구매를 끝낼 수 있다** — 서버의 수령 확인
           // (`POST /v1/trades/{id}/receive/confirm`)이 `hasRole('BRAND')` 다. 그래서

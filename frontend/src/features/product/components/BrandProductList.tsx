@@ -80,7 +80,10 @@ export function BrandProductList() {
                 {PRODUCT_CATEGORY_LABEL[product.category]} · {formatWon(product.price)}
               </span>
               <StockLine product={product} />
-              <QrLabelLink product={product} />
+              <div className="brand-product-list__links">
+                <ProductEditLink product={product} />
+                <QrLabelLink product={product} />
+              </div>
             </div>
 
             <div className="brand-product-list__side">
@@ -141,6 +144,27 @@ function StockLine({ product }: { product: ProductModel }) {
     <span className="brand-product-list__stock brand-product-list__stock--empty">
       {product.status === 'DRAFT' && '생산 전 · '}판매 가능 수량 0개
     </span>
+  )
+}
+
+/**
+ * 제품 수정으로 가는 링크.
+ *
+ * **오타 하나를 고칠 방법이 없었다.** 가격을 잘못 넣으면 결제가 통째로 실패하는데도 제품을
+ * 새로 등록하는 것 말고는 손쓸 수가 없었고, 새로 등록하면 이미 만든 개체가 옛 제품에 붙는다.
+ *
+ * 단종된 제품에는 두지 않는다 — 서버가 수정을 거절한다(`PRODUCT_MODEL_DISCONTINUED`).
+ */
+function ProductEditLink({ product }: { product: ProductModel }) {
+  if (product.status === 'DISCONTINUED') return null
+
+  return (
+    <Link
+      to={`/brand/products/${product.productModelId}/edit`}
+      className="brand-product-list__qr"
+    >
+      제품 수정
+    </Link>
   )
 }
 

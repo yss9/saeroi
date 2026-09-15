@@ -42,6 +42,8 @@ const data: ConsumerMyPageData = {
       paidAt: '2026-09-12T10:35:00',
       shippedAt: '2026-09-13T09:00:00',
       deliveredAt: '2026-09-14T15:00:00',
+      carrier: 'CJ대한통운',
+      trackingNumber: '123456789012',
     },
     {
       id: 'PO-002:ITEM-002',
@@ -61,6 +63,8 @@ const data: ConsumerMyPageData = {
       paidAt: null,
       shippedAt: null,
       deliveredAt: null,
+      carrier: null,
+      trackingNumber: null,
     },
   ],
   defaultAddress: {

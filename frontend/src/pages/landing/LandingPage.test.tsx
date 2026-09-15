@@ -111,10 +111,12 @@ describe('LandingPage', () => {
   })
 
   it.each([
+    // 사람 모양 버튼은 "내 계정" 으로 간다. 업무 화면은 사이드바가 들고 있다 —
+    // 예전에는 브랜드가 이 버튼을 누르면 가공 요청으로 갔다.
     [{ role: 'CONSUMER', name: '김새로이' }, '개인회원', '마이페이지', '/mypage'],
-    [{ role: 'SUPPLIER', name: '새로이 공급사' }, '사업자회원', '판매 관리', '/supplier/listings'],
-    [{ role: 'BRAND', name: '새로이 브랜드' }, '사업자회원', '가공 요청', '/brand/processing'],
-    [{ role: 'PROCESSOR', name: '새로이 가공사' }, '사업자회원', '견적 요청', '/processor/jobs'],
+    [{ role: 'SUPPLIER', name: '새로이 공급사' }, '사업자회원', '마이페이지', '/company/account'],
+    [{ role: 'BRAND', name: '새로이 브랜드' }, '사업자회원', '마이페이지', '/company/account'],
+    [{ role: 'PROCESSOR', name: '새로이 가공사' }, '사업자회원', '마이페이지', '/company/account'],
     [{ role: 'ADMIN', name: '새로이 운영자' }, '관리자', '관리자 페이지', '/admin'],
   ] as const)(
     'shows the correct destination for a signed-in $role account',

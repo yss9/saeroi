@@ -19,9 +19,14 @@ import { createAppError, ERROR_KIND } from '../../../utils/errors.ts'
 import type { ProductImageUpload, ProductModel } from '../types/product.types.ts'
 import { ProductForm } from './ProductForm.tsx'
 
-const api = vi.hoisted(() => ({ uploadProductImage: vi.fn(), createProductModel: vi.fn() }))
+const api = vi.hoisted(() => ({
+  uploadProductImage: vi.fn(),
+  createProductModel: vi.fn(),
+  updateProductModel: vi.fn(),
+}))
 vi.mock('../api/uploadProductImage.ts', () => ({ uploadProductImage: api.uploadProductImage }))
 vi.mock('../api/createProductModel.ts', () => ({ createProductModel: api.createProductModel }))
+vi.mock('../api/updateProductModel.ts', () => ({ updateProductModel: api.updateProductModel }))
 
 const UPLOADED: ProductImageUpload = {
   storageKey: 'product-images/2026/09/abc123.png',
@@ -60,6 +65,22 @@ function renderForm(onCreated?: (product: ProductModel) => void) {
   return userEvent.setup()
 }
 
+/** 수정 모드. 지금 값이 채워진 채로 열린다. */
+function renderEditForm(
+  product: ProductModel = CREATED,
+  onUpdated?: (product: ProductModel) => void,
+) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
+  render(
+    <QueryClientProvider client={queryClient}>
+      <ProductForm product={product} onUpdated={onUpdated} />
+    </QueryClientProvider>,
+  )
+  return userEvent.setup()
+}
+
 /** 이미지를 뺀 나머지 필드를 채운다. */
 async function fillFields(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText('제품명'), '업사이클 데님 토트백')
@@ -71,6 +92,7 @@ async function fillFields(user: ReturnType<typeof userEvent.setup>) {
 beforeEach(() => {
   api.uploadProductImage.mockResolvedValue(UPLOADED)
   api.createProductModel.mockResolvedValue(CREATED)
+  api.updateProductModel.mockResolvedValue({ ...CREATED, price: 99_000 })
 })
 afterEach(() => {
   cleanup()
@@ -195,5 +217,80 @@ describe('ProductForm', () => {
 
     expect(screen.getByText(/판매 준비\(DRAFT\)/)).toBeInTheDocument()
     expect(screen.getByText(/생산으로 개체가 만들어진 뒤/)).toBeInTheDocument()
+  })
+
+  describe('수정 모드', () => {
+    it('지금 값으로 채워진 채 열린다', () => {
+      renderEditForm()
+
+      expect(screen.getByLabelText('제품명')).toHaveValue('업사이클 데님 토트백')
+      expect(screen.getByLabelText('판매가 (원)')).toHaveValue(129_000)
+      expect(screen.getByRole('button', { name: '수정 저장' })).toBeInTheDocument()
+    })
+
+    // 카테고리를 바꾸면 이미 그 분류로 팔린 제품의 이력이 흔들린다.
+    it('카테고리는 바꿀 수 없고 이유를 적는다', () => {
+      renderEditForm()
+
+      expect(screen.getByLabelText('카테고리')).toBeDisabled()
+      expect(screen.getByText('카테고리는 등록 후 바꿀 수 없습니다.')).toBeInTheDocument()
+    })
+
+    // 이 테스트가 이 블록의 존재 이유다 — 원래 값을 다시 보내면 무엇을 고쳤는지가 사라진다.
+    it('바꾼 필드만 보낸다', async () => {
+      const user = renderEditForm()
+
+      await user.clear(screen.getByLabelText('판매가 (원)'))
+      await user.type(screen.getByLabelText('판매가 (원)'), '99000')
+      await user.click(screen.getByRole('button', { name: '수정 저장' }))
+
+      await waitFor(() => expect(api.updateProductModel).toHaveBeenCalled())
+      expect(api.updateProductModel.mock.calls[0][0]).toBe(31)
+      expect(api.updateProductModel.mock.calls[0][1]).toEqual({ price: 99_000 })
+    })
+
+    // 아무것도 안 바뀌었으면 서버가 400 을 준다. 눌러 보고 알게 하지 않는다.
+    it('바뀐 것이 없으면 저장할 수 없다', () => {
+      renderEditForm()
+
+      expect(screen.getByRole('button', { name: '수정 저장' })).toBeDisabled()
+    })
+
+    // 등록과 달리 이미지는 선택이다. 안 고르면 쓰던 이미지가 남는다.
+    it('이미지를 고르지 않아도 저장할 수 있다', async () => {
+      const user = renderEditForm()
+
+      await user.clear(screen.getByLabelText('제품명'))
+      await user.type(screen.getByLabelText('제품명'), '새 이름')
+      await user.click(screen.getByRole('button', { name: '수정 저장' }))
+
+      await waitFor(() => expect(api.updateProductModel).toHaveBeenCalled())
+      expect(api.updateProductModel.mock.calls[0][1]).toEqual({ name: '새 이름' })
+      expect(api.uploadProductImage).not.toHaveBeenCalled()
+    })
+
+    it('이미 결제된 주문은 영향받지 않는다고 알린다', () => {
+      renderEditForm()
+
+      expect(screen.getByText(/이미 결제된 주문은 영향받지/)).toBeInTheDocument()
+    })
+  })
+
+  // 서버는 0 이상만 검사하지만, 이 값을 넘으면 카카오페이가 결제를 거부한다 — 그 사실이
+  // 결제창에서 502 로만 드러난다.
+  it('판매가 상한을 넘기면 등록하지 않는다', async () => {
+    const user = renderForm()
+
+    await user.type(screen.getByLabelText('제품명'), '비싼 가방')
+    await user.selectOptions(screen.getByLabelText('카테고리'), 'BAG')
+    await user.type(screen.getByLabelText('판매가 (원)'), '2147483648')
+    await user.type(screen.getByLabelText('제품 설명'), '설명')
+    await user.upload(screen.getByLabelText(/대표 이미지/), image())
+    await waitFor(() => expect(api.uploadProductImage).toHaveBeenCalled())
+
+    await user.click(screen.getByRole('button', { name: '제품 등록' }))
+
+    expect(await screen.findByText(/2,147,483,647원을 넘을 수 없습니다/)).toBeInTheDocument()
+    expect(api.createProductModel).not.toHaveBeenCalled()
   })
 })

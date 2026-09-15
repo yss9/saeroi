@@ -40,8 +40,13 @@ export interface NavigationMenuItem {
  * 아래 순서는 각 역할이 걸러진 뒤에도 자연스럽게 읽히도록 골랐다.
  *
  *   SUPPLIER  회사 정보 · 보유 소재 · 소재 등록 · 판매 관리 · 판매 거래
- *   BRAND     회사 정보 · 보유 소재 · 가공 신청 · 요청 내역 · 생산 관리 · 제품 등록 · 내 제품 · 구매 내역
+ *   BRAND     회사 정보 · 보유 소재 · 가공 신청 · 요청 내역 · 생산 관리 · 제품 등록 · 내 제품 · 주문·발송 · 구매 내역
  *   PROCESSOR 회사 정보 · 보유 소재 · 업체 등록 · 가공 작업
+ *
+ * **제품 둘러보기(`/products`)는 사이드바에 없다.** 소비자가 옷을 사는 화면이라 사업자
+ * 메뉴에 둘 일이 아니고, 그 자리에 있으면 브랜드가 자기 제품을 눌러 상세로 들어갔을 때
+ * 사이드바의 "제품 둘러보기" 가 켜진다 — 자기가 어디에 있는지 잘못 읽힌다. 소비자는
+ * 쇼핑 머리말의 "쇼핑" 으로 들어간다.
  *
  * `/inventory` 는 RoleGuard 가 없는 Protected 경로다 = 로그인만 하면 역할 무관.
  * 예전 사이드바는 여기에 역할 조건을 직접 붙여 라우터에 없는 규칙을 화면에만 만들어
@@ -71,26 +76,24 @@ export const BUSINESS_MENU_ITEMS: readonly NavigationMenuItem[] = [
   { label: '생산 관리', to: '/brand/production', Icon: Buildings },
   { label: '제품 등록', to: '/brand/products/new', Icon: Tag },
   { label: '내 제품', to: '/brand/products', Icon: Storefront },
+  { label: '주문·발송', to: '/brand/orders', Icon: Truck },
   { label: '업체 등록', to: '/processor/profile', Icon: Buildings },
   { label: '가공 작업', to: '/processor/jobs', Icon: Factory },
-  { label: '제품 둘러보기', to: '/products', Icon: Tag },
   { label: '구매 내역', to: '/trades', Icon: Swap },
 ]
 
 /**
  * 헤더 계정 팝오버가 쓰는 "내 홈" 후보. 보이는 것 중 **첫 번째**를 쓴다.
  *
- * 역할별 주요 업무 경로를 앞에 두고 계정 홈을 뒤에 둔다. 사업자는 회사 정보에도
- * 접근할 수 있지만, 헤더는 필터를 통과한 첫 항목을 골라 각 역할의 주요 업무 화면으로
- * 바로 연결한다.
+ * **계정 화면을 앞에 둔다.** 사람 모양 버튼이 가리키는 곳은 "내 계정" 이지 업무 화면이
+ * 아니다 — 예전에는 역할별 업무 경로가 앞에 있어 브랜드가 그 버튼을 누르면 가공 요청으로
+ * 갔다. 업무 화면은 사이드바가 이미 전부 들고 있다.
  */
 export const ROLE_HOME_MENU_ITEMS: readonly NavigationMenuItem[] = [
-  { label: '판매 관리', to: '/supplier/listings', Icon: Storefront },
-  { label: '가공 요청', to: '/brand/processing', Icon: Factory },
-  { label: '견적 요청', to: '/processor/jobs', Icon: ClipboardText },
   { label: '마이페이지', to: '/mypage', Icon: UserCircle },
   { label: '관리자 페이지', to: '/admin', Icon: ShieldCheck },
-  { label: '회사 대시보드', to: '/company/account', Icon: Buildings },
+  // 사업자의 계정 화면이다. 소비자의 마이페이지와 같은 자리라 이름도 맞춘다.
+  { label: '마이페이지', to: '/company/account', Icon: Buildings },
 ]
 
 /** 사업자 셸 안에서 소비자·관리자에게 필요한 계정 메뉴 후보. */

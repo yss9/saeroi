@@ -9,6 +9,7 @@ import {
   StatusBadge,
   type StatusTone,
 } from '../../../components/common/index.ts'
+import { useCancelProductOrder } from '../hooks/useCancelProductOrder.ts'
 import { useConfirmProductOrderDelivery } from '../hooks/useConfirmProductOrderDelivery.ts'
 import { useConsumerOrderThumbnail } from '../hooks/useConsumerOrderThumbnail.ts'
 import type {
@@ -45,11 +46,15 @@ const orderStatusMeta: Record<ConsumerOrderViewStatus, { label: string; tone: St
  * 주문마다 **배송 현황**을 함께 보여준다 — 상태 배지만 있으면 "배송 중" 이 어제부터인지
  * 방금부터인지 알 수 없어 사용자는 결국 브랜드에 묻게 된다.
  */
+/** 확인을 거쳐야 하는 동작. 둘 다 되돌릴 수 없다. */
+type PendingAction = { kind: 'confirm' | 'cancel'; order: ConsumerRecentOrder }
+
 export function ConsumerOrderList({ orders }: { orders: readonly ConsumerRecentOrder[] }) {
   const confirm = useConfirmProductOrderDelivery()
+  const cancel = useCancelProductOrder()
 
-  // 되돌릴 수 없다. 확인을 거칠 대상을 들고 있는다.
-  const [confirming, setConfirming] = useState<ConsumerRecentOrder | null>(null)
+  // 모달은 한 번에 하나만 뜬다. 둘을 따로 들고 있으면 같은 자리에 두 개가 겹칠 수 있다.
+  const [pending, setPending] = useState<PendingAction | null>(null)
 
   if (orders.length === 0) {
     return (
@@ -84,48 +89,72 @@ export function ConsumerOrderList({ orders }: { orders: readonly ConsumerRecentO
         <span className="consumer-section-heading__note">최신순</span>
       </div>
 
-      {/* 수령 확인 실패는 목록 위에 둔다. 어느 줄에서 눌렀는지는 버튼이 제자리에 남아 안다. */}
+      {/* 실패는 목록 위에 둔다. 어느 줄에서 눌렀는지는 버튼이 제자리에 남아 안다. */}
       {confirm.isError && <ErrorMessage error={confirm.error} />}
+      {cancel.isError && <ErrorMessage error={cancel.error} />}
 
       <div className="consumer-recent-orders">
         {orders.map((order) => (
           <OrderCard
             key={order.id}
             order={order}
-            busy={confirm.isPending && confirm.variables === order.orderId}
-            onConfirmDelivery={() => setConfirming(order)}
+            busy={
+              (confirm.isPending && confirm.variables === order.orderId) ||
+              (cancel.isPending && cancel.variables === order.orderId)
+            }
+            onConfirmDelivery={() => setPending({ kind: 'confirm', order })}
+            onCancel={() => setPending({ kind: 'cancel', order })}
           />
         ))}
       </div>
 
       {/*
-        받았다고 말하면 되돌릴 수 없다. 주문에 제품이 여럿이면 한 줄에서 눌러도 그 주문이
-        통째로 완료되므로, 어느 주문인지 문장에 넣는다.
+        둘 다 되돌릴 수 없다. 어느 주문인지 문장에 넣는다 — 주문에 제품이 여럿이면 한
+        줄에서 눌러도 그 주문이 통째로 처리된다.
       */}
       <ConfirmModal
-        open={confirming !== null}
-        title="배송을 받으셨나요?"
-        message={`${confirming?.orderNumber ?? ''} 주문을 수령 완료로 표시합니다. 되돌릴 수 없습니다.`}
-        confirmLabel="수령 확인"
-        loading={confirm.isPending}
+        open={pending !== null}
+        title={pending?.kind === 'cancel' ? '주문을 취소할까요?' : '배송을 받으셨나요?'}
+        message={pending === null ? '' : actionMessage(pending)}
+        confirmLabel={pending?.kind === 'cancel' ? '주문 취소' : '수령 확인'}
+        destructive={pending?.kind === 'cancel'}
+        loading={confirm.isPending || cancel.isPending}
         onConfirm={() => {
-          if (confirming === null) return
-          confirm.mutate(confirming.orderId, { onSettled: () => setConfirming(null) })
+          if (pending === null) return
+          const done = { onSettled: () => setPending(null) }
+          if (pending.kind === 'cancel') cancel.mutate(pending.order.orderId, done)
+          else confirm.mutate(pending.order.orderId, done)
         }}
-        onClose={() => setConfirming(null)}
+        onClose={() => setPending(null)}
       />
     </section>
   )
+}
+
+/**
+ * 확인 문구.
+ *
+ * 취소는 **결과를 미리 말해야 한다** — 목록에서 사라지고(서버가 행을 지운다), 결제했다면
+ * 환불이 함께 나간다. "되돌릴 수 없습니다" 만으로는 무엇이 없어지는지 알 수 없다.
+ */
+function actionMessage({ kind, order }: PendingAction): string {
+  if (kind === 'confirm') {
+    return `${order.orderNumber} 주문을 수령 완료로 표시합니다. 되돌릴 수 없습니다.`
+  }
+  const refund = order.status === 'PREPARING' ? ' 결제하신 금액은 환불됩니다.' : ''
+  return `${order.orderNumber} 주문을 취소합니다.${refund} 취소한 주문은 목록에서 사라지고 되돌릴 수 없습니다.`
 }
 
 function OrderCard({
   order,
   busy,
   onConfirmDelivery,
+  onCancel,
 }: {
   order: ConsumerRecentOrder
   busy: boolean
   onConfirmDelivery: () => void
+  onCancel: () => void
 }) {
   const status = orderStatusMeta[order.status]
 
@@ -167,6 +196,16 @@ function OrderCard({
           </Button>
         )}
 
+        {/*
+          **발송 전까지만 취소할 수 있다.** 물건이 나갔는데 주문만 없애면 그 개체가
+          어디에도 속하지 않게 된다 — 서버도 그 뒤로는 거절한다.
+        */}
+        {(order.status === 'PAYMENT_PENDING' || order.status === 'PREPARING') && (
+          <Button variant="secondary" size="sm" loading={busy} onClick={onCancel}>
+            주문 취소
+          </Button>
+        )}
+
         {order.journeyUrl ? (
           <a className="consumer-journey-link" href={order.journeyUrl}>
             제품 여정 보기 <ArrowRight aria-hidden="true" />
@@ -197,18 +236,46 @@ function OrderProgress({ order }: { order: ConsumerRecentOrder }) {
   ]
 
   return (
-    <ol className="consumer-order-progress" aria-label="배송 현황">
-      {steps.map((step) => (
-        <li key={step.label} className={step.at ? 'is-done' : undefined}>
-          <span className="consumer-order-progress__label">{step.label}</span>
-          {step.at ? (
-            <time dateTime={step.at}>{dateFormatter.format(new Date(step.at))}</time>
-          ) : (
-            <span className="consumer-order-progress__waiting">대기</span>
-          )}
-        </li>
-      ))}
-    </ol>
+    <>
+      <ol className="consumer-order-progress" aria-label="배송 현황">
+        {steps.map((step) => (
+          <li key={step.label} className={step.at ? 'is-done' : undefined}>
+            <span className="consumer-order-progress__label">{step.label}</span>
+            {step.at ? (
+              <time dateTime={step.at}>{dateFormatter.format(new Date(step.at))}</time>
+            ) : (
+              <span className="consumer-order-progress__waiting">대기</span>
+            )}
+          </li>
+        ))}
+      </ol>
+
+      <TrackingLine order={order} />
+    </>
+  )
+}
+
+/**
+ * 송장.
+ *
+ * **브랜드가 발송 처리하며 적은 값을 그대로 보여준다.** 이게 없으면 "배송 중" 배지만 남아,
+ * 어디쯤 왔는지 알려면 브랜드에 물어보는 수밖에 없다.
+ *
+ * 없을 때는 줄 자체를 그리지 않는다. 송장 없이 보내는 방식(직접 전달·퀵)이 정상 경로라
+ * "운송장 없음" 이라고 적으면 빠뜨린 것처럼 읽힌다.
+ *
+ * 택배사만 있고 번호가 없는 경우도 있다 — 서버가 번호만 있는 조합은 막지만 그 반대는
+ * 허용한다.
+ */
+function TrackingLine({ order }: { order: ConsumerRecentOrder }) {
+  if (!order.carrier && !order.trackingNumber) return null
+
+  return (
+    <p className="consumer-order-tracking">
+      <span className="consumer-order-tracking__label">운송장</span>
+      {order.carrier && <span>{order.carrier}</span>}
+      {order.trackingNumber && <code>{order.trackingNumber}</code>}
+    </p>
   )
 }
 

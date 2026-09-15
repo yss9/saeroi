@@ -21,8 +21,16 @@ import { createAppError, ERROR_KIND } from '../../../utils/errors.ts'
 import type { ConsumerRecentOrder } from '../types/consumerMyPage.types.ts'
 import { ConsumerOrderList } from './ConsumerOrderList.tsx'
 
-const api = vi.hoisted(() => ({ confirmProductOrderDelivery: vi.fn() }))
-vi.mock('../api/confirmProductOrderDelivery.ts', () => api)
+const api = vi.hoisted(() => ({
+  confirmProductOrderDelivery: vi.fn(),
+  cancelProductOrder: vi.fn(),
+}))
+vi.mock('../api/confirmProductOrderDelivery.ts', () => ({
+  confirmProductOrderDelivery: api.confirmProductOrderDelivery,
+}))
+vi.mock('../api/productOrderPaymentApi.ts', () => ({
+  cancelProductOrder: api.cancelProductOrder,
+}))
 
 vi.mock('../hooks/useConsumerOrderThumbnail.ts', () => ({
   useConsumerOrderThumbnail: () => ({ url: null }),
@@ -47,6 +55,8 @@ function order(overrides: Partial<ConsumerRecentOrder> = {}): ConsumerRecentOrde
     paidAt: '2026-09-12T10:35:00',
     shippedAt: '2026-09-13T09:00:00',
     deliveredAt: null,
+    carrier: 'CJ대한통운',
+    trackingNumber: '123456789012',
     ...overrides,
   }
 }
@@ -67,6 +77,7 @@ function renderList(orders: ConsumerRecentOrder[] = [order()]) {
 
 beforeEach(() => {
   api.confirmProductOrderDelivery.mockResolvedValue({ orderId: 12, orderCode: 'PO-001' })
+  api.cancelProductOrder.mockResolvedValue(undefined)
 })
 afterEach(() => {
   cleanup()
@@ -134,6 +145,91 @@ describe('ConsumerOrderList', () => {
     expect(steps).toHaveLength(4)
     // 아직 오지 않은 단계도 지우지 않는다 — 안 보이면 지금이 마지막인지 알 수 없다.
     expect(within(progress).getByText('대기')).toBeInTheDocument()
+  })
+
+  describe('송장', () => {
+    // 이 블록의 존재 이유 — "배송 중" 배지만 남으면 어디쯤 왔는지 브랜드에 물어봐야 한다.
+    it('브랜드가 적은 택배사와 운송장을 그대로 보여준다', () => {
+      renderList()
+
+      expect(screen.getByText('CJ대한통운')).toBeInTheDocument()
+      expect(screen.getByText('123456789012')).toBeInTheDocument()
+    })
+
+    // 직접 전달·퀵처럼 송장 없이 보내는 방식이 정상 경로다. "운송장 없음" 이라고 적으면
+    // 빠뜨린 것처럼 읽힌다.
+    it('송장이 없으면 그 줄을 그리지 않는다', () => {
+      renderList([order({ carrier: null, trackingNumber: null })])
+
+      expect(screen.queryByText('운송장')).not.toBeInTheDocument()
+    })
+
+    // 서버는 번호만 있는 조합을 막지만 그 반대는 허용한다.
+    it('택배사만 있어도 보여준다', () => {
+      renderList([order({ trackingNumber: null })])
+
+      expect(screen.getByText('CJ대한통운')).toBeInTheDocument()
+    })
+  })
+
+  describe('주문 취소', () => {
+    // 이 테스트가 이 블록의 존재 이유다 — 무엇이 없어지는지 미리 말해야 한다.
+    it('결제한 주문을 취소하면 환불과 목록에서 사라짐을 미리 알린다', async () => {
+      const user = renderList([order({ status: 'PREPARING', shippedAt: null })])
+
+      await user.click(screen.getByRole('button', { name: '주문 취소' }))
+
+      const dialog = screen.getByRole('dialog')
+      expect(within(dialog).getByText(/결제하신 금액은 환불됩니다/)).toBeInTheDocument()
+      expect(within(dialog).getByText(/목록에서 사라지고/)).toBeInTheDocument()
+      expect(api.cancelProductOrder).not.toHaveBeenCalled()
+
+      await user.click(within(dialog).getByRole('button', { name: '주문 취소' }))
+
+      await waitFor(() => expect(api.cancelProductOrder).toHaveBeenCalled())
+      expect(api.cancelProductOrder.mock.calls[0][0]).toBe(12)
+    })
+
+    // 아직 결제 전이라 돌려줄 돈이 없다. 없는 환불을 말하면 사용자가 기다린다.
+    it('결제 전 주문에는 환불을 말하지 않는다', async () => {
+      const user = renderList([order({ status: 'PAYMENT_PENDING', paidAt: null, shippedAt: null })])
+
+      await user.click(screen.getByRole('button', { name: '주문 취소' }))
+
+      const dialog = screen.getByRole('dialog')
+      expect(within(dialog).queryByText(/환불/)).not.toBeInTheDocument()
+    })
+
+    // 물건이 나갔는데 주문만 없애면 그 개체가 어디에도 속하지 않게 된다.
+    it('발송된 뒤에는 취소를 두지 않는다', () => {
+      renderList([order({ status: 'SHIPPING' })])
+
+      expect(screen.queryByRole('button', { name: '주문 취소' })).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: '배송 완료 확인' })).toBeInTheDocument()
+    })
+
+    it('배송 완료된 주문에도 두지 않는다', () => {
+      renderList([order({ status: 'DELIVERED', deliveredAt: '2026-09-14T15:00:00' })])
+
+      expect(screen.queryByRole('button', { name: '주문 취소' })).not.toBeInTheDocument()
+    })
+
+    it('취소가 실패하면 이유를 보여준다', async () => {
+      api.cancelProductOrder.mockRejectedValue(
+        createAppError(ERROR_KIND.API_ERROR, {
+          message: '발송된 주문은 취소할 수 없습니다.',
+          status: 409,
+        }),
+      )
+      const user = renderList([order({ status: 'PREPARING', shippedAt: null })])
+
+      await user.click(screen.getByRole('button', { name: '주문 취소' }))
+      await user.click(
+        within(screen.getByRole('dialog')).getByRole('button', { name: '주문 취소' }),
+      )
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('발송된 주문은 취소할 수 없습니다')
+    })
   })
 
   it('주문이 없으면 둘러보기로 데려간다', () => {

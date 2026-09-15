@@ -6,6 +6,7 @@ import { routes } from '../router/routes.tsx'
 import { canAccess, getRouteAccess, getRouteAccessMap } from '../router/routeAccess.ts'
 import { useAuthStore } from '../../stores/authStore.ts'
 import { USER_ROLES, type UserRole } from '../../types/role.types.ts'
+import { getRoleHomePath } from '../../features/auth/utils/roleHomePath.ts'
 import { ALL_MENU_ITEMS, BUSINESS_MENU_ITEMS, ROLE_HOME_MENU_ITEMS } from './navigationMenu.ts'
 
 /**
@@ -125,7 +126,7 @@ describe('역할별 사업자 메뉴', () => {
       // 조회 화면은 공개라 역할과 무관하게 보인다. 라우터에는 있는데 메뉴에 없어서
       // 주소를 직접 치지 않으면 못 가던 것을 넣었다.
       '소재 마켓플레이스',
-      '소재 등록', '판매 관리', '판매 거래', '제품 둘러보기',
+      '소재 등록', '판매 관리', '판매 거래',
       // 구매 내역은 없다. 서버의 수령 확인이 BRAND 전용이라 SUPPLIER 는 구매를 끝낼 수
       // 없고, 목록은 언제나 비어 있었다 — 사이드바에 보이는데 눌러도 아무것도 없었다.
       // 게다가 판매 거래에서 상세로 들어오면 /trades 접두사가 맞아 "거래 내역" 이 켜져,
@@ -140,7 +141,10 @@ describe('역할별 사업자 메뉴', () => {
       '소재 마켓플레이스',
       // '내 제품' 은 등록한 제품의 판매를 시작·중단하는 곳이다. '제품 둘러보기'(마켓)와
       // 다른 목록이다 — 이쪽은 아직 공개하지 않은 DRAFT 를 포함한다.
-      '가공 신청', '요청 내역', '가공 진행', '생산 관리', '제품 등록', '내 제품', '제품 둘러보기', '구매 내역',
+      // "주문·발송" 은 들어온 주문을 보내는 곳이다. "내 제품"(무엇을 파는가)과 나눠 둔다 —
+      // 두 일의 주기가 다르다.
+      '가공 신청', '요청 내역', '가공 진행', '생산 관리', '제품 등록', '내 제품', '주문·발송',
+      '구매 내역',
     ])
   })
 
@@ -148,7 +152,7 @@ describe('역할별 사업자 메뉴', () => {
     expect(visibleLabels('PROCESSOR')).toEqual([
       '회사 정보', '보유 소재',
       '소재 마켓플레이스',
-      '업체 등록', '가공 작업', '제품 둘러보기',
+      '업체 등록', '가공 작업',
     ])
   })
 
@@ -156,12 +160,12 @@ describe('역할별 사업자 메뉴', () => {
   // 단 한 칸도 허용이 없고(지갑이 없어 서명 흐름에 못 들어간다), routes.tsx 의
   // allow 목록에도 없다. 여기서 편의로 열어 주면 정의와 화면이 갈라진다.
   it('ADMIN 과 CONSUMER 는 사업자 전용 메뉴를 보지 않는다', () => {
-    // 남는 것은 로그인만 요구하는 조회 화면(/products) 하나다.
+    // 사업자 메뉴에 남는 것이 하나도 없다.
     //
-    // 소재 마켓플레이스·구매 내역·보유 소재가 차례로 빠졌다. 업사이클링 제품을 사는
-    // CONSUMER 는 소재를 사지도 팔지도 보유하지도 않고, ADMIN 은 도메인 기능에 허용이 없다
-    // (권한 Matrix §4). 셋 다 그 역할에게는 언제나 비어 있는 화면이었다.
-    const browseAndOpen = ['제품 둘러보기']
+    // 소재 마켓플레이스·구매 내역·보유 소재가 차례로 사업자 전용이 됐고, 제품 둘러보기는
+    // 사이드바에서 아예 빠졌다(소비자는 쇼핑 머리말로 들어간다). CONSUMER 는 사업자 셸을
+    // 쓰지 않고, ADMIN 은 도메인 기능에 허용이 없다 (권한 Matrix §4).
+    const browseAndOpen: string[] = []
     expect(visibleLabels('ADMIN')).toEqual(browseAndOpen)
     expect(visibleLabels('CONSUMER')).toEqual(browseAndOpen)
   })
@@ -189,11 +193,23 @@ describe('계정 메뉴', () => {
     return visible[0]?.label
   }
 
-  it('역할마다 계정 홈이 하나만 남는다', () => {
+  // 사람 모양 버튼이 가리키는 곳은 "내 계정" 이지 업무 화면이 아니다. 예전에는 역할별
+  // 업무 경로가 앞에 있어 브랜드가 그 버튼을 누르면 가공 요청으로 갔다.
+  it('어느 역할이든 계정 화면으로 간다', () => {
     expect(firstAccountLabel('CONSUMER')).toBe('마이페이지')
     expect(firstAccountLabel('ADMIN')).toBe('관리자 페이지')
-    expect(firstAccountLabel('SUPPLIER')).toBe('판매 관리')
-    expect(firstAccountLabel('BRAND')).toBe('가공 요청')
-    expect(firstAccountLabel('PROCESSOR')).toBe('견적 요청')
+    // 사업자 셋은 모두 회사 계정 화면이다. 이름도 소비자 쪽과 맞춘다.
+    for (const role of ['SUPPLIER', 'BRAND', 'PROCESSOR'] as const) {
+      expect(firstAccountLabel(role), role).toBe('마이페이지')
+    }
+  })
+
+  // 로그인 직후 착지 지점은 다른 판단이다 — 방금 로그인한 사람은 대부분 업무를 하러
+  // 들어온다. 사람 버튼(계정)과 섞이지 않아야 한다.
+  it('로그인 직후에는 역할별 업무 화면으로 간다', () => {
+    expect(getRoleHomePath('SUPPLIER')).toBe('/supplier/listings')
+    expect(getRoleHomePath('BRAND')).toBe('/brand/processing')
+    expect(getRoleHomePath('PROCESSOR')).toBe('/processor/jobs')
+    expect(getRoleHomePath('CONSUMER')).toBe('/mypage')
   })
 })
