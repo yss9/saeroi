@@ -193,7 +193,22 @@ public enum ProductErrorCode implements ErrorCode {
     PRODUCT_ORDER_TRACKING_WITHOUT_CARRIER(
             HttpStatus.BAD_REQUEST,
             "PRODUCT_ORDER_TRACKING_WITHOUT_CARRIER",
-            "운송장 번호를 입력하려면 택배사도 함께 입력해 주세요.");
+            "운송장 번호를 입력하려면 택배사도 함께 입력해 주세요."),
+
+    /**
+     * 발송된 뒤에 취소를 시도한 경우.
+     *
+     * <p>결제 쪽 코드(PAYMENT_STATE_INVALID)를 쓰지 않는다. 그쪽 문구는 "지금
+     * 상태에서는 처리할 수 없습니다" 라 왜 안 되는지를 말하지 않는다 — 프론트는 서버
+     * 문구를 그대로 띄우므로 여기서 정확히 말해야 사용자가 목록을 다시 불러보고 납득한다.
+     *
+     * <p>화면은 발송 전에만 취소 버튼을 보여 주므로 이 응답은 <b>경합에서만</b> 나온다:
+     * 목록을 열어 둔 사이 브랜드가 발송한 경우다.
+     */
+    PRODUCT_ORDER_NOT_CANCELABLE(
+            HttpStatus.CONFLICT,
+            "PRODUCT_ORDER_NOT_CANCELABLE",
+            "배송이 시작된 주문은 취소할 수 없습니다.");
 
     private final HttpStatus status;
     private final String code;

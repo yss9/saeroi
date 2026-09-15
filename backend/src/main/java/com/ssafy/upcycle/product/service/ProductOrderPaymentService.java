@@ -168,7 +168,7 @@ public class ProductOrderPaymentService {
                 .filter(found -> found.getBuyerId().equals(buyerId))
                 .orElseThrow(() -> new BusinessException(ProductErrorCode.PRODUCT_ORDER_NOT_FOUND));
         if (!order.isCancelable()) {
-            throw new BusinessException(TradeErrorCode.PAYMENT_STATE_INVALID);
+            throw new BusinessException(ProductErrorCode.PRODUCT_ORDER_NOT_CANCELABLE);
         }
 
         refundIfPaid(order);
@@ -216,13 +216,23 @@ public class ProductOrderPaymentService {
     }
 
     /**
-     * 승인된 결제만 환불한다.
+     * 실제로 청구된 결제만 환불한다.
      *
      * <p>{@code CREATED} 는 준비만 했거나 결제창을 닫은 상태라 청구가 없다. tid 가 있어도
      * 환불을 요청하면 PG 가 거절한다.
+     *
+     * <p><b>{@code MOCK} 으로 결제된 주문도 건너뛴다.</b> 지금 붙어 있는 게이트웨이가 아니라
+     * <b>그때 실제로 청구한 쪽</b>을 봐야 한다 — 이 둘은 다를 수 있다. 결제 키가 없던 환경에서
+     * 결제한 주문({@code tid} 가 {@code MOCK-...})을 키가 생긴 뒤에 취소하면, 카카오페이에
+     * 존재하지 않는 거래의 환불을 요청하게 된다. 그러면 환불이 거절되고 예외가 트랜잭션을
+     * 롤백해 <b>그 주문은 영원히 취소할 수 없게 된다.</b> 되돌릴 실제 결제가 없으므로 그냥
+     * 넘어가는 것이 맞다.
      */
     private void refundIfPaid(ProductOrder order) {
         if (order.getStatus() != ProductOrderStatus.PAID) {
+            return;
+        }
+        if (order.getPaymentMethod() == PaymentMethod.MOCK) {
             return;
         }
         paymentGateway.cancel(
