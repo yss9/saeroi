@@ -247,3 +247,51 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+/*
+ * 구매 폼의 주소 검색.
+ *
+ * 우편번호·주소 두 칸은 readOnly 라 검색 버튼이 유일한 입력 수단이다. 그래서 버튼을
+ * 입력칸 안쪽 오른쪽에 겹쳐 둔다 — 따로 떨어뜨리면 "읽기 전용 칸"과 "그 칸을 채우는
+ * 버튼"의 관계가 보이지 않는다. 가입 화면(auth-entry.css)과 같은 배치이며, 색만
+ * 이 도메인의 ui-* 토큰으로 맞춘다.
+ */
+.purchase-form__address-search {
+  position: relative;
+}
+
+.purchase-form__address-search .ui-field__control {
+  padding-right: 112px;
+}
+
+.purchase-form__address-search > button {
+  position: absolute;
+  top: 29px;
+  right: 6px;
+  display: inline-flex;
+  min-width: 100px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 11px;
+  border: 1px solid var(--ui-color-border-strong);
+  border-radius: 8px;
+  background: var(--ui-color-primary-soft);
+  color: var(--ui-color-primary);
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.purchase-form__address-search > button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* 두 칸이 읽기 전용이라, 검색이 실패하면 손으로 메울 방법이 없다 — 눈에 띄어야 한다. */
+.purchase-form__address-error {
+  margin-top: 0.35rem;
+  color: var(--ui-color-danger);
+  font-size: 0.82rem;
+}

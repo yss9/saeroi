@@ -29,9 +29,6 @@ vi.mock('../../features/trade/components/ShipmentPanel.tsx', () => ({ ShipmentPa
 vi.mock('../../features/trade/components/TradeChainPanel.tsx', () => ({
   TradeChainPanel: () => null,
 }))
-vi.mock('../../features/trade/components/TradeChainActionPanel.tsx', () => ({
-  TradeChainActionPanel: () => null,
-}))
 vi.mock('../../features/trade/components/TradeTimeline.tsx', () => ({ TradeTimeline: () => null }))
 
 const SELLER_ID = 2
