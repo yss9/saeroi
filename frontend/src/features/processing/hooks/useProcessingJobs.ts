@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { processingJobApi, type ProcessingSignatureAction, type ResultDraftInput } from '../api/processingJobApi.ts'
+import { processingRequestApi } from '../api/processingRequestApi.ts'
+import { processingKeys } from '../api/processingKeys.ts'
 import { signMessage } from '../../wallet/services/walletService.ts'
 
 const keys = { all: ['processing-jobs'] as const, detail: (id: number) => ['processing-jobs', id] as const }
@@ -11,6 +13,12 @@ export function useProcessingJobs() {
 export function useProcessingJob(jobId: number) {
   const client = useQueryClient()
   const detail = useQuery({ queryKey: keys.detail(jobId), queryFn: () => processingJobApi.detail(jobId) })
+  const requestId = detail.data?.requestId
+  const request = useQuery({
+    queryKey: processingKeys.detail(requestId ?? 0),
+    queryFn: ({ signal }) => processingRequestApi.detail(requestId!, signal),
+    enabled: requestId !== undefined,
+  })
   const refresh = async () => Promise.all([
     client.invalidateQueries({ queryKey: keys.detail(jobId) }),
     client.invalidateQueries({ queryKey: keys.all }),
@@ -30,5 +38,5 @@ export function useProcessingJob(jobId: number) {
   const submit = useMutation({ mutationFn: () => signed('RESULT_SUBMIT'), onSuccess: refresh })
   const approve = useMutation({ mutationFn: () => signed('APPROVE'), onSuccess: refresh })
   const reject = useMutation({ mutationFn: (reason: string) => signed('REJECT', reason), onSuccess: refresh })
-  return { detail, ship, receive, start, saveResult, submit, approve, reject }
+  return { detail, request, ship, receive, start, saveResult, submit, approve, reject }
 }

@@ -1,4 +1,5 @@
 import { CheckCircle, Clock, CreditCard } from '@phosphor-icons/react'
+import { Link } from 'react-router-dom'
 import { isAppError } from '../../../utils/errors.ts'
 import type { ProcessingJob } from '../api/processingRequestApi.ts'
 import { useProcessingPayment } from '../hooks/useProcessingPayment.ts'
@@ -12,7 +13,7 @@ export function ProcessingPaymentEntry({ job }: { job: ProcessingJob }) {
   const payment = useProcessingPayment()
 
   if (payment.phase === 'SUCCEEDED' && payment.paidJob) {
-    return <div className="br-payment br-payment--success" role="status"><CheckCircle aria-hidden="true" /><div><strong>가공비 결제가 완료되었습니다.</strong><span>{won(payment.paidJob.paymentAmount)} · 소재 Lock이 Job에 유지됩니다.</span></div></div>
+    return <div className="br-payment br-payment--success" role="status"><CheckCircle aria-hidden="true" /><div><strong>가공비 결제가 완료되었습니다.</strong><span>{won(payment.paidJob.paymentAmount)} · 소재를 발송해 주세요.</span><Link to={`/processing/jobs/${payment.paidJob.jobId}`}>소재 발송하기</Link></div></div>
   }
 
   return (

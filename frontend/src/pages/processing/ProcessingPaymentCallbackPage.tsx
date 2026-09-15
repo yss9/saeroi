@@ -37,7 +37,7 @@ export function ProcessingPaymentCallbackPage() {
   } else if (!job) {
     content = <><span className="br-payment-callback__spinner" aria-hidden="true" /><h1>가공비 결제를 승인하고 있습니다</h1><p>잠시만 기다려 주세요.</p></>
   } else {
-    content = <><CheckCircle aria-hidden="true" /><h1>가공비 결제가 완료되었습니다</h1><strong>{won(job.paymentAmount)}</strong><p>가공사가 요청을 확인하면 다음 진행 상태를 알려드립니다.</p><Link to={`/brand/processing/requests/${job.requestId}`}>요청 상세로 돌아가기</Link></>
+    content = <><CheckCircle aria-hidden="true" /><h1>가공비 결제가 완료되었습니다</h1><strong>{won(job.paymentAmount)}</strong><p>결제가 완료되었습니다. 소재를 가공사로 발송해 주세요.</p><div className="br-payment-callback__actions"><Link to={`/processing/jobs/${job.jobId}`}>소재 발송하기</Link><Link to={`/brand/processing/requests/${job.requestId}`}>요청 상세로 돌아가기</Link></div></>
   }
 
   return <section className="br-payment-callback" role="status">{content}{!job && <Link to="/brand/processing/requests">요청 목록으로</Link>}</section>
