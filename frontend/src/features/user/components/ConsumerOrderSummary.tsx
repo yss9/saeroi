@@ -20,6 +20,9 @@ const orderStageMeta: Record<ConsumerOrderStage, { label: string; description: s
  *
  * **한 건도 없으면 그리지 않는다.** 0 이 네 칸 늘어선 표는 "아직 주문이 없다" 를 말하는
  * 가장 나쁜 방법이다 — 처음 온 사람은 그 표가 무엇을 세는 것인지조차 모른다.
+ *
+ * 칸 강조는 **건수**를 따른다. 이 표의 질문이 "지금 몇 건이 어디까지 왔나" 이므로, 비어
+ * 있는 칸은 눈이 그냥 지나가고 내 주문이 있는 칸이 바로 보여야 한다.
  */
 export function ConsumerOrderSummary({ stages }: { stages: readonly ConsumerOrderStageSummary[] }) {
   const total = stages.reduce((sum, stage) => sum + stage.count, 0)
@@ -38,7 +41,9 @@ export function ConsumerOrderSummary({ stages }: { stages: readonly ConsumerOrde
         {stages.map(({ stage, count }, index) => {
           const meta = orderStageMeta[stage]
           return (
-            <li key={stage}>
+            // **건수가 있는 칸만 강조한다.** 자리로 칠하면(예전 CSS 가 그랬다) 0 건인
+            // 칸이 눈에 띄고 내 주문이 있는 칸은 회색으로 남아, 표가 정확히 반대로 읽힌다.
+            <li key={stage} className={count > 0 ? 'is-active' : undefined}>
               <span className="consumer-order-steps__number">{count}</span>
               <strong>{meta.label}</strong>
               <span>{meta.description}</span>

@@ -365,7 +365,14 @@
   font-weight: 800;
 }
 
-.consumer-order-steps li:nth-child(3) .consumer-order-steps__number {
+/*
+  건수가 있는 칸만 강조한다.
+
+  예전에는 `li:nth-child(3)` 으로 세 번째 칸(배송 중)을 무조건 칠했다. 목데이터일 때는
+  그럴듯했지만 실제 주문이 붙자 **0 건인 칸이 파랗고 1 건인 칸은 회색**이 되어, 표가
+  정확히 반대로 읽혔다. 자리가 아니라 값을 따라야 한다.
+*/
+.consumer-order-steps li.is-active .consumer-order-steps__number {
   color: #fff;
   background: var(--consumer-blue);
 }
