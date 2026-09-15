@@ -236,18 +236,46 @@ function OrderProgress({ order }: { order: ConsumerRecentOrder }) {
   ]
 
   return (
-    <ol className="consumer-order-progress" aria-label="배송 현황">
-      {steps.map((step) => (
-        <li key={step.label} className={step.at ? 'is-done' : undefined}>
-          <span className="consumer-order-progress__label">{step.label}</span>
-          {step.at ? (
-            <time dateTime={step.at}>{dateFormatter.format(new Date(step.at))}</time>
-          ) : (
-            <span className="consumer-order-progress__waiting">대기</span>
-          )}
-        </li>
-      ))}
-    </ol>
+    <>
+      <ol className="consumer-order-progress" aria-label="배송 현황">
+        {steps.map((step) => (
+          <li key={step.label} className={step.at ? 'is-done' : undefined}>
+            <span className="consumer-order-progress__label">{step.label}</span>
+            {step.at ? (
+              <time dateTime={step.at}>{dateFormatter.format(new Date(step.at))}</time>
+            ) : (
+              <span className="consumer-order-progress__waiting">대기</span>
+            )}
+          </li>
+        ))}
+      </ol>
+
+      <TrackingLine order={order} />
+    </>
+  )
+}
+
+/**
+ * 송장.
+ *
+ * **브랜드가 발송 처리하며 적은 값을 그대로 보여준다.** 이게 없으면 "배송 중" 배지만 남아,
+ * 어디쯤 왔는지 알려면 브랜드에 물어보는 수밖에 없다.
+ *
+ * 없을 때는 줄 자체를 그리지 않는다. 송장 없이 보내는 방식(직접 전달·퀵)이 정상 경로라
+ * "운송장 없음" 이라고 적으면 빠뜨린 것처럼 읽힌다.
+ *
+ * 택배사만 있고 번호가 없는 경우도 있다 — 서버가 번호만 있는 조합은 막지만 그 반대는
+ * 허용한다.
+ */
+function TrackingLine({ order }: { order: ConsumerRecentOrder }) {
+  if (!order.carrier && !order.trackingNumber) return null
+
+  return (
+    <p className="consumer-order-tracking">
+      <span className="consumer-order-tracking__label">운송장</span>
+      {order.carrier && <span>{order.carrier}</span>}
+      {order.trackingNumber && <code>{order.trackingNumber}</code>}
+    </p>
   )
 }
 

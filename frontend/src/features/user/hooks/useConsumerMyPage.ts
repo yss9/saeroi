@@ -105,6 +105,9 @@ export function toConsumerMyPageData(
       paidAt: order.paidAt,
       shippedAt: order.shippedAt,
       deliveredAt: order.deliveredAt,
+      // 서버가 아직 안 주면 undefined 다. 화면은 값이 있을 때만 송장 줄을 그린다.
+      carrier: order.shipping?.carrier ?? null,
+      trackingNumber: order.shipping?.trackingNumber ?? null,
     }))),
     // 없으면 null 이다. 주소를 받기 전에 가입한 계정은 배송지가 0건이고 그것은 정상이다.
     defaultAddress,
