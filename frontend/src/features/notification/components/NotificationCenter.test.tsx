@@ -144,6 +144,21 @@ describe('NotificationCenter', () => {
     expect(screen.getByText('알림을 불러오지 못했습니다.')).toBeInTheDocument()
   })
 
+  // 서버가 오프셋 없는 LocalDateTime 을 준다(예: 09:00:00). 여기에 'Z' 를 붙여 UTC로
+  // 파싱하면 브라우저가 KST(+9)로 다시 바꿔 실제보다 9시간 늦게 보여준다 — 알림 시간이
+  // 실제와 안 맞던 버그가 이것이었다. 오프셋을 붙이지 않아야 입력한 시각 그대로 보인다.
+  it("createdAt 에 시간대 오프셋을 붙이지 않고 그대로 표시한다 (09:00 그대로, 18:00 아님)", async () => {
+    const user = userEvent.setup()
+    renderCenter()
+
+    await user.click(screen.getByRole('button', { name: '알림 1개' }))
+
+    const time = document.querySelector('time[datetime="2026-09-14T09:00:00"]')
+    expect(time).not.toBeNull()
+    expect(time).toHaveTextContent('09:00')
+    expect(time).not.toHaveTextContent('18:00')
+  })
+
   it('패널 밖을 누르면 목록을 닫는다', async () => {
     const user = userEvent.setup()
     renderCenter()

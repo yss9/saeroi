@@ -125,9 +125,16 @@ export function NotificationCenter({ enabled }: NotificationCenterProps) {
   )
 }
 
+/**
+ * 서버는 `LocalDateTime` 을 오프셋 없이 준다 (예: `2026-09-07T09:00:00`). 여기에
+ * `Z` 를 붙여 UTC로 파싱하면 브라우저가 그 값을 UTC로 알고 KST(+9)로 다시 바꿔
+ * 실제 발송 시각보다 9시간 늦게 보여준다 — 알림 시간이 실제와 안 맞던 원인이 이거다.
+ *
+ * 팀·서버·사용자가 모두 KST 라 오프셋 없이 그대로 파싱하면 브라우저 로컬 시간(KST)으로
+ * 해석된다. 다른 도메인(trade, material)도 같은 방식을 쓴다 (tradeDateTime.ts 참고).
+ */
 function formatNotificationDate(value: string): string {
-  const normalized = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value) ? value : `${value}Z`
-  const date = new Date(normalized)
+  const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
   return date.toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
