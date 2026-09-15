@@ -5,16 +5,19 @@ import com.ssafy.upcycle.product.ProductErrorCode;
 import com.ssafy.upcycle.product.dto.ProductOrderItemResponse;
 import com.ssafy.upcycle.product.dto.ProductOrderResponse;
 import com.ssafy.upcycle.product.dto.ProductOrderSearchCondition;
+import com.ssafy.upcycle.product.dto.ProductOrderShippingResponse;
 import com.ssafy.upcycle.product.dto.ProductOrderStatusSummaryResponse;
 import com.ssafy.upcycle.product.entity.ProductItem;
 import com.ssafy.upcycle.product.entity.ProductModel;
 import com.ssafy.upcycle.product.entity.ProductOrder;
 import com.ssafy.upcycle.product.entity.ProductOrderItem;
 import com.ssafy.upcycle.product.entity.ProductOrderStatus;
+import com.ssafy.upcycle.product.entity.ProductShipping;
 import com.ssafy.upcycle.product.repository.ProductItemRepository;
 import com.ssafy.upcycle.product.repository.ProductModelRepository;
 import com.ssafy.upcycle.product.repository.ProductOrderItemRepository;
 import com.ssafy.upcycle.product.repository.ProductOrderRepository;
+import com.ssafy.upcycle.product.repository.ProductShippingRepository;
 import com.ssafy.upcycle.trade.dto.PageResponse;
 import com.ssafy.upcycle.user.entity.CompanyProfile;
 import com.ssafy.upcycle.user.entity.User;
@@ -41,6 +44,7 @@ public class ProductOrderQueryService {
 
     private final ProductOrderRepository productOrderRepository;
     private final ProductOrderItemRepository productOrderItemRepository;
+    private final ProductShippingRepository productShippingRepository;
     private final ProductItemRepository productItemRepository;
     private final ProductModelRepository productModelRepository;
     private final UserRepository userRepository;
@@ -132,11 +136,17 @@ public class ProductOrderQueryService {
                 .findAllById(orderItems.stream().map(ProductOrderItem::getProductModelId).toList())
                 .stream()
                 .collect(Collectors.toMap(ProductModel::getId, Function.identity()));
+        // 목록 한 페이지분을 한 번에 읽는다. 주문마다 따로 읽으면 줄 수만큼 쿼리가 나간다.
+        Map<Long, ProductShipping> shippingByOrderId =
+                productShippingRepository.findAllByProductOrderIdIn(orderIds).stream()
+                        .collect(Collectors.toMap(
+                                ProductShipping::getProductOrderId, Function.identity()));
         Map<Long, String> brandNames = loadBrandNames(orders);
         Map<Long, List<ProductOrderItem>> itemsByOrderId = orderItems.stream()
                 .collect(Collectors.groupingBy(ProductOrderItem::getProductOrderId));
 
-        return new OrderLookup(itemsByOrderId, itemsById, modelsById, brandNames);
+        return new OrderLookup(
+                itemsByOrderId, itemsById, modelsById, shippingByOrderId, brandNames);
     }
 
     private Map<Long, String> loadBrandNames(List<ProductOrder> orders) {
@@ -167,7 +177,9 @@ public class ProductOrderQueryService {
                 order.getPaidAt(),
                 order.getShippedAt(),
                 order.getDeliveredAt(),
-                items);
+                items,
+                ProductOrderShippingResponse.from(requireRelated(
+                        lookup.shippingByOrderId().get(order.getId()), "product shipping")));
     }
 
     private ProductOrderItemResponse toItemResponse(
@@ -200,10 +212,11 @@ public class ProductOrderQueryService {
             Map<Long, List<ProductOrderItem>> itemsByOrderId,
             Map<Long, ProductItem> itemsById,
             Map<Long, ProductModel> modelsById,
+            Map<Long, ProductShipping> shippingByOrderId,
             Map<Long, String> brandNames) {
 
         private static OrderLookup empty() {
-            return new OrderLookup(Map.of(), Map.of(), Map.of(), Map.of());
+            return new OrderLookup(Map.of(), Map.of(), Map.of(), Map.of(), Map.of());
         }
     }
 }

@@ -22,5 +22,13 @@ public record ProductOrderResponse(
         LocalDateTime paidAt,
         LocalDateTime shippedAt,
         LocalDateTime deliveredAt,
-        List<ProductOrderItemResponse> items) {
+        List<ProductOrderItemResponse> items,
+
+        /**
+         * 송장. 발송 전에는 안의 값이 전부 {@code null} 이다.
+         *
+         * <p>구매자가 "배송 중" 만 보고 어디쯤 왔는지 알 수 없어 브랜드에 연락하던 것을
+         * 메운다. 값은 원래 {@code product_shipping} 에 있었고 브랜드용 응답만 사용하고 있었다.
+         */
+        ProductOrderShippingResponse shipping) {
 }
