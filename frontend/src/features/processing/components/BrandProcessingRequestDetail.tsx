@@ -7,6 +7,7 @@ import { useBrandProcessingRequestDetail } from '../hooks/useBrandProcessingRequ
 import { PROCESS_TYPE_LABEL, type ProcessingQuoteStatus, type ProcessingRequestStatus } from '../types/processing.types.ts'
 import { MATERIAL_TYPE_LABEL } from '../types/processorProfile.types.ts'
 import { ProcessingPaymentEntry } from './ProcessingPaymentEntry.tsx'
+import { ProcessingShipmentForm } from './ProcessingShipmentForm.tsx'
 import './brand-processing-detail.css'
 
 const requestStatusLabel: Record<ProcessingRequestStatus, string> = {
@@ -27,7 +28,7 @@ interface Props { requestId: number }
 
 export function BrandProcessingRequestDetail({ requestId }: Props) {
   const [confirmingQuoteId, setConfirmingQuoteId] = useState<number | null>(null)
-  const { detail, quotes, selection } = useBrandProcessingRequestDetail(requestId)
+  const { detail, quotes, selection, job, ship } = useBrandProcessingRequestDetail(requestId)
 
   if (detail.isPending || quotes.isPending) {
     return <div className="br-detail__state" role="status">요청과 견적을 불러오는 중이에요…</div>
@@ -108,6 +109,13 @@ export function BrandProcessingRequestDetail({ requestId }: Props) {
           </div>
         )}
       </section>
+
+      {job?.status === 'PAID' && (
+        <ProcessingShipmentForm isPending={ship.isPending} error={ship.error} onSubmit={input => ship.mutate(input)} />
+      )}
+      {job && job.status !== 'CREATED' && job.status !== 'PAID' && (
+        <div className="br-detail__job-link"><span>작업 상태를 가공 진행 화면에서 확인할 수 있습니다.</span><Link to={`/processing/jobs/${job.jobId}`}>작업 상세 보기</Link></div>
+      )}
 
       <aside className="br-detail__notice"><CalendarBlank aria-hidden="true" /><p>요청은 {date(request.expiresAt)}까지 유효합니다. 견적 선택 시 현재 요청 Lock은 생성된 Job에 연결되어 결제가 완료될 때까지 유지됩니다.</p></aside>
     </section>

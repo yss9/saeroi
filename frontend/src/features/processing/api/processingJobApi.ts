@@ -1,6 +1,7 @@
 import { apiClient } from '../../../services/apiClient.ts'
 import type { MaterialType } from '../types/processorProfile.types.ts'
 import type { ProcessingJobStatus } from '../types/processing.types.ts'
+import type { MaterialGrade } from '../../material/types/material.types.ts'
 
 export type ProcessingSignatureAction = 'RESULT_SUBMIT' | 'APPROVE' | 'REJECT'
 
@@ -8,7 +9,8 @@ export interface ProcessingOutput {
   outputId: number
   materialId: number | null
   materialType: MaterialType
-  grade: string
+  grade: MaterialGrade
+  gradeReason: string
   name: string
   quantity: number
 }
@@ -42,8 +44,13 @@ export interface ProcessingJobDetail {
 }
 
 export interface ResultDraftInput {
-  lossQuantity: number
-  outputs: Array<{ materialType: MaterialType; grade: string; name: string; quantity: number }>
+  outputs: Array<{
+    materialType: MaterialType
+    grade: MaterialGrade
+    gradeReason: string
+    name: string
+    quantity: number
+  }>
 }
 
 export interface SignatureChallenge {

@@ -110,11 +110,14 @@ async function handleResponseError(error: unknown): Promise<AxiosResponse> {
     if (requestUsedCurrentAccessToken(config)) {
       await getOrStartTokenRefresh()
     }
-    return await apiClient.request(config)
   } catch (refreshError: unknown) {
     handleUnauthorized()
     return Promise.reject(normalizeAxiosError(refreshError))
   }
+
+  // 재발급 이후 원래 API가 403·404·500 또는 네트워크 오류를 내는 것은 세션 실패가 아니다.
+  // 재시도 요청 자체의 인터셉터가 오류를 정규화하게 두고, 여기서는 로그아웃하지 않는다.
+  return apiClient.request(config)
 }
 
 function requestUsedCurrentAccessToken(config: InternalAxiosRequestConfig): boolean {

@@ -300,6 +300,38 @@ describe('apiClient', () => {
     })
   })
 
+  it('재발급 성공 후 원래 요청이 다른 오류로 실패해도 로그인 상태를 유지한다', async () => {
+    useAuthStore.setState({
+      accessToken: 'old-access',
+      isAuthenticated: true,
+      user: FIXTURE_USER,
+    })
+    vi.spyOn(apiClient, 'post').mockResolvedValue({
+      data: { accessToken: 'new-access' },
+    } as AxiosResponse)
+    let attempts = 0
+
+    await expect(
+      apiClient.get('/processing-jobs', {
+        adapter: async (config) => {
+          attempts += 1
+          return Promise.reject(
+            attempts === 1
+              ? httpError(config, 401, errorEnvelope('TOKEN_EXPIRED', '토큰이 만료되었습니다.'))
+              : httpError(config, 500, errorEnvelope('INTERNAL_SERVER_ERROR', '서버 오류입니다.')),
+          )
+        },
+      }),
+    ).rejects.toMatchObject({ status: 500 })
+
+    expect(attempts).toBe(2)
+    expect(useAuthStore.getState()).toMatchObject({
+      user: FIXTURE_USER,
+      accessToken: 'new-access',
+      isAuthenticated: true,
+    })
+  })
+
   it('이미 로그아웃 상태에서 401 을 받아도 signOut 을 다시 부르지 않는다', async () => {
     // signOut 이 멱등하지 않다면(예: 이벤트 발행) 여기서 중복 처리가 드러난다.
     await expect(
