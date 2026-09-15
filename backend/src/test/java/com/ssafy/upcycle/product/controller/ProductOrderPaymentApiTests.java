@@ -400,6 +400,28 @@ class ProductOrderPaymentApiTests {
     }
 
     @Test
+    void anOrderPaidWithoutARealGatewayIsNotSentToOneForARefund() throws Exception {
+        // 결제 키가 없던 환경에서 결제한 주문을, 키가 생긴 뒤에 취소하는 경우다.
+        // 카카오페이에 없는 거래의 환불을 요청하면 거절되고, 그 주문은 영원히 취소할 수
+        // 없게 된다. 붙어 있는 게이트웨이가 아니라 "그때 청구한 쪽" 을 봐야 한다.
+        when(paymentGateway.isLive()).thenReturn(false);
+        Long orderId = placeOrder();
+        ready(orderId);
+        mockMvc.perform(approveRequest(orderId, consumerId)).andExpect(status().isOk());
+
+        // 그 사이 배포에 실제 키가 들어왔다.
+        when(paymentGateway.isLive()).thenReturn(true);
+
+        mockMvc.perform(cancelRequest(orderId, consumerId))
+                .andExpect(status().isOk());
+
+        verify(paymentGateway, never()).cancel(any());
+        assertThat(productOrderRepository.findById(orderId)).isEmpty();
+        assertThat(productItemRepository.findById(itemId).orElseThrow().getStatus())
+                .isEqualTo(ProductItemStatus.IN_STOCK);
+    }
+
+    @Test
     void someoneElseCannotCancelYourOrder() throws Exception {
         Long orderId = placeOrder();
 

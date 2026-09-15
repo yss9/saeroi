@@ -316,7 +316,11 @@ class ProductOrderDeliveryApiTests {
         mockMvc.perform(withJwt(post(BASE + "/" + orderId + "/cancel"), consumerId, UserRole.CONSUMER)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"reason\":\"변심\"}"))
-                .andExpect(status().isConflict());
+                .andExpect(status().isConflict())
+                // 프론트는 서버 문구를 그대로 띄운다. 결제 쪽 코드를 돌려주면
+                // "지금 상태에서는 처리할 수 없습니다" 가 뜨고, 사용자는 왜 안 되는지 모른다.
+                .andExpect(jsonPath("$.code").value("PRODUCT_ORDER_NOT_CANCELABLE"))
+                .andExpect(jsonPath("$.message").value("배송이 시작된 주문은 취소할 수 없습니다."));
 
         assertThat(productOrderRepository.findById(orderId)).isPresent();
         assertThat(productItemRepository.findById(itemId).orElseThrow().getStatus())
