@@ -395,7 +395,6 @@ a.ui-button { text-decoration: none; }
   --inv-blue: #216a9f;
 
   border: 1px solid var(--ui-color-border);
-  border-top: 3px solid var(--inv-blue);
   border-radius: var(--ui-radius);
   background: color-mix(in srgb, var(--inv-cream) 18%, var(--ui-color-surface));
   box-shadow: var(--ui-shadow);

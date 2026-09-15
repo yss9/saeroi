@@ -158,10 +158,14 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
   const rootOrigin = useWatch({ control, name: 'rootOrigin' })
   const originReason = useWatch({ control, name: 'originReason' })
   const composition = useWatch({ control, name: 'composition' })
+  const materialType = useWatch({ control, name: 'materialType' })
 
   const { fields, append, remove } = useFieldArray({ control, name: 'composition' })
 
   const isWaste = rootOrigin === 'WASTE'
+  // 소재 유형 ENUM 에 자유 입력 값을 보낼 수 없다(서버 400). '기타' 를 고르면
+  // 실제 종류를 설명에 적게 해 유형은 ENUM 그대로, 값은 설명으로 전달한다.
+  const isEtcMaterialType = materialType === 'ETC'
   const compositionTotal = (composition ?? []).reduce(
     (sum, row) => sum + (row?.percentage ?? 0),
     0,
@@ -199,6 +203,11 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
     }
     setWalletRequired(false)
 
+    // 각 섬유의 비율은 개별로는 100% 를 넘지 않아도(예: 60% + 60%) 합계는 넘을 수
+    // 있다. 버튼도 막아 두지만(disabled), 그 상태를 우회해 제출이 들어와도 여기서
+    // 다시 막는다 — 서버가 합계를 검증하지 않아 여기서 막지 않으면 그대로 등록된다.
+    if (compositionTotal > COMPOSITION_MAX_TOTAL) return
+
     try {
       // 서명 또는 서버 연결이 실패하면 이미 만든 DB 소재를 기억한다. 다음 제출에서는
       // 소재를 또 만들지 않고 같은 소재의 온체인 단계만 이어서 수행한다.
@@ -226,14 +235,34 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
   })
 
   return (
-    <form onSubmit={onSubmit} noValidate>
-      <Select
-        label="소재 유형"
-        placeholder="선택해 주세요"
-        options={MATERIAL_TYPE_OPTIONS}
-        error={errors.materialType?.message}
-        {...register('materialType', { required: '소재 유형을 선택해 주세요.' })}
-      />
+    <form className="material-form" onSubmit={onSubmit} noValidate>
+      {/* 짧은 필드는 한 줄에 여러 개 — 선택지 하나하나가 줄 하나를 다 차지하면
+          폼이 필요 이상으로 길어진다. 소재명 · 설명처럼 값이 길어질 수 있는
+          입력만 그리드 밖에 두고 전체 폭을 쓴다. */}
+      <div className="material-form__row">
+        <Select
+          label="소재 유형"
+          placeholder="선택해 주세요"
+          options={MATERIAL_TYPE_OPTIONS}
+          error={errors.materialType?.message}
+          {...register('materialType', { required: '소재 유형을 선택해 주세요.' })}
+        />
+
+        <Select
+          label="출처"
+          options={ROOT_ORIGIN_OPTIONS}
+          error={errors.rootOrigin?.message}
+          {...register('rootOrigin', { required: '출처를 선택해 주세요.' })}
+        />
+
+        <Select
+          label="등급 (선택)"
+          placeholder="선택 안 함"
+          options={GRADE_OPTIONS}
+          error={errors.grade?.message}
+          {...register('grade')}
+        />
+      </div>
 
       <Input
         label="소재명"
@@ -245,70 +274,62 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
         })}
       />
 
-      <Select
-        label="출처"
-        options={ROOT_ORIGIN_OPTIONS}
-        error={errors.rootOrigin?.message}
-        {...register('rootOrigin', { required: '출처를 선택해 주세요.' })}
-      />
+      <div className="material-form__row">
+        <Input
+          label="수량 (kg)"
+          type="number"
+          step="0.1"
+          placeholder="20.5"
+          error={errors.quantityKg?.message}
+          {...register('quantityKg', {
+            // input[type=number] 도 값은 문자열로 온다. 숫자로 변환해 두면 아래 검증이
+            // 문자열 비교로 새지 않는다.
+            valueAsNumber: true,
+            required: '수량을 입력해 주세요.',
+            validate: (value) => {
+              if (!Number.isFinite(value)) return '수량을 숫자로 입력해 주세요.'
+              if (value <= 0) return '수량은 0보다 커야 합니다.'
+              if (value > MAX_QUANTITY_KG) return `수량은 ${MAX_QUANTITY_KG.toLocaleString('ko-KR')}kg 이하여야 합니다.`
+              // 1g 미만은 저장 단위(gram 정수)로 표현할 수 없다. 0.0004kg 을 받아
+              // 0g 으로 저장하면 서버가 "수량은 양수" 로 거절해 원인이 드러나지 않는다.
+              if (kgToGram(value) < 1) return '수량은 최소 1g(0.001kg) 이상이어야 합니다.'
+              return true
+            },
+          })}
+        />
+
+        <Input
+          label="길이 (mm, 선택)"
+          type="number"
+          error={errors.lengthMm?.message}
+          {...register('lengthMm', {
+            setValueAs: toOptionalNumber,
+            validate: (value) =>
+              value === null || value > 0 || '길이는 0보다 커야 합니다.',
+          })}
+        />
+
+        <Input
+          label="너비 (mm, 선택)"
+          type="number"
+          error={errors.widthMm?.message}
+          {...register('widthMm', {
+            setValueAs: toOptionalNumber,
+            validate: (value) =>
+              value === null || value > 0 || '너비는 0보다 커야 합니다.',
+          })}
+        />
+      </div>
 
       <Input
-        label="수량 (kg)"
-        type="number"
-        step="0.1"
-        placeholder="20.5"
-        error={errors.quantityKg?.message}
-        {...register('quantityKg', {
-          // input[type=number] 도 값은 문자열로 온다. 숫자로 변환해 두면 아래 검증이
-          // 문자열 비교로 새지 않는다.
-          valueAsNumber: true,
-          required: '수량을 입력해 주세요.',
-          validate: (value) => {
-            if (!Number.isFinite(value)) return '수량을 숫자로 입력해 주세요.'
-            if (value <= 0) return '수량은 0보다 커야 합니다.'
-            if (value > MAX_QUANTITY_KG) return `수량은 ${MAX_QUANTITY_KG.toLocaleString('ko-KR')}kg 이하여야 합니다.`
-            // 1g 미만은 저장 단위(gram 정수)로 표현할 수 없다. 0.0004kg 을 받아
-            // 0g 으로 저장하면 서버가 "수량은 양수" 로 거절해 원인이 드러나지 않는다.
-            if (kgToGram(value) < 1) return '수량은 최소 1g(0.001kg) 이상이어야 합니다.'
-            return true
-          },
-        })}
-      />
-
-      <Select
-        label="등급 (선택)"
-        placeholder="선택 안 함"
-        options={GRADE_OPTIONS}
-        error={errors.grade?.message}
-        {...register('grade')}
-      />
-
-      <Input
-        label="설명 (선택)"
-        placeholder="봉제 공장에서 회수한 자투리 원단"
+        label={isEtcMaterialType ? '설명 (기타 소재의 실제 종류를 적어주세요)' : '설명 (선택)'}
+        placeholder={isEtcMaterialType ? '예: 대나무 섬유' : '봉제 공장에서 회수한 자투리 원단'}
         error={errors.description?.message}
-        {...register('description')}
-      />
-
-      <Input
-        label="길이 (mm, 선택)"
-        type="number"
-        error={errors.lengthMm?.message}
-        {...register('lengthMm', {
-          setValueAs: toOptionalNumber,
+        {...register('description', {
+          // ENUM 목록에 없는 소재는 '기타' 로만 보낼 수 있다 — 실제 종류가 어디에도
+          // 안 남으면 등록 후 사람이 봐도 무슨 소재인지 알 수 없다.
           validate: (value) =>
-            value === null || value > 0 || '길이는 0보다 커야 합니다.',
-        })}
-      />
-
-      <Input
-        label="너비 (mm, 선택)"
-        type="number"
-        error={errors.widthMm?.message}
-        {...register('widthMm', {
-          setValueAs: toOptionalNumber,
-          validate: (value) =>
-            value === null || value > 0 || '너비는 0보다 커야 합니다.',
+            !isEtcMaterialType || value.trim().length > 0 || '기타를 선택하면 설명이 필요합니다.',
         })}
       />
 
@@ -317,42 +338,52 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
         내므로, 칸을 감추는 것이 오류 메시지를 다듬는 것보다 낫다.
       */}
       {isWaste && (
-        <Select
-          label="발생 사유 (선택)"
-          placeholder="선택 안 함"
-          options={ORIGIN_REASON_OPTIONS}
-          error={errors.originReason?.message}
-          {...register('originReason')}
-        />
+        <div className="material-form__row">
+          <Select
+            label="발생 사유 (선택)"
+            placeholder="선택 안 함"
+            options={ORIGIN_REASON_OPTIONS}
+            error={errors.originReason?.message}
+            {...register('originReason')}
+          />
+
+          {/* ETC 는 값 자체가 뜻을 담지 않아 설명이 없으면 분류가 무의미해진다. */}
+          {originReasonRequiresNote(originReason as MaterialOriginReason) && (
+            <Input
+              label="발생 사유 설명"
+              placeholder="행사 후 남은 배너 원단"
+              error={errors.originReasonNote?.message}
+              {...register('originReasonNote', {
+                required: '기타를 선택하면 설명이 필요합니다.',
+                maxLength: { value: 200, message: '설명은 200자를 넘을 수 없습니다.' },
+              })}
+            />
+          )}
+        </div>
       )}
 
-      {/* ETC 는 값 자체가 뜻을 담지 않아 설명이 없으면 분류가 무의미해진다. */}
-      {isWaste && originReasonRequiresNote(originReason as MaterialOriginReason) && (
-        <Input
-          label="발생 사유 설명"
-          placeholder="행사 후 남은 배너 원단"
-          error={errors.originReasonNote?.message}
-          {...register('originReasonNote', {
-            required: '기타를 선택하면 설명이 필요합니다.',
-            maxLength: { value: 200, message: '설명은 200자를 넘을 수 없습니다.' },
-          })}
-        />
-      )}
-
-      <fieldset>
+      <fieldset className="material-form__composition">
         <legend>구성 (선택)</legend>
         {/*
           합계 100 을 요구하지 않는다. "면 60% 는 확실하고 나머지는 모른다" 가 흔하고,
           강제하면 사용자가 "기타 40%" 를 지어낸다. 대신 합계를 보여줘 스스로 판단하게 한다.
         */}
-        <p aria-live="polite">
+        <p
+          aria-live="polite"
+          role={compositionTotal > COMPOSITION_MAX_TOTAL ? 'alert' : undefined}
+          className={
+            compositionTotal > COMPOSITION_MAX_TOTAL
+              ? 'material-form__composition-total material-form__composition-total--error'
+              : 'material-form__composition-total'
+          }
+        >
           합계 {compositionTotal.toLocaleString('ko-KR')}%
-          {compositionTotal > COMPOSITION_MAX_TOTAL && ' — 100%를 넘을 수 없습니다.'}
+          {compositionTotal > COMPOSITION_MAX_TOTAL && ' — 100%를 넘을 수 없습니다. 등록하려면 비율을 줄여주세요.'}
           {compositionTotal > 0 && compositionTotal < COMPOSITION_MAX_TOTAL && ' (나머지 미확인)'}
         </p>
 
         {fields.map((field, index) => (
-          <div key={field.id}>
+          <div key={field.id} className="material-form__composition-row">
             <Select
               label={`섬유 ${index + 1}`}
               placeholder="선택해 주세요"
@@ -436,7 +467,11 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
         </div>
       )}
 
-      <Button type="submit" loading={isPending || mint.isBusy}>
+      <Button
+        type="submit"
+        loading={isPending || mint.isBusy}
+        disabled={compositionTotal > COMPOSITION_MAX_TOTAL}
+      >
         {pendingRegistration && !mint.isBusy ? '소재 등록 완료하기' : '소재 등록'}
       </Button>
     </form>

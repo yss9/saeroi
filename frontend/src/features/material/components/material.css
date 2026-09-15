@@ -6,6 +6,67 @@
  */
 
 /*
+ * 소재 등록 폼 — 짧은 선택지를 한 줄에 묶는다.
+ *
+ * Select/Input 하나하나가 기본으로 폭 100%(.ui-field)라, 값 몇 글자짜리 선택지도
+ * 줄 하나를 다 차지해 폼이 필요 이상으로 길어졌다. Input/Select 는 className 을
+ * 받지 않아(공용 컴포넌트 보호) 그리드는 부모에 건다 — 자식(.ui-field)은 그대로
+ * 두고 부모의 grid-template-columns 가 배치를 정한다.
+ */
+.material-form__row {
+  display: grid;
+  gap: 0 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+}
+
+/* "소재 등록" 제출 버튼만 판매 등록 폼(.listing-form)과 같은 파란색으로 맞춘다.
+   Button 컴포넌트는 className 을 안 받으므로(공용 컴포넌트 보호) 조상 스코프로
+   문다 — 다른 화면의 기본 버튼(초록)은 그대로 둔다. */
+.material-form .ui-button--primary {
+  background: #216a9f;
+}
+.material-form .ui-button--primary:hover:not(:disabled) {
+  background: color-mix(in srgb, #216a9f 85%, black);
+}
+
+/* 섬유 종류 · 비율 · 삭제 버튼. 버튼은 라벨이 없어 짧으므로 폭을 고정해 둔다 —
+   auto-fit 에 맡기면 다른 칸과 똑같이 늘어나 버튼만 헐렁해진다. */
+.material-form__composition-row {
+  display: grid;
+  gap: 0 1rem;
+  grid-template-columns: minmax(9rem, 1fr) minmax(7rem, 1fr) auto;
+  align-items: end;
+  margin-bottom: 1rem;
+}
+
+/* "구성 (선택)" — 브라우저 기본 <fieldset>/<legend> 테두리·글꼴을 그대로 뒀더니
+   나머지 입력칸(.ui-field, 공용 Input/Select)과 선 두께·모서리·글자 크기가 달라
+   이 구획만 튀어 보였다. 공통 카드 톤(--ui-color-border · --ui-radius)에 맞춘다. */
+.material-form__composition {
+  margin: 0 0 1rem;
+  padding: 1rem 1.125rem 1.25rem;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius);
+}
+.material-form__composition > legend {
+  padding: 0 0.4rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ui-color-text);
+}
+.material-form__composition-total {
+  margin: 0 0 1rem;
+  font-size: 0.875rem;
+  color: var(--ui-color-muted);
+}
+/* 개별 비율은 하나하나 100%를 안 넘어도(예: 60% + 60%) 합계는 넘을 수 있다.
+   그때는 등록 버튼도 막지만(disabled), 왜 막혔는지 여기서 먼저 알려준다. */
+.material-form__composition-total--error {
+  font-weight: 600;
+  color: var(--ui-color-danger);
+}
+
+/*
  * 지갑 없이 등록을 시도했을 때의 안내.
  *
  * 오류가 아니라 <b>할 일 안내</b>라 danger 가 아닌 warning 으로 둔다. 사용자가 뭘

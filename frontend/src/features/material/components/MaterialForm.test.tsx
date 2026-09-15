@@ -210,6 +210,50 @@ describe('필수 검증', () => {
     expect(await screen.findByText('소재명을 입력해 주세요.')).toBeInTheDocument()
     expect(api.createMaterial).not.toHaveBeenCalled()
   })
+
+  // 소재 유형은 ENUM 7종 고정이라 자유 입력을 서버로 보낼 수 없다(400). '기타'
+  // 를 고르면 실제 종류가 어디에도 안 남지 않도록 설명을 사실상 필수로 만든다.
+  it("소재 유형이 '기타' 인데 설명이 없으면 보내지 않는다", async () => {
+    renderForm()
+    const user = await fillRequired()
+    await user.selectOptions(screen.getByLabelText('소재 유형'), 'ETC')
+    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+
+    expect(await screen.findByText('기타를 선택하면 설명이 필요합니다.')).toBeInTheDocument()
+    expect(api.createMaterial).not.toHaveBeenCalled()
+  })
+
+  it("소재 유형이 '기타' 여도 설명을 채우면 보낸다", async () => {
+    renderForm()
+    const user = await fillRequired()
+    await user.selectOptions(screen.getByLabelText('소재 유형'), 'ETC')
+    await user.type(screen.getByLabelText(/설명/), '대나무 섬유')
+    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+
+    await waitFor(() => expect(api.createMaterial).toHaveBeenCalledTimes(1))
+    expect(submitted()).toMatchObject({ materialType: 'ETC', description: '대나무 섬유' })
+  })
+
+  // 섬유 하나하나의 비율은 100%를 안 넘어도(60% + 60%) 합계는 넘을 수 있다.
+  // 각 입력칸의 개별 validate 만으로는 이 조합을 못 잡아 등록이 그대로 됐었다.
+  it('구성 비율 합계가 100%를 넘으면 등록 버튼이 막힌다', async () => {
+    renderForm()
+    const user = await fillRequired()
+
+    await user.click(screen.getByRole('button', { name: '섬유 추가' }))
+    await user.selectOptions(screen.getByLabelText('섬유 1'), 'COTTON')
+    await user.type(screen.getByLabelText('비율 1 (%)'), '60')
+
+    await user.click(screen.getByRole('button', { name: '섬유 추가' }))
+    await user.selectOptions(screen.getByLabelText('섬유 2'), 'POLYESTER')
+    await user.type(screen.getByLabelText('비율 2 (%)'), '60')
+
+    expect(await screen.findByText(/100%를 넘을 수 없습니다/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '소재 등록' })).toBeDisabled()
+
+    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+    expect(api.createMaterial).not.toHaveBeenCalled()
+  })
 })
 
 describe('등록 후', () => {
