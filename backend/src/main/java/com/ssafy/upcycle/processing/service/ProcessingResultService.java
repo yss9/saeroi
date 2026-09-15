@@ -74,7 +74,7 @@ public class ProcessingResultService {
         for (ProcessingOutputRequest output : request.outputs()) {
             outputs.save(ProcessingOutput.submit(
                     jobId, input.getId(), output.materialType(), output.name(), output.grade(),
-                    output.quantity()));
+                    output.gradeReason(), output.quantity()));
         }
         job.submitResult(
                 input.getQuantity(), outputQuantity, request.evidenceHash(), request.manifestUrl(), now());

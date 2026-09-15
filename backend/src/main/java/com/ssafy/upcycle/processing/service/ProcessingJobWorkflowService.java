@@ -86,15 +86,13 @@ public class ProcessingJobWorkflowService {
         long outputSum;
         try { outputSum = request.outputs().stream().mapToLong(ProcessingOutputRequest::quantity).reduce(0, Math::addExact); }
         catch (ArithmeticException overflow) { throw new BusinessException(PROCESSING_RESULT_INVALID); }
-        long accountedQuantity;
-        try { accountedQuantity = Math.addExact(outputSum, request.lossQuantity()); }
-        catch (ArithmeticException overflow) { throw new BusinessException(PROCESSING_RESULT_INVALID); }
-        if (accountedQuantity != input.getQuantity())
+        if (outputSum > input.getQuantity())
             throw new BusinessException(PROCESSING_RESULT_INVALID);
-        job.saveResultDraft(request.lossQuantity(), now());
+        long lossQuantity = input.getQuantity() - outputSum;
+        job.saveResultDraft(lossQuantity, now());
         outputs.deleteByProcessingJobId(jobId);
         outputs.saveAll(request.outputs().stream().map(row -> ProcessingOutput.draft(jobId, input.getId(),
-                row.materialType(), row.grade(), row.name(), row.quantity())).toList());
+                row.materialType(), row.grade(), row.gradeReason(), row.name(), row.quantity())).toList());
         return response(job);
     }
 

@@ -537,6 +537,7 @@ CREATE TABLE processing_output (
     output_material_id BIGINT NULL,
     material_type VARCHAR(50) NOT NULL,
     grade VARCHAR(50) NOT NULL,
+    grade_reason VARCHAR(500) NOT NULL,
     name VARCHAR(200) NOT NULL,
     quantity BIGINT NOT NULL,
     CONSTRAINT pk_processing_output PRIMARY KEY (id),

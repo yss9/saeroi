@@ -576,7 +576,7 @@ class ProcessingRequestTests {
         mvc.perform(post("/processing-jobs/{id}/results", jobId)
                         .with(jwt().jwt(j -> j.subject(processorId.toString())))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"lossQuantity\":100,\"outputs\":[{\"materialType\":\"DENIM\",\"grade\":\"A\",\"name\":\"재생 데님\",\"quantity\":200}]}"))
+                        .content("{\"lossQuantity\":100,\"outputs\":[{\"materialType\":\"DENIM\",\"grade\":\"A\",\"gradeReason\":\"오염과 손상이 없음\",\"name\":\"재생 데님\",\"quantity\":200}]}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("data.resultRevision").value(1));
         evidenceFiles.save(EvidenceFile.record(EvidenceReferenceType.PROCESSING_JOB, jobId,
                 "processing/result.jpg", "0x" + "a".repeat(64), EvidenceType.AFTER_PHOTO, processorId));
@@ -673,8 +673,8 @@ class ProcessingRequestTests {
                         .content("""
                                 {
                                   "outputs": [
-                                    {"materialType":"COTTON","name":"재생 면사","grade":"A","quantity":200},
-                                    {"materialType":"DENIM","name":"재생 데님 조각","grade":"B","quantity":50}
+                                    {"materialType":"COTTON","name":"재생 면사","grade":"A","gradeReason":"오염과 손상이 없음","quantity":200},
+                                    {"materialType":"DENIM","name":"재생 데님 조각","grade":"B","gradeReason":"표면에 경미한 오염이 남아 있음","quantity":50}
                                   ],
                                   "evidenceHash":"0x%s",
                                   "manifestUrl":"https://example.com/processing/manifest.json"
@@ -747,7 +747,7 @@ class ProcessingRequestTests {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"outputs":[
-                                  {"materialType":"DENIM","name":"과다 산출","grade":"A","quantity":301}
+                                  {"materialType":"DENIM","name":"과다 산출","grade":"A","gradeReason":"오염과 손상이 없음","quantity":301}
                                 ]}
                                 """))
                 .andExpect(status().isBadRequest())
@@ -766,6 +766,67 @@ class ProcessingRequestTests {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("code").value("PROCESSING_INVALID_STATE"));
         assertThat(jdbc.queryForObject("select count(*) from material_lineage", Long.class)).isZero();
+    }
+
+    @Test
+    void resultDraftCalculatesLossFromInputAndOutputs() throws Exception {
+        long jobId = startProcessingJob(300);
+
+        mvc.perform(post("/processing-jobs/{id}/results", jobId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"outputs":[
+                                  {"materialType":"COTTON","name":"재생 면사","grade":"A","gradeReason":"오염과 손상이 없음","quantity":200},
+                                  {"materialType":"DENIM","name":"재생 데님 조각","grade":"B","gradeReason":"표면에 경미한 오염이 남아 있음","quantity":50}
+                                ]}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("data.lossQuantity").value(50))
+                .andExpect(jsonPath("data.resultRevision").value(1))
+                .andExpect(jsonPath("data.outputs[1].gradeReason")
+                        .value("표면에 경미한 오염이 남아 있음"));
+
+        mvc.perform(post("/processing-jobs/{id}/results", jobId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"outputs":[
+                                  {"materialType":"DENIM","name":"사유 없는 산출물","grade":"A","gradeReason":"","quantity":200}
+                                ]}
+                                """))
+                .andExpect(status().isBadRequest());
+
+        assertThat(jdbc.queryForObject(
+                "select loss_quantity from processing_job where id=?", Long.class, jobId))
+                .isEqualTo(50L);
+
+        mvc.perform(post("/processing-jobs/{id}/results", jobId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"lossQuantity":999,"outputs":[
+                                  {"materialType":"COTTON","name":"재생 면사","grade":"A","gradeReason":"오염과 손상이 없음","quantity":240}
+                                ]}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("data.lossQuantity").value(60))
+                .andExpect(jsonPath("data.resultRevision").value(2));
+
+        mvc.perform(post("/processing-jobs/{id}/results", jobId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"lossQuantity":999,"outputs":[
+                                  {"materialType":"DENIM","name":"과다 산출","grade":"A","gradeReason":"오염과 손상이 없음","quantity":301}
+                                ]}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("code").value("PROCESSING_RESULT_INVALID"));
+
+        assertThat(jdbc.queryForObject(
+                "select loss_quantity from processing_job where id=?", Long.class, jobId))
+                .isEqualTo(60L);
     }
 
     private long startProcessingJob(long amount) throws Exception {

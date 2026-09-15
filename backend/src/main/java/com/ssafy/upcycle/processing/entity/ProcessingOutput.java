@@ -15,24 +15,27 @@ public class ProcessingOutput {
     @Column(name = "output_material_id") private Long outputMaterialId;
     @Enumerated(EnumType.STRING) @Column(name = "material_type", nullable = false, length = 50) private MaterialType materialType;
     @Column(nullable = false, length = 50) private String grade;
+    @Column(name = "grade_reason", nullable = false, length = 500) private String gradeReason;
     @Column(nullable = false, length = 200) private String name;
     @Column(nullable = false) private long quantity;
 
     public static ProcessingOutput draft(Long jobId, Long inputId, MaterialType type,
-            String grade, String name, long quantity) {
+            String grade, String gradeReason, String name, long quantity) {
         if (jobId == null || inputId == null || type == null || grade == null || grade.isBlank()
-                || grade.trim().length() > 50 || name == null || name.isBlank()
+                || !grade.trim().matches("[ABC]") || gradeReason == null || gradeReason.isBlank()
+                || gradeReason.trim().length() > 500 || name == null || name.isBlank()
                 || name.trim().length() > 200 || quantity <= 0)
             throw new IllegalArgumentException("Valid output fields are required");
         ProcessingOutput output = new ProcessingOutput();
         output.processingJobId=jobId; output.processingInputId=inputId; output.materialType=type;
-        output.grade=grade.trim(); output.name=name.trim(); output.quantity=quantity;
+        output.grade=grade.trim(); output.gradeReason=gradeReason.trim(); output.name=name.trim();
+        output.quantity=quantity;
         return output;
     }
 
     public static ProcessingOutput submit(Long jobId, Long inputId, MaterialType type,
-            String name, String grade, long quantity) {
-        return draft(jobId, inputId, type, grade, name, quantity);
+            String name, String grade, String gradeReason, long quantity) {
+        return draft(jobId, inputId, type, grade, gradeReason, name, quantity);
     }
 
     public void linkMaterial(Long materialId) {
