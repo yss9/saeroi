@@ -48,17 +48,15 @@ export function TradeList({ filters }: TradeListProps) {
   }
 
   return (
-    <ul className="trade-list">
+    <ul className="trade-grid">
       {data.content.map((trade) => (
-        <li key={trade.tradeId} className="trade-list__item">
-          <Link to={`/trades/${trade.tradeId}`} className="trade-list__link">
-            <div className="trade-list__main">
-              <span className="trade-list__code">{trade.tradeCode}</span>
-              <strong className="trade-list__name">{trade.materialName}</strong>
-              <span className="trade-list__quantity">{formatKg(trade.quantity)}</span>
-            </div>
-            <div className="trade-list__side">
-              <span className="trade-list__price">{formatWon(trade.totalPrice)}</span>
+        <li key={trade.tradeId} className="trade-card">
+          <Link to={`/trades/${trade.tradeId}`} className="trade-card__link">
+            <span className="trade-card__code">{trade.tradeCode}</span>
+            <strong className="trade-card__name">{trade.materialName}</strong>
+            <span className="trade-card__quantity">{formatKg(trade.quantity)}</span>
+            <span className="trade-card__price">{formatWon(trade.totalPrice)}</span>
+            <div className="trade-card__footer">
               <StatusBadge tone={TONE[trade.status]}>
                 {TRADE_STATUS_LABEL[trade.status]}
               </StatusBadge>
@@ -66,7 +64,7 @@ export function TradeList({ filters }: TradeListProps) {
                   목록이 길어지면 "결제 안 한 게 뭐였지" 를 찾기 어려워진다.
                   판매자에게는 결제 완료 건이 곧 발송해야 할 건이다. */}
               {actionRequired.includes(trade.status) && (
-                <span className="trade-list__action-hint">
+                <span className="trade-card__action-hint">
                   {isSellerView ? '발송 필요' : '확인 필요'}
                 </span>
               )}

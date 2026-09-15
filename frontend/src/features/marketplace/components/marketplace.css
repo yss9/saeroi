@@ -202,28 +202,67 @@
   color: var(--ui-color-muted);
 }
 
-/* ── 거래 ────────────────────────────────────────────── */
-.trade-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.6rem; }
-.trade-list__link {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+/* ── 거래 카드 ───────────────────────────────────────────
+   기존엔 표 한 줄에 코드·소재명·수량·금액·상태·발송 안내까지 다 늘어놓아 옆으로
+   너무 길었다(InventoryList 카드화와 같은 이유). 4열 카드로 바꾼다. */
+.trade-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
   gap: 1rem;
-  padding: 0.9rem 1.15rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@media (max-width: 64rem) {
+  .trade-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 30rem) {
+  .trade-grid { grid-template-columns: 1fr; }
+}
+
+.trade-card {
   border: 1px solid var(--ui-color-border);
-  border-radius: 8px;
+  border-radius: var(--ui-radius);
   background: var(--ui-color-surface);
+  box-shadow: var(--ui-shadow);
+  overflow: hidden;
+}
+.trade-card:hover { border-color: var(--ui-color-primary); }
+
+.trade-card__link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.3rem;
+  padding: 0.9rem 1rem 1rem;
   color: inherit;
   text-decoration: none;
 }
-.trade-list__link:hover { border-color: var(--ui-color-primary); }
-.trade-list__main { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
-.trade-list__code { font-size: 0.72rem; color: var(--ui-color-muted); font-family: ui-monospace, Menlo, monospace; }
-.trade-list__name { font-size: 0.98rem; }
-.trade-list__quantity { font-size: 0.82rem; color: var(--ui-color-muted); }
-.trade-list__side { display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; }
-.trade-list__price { font-variant-numeric: tabular-nums; font-weight: 600; }
-.trade-list__action-hint {
+
+.trade-card__code {
+  font-size: 0.72rem;
+  color: var(--ui-color-muted);
+  font-family: ui-monospace, Menlo, monospace;
+}
+.trade-card__name { font-size: 0.95rem; font-weight: 600; }
+.trade-card__quantity { font-size: 0.82rem; color: var(--ui-color-muted); }
+.trade-card__price {
+  margin-top: 0.2rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.trade-card__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem 0.5rem;
+  margin-top: 0.2rem;
+}
+.trade-card__action-hint {
   font-size: 0.72rem;
   font-weight: 700;
   color: var(--ui-color-warning);
