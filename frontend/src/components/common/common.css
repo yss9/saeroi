@@ -386,15 +386,22 @@ a.ui-button { text-decoration: none; }
   .inventory-grid { grid-template-columns: 1fr; }
 }
 
+/* 이 카드만의 팔레트 — 나머지 화면(--ui-color-primary 등)에는 영향을 주지 않는다.
+   크림/오렌지/블루는 소재 등록·보유·판매(InventoryList, MaterialDetailPage,
+   SupplierMarketPage)에서만 함께 쓴다. */
 .inventory-card {
+  --inv-cream: #e5d7bd;
+  --inv-orange: #ff9b69;
+  --inv-blue: #216a9f;
+
   border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius);
-  background: var(--ui-color-surface);
+  background: color-mix(in srgb, var(--inv-cream) 18%, var(--ui-color-surface));
   box-shadow: var(--ui-shadow);
   overflow: hidden;
 }
 .inventory-card:hover {
-  border-color: var(--ui-color-primary);
+  border-color: var(--inv-blue);
 }
 
 .inventory-card__link {
@@ -439,7 +446,7 @@ a.ui-button { text-decoration: none; }
   font-weight: 700;
   font-size: 1.05rem;
   font-variant-numeric: tabular-nums;
-  color: var(--ui-color-primary);
+  color: var(--inv-orange);
 }
 
 .material-lineage__card--clickable {

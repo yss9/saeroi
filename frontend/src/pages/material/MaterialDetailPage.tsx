@@ -1,6 +1,7 @@
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
   BackLink,
+  Button,
   EmptyState,
   ErrorMessage,
   Loading,
@@ -53,6 +54,7 @@ export function MaterialDetailPage() {
   const id = Number.isInteger(parsed) && parsed > 0 ? parsed : null
 
   const { data, isPending, isError, error, refetch } = useMaterial(id)
+  const navigate = useNavigate()
 
   // **출구는 이른 반환보다 먼저 그려져야 한다.** 조회가 실패한 화면이야말로 사용자가
   // 나가고 싶은 화면인데, BackLink 를 성공 분기에만 두면 그때 갇힌다. 이 화면은
@@ -94,6 +96,11 @@ export function MaterialDetailPage() {
         <StatusBadge tone={data.status === 'ACTIVE' ? 'success' : 'neutral'}>
           {data.status === 'ACTIVE' ? '보유 중' : '소진'}
         </StatusBadge>
+        {/* 소재 선택까지 골라 두면(SupplierMarketPage 의 materialId 쿼리) 판매
+            등록 화면에서 소재를 다시 고를 필요가 없다. */}
+        <Button size="sm" onClick={() => navigate(`/supplier/listings?materialId=${id}`)}>
+          보유 소재 팔기
+        </Button>
       </header>
 
       <section aria-labelledby="material-info">

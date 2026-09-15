@@ -2,9 +2,14 @@
  *
  * 이 화면에는 스타일이 전혀 없었다 — 제목과 <dl> 이 브라우저 기본값으로 그려져
  * 항목이 세로로 길게 늘어섰고, dt 와 dd 가 붙어 어느 값이 어느 항목인지 읽기 어려웠다.
- * common.css 의 --ui-* 토큰만 쓴다. 색을 새로 만들지 않는다. */
+ * common.css 의 --ui-* 토큰을 기본으로 쓰고, 헤더 한 곳만 소재 흐름 전용 팔레트
+ * (크림·오렌지·블루 — InventoryList·SupplierMarketPage 와 맞춤)로 포인트를 준다. */
 
 .material-detail__header {
+  --md-cream: #e5d7bd;
+  --md-orange: #ff9b69;
+  --md-blue: #216a9f;
+
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -16,7 +21,7 @@
   margin: 0;
   font-size: 22px;
   letter-spacing: -0.01em;
-  color: var(--ui-color-text);
+  color: var(--md-blue);
 }
 
 /* 소재 코드는 사람이 대조하는 식별자다. 등폭으로 두어야 자리수를 셀 수 있다. */
@@ -25,10 +30,20 @@
   padding: 2px 8px;
   border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius-sm);
-  background: var(--ui-color-bg);
+  background: color-mix(in srgb, var(--md-cream) 45%, var(--ui-color-bg));
   font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
   font-size: 12px;
   color: var(--ui-color-muted);
+}
+
+/* "보유 소재 팔기" — 이 헤더 안의 기본 버튼만 오렌지로 눈에 띄게 한다.
+   Button 컴포넌트는 className 을 안 받으므로(공용 컴포넌트 보호) 조상 스코프로 문다. */
+.material-detail__header .ui-button--primary {
+  background: var(--md-orange);
+  color: #172033;
+}
+.material-detail__header .ui-button--primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--md-orange) 85%, black);
 }
 
 /* 항목 목록. 좁은 화면에서는 한 줄, 넓으면 두세 줄로 접힌다. */
