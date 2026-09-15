@@ -248,6 +248,28 @@ describe('BrandProductList', () => {
     expect(await screen.findByRole('link', { name: 'QR 라벨 보기' })).toBeInTheDocument()
   })
 
+  // 오타 하나를 고칠 방법이 없었다. 가격을 잘못 넣으면 결제가 통째로 실패한다.
+  it('제품 수정으로 가는 길을 준다', async () => {
+    api.getMyProductModels.mockResolvedValue([product({ status: 'ON_SALE', stockQuantity: 4 })])
+    renderList()
+
+    expect(await screen.findByRole('link', { name: '제품 수정' })).toHaveAttribute(
+      'href',
+      '/brand/products/31/edit',
+    )
+  })
+
+  // 서버가 PRODUCT_MODEL_DISCONTINUED 로 거절한다. 눌러 보고 알게 하지 않는다.
+  it('단종된 제품에는 수정 링크를 두지 않는다', async () => {
+    api.getMyProductModels.mockResolvedValue([
+      product({ status: 'DISCONTINUED', stockQuantity: 0 }),
+    ])
+    renderList()
+
+    await screen.findByText('업사이클 데님 토트백')
+    expect(screen.queryByRole('link', { name: '제품 수정' })).not.toBeInTheDocument()
+  })
+
   it('조회가 실패하면 다시 시도할 수 있게 한다', async () => {
     api.getMyProductModels.mockRejectedValue(
       createAppError(ERROR_KIND.NETWORK_ERROR, { message: '서버에 연결할 수 없습니다.' }),
