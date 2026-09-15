@@ -10,10 +10,12 @@ import com.ssafy.upcycle.product.entity.ProductItem;
 import com.ssafy.upcycle.product.entity.ProductModel;
 import com.ssafy.upcycle.product.entity.ProductOrder;
 import com.ssafy.upcycle.product.entity.ProductOrderItem;
+import com.ssafy.upcycle.product.entity.ProductShipping;
 import com.ssafy.upcycle.product.repository.ProductItemRepository;
 import com.ssafy.upcycle.product.repository.ProductModelRepository;
 import com.ssafy.upcycle.product.repository.ProductOrderItemRepository;
 import com.ssafy.upcycle.product.repository.ProductOrderRepository;
+import com.ssafy.upcycle.product.repository.ProductShippingRepository;
 import com.ssafy.upcycle.trade.entity.PaymentMethod;
 import com.ssafy.upcycle.user.entity.CompanyProfile;
 import com.ssafy.upcycle.user.entity.User;
@@ -65,6 +67,9 @@ class ProductOrderControllerTests {
 
     @Autowired
     private ProductOrderItemRepository productOrderItemRepository;
+
+    @Autowired
+    private ProductShippingRepository productShippingRepository;
 
     private User consumer;
     private User brand;
@@ -252,6 +257,16 @@ class ProductOrderControllerTests {
         ProductOrder saved = productOrderRepository.save(order);
         productOrderItemRepository.save(ProductOrderItem.of(
                 saved.getId(), item.getId(), model.getId(), 129_000));
+
+        // 주문은 항상 배송지와 함께 만들어진다(ProductOrderCommandService.place).
+        // 그 단계를 건너뛰면 어디로 보낼지 모르는 주문이 된다.
+        ProductShipping shipping = ProductShipping.of(
+                saved.getId(), "홍길동", "010-1111-2222",
+                "06236", "서울특별시 강남구 테헤란로 212", "5층");
+        if (state == OrderState.SHIPPED || state == OrderState.DELIVERED) {
+            shipping.registerShipment("CJ대한통운", "123456789012", now.plusDays(1));
+        }
+        productShippingRepository.save(shipping);
         return saved;
     }
 

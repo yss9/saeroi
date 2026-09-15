@@ -244,6 +244,88 @@ class ProductOrderDeliveryApiTests {
     }
 
     @Test
+    void theBuyerCanReadTheWaybillWithoutAskingTheBrand() throws Exception {
+        // "배송 중" 만 보이면 구매자는 어디쯤 왔는지 알 수 없어 브랜드에 연락하게 된다.
+        Long orderId = paidOrder();
+        ship(orderId);
+
+        mockMvc.perform(confirmRequest(orderId, consumerId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.shipping.carrier").value("CJ대한통운"))
+                .andExpect(jsonPath("$.data.shipping.trackingNumber").value("123456789012"))
+                .andExpect(jsonPath("$.data.shipping.shippedAt").isNotEmpty());
+    }
+
+    @Test
+    void theOrderListShowsTheWaybillToo() throws Exception {
+        // 마이페이지 주문 내역이 읽는 곳이다. 수령 확인 응답에만 있으면 쓸모가 없다.
+        Long orderId = paidOrder();
+        ship(orderId);
+
+        mockMvc.perform(withJwt(
+                        org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                .get(BASE + "/me"), consumerId, UserRole.CONSUMER))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].orderId").value(orderId))
+                .andExpect(jsonPath("$.data.content[0].shipping.trackingNumber")
+                        .value("123456789012"));
+    }
+
+    @Test
+    void anUnsentOrderHasAnEmptyWaybillNotAMissingField() throws Exception {
+        // 필드 자체가 없으면 화면이 undefined 를 다루게 된다. 안의 값만 비어 있어야 한다.
+        Long orderId = paidOrder();
+
+        mockMvc.perform(withJwt(
+                        org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                .get(BASE + "/me"), consumerId, UserRole.CONSUMER))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].shipping").exists())
+                .andExpect(jsonPath("$.data.content[0].shipping.carrier").doesNotExist())
+                .andExpect(jsonPath("$.data.content[0].shipping.trackingNumber").doesNotExist())
+                .andExpect(jsonPath("$.data.content[0].shipping.shippedAt").doesNotExist());
+
+        assertThat(orderId).isNotNull();
+    }
+
+    @Test
+    void aHandOverWithoutAWaybillStillReportsWhenItLeft() throws Exception {
+        // 직접 전달은 송장이 없다. 그래도 떠난 시각은 구매자가 알아야 한다.
+        Long orderId = paidOrder();
+        mockMvc.perform(withJwt(patch(BASE + "/" + orderId + "/ship"), brandId, UserRole.BRAND)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(withJwt(
+                        org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                .get(BASE + "/me"), consumerId, UserRole.CONSUMER))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].shipping.shippedAt").isNotEmpty())
+                .andExpect(jsonPath("$.data.content[0].shipping.carrier").doesNotExist());
+    }
+
+    @Test
+    void theTwoShippedTimestampsNeverDisagree() throws Exception {
+        // 주문의 shippedAt 과 송장의 shippedAt 은 같은 값이다 — 발송 처리가 한
+        // 트랜잭션에서 같은 시각으로 적는다. 둘이 갈라지면 화면이 어느 쪽을 믿을지 알 수 없다.
+        Long orderId = paidOrder();
+        ship(orderId);
+
+        String response = mockMvc.perform(withJwt(
+                        org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                .get(BASE + "/me"), consumerId, UserRole.CONSUMER))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        var order = objectMapper.readTree(response).path("data").path("content").get(0);
+        assertThat(order.path("shipping").path("shippedAt").asText())
+                .isEqualTo(order.path("shippedAt").asText());
+    }
+
+    @Test
     void theOrderSummaryCountsItAsDelivered() throws Exception {
         // 마이페이지 주문 현황이 읽는 값이다.
         Long orderId = paidOrder();
