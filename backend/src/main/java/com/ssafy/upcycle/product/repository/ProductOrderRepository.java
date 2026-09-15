@@ -25,6 +25,12 @@ public interface ProductOrderRepository extends JpaRepository<ProductOrder, Long
 
     List<ProductOrder> findAllByBrandIdAndStatus(Long brandId, ProductOrderStatus status);
 
+    /** 브랜드에게 들어온 주문 목록. 발송할 건을 찾는 화면이 읽는다. */
+    Page<ProductOrder> findAllByBrandId(Long brandId, Pageable pageable);
+
+    Page<ProductOrder> findAllByBrandIdAndStatus(
+            Long brandId, ProductOrderStatus status, Pageable pageable);
+
     Page<ProductOrder> findAllByBuyerId(Long buyerId, Pageable pageable);
 
     Page<ProductOrder> findAllByBuyerIdAndStatus(

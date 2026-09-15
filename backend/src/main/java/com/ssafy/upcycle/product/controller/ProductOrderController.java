@@ -1,6 +1,7 @@
 package com.ssafy.upcycle.product.controller;
 
 import com.ssafy.upcycle.common.response.ApiResponse;
+import com.ssafy.upcycle.product.dto.BrandProductOrderResponse;
 import com.ssafy.upcycle.product.dto.ProductOrderCancelRequest;
 import com.ssafy.upcycle.product.dto.ProductOrderCreateRequest;
 import com.ssafy.upcycle.product.dto.ProductOrderPaymentReadyResponse;
@@ -9,6 +10,7 @@ import com.ssafy.upcycle.product.dto.ProductOrderSearchCondition;
 import com.ssafy.upcycle.product.dto.ProductOrderShipRequest;
 import com.ssafy.upcycle.product.dto.ProductOrderShipResponse;
 import com.ssafy.upcycle.product.dto.ProductOrderStatusSummaryResponse;
+import com.ssafy.upcycle.product.service.BrandProductOrderQueryService;
 import com.ssafy.upcycle.product.service.ProductOrderCommandService;
 import com.ssafy.upcycle.product.service.ProductOrderDeliveryService;
 import com.ssafy.upcycle.product.service.ProductOrderPaymentService;
@@ -31,7 +33,19 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** 로그인한 소비자 본인의 제품 주문 API. */
+/**
+ * 제품 주문 API. <b>소비자와 브랜드가 같은 주문을 양쪽에서 다룬다.</b>
+ *
+ * <pre>
+ *   CREATED ──결제 승인──▶ PAID ──브랜드 발송──▶ SHIPPED ──소비자 수령 확인──▶ DELIVERED
+ * </pre>
+ *
+ * <p>소비자는 사고({@code POST}), 결제하고, 발송 전까지 취소하고, 받았다고 확인한다.
+ * 브랜드는 들어온 주문을 보고({@code /brand/me}) 발송한다({@code /\{orderId\}/ship}).
+ *
+ * <p>사용자는 언제나 JWT 의 {@code sub} 에서 얻는다. 경로나 조건으로 사람을 지정하게 하면
+ * 남의 주문을, 그리고 그 배송지를 들여다볼 길이 생긴다.
+ */
 @RestController
 @RequestMapping("/api/v1/product-orders")
 @RequiredArgsConstructor
@@ -42,6 +56,26 @@ public class ProductOrderController {
     private final ProductOrderCommandService productOrderCommandService;
     private final ProductOrderPaymentService productOrderPaymentService;
     private final ProductOrderDeliveryService productOrderDeliveryService;
+    private final BrandProductOrderQueryService brandProductOrderQueryService;
+
+    /**
+     * 브랜드 본인에게 들어온 주문 목록. 최신순이고 <b>배송지가 함께 나간다.</b>
+     *
+     * <p>발송할 건만 보려면 {@code ?status=PAID} 로 거른다 — 결제가 끝났고 아직
+     * 보내지 않은 주문이 정확히 그 상태다. 건수만 필요하면 같은 조건으로 {@code size=1} 을
+     * 불러 {@code totalElements} 를 읽으면 된다.
+     *
+     * <p>범위는 언제나 JWT 의 사용자 id 다. 경로나 조건으로 브랜드를 지정하게 하면
+     * 남의 주문과 그 배송지를 들여다볼 길이 생긴다 — 배송지는 남의 집 주소다.
+     */
+    @GetMapping("/brand/me")
+    @PreAuthorize("hasRole('BRAND')")
+    public ApiResponse<PageResponse<BrandProductOrderResponse>> findIncomingOrders(
+            @AuthenticationPrincipal Jwt jwt,
+            @ModelAttribute ProductOrderSearchCondition condition) {
+        return ApiResponse.success(
+                brandProductOrderQueryService.findIncomingOrders(userId(jwt), condition));
+    }
 
     /**
      * 브랜드가 제품을 발송한다. 결제가 끝난 주문만 가능하다.
