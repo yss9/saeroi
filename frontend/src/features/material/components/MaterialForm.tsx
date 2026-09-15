@@ -1,10 +1,12 @@
-import { useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useFieldArray, useForm, useWatch } from 'react-hook-form'
-import { Button, ErrorMessage, Input, Select } from '../../../components/common/index.ts'
-import { kgToGram } from '../../../utils/quantity.ts'
+import { Button, ConfirmModal, ErrorMessage, Input, Select } from '../../../components/common/index.ts'
+import { gramToKg, kgToGram } from '../../../utils/quantity.ts'
 import { useCreateMaterial } from '../hooks/useCreateMaterial.ts'
 import { useWallet } from '../../wallet/hooks/useWallet.ts'
 import { useMintMaterialOnChain } from '../hooks/useMintMaterialOnChain.ts'
+import { useMyMaterials } from '../../inventory/hooks/useMyMaterials.ts'
+import { getMaterial } from '../api/getMaterial.ts'
 import type { ChainLinkStatus } from '../../../hooks/useOnChainLink.ts'
 import { evidencePlaceholder } from '../services/evidencePlaceholder.ts'
 import './material.css'
@@ -19,6 +21,7 @@ import {
   originReasonRequiresNote,
   type CreateMaterialRequest,
   type CreateMaterialResponse,
+  type MaterialDetail,
   type MaterialFiberType,
   type MaterialGrade,
   type MaterialOriginReason,
@@ -185,7 +188,49 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
   // 연결된 사용자에게도 한 번 번쩍인다.
   const [walletRequired, setWalletRequired] = useState(false)
 
-  const onSubmit = handleSubmit(async (values) => {
+  // ── 이전 기록 불러오기 (S15P21E104-mypage) ──
+  //
+  // 이 화면에 맞는 "가장 최근 소재" 조회 API 가 없다. 보유 소재 목록(`useMyMaterials`)에서
+  // materialId 가 가장 큰 항목을 최신으로 보고, 그 상세(`getMaterial`)를 받아 폼을 채운다.
+  const { data: myMaterials } = useMyMaterials()
+  const latestMaterialId = useMemo(() => {
+    if (!myMaterials || myMaterials.length === 0) return null
+    return myMaterials.reduce((latest, item) =>
+      item.materialId > latest.materialId ? item : latest,
+    ).materialId
+  }, [myMaterials])
+  const [isLoadingPrevious, setIsLoadingPrevious] = useState(false)
+  const [loadPreviousError, setLoadPreviousError] = useState<string | null>(null)
+  // 불러온 직후의 폼 값 스냅샷. 제출 시점 값과 비교해 "하나도 안 바꿨는지" 를
+  // 판단한다. 불러오기를 아예 안 했으면 `null` 로 남아 그 검사 자체를 건너뛴다.
+  const previousSnapshotRef = useRef<string | null>(null)
+  const [pendingDuplicateConfirm, setPendingDuplicateConfirm] = useState<MaterialFormValues | null>(
+    null,
+  )
+
+  const handleLoadPrevious = async () => {
+    if (latestMaterialId === null) {
+      setLoadPreviousError('불러올 이전 기록이 없습니다.')
+      return
+    }
+    setLoadPreviousError(null)
+    setIsLoadingPrevious(true)
+    try {
+      const detail = await getMaterial(latestMaterialId)
+      const values = toFormValues(detail)
+      reset(values)
+      previousSnapshotRef.current = JSON.stringify(values)
+    } catch {
+      setLoadPreviousError('이전 기록을 불러오지 못했습니다.')
+    } finally {
+      setIsLoadingPrevious(false)
+    }
+  }
+
+  // 지갑 확인 → 구성 비율 검증 → 등록 → 온체인 발행까지의 본 로직. 중복 확인
+  // 모달을 넣기 전부터 있던 로직 그대로이며, 최소 침습을 위해 함수로만 뽑아냈다 —
+  // `onSubmit` 과 모달의 `onConfirm` 양쪽에서 재사용한다.
+  const registerMaterial = async (values: MaterialFormValues) => {
     // **지갑이 없으면 DB 에 손대기 전에 멈춘다.**
     //
     // 예전에는 소재를 먼저 만들고 발행만 조용히 건너뛰었다. 화면은 성공으로 넘어가는데
@@ -227,15 +272,63 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
       if (linked) {
         setPendingRegistration(null)
         reset()
+        previousSnapshotRef.current = null
         onCreated?.(created.materialId)
       }
     } catch {
       // API와 지갑 오류는 각 훅의 오류 상태로 화면에 표시한다.
     }
-  })
+  }
+
+  // "이전 기록 불러오기" 를 눌렀고, 그 뒤로 값을 하나도 안 바꿨다면 먼저 확인을
+  // 받는다. 스냅샷이 없으면(불러오기를 안 했으면) 이 검사 자체를 건너뛰고
+  // 지금까지와 똑같이 바로 등록으로 진행한다.
+  //
+  // `handleSubmit(callback)` 을 렌더 중에 바로 호출해 저장해 두지 않는다 —
+  // 그 callback 이 ref(`previousSnapshotRef`)를 읽는데, eslint-plugin-react-hooks
+  // 의 refs 규칙이 "렌더 중 호출되는 함수에 ref 를 읽는 콜백을 넘긴다" 로 보고
+  // 오탐(false positive)을 낸다. `<form onSubmit>` 안에서 그때그때
+  // `handleSubmit(...)` 을 호출하면 렌더 시점에는 아무 함수도 만들어지지 않는다.
+  const submitValues = async (values: MaterialFormValues) => {
+    if (previousSnapshotRef.current !== null && JSON.stringify(values) === previousSnapshotRef.current) {
+      setPendingDuplicateConfirm(values)
+      return
+    }
+    await registerMaterial(values)
+  }
+
+  const handleConfirmDuplicate = () => {
+    const values = pendingDuplicateConfirm
+    setPendingDuplicateConfirm(null)
+    if (values) void registerMaterial(values)
+  }
 
   return (
-    <form className="material-form" onSubmit={onSubmit} noValidate>
+    <form
+      className="material-form"
+      onSubmit={(event) => {
+        void handleSubmit(submitValues)(event)
+      }}
+      noValidate
+    >
+      {/*
+        가장 최근에 등록한 소재 값을 그대로 불러와 채운다. 보유 소재가 하나도
+        없으면 불러올 대상이 없으므로 버튼을 비활성화한다.
+      */}
+      <div className="material-form__load-previous">
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          loading={isLoadingPrevious}
+          disabled={latestMaterialId === null}
+          onClick={handleLoadPrevious}
+        >
+          이전 기록 불러오기
+        </Button>
+        {loadPreviousError && <ErrorMessage error={loadPreviousError} />}
+      </div>
+
       {/* 짧은 필드는 한 줄에 여러 개 — 선택지 하나하나가 줄 하나를 다 차지하면
           폼이 필요 이상으로 길어진다. 소재명 · 설명처럼 값이 길어질 수 있는
           입력만 그리드 밖에 두고 전체 폭을 쓴다. */}
@@ -474,6 +567,14 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
       >
         {pendingRegistration && !mint.isBusy ? '소재 등록 완료하기' : '소재 등록'}
       </Button>
+
+      <ConfirmModal
+        open={pendingDuplicateConfirm !== null}
+        title="소재 중복 확인"
+        message="이전과 완전히 동일한 소재입니다. 맞습니까?"
+        onConfirm={handleConfirmDuplicate}
+        onClose={() => setPendingDuplicateConfirm(null)}
+      />
     </form>
   )
 }
@@ -502,6 +603,32 @@ function toRequest(values: MaterialFormValues): CreateMaterialRequest {
     ...(values.widthMm !== null ? { widthMm: values.widthMm } : {}),
     ...toOriginReason(values),
     ...toComposition(values),
+  }
+}
+
+/**
+ * 소재 상세(`MaterialDetail`) → 폼 값.
+ *
+ * `toRequest()` 의 반대 방향이다. "이전 기록 불러오기" 가 받아온 상세 응답을 폼에
+ * 채우기 위해 쓴다. 서버가 `null` 을 주는 선택 필드(`grade`·`originReason`)는
+ * 폼의 "선택 안 함" 표현인 `''` 로 바꾼다.
+ */
+function toFormValues(detail: MaterialDetail): MaterialFormValues {
+  return {
+    materialType: detail.materialType,
+    rootOrigin: detail.rootOrigin,
+    name: detail.name,
+    quantityKg: gramToKg(detail.totalQuantity),
+    grade: detail.grade ?? '',
+    description: detail.description ?? '',
+    lengthMm: detail.lengthMm,
+    widthMm: detail.widthMm,
+    originReason: detail.originReason ?? '',
+    originReasonNote: detail.originReasonNote ?? '',
+    composition: detail.composition.map((item) => ({
+      fiberType: item.fiberType as MaterialFiberType,
+      percentage: item.percentage,
+    })),
   }
 }
 

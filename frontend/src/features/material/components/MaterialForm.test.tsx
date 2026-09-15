@@ -17,6 +17,16 @@ const api = vi.hoisted(() => ({ createMaterial: vi.fn() }))
 vi.mock('../api/createMaterial.ts', () => api)
 
 /**
+ * "이전 기록 불러오기" 는 보유 소재 목록에서 가장 최근 항목의 상세를 받아와 채운다.
+ * 목록·상세 조회 API 를 각각 모킹해 실제 네트워크에 나가지 않게 한다.
+ */
+const materialApi = vi.hoisted(() => ({ getMaterial: vi.fn() }))
+vi.mock('../api/getMaterial.ts', () => materialApi)
+
+const myMaterials = vi.hoisted(() => ({ useMyMaterials: vi.fn() }))
+vi.mock('../../inventory/hooks/useMyMaterials.ts', () => myMaterials)
+
+/**
  * <b>지갑은 연결된 것으로 둔다.</b>
  *
  * 폼은 지갑이 없으면 DB 에 손대기 전에 멈춘다 — 체인에 영영 오르지 않을 소재를
@@ -73,6 +83,9 @@ beforeEach(() => {
   wallet.address = '0xabc'
   mint.mint.mockReset()
   mint.mint.mockResolvedValue(true)
+  materialApi.getMaterial.mockReset()
+  myMaterials.useMyMaterials.mockReset()
+  myMaterials.useMyMaterials.mockReturnValue({ data: [] })
 })
 
 afterEach(cleanup)
@@ -345,5 +358,133 @@ describe('지갑 미연결', () => {
     renderForm()
 
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * 이전 기록 불러오기 + 동일 소재 재등록 확인.
+ *
+ * "가장 최근 소재" 는 보유 소재 목록에서 materialId 가 가장 큰 항목으로 판단하고,
+ * 그 상세를 받아 폼을 채운다. 채운 값에서 아무것도 안 바꾸고 제출하면 확인 모달이
+ * 뜨고, 하나라도 바꾸면 모달 없이 바로 등록된다.
+ */
+describe('이전 기록 불러오기', () => {
+  const detail = {
+    materialCode: 'MAT-000010',
+    materialType: 'DENIM' as const,
+    name: '폐데님 원단 이전본',
+    rootOrigin: 'WASTE' as const,
+    generationType: 'INITIAL' as const,
+    verificationState: 'REGISTERED' as const,
+    status: 'ACTIVE' as const,
+    totalQuantity: 15_000,
+    grade: 'B' as const,
+    verification: null,
+    materialId: 10,
+    description: '이전 등록 설명',
+    lengthMm: 1200,
+    widthMm: 800,
+    registrantId: 1,
+    createdAt: '2026-09-01T00:00:00Z',
+    owners: [],
+    evidenceHash: null,
+    manifestUrl: null,
+    originReason: 'OFFCUT' as const,
+    originReasonNote: '',
+    composition: [{ fiberType: 'COTTON', percentage: 80 }],
+    tokenId: null,
+    chainId: null,
+    contractAddress: null,
+  }
+
+  beforeEach(() => {
+    myMaterials.useMyMaterials.mockReturnValue({
+      data: [
+        { materialId: 3, materialCode: 'MAT-000003', syncedAt: '2026-09-01T00:00:00Z' },
+        { materialId: 10, materialCode: 'MAT-000010', syncedAt: '2026-09-02T00:00:00Z' },
+      ],
+    })
+    materialApi.getMaterial.mockResolvedValue(detail)
+  })
+
+  it('보유 소재가 없으면 버튼이 비활성화된다', () => {
+    myMaterials.useMyMaterials.mockReturnValue({ data: [] })
+    renderForm()
+
+    expect(screen.getByRole('button', { name: '이전 기록 불러오기' })).toBeDisabled()
+  })
+
+  it('가장 최근(materialId 최대) 소재의 상세를 불러와 폼을 채운다', async () => {
+    const user = userEvent.setup()
+    renderForm()
+
+    await user.click(screen.getByRole('button', { name: '이전 기록 불러오기' }))
+
+    await waitFor(() => expect(materialApi.getMaterial).toHaveBeenCalledWith(10))
+    expect(await screen.findByLabelText('소재명')).toHaveValue('폐데님 원단 이전본')
+    expect(screen.getByLabelText('수량 (kg)')).toHaveValue(15)
+  })
+
+  it('불러온 값을 하나도 안 바꾸고 제출하면 확인 모달을 띄운다', async () => {
+    const user = userEvent.setup()
+    renderForm()
+
+    await user.click(screen.getByRole('button', { name: '이전 기록 불러오기' }))
+    await waitFor(() => expect(screen.getByLabelText('소재명')).toHaveValue('폐데님 원단 이전본'))
+
+    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+
+    // 닫혀 있는 <dialog> 는 항상 DOM에 있으므로(내용은 항상 렌더된다) 텍스트가
+    // 아니라 열림 상태를 드러내는 role='dialog' 로 확인한다.
+    expect(await screen.findByRole('dialog')).toHaveTextContent(
+      '이전과 완전히 동일한 소재입니다. 맞습니까?',
+    )
+    expect(api.createMaterial).not.toHaveBeenCalled()
+  })
+
+  it('모달에서 확인을 누르면 등록이 진행된다', async () => {
+    const user = userEvent.setup()
+    renderForm()
+
+    await user.click(screen.getByRole('button', { name: '이전 기록 불러오기' }))
+    await waitFor(() => expect(screen.getByLabelText('소재명')).toHaveValue('폐데님 원단 이전본'))
+
+    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+    await screen.findByRole('dialog')
+    await user.click(screen.getByRole('button', { name: '확인' }))
+
+    await waitFor(() => expect(api.createMaterial).toHaveBeenCalledTimes(1))
+  })
+
+  it('모달에서 취소를 누르면 등록이 진행되지 않고 폼 값이 남는다', async () => {
+    const user = userEvent.setup()
+    renderForm()
+
+    await user.click(screen.getByRole('button', { name: '이전 기록 불러오기' }))
+    await waitFor(() => expect(screen.getByLabelText('소재명')).toHaveValue('폐데님 원단 이전본'))
+
+    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+    await screen.findByRole('dialog')
+    await user.click(screen.getByRole('button', { name: '취소' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(api.createMaterial).not.toHaveBeenCalled()
+    expect(screen.getByLabelText('소재명')).toHaveValue('폐데님 원단 이전본')
+  })
+
+  it('불러온 값을 하나라도 바꾸면 모달 없이 바로 등록된다', async () => {
+    const user = userEvent.setup()
+    renderForm()
+
+    await user.click(screen.getByRole('button', { name: '이전 기록 불러오기' }))
+    await waitFor(() => expect(screen.getByLabelText('소재명')).toHaveValue('폐데님 원단 이전본'))
+
+    await user.clear(screen.getByLabelText('소재명'))
+    await user.type(screen.getByLabelText('소재명'), '수정된 소재명')
+
+    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+
+    await waitFor(() => expect(api.createMaterial).toHaveBeenCalledTimes(1))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 })

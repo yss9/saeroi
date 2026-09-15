@@ -368,6 +368,13 @@ a.ui-button { text-decoration: none; }
 }
 
 /* ── 보유 소재 카드 ─────────────────────────────────────── */
+.inventory-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.15rem;
+}
+
 /* 소재 · 종류 · 판매 가능량 · 상태만 보여준다. 보유/잠긴 수량 · 출처 · 생성 유형 ·
    기준 시각은 카드를 눌러 들어가는 소재 상세에 있다 (InventoryList 주석 참고).
    폭이 좁아지면 4 → 2 → 1 열로 줄어든다 — 카드 폭을 고정하면 좁은 화면에서 잘린다. */
@@ -396,7 +403,7 @@ a.ui-button { text-decoration: none; }
 
   border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius);
-  background: color-mix(in srgb, var(--inv-cream) 18%, var(--ui-color-surface));
+  background: var(--ui-color-surface);
   box-shadow: var(--ui-shadow);
   overflow: hidden;
 }

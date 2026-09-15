@@ -53,9 +53,15 @@
 }
 
 .listing-card:hover {
-  border-color: var(--ui-color-primary);
   box-shadow: 0 2px 8px rgba(16, 34, 56, 0.08);
 }
+
+/* 카드 테두리는 StatusBadge 와 같은 톤(success/neutral/danger)으로 맞춘다.
+   호버해도 이 색은 바뀌지 않는다 — 판매 취소 카드가 마우스를 올리는 순간
+   판매중처럼(초록) 보이면 상태를 잘못 읽게 된다. */
+.listing-card--on-sale { border-color: var(--ui-color-success); }
+.listing-card--sold-out { border-color: var(--ui-color-muted); }
+.listing-card--canceled { border-color: var(--ui-color-danger); }
 .listing-card__header {
   display: flex;
   align-items: flex-start;
