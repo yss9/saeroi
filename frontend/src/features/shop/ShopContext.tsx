@@ -16,7 +16,7 @@ type ShopAction =
   | { type: 'toggle-wishlist'; productId: string }
   | { type: 'add-to-cart'; productId: string }
 
-const initialState: ShopState = { cartCount: 2, wishlist: new Set() }
+const initialState: ShopState = { cartCount: 0, wishlist: new Set() }
 
 function shopReducer(state: ShopState, action: ShopAction): ShopState {
   switch (action.type) {

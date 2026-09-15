@@ -56,7 +56,7 @@ describe('application router', () => {
       </AppProviders>,
     )
 
-    expect(screen.getByRole('heading', { name: '지속 가능한 가치를 만드는 브랜드' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'WASTE IS NOT THE END.' })).toBeInTheDocument()
   })
 
   // 라우트 정의에 실제로 가드가 걸려 있는지 확인한다. RoleGuard 단위 테스트는

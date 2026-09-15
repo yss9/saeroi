@@ -16,16 +16,16 @@ function Probe() {
 }
 
 describe('ShopProvider', () => {
-  it('starts from the reference cart state and shares updates with consumers', async () => {
+  it('starts empty and shares wishlist and cart updates with consumers', async () => {
     const user = userEvent.setup()
     render(<ShopProvider><Probe /></ShopProvider>)
 
-    expect(screen.getByLabelText('장바구니 개수')).toHaveTextContent('2')
+    expect(screen.getByLabelText('장바구니 개수')).toHaveTextContent('0')
 
     await user.click(screen.getByRole('button', { name: '찜' }))
     await user.click(screen.getByRole('button', { name: '담기' }))
 
     expect(screen.getByLabelText('찜 상태')).toHaveTextContent('true')
-    expect(screen.getByLabelText('장바구니 개수')).toHaveTextContent('3')
+    expect(screen.getByLabelText('장바구니 개수')).toHaveTextContent('1')
   })
 })
