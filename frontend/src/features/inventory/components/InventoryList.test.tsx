@@ -101,7 +101,8 @@ describe('카드 표시 항목', () => {
     expect(screen.getByText('MAT-000042')).toBeInTheDocument()
     expect(screen.getByText('데님')).toBeInTheDocument() // 종류
     expect(screen.getByText('20.2 kg')).toBeInTheDocument() // 판매 가능량
-    expect(screen.getByText('보유 중')).toBeInTheDocument() // 상태
+    // 상태 배지. 필터 버튼도 같은 문구("보유 중")를 쓰므로 배지(span)로 좁힌다.
+    expect(screen.getByText('보유 중', { selector: 'span' })).toBeInTheDocument()
 
     // 이 화면에서 뺀 값들 — 상세로 옮겨졌으니 카드에는 없어야 한다.
     expect(screen.queryByText('20.5 kg')).not.toBeInTheDocument() // 보유 수량
@@ -115,7 +116,8 @@ describe('카드 표시 항목', () => {
     ])
     renderList()
 
-    expect(await screen.findByText('소진')).toBeInTheDocument()
+    // 필터 버튼도 같은 문구("소진")를 쓰므로 배지(span)로 좁힌다.
+    expect(await screen.findByText('소진', { selector: 'span' })).toBeInTheDocument()
   })
 })
 

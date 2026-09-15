@@ -21,6 +21,14 @@ const STATUS_TONE: Record<ListingStatus, 'success' | 'neutral' | 'danger'> = {
   CANCELED: 'danger',
 }
 
+// 카드 테두리 색도 StatusBadge 와 같은 톤 계열로 맞춘다 — 색상 값 자체는
+// listing-card--<modifier> 클래스를 통해 marketplace.css 의 CSS 변수로만 지정한다.
+const STATUS_CARD_MODIFIER: Record<ListingStatus, string> = {
+  ON_SALE: 'listing-card--on-sale',
+  SOLD_OUT: 'listing-card--sold-out',
+  CANCELED: 'listing-card--canceled',
+}
+
 /**
  * 판매글 카드.
  *
@@ -33,7 +41,10 @@ export function ListingCard({ listing, actions }: ListingCardProps) {
   const soldRatio = listing.totalQuantity > 0 ? soldQuantity / listing.totalQuantity : 0
 
   return (
-    <article className="listing-card" onClick={(event) => followClick(event, `/marketplace/${listing.listingId}`)}>
+    <article
+      className={`listing-card ${STATUS_CARD_MODIFIER[listing.status]}`}
+      onClick={(event) => followClick(event, `/marketplace/${listing.listingId}`)}
+    >
       <header className="listing-card__header">
         <h3 className="listing-card__name">
           <Link to={`/marketplace/${listing.listingId}`}>{listing.materialName}</Link>
