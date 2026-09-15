@@ -36,7 +36,9 @@ describe('useVisibleMenu', () => {
       '/marketplace',
       // /trades(구매 내역)는 없다 — BRAND 전용이다. PROCESSOR 는 가공 요청으로 소재를
       // 받고 거래로 사지 않으므로 그 목록은 언제나 비어 있었다.
-      '/processor/profile', '/processor/jobs', '/products',
+      // /products(제품 둘러보기)도 없다 — 소비자가 옷을 사는 화면이라 사업자 사이드바에
+      // 둘 자리가 아니다.
+      '/processor/profile', '/processor/jobs',
     ])
     expect(result.current.isResolving).toBe(false)
   })
