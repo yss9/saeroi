@@ -9,6 +9,7 @@ import {
 } from '../../../components/common/index.ts'
 import { formatWon } from '../../../utils/quantity.ts'
 import { useCreateProductModel } from '../hooks/useCreateProductModel.ts'
+import { useUpdateProductModel } from '../hooks/useUpdateProductModel.ts'
 import { useUploadProductImage } from '../hooks/useUploadProductImage.ts'
 import {
   PRODUCT_CATEGORIES,
@@ -21,8 +22,24 @@ import {
 import './product.css'
 
 export interface ProductFormProps {
+  /**
+   * 고칠 제품. 없으면 등록 폼이다.
+   *
+   * 등록과 수정이 한 컴포넌트인 이유 — 필드 구성과 검증 규칙이 같다. 화면을 나누면
+   * 판매가 상한이나 제품명 길이 같은 규칙이 한쪽에만 붙는 일이 생긴다.
+   */
+  product?: ProductModel
   onCreated?: (product: ProductModel) => void
+  onUpdated?: (product: ProductModel) => void
 }
+
+/**
+ * 판매가 상한.
+ *
+ * 서버는 0 이상만 검사하지만, 이 값을 넘으면 **카카오페이가 결제를 거부한다.** 그 사실이
+ * 결제창에서 502 로만 드러나 사용자는 이유를 알 수 없다 — 입력 단계에서 막는다.
+ */
+const MAX_PRICE = 2_147_483_647
 
 /** 폼 값. 대표 이미지는 파일이 아니라 **업로드로 받은 저장 키**를 들고 있다. */
 interface ProductFormValues {
@@ -50,18 +67,28 @@ interface ProductFormValues {
  * ⚠️ 등록하지 않고 떠나면 올라간 파일은 아무도 가리키지 않는 채로 남는다. 서버에 삭제 API
  * 가 없어 화면이 되돌릴 수 없고, 정리는 서버 배치의 몫이다.
  */
-export function ProductForm({ onCreated }: ProductFormProps) {
+export function ProductForm({ product, onCreated, onUpdated }: ProductFormProps) {
+  const isEdit = product !== undefined
+
   const {
     register,
     handleSubmit,
     reset,
-    formState: { errors },
+    formState: { errors, dirtyFields },
   } = useForm<ProductFormValues>({
-    defaultValues: { name: '', category: '', description: '' },
+    defaultValues: product
+      ? {
+          name: product.name,
+          category: product.category,
+          price: product.price,
+          description: product.description,
+        }
+      : { name: '', category: '', description: '' },
   })
 
   const upload = useUploadProductImage()
   const create = useCreateProductModel()
+  const update = useUpdateProductModel()
 
   // 방금 고른 파일의 미리보기. 서버를 거치지 않는다 — 조회 경로가 인증을 요구해서
   // `<img src>` 로는 안 보이고, 사용자가 고른 파일은 브라우저가 이미 갖고 있다.
@@ -89,7 +116,43 @@ export function ProductForm({ onCreated }: ProductFormProps) {
     upload.mutate(file)
   }
 
+  /**
+   * 무엇이 바뀌었는가 (수정 모드).
+   *
+   * **안 고친 필드는 아예 보내지 않는다.** 서버가 부분 수정이라, 원래 값을 다시 보내면
+   * 결과는 같지만 "무엇을 고쳤는지" 가 요청에서 사라진다. 아무것도 안 바뀌었으면 서버가
+   * 400 을 주므로 버튼도 잠근다.
+   */
+  const hasChanges =
+    storageKey !== null ||
+    Boolean(dirtyFields.name) ||
+    Boolean(dirtyFields.price) ||
+    Boolean(dirtyFields.description)
+
   const onSubmit = handleSubmit((values) => {
+    if (isEdit) {
+      if (!hasChanges) return
+      update.mutate(
+        {
+          productModelId: product.productModelId,
+          request: {
+            ...(dirtyFields.name ? { name: values.name } : {}),
+            ...(dirtyFields.price ? { price: values.price } : {}),
+            ...(dirtyFields.description ? { description: values.description } : {}),
+            ...(storageKey !== null ? { thumbnailUrl: storageKey } : {}),
+          },
+        },
+        {
+          onSuccess: (updated) => {
+            setPreview(null)
+            upload.reset()
+            onUpdated?.(updated)
+          },
+        },
+      )
+      return
+    }
+
     // 이미지가 없으면 서버가 400 을 준다. 버튼을 잠가 두었지만 방어로 한 번 더 본다.
     if (storageKey === null || values.category === '') return
 
@@ -132,8 +195,16 @@ export function ProductForm({ onCreated }: ProductFormProps) {
           label: PRODUCT_CATEGORY_LABEL[category],
         }))}
         error={errors.category?.message}
+        // 카테고리는 바꿀 수 없다. 이미 그 분류로 팔린 제품의 이력이 흔들린다 —
+        // 서버도 수정 요청에서 이 필드를 받지 않는다.
+        disabled={isEdit}
         {...register('category', { required: '카테고리를 선택해 주세요.' })}
       />
+
+      {/* 비활성 입력만 두면 "왜 안 눌리지" 가 된다. */}
+      {isEdit && (
+        <p className="product-form__hint">카테고리는 등록 후 바꿀 수 없습니다.</p>
+      )}
 
       <Input
         label="판매가 (원)"
@@ -143,6 +214,11 @@ export function ProductForm({ onCreated }: ProductFormProps) {
           required: '판매가를 입력해 주세요.',
           valueAsNumber: true,
           min: { value: 0, message: '판매가는 0원 이상이어야 합니다.' },
+          // 서버는 막지 않지만 이 값을 넘으면 카카오페이가 결제를 거부한다.
+          max: {
+            value: MAX_PRICE,
+            message: '판매가는 2,147,483,647원을 넘을 수 없습니다. 결제가 거부됩니다.',
+          },
           // 서버가 소수를 조용히 버리지 않고 정수로 강제한다. 화면에서 먼저 막아
           // "129,000.5원을 넣었는데 129,000원으로 등록됨" 을 없앤다.
           validate: (value) =>
@@ -175,21 +251,38 @@ export function ProductForm({ onCreated }: ProductFormProps) {
         uploadError={upload.isError ? upload.error : null}
         uploaded={storageKey !== null}
         onSelect={selectFile}
+        // 수정할 때는 이미지를 고르지 않아도 된다. 안 고르면 쓰던 이미지가 그대로 남는다.
+        optional={isEdit}
       />
 
       {create.isError && <ErrorMessage error={create.error} />}
+      {update.isError && <ErrorMessage error={update.error} />}
 
-      {/* 이미지가 올라가기 전에는 제출할 수 없다 — 서버가 thumbnailUrl 을 필수로 받는다. */}
-      <Button type="submit" loading={create.isPending} disabled={storageKey === null} fullWidth>
-        제품 등록
-      </Button>
+      {isEdit ? (
+        // 아무것도 바뀌지 않았으면 서버가 400 을 준다. 눌러 보고 알게 하지 않는다.
+        <Button type="submit" loading={update.isPending} disabled={!hasChanges} fullWidth>
+          수정 저장
+        </Button>
+      ) : (
+        /* 이미지가 올라가기 전에는 제출할 수 없다 — 서버가 thumbnailUrl 을 필수로 받는다. */
+        <Button type="submit" loading={create.isPending} disabled={storageKey === null} fullWidth>
+          제품 등록
+        </Button>
+      )}
 
-      {/* 등록해도 바로 팔리지 않는다. 이 말을 빼면 사용자는 마켓에서 자기 제품을 찾다가
-          없다고 생각한다. */}
-      <p className="product-form__note">
-        등록하면 <strong>판매 준비(DRAFT)</strong> 상태로 저장됩니다. 생산으로 개체가 만들어진
-        뒤 판매를 시작할 수 있습니다.
-      </p>
+      {isEdit ? (
+        <p className="product-form__note">
+          판매 중에도 가격을 바꿀 수 있습니다. <strong>이미 결제된 주문은 영향받지
+          않습니다</strong> — 주문 시점 단가가 그대로 남습니다.
+        </p>
+      ) : (
+        /* 등록해도 바로 팔리지 않는다. 이 말을 빼면 사용자는 마켓에서 자기 제품을 찾다가
+           없다고 생각한다. */
+        <p className="product-form__note">
+          등록하면 <strong>판매 준비(DRAFT)</strong> 상태로 저장됩니다. 생산으로 개체가
+          만들어진 뒤 판매를 시작할 수 있습니다.
+        </p>
+      )}
     </form>
   )
 }
@@ -206,12 +299,15 @@ function ThumbnailField({
   uploadError,
   uploaded,
   onSelect,
+  optional = false,
 }: {
   preview: { url: string; name: string } | null
   isUploading: boolean
   uploadError: unknown
   uploaded: boolean
   onSelect: (files: File[]) => void
+  /** 수정 모드. 고르지 않으면 쓰던 이미지가 그대로 남는다 */
+  optional?: boolean
 }) {
   return (
     <div className="product-form__thumbnail">
@@ -238,8 +334,8 @@ function ThumbnailField({
       {uploadError !== null && <ErrorMessage error={uploadError} />}
 
       <p className="product-form__hint">
-        JPG · PNG · WebP, {PRODUCT_IMAGE_MAX_BYTES / 1024 / 1024}MB 이하. 대표 이미지는
-        필수입니다.
+        JPG · PNG · WebP, {PRODUCT_IMAGE_MAX_BYTES / 1024 / 1024}MB 이하.{' '}
+        {optional ? '고르지 않으면 지금 이미지가 그대로 남습니다.' : '대표 이미지는 필수입니다.'}
       </p>
     </div>
   )
