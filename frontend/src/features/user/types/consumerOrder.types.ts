@@ -17,6 +17,19 @@ export interface ConsumerOrderItemResponse {
   journeyUrl: string | null
 }
 
+/**
+ * 주문에 붙은 송장.
+ *
+ * 브랜드가 발송 처리하며 적은 값 그대로다(`ProductShipping.carrier` · `trackingNumber`).
+ * 둘 다 선택이라 — 직접 전달·퀵처럼 송장이 없는 방식이 있다 — 발송된 주문이어도 null 일 수
+ * 있다.
+ */
+export interface ConsumerOrderShipping {
+  carrier: string | null
+  trackingNumber: string | null
+  shippedAt: string | null
+}
+
 /** Backend `ProductOrderResponse`와 같은 소비자 본인 주문 응답. */
 export interface ConsumerOrderResponse {
   /**
@@ -37,6 +50,13 @@ export interface ConsumerOrderResponse {
   shippedAt: string | null
   deliveredAt: string | null
   items: ConsumerOrderItemResponse[]
+  /**
+   * 송장.
+   *
+   * ⚠️ **서버 응답에 아직 없다.** 값은 저장돼 있지만(브랜드 화면이 읽는다) 구매자용 DTO 에
+   * 실리지 않아, 추가를 요청해 둔 상태다. 그때까지는 undefined 이고 화면이 그 줄을 감춘다.
+   */
+  shipping?: ConsumerOrderShipping | null
 }
 
 export interface ConsumerOrderFilters {

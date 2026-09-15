@@ -55,6 +55,8 @@ function order(overrides: Partial<ConsumerRecentOrder> = {}): ConsumerRecentOrde
     paidAt: '2026-09-12T10:35:00',
     shippedAt: '2026-09-13T09:00:00',
     deliveredAt: null,
+    carrier: 'CJ대한통운',
+    trackingNumber: '123456789012',
     ...overrides,
   }
 }
@@ -143,6 +145,31 @@ describe('ConsumerOrderList', () => {
     expect(steps).toHaveLength(4)
     // 아직 오지 않은 단계도 지우지 않는다 — 안 보이면 지금이 마지막인지 알 수 없다.
     expect(within(progress).getByText('대기')).toBeInTheDocument()
+  })
+
+  describe('송장', () => {
+    // 이 블록의 존재 이유 — "배송 중" 배지만 남으면 어디쯤 왔는지 브랜드에 물어봐야 한다.
+    it('브랜드가 적은 택배사와 운송장을 그대로 보여준다', () => {
+      renderList()
+
+      expect(screen.getByText('CJ대한통운')).toBeInTheDocument()
+      expect(screen.getByText('123456789012')).toBeInTheDocument()
+    })
+
+    // 직접 전달·퀵처럼 송장 없이 보내는 방식이 정상 경로다. "운송장 없음" 이라고 적으면
+    // 빠뜨린 것처럼 읽힌다.
+    it('송장이 없으면 그 줄을 그리지 않는다', () => {
+      renderList([order({ carrier: null, trackingNumber: null })])
+
+      expect(screen.queryByText('운송장')).not.toBeInTheDocument()
+    })
+
+    // 서버는 번호만 있는 조합을 막지만 그 반대는 허용한다.
+    it('택배사만 있어도 보여준다', () => {
+      renderList([order({ trackingNumber: null })])
+
+      expect(screen.getByText('CJ대한통운')).toBeInTheDocument()
+    })
   })
 
   describe('주문 취소', () => {

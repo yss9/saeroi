@@ -788,6 +788,25 @@
 }
 
 .consumer-order-progress li.is-done { color: var(--consumer-blue-dark, #1f4d6b); }
+
+/* 송장. 번호는 눈으로 옮겨 적는 값이라 고정폭으로 둔다. */
+.consumer-order-tracking {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  margin: 8px 0 0;
+  font-size: 0.78rem;
+}
+.consumer-order-tracking__label {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #8fa3b3;
+}
+.consumer-order-tracking code {
+  font-family: ui-monospace, Menlo, monospace;
+  letter-spacing: 0.02em;
+}
 .consumer-order-progress__label { font-weight: 600; }
 .consumer-order-progress__waiting { font-variant-numeric: tabular-nums; }
 

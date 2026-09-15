@@ -63,6 +63,14 @@ export interface ConsumerRecentOrder {
   paidAt: string | null
   shippedAt: string | null
   deliveredAt: string | null
+  /**
+   * 송장. 브랜드가 발송 처리하며 적은 값이다.
+   *
+   * **배송 중이라는 배지만으로는 어디쯤 왔는지 알 수 없다** — 이 값이 없으면 사용자는
+   * 브랜드에 물어보는 수밖에 없다. 직접 전달처럼 송장 없이 보낸 주문도 있어 null 이 정상이다.
+   */
+  carrier: string | null
+  trackingNumber: string | null
 }
 
 export interface ConsumerAddressSummary {
