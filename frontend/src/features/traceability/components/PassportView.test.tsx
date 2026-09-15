@@ -181,6 +181,70 @@ describe('PassportView', () => {
     expect(screen.getByRole('button', { name: '에코사이클' })).toHaveClass('is-active')
   })
 
+  it('지도 업체를 선택해도 해당 업체 단계 이후 기록을 미리 노출하지 않는다', async () => {
+    const user = userEvent.setup()
+    const { container } = renderView()
+    await screen.findByRole('heading', { name: 'RE:BAG' })
+
+    await user.click(screen.getByRole('button', { name: '서울 원단 공급처 상세 보기' }))
+
+    expect(screen.getByRole('button', { name: /원단 등록 완료/ })).toHaveAttribute('aria-current', 'step')
+    expect(container.querySelector('[data-edge-id="collect-a"]')).not.toBeInTheDocument()
+    expect(container.querySelector('[data-node-id="process-a"]')).not.toBeInTheDocument()
+    expect(container.querySelector('[data-edge-id="brand-a"]')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /가공 완료/ }))
+    await user.click(screen.getByRole('button', { name: '그린텍스 상세 보기' }))
+
+    expect(screen.getByRole('button', { name: /가공 완료/ })).toHaveAttribute('aria-current', 'step')
+    expect(container.querySelector('[data-edge-id="collect-a"]')).toHaveClass('is-active')
+    expect(container.querySelector('[data-edge-id="collect-b"]')).toHaveClass('is-dimmed')
+    expect(container.querySelector('[data-edge-id="collect-a"] .journey-canvas__route-label')).toHaveTextContent('2. 수거')
+    expect(container.querySelector('[data-edge-id="collect-a"] [data-traveler-stage="COLLECTION"] svg')).toBeInTheDocument()
+    expect(container.querySelector('[data-edge-id="brand-a"]')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Flow View' }))
+
+    expect(container.querySelector('[data-edge-id="collect-a"]')).toHaveClass('is-active')
+    expect(container.querySelector('[data-edge-id="collect-b"]')).toHaveClass('is-dimmed')
+    expect(container.querySelector('[data-edge-id="brand-a"]')).toHaveClass('is-dimmed')
+    expect(container.querySelector('[data-edge-id="brand-b"]')).toHaveClass('is-dimmed')
+    expect(container.querySelector('[data-node-id="process-a"]')).not.toHaveClass('is-dimmed')
+    expect(container.querySelector('[data-node-id="process-b"]')).toHaveClass('is-dimmed')
+  })
+
+  it('브랜드 단계에서 가공업체를 선택해도 누적된 브랜드 노드와 연결 경로를 유지한다', async () => {
+    const user = userEvent.setup()
+    const { container } = renderView()
+    await screen.findByRole('heading', { name: 'RE:BAG' })
+
+    await user.click(screen.getByRole('button', { name: /브랜드 제작 완료/ }))
+    await user.click(screen.getByRole('button', { name: '그린텍스 상세 보기' }))
+
+    expect(screen.getByRole('button', { name: /브랜드 제작 완료/ })).toHaveAttribute('aria-current', 'step')
+    expect(container.querySelector('[data-node-id="brand"]')).not.toHaveClass('is-dimmed')
+    expect(container.querySelector('[data-node-id="process-a"]')).not.toHaveClass('is-dimmed')
+    expect(container.querySelector('[data-node-id="process-b"]')).toHaveClass('is-dimmed')
+    expect(container.querySelector('[data-edge-id="brand-a"]')).toHaveClass('is-active')
+    expect(container.querySelector('[data-edge-id="brand-b"]')).toHaveClass('is-dimmed')
+    expect(screen.getAllByRole('heading', { name: '가공' })).not.toHaveLength(0)
+  })
+
+  it('다섯 단계에 서로 다른 색상과 단계 아이콘을 동일하게 적용한다', async () => {
+    const { container } = renderView()
+    await screen.findByRole('heading', { name: 'RE:BAG' })
+
+    const stepItems = Array.from(screen.getByRole('list', { name: '여정 단계' }).querySelectorAll('li'))
+    expect(new Set(stepItems.map((item) => item.getAttribute('style'))).size).toBe(5)
+    expect(stepItems.every((item) => item.querySelector('.journey-stepper__icon svg'))).toBe(true)
+    expect(container.querySelector('[data-node-stage="SOURCE"] .journey-node__icon svg')).toBeInTheDocument()
+
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Flow View' }))
+    expect(container.querySelectorAll('.journey-flow-backdrop__stage')).toHaveLength(5)
+    expect(container.querySelectorAll('.journey-flow-backdrop__stage .journey-flow-backdrop__icon svg')).toHaveLength(5)
+  })
+
   it('모바일에서는 지도와 단계별 상세만 간결하게 보여준다', async () => {
     vi.stubGlobal('matchMedia', vi.fn((query: string) => ({
       matches: query === '(max-width: 760px)',
@@ -200,6 +264,8 @@ describe('PassportView', () => {
     expect(screen.getByRole('img', { name: /업체 위치와 이동 경로/ })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Flow View' })).not.toBeInTheDocument()
 
+    expect(screen.queryByRole('button', { name: 'ReWeave 상세 보기' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /브랜드 제작 완료/ }))
     await user.click(screen.getByRole('button', { name: 'ReWeave 상세 보기' }))
     expect(screen.getByRole('button', { name: /브랜드 제작 완료/ })).toHaveAttribute('aria-current', 'step')
 
@@ -210,11 +276,14 @@ describe('PassportView', () => {
 
   it('수거업체를 만들지 않고 업체 사이 이동 기록만 보여준다', async () => {
     const user = userEvent.setup()
-    renderView()
+    const { container } = renderView()
     await screen.findByRole('heading', { name: 'RE:BAG' })
 
     await user.click(screen.getByRole('button', { name: /수거 완료/ }))
     expect(screen.getByText('2개의 이동 기록')).toBeInTheDocument()
+    expect(container.querySelector('.journey-detail__selector')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^서울 원단 공급처$/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^그린텍스$/ })).not.toBeInTheDocument()
     expect(screen.queryByText('수거업체')).not.toBeInTheDocument()
   })
 

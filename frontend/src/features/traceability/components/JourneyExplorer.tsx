@@ -143,6 +143,7 @@ export function JourneyExplorer({ journey }: { journey: ProductJourney }) {
     ?? journey.edges.find((edge) => edge.stage === 'SOURCE')?.toNodeId
     ?? null
   ))
+  const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('MAP')
   const isMobile = useMediaQuery('(max-width: 760px)')
 
@@ -155,6 +156,12 @@ export function JourneyExplorer({ journey }: { journey: ProductJourney }) {
       ?? null
     setActiveStage(nextStage)
     setActiveNodeId(firstNode)
+    setFocusedNodeId(null)
+  }
+
+  const handleNodeSelect = (nodeId: string) => {
+    setActiveNodeId(nodeId)
+    setFocusedNodeId(nodeId)
   }
 
   if (isMobile) {
@@ -163,8 +170,9 @@ export function JourneyExplorer({ journey }: { journey: ProductJourney }) {
         journey={journey}
         activeStage={activeStage}
         activeNodeId={activeNodeId}
+        focusedNodeId={focusedNodeId}
         onChangeStage={handleStageChange}
-        onSelectNode={setActiveNodeId}
+        onSelectNode={handleNodeSelect}
       />
     )
   }
@@ -205,14 +213,16 @@ export function JourneyExplorer({ journey }: { journey: ProductJourney }) {
           journey={journey}
           activeStage={activeStage}
           activeNodeId={activeNodeId}
+          focusedNodeId={focusedNodeId}
           viewMode={viewMode}
-          onSelectNode={setActiveNodeId}
+          onSelectNode={handleNodeSelect}
         />
         <JourneyDetailPanel
           journey={journey}
           activeStage={activeStage}
           activeNodeId={activeNodeId}
-          onSelectNode={setActiveNodeId}
+          focusedNodeId={focusedNodeId}
+          onSelectNode={handleNodeSelect}
         />
       </div>
 
@@ -225,21 +235,17 @@ function MobileJourneyExplorer({
   journey,
   activeStage,
   activeNodeId,
+  focusedNodeId,
   onChangeStage,
   onSelectNode,
 }: {
   journey: ProductJourney
   activeStage: JourneyStageType
   activeNodeId: string | null
+  focusedNodeId: string | null
   onChangeStage: (stage: JourneyStageType) => void
   onSelectNode: (nodeId: string) => void
 }) {
-  const handleMapNodeSelect = (nodeId: string) => {
-    const node = journey.nodes.find((item) => item.nodeId === nodeId)
-    if (node && node.stage !== activeStage) onChangeStage(node.stage)
-    onSelectNode(nodeId)
-  }
-
   return (
     <section className="journey-explorer journey-explorer--mobile" aria-label="모바일 제품 여정">
       <header className="mobile-journey__intro">
@@ -254,10 +260,10 @@ function MobileJourneyExplorer({
         journey={journey}
         activeStage={activeStage}
         activeNodeId={activeNodeId}
+        focusedNodeId={focusedNodeId}
         viewMode="MAP"
         compact
-        showEntireJourney
-        onSelectNode={handleMapNodeSelect}
+        onSelectNode={onSelectNode}
       />
 
       <section className="mobile-journey__stages" aria-labelledby="mobile-journey-stages-title">
@@ -275,6 +281,7 @@ function MobileJourneyExplorer({
         journey={journey}
         activeStage={activeStage}
         activeNodeId={activeNodeId}
+        focusedNodeId={focusedNodeId}
         onSelectNode={onSelectNode}
       />
 
@@ -344,17 +351,17 @@ function JourneyCanvas({
   journey,
   activeStage,
   activeNodeId,
+  focusedNodeId,
   viewMode,
   compact = false,
-  showEntireJourney = false,
   onSelectNode,
 }: {
   journey: ProductJourney
   activeStage: JourneyStageType
   activeNodeId: string | null
+  focusedNodeId: string | null
   viewMode: ViewMode
   compact?: boolean
-  showEntireJourney?: boolean
   onSelectNode: (nodeId: string) => void
 }) {
   const reducedMotion = useReducedMotion()
@@ -363,8 +370,37 @@ function JourneyCanvas({
     [journey.nodes, viewMode],
   )
   const activeIndex = stageIndex(activeStage)
+  const focusedEdgeIds = useMemo(
+    () => focusedNodeId ? traceFocusedRoute(journey.edges, focusedNodeId) : new Set<string>(),
+    [journey.edges, focusedNodeId],
+  )
+  const focusedVisibleEdgeIds = useMemo(() => new Set(
+    journey.edges
+      .filter((edge) => focusedEdgeIds.has(edge.edgeId) && stageIndex(edge.stage) <= activeIndex)
+      .map((edge) => edge.edgeId),
+  ), [activeIndex, focusedEdgeIds, journey.edges])
+  const focusedNodeIds = useMemo(() => {
+    const nodeIds = new Set<string>(focusedNodeId ? [focusedNodeId] : [])
+    journey.edges.forEach((edge) => {
+      if (!focusedVisibleEdgeIds.has(edge.edgeId)) return
+      nodeIds.add(edge.fromNodeId)
+      nodeIds.add(edge.toNodeId)
+    })
+    return nodeIds
+  }, [focusedNodeId, focusedVisibleEdgeIds, journey.edges])
+  const routeFocused = focusedNodeId !== null
+  const activeEdgeIds = useMemo(() => new Set(
+    journey.edges
+      .filter((edge) => {
+        const destination = journey.nodes.find((node) => node.nodeId === edge.toNodeId)
+        return edge.stage === activeStage || destination?.stage === activeStage
+      })
+      .map((edge) => edge.edgeId),
+  ), [activeStage, journey.edges, journey.nodes])
   const visibleEdges = journey.edges.filter((edge) =>
-    viewMode === 'FLOW' || showEntireJourney || stageIndex(edge.stage) <= activeIndex,
+    viewMode === 'FLOW'
+      || stageIndex(edge.stage) <= activeIndex
+      || focusedVisibleEdgeIds.has(edge.edgeId),
   )
   const connectedIds = new Set(
     journey.edges
@@ -373,9 +409,9 @@ function JourneyCanvas({
   )
   const visibleNodes = journey.nodes.filter((node) =>
     viewMode === 'FLOW'
-      || showEntireJourney
       || stageIndex(node.stage) <= activeIndex
-      || connectedIds.has(node.nodeId),
+      || connectedIds.has(node.nodeId)
+      || focusedNodeIds.has(node.nodeId),
   )
 
   return (
@@ -402,28 +438,45 @@ function JourneyCanvas({
             const from = positions[edge.fromNodeId]
             const to = positions[edge.toNodeId]
             if (!from || !to) return null
-            const active = edge.stage === activeStage
-            const selected = activeNodeId === edge.fromNodeId || activeNodeId === edge.toNodeId
-            const path = curvedPath(from, to, index)
+            const focused = focusedVisibleEdgeIds.has(edge.edgeId)
+            const active = routeFocused
+              ? focused && activeEdgeIds.has(edge.edgeId)
+              : activeEdgeIds.has(edge.edgeId)
+            const selected = focused || activeNodeId === edge.fromNodeId || activeNodeId === edge.toNodeId
+            const route = curvedRoute(from, to, index)
+            const TravelerIcon = STAGE_META[edge.stage].icon
             return (
               <g
                 key={`${viewMode}-${activeStage}-${edge.edgeId}`}
-                className={`journey-canvas__edge${active ? ' is-active' : ''}${selected ? ' is-selected' : ''}`}
+                className={`journey-canvas__edge${active ? ' is-active' : ''}${selected ? ' is-selected' : ''}${routeFocused && !focused ? ' is-dimmed' : ''}`}
                 style={{ '--edge-color': STAGE_META[edge.stage].color } as CSSProperties}
+                data-edge-id={edge.edgeId}
+                data-edge-stage={edge.stage}
               >
-                <path className="journey-canvas__edge-shadow" d={path} />
-                <path className="journey-canvas__edge-line" d={path} markerEnd="url(#journey-arrow)" />
+                <path className="journey-canvas__edge-shadow" d={route.path} />
+                <path className="journey-canvas__edge-line" d={route.path} markerEnd="url(#journey-arrow)" />
+                {active && edge.stage === 'COLLECTION' ? (
+                  <g
+                    className="journey-canvas__route-label"
+                    transform={`translate(${route.label.x} ${route.label.y})`}
+                  >
+                    <rect x="-37" y="-12" width="74" height="24" rx="12" />
+                    <text textAnchor="middle" dy="4">
+                      {stageIndex(edge.stage) + 1}. {STAGE_LABEL[edge.stage]}
+                    </text>
+                  </g>
+                ) : null}
                 {active && !reducedMotion ? (
-                  <g className="journey-canvas__traveler">
-                    <circle r="15" />
-                    <text textAnchor="middle" dy="5">{travelerGlyph(activeStage)}</text>
+                  <g className="journey-canvas__traveler" data-traveler-stage={edge.stage}>
+                    <circle r="16" />
+                    <g transform="translate(-10 -10)">
+                      <TravelerIcon size={20} weight="fill" aria-hidden="true" />
+                    </g>
                     <animateMotion
-                      path={path}
-                      dur="900ms"
-                      begin={`${index * 0.14}s`}
-                      fill="freeze"
-                      calcMode="spline"
-                      keySplines="0.42 0 0.58 1"
+                      path={route.path}
+                      dur="2.2s"
+                      begin={`${index * 0.18}s`}
+                      repeatCount="indefinite"
                     />
                   </g>
                 ) : null}
@@ -437,16 +490,19 @@ function JourneyCanvas({
             const point = positions[node.nodeId]
             if (!point) return null
             const selected = node.nodeId === activeNodeId
-            const current = node.stage === activeStage || connectedIds.has(node.nodeId)
+            const current = focusedNodeIds.has(node.nodeId) || node.stage === activeStage || connectedIds.has(node.nodeId)
+            const NodeIcon = STAGE_META[node.stage].icon
             return (
               <g
                 key={node.nodeId}
                 role="button"
                 tabIndex={0}
                 aria-label={`${node.companyName ?? STAGE_LABEL[node.stage]} 상세 보기`}
-                className={`journey-node${selected ? ' is-selected' : ''}${current ? ' is-current' : ''}`}
+                className={`journey-node${selected ? ' is-selected' : ''}${current ? ' is-current' : ''}${routeFocused && !focusedNodeIds.has(node.nodeId) ? ' is-dimmed' : ''}`}
                 style={{ '--node-color': STAGE_META[node.stage].color } as CSSProperties}
                 transform={`translate(${point.x} ${point.y})`}
+                data-node-id={node.nodeId}
+                data-node-stage={node.stage}
                 onClick={() => onSelectNode(node.nodeId)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' || event.key === ' ') onSelectNode(node.nodeId)
@@ -454,14 +510,18 @@ function JourneyCanvas({
               >
                 <circle className="journey-node__halo" r="34" />
                 <circle className="journey-node__body" r="23" />
-                <text className="journey-node__icon" textAnchor="middle" dy="6">
-                  {stageIndex(node.stage) + 1}
-                </text>
+                <g className="journey-node__icon" transform="translate(-12 -12)">
+                  <NodeIcon size={24} weight="fill" aria-hidden="true" />
+                </g>
+                <g className="journey-node__stage-badge" transform="translate(17 -17)">
+                  <circle r="10" />
+                  <text textAnchor="middle" dy="4">{stageIndex(node.stage) + 1}</text>
+                </g>
                 {viewMode === 'FLOW' ? (
                   <g className="journey-node__flow-label">
-                    <rect x="-68" y="32" width="136" height="47" rx="10" />
-                    <text textAnchor="middle" y="51">{node.companyName ?? STAGE_LABEL[node.stage]}</text>
-                    <text className="journey-node__location" textAnchor="middle" y="68">
+                    <rect x="-78" y="32" width="156" height="54" rx="11" />
+                    <text textAnchor="middle" y="54">{node.companyName ?? STAGE_LABEL[node.stage]}</text>
+                    <text className="journey-node__location" textAnchor="middle" y="73">
                       {compactLocation(node.locationName)}
                     </text>
                   </g>
@@ -483,34 +543,40 @@ function JourneyDetailPanel({
   journey,
   activeStage,
   activeNodeId,
+  focusedNodeId,
   onSelectNode,
 }: {
   journey: ProductJourney
   activeStage: JourneyStageType
   activeNodeId: string | null
+  focusedNodeId: string | null
   onSelectNode: (nodeId: string) => void
 }) {
-  const stage = journey.stages.find((item) => item.stage === activeStage)
-  const edges = journey.edges.filter((edge) => edge.stage === activeStage)
+  const focusedNode = journey.nodes.find((item) => item.nodeId === focusedNodeId)
+  const detailStage = focusedNode?.stage ?? activeStage
+  const stage = journey.stages.find((item) => item.stage === detailStage)
+  const edges = journey.edges.filter((edge) => edge.stage === detailStage)
   const candidateIds = Array.from(new Set([
     ...(stage?.nodeIds ?? []),
     ...edges.flatMap((edge) => [edge.fromNodeId, edge.toNodeId]),
   ]))
   const candidates = candidateIds
     .map((id) => journey.nodes.find((node) => node.nodeId === id))
-    .filter((node): node is JourneyNode => Boolean(node))
+    .filter((node): node is JourneyNode => node !== undefined)
+    .filter((node) => node.stage === detailStage)
   const node = journey.nodes.find((item) => item.nodeId === activeNodeId) ?? candidates[0]
+  const selectedStageNode = node?.stage === detailStage ? node : candidates[0]
 
   return (
     <aside
       className="journey-detail"
-      style={{ '--stage-color': STAGE_META[activeStage].color } as CSSProperties}
+      style={{ '--stage-color': STAGE_META[detailStage].color } as CSSProperties}
     >
       <header className="journey-detail__header">
-        <span className="journey-detail__icon">{stageIcon(activeStage, 24)}</span>
+        <span className="journey-detail__icon">{stageIcon(detailStage, 24)}</span>
         <div>
-          <p>STEP {stageIndex(activeStage) + 1}</p>
-          <h2>{STAGE_LABEL[activeStage]}</h2>
+          <p>STEP {stageIndex(detailStage) + 1}</p>
+          <h2>{STAGE_LABEL[detailStage]}</h2>
         </div>
         <span className={`journey-detail__status is-${stage?.status.toLowerCase() ?? 'pending'}`}>
           {stage ? STATUS_LABEL[stage.status] : '대기'}
@@ -523,7 +589,7 @@ function JourneyDetailPanel({
             <button
               key={candidate.nodeId}
               type="button"
-              className={candidate.nodeId === node?.nodeId ? 'is-active' : ''}
+              className={candidate.nodeId === selectedStageNode?.nodeId ? 'is-active' : ''}
               onClick={() => onSelectNode(candidate.nodeId)}
             >
               {candidate.companyName ?? compactLocation(candidate.locationName)}
@@ -532,11 +598,11 @@ function JourneyDetailPanel({
         </div>
       ) : null}
 
-      {node ? <NodeDetail node={node} /> : <CollectionDetail edges={edges} journey={journey} />}
-
-      {activeStage === 'COLLECTION' && edges.length > 0 ? (
-        <CollectionDetail edges={edges} journey={journey} compact />
-      ) : null}
+      {detailStage === 'COLLECTION'
+        ? <CollectionDetail edges={edges} journey={journey} />
+        : selectedStageNode
+          ? <NodeDetail node={selectedStageNode} />
+          : <p className="journey-detail__empty">등록된 단계 정보가 없습니다.</p>}
     </aside>
   )
 }
@@ -678,15 +744,13 @@ function BlockchainProofModal({
 function CollectionDetail({
   edges,
   journey,
-  compact = false,
 }: {
   edges: JourneyEdge[]
   journey: ProductJourney
-  compact?: boolean
 }) {
   if (edges.length === 0) return <p className="journey-detail__empty">등록된 이동 기록이 없습니다.</p>
   return (
-    <section className={`journey-detail__movements${compact ? ' is-compact' : ''}`}>
+    <section className="journey-detail__movements">
       <h3>{edges.length}개의 이동 기록</h3>
       <ul>
         {edges.map((edge) => {
@@ -760,13 +824,31 @@ function mapPositions(nodes: JourneyNode[]): Record<string, Point> {
       positions[node.nodeId] = { x: 150 + stageIndex(node.stage) * 170, y: 150 + count * 92 }
       return
     }
-    const jitter = count * 7
-    positions[node.nodeId] = {
-      x: clamp(90 + ((longitude - 124.5) / 5.5) * 790 + jitter, 70, 930),
-      y: clamp(55 + ((39.2 - latitude) / 6.2) * 520 + jitter, 55, 575),
-    }
+    const projected = projectGeo(latitude, longitude)
+    positions[node.nodeId] = avoidMarkerCollisions(projected, Object.values(positions), count)
   })
   return positions
+}
+
+function avoidMarkerCollisions(origin: Point, placed: Point[], seed: number): Point {
+  const minimumDistance = 82
+  const isAvailable = (candidate: Point) => placed.every((point) => (
+    Math.hypot(candidate.x - point.x, candidate.y - point.y) >= minimumDistance
+  ))
+  if (isAvailable(origin)) return origin
+
+  for (let ring = 1; ring <= 4; ring += 1) {
+    const radius = ring * 58
+    for (let offset = 0; offset < 8; offset += 1) {
+      const angle = ((seed + offset) / 8) * Math.PI * 2
+      const candidate = {
+        x: clamp(origin.x + Math.cos(angle) * radius, 70, 930),
+        y: clamp(origin.y + Math.sin(angle) * radius, 55, 575),
+      }
+      if (isAvailable(candidate)) return candidate
+    }
+  }
+  return origin
 }
 
 function flowPositions(nodes: JourneyNode[]): Record<string, Point> {
@@ -786,17 +868,43 @@ function flowPositions(nodes: JourneyNode[]): Record<string, Point> {
   return positions
 }
 
-function curvedPath(from: Point, to: Point, index: number): string {
+function curvedRoute(from: Point, to: Point, index: number): { path: string; label: Point } {
   const middleX = (from.x + to.x) / 2
   const middleY = (from.y + to.y) / 2 - 24 + (index % 3) * 18
-  return `M ${from.x} ${from.y} Q ${middleX} ${middleY} ${to.x} ${to.y}`
+  return {
+    path: `M ${from.x} ${from.y} Q ${middleX} ${middleY} ${to.x} ${to.y}`,
+    label: {
+      x: (from.x + 2 * middleX + to.x) / 4,
+      y: (from.y + 2 * middleY + to.y) / 4 - 16,
+    },
+  }
 }
 
-function travelerGlyph(stage: JourneyStageType): string {
-  if (stage === 'COLLECTION') return '↗'
-  if (stage === 'PROCESSING') return '◆'
-  if (stage === 'BRAND') return '✦'
-  return '●'
+function traceFocusedRoute(edges: JourneyEdge[], nodeId: string): Set<string> {
+  const route = new Set<string>()
+  const visitedBackward = new Set<string>()
+  const visitedForward = new Set<string>()
+
+  const walkBackward = (currentNodeId: string) => {
+    if (visitedBackward.has(currentNodeId)) return
+    visitedBackward.add(currentNodeId)
+    edges.filter((edge) => edge.toNodeId === currentNodeId).forEach((edge) => {
+      route.add(edge.edgeId)
+      walkBackward(edge.fromNodeId)
+    })
+  }
+  const walkForward = (currentNodeId: string) => {
+    if (visitedForward.has(currentNodeId)) return
+    visitedForward.add(currentNodeId)
+    edges.filter((edge) => edge.fromNodeId === currentNodeId).forEach((edge) => {
+      route.add(edge.edgeId)
+      walkForward(edge.toNodeId)
+    })
+  }
+
+  walkBackward(nodeId)
+  walkForward(nodeId)
+  return route
 }
 
 function compactLocation(location: string | null): string {
@@ -840,17 +948,100 @@ const REGION_COORDINATES: Record<string, { latitude: number; longitude: number }
   제주특별자치도: { latitude: 33.4996, longitude: 126.5312 },
 }
 
+// Natural Earth 1:50m Admin 0 공개 경계에서 대한민국 도형만 추출해 화면용으로 단순화한 좌표.
+// 좌표 순서는 GeoJSON과 동일한 [경도, 위도].
+const KOREA_SHAPES: Array<Array<[number, number]>> = [
+  [
+    [126.633887, 37.781836], [126.664551, 37.800732], [126.666797, 37.917187],
+    [127.009668, 38.240527], [127.090332, 38.283887], [127.294043, 38.313281],
+    [128.038965, 38.308545], [128.168652, 38.359326], [128.339453, 38.607861],
+    [128.374609, 38.623437], [128.618848, 38.176074], [129.051563, 37.677637],
+    [129.335156, 37.274561], [129.418262, 37.059033], [129.473438, 36.741895],
+    [129.433008, 36.636621], [129.44502, 36.470703], [129.392578, 36.322705],
+    [129.403516, 36.052148], [129.458301, 36.006445], [129.572852, 36.050537],
+    [129.561719, 35.947656], [129.419141, 35.497852], [129.21416, 35.181836],
+    [128.980078, 35.101514], [128.642578, 35.11958], [128.510938, 35.100977],
+    [128.418848, 35.015674], [128.443945, 34.870361], [128.094531, 34.933594],
+    [128.03623, 35.021973], [127.873242, 34.966309], [127.714844, 34.954687],
+    [127.639355, 34.889697], [127.742188, 34.782568], [127.71543, 34.721045],
+    [127.632422, 34.690234], [127.523633, 34.840088], [127.404297, 34.823096],
+    [127.389648, 34.743018], [127.479102, 34.625244], [127.324609, 34.463281],
+    [127.173438, 34.546143], [127.194922, 34.605029], [127.260547, 34.66167],
+    [127.24707, 34.755127], [127.030762, 34.606885], [126.897461, 34.438867],
+    [126.82627, 34.451074], [126.754785, 34.511865], [126.61084, 34.403516],
+    [126.584375, 34.317529], [126.531445, 34.314258], [126.481738, 34.493945],
+    [126.332617, 34.589648], [126.264453, 34.673242], [126.301074, 34.719971],
+    [126.524512, 34.6979], [126.472852, 34.756348], [126.593359, 34.824365],
+    [126.420703, 34.823389], [126.397852, 34.932812], [126.291113, 35.15415],
+    [126.360547, 35.216895], [126.492773, 35.50127], [126.614062, 35.570996],
+    [126.486523, 35.606348], [126.488477, 35.64707], [126.717383, 35.768848],
+    [126.753027, 35.871973], [126.647461, 35.922412], [126.693457, 36.01416],
+    [126.54043, 36.166162], [126.548242, 36.477637], [126.487695, 36.693799],
+    [126.38877, 36.651172], [126.180859, 36.691602], [126.160547, 36.771924],
+    [126.217188, 36.870947], [126.487012, 37.007471], [126.577734, 37.01958],
+    [126.686719, 36.960352], [126.784473, 36.948437], [126.87207, 36.824463],
+    [126.879102, 36.862061], [126.976855, 36.939404], [126.868945, 36.975732],
+    [126.746387, 37.193555], [126.790527, 37.294922], [126.650293, 37.447119],
+    [126.656836, 37.551172], [126.563379, 37.716504], [126.633887, 37.781836],
+  ],
+  [[128.741016, 34.798535], [128.64668, 34.736865], [128.489258, 34.865283], [128.667969, 35.008789], [128.721875, 35.013574], [128.741016, 34.798535]],
+  [[128.06582, 34.805859], [128.054688, 34.708057], [127.983984, 34.703223], [127.941797, 34.76626], [127.873438, 34.734961], [127.832227, 34.874512], [127.91543, 34.920996], [128.037988, 34.878613], [128.06582, 34.805859]],
+  [[126.233691, 34.370508], [126.169727, 34.355176], [126.108594, 34.39873], [126.122852, 34.443945], [126.247461, 34.56333], [126.343848, 34.544922], [126.379883, 34.497949], [126.335449, 34.426416], [126.233691, 34.370508]],
+  [[126.520703, 37.736816], [126.516016, 37.604687], [126.46084, 37.610352], [126.407227, 37.649414], [126.369336, 37.772021], [126.411621, 37.822656], [126.493555, 37.782568], [126.520703, 37.736816]],
+  [[126.753027, 34.343994], [126.769922, 34.296436], [126.689063, 34.30542], [126.646094, 34.351123], [126.651855, 34.390332], [126.7, 34.395898], [126.753027, 34.343994]],
+  [[127.799023, 34.615039], [127.787793, 34.584082], [127.737305, 34.630908], [127.787109, 34.682129], [127.799023, 34.615039]],
+  [[126.417578, 36.492578], [126.403809, 36.427881], [126.3375, 36.470557], [126.318555, 36.612549], [126.386621, 36.571143], [126.417578, 36.492578]],
+  [[126.171973, 34.731152], [126.158789, 34.706982], [126.115234, 34.714209], [126.052051, 34.837549], [126.00752, 34.86748], [126.078418, 34.914844], [126.168555, 34.829687], [126.171973, 34.731152]],
+  [[130.916016, 37.478467], [130.870605, 37.44873], [130.810254, 37.509912], [130.903711, 37.553711], [130.934277, 37.529736], [130.916016, 37.478467]],
+  [[126.326953, 33.223633], [126.240234, 33.214844], [126.165625, 33.312012], [126.199414, 33.368066], [126.337695, 33.4604], [126.695508, 33.549316], [126.901172, 33.515137], [126.93125, 33.443848], [126.872852, 33.341162], [126.581738, 33.23833], [126.326953, 33.223633]],
+]
+
+const KOREA_REGION_LINES: Array<Array<[number, number]>> = [
+  [[37.77, 126.72], [37.52, 127.02], [37.32, 127.42], [37.45, 128.02], [37.64, 128.92]],
+  [[37.18, 126.62], [36.94, 127.18], [36.82, 127.78], [36.92, 128.52], [37.08, 129.36]],
+  [[36.42, 126.49], [36.52, 127.06], [36.34, 127.54], [36.45, 128.22], [36.29, 129.50]],
+  [[35.79, 126.45], [35.94, 127.12], [35.72, 127.62], [35.89, 128.25], [35.70, 129.45]],
+  [[35.18, 126.08], [35.37, 126.82], [35.29, 127.47], [35.44, 128.10], [35.14, 129.17]],
+  [[38.44, 127.28], [37.86, 127.42], [37.28, 127.56], [36.72, 127.44], [36.22, 127.62], [35.70, 127.48], [34.65, 127.54]],
+]
+
+function projectGeo(latitude: number, longitude: number): Point {
+  return {
+    // 카드 안에서 경로와 마커가 충분한 간격을 갖도록 대한민국 영역을 확대해 투영한다.
+    x: 500 + (longitude - 127.65) * 94,
+    y: 10 + ((38.75 - latitude) / (38.75 - 33.1)) * 590,
+  }
+}
+
+function geoPath(points: Array<[number, number]>, close = false): string {
+  const commands = points.map(([latitude, longitude], index) => {
+    const point = projectGeo(latitude, longitude)
+    return `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`
+  })
+  return `${commands.join(' ')}${close ? ' Z' : ''}`
+}
+
+function geoJsonPath(points: Array<[number, number]>): string {
+  const commands = points.map(([longitude, latitude], index) => {
+    const point = projectGeo(latitude, longitude)
+    return `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`
+  })
+  return `${commands.join(' ')} Z`
+}
+
 function KoreaMapBackdrop() {
   return (
     <g className="journey-map-backdrop" aria-hidden="true">
       <rect width="1000" height="620" rx="24" />
-      <path d="M568 39c41 16 76 51 76 88 0 27-17 43-8 71 10 31 49 47 52 81 3 34-32 55-36 90-5 42 32 74 12 111-18 33-59 32-89 48-27 15-42 48-74 55-37 8-61-25-94-38-31-12-72-4-91-34-22-35 10-70 14-107 4-38-20-75-2-110 17-33 60-37 82-66 20-27 12-68 35-93 22-25 59-27 78-55 22-32 11-78 51-99 23-12 48-10 74-8z" />
-      <path className="journey-map-backdrop__island" d="M267 540c30-12 77-8 88 9 8 13-21 29-53 31-35 2-59-21-35-40z" />
+      {KOREA_SHAPES.map((shape, index) => (
+        <path
+          key={index}
+          className={index === 0 ? 'journey-map-backdrop__mainland' : 'journey-map-backdrop__island'}
+          d={geoJsonPath(shape)}
+        />
+      ))}
       <g className="journey-map-backdrop__lines">
-        <path d="M460 145c55 28 99 65 155 78" />
-        <path d="M390 274c92-9 168 18 257 70" />
-        <path d="M370 406c75-25 175-7 267 38" />
-        <path d="M505 83c-7 107 4 194 35 284 17 51 2 113-24 162" />
+        {KOREA_REGION_LINES.map((line, index) => <path key={index} d={geoPath(line)} />)}
       </g>
     </g>
   )
@@ -861,9 +1052,17 @@ function FlowBackdrop() {
     <g className="journey-flow-backdrop" aria-hidden="true">
       <rect width="1000" height="620" rx="24" />
       {STAGE_ORDER.map((stage, index) => (
-        <g key={stage} transform={`translate(${32 + index * 205} 24)`}>
-          <rect width="116" height="30" rx="15" />
-          <text x="58" y="20" textAnchor="middle">{index + 1}. {STAGE_LABEL[stage]}</text>
+        <g
+          key={stage}
+          className="journey-flow-backdrop__stage"
+          style={{ '--stage-color': STAGE_META[stage].color } as CSSProperties}
+          transform={`translate(${24 + index * 205} 18)`}
+        >
+          <rect width="154" height="40" rx="20" />
+          <g className="journey-flow-backdrop__icon" transform="translate(12 8)">
+            {stageIcon(stage, 24)}
+          </g>
+          <text x="88" y="26" textAnchor="middle">{index + 1}. {STAGE_LABEL[stage]}</text>
         </g>
       ))}
     </g>
