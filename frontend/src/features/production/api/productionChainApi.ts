@@ -48,3 +48,65 @@ export async function getProductionManifest(batchId: number): Promise<Production
   )
   return data
 }
+
+/** 2단계 보고에 싣는, 투입별 온체인 잠금 번호. */
+export interface LockedMaterialPayload {
+  productionInputId: number
+  /** `MaterialLockCreated` 이벤트의 `lockId` */
+  chainLockId: number
+}
+
+export interface LinkChainPlanPayload {
+  txHash: string
+  blockNumber?: number
+  /** 서명에 넣은 값 그대로. 서버가 자기 계산과 대조한다 */
+  evidenceHash: string
+  manifestUrl?: string
+  lockedMaterials: LockedMaterialPayload[]
+}
+
+/**
+ * `submitPlanAndLock` 결과 — `POST /v1/production-batches/{batchId}/chain`
+ *
+ * **잠금 번호를 여기서 넘겨야 한다.** 그 번호는 영수증에서만 나오는 값이고
+ * (`MaterialLockCreated`), 3단계 소각이 어느 잠금을 태울지 정하는 근거다. 화면이 들고
+ * 있다가 3단계에 넣게 하면 그 사이 새로고침 한 번에 잃는다.
+ *
+ * 앞 단계를 알리지 않았으면 `PRODUCTION_CHAIN_BATCH_NOT_LINKED` 로 거절된다.
+ */
+export async function linkChainPlan(
+  batchId: number,
+  payload: LinkChainPlanPayload,
+): Promise<void> {
+  await apiClient.post(`/v1/production-batches/${batchId}/chain`, payload)
+}
+
+export interface LinkChainTxPayload {
+  txHash: string
+  blockNumber?: number
+}
+
+/**
+ * `confirmProduction` 결과 — `POST /v1/production-batches/{batchId}/chain/consume`
+ *
+ * 태운 잠금을 다시 보내지 않는다 — 2단계 보고에서 서버가 이미 보관했다.
+ */
+export async function linkChainConsume(
+  batchId: number,
+  payload: LinkChainTxPayload,
+): Promise<void> {
+  await apiClient.post(`/v1/production-batches/${batchId}/chain/consume`, payload)
+}
+
+/**
+ * `linkProductItems` 결과 — `POST /v1/production-batches/{batchId}/chain/items`
+ *
+ * 개체 번호를 보내지 않는다. 컨트랙트가 우리 `product_item.id` 를 그대로 쓰고 온체인에서
+ * 따로 채번하지 않으므로, 서버는 어느 개체가 연결됐는지 이미 안다.
+ */
+export async function linkChainItems(
+  batchId: number,
+  payload: LinkChainTxPayload,
+): Promise<void> {
+  await apiClient.post(`/v1/production-batches/${batchId}/chain/items`, payload)
+}

@@ -27,6 +27,8 @@ vi.mock('../api/removeProductionInput.ts', () => ({
 function input(overrides: Partial<ProductionInput> = {}): ProductionInput {
   return {
     productionInputId: 51,
+    materialCode: 'MAT-000011',
+    chainLockId: null,
     materialId: 11,
     inputQuantity: 10_000,
     productUsedQuantity: 8_000,
