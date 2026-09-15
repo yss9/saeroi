@@ -17,6 +17,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ProductionBatch } from '../types/production.types.ts'
 import { ProductionChainPanel } from './ProductionChainPanel.tsx'
 
+// 2~4단계는 체인을 직접 읽어 진행 상태를 정한다. 이 파일은 1단계만 보므로 잘라 둔다 —
+// 그쪽 동작은 ProductionChainSteps.test 가 본다.
+vi.mock('./ProductionChainSteps.tsx', () => ({
+  ProductionChainSteps: () => null,
+}))
+
 // 컨트랙트 설정은 env 에서 온다. 테스트마다 갈아 끼울 수 있게 훅 경계에서 자른다.
 const config = vi.hoisted(() => ({ configured: true }))
 vi.mock('../../../config/contracts.ts', () => ({
@@ -137,14 +143,13 @@ describe('ProductionChainPanel', () => {
     expect(screen.queryByRole('button', { name: '온체인 배치 생성' })).not.toBeInTheDocument()
   })
 
-  // 1단계만 보여주면 브랜드는 온체인 기록이 끝난 줄로 안다.
-  it('남은 세 단계가 아직 준비 중이라는 것을 적는다', () => {
-    renderPanel()
+  // 남은 단계는 ProductionChainSteps 가 그린다. 이 패널은 1단계만 책임진다.
+  it('남은 단계를 그릴 자리를 내준다', () => {
+    renderPanel(batch({ chainBatchId: 7 }))
 
-    expect(screen.getByText('투입 잠금·계획 기록', { exact: false })).toBeInTheDocument()
-    expect(screen.getByText('소재 소각', { exact: false })).toBeInTheDocument()
-    expect(screen.getByText('제품 개체 연결', { exact: false })).toBeInTheDocument()
-    expect(screen.getAllByText('준비 중')).toHaveLength(3)
+    // 1단계가 끝났으면 번호를 보여주고 서명 버튼을 거둔다.
+    expect(screen.getByText(/7/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '온체인 배치 생성' })).not.toBeInTheDocument()
   })
 
   it('생산 개수를 문구에 넣어 무엇을 기록하는지 말한다', () => {

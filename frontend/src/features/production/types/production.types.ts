@@ -59,6 +59,14 @@ export interface ProductionBatch {
 export interface ProductionInput {
   productionInputId: number
   materialId: number
+  /**
+   * 사람이 읽는 소재 식별자.
+   *
+   * **온체인 2단계가 이 값으로 짝을 맞춘다.** manifest 는 소재를 코드로 적고(체인에 남아
+   * 다른 시스템이 읽을 수 있어야 한다) 이 목록은 `productionInputId` 를 갖고 있어, 둘을
+   * 잇는 유일한 값이다.
+   */
+  materialCode: string
   /** gram */
   inputQuantity: number
   productUsedQuantity: number
@@ -66,6 +74,13 @@ export interface ProductionInput {
   wasteQuantity: number
   wasteReason: string | null
   materialLockId: number
+  /**
+   * 온체인 잠금 번호. `submitPlanAndLock` 결과를 알리기 전에는 null 이다.
+   *
+   * 서버가 보관하는 이유는 3단계(소각)가 이 번호로 대상을 정하기 때문이다 — 화면이 들고
+   * 있으면 그 사이 새로고침 한 번에 잃는다.
+   */
+  chainLockId: number | null
 }
 
 /**
@@ -118,13 +133,25 @@ export interface ProductionManifest {
     totalUsedQuantity: number
     virginUsedQuantity: number
     upcycledUsedQuantity: number
+    /**
+     * 투입 목록.
+     *
+     * **`submitPlanAndLock` 의 배열 인자가 이 순서 그대로다.** 컨트랙트가 인덱스로 짝을
+     * 맞추므로 화면이 다른 응답과 조합해 만들면 순서가 어긋나 엉뚱한 소재가 잠긴다.
+     */
     inputs: {
       /** DB id 가 아니라 소재 코드다 — manifest 는 체인에 남아 다른 시스템이 읽을 수 있다 */
       materialCode: string
+      /** 온체인 토큰 번호. 서명에 그대로 들어간다 */
+      materialTokenId: number
       inputQuantity: number
       productUsedQuantity: number
       reusableScrapQuantity: number
       wasteQuantity: number
+      /** 자투리 메타데이터 주소. 저장소 경로가 아직 없어 지금은 빈 문자열이다 */
+      scrapMetadataUri: string
+      /** 자투리가 없으면 32바이트 0 이다 — 컨트랙트가 scrap > 0 일 때만 0 이 아닌 값을 요구한다 */
+      scrapEvidenceHash: string
     }[]
     itemCodes: string[]
   }

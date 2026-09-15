@@ -407,3 +407,45 @@
   background: #ece9e0;
   font-size: 0.72rem;
 }
+
+/* ── 서명할 수 있는 단계 목록 ────────────────────────── */
+
+/* 단계마다 버튼과 진행 표시가 붙어 한 줄짜리 목록보다 넓게 벌린다. */
+.chain-steps--actions { padding-left: 1.2rem; }
+.chain-steps--actions > li + li { margin-top: 0.8rem; }
+
+.chain-steps__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.86rem;
+  color: #1f2937;
+}
+
+.chain-steps__badge {
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: #e7f3ec;
+  color: #1f6f4a;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.chain-steps__description {
+  margin: 0.25rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: #6b7280;
+}
+
+/* 못 누르는 이유. 잠긴 버튼은 이유를 말하지 않는다. */
+.chain-steps__blocked {
+  margin: 0.25rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: #8a4b0b;
+}
+
+.chain-steps__loading { margin: 0.75rem 0 0; font-size: 0.82rem; color: #6b7280; }

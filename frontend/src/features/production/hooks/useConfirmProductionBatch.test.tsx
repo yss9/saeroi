@@ -23,6 +23,8 @@ vi.mock('../api/productionBatchApi.ts', () => ({
 const INPUT = {
   productionInputId: 51,
   materialId: 11,
+  materialCode: 'MAT-000011',
+  chainLockId: null,
   inputQuantity: 10_000,
   productUsedQuantity: 8_000,
   reusableScrapQuantity: 1_500,

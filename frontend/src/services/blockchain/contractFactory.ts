@@ -133,3 +133,43 @@ export function readEventArg<T>(
   }
   return null
 }
+
+/**
+ * 같은 이벤트가 **여러 번** 실린 영수증에서 전부 꺼낸다.
+ *
+ * `readEventArg` 는 첫 번째 하나만 준다. 한 트랜잭션이 투입 수만큼 잠금을 만드는
+ * `submitPlanAndLock` 처럼, 이벤트가 목록으로 나오는 경우에는 그것으로 부족하다 —
+ * 어느 소재가 어느 잠금 번호를 받았는지 짝을 지으려면 전부 필요하다.
+ *
+ * 사용:
+ *   const locks = readEvents(receipt, 'materialToken', 'MaterialLockCreated')
+ *   locks[0].lockId / locks[0].tokenId
+ */
+export function readEvents(
+  receipt: { logs: readonly { topics: readonly string[]; data: string }[] },
+  name: ContractName,
+  eventName: string,
+): Record<string, unknown>[] {
+  const iface = new Interface(abis[name])
+  const found: Record<string, unknown>[] = []
+
+  for (const log of receipt.logs) {
+    let parsed
+    try {
+      parsed = iface.parseLog({ topics: [...log.topics], data: log.data })
+    } catch {
+      // 다른 컨트랙트의 로그다. 한 트랜잭션에 여러 컨트랙트 로그가 섞이는 건 정상이다.
+      continue
+    }
+    if (parsed?.name !== eventName) continue
+
+    // ethers 의 Result 는 인덱스와 이름을 함께 갖는 배열이다. 이름으로만 쓰도록 좁힌다.
+    const args: Record<string, unknown> = {}
+    for (const [index, input] of parsed.fragment.inputs.entries()) {
+      args[input.name] = parsed.args[index]
+    }
+    found.push(args)
+  }
+
+  return found
+}

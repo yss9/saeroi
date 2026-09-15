@@ -3,6 +3,7 @@ import { contracts, isContractConfigured } from '../../../config/contracts.ts'
 import { env } from '../../../config/env.ts'
 import { useWallet } from '../../wallet/hooks/useWallet.ts'
 import { useCreateChainBatch } from '../hooks/useCreateChainBatch.ts'
+import { ProductionChainSteps } from './ProductionChainSteps.tsx'
 import type { ProductionBatch } from '../types/production.types.ts'
 import './production.css'
 
@@ -25,10 +26,9 @@ export interface ProductionChainPanelProps {
  *   3) `confirmProduction`  소재 소각
  *   4) `linkProductItems`   개체 연결
  *
- * ⚠️ **2~4 단계는 아직 서명할 수 없다.** `submitPlanAndLock` 이 인자 9개를 받는데 그중 셋
- * (`tokenIds` · `scrapMetadataUris` · `scrapEvidenceHashes`)의 출처가 프론트에 없다 —
- * 서버가 아는 값이라 응답에 담아 주기를 요청해 둔 상태다. 그래도 남은 단계를 화면에 적는다:
- * 1 단계만 보여주면 브랜드는 온체인 기록이 끝난 줄로 안다.
+ * **네 단계가 모두 배선돼 있다.** 1단계는 이 패널이 서명하고(번호를 채번하는 단계라 모양이
+ * 다르다), 2~4단계는 `ProductionChainSteps` 가 맡는다 — 이미 있는 배치를 앞으로 미는
+ * 단계들이라 다음에 할 수 있는 일을 체인 상태에서 읽는다.
  */
 export function ProductionChainPanel({ batch }: ProductionChainPanelProps) {
   const { address } = useWallet()
@@ -66,7 +66,7 @@ export function ProductionChainPanel({ batch }: ProductionChainPanelProps) {
       onSign={() => void chain.create()}
       actionLabel="온체인 배치 생성"
     >
-      <RemainingSteps batch={batch} />
+      <ProductionChainSteps batch={batch} />
     </OnChainPanel>
   )
 }
@@ -102,31 +102,6 @@ function blockedReason({
     return `이 배치는 ${shorten(batch.producerWallet)} 지갑으로 열렸습니다. 그 계정으로 연결해 주세요 — 다른 계정으로 서명하면 배치에 적힌 주소와 어긋난 기록이 남습니다.`
   }
   return undefined
-}
-
-/**
- * 남은 온체인 단계.
- *
- * 1 단계만 보여주면 브랜드는 온체인 기록이 끝난 줄로 안다. **아직 만들지 않은 단계라는
- * 사실을 적는다** — 완료와 대기만 있으면 곧 진행될 것으로 읽힌다.
- */
-function RemainingSteps({ batch }: { batch: ProductionBatch }) {
-  return (
-    <ol className="chain-steps">
-      <li className={batch.chainBatchId !== null ? 'chain-steps__done' : undefined}>
-        온체인 배치 생성
-      </li>
-      <li className={batch.evidenceHash !== null ? 'chain-steps__done' : undefined}>
-        투입 잠금·계획 기록 <span className="chain-steps__pending">준비 중</span>
-      </li>
-      <li>
-        소재 소각 <span className="chain-steps__pending">준비 중</span>
-      </li>
-      <li>
-        제품 개체 연결 <span className="chain-steps__pending">준비 중</span>
-      </li>
-    </ol>
-  )
 }
 
 /** 주소를 짧게. 전체를 적으면 문장이 읽히지 않는다. */
