@@ -1,15 +1,14 @@
 import {
-  List,
   MagnifyingGlass,
   ShoppingBag,
   SignIn,
   SignOut,
   UserCircle,
   UserPlus,
-  X,
 } from '@phosphor-icons/react'
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import logoUrl from '../../../assets/saeroi-logo-vector.svg'
 import { ROLE_HOME_MENU_ITEMS } from '../../../app/navigation/navigationMenu.ts'
 import { useVisibleMenu } from '../../../app/navigation/useVisibleMenu.ts'
 import { useAuth } from '../../../features/auth/hooks/useAuth.ts'
@@ -21,11 +20,14 @@ import type { UserRole } from '../../../types/role.types.ts'
 // 랜딩 섹션 앵커. 로그인·역할과 무관한 공개 정보라 필터를 걸지 않는다
 // (routes.tsx 의 Public 구역과 같은 성격이다).
 const navigation = [
-  { label: '신상품', href: '#curated-picks' },
-  { label: '브랜드', href: '#featured-brands' },
-  { label: '지속가능성', href: '#trust' },
-  { label: '스토리', href: '#about' },
+  { label: 'SHOP', href: '#shop' },
+  { label: 'BRANDS', href: '#brands' },
+  { label: 'ABOUT', href: '#why-saeroi' },
 ]
+
+interface HeaderProps {
+  isLogoVisible: boolean
+}
 
 function getAccountTypeLabel(role: UserRole) {
   if (role === 'CONSUMER') return '개인회원'
@@ -34,24 +36,26 @@ function getAccountTypeLabel(role: UserRole) {
   return ''
 }
 
-export function Header() {
+export function Header({ isLogoVisible }: HeaderProps) {
   const { cartCount } = useShop()
   const { user, isAuthenticated } = useAuth()
   const logout = useLogout()
   const navigate = useNavigate()
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const location = useLocation()
   const [isAccountOpen, setIsAccountOpen] = useState(false)
+  const [isScrolled, setIsScrolled] = useState(false)
   const accountRef = useRef<HTMLDivElement>(null)
   const accountTriggerRef = useRef<HTMLButtonElement>(null)
-  const menuTriggerRef = useRef<HTMLButtonElement>(null)
-  const shouldRestoreMenuFocusRef = useRef(false)
 
   useEffect(() => {
-    if (!isMenuOpen && shouldRestoreMenuFocusRef.current) {
-      shouldRestoreMenuFocusRef.current = false
-      menuTriggerRef.current?.focus()
+    function updateHeaderTone() {
+      setIsScrolled(window.scrollY > 32)
     }
-  }, [isMenuOpen])
+
+    updateHeaderTone()
+    window.addEventListener('scroll', updateHeaderTone, { passive: true })
+    return () => window.removeEventListener('scroll', updateHeaderTone)
+  }, [])
 
   useEffect(() => {
     if (!isAccountOpen) return
@@ -78,13 +82,7 @@ export function Header() {
     }
   }, [isAccountOpen])
 
-  function closeMobileMenuFromLink() {
-    shouldRestoreMenuFocusRef.current = true
-    setIsMenuOpen(false)
-  }
-
   function toggleAccountMenu() {
-    setIsMenuOpen(false)
     setIsAccountOpen((isOpen) => !isOpen)
   }
 
@@ -97,6 +95,17 @@ export function Header() {
     })
   }
 
+  function handleCartEntry() {
+    if (isAuthenticated) {
+      navigate('/products')
+      return
+    }
+
+    navigate('/login', {
+      state: { from: { pathname: `${location.pathname}${location.hash || '#shop'}` } },
+    })
+  }
+
   // 역할별 "내 홈" 링크. 어느 역할이 어디로 가는지를 이 파일이 정하지 않는다 —
   // routes.tsx 의 RoleGuard 가 정하고 useVisibleMenu 가 걸러 준다. 그래서
   // /mypage 나 /admin 의 allow 가 바뀌면 여기 손대지 않아도 따라온다.
@@ -104,14 +113,18 @@ export function Header() {
   const accountLink = accountItems[0] ?? null
 
   return (
-    <header className="site-header">
+    <header className={`site-header${isScrolled ? ' site-header--scrolled' : ''}${isLogoVisible ? ' site-header--logo-visible' : ''}`}>
       {/* 일반 <a href="/">는 basename(/test/)을 무시하고 도메인 루트로 풀 네비게이션한다 —
           test 스택에서는 이게 운영 메인으로 튀어나가는 것으로 드러난다. Link 로 바꿔야
           basename 이 자동으로 반영된다. */}
-      <Link className="site-header__logo" to="/" aria-label="SAEROI 홈">
-        {/* public/ 자산 경로라 vite base 가 자동으로 안 붙는다 — basename 과 별개로
-            직접 BASE_URL 을 붙여야 /test/ 에서 404 가 안 난다. */}
-        <img src={`${import.meta.env.BASE_URL}img/logo.png`} alt="" />
+      <Link
+        className="site-header__logo"
+        to="/"
+        aria-label="SAEROI 홈"
+        aria-hidden={!isLogoVisible}
+        tabIndex={isLogoVisible ? undefined : -1}
+      >
+        <img src={logoUrl} alt="" />
       </Link>
 
       <nav className="site-header__navigation" aria-label="주요 메뉴">
@@ -197,39 +210,19 @@ export function Header() {
           )}
         </div>
 
-        <a className="site-header__cart" href="#cart" aria-label={`장바구니, 상품 ${cartCount}개`}>
-          <ShoppingBag aria-hidden="true" />
-          <span className="site-header__cart-count" aria-hidden="true">{cartCount}</span>
-        </a>
-
         <button
-          ref={menuTriggerRef}
-          className="site-header__menu-button"
+          className="site-header__cart"
           type="button"
-          aria-label={isMenuOpen ? '메뉴 닫기' : '메뉴 열기'}
-          aria-expanded={isMenuOpen}
-          aria-controls="mobile-navigation"
-          onClick={() => {
-            setIsAccountOpen(false)
-            setIsMenuOpen((isOpen) => !isOpen)
-          }}
+          aria-label={`장바구니, 상품 ${cartCount}개`}
+          onClick={handleCartEntry}
         >
-          {isMenuOpen ? <X aria-hidden="true" /> : <List aria-hidden="true" />}
+          <ShoppingBag aria-hidden="true" />
+          {cartCount > 0 ? (
+            <span className="site-header__cart-count" aria-hidden="true">{cartCount}</span>
+          ) : null}
         </button>
-      </div>
 
-      <nav
-        id="mobile-navigation"
-        className="site-header__mobile-navigation"
-        aria-label="모바일 메뉴"
-        hidden={!isMenuOpen}
-      >
-        {navigation.map((item) => (
-          <a key={item.label} href={item.href} onClick={closeMobileMenuFromLink}>
-            {item.label}
-          </a>
-        ))}
-      </nav>
+      </div>
     </header>
   )
 }
