@@ -44,6 +44,27 @@ pipeline {
             }
         }
 
+        // 마이그레이션이 schema.sql 이 선언한 목표 상태를 실제로 재현하는지 병합 전에
+        // 검증한다. db/migrations/*.sql 은 사람이 schema.sql 과 같이 손으로 맞춰 쓰는
+        // 파일이라 어긋날 수 있고, 지금까지는 그 어긋남이 배포 시점 Hibernate validate
+        // 크래시루프로만 드러났다 (deploy/master:docs/SCHEMA_INCIDENTS.md 2026-09-16 —
+        // 이 스테이지가 실제로 잡아낸 사고: status ENUM 이 CANCELED 값을 빠뜨린 채 병합됨).
+        // backend/master 는 develop 을 거쳐 이미 검증된 커밋만 받으므로 스킵한다.
+        stage('마이그레이션 스키마 대조') {
+            when { not { branch 'backend/master' } }
+            steps {
+                // Jenkins 의 GitLab 인증(gitlab-token)은 자신의 체크아웃 스텝에만 한시적으로
+                // 걸리고 이후 shell 스텝의 git 명령까지 이어지지 않는다 — verify-migrations.sh가
+                // 베이스라인 브랜치를 직접 fetch 하려면 자격증명을 명시적으로 실어줘야 한다.
+                withCredentials([usernamePassword(credentialsId: 'gitlab-token', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
+                    sh '''
+                        git config --local credential.helper "!f() { echo username=$GIT_USER; echo password=$GIT_PASS; }; f"
+                        bash scripts/verify-migrations.sh
+                    '''
+                }
+            }
+        }
+
         // 상시 통합 테스트 스택(/test) 배포. backend/develop 병합마다 이미지를 :test 태그로
         // 새로 빌드해 deploy 파트의 scripts/test-deploy.sh 로 넘긴다 — 운영(:latest, backend/master)
         // 과는 완전히 분리된 태그·컨테이너(cft-backend)라 서로 섞이지 않는다.
