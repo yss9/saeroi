@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
@@ -69,16 +69,21 @@ afterEach(() => {
 test('Brand가 자신이 보낸 가공 요청과 지정 가공사를 확인한다', async () => {
   renderPage()
 
-  expect(await screen.findByText('PR-017')).toBeInTheDocument()
-  expect(screen.getByText('폐데님 원단')).toBeInTheDocument()
+  expect(await screen.findByText('폐데님 원단')).toBeInTheDocument()
   expect(screen.getByText('리뉴 가공소')).toBeInTheDocument()
   expect(screen.getByText('12,500 g')).toBeInTheDocument()
-  expect(screen.getByText('세척 · 재단')).toBeInTheDocument()
+  // 가공 종류는 소재와 다른 칸에서 낱말로 끊어 보여준다.
+  expect(screen.getByText('세척')).toBeInTheDocument()
+  expect(screen.getByText('재단')).toBeInTheDocument()
   expect(screen.getAllByText('견적 대기').length).toBeGreaterThan(0)
   expect(screen.getByRole('link', { name: '요청 내역' })).toHaveClass('company-dashboard__nav-link--active')
-  expect(screen.getByRole('link', { name: '가공 신청' })).not.toHaveClass('company-dashboard__nav-link--active')
+  expect(screen.getByRole('link', { name: '가공 요청' })).not.toHaveClass('company-dashboard__nav-link--active')
   expect(screen.getByRole('link', { name: '새 가공 신청' })).toHaveAttribute('href', '/brand/processing')
-  expect(screen.getByRole('link', { name: '견적 확인' })).toHaveAttribute('href', '/brand/processing/requests/17')
+  // 상세로 가는 칸은 화살표 하나다. 글자가 없으니 이름은 aria-label 이 맡는다.
+  expect(screen.getByRole('link', { name: '폐데님 원단 요청 상세 보기' })).toHaveAttribute(
+    'href',
+    '/brand/processing/requests/17',
+  )
   expect(apiClient.get).toHaveBeenCalledWith('/v1/processing-requests', {
     params: { page: 0, size: 20 },
     signal: expect.any(AbortSignal),
@@ -89,7 +94,7 @@ test('가공 요청 행의 빈 영역을 클릭하면 상세로 이동한다', a
   const user = userEvent.setup()
   renderPage()
 
-  const requestRow = (await screen.findByText('PR-017')).closest('article')
+  const requestRow = (await screen.findByText('폐데님 원단')).closest('article')
   if (requestRow === null) throw new Error('가공 요청 행을 찾을 수 없습니다.')
   await user.click(requestRow)
 
@@ -99,9 +104,9 @@ test('가공 요청 행의 빈 영역을 클릭하면 상세로 이동한다', a
 test('상태 필터를 바꾸면 첫 페이지부터 다시 조회한다', async () => {
   const user = userEvent.setup()
   renderPage()
-  await screen.findByText('PR-017')
+  await screen.findByText('폐데님 원단')
 
-  await user.click(screen.getByRole('button', { name: '선택 완료' }))
+  await user.click(screen.getByRole('button', { name: '견적 수락' }))
 
   expect(apiClient.get).toHaveBeenLastCalledWith('/v1/processing-requests', {
     params: { page: 0, size: 20, status: 'SELECTED' },
@@ -121,7 +126,7 @@ test('다음 페이지로 이동하면 같은 필터로 후속 목록을 조회�
   vi.mocked(apiClient.get).mockResolvedValue({ data: { ...response, total: 41 } })
   const user = userEvent.setup()
   renderPage()
-  await screen.findByText('PR-017')
+  await screen.findByText('폐데님 원단')
 
   await user.click(screen.getByRole('button', { name: '다음 페이지' }))
 
@@ -129,4 +134,32 @@ test('다음 페이지로 이동하면 같은 필터로 후속 목록을 조회�
     params: { page: 1, size: 20 },
     signal: expect.any(AbortSignal),
   })
+})
+
+// 아래 필터를 누르면 목록만 걸러져야 한다. 예전에는 위의 "전체 요청" 까지 걸러진 개수로
+// 바뀌어, 견적 대기를 누르면 전체가 0 으로 떨어지는 것처럼 보였다.
+test('상태 필터를 눌러도 위의 요청 현황은 그대로다', async () => {
+  const user = userEvent.setup()
+  // 현황은 상태별로 따로 묻는다. 목록 응답이 무엇이든 그 숫자를 쓰지 않는다.
+  vi.mocked(apiClient.get).mockImplementation((_url, config) => {
+    const params = (config?.params ?? {}) as { status?: string; size?: number }
+    if (params.size === 1) {
+      const total = params.status === 'QUOTING' ? 4 : params.status === 'SELECTED' ? 2 : 9
+      return Promise.resolve({ data: { ...response, items: [], total } })
+    }
+    // 목록: 필터를 걸면 서버가 걸러진 total 을 돌려준다.
+    return Promise.resolve({
+      data: { ...response, total: params.status ? 4 : 9 },
+    })
+  })
+
+  renderPage()
+  const summary = await screen.findByRole('region', { name: '요청 현황' })
+  expect(await within(summary).findByText('9')).toBeInTheDocument()
+
+  await user.click(screen.getByRole('button', { name: '견적 대기' }))
+
+  expect(within(summary).getByText('9')).toBeInTheDocument()
+  expect(within(summary).getByText('4')).toBeInTheDocument()
+  expect(within(summary).getByText('2')).toBeInTheDocument()
 })

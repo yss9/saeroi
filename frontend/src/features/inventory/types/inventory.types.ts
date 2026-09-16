@@ -1,3 +1,5 @@
+import type { ProcessingJobStatus } from '../../processing/types/processing.types.ts'
+
 // Inventory(보유 소재) 도메인 타입.
 // Backend `material_balance` / `material_lock` 에 대응한다.
 
@@ -68,3 +70,17 @@ export interface InventoryItem {
 // TODO(6번/Material 담당): 잠금 내역 조회 타입을 추가한다.
 // 선행: GET /materials/{materialId}/locks — 아직 Jira 티켓이 없다 (MR !94 요청 4번).
 // 그게 없으면 잠긴 수량은 보여도 "왜 잠겼는지" 를 못 보여준다.
+
+/** Processor가 물리적으로 배송받거나 가공 중인 소재. 토큰 소유자는 Brand로 유지된다. */
+export interface ProcessingCustodyMaterial {
+  jobId: number
+  jobCode: string
+  materialId: number
+  materialCode: string
+  materialName: string
+  materialType: string
+  quantity: number
+  status: ProcessingJobStatus
+  shippedAt: string
+  receivedAt: string | null
+}

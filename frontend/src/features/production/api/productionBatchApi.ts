@@ -6,6 +6,7 @@
 
 import { apiClient } from '../../../services/apiClient.ts'
 import type {
+  AssignProductModelRequest,
   OpenProductionBatchRequest,
   ProductionBatch,
   ProductionItem,
@@ -14,8 +15,9 @@ import type {
 /**
  * 배치 열기 — `POST /v1/production-batches`
  *
- * `BRAND` 만 가능하고 **자기 제품에만** 열 수 있다 (`PRODUCTION_PRODUCT_MODEL_FORBIDDEN`).
- * 화면이 내 제품 목록에서 고르게 하면 이 거절은 나오지 않는다.
+ * **무엇을 만들지는 여기서 정하지 않는다.** 실제 순서가 "배치 생성 → 소재 선택 → 사용량
+ * 입력" 이라 소재도 고르기 전에 제품을 확정할 이유가 없다. 제품은 `assignProductModel`
+ * 로 나중에 지정하고, 확정 전까지 채워지면 된다.
  *
  * ⚠️ **활성 지갑이 등록돼 있어야 한다** (`PRODUCTION_WALLET_NOT_LINKED`). 서명자 주소를
  * 서버가 등록된 지갑에서 가져와 배치에 굳히기 때문이다 — 바디로 받으면 남의 주소를
@@ -27,6 +29,26 @@ export async function openProductionBatch(
   payload: OpenProductionBatchRequest,
 ): Promise<ProductionBatch> {
   const { data } = await apiClient.post<ProductionBatch>('/v1/production-batches', payload)
+  return data
+}
+
+/**
+ * 무엇을 만들지 정한다 — `PATCH /v1/production-batches/{batchId}`
+ *
+ * **`DRAFT` 일 때만 된다.** 서명이 시작된 뒤에는 거절한다 — 서명한 내용과 저장된 내용이
+ * 달라지면 온체인 기록이 무엇을 증명하는지 알 수 없다.
+ *
+ * 이미 정해 둔 것을 바꾸는 데도 같은 경로를 쓴다. 남의 제품은
+ * `PRODUCTION_PRODUCT_MODEL_FORBIDDEN` 이다.
+ */
+export async function assignProductModel(
+  batchId: number,
+  payload: AssignProductModelRequest,
+): Promise<ProductionBatch> {
+  const { data } = await apiClient.patch<ProductionBatch>(
+    `/v1/production-batches/${batchId}`,
+    payload,
+  )
   return data
 }
 
@@ -59,7 +81,8 @@ export async function getMyProductionBatches(): Promise<ProductionBatch[]> {
  * 바디가 없다. 확정에 필요한 것은 전부 이미 배치에 있고, 수량이나 비율을 여기서 받으면
  * 실제 투입과 다른 값을 적어 넣을 수 있다 — 그 값이 그대로 제품에 붙는다.
  *
- * 거절 조건: 투입이 하나도 없거나(`PRODUCTION_NO_INPUT`), 제품에 쓰인 수량이 전부 0 이거나
+ * 거절 조건: 무엇을 만들지 정하지 않았거나(`PRODUCTION_PRODUCT_MODEL_REQUIRED`), 투입이
+ * 하나도 없거나(`PRODUCTION_NO_INPUT`), 제품에 쓰인 수량이 전부 0 이거나
  * (`PRODUCTION_NO_PRODUCT_MATERIAL`), 이미 확정된 배치(`PRODUCTION_BATCH_NOT_EDITABLE`).
  *
  * ⚠️ **응답의 `inputs` 는 빈 배열이다** (`ProductionBatchResponse.of(batch, List.of())`).

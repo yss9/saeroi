@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
 import {
   Button,
@@ -31,6 +31,14 @@ export interface ProductFormProps {
   product?: ProductModel
   onCreated?: (product: ProductModel) => void
   onUpdated?: (product: ProductModel) => void
+  /**
+   * 폼 칸들 뒤에 끼워 넣을 자리.
+   *
+   * 제품 등록 화면이 여기에 "어느 배치로 만들었나" 를 넣는다. 생산은 다른 기능이라 이
+   * 컴포넌트가 직접 알지 않고 화면이 조합한다 — 대신 자리는 폼 안이어야 한다. 폼 밖에
+   * 두면 등록 버튼을 누르기 전에 채워야 하는 값인지가 흐려진다.
+   */
+  extraFields?: ReactNode
 }
 
 /**
@@ -67,7 +75,12 @@ interface ProductFormValues {
  * ⚠️ 등록하지 않고 떠나면 올라간 파일은 아무도 가리키지 않는 채로 남는다. 서버에 삭제 API
  * 가 없어 화면이 되돌릴 수 없고, 정리는 서버 배치의 몫이다.
  */
-export function ProductForm({ product, onCreated, onUpdated }: ProductFormProps) {
+export function ProductForm({
+  product,
+  onCreated,
+  onUpdated,
+  extraFields,
+}: ProductFormProps) {
   const isEdit = product !== undefined
 
   const {
@@ -177,6 +190,8 @@ export function ProductForm({ product, onCreated, onUpdated }: ProductFormProps)
 
   return (
     <form onSubmit={onSubmit} noValidate className="product-form">
+      {/* 왼쪽은 적는 값, 오른쪽은 고르는 이미지. 한 줄로 쌓으면 화면이 넓어도 폰처럼 길다. */}
+      <div className="product-form__fields">
       <Input
         label="제품명"
         placeholder="예: 업사이클 데님 토트백"
@@ -245,6 +260,10 @@ export function ProductForm({ product, onCreated, onUpdated }: ProductFormProps)
         )}
       </div>
 
+
+        {extraFields}
+      </div>
+
       <ThumbnailField
         preview={preview}
         isUploading={upload.isPending}
@@ -255,34 +274,30 @@ export function ProductForm({ product, onCreated, onUpdated }: ProductFormProps)
         optional={isEdit}
       />
 
+      <div className="product-form__actions">
       {create.isError && <ErrorMessage error={create.error} />}
       {update.isError && <ErrorMessage error={update.error} />}
 
       {isEdit ? (
         // 아무것도 바뀌지 않았으면 서버가 400 을 준다. 눌러 보고 알게 하지 않는다.
-        <Button type="submit" loading={update.isPending} disabled={!hasChanges} fullWidth>
+        <Button type="submit" loading={update.isPending} disabled={!hasChanges}>
           수정 저장
         </Button>
       ) : (
         /* 이미지가 올라가기 전에는 제출할 수 없다 — 서버가 thumbnailUrl 을 필수로 받는다. */
-        <Button type="submit" loading={create.isPending} disabled={storageKey === null} fullWidth>
+        <Button type="submit" loading={create.isPending} disabled={storageKey === null}>
           제품 등록
         </Button>
       )}
 
-      {isEdit ? (
+      {/* 등록 화면에는 안내를 두지 않는다 — 등록 뒤 할 일은 아래 배치 연결이 직접 말한다. */}
+      {isEdit && (
         <p className="product-form__note">
           판매 중에도 가격을 바꿀 수 있습니다. <strong>이미 결제된 주문은 영향받지
           않습니다</strong> — 주문 시점 단가가 그대로 남습니다.
         </p>
-      ) : (
-        /* 등록해도 바로 팔리지 않는다. 이 말을 빼면 사용자는 마켓에서 자기 제품을 찾다가
-           없다고 생각한다. */
-        <p className="product-form__note">
-          등록하면 <strong>판매 준비(DRAFT)</strong> 상태로 저장됩니다. 생산으로 개체가
-          만들어진 뒤 판매를 시작할 수 있습니다.
-        </p>
       )}
+      </div>
     </form>
   )
 }
@@ -361,6 +376,7 @@ export function ProductCreatedSummary({ product }: { product: ProductModel }) {
           <dd>{product.stockQuantity}개</dd>
         </div>
       </dl>
+
     </div>
   )
 }

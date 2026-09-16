@@ -76,6 +76,7 @@ export function ProductionBatchDetail({ batchId }: ProductionBatchDetailProps) {
         <ProductionInputList batch={data} />
       </section>
 
+
       {editable && <ConfirmSection batch={data} />}
 
       {data.status === 'CONFIRMED' && <ConfirmedResult batch={data} />}
@@ -146,7 +147,8 @@ function ConfirmSection({ batch }: { batch: ProductionBatch }) {
   const [asking, setAsking] = useState(false)
 
   const productUsed = batch.inputs.reduce((total, input) => total + input.productUsedQuantity, 0)
-  const ready = batch.inputs.length > 0 && productUsed > 0
+  const ready =
+    batch.inputs.length > 0 && productUsed > 0 && batch.productModelId !== null
 
   return (
     <section className="batch-detail__section">
@@ -162,6 +164,18 @@ function ConfirmSection({ batch }: { batch: ProductionBatch }) {
       {batch.inputs.length === 0 && (
         <p className="batch-detail__note">
           투입한 소재가 없어 확정할 수 없습니다. 위에서 소재를 투입해 주세요.
+        </p>
+      )}
+
+      {/*
+        확정하면 서버가 개체를 만들고 그 개체가 어느 상품인지 여기서 정해진다. 비어 있으면
+        서버도 PRODUCTION_PRODUCT_MODEL_REQUIRED 로 거절한다 — 되돌릴 수 없는 버튼이라
+        눌러 보고 알게 두지 않는다.
+      */}
+      {batch.productModelId === null && (
+        <p className="batch-detail__note">
+          이 배치로 만들 제품이 정해지지 않아 확정할 수 없습니다.{' '}
+          <Link to="/brand/products/new">제품을 등록</Link>할 때 이 배치를 골라 연결해 주세요.
         </p>
       )}
 

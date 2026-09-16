@@ -14,8 +14,12 @@
 import {
   Buildings,
   ClipboardText,
+  Cube,
   Factory,
+  Gear,
+  IdentificationCard,
   Package,
+  PaperPlaneTilt,
   ShieldCheck,
   ShoppingCart,
   Storefront,
@@ -40,7 +44,7 @@ export interface NavigationMenuItem {
  * 아래 순서는 각 역할이 걸러진 뒤에도 자연스럽게 읽히도록 골랐다.
  *
  *   SUPPLIER  회사 정보 · 보유 소재 · 소재 등록 · 판매 관리 · 판매 거래
- *   BRAND     회사 정보 · 보유 소재 · 가공 신청 · 요청 내역 · 생산 관리 · 제품 등록 · 내 제품 · 주문·발송 · 구매 내역
+ *   BRAND     회사 정보 · 보유 소재 · 가공 요청 · 요청 내역 · 제품 생산 · 제품 등록 · 내 제품 · 제품 발송 · 구매 내역
  *   PROCESSOR 회사 정보 · 보유 소재 · 업체 등록 · 가공 작업
  *
  * **제품 둘러보기(`/products`)는 사이드바에 없다.** 소비자가 옷을 사는 화면이라 사업자
@@ -58,29 +62,100 @@ export interface NavigationMenuItem {
  * 보였다. 메뉴에서 지우는 대신 routes.tsx 에서 BRAND 구역으로 옮겼고, 이 파일은 그
  * 결과를 따른다.
  */
-export const BUSINESS_MENU_ITEMS: readonly NavigationMenuItem[] = [
+export interface NavigationMenuGroup {
+  /** 사이드바에 접힌 채로 보이는 이름 */
+  readonly label: string
+  readonly items: readonly NavigationMenuItem[]
+}
+
+/**
+ * 사업자 사이드바 메뉴 — **일의 종류로 묶는다.**
+ *
+ * 평평한 목록은 브랜드에게 11줄이었다. 브랜드가 하는 일은 크게 셋인데(소재를 사고, 가공을
+ * 맡기고, 제품을 판다) 그 구조가 화면에 드러나지 않아 매번 목록 전체를 훑어야 했다.
+ *
+ * **묶음은 역할 조건이 아니다.** 어느 역할이 무엇을 보는지는 여전히 routes.tsx 의
+ * RoleGuard 가 정하고, 이 파일은 "같은 일끼리 모은다" 만 말한다 — 비는 묶음은 화면이
+ * 그리지 않으므로 역할마다 다른 배열을 둘 필요가 없다.
+ *
+ *   BRAND     회사 정보 + 소재(3) · 가공(3) · 제품(4)
+ *   SUPPLIER  회사 정보 + 소재(5)
+ *   PROCESSOR 회사 정보 + 소재(2) · 가공(2)
+ */
+/**
+ * 묶음 밖에 두는 항목.
+ *
+ * **회사 정보는 묶지 않는다.** 항목이 하나뿐이라 접었다 펴는 동작이 그 자체로 방해이고,
+ * 계정 화면으로 돌아가는 길은 언제나 한 번에 닿아야 한다.
+ */
+export const BUSINESS_TOP_ITEMS: readonly NavigationMenuItem[] = [
   { label: '회사 정보', to: '/company/account', Icon: Buildings },
-  { label: '보유 소재', to: '/inventory', Icon: Package },
-
-  // 조회 화면. 라우터에는 있는데 메뉴에 없어서 주소를 직접 치지 않으면 갈 수 없었다.
-  // **마켓플레이스가 빠져 있던 것이 특히 문제였다** — 브랜드가 소재를 사는 입구인데
-  // 대시보드 어디에도 링크가 없었다.
-  { label: '소재 마켓플레이스', to: '/marketplace', Icon: ShoppingCart },
-
-  { label: '소재 등록', to: '/supplier/materials/new', Icon: ClipboardText },
-  { label: '판매 관리', to: '/supplier/listings', Icon: Storefront },
-  { label: '판매 거래', to: '/supplier/trades', Icon: Truck },
-  { label: '가공 신청', to: '/brand/processing', Icon: Factory },
-  { label: '요청 내역', to: '/brand/processing/requests', Icon: ClipboardText },
-  { label: '가공 진행', to: '/brand/processing/jobs', Icon: Factory },
-  { label: '생산 관리', to: '/brand/production', Icon: Buildings },
-  { label: '제품 등록', to: '/brand/products/new', Icon: Tag },
-  { label: '내 제품', to: '/brand/products', Icon: Storefront },
-  { label: '주문·발송', to: '/brand/orders', Icon: Truck },
-  { label: '업체 등록', to: '/processor/profile', Icon: Buildings },
-  { label: '가공 작업', to: '/processor/jobs', Icon: Factory },
-  { label: '구매 내역', to: '/trades', Icon: Swap },
 ]
+
+export const BUSINESS_MENU_GROUPS: readonly NavigationMenuGroup[] = [
+  {
+    label: '소재',
+    items: [
+      // 브랜드가 소재를 사는 입구다. 이게 메뉴에 없어서 대시보드에서 갈 수가 없었다.
+      { label: '소재 검색', to: '/marketplace', Icon: ShoppingCart },
+      { label: '구매 내역', to: '/trades', Icon: Swap },
+      { label: '보유 소재', to: '/inventory', Icon: Package },
+      // 아래 셋은 파는 쪽이다. 사는 일과 파는 일이 같은 묶음인 것은 다루는 대상이
+      // 소재로 같기 때문이고, 한 역할에게 둘 다 보이는 경우는 없다.
+      { label: '소재 등록', to: '/supplier/materials/new', Icon: ClipboardText },
+      { label: '판매 관리', to: '/supplier/listings', Icon: Storefront },
+      { label: '판매 거래', to: '/supplier/trades', Icon: Truck },
+    ],
+  },
+  {
+    label: '가공',
+    items: [
+      { label: '가공 요청', to: '/brand/processing', Icon: PaperPlaneTilt },
+      { label: '요청 내역', to: '/brand/processing/requests', Icon: ClipboardText },
+      { label: '가공 진행', to: '/brand/processing/jobs', Icon: Gear },
+      // 가공사 쪽. 맡기는 일과 받는 일이 같은 묶음이다.
+      { label: '업체 등록', to: '/processor/profile', Icon: IdentificationCard },
+      { label: '가공 작업', to: '/processor/jobs', Icon: Factory },
+    ],
+  },
+  {
+    label: '제품',
+    items: [
+      // 브랜드의 일은 생산에서 시작한다 — 소재를 넣어 만들고, 그 결과가 제품이 된다.
+      { label: '제품 생산', to: '/brand/production', Icon: Cube },
+      { label: '제품 등록', to: '/brand/products/new', Icon: Tag },
+      { label: '내 제품', to: '/brand/products', Icon: Storefront },
+      { label: '제품 발송', to: '/brand/orders', Icon: Truck },
+    ],
+  },
+]
+
+/**
+ * 묶음을 편 목록.
+ *
+ * 라우트 대조 테스트와 계정 메뉴 병합이 이 모양을 쓴다 — 묶음 구조는 화면의 사정이고,
+ * "어느 경로가 메뉴에 있는가" 는 그것과 무관하다.
+ */
+export const BUSINESS_MENU_ITEMS: readonly NavigationMenuItem[] = [
+  ...BUSINESS_TOP_ITEMS,
+  ...BUSINESS_MENU_GROUPS.flatMap((group) => group.items),
+]
+
+/**
+ * 하위 화면을 가진 항목의 경로.
+ *
+ * **이 경로들은 정확히 일치할 때만 켜야 한다.** `NavLink` 는 기본이 접두사 비교라,
+ * `/brand/products` 가 `/brand/products/new` 에서도 켜진다 — 제품 등록 화면에서 "내 제품" 이
+ * 함께 강조되어 지금 어디에 있는지 잘못 읽힌다.
+ *
+ * 목록을 손으로 적지 않는다. 다른 항목이 자기 아래에 있는지 보면 되고, 그래야 메뉴가
+ * 늘어날 때 빠뜨리지 않는다.
+ */
+export const EXACT_MATCH_PATHS: ReadonlySet<string> = new Set(
+  BUSINESS_MENU_ITEMS.filter((item) =>
+    BUSINESS_MENU_ITEMS.some((other) => other.to.startsWith(`${item.to}/`)),
+  ).map((item) => item.to),
+)
 
 /**
  * 헤더 계정 팝오버가 쓰는 "내 홈" 후보. 보이는 것 중 **첫 번째**를 쓴다.

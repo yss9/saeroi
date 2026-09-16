@@ -1,8 +1,13 @@
+import { ImageSquare } from '@phosphor-icons/react'
 import { Link } from 'react-router-dom'
 import { StatusBadge } from '../../../components/common/index.ts'
 import { formatKg, formatWon } from '../../../utils/quantity.ts'
 import { useClickNavigation } from '../../../utils/useClickNavigation.ts'
-import { ROOT_ORIGIN_LABEL } from '../../material/types/material.types.ts'
+import {
+  GENERATION_TYPE_LABEL,
+  MATERIAL_TYPE_LABEL,
+  ROOT_ORIGIN_LABEL,
+} from '../../material/types/material.types.ts'
 import {
   LISTING_STATUS_LABEL,
   type ListingStatus,
@@ -13,6 +18,14 @@ export interface ListingCardProps {
   listing: Listing
   /** 판매자 화면에서는 취소 버튼 등 다른 동작이 붙는다 */
   actions?: React.ReactNode
+  /**
+   * 누가 보는 카드인가. 남은 수량의 이름이 달라진다 — 소재 마켓에서 이 카드를 보는 쪽은
+   * 사는 사람이라 "판매 가능" 이 남의 일처럼 읽힌다. 자기 판매글을 보는 화면만 'seller' 다.
+   *
+   * `actions` 유무로 넘겨짚지 않는다. 판매자 화면에서 버튼이 하나도 안 붙는 판매글
+   * (이미 내린 글)이 있고, 그때 이름만 조용히 바뀐다.
+   */
+  viewer?: 'buyer' | 'seller'
 }
 
 const STATUS_TONE: Record<ListingStatus, 'success' | 'neutral' | 'danger'> = {
@@ -21,77 +34,115 @@ const STATUS_TONE: Record<ListingStatus, 'success' | 'neutral' | 'danger'> = {
   CANCELED: 'danger',
 }
 
-// 카드 테두리 색도 StatusBadge 와 같은 톤 계열로 맞춘다 — 색상 값 자체는
-// listing-card--<modifier> 클래스를 통해 marketplace.css 의 CSS 변수로만 지정한다.
-const STATUS_CARD_MODIFIER: Record<ListingStatus, string> = {
-  ON_SALE: 'listing-card--on-sale',
-  SOLD_OUT: 'listing-card--sold-out',
-  CANCELED: 'listing-card--canceled',
-}
-
 /**
  * 판매글 카드.
  *
- * 판매 가능 수량과 총 수량을 **함께** 보여준다. 남은 양만 보여주면 30kg 짜리 판매글이
+ * 남은 수량과 총 수량을 **함께** 보여준다. 남은 양만 보여주면 30kg 짜리 판매글이
  * 12kg 만 남았을 때 "원래 작은 물량" 처럼 보인다. 얼마나 팔렸는지가 구매 판단에 들어간다.
  */
-export function ListingCard({ listing, actions }: ListingCardProps) {
+export function ListingCard({ listing, actions, viewer = 'buyer' }: ListingCardProps) {
+  const availableLabel = viewer === 'seller' ? '판매 가능' : '구매 가능'
   const followClick = useClickNavigation()
-  const soldQuantity = listing.totalQuantity - listing.availableQuantity
-  const soldRatio = listing.totalQuantity > 0 ? soldQuantity / listing.totalQuantity : 0
+  // **남은 양을 채운다.** 막대 옆의 숫자가 남은 양이라 팔린 양을 채우면 8/10 이 남은
+  // 판매글의 막대가 20% 만 차서 거의 다 팔린 것처럼 읽혔다. 팔린 양은 적지 않는다 —
+  // 남은 양과 총량이 있으면 뺄셈으로 나오고, 사는 쪽이 고를 때 쓰는 숫자도 아니다.
+  const availableRatio =
+    listing.totalQuantity > 0 ? listing.availableQuantity / listing.totalQuantity : 0
+  // 남은 양을 다 샀을 때의 금액. 단가만으로는 이 판매글이 얼마짜리인지 감이 오지 않는다.
+  const lotAmount = Math.round((listing.pricePerKg * listing.availableQuantity) / 1000)
 
   return (
     <article
-      className={`listing-card ${STATUS_CARD_MODIFIER[listing.status]}`}
+      className="listing-card"
       onClick={(event) => followClick(event, `/marketplace/${listing.listingId}`)}
     >
-      <header className="listing-card__header">
-        <h3 className="listing-card__name">
-          <Link to={`/marketplace/${listing.listingId}`}>{listing.materialName}</Link>
-        </h3>
-        <StatusBadge tone={STATUS_TONE[listing.status]}>
-          {LISTING_STATUS_LABEL[listing.status]}
-        </StatusBadge>
-      </header>
+      <ThumbnailSlot listing={listing} />
 
-      <dl className="listing-card__meta">
-        <div>
-          <dt>소재 코드</dt>
-          <dd>{listing.materialCode}</dd>
+      <div className="listing-card__body">
+        {/*
+          소재 코드와 판매자 이름은 적지 않는다. 코드는 사람이 읽는 값이 아니고(상세에
+          있다), 서버가 주는 판매자 이름은 업체명이 아니라 대표자 개인 이름이다.
+        */}
+        <div className="listing-card__head">
+          <h3 className="listing-card__name">
+            <Link to={`/marketplace/${listing.listingId}`}>{listing.materialName}</Link>
+          </h3>
+          <StatusBadge tone={STATUS_TONE[listing.status]}>
+            {LISTING_STATUS_LABEL[listing.status]}
+          </StatusBadge>
         </div>
-        <div>
-          <dt>출처</dt>
-          <dd>
-            {ROOT_ORIGIN_LABEL[listing.rootOrigin]}
-            {listing.grade && ` · ${listing.grade}등급`}
-          </dd>
-        </div>
-        <div>
-          <dt>단가</dt>
-          <dd className="listing-card__price">{formatWon(listing.pricePerKg)} / kg</dd>
-        </div>
-      </dl>
 
-      <div className="listing-card__quantity">
-        <div className="listing-card__quantity-row">
-          <span>판매 가능</span>
-          <strong>{formatKg(listing.availableQuantity)}</strong>
+        {/* 고를 때 견주는 사실들. 한 칸에 몰아 두면 이름이 어디까지인지 흐려진다. */}
+        <dl className="listing-card__facts">
+          <div>
+            <dt>소재 종류</dt>
+            <dd>{MATERIAL_TYPE_LABEL[listing.materialType]}</dd>
+          </div>
+          <div>
+            <dt>출처</dt>
+            <dd>{ROOT_ORIGIN_LABEL[listing.rootOrigin]}</dd>
+          </div>
+          <div>
+            <dt>생성 유형</dt>
+            <dd>{GENERATION_TYPE_LABEL[listing.generationType]}</dd>
+          </div>
+        </dl>
+
+        <div className="listing-card__quantity">
+          <p className="listing-card__quantity-line">
+            <span>수량 현황</span>
+            <strong>{formatKg(listing.availableQuantity)}</strong>
+            <small>/ 총 {formatKg(listing.totalQuantity)}</small>
+          </p>
+          {/* 막대는 장식이 아니라 정보다 — 얼마나 남았는지가 숫자보다 빨리 읽힌다. */}
+          <div
+            className="listing-card__bar"
+            role="img"
+            aria-label={`총 ${formatKg(listing.totalQuantity)} 중 ${formatKg(listing.availableQuantity)} ${availableLabel}`}
+          >
+            <span style={{ width: `${Math.round(availableRatio * 100)}%` }} />
+          </div>
         </div>
-        {/* 진행 막대는 장식이 아니라 정보다 — 얼마나 팔렸는지를 숫자보다 빨리 읽힌다. */}
-        <div
-          className="listing-card__bar"
-          role="img"
-          aria-label={`총 ${formatKg(listing.totalQuantity)} 중 ${formatKg(soldQuantity)} 판매됨`}
-        >
-          <span style={{ width: `${Math.round(soldRatio * 100)}%` }} />
-        </div>
-        <p className="listing-card__total">총 {formatKg(listing.totalQuantity)}</p>
       </div>
 
-      <footer className="listing-card__footer">
-        <span className="listing-card__seller">{listing.sellerName}</span>
-        {actions}
-      </footer>
+      {/* 오른쪽은 값이다. 여러 장을 훑을 때 눈이 한 줄에서 내려온다. */}
+      <div className="listing-card__aside">
+        <p className="listing-card__price">
+          {formatWon(listing.pricePerKg)}
+          <small>/kg</small>
+        </p>
+        <p className="listing-card__lot">
+          {availableLabel} 전량 {formatWon(lotAmount)}
+        </p>
+
+        {actions ?? (
+          <Link
+            className="listing-card__cta"
+            to={`/marketplace/${listing.listingId}#purchase`}
+          >
+            구매하기
+          </Link>
+        )}
+      </div>
     </article>
+  )
+}
+
+/**
+ * 왼쪽 이미지 자리.
+ *
+ * **아직 채울 사진이 없다.** 소재에는 이미지 컬럼이 서버에 없다. 그래도 자리를 크게 잡아
+ * 두는 이유는, 나중에 사진이 생겼을 때 카드 높이와 줄 맞춤이 통째로 달라지지 않게 하기
+ * 위해서다 — 작게 잡아 두면 사진이 들어오는 날 목록 전체를 다시 짜야 한다.
+ *
+ * 등급은 이 자리에 얹는다. 사진이 들어와도 같은 자리에 겹쳐 두면 되고, 가운데 칸에서
+ * 한 줄을 뺄 수 있다.
+ */
+function ThumbnailSlot({ listing }: { listing: Listing }) {
+  return (
+    <div className="listing-card__thumbnail">
+      <ImageSquare aria-hidden="true" />
+      {listing.grade && <span className="listing-card__grade">{listing.grade}등급</span>}
+    </div>
   )
 }

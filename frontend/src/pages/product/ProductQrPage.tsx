@@ -110,13 +110,13 @@ function Content({
   if (isError) return <ErrorMessage error={error} onRetry={onRetry} />
 
   // 결과 없음과 에러를 구분한다 (ARCHITECTURE §8). 여기는 "아직 생산하지 않았다" 이고,
-  // 사용자가 할 수 있는 일이 있다 — 생산 관리로 보낸다.
+  // 사용자가 할 수 있는 일이 있다 — 제품 생산으로 보낸다.
   if (selected === undefined) {
     return (
       <EmptyState
         title="아직 만들어진 QR 이 없습니다"
         description="생산 배치를 확정하면 개체마다 QR 이 생성됩니다. 작성 중인 배치는 개체가 없어 라벨도 없습니다."
-        action={<Link to="/brand/production">생산 관리로 이동</Link>}
+        action={<Link to="/brand/production">제품 생산으로 이동</Link>}
       />
     )
   }

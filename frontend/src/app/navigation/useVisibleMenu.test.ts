@@ -31,9 +31,9 @@ describe('useVisibleMenu', () => {
     const { result } = renderHook(() => useVisibleMenu(BUSINESS_MENU_ITEMS))
 
     expect(result.current.items.map((item) => item.to)).toEqual([
-      '/company/account', '/inventory',
-      // 공개 조회 화면은 역할을 가리지 않는다.
-      '/marketplace',
+      // 순서는 묶음 차례를 따른다 — 계정 · 소재 · 가공.
+      '/company/account',
+      '/marketplace', '/inventory',
       // /trades(구매 내역)는 없다 — BRAND 전용이다. PROCESSOR 는 가공 요청으로 소재를
       // 받고 거래로 사지 않으므로 그 목록은 언제나 비어 있었다.
       // /products(제품 둘러보기)도 없다 — 소비자가 옷을 사는 화면이라 사업자 사이드바에

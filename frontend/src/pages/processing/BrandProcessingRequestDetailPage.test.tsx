@@ -60,7 +60,7 @@ beforeEach(() => {
     isAuthenticated: true,
   })
   vi.mocked(apiClient.get).mockImplementation((url: string) => Promise.resolve({
-    data: url === '/v1/processing-jobs' ? [] : url.endsWith('/quotes') ? [quote] : detail,
+    data: url === '/processing-jobs' ? [] : url.endsWith('/quotes') ? [quote] : detail,
   }))
 })
 
@@ -72,8 +72,8 @@ afterEach(() => {
 test('Brand가 요청 상세와 접수된 견적을 함께 확인한다', async () => {
   renderPage()
 
-  expect(await screen.findByRole('heading', { name: 'PR-017' })).toBeInTheDocument()
-  expect(screen.getByText('폐데님 원단')).toBeInTheDocument()
+  // 제목이 어느 요청인지 말한다 — 요청 번호는 UUID 라 제목이 될 수 없다.
+  expect(await screen.findByRole('heading', { name: '폐데님 원단' })).toBeInTheDocument()
   expect(screen.getByText('MAT-005')).toBeInTheDocument()
   expect(screen.getByText('데님')).toBeInTheDocument()
   expect(screen.getByText('12,500 g')).toBeInTheDocument()
@@ -83,7 +83,7 @@ test('Brand가 요청 상세와 접수된 견적을 함께 확인한다', async 
   expect(screen.getAllByText('120,000원').length).toBeGreaterThan(0)
   expect(screen.getByText('예상 5일')).toBeInTheDocument()
   expect(screen.getByText('세척 비용이 포함된 견적입니다.')).toBeInTheDocument()
-  expect(screen.getByRole('link', { name: '요청 목록' })).toHaveAttribute('href', '/brand/processing/requests')
+  expect(screen.getByRole('link', { name: '요청 내역' })).toHaveAttribute('href', '/brand/processing/requests')
   expect(apiClient.get).toHaveBeenCalledWith('/v1/processing-requests/17', { signal: expect.any(AbortSignal) })
   expect(apiClient.get).toHaveBeenCalledWith('/v1/processing-requests/17/quotes', { signal: expect.any(AbortSignal) })
 })
@@ -143,13 +143,13 @@ test('생성된 Job에서 결제를 준비하고 Mock 승인까지 진행한다'
 
   await user.click(screen.getByRole('button', { name: '결제 진행' }))
 
-  expect(apiClient.post).toHaveBeenCalledWith('/v1/processing-jobs/91/payment')
+  expect(apiClient.post).toHaveBeenCalledWith('/processing-jobs/91/payment')
   expect(await screen.findByText('테스트 결제 환경입니다. 실제 금액은 청구되지 않습니다.')).toBeInTheDocument()
   expect(screen.getAllByText('120,000원').length).toBeGreaterThan(0)
 
   await user.click(screen.getByRole('button', { name: '결제 완료로 처리 (시연)' }))
 
-  expect(apiClient.post).toHaveBeenCalledWith('/v1/processing-jobs/91/payment/confirm', { pgToken: 'MOCK-PG-TOKEN' })
+  expect(apiClient.post).toHaveBeenCalledWith('/processing-jobs/91/payment/confirm', { pgToken: 'MOCK-PG-TOKEN' })
   expect(await screen.findByText('가공비 결제가 완료되었습니다.')).toBeInTheDocument()
   expect(screen.getByRole('link', { name: '소재 발송하기' })).toHaveAttribute('href', '/processing/jobs/91')
 })
@@ -164,7 +164,7 @@ test('결제 완료 Job을 찾아 요청 상세에서 소재를 발송한다', a
     receivedAt: null, startedAt: null, resultSubmittedAt: null, rejectedAt: null, completedAt: null, outputs: [],
   }
   vi.mocked(apiClient.get).mockImplementation((url: string) => Promise.resolve({
-    data: url === '/v1/processing-jobs' ? [paidJob] : url.endsWith('/quotes') ? [{ ...quote, status: 'SELECTED' }] : { ...detail, status: 'SELECTED' },
+    data: url === '/processing-jobs' ? [paidJob] : url.endsWith('/quotes') ? [{ ...quote, status: 'SELECTED' }] : { ...detail, status: 'SELECTED' },
   }))
   vi.mocked(apiClient.patch).mockResolvedValue({ data: { ...paidJob, status: 'SHIPPED', carrier: '새로이택배', trackingNumber: '1234567890' } })
 
@@ -175,7 +175,7 @@ test('결제 완료 Job을 찾아 요청 상세에서 소재를 발송한다', a
   await user.type(screen.getByLabelText('운송장 번호(선택)'), '1234567890')
   await user.click(screen.getByRole('button', { name: '발송 처리' }))
 
-  expect(apiClient.patch).toHaveBeenCalledWith('/v1/processing-jobs/91/ship', {
+  expect(apiClient.patch).toHaveBeenCalledWith('/processing-jobs/91/ship', {
     carrier: '새로이택배',
     trackingNumber: '1234567890',
   })
@@ -183,7 +183,7 @@ test('결제 완료 Job을 찾아 요청 상세에서 소재를 발송한다', a
 
 test('접수된 견적이 없으면 대기 상태를 안내한다', async () => {
   vi.mocked(apiClient.get).mockImplementation((url: string) => Promise.resolve({
-    data: url === '/v1/processing-jobs' ? [] : url.endsWith('/quotes') ? [] : detail,
+    data: url === '/processing-jobs' ? [] : url.endsWith('/quotes') ? [] : detail,
   }))
   renderPage()
 

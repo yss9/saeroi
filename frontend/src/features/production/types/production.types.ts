@@ -18,7 +18,14 @@ export interface ProductionBatch {
   productionBatchId: number
   batchCode: string
   batchName: string
-  productModelId: number
+  /**
+   * 무엇을 만드는가. **확정 전에는 비어 있을 수 있다.**
+   *
+   * 배치를 열 때는 정하지 않아도 된다 — 실제 순서가 "배치 생성 → 소재 선택 → 사용량
+   * 입력" 이라 소재도 고르기 전에 확정하라고 강제할 이유가 없다. 확정 시점에는 반드시
+   * 채워져 있어야 한다 (`PRODUCTION_PRODUCT_MODEL_REQUIRED`).
+   */
+  productModelId: number | null
   producedQuantity: number
   producerId: number
   /** 배치를 연 시점의 활성 지갑. 온체인 기록에 그대로 남는다 */
@@ -217,10 +224,19 @@ export interface ProductionItem {
 export interface OpenProductionBatchRequest {
   /** 필수, 200자 이하 */
   batchName: string
-  /** 내 제품이어야 한다 */
-  productModelId: number
   /** 1개 이상 */
   producedQuantity: number
+}
+
+/**
+ * 무엇을 만들지 나중에 정한다 — `PATCH /v1/production-batches/{batchId}`.
+ *
+ * 열기에서는 선택이지만 **여기서는 필수**다. 지정하러 부르면서 비워 보내는 것은 의도가
+ * 아니라 실수이고, "지정 해제" 라는 기능은 없다.
+ */
+export interface AssignProductModelRequest {
+  /** 내 제품이어야 한다 (`PRODUCTION_PRODUCT_MODEL_FORBIDDEN`) */
+  productModelId: number
 }
 
 /**

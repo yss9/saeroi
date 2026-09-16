@@ -14,12 +14,14 @@
 .page__section { margin-top: 2.5rem; }
 .page__section h2 { font-size: 1.05rem; margin: 0 0 1rem; }
 
-/* ── 필터 ────────────────────────────────────────────── */
+/* ── 필터 ──────────────────────────────────────────────
+   한 줄짜리 막대다. 예전에는 칸마다 아래 여백이 남아 두 줄처럼 보이고, 폭이 모자라면
+   정렬만 다음 줄에 혼자 떨어졌다.
+   ────────────────────────────────────────────────────── */
 .listing-filter {
   display: grid;
-  gap: 0 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-  padding: 1rem 1.25rem 0.25rem;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem 1rem;
   border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius);
   box-shadow: var(--ui-shadow);
@@ -27,75 +29,308 @@
   margin-bottom: 1.5rem;
 }
 
+/* 막대 안에서는 칸 아래 여백을 없앤다 — 폼이 아니라 한 줄이다. */
+.listing-filter .ui-field { margin-bottom: 0; gap: 0.3rem; }
+
+.listing-filter .ui-field__label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--ui-color-muted);
+}
+
+.listing-filter .ui-field__control { min-height: 2.5rem; padding-block: 0; }
+
+/* 상자 머리. 돋보기와 이름으로 "여기서 걸러 본다" 를 한눈에 말한다. */
+.listing-filter__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid var(--ui-color-border);
+  color: var(--ui-color-text);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.listing-filter__head > svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  color: #216a9f;
+}
+/* 상태 버튼. 칸이 아니라 눌러 고르는 것이라 머리줄에 둔다. */
+.listing-filter__status { display: flex; gap: 0.3rem; margin-left: 0.5rem; }
+.listing-filter__status button {
+  min-height: 1.9rem;
+  padding: 0 0.65rem;
+  border: 1px solid var(--ui-color-border);
+  border-radius: 999px;
+  background: var(--ui-color-surface);
+  color: var(--ui-color-muted);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.listing-filter__status button:hover { border-color: #216a9f; color: #216a9f; }
+.listing-filter__status button.is-active {
+  border-color: #216a9f;
+  background: #216a9f;
+  color: #fff;
+}
+
+/* 초기화는 머리줄 오른쪽 끝이다 — 조건 칸과 같은 줄에 두면 다섯 번째 칸으로 읽힌다. */
+.listing-filter__head .listing-filter__reset { margin-left: auto; }
+
+/* 조건 넷. 늘 같은 폭으로 나눠 갖고, 좁아지면 넷이 함께 줄어든다. */
+.listing-filter__fields {
+  display: grid;
+  gap: 0.75rem 1rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+/* 자리는 늘 지킨다. 조건이 없을 때만 잠긴다 — 나타났다 사라지면 줄 전체가 흔들린다. */
+.listing-filter__reset {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2rem;
+  padding: 0 0.7rem;
+  white-space: nowrap;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-color-surface);
+  color: var(--ui-color-muted);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.listing-filter__reset:hover:not(:disabled) {
+  border-color: var(--ui-color-text);
+  color: var(--ui-color-text);
+}
+
+.listing-filter__reset:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.listing-filter__reset svg { width: 1rem; height: 1rem; }
+
+/* 좁은 화면에서는 조건도 두 줄로 접고, 정렬을 가르던 선을 위로 눕힌다. */
+@media (max-width: 60rem) {
+  .listing-filter__fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+}
+
+/* 목록 바로 위. 오른쪽에 붙여 목록의 머리처럼 읽히게 한다. */
+.listing-sort {
+  position: relative;
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.75rem;
+}
+
+/* 테두리를 두르지 않는다 — 상자는 위의 조건 막대 하나로 충분하다. */
+.listing-sort__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.25rem;
+  border: 0;
+  background: none;
+  color: var(--ui-color-text);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.listing-sort__trigger:hover { color: var(--ui-color-primary); }
+
+.listing-sort__trigger svg {
+  width: 0.95rem;
+  height: 0.95rem;
+  color: var(--ui-color-muted);
+  transition: transform 0.15s ease;
+}
+
+.listing-sort__trigger svg[data-open='true'] { transform: rotate(180deg); }
+
+/* 버튼 바로 아래에 편다. 오른쪽 끝을 버튼에 맞춰야 목록 가장자리를 넘지 않는다. */
+.listing-sort__menu {
+  position: absolute;
+  z-index: 20;
+  top: 100%;
+  right: 0;
+  min-width: 9.5rem;
+  margin: 0.25rem 0 0;
+  padding: 0.3rem;
+  list-style: none;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-color-surface);
+  box-shadow: 0 10px 24px rgb(23 32 51 / 0.12);
+}
+
+.listing-sort__menu button {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border: 0;
+  border-radius: calc(var(--ui-radius) - 2px);
+  background: none;
+  color: var(--ui-color-text);
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.listing-sort__menu button:hover { background: #f2f6f8; }
+
+.listing-sort__menu button.is-selected {
+  color: var(--ui-color-primary);
+  font-weight: 800;
+}
+
 /* ── 목록 ────────────────────────────────────────────── */
+/*
+ * 한 줄에 하나씩 깐다. 격자로 깔면 카드마다 눈이 좌우로 흩어져, 단가와 남은 양을
+ * 견주려면 카드 안에서 값을 매번 다시 찾아야 했다. 줄로 세우면 같은 값이 같은 열에 선다.
+ */
 .listing-list {
   list-style: none;
   padding: 0;
   margin: 0;
   display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr));
+  gap: 0.6rem;
 }
 
+/*
+ * 가로형 카드 — 왼쪽 이미지, 가운데 소재, 오른쪽 값.
+ *
+ * 이미지 자리를 카드 높이만큼 키운다. 작게 잡으면 가운데 칸이 남아돌아 여백만 생기고,
+ * 나중에 사진이 들어오는 날 목록 전체를 다시 짜야 한다.
+ */
+/* 사이트 색을 쓴다 — 파랑이 뼈대, 주황이 강조다 (사이드바·가공 화면과 같은 값). */
 .listing-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-  height: 100%;
-  padding: 1.15rem 1.25rem;
+  --listing-blue: #216a9f;
+  --listing-dark: #174b72;
+  --listing-orange: #ff9b69;
+
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr) 15rem;
+  align-items: stretch;
+  gap: 1.25rem;
+  padding: 1rem;
   border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius);
-  box-shadow: var(--ui-shadow);
   background: var(--ui-color-surface);
   cursor: pointer;
   /* 카드는 누를 수 있는 것이다 — 그 사실이 보여야 한다. */
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 
-.listing-card:hover {
-  box-shadow: 0 2px 8px rgba(16, 34, 56, 0.08);
+.listing-card:hover { box-shadow: 0 2px 8px rgb(16 34 56 / 0.08); }
+
+/* 상태는 색 띠로 말하지 않는다. 카드마다 색 선이 서면 줄로 세운 목록이 띠밭이 되고,
+   정작 읽어야 할 소재 이름과 단가가 뒤로 밀린다 — 상태는 머리줄의 배지가 말한다. */
+
+/* 아직 채울 사진이 없다. 자리만 잡아 둔다. */
+.listing-card__thumbnail {
+  position: relative;
+  display: grid;
+  min-height: 160px;
+  place-items: center;
+  border: 1px dashed var(--ui-color-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-color-bg);
+  color: var(--ui-color-border);
+}
+.listing-card__thumbnail svg { width: 34px; height: 34px; }
+
+/* 등급은 사진 위에 얹는다. 사진이 들어와도 같은 자리에 그대로 겹친다. */
+.listing-card__grade {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  background: var(--listing-dark);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
 }
 
-/* 카드 테두리는 StatusBadge 와 같은 톤(success/neutral/danger)으로 맞춘다.
-   호버해도 이 색은 바뀌지 않는다 — 판매 취소 카드가 마우스를 올리는 순간
-   판매중처럼(초록) 보이면 상태를 잘못 읽게 된다. */
-.listing-card--on-sale { border-color: var(--ui-color-success); }
-.listing-card--sold-out { border-color: var(--ui-color-muted); }
-.listing-card--canceled { border-color: var(--ui-color-danger); }
-.listing-card__header {
+.listing-card__body {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.75rem;
+  min-width: 0;
+  flex-direction: column;
+  /* 남는 높이는 위아래로 나눠 갖는다 — 한쪽에 몰리면 그 자리만 빈 자국이 된다. */
+  justify-content: center;
+  gap: 0.5rem;
 }
-.listing-card__name { margin: 0; font-size: 1.05rem; }
+
+.listing-card__head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+}
+.listing-card__name {
+  margin: 0;
+  overflow: hidden;
+  font-size: 1.1rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .listing-card__name a { color: inherit; text-decoration: none; }
 .listing-card__name a:hover { text-decoration: underline; }
 
-.listing-card__meta {
+/* 고를 때 견주는 사실들. 옅은 판 위에 세 칸으로 나눠 이름과 섞이지 않게 한다. */
+.listing-card__facts {
   display: grid;
-  gap: 0.4rem 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  gap: 0.5rem 1rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   margin: 0;
-  font-size: 0.85rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--ui-radius);
+  background: var(--ui-color-bg);
 }
-.listing-card__meta dt { color: var(--ui-color-muted); font-size: 0.75rem; }
-.listing-card__meta dd { margin: 0.1rem 0 0; }
-.listing-card__price { font-variant-numeric: tabular-nums; font-weight: 600; }
+.listing-card__facts dt { color: var(--ui-color-muted); font-size: 0.7rem; }
+.listing-card__facts dd {
+  margin: 0.15rem 0 0;
+  overflow: hidden;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
-.listing-card__quantity { margin-top: auto; }
-.listing-card__quantity-row {
+/* 바닥에 붙이지 않는다. 사진 높이가 카드를 정하는데 가운데 칸 내용이 그보다 짧아,
+   붙여 두면 소재 정보와 수량 사이가 손바닥만큼 벌어졌다. */
+.listing-card__quantity { display: grid; gap: 0.3rem; }
+
+.listing-card__quantity-line {
   display: flex;
-  justify-content: space-between;
   align-items: baseline;
-  font-size: 0.875rem;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 0.78rem;
 }
-.listing-card__quantity-row strong { font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.listing-card__quantity-line span { color: var(--ui-color-muted); }
+.listing-card__quantity-line strong {
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+}
+.listing-card__quantity-line small { color: var(--ui-color-muted); }
 
-/* 판매 진행 막대. 남은 양보다 "얼마나 나갔는지" 가 구매 판단에 들어간다. */
 .listing-card__bar {
-  height: 5px;
-  margin: 0.4rem 0 0.3rem;
+  height: 6px;
   border-radius: 999px;
   background: var(--ui-color-border);
   overflow: hidden;
@@ -103,44 +338,223 @@
 .listing-card__bar span {
   display: block;
   height: 100%;
-  background: var(--ui-color-primary);
+  background: var(--listing-blue);
 }
-.listing-card__total { margin: 0; font-size: 0.78rem; color: var(--ui-color-muted); }
 
-.listing-card__footer {
+/* 오른쪽 값. 옅은 판으로 갈라 두면 눈이 단가만 훑고 내려갈 수 있다.
+   내용만큼만 높다 — 늘여서 채우면 단가와 버튼이 양 끝으로 갈라진다. */
+.listing-card__aside {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--ui-color-border);
+  flex-direction: column;
+  align-self: center;
+  align-items: stretch;
+  gap: 0.25rem;
+  padding: 0.85rem 0.9rem;
+  border-radius: var(--ui-radius);
+  background: var(--ui-color-bg);
+  text-align: right;
 }
-.listing-card__seller { font-size: 0.85rem; color: var(--ui-color-muted); }
+
+.listing-card__price {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.listing-card__price small {
+  margin-left: 0.15rem;
+  color: var(--ui-color-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.listing-card__lot {
+  margin: 0;
+  color: var(--ui-color-muted);
+  font-size: 0.74rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 값 아래가 다음 걸음이다. 판매자 화면에서는 이 자리에 취소 버튼이 들어온다.
+   바닥에 붙이지 않는다 — 옆 칸보다 짧아서 붙이면 단가와 버튼 사이만 벌어진다. */
+.listing-card__cta {
+  display: inline-flex;
+  min-height: 38px;
+  margin-top: 0.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--ui-radius);
+  background: var(--listing-blue);
+  /* 전역 a 색이 이긴다 — 버튼 글자는 색을 못 박는다. */
+  color: #fff !important;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+.listing-card__cta:hover { background: var(--listing-dark); }
+
+/* 좁아지면 값이 아래로 내려온다 — 세 덩어리를 우겨넣으면 소재 이름부터 잘린다. */
+@media (max-width: 62rem) {
+  .listing-card { grid-template-columns: 150px minmax(0, 1fr); }
+  .listing-card__aside {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    text-align: left;
+  }
+  .listing-card__cta { margin-top: 0; padding: 0 1.25rem; }
+}
+
+@media (max-width: 40rem) {
+  .listing-card { grid-template-columns: minmax(0, 1fr); }
+  .listing-card__facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 
 /* ── 상세 ────────────────────────────────────────────── */
-.listing-detail__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1rem;
+.listing-detail__buy {
+  display: inline-flex;
+  min-width: 12rem;
+  min-height: 52px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 2rem;
+  border-radius: var(--ui-radius);
+  background: #216a9f;
+  color: #fff !important;
+  font-size: 1rem;
+  font-weight: 800;
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: none;
 }
-.listing-detail__header h1 { margin: 0 0 0.25rem; }
-.listing-detail__code { margin: 0; color: var(--ui-color-muted); font-size: 0.875rem; }
-.listing-detail__description { max-width: 60ch; color: var(--ui-color-muted); }
+.listing-detail__buy:hover { background: #174b72; }
+/* 소재 정보 한 상자. 왼쪽에 사진, 오른쪽에 값 — 목록 카드와 같은 읽는 법이다. */
+.listing-detail__box {
+  display: grid;
+  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: stretch;
+  margin: 0 0 1.75rem;
+  padding: 1.25rem 1.35rem;
+  border: 1px solid var(--ui-color-border);
+  border-radius: 12px;
+  background: var(--ui-color-surface);
+  box-shadow: var(--ui-shadow);
+}
+
+/* 아직 채울 사진이 없다. 자리만 잡아 둔다. */
+/* 오른쪽 내용만큼 늘어난다. 정사각형으로 못 박으면 옆이 길 때 사진만 작게 남는다. */
+.listing-detail__photo {
+  position: relative;
+  display: grid;
+  min-height: 280px;
+  place-items: center;
+  border: 1px dashed var(--ui-color-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-color-bg);
+  color: var(--ui-color-border);
+}
+.listing-detail__photo svg { width: 42px; height: 42px; }
+.listing-detail__photo span {
+  position: absolute;
+  top: 0.6rem;
+  left: 0.6rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  background: #174b72;
+  color: #fff;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+/* 오른쪽 칸. 이름 → 값 → 사실 → 다음 걸음 순으로 내려온다. */
+.listing-detail__info { display: flex; flex-direction: column; min-width: 0; }
+
+.listing-detail__title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.9rem;
+}
+.listing-detail__title h1 { margin: 0; font-size: 1.35rem; }
+
+/* 살지 말지를 정하는 값 둘. 한 줄에 나란히 서고, 버튼 바로 위에 붙는다. */
+.listing-detail__figures {
+  display: grid;
+  gap: 1rem 2rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: auto;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--ui-color-border);
+}
+
+.listing-detail__figures span {
+  display: block;
+  color: var(--ui-color-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.listing-detail__figures strong {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 1.5rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.listing-detail__figures small {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--ui-color-muted);
+  font-size: 0.78rem;
+}
+
+/* 남은 양 막대. 목록 카드(.listing-card__bar)와 같은 읽는 법이다. */
+.listing-detail__bar {
+  height: 6px;
+  margin: 0.45rem 0 0.35rem;
+  border-radius: 999px;
+  background: var(--ui-color-border);
+  overflow: hidden;
+}
+.listing-detail__bar span {
+  display: block;
+  height: 100%;
+  background: var(--ui-color-primary);
+}
+
+/* 판매자가 적은 설명. 이름 바로 아래에서 이 소재가 무엇인지 먼저 말한다. */
+.listing-detail__description {
+  margin: 0 0 1.1rem;
+  color: var(--ui-color-muted);
+  font-size: 0.88rem;
+  line-height: 1.65;
+}
+
+/* 다음 걸음. */
+.listing-detail__actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 0.9rem;
+}
+
+/* 나머지 사실들. 세 칸으로 깔아 오른쪽이 비지 않게 한다. */
 .listing-detail__meta {
   display: grid;
   gap: 0.85rem 1.5rem;
-  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-  padding: 1.15rem 1.25rem;
-  border: 1px solid var(--ui-color-border);
-  border-radius: 8px;
-  background: var(--ui-color-surface);
-  margin: 0 0 1.75rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
 }
+.listing-detail__mono { font-family: ui-monospace, Menlo, Consolas, monospace; }
 .listing-detail__meta dt { color: var(--ui-color-muted); font-size: 0.78rem; }
-.listing-detail__meta dd { margin: 0.2rem 0 0; font-weight: 600; font-variant-numeric: tabular-nums; }
-.listing-detail__sold { font-weight: 400; color: var(--ui-color-muted); }
+.listing-detail__meta dd { margin: 0.2rem 0 0; font-weight: 600; }
+
 
 /* ── 폼 ──────────────────────────────────────────────── */
 .listing-form,
@@ -151,10 +565,61 @@
   border-radius: 8px;
   background: var(--ui-color-surface);
 }
+
+/*
+ * 구매 요청은 넓게 쓴다. 26rem 한 칸에 수량·금액·배송지 여섯 칸을 세로로 쌓으니 폰
+ * 화면처럼 길어져, 결제 금액과 제출 버튼이 한참 아래로 밀려 있었다.
+ *
+ * 왼쪽은 어디로 받을지(적는 값), 오른쪽은 얼마나 살지(정하는 값)다. 금액은 두 칸 아래
+ * 제출 버튼 바로 위에 둔다 — 누르기 직전에 확인하는 숫자다.
+ */
+.purchase-form {
+  display: grid;
+  max-width: none;
+  gap: 0 2rem;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 19rem);
+  /* stretch 여야 오른쪽 칸이 배송지 높이만큼 늘어난다 — 금액과 버튼을 아래에 붙일 수 있다. */
+  align-items: stretch;
+  padding: 1.35rem 1.5rem;
+  border-radius: 12px;
+  box-shadow: var(--ui-shadow);
+}
+
+/*
+ * 오른쪽 칸 — 수량은 위, 금액과 요청 버튼은 아래에 붙인다. 배송지와 위아래 줄이 함께
+ * 맞아 두 칸이 한 상자처럼 읽힌다.
+ */
+.purchase-form__order { display: flex; flex-direction: column; }
+
+/*
+ * 모달 안에서는 한 칸이다. 두 칸 배치는 화면 폭을 보고 접히는데(미디어 쿼리), 모달은
+ * 넓은 화면에서도 32rem 이라 그대로 두면 배송지와 수량이 서로를 밀어낸다.
+ *
+ * 상자 장식도 뺀다 — 모달이 이미 테두리와 여백을 갖고 있다.
+ */
+.ui-modal .purchase-form {
+  grid-template-columns: minmax(0, 1fr);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+.ui-modal .purchase-form__shipping { margin-bottom: 1rem; }
+.ui-modal .purchase-form__summary { margin-top: 0; }
+.ui-modal .purchase-form > button { justify-self: stretch; }
+
+@media (max-width: 62rem) {
+  .listing-detail__box { grid-template-columns: minmax(0, 1fr); }
+  .listing-detail__photo { max-width: 280px; }
+  .purchase-form { grid-template-columns: minmax(0, 1fr); }
+  /* 한 줄로 포개지면 붙일 아래가 없다 — 배송지와 사이만 띄운다. */
+  .purchase-form__summary { margin-top: 0; }
+  .purchase-form__shipping { margin-bottom: 1rem; }
+}
 .listing-form__material { margin: 0 0 1rem; font-size: 0.9rem; }
 .listing-form__material span { color: var(--ui-color-muted); }
-.listing-form__preview,
-.purchase-form__note {
+.listing-form__preview {
   margin: 0 0 1rem;
   font-size: 0.875rem;
   color: var(--ui-color-muted);
@@ -183,7 +648,8 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  margin: 0 0 1rem;
+  /* auto 로 위를 밀어 금액·버튼이 칸 바닥에 붙는다 — 배송지 상자와 아래 줄이 맞는다. */
+  margin: auto 0 0.75rem;
   padding: 0.85rem 1rem;
   border-radius: 6px;
   background: var(--ui-color-bg);
@@ -196,11 +662,24 @@
 
 /* 배송지. 수량·금액과 성격이 다른 입력 묶음이라 테두리로 묶어 구분한다. */
 .purchase-form__shipping {
-  margin: 0 0 1rem;
+  margin: 0;
   padding: 0.85rem 1rem 0.4rem;
   border: 1px solid var(--ui-color-border);
   border-radius: 6px;
 }
+
+/*
+ * 두 칸씩 나란히. 첫 줄은 수취인·연락처, 둘째 줄은 우편번호·주소다 — 우편번호는 주소를
+ * 검색하면 함께 채워지는 값이라 주소 옆에 있어야 한 쌍으로 읽힌다.
+ */
+.purchase-form__shipping {
+  display: grid;
+  gap: 0 1rem;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
+}
+.purchase-form__shipping legend,
+.purchase-form__address-error,
+.purchase-form__shipping > .ui-field:last-of-type { grid-column: 1 / -1; }
 .purchase-form__shipping legend {
   padding: 0 0.35rem;
   font-size: 0.82rem;
@@ -246,11 +725,6 @@
   text-decoration: none;
 }
 
-.trade-card__code {
-  font-size: 0.72rem;
-  color: var(--ui-color-muted);
-  font-family: ui-monospace, Menlo, monospace;
-}
 .trade-card__name { font-size: 0.95rem; font-weight: 600; }
 .trade-card__quantity { font-size: 0.82rem; color: var(--ui-color-muted); }
 .trade-card__price {
@@ -260,13 +734,14 @@
   font-variant-numeric: tabular-nums;
 }
 
-.trade-card__footer {
+/* 카드의 첫 줄. 가운데 정렬된 칸 안에서 이것만 왼쪽에 붙는다. */
+.trade-card__status {
   display: flex;
+  width: 100%;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: center;
   gap: 0.2rem 0.5rem;
-  margin-top: 0.2rem;
+  margin-bottom: 0.15rem;
 }
 .trade-card__action-hint {
   font-size: 0.72rem;
@@ -343,4 +818,104 @@
   gap: 0.75rem;
   margin-top: 1.5rem;
   flex-wrap: wrap;
+}
+
+/* ── 판매 관리 (Supplier Market) ──────────────────────────
+   공급업체 화면 전용이다. 마켓플레이스(브랜드)와 공유하는 .listing-* 를
+   재정의하지 않는다 — 여기 있는 것은 판매자에게만 있는 표현뿐이다. */
+
+/* 제목과 등록 버튼을 한 줄에 둔다. 등록은 이제 접혀 있으므로 여는 손잡이가
+   화면 위쪽 눈에 띄는 자리에 있어야 한다. */
+.supplier-market__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/*
+ * 등록 패널.
+ *
+ * 목록과 **다르게** 보여야 한다 — 목록은 읽는 곳이고 여기는 쓰는 곳이다. 같은 흰
+ * 바탕에 나란히 두면 방금 연 것이 무엇인지 경계가 흐려진다. primary-soft 로 한 겹
+ * 깔고 왼쪽에 선을 둬서 "펼쳐진 서랍" 으로 읽히게 한다.
+ */
+.supplier-market__register {
+  margin-top: var(--ui-gap);
+  padding: 18px 20px;
+  border: 1px solid var(--ui-color-border);
+  border-left: 3px solid var(--ui-color-primary);
+  border-radius: var(--ui-radius);
+  background: var(--ui-color-primary-soft);
+}
+
+.supplier-market__register > h2 {
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ui-color-muted);
+}
+
+/* 소재를 고르기 전의 한 줄 안내. 예전 EmptyState 박스를 대신한다 — 등록이 이미
+   접혀 있어서, 연 사람에게 필요한 것은 빈 상태 설명이 아니라 다음 할 일이다. */
+.supplier-market__hint {
+  margin: 10px 0 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ui-color-muted);
+}
+
+/* 카드 하단 동작 묶음. 배지와 버튼이 같은 줄에서 오른쪽으로 모인다. */
+.supplier-market__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/*
+ * 이력이 안 남은 판매글 표시.
+ *
+ * danger 가 아니라 warning 이다 — 판매글이 깨진 것이 아니라 **한 단계가 남은** 것이고,
+ * 빨간색은 "이 글은 잘못됐다" 로 읽혀 판매자가 지우려 든다. 실제로 해야 할 일은
+ * 판매글을 열어 서명을 마치는 것이다.
+ */
+.supplier-market__unrecorded {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid var(--ui-color-warning);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--ui-color-warning);
+  background: var(--ui-color-surface);
+  cursor: help;
+}
+
+.supplier-market__unrecorded::before {
+  content: '!';
+  display: inline-grid;
+  place-items: center;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--ui-color-warning);
+  color: var(--ui-color-surface);
+  font-size: 10px;
+  line-height: 1;
+}
+
+@media (max-width: 520px) {
+  /* 좁은 화면에서는 버튼이 제목 아래로 내려가되 폭을 다 쓰지 않게 둔다. */
+  .supplier-market__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }

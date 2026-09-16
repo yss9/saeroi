@@ -81,6 +81,7 @@ export function BrandProductList() {
               </span>
               <StockLine product={product} />
               <div className="brand-product-list__links">
+                <ProduceLink product={product} />
                 <ProductEditLink product={product} />
                 <QrLabelLink product={product} />
               </div>
@@ -148,6 +149,25 @@ function StockLine({ product }: { product: ProductModel }) {
 }
 
 /**
+ * 생산으로 가는 링크.
+ *
+ * **등록만 한 제품은 여기서 막힌다.** 재고가 0 이라 판매를 시작할 수 없는데, 그 0 을
+ * 채우는 일(생산 배치)이 다른 화면에 있어 "등록했는데 왜 못 파는가" 로 읽혔다.
+ *
+ * 이미 재고가 있는 제품에도 둔다 — 다음 배치를 여는 자리가 같기 때문이다. 단종된
+ * 제품에는 두지 않는다. 만들어도 팔 수 없다.
+ */
+function ProduceLink({ product }: { product: ProductModel }) {
+  if (product.status === 'DISCONTINUED') return null
+
+  return (
+    <Link to="/brand/production" className="brand-product-list__qr">
+      {product.stockQuantity > 0 ? '추가 생산' : '생산하기'}
+    </Link>
+  )
+}
+
+/**
  * 제품 수정으로 가는 링크.
  *
  * **오타 하나를 고칠 방법이 없었다.** 가격을 잘못 넣으면 결제가 통째로 실패하는데도 제품을
@@ -172,7 +192,7 @@ function ProductEditLink({ product }: { product: ProductModel }) {
  * 그 제품의 QR 라벨로 가는 링크.
  *
  * **QR 은 개체마다 붙고 개체는 생산 배치가 만든다.** 그래서 여태 라벨에 닿으려면 그 제품이
- * 어느 배치에서 생산됐는지 기억해 생산 관리에서 찾아 들어가야 했다 — 브랜드의 일은 "이 제품
+ * 어느 배치에서 생산됐는지 기억해 제품 생산에서 찾아 들어가야 했다 — 브랜드의 일은 "이 제품
  * 라벨을 뽑는다" 로 시작하는데 순서가 뒤바뀐 것이다.
  *
  * 생산 전 제품에는 두지 않는다. 개체가 없어 라벨도 없고, 눌러 보고 빈 화면을 만나게 하지

@@ -11,7 +11,9 @@ vi.mock('../hooks/useProcessingJobs.ts', () => ({
   useProcessingJob: mocks.useProcessingJob,
 }))
 vi.mock('../../evidence/components/EvidenceUpload.tsx', () => ({
-  EvidenceUpload: () => <div>증빙 업로드</div>,
+  EvidenceUpload: ({ uploadMode }: { uploadMode?: string }) => (
+    <div data-testid="evidence-upload" data-upload-mode={uploadMode}>증빙 업로드</div>
+  ),
 }))
 
 const mutation = () => ({ isPending: false, error: null, mutate: vi.fn() })
@@ -117,6 +119,11 @@ test('산출 수량이 바뀌면 Loss를 즉시 계산하고 투입량 초과 �
   expect(screen.getByRole('button', { name: '결과 임시 저장' })).toBeDisabled()
 })
 
+test('가공 증빙은 종류별 업로드 모드로 표시한다', () => {
+  render(<MemoryRouter><ProcessingJobDetail jobId={17} /></MemoryRouter>)
+
+  expect(screen.getByTestId('evidence-upload')).toHaveAttribute('data-upload-mode', 'type-grid')
+})
 test('Processor에게 기술 ID 대신 요청 대상과 공정 정보를 보여준다', () => {
   render(<MemoryRouter><ProcessingJobDetail jobId={17} /></MemoryRouter>)
 

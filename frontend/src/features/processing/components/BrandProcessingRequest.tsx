@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Check, CheckCircle, ClipboardText, Clock, Factory, Info, MapPin, Package } from '@phosphor-icons/react'
+import { ArrowLeft, ArrowRight, Check, CheckCircle, Clock, Factory, Info, MapPin, Package } from '@phosphor-icons/react'
 import { Link } from 'react-router-dom'
 import { isAppError } from '../../../utils/errors.ts'
 import { PROCESS_TYPE_LABEL, type ProcessType } from '../types/processing.types.ts'
@@ -23,7 +23,7 @@ export function BrandProcessingRequest() {
   </dl>
   return <div className="bp-shell bp-shell--embedded">
       <div className="bp-content">
-        <div className="bp-page-heading"><div><span className="bp-eyebrow">PROCESSING REQUEST</span><h1>소재 가공 신청</h1></div><Link className="bp-heading-action" to="/brand/processing/requests"><ClipboardText size={18} />요청 내역 보기</Link></div>
+        <h1 className="ui-visually-hidden">소재 가공 요청</h1>
         <ol className="bp-steps" aria-label="신청 단계">{['가공 조건 및 업체 선택', '신청 확인'].map((label, index) => <li key={label} className={flow.step === index + 1 ? 'is-active' : flow.step > index + 1 ? 'is-done' : ''} aria-current={flow.step === index + 1 ? 'step' : undefined}><span>{flow.step > index + 1 ? <Check weight="bold" size={17} /> : `0${index + 1}`}</span><strong>{label}</strong></li>)}</ol>
         {flow.created ? <section className="bp-card bp-success" aria-live="polite">
           <span className="bp-success-icon"><CheckCircle size={48} weight="duotone" /></span><span className="bp-eyebrow">{canceled ? 'REQUEST CANCELED' : 'REQUEST COMPLETE'}</span>
@@ -55,12 +55,12 @@ export function BrandProcessingRequest() {
           </>}
           {flow.step === 2 && <>
             <div className="bp-section-title"><span className="bp-section-icon"><CheckCircle size={24} /></span><div><h2>신청 내용을 확인해 주세요</h2></div></div>
-            <div className="bp-confirm-summary">{summary}</div><div className="bp-info"><Info size={22} /><div><strong>신청 전에 확인해 주세요</strong><p>신청한 수량은 가용 재고에서 예약돼요. 견적 요청은 7일간 유효하며, 신청 취소 또는 만료 시 예약이 해제돼요.</p></div></div>
+            <div className="bp-confirm-summary">{summary}</div><div className="bp-info"><Info size={22} /><div><strong>신청 전에 확인해 주세요</strong><p>신청한 수량은 가용 재고에서 예약돼요. 견적 요청은 7일간 유효하며, 신청 취소 또는 만료 시 예약이 해제돼요. <strong>가공 비용과 일정은 지금 정해지지 않아요</strong> — 가공업체가 보낸 견적을 보고 고르면 그때 확정돼요.</p></div></div>
             {flow.create.isError && <p role="alert" className="bp-error">{errorMessage(flow.create.error)}</p>}
             {!flow.valid && <p role="alert" className="bp-error">소재 가용 수량이 변경되었어요. 조건을 다시 확인해 주세요.</p>}
             <div className="bp-form-footer"><button className="bp-button" disabled={flow.create.isPending} onClick={flow.valid ? flow.backToSearch : flow.edit}><ArrowLeft size={17} />{flow.valid ? '이전' : '조건 수정'}</button><button className="bp-button bp-primary" disabled={flow.create.isPending || !flow.valid} onClick={() => void flow.submit()}>{flow.create.isPending ? '신청 중…' : '가공 신청하기'} <ArrowRight size={18} /></button></div>
           </>}
-        </section><aside className="bp-summary"><section className="bp-card"><span className="bp-eyebrow">YOUR REQUEST</span><h2>신청 요약</h2>{summary}</section><p className="bp-side-note"><Info size={17} />최종 비용과 일정은 가공사의 견적을 통해 확정됩니다.</p></aside></div>}
+        </section></div>}
       </div>
   </div>
 }

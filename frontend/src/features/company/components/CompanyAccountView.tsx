@@ -39,7 +39,7 @@ export function CompanyAccountView({ state, walletState, onRetryWallet }: Compan
   if (state.status === 'error') {
     return (
       <section className="company-account" aria-labelledby="company-account-title">
-        <h1 id="company-account-title">회사 정보</h1>
+        <h1 id="company-account-title" className="ui-visually-hidden">회사 정보</h1>
         <ErrorMessage error={state.error} />
       </section>
     )
@@ -58,10 +58,7 @@ export function CompanyAccountView({ state, walletState, onRetryWallet }: Compan
   return (
     <section className="company-account" aria-labelledby="company-account-title">
       <div className="company-account__page-heading">
-        <div>
-          <p>COMPANY ACCOUNT</p>
-          <h1 id="company-account-title">회사 정보</h1>
-        </div>
+        <h1 id="company-account-title" className="ui-visually-hidden">회사 정보</h1>
         <StatusBadge tone={data.status === 'ACTIVE' ? 'success' : 'neutral'}>
           {data.status === 'ACTIVE' ? '활성 계정' : '상태 확인 필요'}
         </StatusBadge>

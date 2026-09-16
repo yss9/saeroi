@@ -5,3 +5,6 @@
 .pj-loss-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:16px}.pj-loss-summary div{display:grid;gap:5px;padding:13px;border-radius:8px;background:#f5f7f8}.pj-loss-summary span{color:var(--muted);font-size:.68rem;font-weight:800}.pj-loss-summary strong,.pj-loss-summary output{color:var(--dark);font-size:.88rem;font-weight:900}
 @media(max-width:760px){.pj-grid{grid-template-columns:1fr}.pj-panel dl{grid-template-columns:repeat(2,1fr)}.pj-output__grid{grid-template-columns:1fr 1fr}.pj-loss-summary{grid-template-columns:1fr}.pj-fields,.pj-review,.pj-action{align-items:stretch;flex-direction:column}.pj-results li{grid-template-columns:1fr 1fr}.pj-list h1,.pj-detail h1{font-size:1.6rem}}
 .pj-request-processes{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.pj-request-processes b{padding:5px 8px;border-radius:999px;background:#e8f2f8;color:var(--dark);font-size:.65rem}.pj-panel dd strong,.pj-panel dd small{display:block}.pj-panel dd small{margin-top:3px;color:var(--muted);font-size:.65rem;font-weight:700}
+
+/* 제목을 감춘 뒤 이 줄에 남는 것은 오른쪽 요소뿐이다 — space-between 이면 왼쪽으로 끌려간다. */
+.pj-list>header{justify-content:flex-end}

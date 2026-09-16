@@ -6,7 +6,7 @@
 import { useMemo } from 'react'
 import { useAuth } from '../../features/auth/hooks/useAuth.ts'
 import { canAccess, getRouteAccess, isRoleResolving } from '../router/routeAccess.ts'
-import type { NavigationMenuItem } from './navigationMenu.ts'
+import type { NavigationMenuGroup, NavigationMenuItem } from './navigationMenu.ts'
 
 export interface VisibleMenu {
   readonly items: readonly NavigationMenuItem[]
@@ -36,4 +36,39 @@ export function useVisibleMenu(items: readonly NavigationMenuItem[]): VisibleMen
 
     return { items: visible, isResolving: false }
   }, [items, isAuthenticated, role])
+}
+
+export interface VisibleMenuGroups {
+  readonly groups: readonly NavigationMenuGroup[]
+  readonly isResolving: boolean
+}
+
+/**
+ * 묶음 단위로 거른다.
+ *
+ * **항목이 하나도 남지 않은 묶음은 지운다.** 역할마다 볼 수 있는 화면이 달라, 거르고 나면
+ * 비는 묶음이 생긴다 — 그대로 두면 눌러도 아무것도 없는 이름이 사이드바에 남는다.
+ * 공급업체에게 "제품", 가공사에게 "제품" 이 그런 경우다.
+ */
+export function useVisibleMenuGroups(
+  groups: readonly NavigationMenuGroup[],
+): VisibleMenuGroups {
+  const { isAuthenticated, role } = useAuth()
+
+  return useMemo(() => {
+    const viewer = { isAuthenticated, role }
+    if (isRoleResolving(viewer)) return { groups: [], isResolving: true }
+
+    const visible = groups
+      .map((group) => ({
+        ...group,
+        items: group.items.filter((item) => {
+          const access = getRouteAccess(item.to)
+          return access !== undefined && canAccess(access, viewer)
+        }),
+      }))
+      .filter((group) => group.items.length > 0)
+
+    return { groups: visible, isResolving: false }
+  }, [groups, isAuthenticated, role])
 }

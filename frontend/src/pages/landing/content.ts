@@ -36,49 +36,6 @@ export interface FooterNavigationGroup {
   links: FooterLink[]
 }
 
-/**
- * 홈 전용 표시 모델.
- * 추후 공개 상품 API가 준비되면 API 응답을 이 형태로 변환하고 이 배열만 대체한다.
- */
-export const homepageProducts: HomepageProduct[] = [
-  {
-    id: 'denim-circle-bag',
-    name: '데님 서클 백',
-    brand: 'REWEAVE',
-    price: 129_000,
-    material: 'RECLAIMED DENIM',
-    image: '/images/landing/product-denim-circle.webp',
-    imagePosition: '50% 46%',
-  },
-  {
-    id: 'patchwork-work-jacket',
-    name: '패치워크 워크 재킷',
-    brand: 'RE:CODE',
-    price: 149_000,
-    material: 'DEADSTOCK FABRIC',
-    image: '/images/landing/product-work-jacket.webp',
-    imagePosition: '50% 44%',
-  },
-  {
-    id: 'saddle-sling-bag',
-    name: '새들 슬링 백',
-    brand: 'DUSTY MILLER',
-    price: 99_000,
-    material: 'VINTAGE LEATHER',
-    image: '/images/landing/product-saddle-bag.webp',
-    imagePosition: '50% 50%',
-  },
-  {
-    id: 'patchwork-bucket-hat',
-    name: '패치워크 버킷 햇',
-    brand: 'OCEAN LOOP',
-    price: 59_000,
-    material: 'RECYCLED SAILCLOTH',
-    image: '/images/landing/product-bucket-hat.webp',
-    imagePosition: '50% 35%',
-  },
-]
-
 export const homepageBrands: HomepageBrand[] = [
   {
     id: 'recode',
@@ -144,7 +101,7 @@ export const saeroiValues: SaeroiValue[] = [
 export const footerNavigation: FooterNavigationGroup[] = [
   {
     title: 'ABOUT',
-    links: [{ label: '우리의 이야기', href: '#story' }],
+    links: [{ label: '우리의 이야기', href: '/about' }],
   },
   {
     title: 'CUSTOMER',

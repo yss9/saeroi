@@ -1,4 +1,5 @@
 import { ArrowUpRight } from '@phosphor-icons/react'
+import { Link } from 'react-router-dom'
 
 export function Story() {
   return (
@@ -14,10 +15,9 @@ export function Story() {
         <h2 id="story-title" data-reveal>BEFORE IT<br />BECAME NEW.</h2>
         <div data-reveal>
           <span>소재의 다음을 잇기 위해, SAEROI는 시작되었습니다.</span>
-          <a href="#story-detail">OUR STORY <ArrowUpRight aria-hidden="true" /></a>
+          <Link to="/about">OUR STORY <ArrowUpRight aria-hidden="true" /></Link>
         </div>
       </div>
-      <span id="story-detail" className="landing-page__anchor" aria-hidden="true" />
     </section>
   )
 }

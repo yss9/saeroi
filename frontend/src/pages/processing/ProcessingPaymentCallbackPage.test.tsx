@@ -33,7 +33,7 @@ test('PG에서 돌아오면 pg_token으로 가공비 결제를 승인한다', as
   expect(screen.getByText('120,000원')).toBeInTheDocument()
   expect(screen.getByRole('link', { name: '소재 발송하기' })).toHaveAttribute('href', '/processing/jobs/91')
   expect(screen.getByRole('link', { name: '요청 상세로 돌아가기' })).toHaveAttribute('href', '/brand/processing/requests/17')
-  expect(apiClient.post).toHaveBeenCalledWith('/v1/processing-jobs/91/payment/confirm', { pgToken: 'approved-token' })
+  expect(apiClient.post).toHaveBeenCalledWith('/processing-jobs/91/payment/confirm', { pgToken: 'approved-token' })
 })
 
 test('PG 토큰 없이 돌아오면 자동 만료 정책을 안내한다', async () => {

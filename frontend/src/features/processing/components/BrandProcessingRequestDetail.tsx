@@ -1,4 +1,4 @@
-import { ArrowLeft, CalendarBlank, CheckCircle, Clock, Factory, LockKey, Package } from '@phosphor-icons/react'
+import { ArrowLeft, CalendarBlank, CheckCircle, Clock, Factory, Package } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { isAppError } from '../../../utils/errors.ts'
@@ -11,7 +11,7 @@ import { ProcessingShipmentForm } from './ProcessingShipmentForm.tsx'
 import './brand-processing-detail.css'
 
 const requestStatusLabel: Record<ProcessingRequestStatus, string> = {
-  QUOTING: '견적 대기', SELECTED: '선택 완료', CANCELED: '취소', REJECTED: '거절', EXPIRED: '만료',
+  QUOTING: '견적 대기', SELECTED: '견적 수락', CANCELED: '취소', REJECTED: '거절', EXPIRED: '만료',
 }
 const quoteStatusLabel: Record<ProcessingQuoteStatus, string> = {
   SUBMITTED: '선택 가능', SELECTED: '선택 완료', REJECTED: '미선택', EXPIRED: '만료',
@@ -53,22 +53,26 @@ export function BrandProcessingRequestDetail({ requestId }: Props) {
 
   return (
     <section className="br-detail">
-      <Link className="br-detail__back" to="/brand/processing/requests"><ArrowLeft aria-hidden="true" />요청 목록</Link>
+      <Link className="br-detail__back" to="/brand/processing/requests"><ArrowLeft aria-hidden="true" />요청 내역</Link>
       <header className="br-detail__heading">
-        <div><span>PROCESSING REQUEST DETAIL</span><h1>{request.requestCode}</h1></div>
+        {/* 요청 번호(`PR` + UUID 28자리)는 제목이 될 수 없다 — 읽어서 얻을 것이 없다.
+            어느 요청인지는 소재 이름이 말한다. */}
+        <div><span>PROCESSING REQUEST DETAIL</span><h1>{request.materialName}</h1></div>
         <span className={`br-detail__request-status is-${request.status.toLowerCase()}`}>{requestStatusLabel[request.status]}</span>
       </header>
 
       <section className="br-detail__request-card" aria-labelledby="request-information-title">
         <div className="br-detail__section-title">
           <div><Package aria-hidden="true" /><h2 id="request-information-title">요청 정보</h2></div>
-          <span><LockKey aria-hidden="true" />{grams(request.quantity)} 예약 중</span>
+          {/* 잠긴 수량은 아래 "요청 수량" 이 이미 말한다. 이 자리에는 언제 보낸 요청인지를 둔다. */}
+          <span><Clock aria-hidden="true" />{date(request.createdAt)} 요청</span>
         </div>
         <dl className="br-detail__request-grid">
-          <div><dt>소재</dt><dd><strong>{request.materialName}</strong><span>{request.materialCode}</span><span>{MATERIAL_TYPE_LABEL[request.materialType]}</span></dd></div>
-          <div><dt>지정 가공사</dt><dd><strong>{request.processorName}</strong><span>Processor #{request.processorId}</span></dd></div>
-          <div><dt>요청 수량</dt><dd><strong>{grams(request.quantity)}</strong><span>백엔드 Lock 유지 수량</span></dd></div>
-          <div><dt>요청 기간</dt><dd><strong>{date(request.createdAt)}</strong><span>{date(request.expiresAt)} 만료</span></dd></div>
+          {/* 소재 이름은 제목이 이미 말한다 — 종류와 코드만 둔다. */}
+          <div><dt>소재</dt><dd><strong>{MATERIAL_TYPE_LABEL[request.materialType]}</strong><span>{request.materialCode}</span></dd></div>
+          <div><dt>가공업체</dt><dd><strong>{request.processorName}</strong></dd></div>
+          <div><dt>요청 수량</dt><dd><strong>{grams(request.quantity)}</strong></dd></div>
+          <div><dt>요청 만료</dt><dd><strong>{date(request.expiresAt)}</strong></dd></div>
         </dl>
         <div className="br-detail__processes"><span>요청 가공</span><div>{request.processTypes.map(type => <strong key={type}>{PROCESS_TYPE_LABEL[type]}</strong>)}</div></div>
       </section>

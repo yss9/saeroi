@@ -74,7 +74,7 @@ beforeEach(() => {
     accessToken: 'token',
     isAuthenticated: true,
   })
-  vi.mocked(apiClient.get).mockImplementation(async url => ({ data: url === '/v1/processing-jobs' ? jobs : requests }))
+  vi.mocked(apiClient.get).mockImplementation(async url => ({ data: url === '/processing-jobs' ? jobs : requests }))
   vi.mocked(apiClient.post).mockResolvedValue({ data: {} })
 })
 
@@ -94,7 +94,7 @@ test('견적 요청과 Job을 하나의 가공 업무 목록에 표시한다', a
 test('가공 작업 필터에서 Job 카드로 상세 페이지에 이동할 수 있다', async () => {
   const user = userEvent.setup()
   vi.mocked(apiClient.get).mockImplementation(async url => ({
-    data: url === '/v1/processing-jobs'
+    data: url === '/processing-jobs'
       ? [{ jobId: 17, jobCode: 'JOB-017', status: 'PROCESSING', inputMaterialId: 3, inputQuantity: 20_000, fee: 150_000 }]
       : requests,
   }))
@@ -115,6 +115,7 @@ test('로그인한 Processor에게 지정된 가공 요청을 표시한다', asy
   expect(viewFilter.getByRole('button', { name: '견적 요청' })).toHaveAttribute('aria-pressed', 'true')
   expect(screen.getByRole('navigation', { name: '사업자 대시보드 메뉴' })).toBeInTheDocument()
   expect(screen.queryByRole('complementary', { name: 'Processor 메뉴' })).not.toBeInTheDocument()
+  // 사이드바가 일의 종류로 묶여 있고 지금 화면이 속한 "가공" 묶음만 열려 있다.
   expect(screen.getByRole('link', { name: '업체 등록' })).toHaveAttribute('href', '/processor/profile')
   expect(screen.getByRole('link', { name: '회사 정보' })).toHaveAttribute('href', '/company/account')
   expect(screen.getByRole('link', { name: '쇼핑몰' })).toHaveAttribute('href', '/')
@@ -187,7 +188,7 @@ test('Processor가 담당 요청을 거절한다', async () => {
 
 test('다음 페이지로 이동하면 해당 페이지를 조회한다', async () => {
   vi.mocked(apiClient.get).mockImplementation(async url => ({
-    data: url === '/v1/processing-jobs' ? jobs : { ...requests, total: 21 },
+    data: url === '/processing-jobs' ? jobs : { ...requests, total: 21 },
   }))
   const user = await openQuoteRequests()
   await screen.findByText('PR-007')

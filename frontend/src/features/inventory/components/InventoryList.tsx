@@ -71,8 +71,18 @@ export function InventoryList() {
           {filtered.map((item) => (
             <li key={item.materialId} className="inventory-card">
               <Link to={`/materials/${item.materialId}`} className="inventory-card__link">
+                {/* 상태는 맨 위 왼쪽. 카드 아래에 있으면 여러 장을 훑을 때마다 시선이
+                    끝까지 내려갔다 올라와야 한다. */}
+                <div className="inventory-card__status">
+                  <StatusBadge tone={item.status === 'ACTIVE' ? 'success' : 'neutral'}>
+                    {item.status === 'ACTIVE' ? '보유 중' : '소진'}
+                  </StatusBadge>
+                </div>
                 <strong className="inventory-card__name">{item.name}</strong>
-                <span className="inventory-card__code">{item.materialCode}</span>
+                {/*
+                  소재 코드는 적지 않는다. 카드에서 고르는 기준은 이름이고, 코드가
+                  이름 바로 아래 붙어 있으면 이름보다 먼저 눈에 걸린다. 상세에는 있다.
+                */}
                 <span className="inventory-card__type">
                   {MATERIAL_TYPE_LABEL[item.materialType as keyof typeof MATERIAL_TYPE_LABEL] ??
                     item.materialType}
@@ -81,9 +91,6 @@ export function InventoryList() {
                   {/* 판매 가능량이 이 카드를 보는 이유다. 음수가 와도 0으로 깎지 않는다 —
                       잠금 합계가 보유량을 넘었다는 데이터 파손 신호이고 숨기면 원인을 못 찾는다. */}
                   <span className="inventory-card__available">{formatKg(item.available)}</span>
-                  <StatusBadge tone={item.status === 'ACTIVE' ? 'success' : 'neutral'}>
-                    {item.status === 'ACTIVE' ? '보유 중' : '소진'}
-                  </StatusBadge>
                 </div>
               </Link>
             </li>

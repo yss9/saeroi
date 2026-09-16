@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { ErrorMessage } from '../../components/common/index.ts'
+import { ProductionBatchSelect } from '../../features/production/components/ProductionBatchSelect.tsx'
+import { useAssignProductModel } from '../../features/production/hooks/useAssignProductModel.ts'
 import {
   ProductCreatedSummary,
   ProductForm,
@@ -12,28 +14,49 @@ import type { ProductModel } from '../../features/product/types/product.types.ts
  * 등록이 끝나면 폼을 비우고 결과를 위에 남긴다 — 브랜드는 제품을 여러 개 연달아 올리므로
  * 등록마다 다른 화면으로 보내면 매번 돌아와야 한다.
  *
- * 등록 결과가 곧 "판매 시작" 이 아니다. 응답의 상태는 언제나 `DRAFT` 이고 판매 가능 수량은
- * 0 이다 — 그 사실을 결과 요약이 직접 말한다.
+ * **생산 배치를 함께 고른다.** 제품 등록만으로는 팔 물건이 없고, 개체를 만드는 것은
+ * 배치다. 다만 연결은 등록이 **끝난 뒤에야** 할 수 있다 — 배치에 적어 넣을 제품 번호가
+ * 그때 생기기 때문이다. 그래서 폼에서는 고르기만 하고, 등록 응답을 받는 즉시 잇는다.
+ *
+ * 두 기능(product · production)을 이 화면이 조합한다. 기능끼리는 서로를 모른다.
  */
 export function ProductRegisterPage() {
   // 방금 등록한 제품. 여러 개를 올릴 수 있어 마지막 것만 보여준다.
   const [created, setCreated] = useState<ProductModel | null>(null)
+  const [batchId, setBatchId] = useState<number | null>(null)
+  const assign = useAssignProductModel()
 
   return (
     <main className="page">
-      <header className="page__header">
-        <h1>제품 등록</h1>
-      </header>
+      <h1 className="ui-visually-hidden">제품 등록</h1>
 
       {created && <ProductCreatedSummary product={created} />}
 
-      <ProductForm onCreated={setCreated} />
+      {/*
+        연결 실패는 등록 실패가 아니다. 제품은 이미 저장됐고 배치만 비어 있으므로, 폼을
+        되돌리지 않고 여기서 사실만 알린다 — 배치 상세에서 다시 이을 수 있다.
+      */}
+      {assign.isError && <ErrorMessage error={assign.error} />}
+      {assign.isSuccess && (
+        <p className="page__lead" role="status">
+          {assign.data.batchName} 배치에 연결했습니다. 그 배치를 확정하면 제품 개체와 QR 이
+          만들어집니다.
+        </p>
+      )}
 
-      {/* 마켓(/products)이 아니라 내 제품으로 보낸다 — 방금 등록한 제품은 DRAFT 라
-          마켓 목록에 없다. 거기로 보내면 "등록했는데 왜 없지" 가 된다. */}
-      <p className="page__lead">
-        <Link to="/brand/products">내 제품 관리로 이동</Link>
-      </p>
+      <ProductForm
+        extraFields={<ProductionBatchSelect value={batchId} onChange={setBatchId} />}
+        onCreated={(product) => {
+          setCreated(product)
+          if (batchId === null) return
+          assign.mutate(
+            { batchId, productModelId: product.productModelId },
+            // 이은 배치는 후보에서 빠진다. 고른 값을 남겨 두면 다음 제품을 등록할 때
+            // 이미 남의 것이 된 배치가 골라진 채로 보인다.
+            { onSuccess: () => setBatchId(null) },
+          )
+        }}
+      />
     </main>
   )
 }

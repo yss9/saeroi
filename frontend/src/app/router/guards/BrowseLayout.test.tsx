@@ -43,7 +43,7 @@ afterEach(() => {
 })
 
 /** 로고가 대시보드 안으로 돌아가는지. `/` 로 가면 셸을 잃는다. */
-function renderShell(role: 'SUPPLIER' | 'BRAND') {
+function renderShell(role: 'SUPPLIER' | 'BRAND' | 'CONSUMER') {
   useAuthStore.setState({
     user: { id: 1, name: '새로이', email: 'a@saeroi.test', role, walletAddress: null },
     accessToken: 'token',
@@ -71,17 +71,16 @@ describe('대시보드 셸의 로고', () => {
 
     expect(screen.getByRole('link', { name: '대시보드 홈' })).toHaveAttribute(
       'href',
-      '/supplier/listings',
+      '/company/account',
     )
   })
 
+  // 사업자 셋은 같은 곳(회사 정보)으로 간다. 소비자·관리자만 다르다 — 그쪽은 셸이
+  // 다르지만, 홈 판정이 역할을 보고 있다는 것은 여기서 고정해 둔다.
   it('역할이 다르면 홈도 다르다', () => {
-    renderShell('BRAND')
+    renderShell('CONSUMER')
 
-    expect(screen.getByRole('link', { name: '대시보드 홈' })).toHaveAttribute(
-      'href',
-      '/brand/processing',
-    )
+    expect(screen.getByRole('link', { name: '대시보드 홈' })).toHaveAttribute('href', '/mypage')
   })
 
   it('쇼핑몰로 나가는 길은 따로 남아 있다', () => {
