@@ -63,10 +63,27 @@ function renderForm(onCreated?: (id: number) => void): ReactElement {
 }
 
 /** 필수 항목만 채운다. 수량은 kg 단위로 입력한다. */
+/**
+ * 폼은 네 구획을 <b>한 번에 하나씩</b> 보여준다. 입력 12개를 한 화면에 쌓으면
+ * 어디까지 했는지 알 수 없어서 나눈 것이다. 그래서 테스트도 그 길을 따라간다.
+ *
+ * <b>등록 버튼은 오른쪽에 늘 떠 있다</b> — 필수를 다 채운 사람은 끝까지 넘기지 않고
+ * 바로 등록할 수 있어야 한다. 그래서 대부분의 테스트는 2구획에서 바로 제출한다.
+ */
+async function nextStep(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: /^다음:/ }))
+}
+
+/** 지나온 구획으로 되돌아간다. 단계 바의 버튼은 방문한 곳만 눌린다. */
+async function backTo(user: ReturnType<typeof userEvent.setup>, title: string) {
+  await user.click(screen.getByRole('button', { name: new RegExp(title) }))
+}
+
 async function fillRequired(quantityKg = '20.5') {
   const user = userEvent.setup()
   await user.selectOptions(screen.getByLabelText('소재 유형'), 'DENIM')
   await user.type(screen.getByLabelText('소재명'), '폐데님 원단')
+  await nextStep(user)
   await user.clear(screen.getByLabelText('수량 (kg)'))
   await user.type(screen.getByLabelText('수량 (kg)'), quantityKg)
   return user
@@ -95,7 +112,7 @@ describe('수량 환산', () => {
     // Backend quantity 는 정수만 받는다. 20.5 를 그대로 보내면 400 이다.
     renderForm()
     const user = await fillRequired('20.5')
-    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
 
     await waitFor(() => expect(api.createMaterial).toHaveBeenCalled())
     expect(submitted()).toMatchObject({ quantity: 20500, unit: 'G' })
@@ -105,7 +122,7 @@ describe('수량 환산', () => {
     // 20.3 * 1000 은 20299.999999999996 이다. 직접 곱하면 1g 이 사라진다.
     renderForm()
     const user = await fillRequired('20.3')
-    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
 
     await waitFor(() => expect(api.createMaterial).toHaveBeenCalled())
     expect(submitted().quantity).toBe(20300)
@@ -115,7 +132,7 @@ describe('수량 환산', () => {
     // 0.0004kg 은 0g 이 되고, 서버가 "수량은 양수" 로 거절해 원인이 드러나지 않는다.
     renderForm()
     const user = await fillRequired('0.0004')
-    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
 
     expect(await screen.findByText(/최소 1g/)).toBeInTheDocument()
     expect(api.createMaterial).not.toHaveBeenCalled()
@@ -124,7 +141,7 @@ describe('수량 환산', () => {
   it('0 이하를 거부한다', async () => {
     renderForm()
     const user = await fillRequired('0')
-    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
 
     expect(await screen.findByText('수량은 0보다 커야 합니다.')).toBeInTheDocument()
     expect(api.createMaterial).not.toHaveBeenCalled()
@@ -138,7 +155,7 @@ describe('Backend 계약', () => {
     // 입력한 것이 반영된다고 오해한다.
     renderForm()
     const user = await fillRequired()
-    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
 
     await waitFor(() => expect(api.createMaterial).toHaveBeenCalled())
     const payload = submitted()
@@ -180,7 +197,7 @@ describe('Backend 계약', () => {
     // grade 는 자유 텍스트 컬럼이라 '' 를 보내면 "등급 없음"(null)과 다른 값이 저장된다.
     renderForm()
     const user = await fillRequired()
-    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
 
     await waitFor(() => expect(api.createMaterial).toHaveBeenCalled())
     const payload = submitted()
@@ -191,10 +208,13 @@ describe('Backend 계약', () => {
   it('선택 항목을 채우면 함께 보낸다', async () => {
     renderForm()
     const user = await fillRequired()
+    // 등급은 1구획에 있다. 값은 구획을 넘어가도 남는다.
+    await backTo(user, '기본 정보')
     await user.selectOptions(screen.getByLabelText('등급 (선택)'), 'B')
+    await nextStep(user)
     await user.type(screen.getByLabelText('설명 (선택)'), '수거된 청바지')
     await user.type(screen.getByLabelText('길이 (mm, 선택)'), '1500')
-    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
 
     await waitFor(() => expect(api.createMaterial).toHaveBeenCalled())
     expect(submitted()).toMatchObject({ grade: 'B', description: '수거된 청바지', lengthMm: 1500 })
@@ -206,8 +226,7 @@ describe('필수 검증', () => {
     const user = userEvent.setup()
     renderForm()
     await user.type(screen.getByLabelText('소재명'), '폐데님')
-    await user.type(screen.getByLabelText('수량 (kg)'), '10')
-    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
 
     expect(await screen.findByText('소재 유형을 선택해 주세요.')).toBeInTheDocument()
     expect(api.createMaterial).not.toHaveBeenCalled()
@@ -217,8 +236,7 @@ describe('필수 검증', () => {
     const user = userEvent.setup()
     renderForm()
     await user.selectOptions(screen.getByLabelText('소재 유형'), 'DENIM')
-    await user.type(screen.getByLabelText('수량 (kg)'), '10')
-    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
 
     expect(await screen.findByText('소재명을 입력해 주세요.')).toBeInTheDocument()
     expect(api.createMaterial).not.toHaveBeenCalled()
@@ -229,8 +247,9 @@ describe('필수 검증', () => {
   it("소재 유형이 '기타' 인데 설명이 없으면 보내지 않는다", async () => {
     renderForm()
     const user = await fillRequired()
+    await backTo(user, '기본 정보')
     await user.selectOptions(screen.getByLabelText('소재 유형'), 'ETC')
-    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
 
     expect(await screen.findByText('기타를 선택하면 설명이 필요합니다.')).toBeInTheDocument()
     expect(api.createMaterial).not.toHaveBeenCalled()
@@ -239,9 +258,11 @@ describe('필수 검증', () => {
   it("소재 유형이 '기타' 여도 설명을 채우면 보낸다", async () => {
     renderForm()
     const user = await fillRequired()
+    await backTo(user, '기본 정보')
     await user.selectOptions(screen.getByLabelText('소재 유형'), 'ETC')
+    await nextStep(user)
     await user.type(screen.getByLabelText(/설명/), '대나무 섬유')
-    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
 
     await waitFor(() => expect(api.createMaterial).toHaveBeenCalledTimes(1))
     expect(submitted()).toMatchObject({ materialType: 'ETC', description: '대나무 섬유' })
@@ -252,6 +273,7 @@ describe('필수 검증', () => {
   it('구성 비율 합계가 100%를 넘으면 등록 버튼이 막힌다', async () => {
     renderForm()
     const user = await fillRequired()
+    await nextStep(user)
 
     await user.click(screen.getByRole('button', { name: '섬유 추가' }))
     await user.selectOptions(screen.getByLabelText('섬유 1'), 'COTTON')
@@ -262,9 +284,9 @@ describe('필수 검증', () => {
     await user.type(screen.getByLabelText('비율 2 (%)'), '60')
 
     expect(await screen.findByText(/100%를 넘을 수 없습니다/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '소재 등록' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /소재 등록/ })).toBeDisabled()
 
-    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
     expect(api.createMaterial).not.toHaveBeenCalled()
   })
 })
@@ -276,7 +298,7 @@ describe('등록 후', () => {
     const onCreated = vi.fn()
     renderForm(onCreated)
     const user = await fillRequired()
-    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
 
     await waitFor(() => expect(onCreated).toHaveBeenCalledWith(42))
   })
@@ -286,7 +308,7 @@ describe('등록 후', () => {
     api.createMaterial.mockRejectedValue({ kind: 'SERVER', message: '등록에 실패했습니다.' })
     renderForm(onCreated)
     const user = await fillRequired()
-    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
 
     expect(await screen.findByText('등록에 실패했습니다.')).toBeInTheDocument()
     expect(onCreated).not.toHaveBeenCalled()
@@ -311,7 +333,7 @@ describe('지갑 미연결', () => {
     renderForm()
     const user = await fillRequired()
 
-    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
 
     expect(api.createMaterial).not.toHaveBeenCalled()
   })
@@ -322,7 +344,7 @@ describe('지갑 미연결', () => {
     renderForm()
     const user = await fillRequired()
 
-    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('지갑을 먼저 연결해 주세요')
     expect(screen.getByRole('button', { name: '지갑 연결' })).toBeInTheDocument()
@@ -335,7 +357,7 @@ describe('지갑 미연결', () => {
     renderForm()
     const user = await fillRequired()
 
-    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('지금 주소에서는 다시 승인')
   })
@@ -344,7 +366,7 @@ describe('지갑 미연결', () => {
     wallet.address = null
     renderForm()
     const user = await fillRequired()
-    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
 
     await user.click(screen.getByRole('button', { name: '지갑 연결' }))
 
@@ -422,6 +444,9 @@ describe('이전 기록 불러오기', () => {
 
     await waitFor(() => expect(materialApi.getMaterial).toHaveBeenCalledWith(10))
     expect(await screen.findByLabelText('소재명')).toHaveValue('폐데님 원단 이전본')
+
+    // 수량은 2구획이다. 불러온 값은 구획을 넘어가도 남아 있어야 한다.
+    await nextStep(user)
     expect(screen.getByLabelText('수량 (kg)')).toHaveValue(15)
   })
 
@@ -432,7 +457,7 @@ describe('이전 기록 불러오기', () => {
     await user.click(screen.getByRole('button', { name: '이전 기록 불러오기' }))
     await waitFor(() => expect(screen.getByLabelText('소재명')).toHaveValue('폐데님 원단 이전본'))
 
-    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
 
     // 닫혀 있는 <dialog> 는 항상 DOM에 있으므로(내용은 항상 렌더된다) 텍스트가
     // 아니라 열림 상태를 드러내는 role='dialog' 로 확인한다.
@@ -449,7 +474,7 @@ describe('이전 기록 불러오기', () => {
     await user.click(screen.getByRole('button', { name: '이전 기록 불러오기' }))
     await waitFor(() => expect(screen.getByLabelText('소재명')).toHaveValue('폐데님 원단 이전본'))
 
-    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
     await screen.findByRole('dialog')
     await user.click(screen.getByRole('button', { name: '확인' }))
 
@@ -463,7 +488,7 @@ describe('이전 기록 불러오기', () => {
     await user.click(screen.getByRole('button', { name: '이전 기록 불러오기' }))
     await waitFor(() => expect(screen.getByLabelText('소재명')).toHaveValue('폐데님 원단 이전본'))
 
-    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
     await screen.findByRole('dialog')
     await user.click(screen.getByRole('button', { name: '취소' }))
 
@@ -482,7 +507,7 @@ describe('이전 기록 불러오기', () => {
     await user.clear(screen.getByLabelText('소재명'))
     await user.type(screen.getByLabelText('소재명'), '수정된 소재명')
 
-    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
 
     await waitFor(() => expect(api.createMaterial).toHaveBeenCalledTimes(1))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
