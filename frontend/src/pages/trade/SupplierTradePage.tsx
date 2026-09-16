@@ -13,9 +13,7 @@ import { SellerTradeBoard } from '../../features/trade/components/SellerTradeBoa
 export function SupplierTradePage() {
   return (
     <main className="page">
-        <header className="page__header">
-          <h1>판매 거래 관리</h1>
-        </header>
+        <h1 className="ui-visually-hidden">판매 거래 관리</h1>
 
         <SellerTradeBoard />
     </main>

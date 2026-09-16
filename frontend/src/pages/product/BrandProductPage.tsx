@@ -12,9 +12,7 @@ import { BrandProductList } from '../../features/product/components/BrandProduct
 export function BrandProductPage() {
   return (
     <main className="page">
-      <header className="page__header">
-        <h1>내 제품</h1>
-      </header>
+      <h1 className="ui-visually-hidden">내 제품</h1>
 
       <p className="page__lead">
         <Link to="/brand/products/new">새 제품 등록</Link>

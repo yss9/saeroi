@@ -114,7 +114,25 @@
 
 /* ── 배치 열기 ───────────────────────────────────────── */
 
-.batch-form { display: flex; flex-direction: column; gap: 0.35rem; max-width: 28rem; }
+/*
+ * 배치 열기. 세 칸을 한 줄에 둔다 — 세로로 쌓으면 화면이 넓은데도 좁은 앱처럼 보이고,
+ * 아래의 배치 목록까지 한참 밀려 내려간다. 좁아지면 auto-fit 이 알아서 줄을 접는다.
+ */
+.batch-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 0.35rem 1.1rem;
+  align-items: start;
+}
+
+/* 안내·오류·제출 버튼은 칸이 아니라 줄이다. */
+.batch-form > .batch-form__note,
+.batch-form > .ui-error,
+.batch-form > button {
+  grid-column: 1 / -1;
+}
+
+.batch-form > button { justify-self: end; min-width: 11rem; }
 .batch-form__note {
   margin: 0.5rem 0;
   padding: 0.7rem 0.9rem;
@@ -449,3 +467,38 @@
 }
 
 .chain-steps__loading { margin: 0.75rem 0 0; font-size: 0.82rem; color: #6b7280; }
+
+/* ── 제품 ↔ 배치 연결 ───────────────────────────────────
+   제품 등록 직후에 뜬다. 등록만으로는 팔 물건이 없고, 개체를 만드는 것은 배치다.
+   ────────────────────────────────────────────────────── */
+.batch-link {
+  margin: 0 0 1.5rem;
+  padding: 1rem 1.15rem;
+  border: 1px solid var(--ui-color-border);
+  border-radius: 8px;
+  background: var(--ui-color-surface);
+}
+
+.batch-link__row {
+  display: flex;
+  align-items: end;
+  gap: 0.75rem;
+}
+
+.batch-link__row .ui-field { flex: 1 1 auto; margin-bottom: 0; }
+
+.batch-link__note,
+.batch-link__done {
+  margin: 0 0 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--ui-color-muted);
+}
+
+.batch-link__done {
+  margin: 0 0 1.5rem;
+  padding: 0.85rem 1rem;
+  border-radius: 8px;
+  background: var(--ui-color-bg);
+  color: var(--ui-color-text);
+}

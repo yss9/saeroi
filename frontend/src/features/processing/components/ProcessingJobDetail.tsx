@@ -3,11 +3,13 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '../../../stores/authStore.ts'
 import { EvidenceUpload } from '../../evidence/components/EvidenceUpload.tsx'
+import { EVIDENCE_TYPE_LABEL } from '../../evidence/types/evidence.types.ts'
 import { GRADE_LABEL, type MaterialGrade } from '../../material/types/material.types.ts'
 import type { MaterialType } from '../types/processorProfile.types.ts'
 import { MATERIAL_TYPE_LABEL } from '../types/processorProfile.types.ts'
 import { PROCESS_TYPE_LABEL } from '../types/processing.types.ts'
 import { useProcessingJob } from '../hooks/useProcessingJobs.ts'
+import { PROCESSING_CHAIN_STATUS } from '../services/processingContractService.ts'
 import type { ProcessingJobDetail as ProcessingJob } from '../api/processingJobApi.ts'
 import type { ProcessingRequestDetail } from '../api/processingRequestApi.ts'
 import { ProcessingShipmentForm } from './ProcessingShipmentForm.tsx'
@@ -15,7 +17,7 @@ import './processing-jobs.css'
 
 const materialTypes = Object.keys(MATERIAL_TYPE_LABEL) as MaterialType[]
 const materialGrades = Object.keys(GRADE_LABEL) as MaterialGrade[]
-const statusLabel = { CREATED:'결제 대기', PAID:'발송 대기', SHIPPED:'배송 중', RECEIVED:'가공 시작 대기', PROCESSING:'가공 중', RESULT_SUBMITTED:'결과 검토 대기', CONFIRMED:'가공 완료', REJECTED:'결과 보완', EXPIRED:'만료' } as const
+const statusLabel = { CREATED:'결제 대기', PAID:'발송 대기', SHIPPED:'배송 중', RECEIVED:'가공 시작 대기', PROCESSING:'가공 중', RESULT_SUBMITTED:'결과 반환 대기', RETURN_SHIPPED:'반환 배송 중', CONFIRMED:'가공 완료', REJECTED:'결과 보완', EXPIRED:'만료', CANCELED:'반환 종료' } as const
 type Row = { materialType: MaterialType; grade: MaterialGrade; gradeReason: string; name: string; quantity: string }
 const emptyRow = (): Row => ({ materialType:'DENIM', grade:'A', gradeReason:'', name:'', quantity:'' })
 
@@ -39,8 +41,13 @@ function ProcessingJobDetailContent({ jobId, job, request, role, flow }: {
     ? job.outputs.map(output => ({ materialType:output.materialType, grade:output.grade, gradeReason:output.gradeReason, name:output.name, quantity:String(output.quantity) }))
     : [emptyRow()])
   const [reason,setReason] = useState('')
-  const pending=flow.ship.isPending||flow.receive.isPending||flow.start.isPending||flow.saveResult.isPending||flow.submit.isPending||flow.approve.isPending||flow.reject.isPending
-  const error=flow.ship.error||flow.receive.error||flow.start.error||flow.saveResult.error||flow.submit.error||flow.approve.error||flow.reject.error
+  const evidenceOptions = (flow.evidence?.data?.files ?? []).map(file => ({
+    id: file.evidenceFileId,
+    hash: file.fileHash,
+    label: `${EVIDENCE_TYPE_LABEL[file.evidenceType]} · ${file.storageKey.split('/').at(-1) ?? file.storageKey}`,
+  }))
+  const pending=Boolean(flow.initializeChain?.isPending||flow.accept?.isPending||flow.ship.isPending||flow.receive.isPending||flow.start.isPending||flow.saveResult.isPending||flow.submit.isPending||flow.shipReturn?.isPending||flow.approve.isPending||flow.reject.isPending||flow.returnRejected?.isPending)
+  const error=flow.initializeChain?.error||flow.accept?.error||flow.ship.error||flow.receive.error||flow.start.error||flow.saveResult.error||flow.submit.error||flow.shipReturn?.error||flow.approve.error||flow.reject.error||flow.returnRejected?.error
   const outputSum=rows.reduce((sum,row)=>sum+(Number.isSafeInteger(Number(row.quantity))&&Number(row.quantity)>0?Number(row.quantity):0),0)
   const lossQuantity=Math.max(job.inputQuantity-outputSum,0)
   const excessQuantity=Math.max(outputSum-job.inputQuantity,0)
@@ -54,7 +61,10 @@ function ProcessingJobDetailContent({ jobId, job, request, role, flow }: {
     <div className="pj-progress">{['PAID','SHIPPED','RECEIVED','PROCESSING','RESULT_SUBMITTED','CONFIRMED'].map((value,index)=><span className={['PAID','SHIPPED','RECEIVED','PROCESSING','RESULT_SUBMITTED','CONFIRMED'].indexOf(job.status)>=index?'is-done':''} key={value}>{index+1}</span>)}</div>
     <section className="pj-panel"><h2><Package/>투입 정보</h2><dl><div><dt>소재</dt><dd>{request?<><strong>{request.materialName}</strong><small>{request.materialCode}</small></>:'소재 정보 확인 중'}</dd></div><div><dt>투입 수량</dt><dd>{job.inputQuantity.toLocaleString()} g</dd></div><div><dt>가공비</dt><dd>{job.fee.toLocaleString()}원</dd></div><div><dt>Loss</dt><dd>{job.lossQuantity.toLocaleString()} g</dd></div></dl></section>
 
-    {role==='BRAND'&&job.status==='PAID'&&<ProcessingShipmentForm isPending={flow.ship.isPending} error={flow.ship.error} onSubmit={input=>flow.ship.mutate(input)}/>}
+    {role==='BRAND'&&job.status==='PAID'&&!job.chainJobId&&<section className="pj-panel pj-action"><p>발송 전에 입력 소재를 온체인 가공 작업에 잠급니다.</p><button disabled={pending} onClick={()=>flow.initializeChain.mutate()}>MetaMask로 온체인 작업 등록</button></section>}
+    {role==='PROCESSOR'&&job.status==='PAID'&&job.chainJobId&&flow.chainStatusCode===PROCESSING_CHAIN_STATUS.REQUESTED&&<section className="pj-panel pj-action"><p>가공 조건과 투입 소재를 확인한 뒤 작업을 수락해 주세요.</p><button disabled={pending} onClick={()=>flow.accept.mutate()}>MetaMask로 가공 작업 수락</button></section>}
+    {role==='BRAND'&&job.status==='PAID'&&job.chainJobId&&flow.chainStatusCode===PROCESSING_CHAIN_STATUS.REQUESTED&&<section className="pj-panel pj-action"><p>가공업체의 온체인 작업 수락을 기다리고 있습니다.</p></section>}
+    {role==='BRAND'&&job.status==='PAID'&&job.chainJobId&&flow.chainStatusCode===PROCESSING_CHAIN_STATUS.ACCEPTED&&<ProcessingShipmentForm isPending={flow.ship.isPending} error={flow.ship.error} submitLabel="MetaMask 확인 후 발송 처리" onSubmit={input=>flow.ship.mutate(input)}/>}
     {role==='PROCESSOR'&&job.status==='SHIPPED'&&<section className="pj-panel pj-action"><p>소재가 도착했다면 수령을 확인해 주세요.</p><button disabled={pending} onClick={()=>flow.receive.mutate()}>소재 수령 처리</button></section>}
     {role==='PROCESSOR'&&job.status==='RECEIVED'&&<section className="pj-panel pj-action"><p>투입 소재와 작업 조건을 확인한 뒤 가공을 시작합니다.</p><button disabled={pending} onClick={()=>flow.start.mutate()}>가공 시작</button></section>}
 
@@ -82,12 +92,19 @@ function ProcessingJobDetailContent({ jobId, job, request, role, flow }: {
       </div>
       {excessQuantity>0&&<p className="pj-warning" role="alert">산출 수량 합계가 투입량을 {excessQuantity.toLocaleString()} g 초과했습니다.</p>}
       <button disabled={cannotSave} onClick={save}>결과 임시 저장</button>
-      <div className="pj-evidence"><h3>가공 증빙</h3><EvidenceUpload referenceType="PROCESSING_JOB" referenceId={jobId}/></div>
+      <div className="pj-evidence"><h3>가공 증빙</h3><EvidenceUpload referenceType="PROCESSING_JOB" referenceId={jobId} uploadMode="type-grid"/></div>
       {job.resultRevision>0&&<button className="pj-sign" disabled={pending} onClick={()=>flow.submit.mutate()}>MetaMask 서명 후 결과 제출</button>}
     </section>}
 
     {job.outputs.length>0&&<section className="pj-panel"><h2>제출 산출물</h2><ul className="pj-results">{job.outputs.map(row=><li key={row.outputId}><strong>{row.name}</strong><span>{MATERIAL_TYPE_LABEL[row.materialType]} · {GRADE_LABEL[row.grade]}</span><b>{row.quantity.toLocaleString()} g</b><p>{row.gradeReason}</p>{row.materialId&&<small>생성 소재 #{row.materialId}</small>}</li>)}</ul></section>}
-    {role==='BRAND'&&job.status==='RESULT_SUBMITTED'&&<section className="pj-panel"><h2><CheckCircle/>결과 검토</h2><p>승인하면 투입 Lock이 소비되고 산출 소재가 보유 소재에 생성됩니다.</p><div className="pj-review"><button disabled={pending} onClick={()=>flow.approve.mutate()}>MetaMask 서명 후 승인</button><input placeholder="반려 사유" value={reason} onChange={e=>setReason(e.target.value)}/><button className="is-danger" disabled={pending||!reason.trim()} onClick={()=>flow.reject.mutate(reason)}>서명 후 반려</button></div></section>}
+    {role==='PROCESSOR'&&job.status==='RESULT_SUBMITTED'&&<section className="pj-panel"><div className="pj-evidence"><h3>반환 발송 증빙 등록</h3><EvidenceUpload referenceType="PROCESSING_JOB" referenceId={jobId} uploadMode="type-grid"/></div><ProcessingShipmentForm title="가공 결과물 반환 발송" submitLabel="MetaMask 확인 후 반환 발송" isPending={flow.shipReturn.isPending} error={flow.shipReturn.error} evidenceRequired evidenceOptions={evidenceOptions} onSubmit={input=>{
+      if (input.evidenceFileId && input.evidenceHash) flow.shipReturn.mutate({...input,evidenceFileId:input.evidenceFileId,evidenceHash:input.evidenceHash})
+    }}/></section>}
+    {role==='PROCESSOR'&&job.status==='REJECTED'&&<section className="pj-panel"><h2><Package/>원소재 반환 후 작업 종료</h2><div className="pj-evidence"><h3>반환 발송 증빙 등록</h3><EvidenceUpload referenceType="PROCESSING_JOB" referenceId={jobId} uploadMode="type-grid"/></div><ProcessingShipmentForm title="반려된 원소재 반환" submitLabel="MetaMask 확인 후 반환 및 종료" isPending={flow.returnRejected.isPending} error={flow.returnRejected.error} evidenceRequired evidenceOptions={evidenceOptions} onSubmit={input=>{
+      if (input.evidenceFileId && input.evidenceHash) flow.returnRejected.mutate({...input,evidenceFileId:input.evidenceFileId,evidenceHash:input.evidenceHash})
+    }}/></section>}
+    {role==='BRAND'&&job.status==='RESULT_SUBMITTED'&&<section className="pj-panel"><h2><CheckCircle/>결과 검토</h2><p>보완이 필요하면 결과를 반려할 수 있습니다. 승인 처리는 결과물을 수령한 뒤 진행합니다.</p><div className="pj-review"><input placeholder="반려 사유" value={reason} onChange={e=>setReason(e.target.value)}/><button className="is-danger" disabled={pending||!reason.trim()} onClick={()=>flow.reject.mutate(reason)}>MetaMask 확인 후 반려</button></div></section>}
+    {role==='BRAND'&&job.status==='RETURN_SHIPPED'&&<section className="pj-panel"><h2><CheckCircle/>결과물 수령 및 승인</h2><p>실물 결과물을 확인한 뒤 승인하면 Processor의 입력 토큰이 소비되고 Child Material 토큰이 Brand 지갑에 발행됩니다.</p><button disabled={pending} onClick={()=>flow.approve.mutate()}>MetaMask로 수령 확인 및 최종 승인</button></section>}
     {error&&<p className="pj-error" role="alert">{error.message}</p>}
   </section>
 }

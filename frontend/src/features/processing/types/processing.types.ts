@@ -29,6 +29,8 @@ export type ProcessingJobStatus =
   | 'RECEIVED'
   | 'PROCESSING'
   | 'RESULT_SUBMITTED'
+  | 'RETURN_SHIPPED'
+  | 'CANCELED'
   | 'CONFIRMED'
   | 'REJECTED'
   | 'EXPIRED'

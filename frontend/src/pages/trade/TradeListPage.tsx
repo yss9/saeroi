@@ -1,4 +1,4 @@
-import { TradeList } from '../../features/trade/components/TradeList.tsx'
+import { BuyerTradeBoard } from '../../features/trade/components/BuyerTradeBoard.tsx'
 
 /**
  * 내 소재 구매 내역.
@@ -11,10 +11,8 @@ import { TradeList } from '../../features/trade/components/TradeList.tsx'
 export function TradeListPage() {
   return (
     <main className="page">
-      <header className="page__header">
-        <h1>구매 내역</h1>
-      </header>
-      <TradeList />
+      <h1 className="ui-visually-hidden">구매 내역</h1>
+      <BuyerTradeBoard />
     </main>
   )
 }

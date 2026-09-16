@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { ProductionBatchLinkPanel } from '../../features/production/components/ProductionBatchLinkPanel.tsx'
 import {
   ProductCreatedSummary,
   ProductForm,
@@ -21,19 +21,25 @@ export function ProductRegisterPage() {
 
   return (
     <main className="page">
-      <header className="page__header">
-        <h1>제품 등록</h1>
-      </header>
+      <h1 className="ui-visually-hidden">제품 등록</h1>
 
-      {created && <ProductCreatedSummary product={created} />}
+      {created && (
+        <>
+          <ProductCreatedSummary product={created} />
+          {/*
+            등록만으로는 팔 물건이 없다 — 개체는 생산 배치가 만든다. 그 배치에 이 제품을
+            이어 주는 자리를 등록 직후에 둔다. 나중에 해도 되지만, 여기서 하지 않으면
+            "등록했는데 왜 재고가 0 인가" 를 겪고 나서야 이 연결의 존재를 알게 된다.
+          */}
+          <ProductionBatchLinkPanel
+            productModelId={created.productModelId}
+            productName={created.name}
+          />
+        </>
+      )}
 
       <ProductForm onCreated={setCreated} />
 
-      {/* 마켓(/products)이 아니라 내 제품으로 보낸다 — 방금 등록한 제품은 DRAFT 라
-          마켓 목록에 없다. 거기로 보내면 "등록했는데 왜 없지" 가 된다. */}
-      <p className="page__lead">
-        <Link to="/brand/products">내 제품 관리로 이동</Link>
-      </p>
     </main>
   )
 }

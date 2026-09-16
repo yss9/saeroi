@@ -1,6 +1,5 @@
 import { useForm } from 'react-hook-form'
-import { Button, ErrorMessage, Input, Loading, Select } from '../../../components/common/index.ts'
-import { useMyProductModels } from '../../product/hooks/useMyProductModels.ts'
+import { Button, ErrorMessage, Input, Loading } from '../../../components/common/index.ts'
 import { useMyWallets } from '../../wallet/hooks/useMyWallets.ts'
 import { useOpenProductionBatch } from '../hooks/useOpenProductionBatch.ts'
 import type { ProductionBatch } from '../types/production.types.ts'
@@ -12,18 +11,15 @@ export interface ProductionBatchFormProps {
 
 interface BatchFormValues {
   batchName: string
-  productModelId: number | ''
   producedQuantity: number
 }
 
 /**
  * 생산 배치 열기.
  *
- * 배치는 **"이 제품을 몇 개 만든다"** 는 선언이다. 여기서 소재를 고르지 않는다 — 투입은
- * 배치가 열린 뒤 별도 요청이고, 그래야 여러 소재를 모아 한 번에 잠글 수 있다.
- *
- * **제품은 내 제품에서만 고른다.** 서버도 남의 제품에는 배치를 열지 못하게 막지만
- * (`PRODUCTION_PRODUCT_MODEL_FORBIDDEN`), 고를 수 없게 하는 편이 낫다.
+ * 배치는 **"이번에 얼마나 만든다"** 는 선언이다. 여기서 소재도, 완성 제품도 고르지 않는다 —
+ * 둘 다 배치가 열린 뒤에 정한다. 투입은 여러 소재를 모아 한 번에 잠가야 하고, 무엇을
+ * 만들지는 소재를 다 넣고 나서 정해도 늦지 않다 (확정 전까지만 채우면 된다).
  *
  * ⚠️ **활성 지갑이 없으면 열 수 없다** (`PRODUCTION_WALLET_NOT_LINKED`). 서명자 주소를
  * 서버가 등록된 지갑에서 가져와 배치에 굳히기 때문이다. 제출해 보고 알게 하지 않고 미리
@@ -35,40 +31,24 @@ export function ProductionBatchForm({ onOpened }: ProductionBatchFormProps) {
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm<BatchFormValues>({ defaultValues: { batchName: '', productModelId: '' } })
+  } = useForm<BatchFormValues>({ defaultValues: { batchName: '' } })
 
-  const products = useMyProductModels()
   const wallets = useMyWallets()
   const open = useOpenProductionBatch()
 
-  if (products.isPending || wallets.isPending) {
-    return <Loading label="제품과 지갑 정보를 불러오는 중" />
-  }
-  if (products.isError) {
-    return <ErrorMessage error={products.error} onRetry={() => void products.refetch()} />
+  if (wallets.isPending) {
+    return <Loading label="지갑 정보를 불러오는 중" />
   }
 
   // 지갑 조회가 실패하면 막지 않는다 — 서버가 최종 판단을 한다. 여기서 차단하면
   // 조회 실패만으로 생산 자체를 못 하게 된다.
   const hasWallet = wallets.isError || wallets.activeWallet !== null
 
-  // 단종된 제품으로는 생산할 이유가 없다. 서버가 막지는 않지만 만들어도 팔 수 없다.
-  const sellable = products.data.filter((product) => product.status !== 'DISCONTINUED')
-
-  if (sellable.length === 0) {
-    return (
-      <p className="batch-form__note">
-        생산할 제품이 없습니다. 제품을 먼저 등록해 주세요.
-      </p>
-    )
-  }
-
   const onSubmit = handleSubmit((values) => {
-    if (values.productModelId === '' || !hasWallet) return
+    if (!hasWallet) return
     open.mutate(
       {
         batchName: values.batchName.trim(),
-        productModelId: values.productModelId,
         producedQuantity: values.producedQuantity,
       },
       {
@@ -92,28 +72,10 @@ export function ProductionBatchForm({ onOpened }: ProductionBatchFormProps) {
         })}
       />
 
-      <Select
-        label="생산할 제품"
-        placeholder="제품을 선택하세요"
-        options={sellable.map((product) => ({
-          value: String(product.productModelId),
-          label: product.name,
-        }))}
-        error={errors.productModelId?.message}
-        {...register('productModelId', {
-          valueAsNumber: true,
-          // `required` 로는 못 잡는다 — valueAsNumber 가 미선택('')을 NaN 으로 바꾸고
-          // required 는 NaN 을 값이 있는 것으로 본다. 그대로 두면 NaN 이 서버로 나간다.
-          validate: (value) =>
-            Number.isInteger(value) ? true : '생산할 제품을 선택해 주세요.',
-        })}
-      />
-
       <Input
         label="생산 개수"
         type="number"
         min={1}
-        hint="확정 시 이 개수만큼 제품 개체가 만들어집니다."
         error={errors.producedQuantity?.message}
         {...register('producedQuantity', {
           required: '생산 개수를 입력해 주세요.',
@@ -133,7 +95,7 @@ export function ProductionBatchForm({ onOpened }: ProductionBatchFormProps) {
 
       {open.isError && <ErrorMessage error={open.error} />}
 
-      <Button type="submit" loading={open.isPending} disabled={!hasWallet} fullWidth>
+      <Button type="submit" loading={open.isPending} disabled={!hasWallet}>
         배치 열기
       </Button>
     </form>

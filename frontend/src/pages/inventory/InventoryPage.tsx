@@ -1,4 +1,5 @@
 import { InventoryList } from '../../features/inventory/components/InventoryList.tsx'
+import { ProcessingCustodyList } from '../../features/inventory/components/ProcessingCustodyList.tsx'
 
 /**
  * 보유 소재 화면 (My Materials).
@@ -13,8 +14,9 @@ import { InventoryList } from '../../features/inventory/components/InventoryList
 export function InventoryPage() {
   return (
     <main className="page">
-      <h1>보유 소재</h1>
+      <h1 className="ui-visually-hidden">보유 소재</h1>
       <InventoryList />
+      <ProcessingCustodyList />
     </main>
   )
 }

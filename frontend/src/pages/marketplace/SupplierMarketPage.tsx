@@ -88,11 +88,13 @@ export function SupplierMarketPage() {
     <main className="sup">
       <header className="sup__head">
         <div>
-          <div className="sup__title">
-            {/* 사이드바 메뉴와 같은 이름을 쓴다. 다르면 같은 곳인지 사용자가 다시 확인한다. */}
-            <h1>판매 관리</h1>
-            <span className="sup__tag">sales-ops</span>
-          </div>
+          {/*
+            <b>제목은 눈에 보이지 않는다.</b> 사이드바가 이미 "판매 관리" 를 켠 채로
+            띄우고 있어, 큰 제목을 또 그리면 같은 말이 두 번이다(7511d10 이 앱 전체에
+            적용한 규칙). DOM 에는 남겨 둔다 — 사이드바가 접히는 좁은 화면과 보조 기술
+            에게는 이것이 유일한 화면 이름이다.
+          */}
+          <h1 className="ui-visually-hidden">판매 관리</h1>
           {/* 건수는 바로 아래 지표가 이미 말한다. 여기서는 지표에 없는 것 하나만 —
               지금 팔려고 걸어 둔 양이 얼마인지. */}
           <p className="sup__sub">

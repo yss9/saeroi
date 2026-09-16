@@ -147,38 +147,6 @@ export function PurchaseForm({ listing, onCreated }: PurchaseFormProps) {
 
   return (
     <form onSubmit={onSubmit} noValidate className="purchase-form">
-      <Controller
-        control={control}
-        name="quantityKg"
-        render={({ field }) => (
-          <QuantityInput
-            label="구매 수량"
-            unit="KG"
-            value={field.value}
-            onChange={field.onChange}
-            min={0}
-            max={listing.availableQuantity / 1000}
-            disabled={listing.status !== 'ON_SALE'}
-            error={
-              exceedsAvailable
-                ? `판매 가능 수량(${formatKg(listing.availableQuantity)})을 넘었습니다.`
-                : undefined
-            }
-          />
-        )}
-      />
-
-      <dl className="purchase-form__summary">
-        <div>
-          <dt>kg당 단가</dt>
-          <dd>{formatWon(listing.pricePerKg)}</dd>
-        </div>
-        <div>
-          <dt>결제 예정 금액</dt>
-          <dd className="purchase-form__total">{formatWon(previewTotal)}</dd>
-        </div>
-      </dl>
-
       {/* 길이 제한은 서버 검증과 같은 값이다. 여기서 막지 않으면 다 입력하고 제출한
           뒤에야 400 을 본다. */}
       <fieldset className="purchase-form__shipping">
@@ -240,9 +208,11 @@ export function PurchaseForm({ listing, onCreated }: PurchaseFormProps) {
           </p>
         ) : null}
 
+        {/* 선택이라는 사실은 칸 안에서 말한다 — 칸 밑에 한 줄을 더 쓰면 그 줄 때문에
+            옆 칸들과 높이가 어긋난다. */}
         <Input
           label="상세 주소"
-          hint="선택 입력입니다."
+          placeholder="선택 입력"
           error={errors.addressDetail?.message}
           {...register('addressDetail', {
             maxLength: { value: 255, message: '상세 주소는 255자를 넘을 수 없습니다.' },
@@ -250,34 +220,65 @@ export function PurchaseForm({ listing, onCreated }: PurchaseFormProps) {
         />
       </fieldset>
 
-      {/* 구매 요청과 결제는 별개다. 요청 시점에 수량이 예약되고, 결제는 그다음이다.
-          이 순서를 모르면 "결제도 안 했는데 왜 수량이 줄었지" 로 읽힌다. */}
-      <p className="purchase-form__note">
-        구매를 요청하면 해당 수량이 예약되고, 이어서 결제를 진행합니다.
-      </p>
+      {/* 얼마나 살지 · 얼마인지 · 요청 버튼. 셋을 한 칸에 이어 붙여 배송지와 위를 맞춘다. */}
+      <div className="purchase-form__order">
+        <div className="purchase-form__quantity">
+          <Controller
+            control={control}
+            name="quantityKg"
+            render={({ field }) => (
+              <QuantityInput
+                label="구매 수량"
+                unit="KG"
+                value={field.value}
+                onChange={field.onChange}
+                min={0}
+                max={listing.availableQuantity / 1000}
+                disabled={listing.status !== 'ON_SALE'}
+                error={
+                  exceedsAvailable
+                    ? `판매 가능 수량(${formatKg(listing.availableQuantity)})을 넘었습니다.`
+                    : undefined
+                }
+              />
+            )}
+          />
+        </div>
 
-      {isError && <ErrorMessage error={error} />}
+        <dl className="purchase-form__summary">
+          <div>
+            <dt>kg당 단가</dt>
+            <dd>{formatWon(listing.pricePerKg)}</dd>
+          </div>
+          <div>
+            <dt>결제 예정 금액</dt>
+            <dd className="purchase-form__total">{formatWon(previewTotal)}</dd>
+          </div>
+        </dl>
 
-      {chain.error && !chain.isRejected && <ErrorMessage error={chain.error} />}
+        {isError && <ErrorMessage error={error} />}
 
-      <Button
-        type="submit"
-        disabled={!canSubmit}
-        loading={isPending || chain.isBusy}
-        fullWidth
-      >
-        {chain.status === 'SIGNING'
-          ? '지갑에서 서명해 주세요'
-          : chain.status === 'PENDING'
-            ? '블록 확정을 기다리는 중…'
-            : chain.status === 'LINKING'
-              ? '온체인 결과를 기록하는 중…'
-              : listing.status === 'ON_SALE'
-                ? pendingTrade
-                  ? '구매 요청 완료하기'
-                  : '구매 요청'
-                : '판매가 종료된 소재입니다'}
-      </Button>
+        {chain.error && !chain.isRejected && <ErrorMessage error={chain.error} />}
+
+        <Button
+          type="submit"
+          disabled={!canSubmit}
+          loading={isPending || chain.isBusy}
+          fullWidth
+        >
+          {chain.status === 'SIGNING'
+            ? '지갑에서 서명해 주세요'
+            : chain.status === 'PENDING'
+              ? '블록 확정을 기다리는 중…'
+              : chain.status === 'LINKING'
+                ? '온체인 결과를 기록하는 중…'
+                : listing.status === 'ON_SALE'
+                  ? pendingTrade
+                    ? '구매 요청 완료하기'
+                    : '구매 요청'
+                  : '판매가 종료된 소재입니다'}
+        </Button>
+      </div>
     </form>
   )
 }

@@ -26,10 +26,17 @@ const api = vi.hoisted(() => ({
   addProductionInputs: vi.fn(),
   removeProductionInput: vi.fn(),
   getMyMaterials: vi.fn(),
+  getMyProductModels: vi.fn(),
+  assignProductModel: vi.fn(),
 }))
 vi.mock('../api/productionBatchApi.ts', () => ({
   getProductionBatch: api.getProductionBatch,
   confirmProductionBatch: api.confirmProductionBatch,
+  assignProductModel: api.assignProductModel,
+}))
+// 완성 제품 선택이 이 화면에 있다 — 목록을 못 받으면 오류가 한 줄 더 뜬다.
+vi.mock('../../product/api/getMyProductModels.ts', () => ({
+  getMyProductModels: api.getMyProductModels,
 }))
 vi.mock('../api/addProductionInputs.ts', () => ({
   addProductionInputs: api.addProductionInputs,
@@ -100,6 +107,9 @@ function renderDetail() {
 beforeEach(() => {
   api.getProductionBatch.mockResolvedValue(batch())
   api.getMyMaterials.mockResolvedValue([])
+  api.getMyProductModels.mockResolvedValue([
+    { productModelId: 31, name: '업사이클 데님 토트백', status: 'DRAFT', stockQuantity: 0 },
+  ])
   // 확정 응답은 투입을 담지 않는다. 이게 4번 항목의 근거다.
   api.confirmProductionBatch.mockResolvedValue(
     batch({
@@ -259,6 +269,21 @@ describe('ProductionBatchDetail', () => {
     await user.click(screen.getByRole('button', { name: '확정' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('보유 수량이 투입량보다 적습니다')
+  })
+
+  // 확정하면 서버가 개체를 만들고, 그 개체가 어느 상품인지는 배치에 적힌 제품으로 정해진다.
+  // 비어 있으면 서버도 PRODUCTION_PRODUCT_MODEL_REQUIRED 로 거절한다 — 되돌릴 수 없는
+  // 버튼이라 눌러 보고 알게 두지 않는다.
+  it('제품이 연결되지 않은 배치는 확정을 막고 연결할 곳을 가리킨다', async () => {
+    api.getProductionBatch.mockResolvedValue(batch({ productModelId: null }))
+    renderDetail()
+
+    expect(await screen.findByRole('button', { name: '배치 확정' })).toBeDisabled()
+    expect(screen.getByText(/확정할 수 없습니다/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '제품을 등록' })).toHaveAttribute(
+      'href',
+      '/brand/products/new',
+    )
   })
 
   it('배치 조회가 실패하면 다시 시도할 수 있게 한다', async () => {

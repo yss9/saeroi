@@ -81,6 +81,7 @@ export function BrandProductList() {
               </span>
               <StockLine product={product} />
               <div className="brand-product-list__links">
+                <ProduceLink product={product} />
                 <ProductEditLink product={product} />
                 <QrLabelLink product={product} />
               </div>
@@ -144,6 +145,25 @@ function StockLine({ product }: { product: ProductModel }) {
     <span className="brand-product-list__stock brand-product-list__stock--empty">
       {product.status === 'DRAFT' && '생산 전 · '}판매 가능 수량 0개
     </span>
+  )
+}
+
+/**
+ * 생산으로 가는 링크.
+ *
+ * **등록만 한 제품은 여기서 막힌다.** 재고가 0 이라 판매를 시작할 수 없는데, 그 0 을
+ * 채우는 일(생산 배치)이 다른 화면에 있어 "등록했는데 왜 못 파는가" 로 읽혔다.
+ *
+ * 이미 재고가 있는 제품에도 둔다 — 다음 배치를 여는 자리가 같기 때문이다. 단종된
+ * 제품에는 두지 않는다. 만들어도 팔 수 없다.
+ */
+function ProduceLink({ product }: { product: ProductModel }) {
+  if (product.status === 'DISCONTINUED') return null
+
+  return (
+    <Link to="/brand/production" className="brand-product-list__qr">
+      {product.stockQuantity > 0 ? '추가 생산' : '생산하기'}
+    </Link>
   )
 }
 

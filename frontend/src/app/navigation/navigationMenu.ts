@@ -121,6 +121,7 @@ export const BUSINESS_MENU_GROUPS: readonly NavigationMenuGroup[] = [
   {
     label: '제품',
     items: [
+      // 브랜드의 일은 생산에서 시작한다 — 소재를 넣어 만들고, 그 결과가 제품이 된다.
       { label: '제품 생산', to: '/brand/production', Icon: Cube },
       { label: '제품 등록', to: '/brand/products/new', Icon: Tag },
       { label: '내 제품', to: '/brand/products', Icon: Storefront },

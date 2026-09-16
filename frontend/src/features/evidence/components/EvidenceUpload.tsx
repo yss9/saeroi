@@ -18,6 +18,7 @@ import {
   EVIDENCE_MAX_FILE_SIZE,
   EVIDENCE_TYPE_LABEL,
   MATERIAL_EVIDENCE_TYPES,
+  PROCESSING_EVIDENCE_TYPES,
   type EvidenceFile,
   type EvidenceReferenceType,
   type EvidenceType,
@@ -30,6 +31,8 @@ export interface EvidenceUploadProps {
   referenceId: number | null
   /** 업로드 UI 를 감추고 목록만 보여준다. 남의 소재를 볼 때 쓴다 */
   readOnly?: boolean
+  /** 가공 결과처럼 증빙 종류별 파일 선택 칸을 동시에 보여준다. */
+  uploadMode?: 'select' | 'type-grid'
 }
 
 /**
@@ -89,9 +92,16 @@ export interface EvidenceUploadProps {
  * 요구해서 브라우저가 스스로 보내는 요청은 401 을 받는다
  * ({@code api/getEvidenceContent.ts} 주석).
  */
-export function EvidenceUpload({ referenceType, referenceId, readOnly }: EvidenceUploadProps) {
+export function EvidenceUpload({
+  referenceType,
+  referenceId,
+  readOnly,
+  uploadMode = 'select',
+}: EvidenceUploadProps) {
   const [evidenceType, setEvidenceType] = useState<EvidenceType>('BEFORE_PHOTO')
   const [selected, setSelected] = useState<File[]>([])
+  const [selectedByType, setSelectedByType] = useState<Partial<Record<EvidenceType, File[]>>>({})
+  const [uploadingType, setUploadingType] = useState<EvidenceType | null>(null)
   // 지우려는 파일 하나만 든다 — 확인 모달은 한 번에 하나만 뜬다.
   const [pendingDelete, setPendingDelete] = useState<EvidenceFile | null>(null)
 
@@ -101,14 +111,14 @@ export function EvidenceUpload({ referenceType, referenceId, readOnly }: Evidenc
 
   if (referenceId === null) return <ErrorMessage error="잘못된 주소입니다." />
 
-  const submit = () => {
-    if (selected.length === 0) return
+  const submit = (type: EvidenceType, files: File[], clear: () => void) => {
+    if (files.length === 0) return
+    setUploadingType(type)
     upload.mutate(
-      { referenceType, referenceId, evidenceType, files: selected },
+      { referenceType, referenceId, evidenceType: type, files },
       {
-        // 성공했을 때만 선택을 비운다. 실패한 채로 비우면 사용자가 파일을 다시
-        // 골라야 하는데, 무엇을 골랐는지는 이미 화면에서 사라진 상태다.
-        onSuccess: () => setSelected([]),
+        onSuccess: clear,
+        onSettled: () => setUploadingType(null),
       },
     )
   }
@@ -117,73 +127,87 @@ export function EvidenceUpload({ referenceType, referenceId, readOnly }: Evidenc
     <div className="evidence">
       {!readOnly && (
         <div className="evidence__form">
-          {/* 종류 선택과 파일 선택은 한 번에 정하는 짝이라 같은 행에 좌우로 둔다. */}
-          <div className="evidence__form-row">
-            <Select
-              label="증빙 종류"
-              options={MATERIAL_EVIDENCE_TYPES.map((value) => ({
-                value,
-                label: EVIDENCE_TYPE_LABEL[value],
-              }))}
-              value={evidenceType}
-              onChange={(event) => setEvidenceType(event.target.value as EvidenceType)}
-            />
-
-            {/*
-              형식·크기·개수 검증과 거절 문구는 모두 공통 컴포넌트가 한다 (S15P21E104-253).
-              여기서 다시 세면 같은 규칙이 두 곳에 생기고, 상한을 고칠 때 한쪽이 남는다.
-              도메인이 하는 일은 **정책 값을 넘기는 것**뿐이다.
-            */}
-            <FileUploader
-              label="파일 선택"
-              hint={`사진(jpg·png·webp)과 pdf 를 최대 ${EVIDENCE_MAX_FILES}개, 개당 10MB 까지 올릴 수 있습니다.`}
-              accept={EVIDENCE_ACCEPT}
-              multiple
-              maxSizeBytes={EVIDENCE_MAX_FILE_SIZE}
-              maxFiles={EVIDENCE_MAX_FILES}
-              uploading={upload.isPending}
-              progress={upload.progress}
-              onChange={setSelected}
-            />
-          </div>
-
-          {selected.length > 0 && (
+          {uploadMode === 'type-grid' ? (
+            <div className="evidence__type-grid">
+              {PROCESSING_EVIDENCE_TYPES.map((type) => {
+                const files = selectedByType[type] ?? []
+                const label = EVIDENCE_TYPE_LABEL[type]
+                return (
+                  <section className="evidence__type-card" key={type} aria-labelledby={`evidence-type-${type}`}>
+                    <h4 id={`evidence-type-${type}`}>{label}</h4>
+                    <FileUploader
+                      label={`${label} 파일 선택`}
+                      hint="사진 또는 PDF, 파일당 10MB"
+                      accept={EVIDENCE_ACCEPT}
+                      multiple
+                      maxSizeBytes={EVIDENCE_MAX_FILE_SIZE}
+                      maxFiles={EVIDENCE_MAX_FILES}
+                      uploading={upload.isPending && uploadingType === type}
+                      progress={uploadingType === type ? upload.progress : null}
+                      onChange={(nextFiles) =>
+                        setSelectedByType((current) => ({ ...current, [type]: nextFiles }))
+                      }
+                    />
+                    {files.length > 0 && (
+                      <>
+                        <SelectedFiles files={files} label={`${label} 올릴 파일`} />
+                        <Button
+                          type="button"
+                          disabled={upload.isPending}
+                          loading={upload.isPending && uploadingType === type}
+                          onClick={() =>
+                            submit(type, files, () =>
+                              setSelectedByType((current) => ({ ...current, [type]: [] })),
+                            )
+                          }
+                        >
+                          {label} {files.length}개 올리기
+                        </Button>
+                      </>
+                    )}
+                  </section>
+                )
+              })}
+            </div>
+          ) : (
             <>
-              {/*
-                올리기 전에 목록과 미리보기를 보여준다. 증빙은 되돌릴 수 없으므로 무엇이
-                올라가는지 **눈으로** 확인할 기회가 있어야 한다 — 파일명만으로는 사진
-                열 장 중 어느 것을 잘못 골랐는지 알 수 없다.
-
-                미리보기는 서버를 거치지 않는다. 아직 올라가지 않았고, 브라우저는 이미
-                바이트를 갖고 있다.
-              */}
-              <ul className="evidence__selected" aria-label="올릴 파일">
-                {selected.map((file) => (
-                  <li key={`${file.name}-${file.size}`}>
-                    <LocalFilePreview file={file} />
-                    <span>{file.name}</span>
-                  </li>
-                ))}
-              </ul>
-              <Button type="button" onClick={submit} loading={upload.isPending}>
-                증빙 {selected.length}개 올리기
-              </Button>
+              <div className="evidence__form-row">
+                <Select
+                  label="증빙 종류"
+                  options={MATERIAL_EVIDENCE_TYPES.map((value) => ({
+                    value,
+                    label: EVIDENCE_TYPE_LABEL[value],
+                  }))}
+                  value={evidenceType}
+                  onChange={(event) => setEvidenceType(event.target.value as EvidenceType)}
+                />
+                <FileUploader
+                  label="파일 선택"
+                  hint={`사진(jpg·png·webp)과 pdf 를 최대 ${EVIDENCE_MAX_FILES}개, 개당 10MB 까지 올릴 수 있습니다.`}
+                  accept={EVIDENCE_ACCEPT}
+                  multiple
+                  maxSizeBytes={EVIDENCE_MAX_FILE_SIZE}
+                  maxFiles={EVIDENCE_MAX_FILES}
+                  uploading={upload.isPending}
+                  progress={upload.progress}
+                  onChange={setSelected}
+                />
+              </div>
+              {selected.length > 0 && (
+                <>
+                  <SelectedFiles files={selected} label="올릴 파일" />
+                  <Button
+                    type="button"
+                    onClick={() => submit(evidenceType, selected, () => setSelected([]))}
+                    loading={upload.isPending}
+                  >
+                    증빙 {selected.length}개 올리기
+                  </Button>
+                </>
+              )}
             </>
           )}
 
-          {/*
-            업로드 결과.
-
-            <b>서버는 일부만 성공시키지 않는다.</b> `EvidenceUploadService` 는 검증을 모두
-            끝낸 뒤에 첫 바이트를 쓰고, 중간에 실패하면 이미 쓴 파일을 지우고 트랜잭션을
-            되돌린다. 그래서 결과는 "전부 올라갔다" 또는 "하나도 안 올라갔다" 뿐이고,
-            **파일별 성공/실패 표를 만들 수 없다** — 만들면 서버가 하지 않는 약속을
-            화면이 하는 것이 된다.
-
-            대신 성공한 건에 대해 **무엇이 올라갔는지**를 파일별로 밝힌다. 증빙은 지울 수
-            없으므로 사용자가 방금 남긴 기록을 확인할 수 있어야 하고, 해시는 온체인에
-            올라가는 값이라 대조에 쓰인다.
-          */}
           {upload.isSuccess && upload.data.length > 0 && (
             <div className="evidence__result" role="status">
               <p>증빙 {upload.data.length}개를 올렸습니다.</p>
@@ -197,11 +221,9 @@ export function EvidenceUpload({ referenceType, referenceId, readOnly }: Evidenc
               </ul>
             </div>
           )}
-
           {upload.isError && <ErrorMessage error={upload.error} />}
         </div>
       )}
-
       {list.isPending ? (
         <Loading variant="skeleton" rows={2} label="증빙을 불러오는 중" />
       ) : list.isError ? (
@@ -315,6 +337,18 @@ export function EvidenceUpload({ referenceType, referenceId, readOnly }: Evidenc
   )
 }
 
+function SelectedFiles({ files, label }: { files: File[]; label: string }) {
+  return (
+    <ul className="evidence__selected" aria-label={label}>
+      {files.map((file) => (
+        <li key={`${file.name}-${file.size}`}>
+          <LocalFilePreview file={file} />
+          <span>{file.name}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
 function formatDateTime(value: string): string {
   const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) return value
