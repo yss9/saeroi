@@ -34,6 +34,13 @@ function renderLayout() {
   )
 }
 
+/** 사이드바에 붙은 묶음 이름들. 이름 자리가 곧 접기 버튼이다. */
+function groupLabels(nav: HTMLElement): string[] {
+  return [...nav.querySelectorAll('.company-dashboard__nav-group-label')].map(
+    (node) => node.textContent?.trim() ?? '',
+  )
+}
+
 beforeEach(() => {
   localStorage.clear()
   vi.spyOn(apiClient, 'get').mockResolvedValue({ data: [] } as AxiosResponse)
@@ -66,8 +73,10 @@ describe('CompanyDashboardLayout', () => {
     setBusinessUser('SUPPLIER')
     renderLayout()
 
+    // 회사 정보는 묶음 밖이라 언제나 보인다.
     expect(screen.getByRole('link', { name: '회사 정보' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: '회사 대시보드' })).not.toBeInTheDocument()
+
     expect(screen.getByRole('link', { name: '소재 등록' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '판매 관리' })).toBeInTheDocument()
     // 라우트(/supplier/trades)는 있는데 예전 사이드바에는 빠져 있던 항목.
@@ -154,12 +163,76 @@ describe('CompanyDashboardLayout', () => {
     expect(screen.queryByText(/0xd8dA/)).not.toBeInTheDocument()
   })
 
-  it('Brand 메뉴에서 가공 신청과 요청 내역을 구분해 이동한다', () => {
+  it('Brand 메뉴에서 가공 요청과 요청 내역을 구분해 이동한다', () => {
     setBusinessUser('BRAND')
     renderLayout()
 
-    expect(screen.getByRole('link', { name: '가공 신청' })).toHaveAttribute('href', '/brand/processing')
+    expect(screen.getByRole('link', { name: '가공 요청' })).toHaveAttribute('href', '/brand/processing')
     expect(screen.getByRole('link', { name: '요청 내역' })).toHaveAttribute('href', '/brand/processing/requests')
+  })
+
+  // 브랜드가 하는 일은 크게 셋이다 — 소재를 사고, 가공을 맡기고, 제품을 판다.
+  // 11줄짜리 평평한 목록으로는 그 구조가 드러나지 않아 매번 전체를 훑어야 했다.
+  it('브랜드 사이드바를 소재·가공·제품 세 묶음으로 보여준다', () => {
+    setBusinessUser('BRAND')
+    renderLayout()
+
+    const nav = screen.getByRole('navigation', { name: '사업자 대시보드 메뉴' })
+    expect(groupLabels(nav)).toEqual(['소재', '가공', '제품'])
+    // 회사 정보는 묶지 않는다. 항목이 하나뿐이라 이름을 얹을 이유가 없다.
+    expect(within(nav).getByRole('link', { name: '회사 정보' })).toBeInTheDocument()
+  })
+
+  // 처음부터 접혀 있으면 어떤 항목이 있는지 모르는 사용자가 묶음 이름만 보고 짐작해야 한다.
+  it('처음에는 모든 묶음이 펼쳐져 있다', () => {
+    setBusinessUser('BRAND')
+    renderLayout()
+
+    expect(screen.getByRole('link', { name: '보유 소재' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '가공 요청' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '내 제품' })).toBeInTheDocument()
+  })
+
+  // 이 파일에서 가장 중요한 테스트다. 예전 아코디언은 다른 묶음을 열면 보던 묶음이
+  // 저절로 닫혀, 방금 자리로 돌아가려면 매번 한 번 더 눌러야 했다.
+  it('한 묶음을 접어도 다른 묶음은 건드리지 않는다', async () => {
+    const user = userEvent.setup()
+    setBusinessUser('BRAND')
+    renderLayout()
+
+    await user.click(screen.getByRole('button', { name: '소재' }))
+
+    expect(screen.queryByRole('link', { name: '보유 소재' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '가공 요청' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '내 제품' })).toBeInTheDocument()
+
+    // 같은 이름을 다시 누르면 되돌아온다.
+    await user.click(screen.getByRole('button', { name: '소재' }))
+    expect(screen.getByRole('link', { name: '보유 소재' })).toBeInTheDocument()
+  })
+
+  // 새로고침마다 다시 접게 하면 접어 둔 뜻이 사라진다.
+  it('접어 둔 묶음을 다시 열어도 기억한다', async () => {
+    const user = userEvent.setup()
+    setBusinessUser('BRAND')
+    const first = renderLayout()
+
+    await user.click(screen.getByRole('button', { name: '가공' }))
+    first.unmount()
+
+    renderLayout()
+    expect(screen.queryByRole('link', { name: '가공 요청' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '보유 소재' })).toBeInTheDocument()
+  })
+
+  // 항목이 하나도 없는 묶음을 남기면 눌러도 아무것도 없는 이름이 사이드바에 남는다.
+  it('그 역할에게 항목이 없는 묶음은 그리지 않는다', () => {
+    setBusinessUser('SUPPLIER')
+    renderLayout()
+
+    expect(groupLabels(screen.getByRole('navigation', { name: '사업자 대시보드 메뉴' }))).toEqual([
+      '소재',
+    ])
   })
 
   it('소비자에게는 사업자 알림 센터를 표시하지 않는다', () => {

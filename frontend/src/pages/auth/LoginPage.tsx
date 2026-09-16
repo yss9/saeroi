@@ -5,9 +5,27 @@ import { AuthLayout } from '../../features/auth/components/AuthLayout.tsx'
 import { useLogin } from '../../features/auth/hooks/useLogin.ts'
 import type { LoginRequest } from '../../features/auth/types/auth.types.ts'
 import { getRoleHomePath } from '../../features/auth/utils/roleHomePath.ts'
+import { isBusinessUserRole } from '../../features/company/types/companyAccount.types.ts'
 
 interface LocationState {
   from?: { pathname: string }
+}
+
+/**
+ * 로그인 뒤에 갈 곳.
+ *
+ * **사업자는 언제나 회사 정보다.** 보던 화면으로 되돌리는 것이 친절해 보이지만, 사업자가
+ * 로그인 화면을 만나는 경우는 대개 세션이 끊긴 때다 — 그때 되돌아간 화면은 방금 실패한
+ * 요청을 다시 부르고, 사용자는 자기가 어디에 있었는지보다 무엇을 할 차례인지를 먼저 봐야
+ * 한다. 사이드바가 모든 업무를 들고 있어 한 번 더 누르는 비용도 작다.
+ *
+ * **소비자는 되돌린다.** 랜딩에서 "쇼핑" 을 눌렀다가 로그인으로 넘어온 경우가 그것이고
+ * (`Header` · `ShopShowcase` 가 그 자리를 `state.from` 으로 넘긴다), 되돌리지 않으면
+ * 사려던 물건을 다시 찾아야 한다.
+ */
+function landingPath(role: Parameters<typeof getRoleHomePath>[0], from?: string): string {
+  const home = getRoleHomePath(role)
+  return isBusinessUserRole(role) ? home : (from ?? home)
 }
 
 export function LoginPage() {
@@ -25,7 +43,7 @@ export function LoginPage() {
 
   const onSubmit = handleSubmit((values) => {
     mutate(values, {
-      onSuccess: ({ user }) => navigate(from ?? getRoleHomePath(user.role), { replace: true }),
+      onSuccess: ({ user }) => navigate(landingPath(user.role, from), { replace: true }),
     })
   })
 

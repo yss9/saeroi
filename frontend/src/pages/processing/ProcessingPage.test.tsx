@@ -115,6 +115,7 @@ test('로그인한 Processor에게 지정된 가공 요청을 표시한다', asy
   expect(viewFilter.getByRole('button', { name: '견적 요청' })).toHaveAttribute('aria-pressed', 'true')
   expect(screen.getByRole('navigation', { name: '사업자 대시보드 메뉴' })).toBeInTheDocument()
   expect(screen.queryByRole('complementary', { name: 'Processor 메뉴' })).not.toBeInTheDocument()
+  // 사이드바가 일의 종류로 묶여 있고 지금 화면이 속한 "가공" 묶음만 열려 있다.
   expect(screen.getByRole('link', { name: '업체 등록' })).toHaveAttribute('href', '/processor/profile')
   expect(screen.getByRole('link', { name: '회사 정보' })).toHaveAttribute('href', '/company/account')
   expect(screen.getByRole('link', { name: '쇼핑몰' })).toHaveAttribute('href', '/')

@@ -10,7 +10,7 @@ export function ProductionBatchDetailPage() {
 
   return (
     <main className="page">
-      <BackLink to="/brand/production" label="생산 관리" />
+      <BackLink to="/brand/production" label="제품 생산" />
       {id === null ? (
         <ErrorMessage error="잘못된 주소입니다." />
       ) : (

@@ -23,7 +23,7 @@ export function BrandProcessingRequest() {
   </dl>
   return <div className="bp-shell bp-shell--embedded">
       <div className="bp-content">
-        <div className="bp-page-heading"><div><span className="bp-eyebrow">PROCESSING REQUEST</span><h1>소재 가공 신청</h1></div><Link className="bp-heading-action" to="/brand/processing/requests"><ClipboardText size={18} />요청 내역 보기</Link></div>
+        <div className="bp-page-heading"><div><span className="bp-eyebrow">PROCESSING REQUEST</span><h1>소재 가공 요청</h1></div><Link className="bp-heading-action" to="/brand/processing/requests"><ClipboardText size={18} />요청 내역 보기</Link></div>
         <ol className="bp-steps" aria-label="신청 단계">{['가공 조건 및 업체 선택', '신청 확인'].map((label, index) => <li key={label} className={flow.step === index + 1 ? 'is-active' : flow.step > index + 1 ? 'is-done' : ''} aria-current={flow.step === index + 1 ? 'step' : undefined}><span>{flow.step > index + 1 ? <Check weight="bold" size={17} /> : `0${index + 1}`}</span><strong>{label}</strong></li>)}</ol>
         {flow.created ? <section className="bp-card bp-success" aria-live="polite">
           <span className="bp-success-icon"><CheckCircle size={48} weight="duotone" /></span><span className="bp-eyebrow">{canceled ? 'REQUEST CANCELED' : 'REQUEST COMPLETE'}</span>
