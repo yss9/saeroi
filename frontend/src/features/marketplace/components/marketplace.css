@@ -14,17 +14,149 @@
 .page__section { margin-top: 2.5rem; }
 .page__section h2 { font-size: 1.05rem; margin: 0 0 1rem; }
 
-/* ── 필터 ────────────────────────────────────────────── */
+/* ── 필터 ──────────────────────────────────────────────
+   한 줄짜리 막대다. 예전에는 칸마다 아래 여백이 남아 두 줄처럼 보이고, 폭이 모자라면
+   정렬만 다음 줄에 혼자 떨어졌다.
+   ────────────────────────────────────────────────────── */
 .listing-filter {
-  display: grid;
-  gap: 0 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-  padding: 1rem 1.25rem 0.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.75rem 1.25rem;
+  padding: 0.85rem 1rem;
   border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius);
   box-shadow: var(--ui-shadow);
   background: var(--ui-color-surface);
   margin-bottom: 1.5rem;
+}
+
+/* 막대 안에서는 칸 아래 여백을 없앤다 — 폼이 아니라 한 줄이다. */
+.listing-filter .ui-field { margin-bottom: 0; gap: 0.3rem; }
+
+.listing-filter .ui-field__label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--ui-color-muted);
+}
+
+.listing-filter .ui-field__control { min-height: 2.5rem; padding-block: 0; }
+
+/* 조건 넷. 늘 같은 폭으로 나눠 갖고, 좁아지면 넷이 함께 줄어든다. */
+.listing-filter__fields {
+  display: grid;
+  flex: 1 1 26rem;
+  gap: 0.75rem 1rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+/* 자리는 늘 지킨다. 조건이 없을 때만 잠긴다 — 나타났다 사라지면 줄 전체가 흔들린다. */
+.listing-filter__reset {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.5rem;
+  padding: 0 0.9rem;
+  white-space: nowrap;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-color-surface);
+  color: var(--ui-color-muted);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.listing-filter__reset:hover:not(:disabled) {
+  border-color: var(--ui-color-text);
+  color: var(--ui-color-text);
+}
+
+.listing-filter__reset:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.listing-filter__reset svg { width: 1rem; height: 1rem; }
+
+/* 좁은 화면에서는 조건도 두 줄로 접고, 정렬을 가르던 선을 위로 눕힌다. */
+@media (max-width: 60rem) {
+  .listing-filter__fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+}
+
+/* 목록 바로 위. 오른쪽에 붙여 목록의 머리처럼 읽히게 한다. */
+.listing-sort {
+  position: relative;
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.75rem;
+}
+
+/* 테두리를 두르지 않는다 — 상자는 위의 조건 막대 하나로 충분하다. */
+.listing-sort__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.25rem;
+  border: 0;
+  background: none;
+  color: var(--ui-color-text);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.listing-sort__trigger:hover { color: var(--ui-color-primary); }
+
+.listing-sort__trigger svg {
+  width: 0.95rem;
+  height: 0.95rem;
+  color: var(--ui-color-muted);
+  transition: transform 0.15s ease;
+}
+
+.listing-sort__trigger svg[data-open='true'] { transform: rotate(180deg); }
+
+/* 버튼 바로 아래에 편다. 오른쪽 끝을 버튼에 맞춰야 목록 가장자리를 넘지 않는다. */
+.listing-sort__menu {
+  position: absolute;
+  z-index: 20;
+  top: 100%;
+  right: 0;
+  min-width: 9.5rem;
+  margin: 0.25rem 0 0;
+  padding: 0.3rem;
+  list-style: none;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-color-surface);
+  box-shadow: 0 10px 24px rgb(23 32 51 / 0.12);
+}
+
+.listing-sort__menu button {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border: 0;
+  border-radius: calc(var(--ui-radius) - 2px);
+  background: none;
+  color: var(--ui-color-text);
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.listing-sort__menu button:hover { background: #f2f6f8; }
+
+.listing-sort__menu button.is-selected {
+  color: var(--ui-color-primary);
+  font-weight: 800;
 }
 
 /* ── 목록 ────────────────────────────────────────────── */
@@ -246,11 +378,6 @@
   text-decoration: none;
 }
 
-.trade-card__code {
-  font-size: 0.72rem;
-  color: var(--ui-color-muted);
-  font-family: ui-monospace, Menlo, monospace;
-}
 .trade-card__name { font-size: 0.95rem; font-weight: 600; }
 .trade-card__quantity { font-size: 0.82rem; color: var(--ui-color-muted); }
 .trade-card__price {
@@ -260,13 +387,14 @@
   font-variant-numeric: tabular-nums;
 }
 
-.trade-card__footer {
+/* 카드의 첫 줄. 가운데 정렬된 칸 안에서 이것만 왼쪽에 붙는다. */
+.trade-card__status {
   display: flex;
+  width: 100%;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: center;
   gap: 0.2rem 0.5rem;
-  margin-top: 0.2rem;
+  margin-bottom: 0.15rem;
 }
 .trade-card__action-hint {
   font-size: 0.72rem;

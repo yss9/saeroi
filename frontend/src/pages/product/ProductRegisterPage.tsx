@@ -21,9 +21,7 @@ export function ProductRegisterPage() {
 
   return (
     <main className="page">
-      <header className="page__header">
-        <h1>제품 등록</h1>
-      </header>
+      <h1 className="ui-visually-hidden">제품 등록</h1>
 
       {created && <ProductCreatedSummary product={created} />}
 

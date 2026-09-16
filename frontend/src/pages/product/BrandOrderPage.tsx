@@ -13,7 +13,7 @@ export function BrandOrderPage() {
   return (
     <main className="page">
       <header className="page__header">
-        <h1>제품 발송 관리</h1>
+        <h1 className="ui-visually-hidden">제품 발송 관리</h1>
         <p className="page__lead">
           결제가 끝난 주문을 발송 처리합니다. 발송하면 되돌릴 수 없고, 소비자가 수령을
           확인해야 주문이 완료됩니다.

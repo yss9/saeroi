@@ -93,12 +93,13 @@ describe('카드 표시 항목', () => {
     expect(link).toHaveAttribute('href', '/materials/42')
   })
 
-  it('소재 · 종류 · 판매 가능량 · 상태만 보여준다', async () => {
+  it('소재 이름 · 종류 · 판매 가능량 · 상태만 보여준다', async () => {
     api.getMyMaterials.mockResolvedValue([item()])
     renderList()
 
     expect(await screen.findByText('폐데님 원단')).toBeInTheDocument()
-    expect(screen.getByText('MAT-000042')).toBeInTheDocument()
+    // 소재 코드는 적지 않는다. 고르는 기준은 이름이고, 코드는 상세에 있다.
+    expect(screen.queryByText('MAT-000042')).not.toBeInTheDocument()
     expect(screen.getByText('데님')).toBeInTheDocument() // 종류
     expect(screen.getByText('20.2 kg')).toBeInTheDocument() // 판매 가능량
     // 상태 배지. 필터 버튼도 같은 문구("보유 중")를 쓰므로 배지(span)로 좁힌다.

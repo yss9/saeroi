@@ -10,7 +10,7 @@ export function ProcessingJobList() {
   if (jobs.isPending) return <section className="pj-state">가공 작업을 불러오는 중이에요…</section>
   if (jobs.isError) return <section className="pj-state pj-state--error">작업 목록을 불러오지 못했어요.<button onClick={() => void jobs.refetch()}>다시 시도</button></section>
   return <section className="pj-list">
-    <header><div><span>PROCESSING JOBS</span><h1>가공 작업</h1></div><Factory size={30} /></header>
+    <header><h1 className="ui-visually-hidden">가공 작업</h1><Factory size={30} /></header>
     {!jobs.data?.length ? <div className="pj-state"><Package size={36}/><strong>진행 중인 가공 작업이 없어요</strong></div> :
       <div className="pj-grid">{jobs.data.map(job => <Link className="pj-card" to={`/processing/jobs/${job.jobId}`} key={job.jobId}>
         <div><span>{job.jobCode}</span><b className={`is-${job.status.toLowerCase()}`}>{labels[job.status]}</b></div>

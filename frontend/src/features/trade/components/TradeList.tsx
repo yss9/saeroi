@@ -52,11 +52,11 @@ export function TradeList({ filters }: TradeListProps) {
       {data.content.map((trade) => (
         <li key={trade.tradeId} className="trade-card">
           <Link to={`/trades/${trade.tradeId}`} className="trade-card__link">
-            <span className="trade-card__code">{trade.tradeCode}</span>
-            <strong className="trade-card__name">{trade.materialName}</strong>
-            <span className="trade-card__quantity">{formatKg(trade.quantity)}</span>
-            <span className="trade-card__price">{formatWon(trade.totalPrice)}</span>
-            <div className="trade-card__footer">
+            {/*
+              상태를 맨 위 왼쪽에 둔다. 카드 아래에 있으면 여러 장을 훑을 때 시선이
+              카드마다 끝까지 내려갔다 올라와야 한다 — 목록에서 먼저 읽는 것이 상태다.
+            */}
+            <div className="trade-card__status">
               <StatusBadge tone={TONE[trade.status]}>
                 {TRADE_STATUS_LABEL[trade.status]}
               </StatusBadge>
@@ -69,6 +69,13 @@ export function TradeList({ filters }: TradeListProps) {
                 </span>
               )}
             </div>
+            {/*
+              거래 번호는 적지 않는다. 카드에서 고르는 기준은 소재 이름이지 번호가 아니고,
+              번호가 맨 위에 있으면 이름보다 먼저 읽힌다. 상세 화면에는 그대로 있다.
+            */}
+            <strong className="trade-card__name">{trade.materialName}</strong>
+            <span className="trade-card__quantity">{formatKg(trade.quantity)}</span>
+            <span className="trade-card__price">{formatWon(trade.totalPrice)}</span>
           </Link>
         </li>
       ))}

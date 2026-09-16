@@ -427,21 +427,19 @@ a.ui-button { text-decoration: none; }
   font-weight: 600;
 }
 
-/* 소재 코드는 이름 아래 한 줄로. 나란히 두면 이름이 잘린다. */
-.inventory-card__code {
-  font-family: ui-monospace, Menlo, Consolas, monospace;
-  font-size: 12px;
-  color: var(--ui-color-muted);
-}
-
 .inventory-card__type {
   font-size: 13px;
   color: var(--ui-color-muted);
 }
 
-/* 판매 가능량과 상태를 나란히 — 배지를 아래 줄에 따로 두면 카드가 불필요하게 길어진다.
-   단 한 줄에 안 들어가면(수량이 길어지면, 예: "156.78 kg") 우겨넣지 않고 줄바꿈한다 —
-   4열로 좁아진 카드에서 배지가 밀려 잘리거나 겹치는 것보다 두 줄이 낫다. */
+/* 카드의 첫 줄. 가운데 정렬된 칸 안에서 상태 배지만 왼쪽에 붙는다. */
+.inventory-card__status {
+  display: flex;
+  width: 100%;
+  margin-bottom: 0.15rem;
+}
+
+/* 판매 가능량 한 줄. */
 .inventory-card__footer {
   display: flex;
   flex-wrap: wrap;

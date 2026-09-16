@@ -14,7 +14,7 @@ import { ProcessingCustodyList } from '../../features/inventory/components/Proce
 export function InventoryPage() {
   return (
     <main className="page">
-      <h1>보유 소재</h1>
+      <h1 className="ui-visually-hidden">보유 소재</h1>
       <InventoryList />
       <ProcessingCustodyList />
     </main>

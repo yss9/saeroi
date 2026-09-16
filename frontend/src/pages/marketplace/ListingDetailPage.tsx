@@ -81,7 +81,7 @@ export function ListingDetailPage() {
           <dd>{formatWon(data.pricePerKg)}</dd>
         </div>
         <div>
-          <dt>판매 가능</dt>
+          <dt>구매 가능</dt>
           <dd>{formatKg(data.availableQuantity)}</dd>
         </div>
         <div>
