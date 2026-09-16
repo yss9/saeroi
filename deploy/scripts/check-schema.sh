@@ -98,8 +98,21 @@ else
     # 그 커밋이 아직 새 컬럼/ENUM 을 요구하지 않던 시점이면 이 스크립트가 "OK" 를
     # 내면서도 실제로는 방금 머지된 최신 커밋(Jenkins 가 실제로 빌드한 커밋)과 다른
     # 기준으로 검증한 것이 된다 — false OK. fetch 실패는 반드시 여기서 막는다.
-    if ! git fetch -q origin "${SCHEMA_REF#origin/}" 2>/dev/null; then
-        fail "origin 에서 ${SCHEMA_REF#origin/} 를 fetch 하지 못했다 — 네트워크/GitLab 확인 후 재시도할 것."
+    #
+    # 같은 날 이 수정을 배포하자마자 일회성 네트워크 blip 으로 fetch 가 한 번 실패해
+    # 배포를 막은 일이 실제로 있었다(수동으로 같은 fetch 를 바로 재시도하니 성공했다).
+    # "가짜 OK 는 절대 안 된다" 는 원칙은 유지하되, 순간적인 blip 까지 배포를 막지
+    # 않도록 3 회까지 짧게 재시도한 뒤에만 fatal 로 처리한다.
+    FETCH_OK=0
+    for attempt in 1 2 3; do
+        if git fetch -q origin "${SCHEMA_REF#origin/}" 2>/dev/null; then
+            FETCH_OK=1
+            break
+        fi
+        [ "$attempt" -lt 3 ] && sleep 2
+    done
+    if [ "$FETCH_OK" -ne 1 ]; then
+        fail "origin 에서 ${SCHEMA_REF#origin/} 를 3회 재시도해도 fetch 하지 못했다 — 네트워크/GitLab 확인 후 재시도할 것."
         fail "(fetch 실패를 무시하고 진행하면 오래된 로컬 캐시 기준으로 잘못된 OK 를 낼 수 있다 — 2026-09-16 실사고)"
         exit 2
     fi
