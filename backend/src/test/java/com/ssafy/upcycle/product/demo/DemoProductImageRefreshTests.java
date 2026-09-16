@@ -85,6 +85,6 @@ class DemoProductImageRefreshTests {
         return productModelRepository.findAll().stream()
                 .filter(model -> PRODUCT_NAME.equals(model.getName()))
                 .findFirst()
-                .orElseThrow(() -> new IllegalStateException("시연 상품을 찾을 수 없다"));
+                .orElseThrow(() -> new IllegalStateException("데모 상품을 찾을 수 없다"));
     }
 }

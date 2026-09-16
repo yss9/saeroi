@@ -18,9 +18,9 @@ import org.springframework.stereotype.Component;
  * 운영자가 넣어 둔 진짜 상품 사진을 읽는다.
  *
  * <p>경로는 설정으로만 지정한다 ({@code app.demo-catalog.image-dir}). <b>기본값이 없다</b> —
- * 기본 경로를 두면 그 폴더가 우연히 존재하는 환경에서 의도하지 않은 사진이 시연 상품에
+ * 기본 경로를 두면 그 폴더가 우연히 존재하는 환경에서 의도하지 않은 사진이 데모 상품에
  * 붙고, 로컬마다 경로가 달라 어차피 아무에게도 맞지 않는다. 지정하지 않으면 이 클래스는
- * 언제나 빈 결과를 돌려주고 시연 상품은 임시 이미지를 쓴다.
+ * 언제나 빈 결과를 돌려주고 데모 상품은 임시 이미지를 쓴다.
  *
  * <h2>파일 배치</h2>
  *
@@ -114,7 +114,7 @@ public class DemoProductImageDirectory {
         try {
             return Files.readAllBytes(file);
         } catch (IOException unreadable) {
-            // 시연 준비 중 파일이 잘못 놓인 경우다. 무엇을 못 읽었는지 알려야 고칠 수 있다.
+            // 데모 준비 중 파일이 잘못 놓인 경우다. 무엇을 못 읽었는지 알려야 고칠 수 있다.
             throw new UncheckedIOException(
                     "Cannot read demo product image: " + file, unreadable);
         }

@@ -22,7 +22,7 @@ import org.springframework.stereotype.Component;
 /**
  * 진짜 상품 사진이 준비되기 전까지 걸어 둘 임시 이미지를 만든다.
  *
- * <p><b>이 클래스는 지워질 것을 전제로 한다.</b> 시연 상품 48개의 실제 사진이 모두 들어오면
+ * <p><b>이 클래스는 지워질 것을 전제로 한다.</b> 데모 상품 48개의 실제 사진이 모두 들어오면
  * 파일째 삭제하고 {@link DemoProductImageBinder} 의 폴백 한 줄만 빼면 된다 — 그래서 저장·
  * 교체 판단은 여기 두지 않고 전부 Binder 가 갖는다.
  *

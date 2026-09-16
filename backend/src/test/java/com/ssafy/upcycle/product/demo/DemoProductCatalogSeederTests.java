@@ -57,7 +57,7 @@ class DemoProductCatalogSeederTests {
     private static final List<String> BRAND_KEYS =
             List.of("reweave", "recode", "dusty-miller", "ocean-loop");
 
-    /** 시연 상품 하나당 최종 분류 하나. 어느 2단 메뉴를 눌러도 브랜드마다 하나씩 나온다. */
+    /** 데모 상품 하나당 최종 분류 하나. 어느 2단 메뉴를 눌러도 브랜드마다 하나씩 나온다. */
     private static final List<String> SHOP_SLOTS = List.of(
             "TOP", "OUTER", "PANTS", "SKIRT", "DRESS",
             "TOTE", "SHOULDER", "CROSSBODY", "BACKPACK",
@@ -220,7 +220,7 @@ class DemoProductCatalogSeederTests {
         User consumer = userRepository.saveAndFlush(User.register(
                 "demo-catalog-consumer@test.com",
                 "{noop}x",
-                "시연 소비자",
+                "데모 소비자",
                 "010-1234-5678",
                 UserRole.CONSUMER));
         ConsumerAddress address = consumerAddressRepository.save(ConsumerAddress.register(
@@ -239,7 +239,7 @@ class DemoProductCatalogSeederTests {
         assertThat(response.totalPrice()).isEqualTo(product.getPrice());
         assertThat(response.items()).singleElement().satisfies(item -> {
             assertThat(item.productName()).isEqualTo(product.getName());
-            // 시연 상품의 대표 이미지도 저장소 키라, 주문 응답은 브랜드 상품과 똑같이
+            // 데모 상품의 대표 이미지도 저장소 키라, 주문 응답은 브랜드 상품과 똑같이
             // 썸네일 API 주소를 내려 준다 — 프론트 정적 경로가 섞이지 않는다.
             assertThat(item.imageUrl())
                     .isEqualTo("/api/v1/product-models/" + product.getId() + "/thumbnail");

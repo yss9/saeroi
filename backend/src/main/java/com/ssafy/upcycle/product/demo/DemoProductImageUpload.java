@@ -4,7 +4,7 @@ import com.ssafy.upcycle.product.dto.ProductModelImagesReplaceRequest;
 import java.util.List;
 
 /**
- * 저장소에 올라간 시연 이미지의 키 묶음. 아직 상품에 걸리지는 않은 상태다.
+ * 저장소에 올라간 데모 이미지의 키 묶음. 아직 상품에 걸리지는 않은 상태다.
  *
  * <p>올리는 일과 거는 일을 나눈 이유는 <b>상품이 생기기 전에 대표 이미지 키가 필요하기</b>
  * 때문이다 — {@code thumbnail_url} 이 {@code NOT NULL} 이다. 먼저 올려 키를 받고, 상품 행이

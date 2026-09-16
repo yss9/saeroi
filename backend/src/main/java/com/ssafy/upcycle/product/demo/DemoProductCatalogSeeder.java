@@ -37,9 +37,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 홈·SHOP 시연 상품을 실제 주문 가능한 도메인 데이터로 준비한다.
+ * 홈·SHOP 데모 상품을 실제 주문 가능한 도메인 데이터로 준비한다.
  *
- * <p>{@code app.demo-catalog.enabled=true} 일 때만 빈으로 생성된다. 시연 브랜드 이메일,
+ * <p>{@code app.demo-catalog.enabled=true} 일 때만 빈으로 생성된다. 데모 브랜드 이메일,
  * 상품명, 배치 코드가 고정되어 있어 재기동해도 중복되지 않는다. 이미 판매된 개체는 다시
  * 만들지 않으며, 설정 수량보다 총 생산 개체가 적은 부분 초기화 상태만 보완한다.
  *
@@ -84,7 +84,7 @@ public class DemoProductCatalogSeeder implements ApplicationRunner {
                     "0x000000000000000000000000000000000000d004"));
 
     /**
-     * 시연 상품 48개. <b>브랜드 4개 × 최종 분류 12개</b>로, 어느 2단 메뉴를 눌러도 브랜드마다
+     * 데모 상품 48개. <b>브랜드 4개 × 최종 분류 12개</b>로, 어느 2단 메뉴를 눌러도 브랜드마다
      * 하나씩 네 개가 나온다.
      *
      * <p><b>상품명이 곧 식별자다</b> ({@link #findDemoModel} 이 브랜드와 이름으로 찾는다).
@@ -680,7 +680,7 @@ public class DemoProductCatalogSeeder implements ApplicationRunner {
                 .findByBatchCode(definition.batchCode())
                 .orElseGet(() -> productionBatchRepository.saveAndFlush(ProductionBatch.open(
                         definition.batchCode(),
-                        definition.name() + " 시연 생산",
+                        definition.name() + " 데모 생산",
                         model.getId(),
                         stockPerProduct,
                         brand.user().getId(),
@@ -761,7 +761,7 @@ public class DemoProductCatalogSeeder implements ApplicationRunner {
     private record SeededBrand(User user, String walletAddress) {}
 
     /**
-     * 시연 상품 하나의 정의.
+     * 데모 상품 하나의 정의.
      *
      * <p>{@code name} · {@code key} · {@code batchCode} 는 <b>식별자라 바꿀 수 없다.</b>
      * 이름은 상품 행을, 키는 개체 코드와 QR 토큰을, 배치 코드는 생산 배치를 찾는 값이다.

@@ -39,7 +39,7 @@ import org.springframework.transaction.annotation.Transactional;
  *       아무도 가리키지 않는 파일이 쌓인다
  * </ul>
  *
- * <p>기동 시점에는 사진 디렉터리가 비어 있어 시연 상품 48개가 임시 이미지로 시작한다.
+ * <p>기동 시점에는 사진 디렉터리가 비어 있어 데모 상품 48개가 임시 이미지로 시작한다.
  * 테스트가 그 디렉터리에 사진을 넣고 시더를 다시 돌려 교체를 확인한다.
  */
 @SpringBootTest(properties = {
@@ -51,7 +51,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 class DemoProductImageReplacementTests {
 
-    /** 시연 상품 하나를 골라 사진을 넣는다. 데모 키가 곧 폴더 이름이다. */
+    /** 데모 상품 하나를 골라 사진을 넣는다. 데모 키가 곧 폴더 이름이다. */
     private static final String DEMO_KEY = "reweave-tote";
     private static final String PRODUCT_NAME = "리위브 스퀘어 토트";
 
@@ -157,7 +157,7 @@ class DemoProductImageReplacementTests {
         return productModelRepository.findAll().stream()
                 .filter(model -> PRODUCT_NAME.equals(model.getName()))
                 .findFirst()
-                .orElseThrow(() -> new IllegalStateException("시연 상품을 찾을 수 없다"));
+                .orElseThrow(() -> new IllegalStateException("데모 상품을 찾을 수 없다"));
     }
 
     private long inStock(Long productModelId) {
