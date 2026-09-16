@@ -22,6 +22,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service @RequiredArgsConstructor
 public class ProcessingJobWorkflowService {
+    private static final List<ProcessingJobStatus> CUSTODY_STATUSES = List.of(
+            ProcessingJobStatus.SHIPPED,
+            ProcessingJobStatus.RECEIVED,
+            ProcessingJobStatus.PROCESSING,
+            ProcessingJobStatus.RESULT_SUBMITTED,
+            ProcessingJobStatus.RETURN_SHIPPED,
+            ProcessingJobStatus.REJECTED);
+
     private final ProcessingJobRepository jobs;
     private final ProcessingInputRepository inputs;
     private final ProcessingOutputRepository outputs;
@@ -42,6 +50,16 @@ public class ProcessingJobWorkflowService {
     public List<ProcessingJobResponse> list(Long actorId) {
         requireActive(actorId);
         return jobs.findAllForActor(actorId).stream().map(this::response).toList();
+    }
+
+    /**
+     * Processor에게 배송 중이거나 가공을 위해 보관 중인 소재를 반환한다.
+     * 토큰 소유권과 Brand 잔액은 이동시키지 않는다.
+     */
+    @Transactional(readOnly = true)
+    public List<ProcessingCustodyMaterialResponse> custodyMaterials(Long actorId) {
+        requireRole(actorId, UserRole.PROCESSOR);
+        return jobs.findCustodyMaterials(actorId, CUSTODY_STATUSES);
     }
 
     @Transactional(readOnly = true)

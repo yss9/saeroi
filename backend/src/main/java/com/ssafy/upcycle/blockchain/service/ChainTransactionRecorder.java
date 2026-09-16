@@ -35,6 +35,7 @@ public class ChainTransactionRecorder {
     public enum Contract {
         MATERIAL_TOKEN,
         MARKETPLACE,
+        PROCESSING_REGISTRY,
         PRODUCTION_REGISTRY
     }
 
@@ -70,6 +71,10 @@ public class ChainTransactionRecorder {
             String txHash,
             Long blockNumber) {
         requireConfigured();
+        String contractAddress = addressOf(contract);
+        if (contractAddress == null || contractAddress.length() != 42 || !contractAddress.startsWith("0x")) {
+            throw new BusinessException(BlockchainErrorCode.BLOCKCHAIN_NOT_CONFIGURED);
+        }
 
         String signerWallet = walletRepository
                 .findByUserIdAndActiveTrue(signerId)
@@ -79,7 +84,7 @@ public class ChainTransactionRecorder {
         try {
             transactionRepository.save(BlockchainTransaction.confirmed(
                     properties.chainId(),
-                    addressOf(contract),
+                    contractAddress,
                     txHash,
                     referenceType,
                     referenceId,
@@ -98,6 +103,7 @@ public class ChainTransactionRecorder {
         return switch (contract) {
             case MATERIAL_TOKEN -> properties.materialTokenAddress();
             case MARKETPLACE -> properties.marketplaceAddress();
+            case PROCESSING_REGISTRY -> properties.processingRegistryAddress();
             case PRODUCTION_REGISTRY -> properties.productionRegistryAddress();
         };
     }

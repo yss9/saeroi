@@ -16,8 +16,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "app.blockchain")
 public record BlockchainProperties(
         Long chainId,
+        String rpcUrl,
         String materialTokenAddress,
         String marketplaceAddress,
+        String processingRegistryAddress,
         String productionRegistryAddress) {
 
     /**
@@ -38,6 +40,10 @@ public record BlockchainProperties(
     public boolean hasProductionRegistry() {
         return hasAddress(productionRegistryAddress);
     }
+
+    public boolean hasProcessingRegistry() { return hasAddress(processingRegistryAddress); }
+
+    public boolean hasRpcUrl() { return rpcUrl != null && !rpcUrl.isBlank(); }
 
     private static boolean hasAddress(String address) {
         return address != null && address.length() == 42 && address.startsWith("0x");
