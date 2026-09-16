@@ -37,6 +37,25 @@ if [ -z "$ROLLBACK_ID" ]; then
     echo "INFO: 롤백 대상 없음 (현재 컨테이너가 $SERVICE 이미지가 아님 — 첫 배포로 간주)."
 fi
 
+# 2.5) backend 는 배포 전 스키마 알림만 한다 — test 처럼 자동 적용하지 않는다.
+#      운영 DB는 실제 사용자 데이터가 있어서 자동 적용의 위험(트래픽 있는 상태에서의
+#      락 영향 등)이 test와 다르다고 판단해 의도적으로 자동화하지 않기로 했다
+#      (docs/SCHEMA_INCIDENTS.md 2026-09-16). 대신 이 단계가 아예 없어서 사람이
+#      기억해야만 했던 것을, 배포 직전에 확실히 알려주는 정도로만 자동화한다.
+#      "재빌드/DDL 적용이 필요한지"를 사람이 잊지 않고 알 수 있게 하는 게 목적이다.
+if [ "$SERVICE" = "backend" ]; then
+    if ! bash scripts/check-schema.sh; then
+        cat <<MSG
+FAIL: 운영 DB(cf-mysql) 스키마가 배포하려는 backend(origin/backend/develop) 기준과 다릅니다.
+      DDL을 먼저 cf-mysql 에 수동 적용한 뒤 배포를 다시 실행하세요 — 위 내용은 그대로
+      배포하면 Hibernate validate 실패로 컨테이너가 죽고, 헬스체크 실패로 자동
+      롤백됩니다(새 기능은 못 나가고 원인 파악에 로그를 봐야 합니다).
+      (DDL 초안: bash scripts/check-schema.sh --ddl)
+MSG
+        exit 1
+    fi
+fi
+
 # 3) 해당 서비스만 재기동 (--no-deps: mysql 등 의존 서비스는 건드리지 않는다)
 dc up -d --no-deps "$SERVICE"
 

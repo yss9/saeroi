@@ -133,6 +133,9 @@ bash scripts/health-check.sh
 # application.yml 이 ddl-auto: validate 라서 스키마를 자동으로 만들지 않는다.
 # 엔티티가 기대하는 컬럼이 DB에 없거나 타입이 다르면 Hibernate 검증이 실패해 컨테이너가 죽는다.
 # 컬럼 이름만 맞고 타입이 다른 경우도 실패한다 (2026-09-08 tx_hash CHAR(66) vs VARCHAR(66) 롤백).
+# deploy-service.sh(운영)가 이제 배포 직전에 이 확인을 자동으로 하고 불일치 시 배포를
+# 막아준다(2026-09-16) — 자동 적용은 하지 않는다, "적용이 필요하다"만 알려준다. 아래는
+# 그 배포가 막히기 전에 사람이 직접 미리 보고 DDL을 적용할 때 쓰는 수동 절차다.
 bash scripts/check-schema.sh          # 없는 테이블·컬럼 + 컬럼 타입 불일치 보고 (읽기만 함)
 bash scripts/check-schema.sh --ddl    # 적용할 DDL 출력
 SCHEMA_REF=origin/backend/master bash scripts/check-schema.sh   # 기준 브랜치 지정

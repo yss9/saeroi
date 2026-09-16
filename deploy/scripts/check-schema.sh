@@ -99,29 +99,42 @@ else
     # 내면서도 실제로는 방금 머지된 최신 커밋(Jenkins 가 실제로 빌드한 커밋)과 다른
     # 기준으로 검증한 것이 된다 — false OK. fetch 실패는 반드시 여기서 막는다.
     #
-    # 같은 날 이 수정을 배포하자마자 일회성 네트워크 blip 으로 fetch 가 한 번 실패해
-    # 배포를 막은 일이 실제로 있었다(수동으로 같은 fetch 를 바로 재시도하니 성공했다).
-    # "가짜 OK 는 절대 안 된다" 는 원칙은 유지하되, 순간적인 blip 까지 배포를 막지
-    # 않도록 3 회까지 짧게 재시도한 뒤에만 fatal 로 처리한다.
+    # 2026-09-16 두 번째 실사고: "네트워크 blip" 으로 보고 재시도 로직만 넣었었는데,
+    # 실은 Jenkins(cf-jenkins 컨테이너)에서 이 스크립트를 돌리면 100% 재현되는
+    # 문제였다 — docker-compose.yml 이 /home/ubuntu/deploy 를 컨테이너에 **읽기전용
+    # (:ro)** 으로 마운트해 두는데(Jenkins가 배포 설정을 못 건드리게 하려는 의도적
+    # 경계), 이 저장소 자체의 .git 에 fetch 하면 .git/FETCH_HEAD 에 쓰기가 필요해
+    # "Read-only file system" 으로 즉시 실패한다. 호스트에서 직접 돌리면 같은 명령이
+    # 매번 성공해서 "역시 blip 이었나" 로 오판하기 쉬웠다.
+    #
+    # 그래서 이 저장소의 .git 을 건드리지 않는다. /tmp(양쪽 다 쓰기 가능)에 별도의
+    # bare 저장소를 만들어 거기로만 fetch 한다 — :ro 마운트는 그대로 두고(그 경계가
+    # 지켜야 할 안전장치다), 이 스크립트만 우회한다.
+    ORIGIN_URL="$(git config --get remote.origin.url)"
+    TMP_GIT="$(mktemp -d)"
+    git init -q --bare "$TMP_GIT"
     FETCH_OK=0
     for attempt in 1 2 3; do
-        if git fetch -q origin "${SCHEMA_REF#origin/}" 2>/dev/null; then
+        if git --git-dir="$TMP_GIT" fetch -q "$ORIGIN_URL" "${SCHEMA_REF#origin/}" 2>/dev/null; then
             FETCH_OK=1
             break
         fi
         [ "$attempt" -lt 3 ] && sleep 2
     done
     if [ "$FETCH_OK" -ne 1 ]; then
+        rm -rf "$TMP_GIT"
         fail "origin 에서 ${SCHEMA_REF#origin/} 를 3회 재시도해도 fetch 하지 못했다 — 네트워크/GitLab 확인 후 재시도할 것."
         fail "(fetch 실패를 무시하고 진행하면 오래된 로컬 캐시 기준으로 잘못된 OK 를 낼 수 있다 — 2026-09-16 실사고)"
         exit 2
     fi
-    SCHEMA_SQL="$(git show "$SCHEMA_REF:$SCHEMA_PATH" 2>/dev/null)" || {
+    SCHEMA_SQL="$(git --git-dir="$TMP_GIT" show "FETCH_HEAD:$SCHEMA_PATH" 2>/dev/null)" || {
+        rm -rf "$TMP_GIT"
         fail "$SCHEMA_REF:$SCHEMA_PATH 를 읽을 수 없다. 'git fetch origin' 후 다시 시도할 것"
         exit 2
     }
     SCHEMA_ORIGIN="$SCHEMA_REF"
-    log "기준 커밋   : $(git rev-parse "$SCHEMA_REF" 2>/dev/null)"
+    log "기준 커밋   : $(git --git-dir="$TMP_GIT" rev-parse FETCH_HEAD 2>/dev/null)"
+    rm -rf "$TMP_GIT"
 fi
 
 # 비밀번호는 MYSQL_PWD 로 넘긴다. -p<암호> 는 컨테이너 프로세스 목록에 그대로 노출된다.
