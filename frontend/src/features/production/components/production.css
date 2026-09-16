@@ -114,7 +114,25 @@
 
 /* ── 배치 열기 ───────────────────────────────────────── */
 
-.batch-form { display: flex; flex-direction: column; gap: 0.35rem; max-width: 28rem; }
+/*
+ * 배치 열기. 세 칸을 한 줄에 둔다 — 세로로 쌓으면 화면이 넓은데도 좁은 앱처럼 보이고,
+ * 아래의 배치 목록까지 한참 밀려 내려간다. 좁아지면 auto-fit 이 알아서 줄을 접는다.
+ */
+.batch-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 0.35rem 1.1rem;
+  align-items: start;
+}
+
+/* 안내·오류·제출 버튼은 칸이 아니라 줄이다. */
+.batch-form > .batch-form__note,
+.batch-form > .ui-error,
+.batch-form > button {
+  grid-column: 1 / -1;
+}
+
+.batch-form > button { justify-self: end; min-width: 11rem; }
 .batch-form__note {
   margin: 0.5rem 0;
   padding: 0.7rem 0.9rem;

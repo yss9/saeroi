@@ -133,7 +133,7 @@ export function ProductionBatchForm({ onOpened }: ProductionBatchFormProps) {
 
       {open.isError && <ErrorMessage error={open.error} />}
 
-      <Button type="submit" loading={open.isPending} disabled={!hasWallet} fullWidth>
+      <Button type="submit" loading={open.isPending} disabled={!hasWallet}>
         배치 열기
       </Button>
     </form>
