@@ -3,6 +3,7 @@ package com.ssafy.upcycle.product.dto;
 import com.ssafy.upcycle.product.entity.ProductCategory;
 import com.ssafy.upcycle.product.entity.ProductModel;
 import com.ssafy.upcycle.product.entity.ProductModelStatus;
+import com.ssafy.upcycle.product.entity.ProductSubcategory;
 import java.time.LocalDateTime;
 
 /** 소비자 쇼핑몰에 공개하는 판매 상품 정보. */
@@ -10,6 +11,7 @@ public record PublicProductModelResponse(
         Long productModelId,
         String name,
         ProductCategory category,
+        ProductSubcategory subcategory,
         Long brandId,
         String brandName,
         long price,
@@ -28,6 +30,7 @@ public record PublicProductModelResponse(
                 model.getId(),
                 model.getName(),
                 model.getCategory(),
+                model.getSubcategory(),
                 model.getBrandId(),
                 brandName,
                 model.getPrice(),

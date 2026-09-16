@@ -596,6 +596,9 @@ CREATE TABLE product_model (
     id BIGINT NOT NULL AUTO_INCREMENT,
     name VARCHAR(200) NOT NULL,
     category VARCHAR(50) NOT NULL,
+    -- 소비자 SHOP 의 2단 메뉴. CLOTHING·BAG 에만 있고 나머지 분류와 하위 분류가 생기기
+    -- 전에 등록된 제품은 NULL 이다 (ProductSubcategory 주석 참고).
+    subcategory VARCHAR(50) NULL,
     brand_id BIGINT NOT NULL,
     price BIGINT NOT NULL,
     description TEXT NOT NULL,
@@ -605,7 +608,10 @@ CREATE TABLE product_model (
     CONSTRAINT pk_product_model PRIMARY KEY (id),
     CONSTRAINT fk_product_model_brand FOREIGN KEY (brand_id) REFERENCES users (id),
     CONSTRAINT chk_product_model_price CHECK (price >= 0),
-    INDEX idx_product_model_brand_status (brand_id, status)
+    INDEX idx_product_model_brand_status (brand_id, status),
+    -- 소비자 공개 목록은 언제나 status='ON_SALE' 로 시작해 분류로 좁힌다.
+    -- 기존 인덱스는 brand_id 가 앞에 있어 브랜드를 고르지 않는 SHOP 질의에는 쓰이지 않는다.
+    INDEX idx_product_model_status_category (status, category, subcategory)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE production_batch (

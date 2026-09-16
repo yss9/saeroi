@@ -2,6 +2,7 @@ package com.ssafy.upcycle.product.dto;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.ssafy.upcycle.material.dto.IntegralLongDeserializer;
+import com.ssafy.upcycle.product.entity.ProductSubcategory;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
@@ -20,6 +21,11 @@ import jakarta.validation.constraints.Size;
  *   <li>{@code brandId} — 제품의 주인은 바뀌지 않는다</li>
  * </ul>
  *
+ * <p><b>{@code subcategory} 는 바꿀 수 있다.</b> 상위 분류와 달리 이미 팔린 제품의 이력이
+ * 이 값을 싣지 않고, 하위 분류가 생기기 전에 등록된 제품은 여기로만 메뉴에 들어올 수 있다.
+ * 상위 분류에 속하지 않는 값은 거절한다. <b>비우는 것은 지원하지 않는다</b> — 부분 수정에서
+ * {@code null} 은 "안 보냄" 이라 "비움" 과 구분되지 않는다.
+ *
  * <p>{@code thumbnailUrl} 은 이미지 업로드가 돌려준 저장 키다. 등록과 같은 검사를 거친다 —
  * 저장소에 없는 키를 넣으면 이미지가 깨진 제품이 된다.
  */
@@ -27,6 +33,8 @@ public record ProductModelUpdateRequest(
 
         @Size(max = 200, message = "제품명은 200자를 넘을 수 없습니다.")
         String name,
+
+        ProductSubcategory subcategory,
 
         @PositiveOrZero(message = "판매가는 0원 이상이어야 합니다.")
         @JsonDeserialize(using = IntegralLongDeserializer.class)
@@ -39,7 +47,11 @@ public record ProductModelUpdateRequest(
 
     /** 아무 필드도 보내지 않은 요청인가. 바꿀 것이 없으면 성공했다고 답할 것도 없다. */
     public boolean isEmpty() {
-        return name == null && price == null && description == null && thumbnailUrl == null;
+        return name == null
+                && subcategory == null
+                && price == null
+                && description == null
+                && thumbnailUrl == null;
     }
 
     /** 보낸 값이 공백뿐인가. "안 보냄"({@code null})과 다르다. */

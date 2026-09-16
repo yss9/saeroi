@@ -3,12 +3,16 @@ package com.ssafy.upcycle.product.repository;
 import static com.ssafy.upcycle.product.entity.QProductModel.productModel;
 
 import com.querydsl.core.BooleanBuilder;
+import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.Predicate;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.ssafy.upcycle.product.dto.ProductModelSearchCondition;
+import com.ssafy.upcycle.product.dto.ProductModelSort;
 import com.ssafy.upcycle.product.entity.ProductCategory;
 import com.ssafy.upcycle.product.entity.ProductModel;
+import com.ssafy.upcycle.product.entity.ProductSubcategory;
+import java.util.Arrays;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -40,30 +44,67 @@ public class ProductModelSearchQueryRepository {
     private final JPAQueryFactory queryFactory;
 
     /**
-     * 조건에 맞는 제품을 페이지로 읽는다. <b>최신순 고정이다.</b>
+     * 조건에 맞는 제품을 페이지로 읽는다. <b>브랜드 관리·마켓 목록용이라 분류를 가리지
+     * 않는다</b> — {@code ETC} 도 그대로 나온다.
      *
-     * <p>정렬 옵션을 열지 않은 것은 화면이 최신순 하나만 쓰기 때문이다. 가격순·인기순은
-     * 요구가 생길 때 붙이는 편이 낫다 — 쓰이지 않는 정렬 키는 인덱스만 늘린다.
-     *
-     * <p>{@code id} 를 2차 정렬로 둔다. {@code created_at} 이 같은 초에 들어온 제품들의
-     * 순서가 페이지마다 달라지면 <b>같은 제품이 1페이지와 2페이지에 동시에 보이거나 어느
-     * 쪽에도 안 보인다.</b> 등록이 몰리는 순간에만 나타나서 재현하기 어렵다.
+     * <p>{@code id} 를 마지막 정렬 키로 둔다. 앞 키의 값이 같은 제품들의 순서가 페이지마다
+     * 달라지면 <b>같은 제품이 1페이지와 2페이지에 동시에 보이거나 어느 쪽에도 안 보인다.</b>
+     * 등록이 몰리는 순간에만 나타나서 재현하기 어렵고, 가격순에서는 같은 값이 흔해 더 잘
+     * 드러난다.
      *
      * <p>{@link PageableExecutionUtils} 가 <b>불필요한 count 질의를 생략한다</b> — 첫
      * 페이지이고 결과가 페이지 크기보다 작으면 총 개수를 이미 아는 셈이라 세지 않는다.
      */
     public Page<ProductModel> search(ProductModelSearchCondition condition, Pageable pageable) {
-        Predicate where = where(condition);
+        return search(condition, pageable, false);
+    }
+
+    /**
+     * 소비자 쇼핑몰에 공개할 제품만 페이지로 읽는다.
+     *
+     * <p><b>{@code ETC} 를 여기서 뺀다.</b> 조회해 온 뒤 프론트나 서비스에서 걸러내면
+     * 페이지당 개수와 총 개수가 어긋나 "총 48개" 라면서 11개만 그려지는 페이지가 생긴다.
+     * 목록·count 가 같은 조건을 쓰는 이 자리가 유일하게 안 어긋나는 곳이다.
+     *
+     * <p>{@code category=ETC} 로 요청해도 결과는 빈 목록이다 — 두 조건이 함께 걸린다.
+     */
+    public Page<ProductModel> searchConsumerVisible(
+            ProductModelSearchCondition condition, Pageable pageable) {
+        return search(condition, pageable, true);
+    }
+
+    private Page<ProductModel> search(
+            ProductModelSearchCondition condition, Pageable pageable, boolean consumerVisibleOnly) {
+        Predicate where = where(condition, consumerVisibleOnly);
 
         List<ProductModel> content = queryFactory
                 .selectFrom(productModel)
                 .where(where)
-                .orderBy(productModel.createdAt.desc(), productModel.id.desc())
+                .orderBy(orderBy(condition.sortOrDefault()))
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .fetch();
 
         return PageableExecutionUtils.getPage(content, pageable, () -> count(where));
+    }
+
+    /**
+     * 정렬 키. 마지막은 언제나 {@code id} 다 — 위 {@link #search} 주석 참고.
+     *
+     * <p>{@code created_at} 은 초 단위라 같은 값이 나오기 쉽고, 가격은 더 그렇다.
+     */
+    private OrderSpecifier<?>[] orderBy(ProductModelSort sort) {
+        return switch (sort) {
+            case LATEST -> new OrderSpecifier<?>[] {
+                productModel.createdAt.desc(), productModel.id.desc()
+            };
+            case PRICE_ASC -> new OrderSpecifier<?>[] {
+                productModel.price.asc(), productModel.id.desc()
+            };
+            case PRICE_DESC -> new OrderSpecifier<?>[] {
+                productModel.price.desc(), productModel.id.desc()
+            };
+        };
     }
 
     /**
@@ -77,11 +118,13 @@ public class ProductModelSearchQueryRepository {
      * 필터를 추가할 때 한쪽만 고치게 되고, 그러면 <b>"총 3건" 이라고 표시하면서 2건만
      * 보여주는</b> 상태가 된다.
      */
-    private Predicate where(ProductModelSearchCondition condition) {
+    private Predicate where(ProductModelSearchCondition condition, boolean consumerVisibleOnly) {
         return new BooleanBuilder()
                 .and(productModel.status.eq(condition.statusOrDefault()))
                 .and(categoryEq(condition.category()))
-                .and(brandIdEq(condition.brandId()));
+                .and(subcategoryEq(condition.subcategory()))
+                .and(brandIdEq(condition.brandId()))
+                .and(consumerVisibleOnly ? consumerVisibleCategory() : null);
     }
 
     private long count(Predicate where) {
@@ -95,6 +138,22 @@ public class ProductModelSearchQueryRepository {
 
     private BooleanExpression categoryEq(ProductCategory category) {
         return category == null ? null : productModel.category.eq(category);
+    }
+
+    private BooleanExpression subcategoryEq(ProductSubcategory subcategory) {
+        return subcategory == null ? null : productModel.subcategory.eq(subcategory);
+    }
+
+    /**
+     * 소비자에게 감추는 분류를 뺀다.
+     *
+     * <p>{@code ETC} 하나를 {@code ne} 로 적지 않고 {@link ProductCategory#isConsumerVisible}
+     * 이 참인 값들을 열거한다 — 감출 분류가 늘어도 이 질의는 그대로다.
+     */
+    private BooleanExpression consumerVisibleCategory() {
+        return productModel.category.in(Arrays.stream(ProductCategory.values())
+                .filter(ProductCategory::isConsumerVisible)
+                .toList());
     }
 
     private BooleanExpression brandIdEq(Long brandId) {

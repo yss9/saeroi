@@ -8,7 +8,9 @@ import com.ssafy.upcycle.product.dto.ProductModelStatusRequest;
 import com.ssafy.upcycle.product.dto.ProductModelUpdateRequest;
 import com.ssafy.upcycle.product.entity.ProductItemStatus;
 import com.ssafy.upcycle.product.entity.ProductModel;
+import com.ssafy.upcycle.product.entity.ProductCategory;
 import com.ssafy.upcycle.product.entity.ProductModelStatus;
+import com.ssafy.upcycle.product.entity.ProductSubcategory;
 import com.ssafy.upcycle.product.repository.ProductItemRepository;
 import com.ssafy.upcycle.product.repository.ProductModelRepository;
 import lombok.RequiredArgsConstructor;
@@ -38,16 +40,21 @@ public class ProductModelRegistrationService {
      * 확인하고 저장한다 — 확인하지 않으면 아무 문자열이나 통과하고, 이미지가 깨진 제품이
      * 마켓에 올라간 뒤에야 드러난다.
      *
+     * <p>하위 분류는 선택이지만, 보냈다면 상위 분류에 속해야 한다 — 어긋난 조합은 SHOP 의
+     * 어느 2단 메뉴에도 걸리지 않으면서 목록 수만 늘린다.
+     *
      * @param brandId JWT {@code sub} 에서 온 사용자 id. 요청 바디로 받지 않는다
      */
     @Transactional
     public ProductModelResponse register(Long brandId, ProductModelRegisterRequest request) {
         sellerPolicy.requireSeller(brandId);
+        requireMatchingSubcategory(request.category(), request.subcategory());
         productImageService.requireStoredImage(request.thumbnailUrl());
 
         ProductModel saved = productModelRepository.save(ProductModel.register(
                 request.name(),
                 request.category(),
+                request.subcategory(),
                 brandId,
                 request.price(),
                 request.description(),
@@ -69,6 +76,11 @@ public class ProductModelRegistrationService {
      *
      * <p>대표 이미지를 바꾸면 등록과 같은 검사를 거친다 — 저장소에 없는 키를 넣으면
      * 이미지가 깨진 제품이 되고, 그건 마켓에 올라간 뒤에야 드러난다.
+     *
+     * <p><b>하위 분류는 바꿀 수 있다.</b> 상위 분류와 달리 팔린 제품의 이력이 이 값을 싣지
+     * 않고, 하위 분류가 생기기 전에 등록된 제품은 이 경로로만 SHOP 2단 메뉴에 들어온다.
+     * 상위 분류는 그대로이므로 검사는 <b>저장된 분류</b> 기준이다 — 요청이 상위 분류를
+     * 함께 바꿀 수는 없다.
      */
     @Transactional
     public ProductModelResponse update(
@@ -80,12 +92,18 @@ public class ProductModelRegistrationService {
                 .orElseThrow(() -> new BusinessException(ProductErrorCode.PRODUCT_MODEL_NOT_FOUND));
         requireOwner(model, brandId);
         requireNotDiscontinued(model);
+        if (request.subcategory() != null) {
+            requireMatchingSubcategory(model.getCategory(), request.subcategory());
+        }
         if (request.thumbnailUrl() != null) {
             productImageService.requireStoredImage(request.thumbnailUrl());
         }
 
         model.update(
                 request.name(), request.price(), request.description(), request.thumbnailUrl());
+        if (request.subcategory() != null) {
+            model.assignSubcategory(request.subcategory());
+        }
         return ProductModelResponse.of(model, countInStock(productModelId));
     }
 
@@ -115,6 +133,20 @@ public class ProductModelRegistrationService {
             case DISCONTINUE -> model.discontinue();
         }
         return ProductModelResponse.of(model, stock);
+    }
+
+    /**
+     * 상위 분류에 속하지 않는 하위 분류를 거른다. 값이 없으면 통과한다 — 하위 분류는
+     * 선택이고, 2단 메뉴가 없는 분류는 언제나 비어 있다.
+     *
+     * <p>엔티티도 같은 검사를 하지만 그쪽은 {@code IllegalStateException} 계열이라 그대로
+     * 두면 500 이 나간다. 여기서 먼저 보고 400 으로 답한다 — 단종 검사와 같은 구조다.
+     */
+    private void requireMatchingSubcategory(
+            ProductCategory category, ProductSubcategory subcategory) {
+        if (subcategory != null && !subcategory.belongsTo(category)) {
+            throw new BusinessException(ProductErrorCode.PRODUCT_SUBCATEGORY_NOT_ALLOWED);
+        }
     }
 
     /** 재고는 컬럼이 아니라 개체를 세어 구한다. 이 도메인의 규칙이다. */

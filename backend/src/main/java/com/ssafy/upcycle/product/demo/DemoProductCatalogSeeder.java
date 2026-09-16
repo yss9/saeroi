@@ -4,6 +4,7 @@ import com.ssafy.upcycle.product.entity.ProductCategory;
 import com.ssafy.upcycle.product.entity.ProductItem;
 import com.ssafy.upcycle.product.entity.ProductModel;
 import com.ssafy.upcycle.product.entity.ProductModelStatus;
+import com.ssafy.upcycle.product.entity.ProductSubcategory;
 import com.ssafy.upcycle.product.repository.ProductItemRepository;
 import com.ssafy.upcycle.product.repository.ProductModelRepository;
 import com.ssafy.upcycle.production.entity.ProductionBatch;
@@ -80,6 +81,7 @@ public class DemoProductCatalogSeeder implements ApplicationRunner {
                     "reweave",
                     "데님 서클 백",
                     ProductCategory.BAG,
+                    ProductSubcategory.SHOULDER,
                     129_000L,
                     "폐데님 조각의 곡선을 살려 완성한 원형 숄더백입니다. 소재마다 다른 색과 흔적이 하나뿐인 표정을 만듭니다.",
                     "/images/landing/product-denim-circle.webp",
@@ -89,6 +91,7 @@ public class DemoProductCatalogSeeder implements ApplicationRunner {
                     "recode",
                     "패치워크 워크 자켓",
                     ProductCategory.CLOTHING,
+                    ProductSubcategory.OUTER,
                     149_000L,
                     "남겨진 워크웨어 원단을 해체하고 다시 조합한 패치워크 자켓입니다. 원단의 마모와 봉제 흔적을 그대로 살렸습니다.",
                     "/images/landing/product-work-jacket.webp",
@@ -98,6 +101,7 @@ public class DemoProductCatalogSeeder implements ApplicationRunner {
                     "dusty-miller",
                     "새들 슬링 백",
                     ProductCategory.BAG,
+                    ProductSubcategory.CROSSBODY,
                     99_000L,
                     "사용 후 회수된 원단을 유연한 곡선 형태로 재단한 슬링 백입니다. 가볍게 멜 수 있는 일상용 수납 구조를 담았습니다.",
                     "/images/landing/product-saddle-bag.webp",
@@ -107,6 +111,7 @@ public class DemoProductCatalogSeeder implements ApplicationRunner {
                     "ocean-loop",
                     "패치워크 버킷 햇",
                     ProductCategory.ACCESSORY,
+                    null,
                     59_000L,
                     "수거된 소재의 서로 다른 결을 이어 만든 버킷 햇입니다. 조각 배치가 제품마다 달라 같은 모양이 반복되지 않습니다.",
                     "/images/landing/product-bucket-hat.webp",
@@ -116,6 +121,7 @@ public class DemoProductCatalogSeeder implements ApplicationRunner {
                     "recode",
                     "마켓 토트",
                     ProductCategory.BAG,
+                    ProductSubcategory.TOTE,
                     79_000L,
                     "남은 원단을 넉넉한 크기로 다시 구성한 데일리 토트백입니다. 장보기와 일상 수납에 모두 사용할 수 있습니다.",
                     "/images/landing/product-market-tote.webp",
@@ -202,6 +208,7 @@ public class DemoProductCatalogSeeder implements ApplicationRunner {
             model = productModelRepository.saveAndFlush(ProductModel.register(
                     definition.name(),
                     definition.category(),
+                    definition.subcategory(),
                     brand.user().getId(),
                     definition.price(),
                     definition.description(),
@@ -217,6 +224,12 @@ public class DemoProductCatalogSeeder implements ApplicationRunner {
                     definition.price(),
                     definition.description(),
                     definition.thumbnailUrl());
+            // 하위 분류가 생기기 전에 시드된 행은 값이 비어 있다. 재기동 때 채워야 SHOP
+            // 2단 메뉴에 들어온다 — 브랜드가 손으로 고쳐 줄 데이터가 아니다.
+            if (definition.subcategory() != null
+                    && model.getSubcategory() != definition.subcategory()) {
+                model.assignSubcategory(definition.subcategory());
+            }
         }
 
         ProductionBatch batch = seedBatch(definition, brand, model);
@@ -330,6 +343,8 @@ public class DemoProductCatalogSeeder implements ApplicationRunner {
             String brandKey,
             String name,
             ProductCategory category,
+            /** 2단 메뉴가 없는 분류(ACCESSORY 등)는 {@code null} 이다. */
+            ProductSubcategory subcategory,
             long price,
             String description,
             String thumbnailUrl,
