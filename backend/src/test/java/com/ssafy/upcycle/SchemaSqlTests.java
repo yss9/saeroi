@@ -76,8 +76,12 @@ class SchemaSqlTests {
                     .doesNotContain("verification_state");
             assertThat(readColumns(connection, "processing_job"))
                     .contains("result_revision", "result_submitted_at", "approval_signature",
-                            "rejection_reason", "manifest_url", "payment_method", "payment_amount")
+                            "rejection_reason", "manifest_url", "payment_method", "payment_amount",
+                            "return_shipping_evidence_hash")
                     .doesNotContain("brand_approved_at", "brand_rejected_at");
+            assertThat(readColumns(connection, "processing_input"))
+                    .contains("brand_material_lock_id", "processor_material_lock_id")
+                    .doesNotContain("material_lock_id");
             assertThat(readColumns(connection, "trade_shipping")).containsExactlyInAnyOrder(
                     "id",
                     "trade_id",
@@ -187,7 +191,7 @@ class SchemaSqlTests {
                 """);
         statement.executeUpdate("""
                 INSERT INTO processing_input (
-                    id, processing_job_id, material_id, quantity, material_lock_id
+                    id, processing_job_id, material_id, quantity, brand_material_lock_id
                 ) VALUES
                     (1, 1, 1, 100, 1),
                     (2, 2, 1, 100, 2)

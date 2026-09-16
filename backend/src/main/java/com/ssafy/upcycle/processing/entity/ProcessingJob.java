@@ -20,6 +20,7 @@ public class ProcessingJob {
     @Column(name = "processor_id", nullable = false) private Long processorId;
     @Column(name = "brand_wallet", nullable = false, length = 42) private String brandWallet;
     @Column(name = "processor_wallet", nullable = false, length = 42) private String processorWallet;
+    @Column(name = "chain_job_id", unique = true) private Long chainJobId;
     @Column(nullable = false) private long fee;
     @Column(name = "loss_quantity", nullable = false) private long lossQuantity;
     /**
@@ -38,6 +39,15 @@ public class ProcessingJob {
     @Column(name = "payment_expires_at", nullable = false) private LocalDateTime paymentExpiresAt;
     @Column(name = "carrier", length = 50) private String carrier;
     @Column(name = "tracking_number", length = 100) private String trackingNumber;
+    @Column(name = "receive_tx_hash", unique = true, columnDefinition = "CHAR(66)") private String receiveTxHash;
+    @Column(name = "receive_block_number") private Long receiveBlockNumber;
+    @Column(name = "return_carrier", length = 50) private String returnCarrier;
+    @Column(name = "return_tracking_number", length = 100) private String returnTrackingNumber;
+    @Column(name = "return_shipping_evidence_hash", columnDefinition = "CHAR(66)") private String returnShippingEvidenceHash;
+    @Column(name = "return_ship_tx_hash", unique = true, columnDefinition = "CHAR(66)") private String returnShipTxHash;
+    @Column(name = "return_ship_block_number") private Long returnShipBlockNumber;
+    @Column(name = "return_receive_tx_hash", unique = true, columnDefinition = "CHAR(66)") private String returnReceiveTxHash;
+    @Column(name = "return_receive_block_number") private Long returnReceiveBlockNumber;
     @Column(name = "result_revision", nullable = false) private int resultRevision;
     @Column(name = "rejection_reason", length = 500) private String rejectionReason;
     @Column(name = "result_submit_signature", length = 132) private String resultSubmitSignature;
@@ -49,6 +59,7 @@ public class ProcessingJob {
     @Column(name = "result_drafted_at") private LocalDateTime resultDraftedAt;
     @Column(name = "result_submitted_at") private LocalDateTime resultSubmittedAt;
     @Column(name = "rejected_at") private LocalDateTime rejectedAt;
+    @Column(name = "return_shipped_at") private LocalDateTime returnShippedAt;
     @Column(name = "completed_at") private LocalDateTime completedAt;
     @Column(name = "created_at", nullable = false, updatable = false) private LocalDateTime createdAt;
 
@@ -103,6 +114,22 @@ public class ProcessingJob {
         requireState(ProcessingJobStatus.SHIPPED);
         this.receivedAt = requireTime(at);
         this.status = ProcessingJobStatus.RECEIVED;
+    }
+
+    public void linkChainJob(long onChainId) {
+        if (onChainId <= 0) throw new IllegalArgumentException("Chain job id must be positive");
+        if (chainJobId != null && chainJobId != onChainId) throw new IllegalStateException("Chain job is already linked");
+        chainJobId = onChainId;
+    }
+
+    public void receiveOnChain(String txHash, Long blockNumber, LocalDateTime at) {
+        if (receiveTxHash != null) {
+            if (receiveTxHash.equalsIgnoreCase(txHash)) return;
+            throw new IllegalStateException("Receipt transaction is already linked");
+        }
+        receive(at);
+        receiveTxHash = requireTxHash(txHash);
+        receiveBlockNumber = requireBlock(blockNumber);
     }
 
     public void start(LocalDateTime at) {
@@ -162,6 +189,40 @@ public class ProcessingJob {
         this.status = ProcessingJobStatus.REJECTED;
     }
 
+    public void shipReturn(String carrier, String trackingNumber, String evidenceHash,
+            String txHash, Long blockNumber, LocalDateTime at) {
+        requireState(ProcessingJobStatus.RESULT_SUBMITTED);
+        this.returnCarrier = normalizeOptional(carrier, 50);
+        this.returnTrackingNumber = normalizeOptional(trackingNumber, 100);
+        this.returnShippingEvidenceHash = requireHash(evidenceHash, "Return shipping evidence hash is required");
+        this.returnShipTxHash = requireTxHash(txHash);
+        this.returnShipBlockNumber = requireBlock(blockNumber);
+        this.returnShippedAt = requireTime(at);
+        this.status = ProcessingJobStatus.RETURN_SHIPPED;
+    }
+
+    public void confirmReturn(String txHash, Long blockNumber, String signature, LocalDateTime at) {
+        requireState(ProcessingJobStatus.RETURN_SHIPPED);
+        this.returnReceiveTxHash = requireTxHash(txHash);
+        this.returnReceiveBlockNumber = requireBlock(blockNumber);
+        this.approvalSignature = signature;
+        this.completedAt = requireTime(at);
+        this.status = ProcessingJobStatus.CONFIRMED;
+    }
+
+    public void cancelAfterRejectedReturn(String carrier, String trackingNumber, String evidenceHash,
+            String txHash, Long blockNumber, LocalDateTime at) {
+        requireState(ProcessingJobStatus.REJECTED);
+        this.returnCarrier = normalizeOptional(carrier, 50);
+        this.returnTrackingNumber = normalizeOptional(trackingNumber, 100);
+        this.returnShippingEvidenceHash = requireHash(evidenceHash, "Return shipping evidence hash is required");
+        this.returnShipTxHash = requireTxHash(txHash);
+        this.returnShipBlockNumber = requireBlock(blockNumber);
+        this.returnShippedAt = requireTime(at);
+        this.completedAt = at;
+        this.status = ProcessingJobStatus.CANCELED;
+    }
+
     public void approve(String signature, LocalDateTime at) {
         requireState(ProcessingJobStatus.RESULT_SUBMITTED);
         this.approvalSignature = requireSignature(signature);
@@ -197,6 +258,23 @@ public class ProcessingJob {
         if (signature == null || signature.isBlank() || signature.length() > 132)
             throw new IllegalArgumentException("Signature is required");
         return signature;
+    }
+
+    private static String requireTxHash(String value) {
+        if (value == null || !value.matches("^0x[0-9a-fA-F]{64}$"))
+            throw new IllegalArgumentException("Confirmed transaction hash is required");
+        return value.toLowerCase();
+    }
+
+    private static String requireHash(String value, String message) {
+        if (value == null || !value.matches("^0x[0-9a-fA-F]{64}$"))
+            throw new IllegalArgumentException(message);
+        return value.toLowerCase();
+    }
+
+    private static Long requireBlock(Long value) {
+        if (value == null || value < 0) throw new IllegalArgumentException("Block number is required");
+        return value;
     }
 
     private static String normalizeOptional(String value, int max) {

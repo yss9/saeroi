@@ -100,8 +100,10 @@ app:
     # ⚠️ 프론트의 VITE_*_CONTRACT_ADDRESS 와 같은 배포분이어야 한다 —
     #    어긋나면 화면은 새 컨트랙트에 서명하는데 서버는 옛 주소로 기록한다.
     chain-id: ${BESU_CHAIN_ID:31221}
+    rpc-url: ${BESU_RPC_URL:}
     material-token-address: ${MATERIAL_TOKEN_ADDRESS:}
     marketplace-address: ${MARKETPLACE_ADDRESS:}
+    processing-registry-address: ${PROCESSING_REGISTRY_ADDRESS:}
     # 생산 배치 기록용 레지스트리. 이 주소만 비어 있어도 소재·거래 기록은 계속 동작한다 —
     # 나중에 붙는 컨트랙트가 앞선 기능을 멈추게 하지 않는다.
     production-registry-address: ${PRODUCTION_REGISTRY_ADDRESS:}
