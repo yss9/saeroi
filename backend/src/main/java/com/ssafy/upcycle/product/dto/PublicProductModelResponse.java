@@ -32,9 +32,19 @@ public record PublicProductModelResponse(
                 brandName,
                 model.getPrice(),
                 model.getDescription(),
-                PUBLIC_THUMBNAIL_PATH.formatted(model.getId()),
+                publicThumbnailUrl(model),
                 model.getStatus(),
                 stockQuantity,
                 model.getCreatedAt());
+    }
+
+    private static String publicThumbnailUrl(ProductModel model) {
+        String thumbnailUrl = model.getThumbnailUrl();
+        // 시연 상품은 프론트에 이미 포함된 공개 정적 이미지를 쓴다. 브랜드가 업로드한
+        // 이미지는 저장 키라 이 접두어를 가질 수 없고 기존 공개 썸네일 API를 그대로 쓴다.
+        if (thumbnailUrl.startsWith("/images/landing/")) {
+            return thumbnailUrl;
+        }
+        return PUBLIC_THUMBNAIL_PATH.formatted(model.getId());
     }
 }

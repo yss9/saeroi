@@ -23,6 +23,12 @@ spring:
     password: 여기에_MySQL_비밀번호
 
 app:
+  demo-catalog:
+    # 홈·SHOP 시연 상품이 필요한 로컬 환경에서만 true.
+    # 운영 환경의 기본값은 false이며, 반복 기동해도 같은 상품이 중복 생성되지 않는다.
+    enabled: false
+    stock-per-product: 10
+
   geocoding:
     kakao:
       # Kakao Developers 앱의 REST API 키. JavaScript 키가 아니다.

@@ -195,10 +195,17 @@ public class ProductOrderQueryService {
                 model.getName(),
                 model.getCategory(),
                 orderItem.getPrice(),
-                "/api/v1/product-models/" + model.getId() + "/thumbnail",
+                orderThumbnailUrl(model),
                 order.getStatus() == ProductOrderStatus.CREATED
                         ? null
                         : productQrCodeGenerator.urlFor(qrToken));
+    }
+
+    private String orderThumbnailUrl(ProductModel model) {
+        if (model.getThumbnailUrl().startsWith("/images/landing/")) {
+            return model.getThumbnailUrl();
+        }
+        return "/api/v1/product-models/" + model.getId() + "/thumbnail";
     }
 
     private static <T> T requireRelated(T value, String relation) {
