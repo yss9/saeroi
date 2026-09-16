@@ -27,6 +27,7 @@ import com.ssafy.upcycle.product.service.ProductQrCodeGenerator;
 import com.ssafy.upcycle.product.repository.ProductModelRepository;
 import com.ssafy.upcycle.production.ProductionErrorCode;
 import com.ssafy.upcycle.production.dto.ProductionBatchOpenRequest;
+import com.ssafy.upcycle.production.dto.ProductionBatchProductModelRequest;
 import com.ssafy.upcycle.production.dto.ProductionBatchResponse;
 import com.ssafy.upcycle.production.dto.ProductionInputRequest;
 import com.ssafy.upcycle.production.dto.ProductionInputsRequest;
@@ -116,7 +117,10 @@ public class ProductionBatchService {
         // 행위자 자격을 먼저 다 본 뒤에 대상을 본다. 지갑이 없는 계정에게 "남의 제품이다"
         // 라고 답하면, 지갑을 연결해도 여전히 막힌다는 사실을 알 수 없다.
         String producerWallet = activeWalletAddress(producerId);
-        requireOwnProductModel(request.productModelId(), producerId);
+        // 제품은 선택이다. 보냈을 때만 소유를 본다 — 나중에 지정해도 같은 검사를 거친다.
+        if (request.productModelId() != null) {
+            requireOwnProductModel(request.productModelId(), producerId);
+        }
 
         ProductionBatch batch = batchRepository.save(ProductionBatch.open(
                 codeGenerator.placeholder(),
@@ -130,6 +134,30 @@ public class ProductionBatchService {
         batch.assignCode(codeGenerator.of(batch.getId()));
 
         return ProductionBatchResponse.of(batch, List.of());
+    }
+
+    /**
+     * 무엇을 만들지 나중에 정한다. <b>{@code DRAFT} 일 때만 된다.</b>
+     *
+     * <p>배치를 열 때 제품을 비워 둠 수 있게 하면서 함께 생긴 경로다. 설정해 둔 것을
+     * 바꾸는 것도 같은 경로로 한다 — 잘못 고른 제품을 고치려고 배치를 다시 여는 것은
+     * 이미 담아 둔 투입을 버리는 일이다.
+     *
+     * <p>{@link #editableBatch} 를 그대로 쓴다 — 소유자 확인과 "서명 전인가" 를 한 곳에서
+     * 보기 때문이다. 서명이 시작된 뒤에 제품이 바뀜면 서명한 내용과 저장된 내용이 어긋난다.
+     *
+     * <p>자기 브랜드의 제품인지는 여는 시점과 똑같은 검사를 거친다 — 단계가 나뉘었다고
+     * 느슬해지면 남의 제품을 내 배치에 붙일 수 있게 된다.
+     */
+    @Transactional
+    public ProductionBatchResponse assignProductModel(
+            Long producerId, Long batchId, ProductionBatchProductModelRequest request) {
+        requireActiveBrand(producerId);
+        ProductionBatch batch = editableBatch(batchId, producerId);
+        requireOwnProductModel(request.productModelId(), producerId);
+
+        batch.assignProductModel(request.productModelId());
+        return ProductionBatchResponse.of(batch, inputsOf(batchId));
     }
 
     /**

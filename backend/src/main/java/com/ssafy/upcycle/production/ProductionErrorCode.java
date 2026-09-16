@@ -53,6 +53,17 @@ public enum ProductionErrorCode implements ErrorCode {
             HttpStatus.NOT_FOUND, "PRODUCTION_PRODUCT_MODEL_NOT_FOUND", "제품을 찾을 수 없습니다."),
 
     /** 남의 제품을 생산하려는 경우. */
+    /**
+     * 제품을 지정하지 않은 배치를 확정하려는 경우.
+     *
+     * <p>배치는 제품 없이도 열 수 있지만, 확정은 {@code product_item} 을 만들고 그것이
+     * 이 값을 그대로 쓴다. 여기서 막지 않으면 개체를 만드는 지점에서 NPE 가 난다.
+     */
+    PRODUCTION_PRODUCT_MODEL_REQUIRED(
+            HttpStatus.UNPROCESSABLE_ENTITY,
+            "PRODUCTION_PRODUCT_MODEL_REQUIRED",
+            "생산할 제품을 먼저 지정해 주세요."),
+
     PRODUCTION_PRODUCT_MODEL_FORBIDDEN(
             HttpStatus.FORBIDDEN,
             "PRODUCTION_PRODUCT_MODEL_FORBIDDEN",

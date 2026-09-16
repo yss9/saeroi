@@ -617,7 +617,9 @@ CREATE TABLE production_batch (
     chain_batch_id BIGINT NULL,
     batch_code VARCHAR(20) NOT NULL,
     batch_name VARCHAR(200) NOT NULL,
-    product_model_id BIGINT NOT NULL,
+    -- 배치를 여는 시점에는 비어 있을 수 있다 — 소재를 고르기 전에 무엇을 만들지부터
+    -- 확정하라고 강제할 이유가 없다. 확정 전에는 반드시 채워지며, 그 검사는 서비스가 한다.
+    product_model_id BIGINT NULL,
     produced_quantity INT NOT NULL,
     producer_id BIGINT NOT NULL,
     producer_wallet VARCHAR(42) NOT NULL,

@@ -93,8 +93,18 @@ public class ProductionBatch {
     @Column(name = "batch_name", nullable = false, length = BATCH_NAME_MAX_LENGTH)
     private String batchName;
 
-    /** 무엇을 만드는가. product_model FK 다. */
-    @Column(name = "product_model_id", nullable = false)
+    /**
+     * 무엇을 만드는가. product_model FK 다.
+     *
+     * <p><b>배치를 여는 시점에는 비어 있을 수 있다.</b> 실제 작업 순서가
+     * "배치 생성 → 소재 선택 → 사용량 입력 → …" 이라, 브랜드가 무엇을 만들지를
+     * 소재도 고르기 전에 확정하라고 강제할 이유가 없다.
+     *
+     * <p>다만 <b>확정({@link #confirm}) 전에는 반드시 채워져야 한다</b> —
+     * 확정이 만드는 {@code product_item} 이 이 값을 그대로 쓴다. 그 검사는
+     * {@code ProductionConfirmService} 가 한다.
+     */
+    @Column(name = "product_model_id")
     private Long productModelId;
 
     /** 몇 개를 만드는가. 확정되면 이 수만큼 {@code product_item} 이 생긴다. */
@@ -152,7 +162,8 @@ public class ProductionBatch {
             String producerWallet) {
         this.batchCode = requireText(batchCode, "batch code", BATCH_CODE_MAX_LENGTH);
         this.batchName = requireText(batchName, "batch name", BATCH_NAME_MAX_LENGTH);
-        this.productModelId = requireNonNull(productModelId, "product model id");
+        // 여는 시점에는 없어도 된다. 필수로 보는 지점은 확정이다.
+        this.productModelId = productModelId;
         if (producedQuantity <= 0) {
             throw new IllegalArgumentException("Production batch produced quantity must be positive");
         }
@@ -181,6 +192,22 @@ public class ProductionBatch {
             String producerWallet) {
         return new ProductionBatch(
                 batchCode, batchName, productModelId, producedQuantity, producerId, producerWallet);
+    }
+
+    /**
+     * 나중에 무엇을 만들지 정한다. <b>{@code DRAFT} 일 때만 바꿀 수 있다.</b>
+     *
+     * <p>서명이 시작되거나 확정된 뒤에 바꾸면, 이미 만들어진 {@code product_item} 과
+     * 온체인 기록이 가리키는 제품이 서로 달라진다. 상태 검사는 호출부가 먼저 하고,
+     * 여기는 최후 방어선이다.
+     */
+    public void assignProductModel(Long productModelId) {
+        if (this.status != ProductionBatchStatus.DRAFT) {
+            throw new IllegalStateException(
+                    "Production batch product model can only change while DRAFT but was "
+                            + this.status);
+        }
+        this.productModelId = requireNonNull(productModelId, "product model id");
     }
 
     /**

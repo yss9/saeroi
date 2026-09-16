@@ -2,6 +2,7 @@ package com.ssafy.upcycle.production.controller;
 
 import com.ssafy.upcycle.common.response.ApiResponse;
 import com.ssafy.upcycle.production.dto.ProductionBatchOpenRequest;
+import com.ssafy.upcycle.production.dto.ProductionBatchProductModelRequest;
 import com.ssafy.upcycle.production.dto.ProductionBatchResponse;
 import com.ssafy.upcycle.production.dto.ProductionInputsRequest;
 import com.ssafy.upcycle.production.dto.ProductionChainBatchRequest;
@@ -26,6 +27,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -62,6 +64,25 @@ public class ProductionBatchController {
             @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody ProductionBatchOpenRequest request) {
         return ApiResponse.success(productionBatchService.open(userId(jwt), request));
+    }
+
+    /**
+     * 무엇을 만들지 나중에 정한다. <b>{@code DRAFT} 일 때만 된다.</b>
+     *
+     * <p>배치를 열 때 제품을 비워 둘 수 있게 하면서 함께 생긴 경로다 — 실제 작업 순서가
+     * "배치 생성 → 소재 선택 → 사용량 입력 → …" 라, 무엇을 만들지를 맨 앞에서
+     * 확정하라고 강제할 이유가 없다.
+     *
+     * <p>이미 정해 둔 것을 바꾸는 데도 같은 경로를 쓴다. 서명이 시작된 뒤에는 막힌다 —
+     * 서명한 내용과 저장된 내용이 달라지면 온체인 기록이 무엇을 증명하는지 알 수 없다.
+     */
+    @PatchMapping("/{batchId}")
+    public ApiResponse<ProductionBatchResponse> assignProductModel(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long batchId,
+            @Valid @RequestBody ProductionBatchProductModelRequest request) {
+        return ApiResponse.success(
+                productionBatchService.assignProductModel(userId(jwt), batchId, request));
     }
 
     /**
