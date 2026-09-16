@@ -6,26 +6,49 @@ import './processing-jobs.css'
 interface Props {
   isPending: boolean
   error?: unknown
-  onSubmit: (input: { carrier?: string; trackingNumber?: string }) => void
+  onSubmit: (input: { carrier?: string; trackingNumber?: string; evidenceFileId?: number; evidenceHash?: string }) => void
+  title?: string
+  submitLabel?: string
+  evidenceOptions?: Array<{ id: number; hash: string; label: string }>
+  evidenceRequired?: boolean
 }
 
 const errorMessage = (error: unknown) => isAppError(error) || error instanceof Error
   ? error.message
   : '소재 발송을 처리하지 못했어요.'
 
-export function ProcessingShipmentForm({ isPending, error, onSubmit }: Props) {
+export function ProcessingShipmentForm({
+  isPending,
+  error,
+  onSubmit,
+  title = '소재 발송',
+  submitLabel = '발송 처리',
+  evidenceOptions = [],
+  evidenceRequired = false,
+}: Props) {
   const [carrier, setCarrier] = useState('')
   const [trackingNumber, setTrackingNumber] = useState('')
+  const [evidenceId, setEvidenceId] = useState('')
+  const selectedEvidence = evidenceOptions.find(option => String(option.id) === evidenceId)
 
   return (
     <section className="pj-panel">
-      <h2><Package aria-hidden="true" />소재 발송</h2>
+      <h2><Package aria-hidden="true" />{title}</h2>
       <div className="pj-fields">
         <label>택배사(선택)<input value={carrier} onChange={event => setCarrier(event.target.value)} /></label>
         <label>운송장 번호(선택)<input value={trackingNumber} onChange={event => setTrackingNumber(event.target.value)} /></label>
       </div>
-      <button disabled={isPending} onClick={() => onSubmit({ carrier: carrier.trim(), trackingNumber: trackingNumber.trim() })}>
-        {isPending ? '발송 처리 중…' : '발송 처리'}
+      {evidenceRequired && <label>반환 발송 증빙
+        <select value={evidenceId} onChange={event => setEvidenceId(event.target.value)}>
+          <option value="">업로드한 증빙을 선택하세요</option>
+          {evidenceOptions.map(option => <option value={option.id} key={option.id}>{option.label}</option>)}
+        </select>
+      </label>}
+      <button disabled={isPending || (evidenceRequired && !selectedEvidence)} onClick={() => onSubmit({
+        carrier: carrier.trim(), trackingNumber: trackingNumber.trim(),
+        evidenceFileId: selectedEvidence?.id, evidenceHash: selectedEvidence?.hash,
+      })}>
+        {isPending ? 'MetaMask 확인 및 처리 중…' : submitLabel}
       </button>
       {error !== undefined && error !== null && <p className="pj-error" role="alert">{errorMessage(error)}</p>}
     </section>

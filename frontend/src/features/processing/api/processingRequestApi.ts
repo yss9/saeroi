@@ -123,9 +123,9 @@ export const processingRequestApi = {
     await apiClient.post<ProcessingJob>(`/v1/quotes/${quoteId}/select`, { paymentMethod: 'MOCK' })
   ).data,
   readyPayment: async (jobId: number) => (
-    await apiClient.post<ProcessingPaymentReady>(`/v1/processing-jobs/${jobId}/payment`)
+    await apiClient.post<ProcessingPaymentReady>(`/processing-jobs/${jobId}/payment`)
   ).data,
   confirmPayment: async (jobId: number, pgToken: string) => (
-    await apiClient.post<ProcessingJob>(`/v1/processing-jobs/${jobId}/payment/confirm`, { pgToken })
+    await apiClient.post<ProcessingJob>(`/processing-jobs/${jobId}/payment/confirm`, { pgToken })
   ).data,
 }

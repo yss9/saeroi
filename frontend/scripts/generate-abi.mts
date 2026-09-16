@@ -19,7 +19,8 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
-const ABI_DIR = resolve(here, '../../blockchain/abi')
+const ABI_DIR = [resolve(here, '../../blockchain/abi'), resolve(here, '../../S15P21E104_blockchain/abi')]
+  .find((candidate) => existsSync(candidate)) ?? resolve(here, '../../blockchain/abi')
 const OUT_DIR = resolve(here, '../src/config/abi')
 
 interface AbiInput {

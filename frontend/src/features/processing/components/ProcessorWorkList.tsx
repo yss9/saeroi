@@ -25,7 +25,7 @@ const requestStatusLabel: Record<ProcessingRequestStatus, string> = {
 }
 const jobStatusLabel: Record<ProcessingJobStatus, string> = {
   CREATED: '결제 대기', PAID: '발송 대기', SHIPPED: '수령 대기', RECEIVED: '가공 시작 대기',
-  PROCESSING: '가공 중', RESULT_SUBMITTED: '검토 대기', CONFIRMED: '완료', REJECTED: '보완 요청', EXPIRED: '만료',
+  PROCESSING: '가공 중', RESULT_SUBMITTED: '검토 대기', RETURN_SHIPPED: '결과물 반환 중', CONFIRMED: '완료', REJECTED: '보완 요청', EXPIRED: '만료', CANCELED: '반환 종료',
 }
 const grams = (value: number) => `${value.toLocaleString('ko-KR')} g`
 const formatDate = (value: string) => new Date(/(?:Z|[+-]\d{2}:?\d{2})$/i.test(value) ? value : `${value}Z`).toLocaleString('ko-KR', {
