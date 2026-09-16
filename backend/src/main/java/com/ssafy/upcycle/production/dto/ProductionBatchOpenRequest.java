@@ -29,7 +29,17 @@ public record ProductionBatchOpenRequest(
         @Size(max = 200, message = "배치 이름은 200자를 넘을 수 없습니다.")
         String batchName,
 
-        @NotNull(message = "생산할 제품은 필수입니다.")
+        /**
+         * 무엇을 만드는가. <b>여기서는 선택이다.</b>
+         *
+         * <p>실제 작업 순서가 "배치 생성 → 소재 선택 → 사용량 입력 → …" 라,
+         * 무엇을 만들지를 소재도 고르기 전에 확정하라고 강제할 이유가 없다. 나중에
+         * {@code PATCH /api/v1/production-batches/{batchId}} 로 지정할 수 있고,
+         * <b>확정 전에는 반드시 채워져야 한다</b>.
+         *
+         * <p>{@code @Positive} 는 남겨 둔다 — "안 보냄"({@code null})과 "0 이나 음수를
+         * 보냄"은 다른 일이고, 후자는 여전히 실수다.
+         */
         @Positive(message = "제품 id는 양수여야 합니다.")
         @JsonDeserialize(using = IntegralLongDeserializer.class)
         Long productModelId,
