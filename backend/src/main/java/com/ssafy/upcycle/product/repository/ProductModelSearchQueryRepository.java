@@ -16,7 +16,6 @@ import com.ssafy.upcycle.product.dto.ProductModelSort;
 import com.ssafy.upcycle.product.entity.ProductCategory;
 import com.ssafy.upcycle.product.entity.ProductModel;
 import com.ssafy.upcycle.product.entity.ProductSubcategory;
-import java.util.Arrays;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -237,9 +236,7 @@ public class ProductModelSearchQueryRepository {
      * 이 참인 값들을 열거한다 — 감출 분류가 늘어도 이 질의는 그대로다.
      */
     private BooleanExpression consumerVisibleCategory() {
-        return productModel.category.in(Arrays.stream(ProductCategory.values())
-                .filter(ProductCategory::isConsumerVisible)
-                .toList());
+        return productModel.category.in(ProductCategory.consumerVisible());
     }
 
     private BooleanExpression brandIdEq(Long brandId) {

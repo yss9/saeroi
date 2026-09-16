@@ -23,7 +23,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
- * 시연 상품의 대표 이미지와 갤러리를 정한다.
+ * 데모 상품의 대표 이미지와 갤러리를 정한다.
  *
  * <h2>왜 따로 있는가</h2>
  *
@@ -145,7 +145,7 @@ public class DemoProductImageBinder {
      * 올려 둔 이미지를 상품의 갤러리로 건다.
      *
      * <p>브랜드가 쓰는 교체 경로({@link ProductModelImageService#replace})를 그대로 쓴다 —
-     * 시연 데이터만 다른 구조로 이미지를 다루면 화면이 두 경우를 구분해야 한다.
+     * 데모 데이터만 다른 구조로 이미지를 다루면 화면이 두 경우를 구분해야 한다.
      *
      * <p>임시 이미지 상태에서는 빈 목록이라 갤러리가 비워진다. 그 상태가 곧 "아직 사진이
      * 한 장뿐" 이라는 뜻이다.
