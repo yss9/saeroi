@@ -45,6 +45,7 @@ GIT_CONVENTION에 따라 develop / feat 하위 브랜치 없이 이 브랜치에
     ├── INFRA_SETUP.md         # 구축 체크리스트 / 배경
     ├── EC2_DAY1.md            # 서버 수령 첫날 런북
     ├── DEVELOPMENT_STRATEGY.md
+    ├── SCHEMA_INCIDENTS.md    # 반복된 스키마 배포 사고 타임라인 + 무엇이 자동화됐는지
     └── notices/               # 팀 공지 (날짜순)
 
 파이프라인 정의(`Jenkinsfile`)는 이 브랜치가 아니라 **각 파트 브랜치 루트**에 있습니다.
