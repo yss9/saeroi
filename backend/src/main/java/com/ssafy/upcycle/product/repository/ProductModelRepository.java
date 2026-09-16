@@ -3,6 +3,7 @@ package com.ssafy.upcycle.product.repository;
 import com.ssafy.upcycle.product.entity.ProductModel;
 import com.ssafy.upcycle.product.entity.ProductModelStatus;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 /**
@@ -17,4 +18,6 @@ public interface ProductModelRepository extends JpaRepository<ProductModel, Long
     List<ProductModel> findAllByBrandIdAndStatus(Long brandId, ProductModelStatus status);
 
     List<ProductModel> findAllByBrandId(Long brandId);
+
+    Optional<ProductModel> findByIdAndStatus(Long id, ProductModelStatus status);
 }
