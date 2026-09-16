@@ -230,19 +230,18 @@ describe('LandingPage', () => {
     expect(apiClient.get).toHaveBeenCalledTimes(2)
   })
 
-  it('navigates header and discovery links to existing hash targets', async () => {
+  it('keeps SHOP and BRANDS on home sections and sends ABOUT discovery links to the ABOUT page', async () => {
     const user = userEvent.setup()
     renderLandingPage()
 
     const primaryNavigation = screen.getByRole('navigation', { name: '주요 메뉴' })
-    const links = [
-      ...within(primaryNavigation).getAllByRole('link'),
+    const sectionLinks = [
+      ...within(primaryNavigation).getAllByRole('link').filter((link) => link.textContent !== 'ABOUT'),
       screen.getByRole('link', { name: 'VIEW ALL PRODUCTS' }),
       screen.getByRole('link', { name: 'EXPLORE BRANDS' }),
-      screen.getByRole('link', { name: 'OUR STORY' }),
     ]
 
-    for (const link of links) {
+    for (const link of sectionLinks) {
       const href = link.getAttribute('href')
       expect(href).toMatch(/^#[a-z0-9-]+$/)
       expect(document.querySelector(href ?? '')).toBeInTheDocument()
@@ -250,6 +249,10 @@ describe('LandingPage', () => {
       await user.click(link)
       expect(window.location.hash).toBe(href)
     }
+
+    expect(within(primaryNavigation).getByRole('link', { name: 'ABOUT' })).toHaveAttribute('href', '/about')
+    expect(screen.getByRole('link', { name: 'OUR STORY' })).toHaveAttribute('href', '/about')
+    expect(screen.getByRole('link', { name: '우리의 이야기' })).toHaveAttribute('href', '/about')
   })
 
   it('shows login and signup links in the account menu when signed out', async () => {

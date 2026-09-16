@@ -46,7 +46,9 @@ export function Footer() {
           {footerNavigation.map((group) => (
             <div key={group.title}>
               <h2>{group.title}</h2>
-              {group.links.map((link) => (
+              {group.links.map((link) => link.href.startsWith('/') ? (
+                <Link key={link.label} to={link.href}>{link.label}</Link>
+              ) : (
                 <a key={link.label} href={link.href}>{link.label}</a>
               ))}
             </div>
