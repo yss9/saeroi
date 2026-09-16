@@ -68,7 +68,7 @@ beforeEach(() => api.getTrades.mockClear())
 afterEach(cleanup)
 
 describe('거래 카드', () => {
-  it('코드 · 소재명 · 수량 · 금액 · 상태를 카드로 보여준다', async () => {
+  it('소재명 · 수량 · 금액 · 상태를 카드로 보여준다', async () => {
     api.getTrades.mockResolvedValue({
       content: [trade()],
       page: 0,
@@ -79,7 +79,8 @@ describe('거래 카드', () => {
     renderList()
 
     expect(await screen.findByText('폐데님 원단')).toBeInTheDocument()
-    expect(screen.getByText('TRD-000001')).toBeInTheDocument()
+    // 거래 번호는 카드에 없다. 고르는 기준은 소재 이름이고, 번호는 상세에 있다.
+    expect(screen.queryByText('TRD-000001')).not.toBeInTheDocument()
     expect(screen.getByText('20 kg')).toBeInTheDocument()
     expect(screen.getByText('100,000원')).toBeInTheDocument()
     expect(screen.getByText('결제 완료')).toBeInTheDocument()
