@@ -3,7 +3,7 @@ import { canAccess, getRouteAccess, getRouteAccessMap, isRoleResolving } from '.
 
 describe('routeAccess — routes.tsx 에서 파생한 접근 조건', () => {
   it('공개 경로는 비회원도 볼 수 있다', () => {
-    for (const path of ['/', '/qr/:qrToken', '/403']) {
+    for (const path of ['/', '/about', '/qr/:qrToken', '/403']) {
       const access = getRouteAccess(path)
       expect(access, path).toEqual({ kind: 'public' })
       expect(canAccess(access!, { isAuthenticated: false, role: null }), path).toBe(true)
@@ -11,7 +11,7 @@ describe('routeAccess — routes.tsx 에서 파생한 접근 조건', () => {
   })
 
   /**
-   * <b>비회원이 볼 수 있는 것은 이 여덟 개가 전부다.</b>
+   * <b>비회원이 볼 수 있는 경로는 아래 명시한 목록이 전부다.</b>
    *
    * 위 검사는 "이것들이 공개인가" 만 본다. 공개 경로가 하나 <b>늘어나는</b> 것은 잡지
    * 못하는데, 실수는 그쪽으로 난다 — 라우트를 ProtectedRoute 밖에 두는 것은 한 줄이면
@@ -29,7 +29,8 @@ describe('routeAccess — routes.tsx 에서 파생한 접근 조건', () => {
    */
   it('비회원에게 열린 경로는 이 목록이 전부다', () => {
     const EXPECTED_PUBLIC: ReadonlyMap<string, string> = new Map([
-      ['/', '쇼핑몰 랜딩. 비회원이 보는 유일한 서비스 화면이다'],
+      ['/', '쇼핑몰 랜딩. 비회원이 보는 소비자 쇼핑몰 입구'],
+      ['/about', '공개 브랜드 소개. 인증이 필요한 기능 API 없이 자체 콘텐츠와 쇼핑몰 공통 헤더·푸터 사용'],
       ['/login', '인증 흐름'],
       ['/signup', '인증 흐름'],
       ['/signup/consumer', '인증 흐름'],
