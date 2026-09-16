@@ -177,6 +177,8 @@ export function ProductForm({ product, onCreated, onUpdated }: ProductFormProps)
 
   return (
     <form onSubmit={onSubmit} noValidate className="product-form">
+      {/* 왼쪽은 적는 값, 오른쪽은 고르는 이미지. 한 줄로 쌓으면 화면이 넓어도 폰처럼 길다. */}
+      <div className="product-form__fields">
       <Input
         label="제품명"
         placeholder="예: 업사이클 데님 토트백"
@@ -245,6 +247,8 @@ export function ProductForm({ product, onCreated, onUpdated }: ProductFormProps)
         )}
       </div>
 
+      </div>
+
       <ThumbnailField
         preview={preview}
         isUploading={upload.isPending}
@@ -255,34 +259,30 @@ export function ProductForm({ product, onCreated, onUpdated }: ProductFormProps)
         optional={isEdit}
       />
 
+      <div className="product-form__actions">
       {create.isError && <ErrorMessage error={create.error} />}
       {update.isError && <ErrorMessage error={update.error} />}
 
       {isEdit ? (
         // 아무것도 바뀌지 않았으면 서버가 400 을 준다. 눌러 보고 알게 하지 않는다.
-        <Button type="submit" loading={update.isPending} disabled={!hasChanges} fullWidth>
+        <Button type="submit" loading={update.isPending} disabled={!hasChanges}>
           수정 저장
         </Button>
       ) : (
         /* 이미지가 올라가기 전에는 제출할 수 없다 — 서버가 thumbnailUrl 을 필수로 받는다. */
-        <Button type="submit" loading={create.isPending} disabled={storageKey === null} fullWidth>
+        <Button type="submit" loading={create.isPending} disabled={storageKey === null}>
           제품 등록
         </Button>
       )}
 
-      {isEdit ? (
+      {/* 등록 화면에는 안내를 두지 않는다 — 등록 뒤 할 일은 아래 배치 연결이 직접 말한다. */}
+      {isEdit && (
         <p className="product-form__note">
           판매 중에도 가격을 바꿀 수 있습니다. <strong>이미 결제된 주문은 영향받지
           않습니다</strong> — 주문 시점 단가가 그대로 남습니다.
         </p>
-      ) : (
-        /* 등록해도 바로 팔리지 않는다. 이 말을 빼면 사용자는 마켓에서 자기 제품을 찾다가
-           없다고 생각한다. */
-        <p className="product-form__note">
-          등록하면 <strong>판매 준비(DRAFT)</strong> 상태로 저장됩니다. 생산으로 개체가
-          만들어진 뒤 판매를 시작할 수 있습니다.
-        </p>
       )}
+      </div>
     </form>
   )
 }
@@ -361,6 +361,7 @@ export function ProductCreatedSummary({ product }: { product: ProductModel }) {
           <dd>{product.stockQuantity}개</dd>
         </div>
       </dl>
+
     </div>
   )
 }

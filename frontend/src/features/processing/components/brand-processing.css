@@ -36,7 +36,8 @@
 .bp-steps .is-done { color: var(--bp-primary); }
 .bp-steps .is-done > span { background: #e8f2f9; color: var(--bp-primary); }
 
-.bp-grid { display: grid; grid-template-columns: minmax(0, 1fr) 292px; gap: 24px; align-items: start; }
+/* 옆 요약 칸을 걷어내고 본문이 폭을 다 쓴다. */
+.bp-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-items: start; }
 .bp-card { background: #fff; border: 1px solid var(--bp-border); border-radius: 16px; box-shadow: 0 8px 24px rgba(23, 75, 114, .06); }
 .bp-form { padding: 30px; min-width: 0; }
 .bp-section-title { display: flex; gap: 14px; align-items: center; margin-bottom: 28px; }
@@ -78,15 +79,11 @@
 .bp-primary { border-color: var(--bp-primary); background: var(--bp-primary); color: #fff; box-shadow: 0 4px 10px rgba(33, 106, 159, .14); }
 .bp-primary:hover { border-color: var(--bp-primary-dark); background: var(--bp-primary-dark); }
 
-.bp-summary > .bp-card { padding: 24px; }
-.bp-summary h2 { margin: 7px 0 19px; color: var(--bp-primary-dark); font-size: 1.05rem; }
 .bp-summary-list { margin: 0; }
 .bp-summary-list > div { display: flex; justify-content: space-between; gap: 16px; padding: 13px 0; border-bottom: 1px solid #edf0f3; font-size: .72rem; }
 .bp-summary-list > div:last-child { border-bottom: 0; }
 .bp-summary-list dt { flex-shrink: 0; color: #83909f; }
 .bp-summary-list dd { margin: 0; overflow-wrap: anywhere; text-align: right; font-weight: 700; }
-.bp-side-note { display: flex; align-items: flex-start; gap: 7px; margin: 17px 0 0; padding: 0 4px; color: #8b96a3; font-size: .67rem; }
-.bp-side-note svg { flex-shrink: 0; }
 
 .bp-state { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 45px 12px; color: #6c7c8c; text-align: center; }
 .bp-state h3 { margin: 8px 0 0; color: var(--bp-primary-dark); font-size: 1rem; }
@@ -142,8 +139,6 @@
 
 @media (max-width: 860px) {
   .bp-grid { grid-template-columns: minmax(0, 1fr); }
-  .bp-summary { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
-  .bp-summary > .bp-card { grid-row: span 2; }
   .bp-tip { margin-top: 0; }
   .bp-side-note { align-self: start; margin-top: 0; }
 }

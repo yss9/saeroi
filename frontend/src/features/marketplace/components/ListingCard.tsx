@@ -102,10 +102,11 @@ export function ListingCard({ listing, actions, viewer = 'buyer' }: ListingCardP
         <p className="listing-card__total">총 {formatKg(listing.totalQuantity)}</p>
       </div>
 
-      <footer className="listing-card__footer">
-        <span className="listing-card__seller">{listing.sellerName}</span>
-        {actions}
-      </footer>
+      {/*
+        판매자 이름을 적지 않는다. 고르는 기준은 소재·등급·단가·남은 양이고, 서버가 주는
+        이름은 업체명이 아니라 대표자 개인 이름이다 — 목록에 사람 이름을 늘어놓을 이유가 없다.
+      */}
+      {actions && <footer className="listing-card__footer">{actions}</footer>}
     </article>
   )
 }

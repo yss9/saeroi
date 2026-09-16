@@ -72,8 +72,8 @@ afterEach(() => {
 test('Brand가 요청 상세와 접수된 견적을 함께 확인한다', async () => {
   renderPage()
 
-  expect(await screen.findByRole('heading', { name: 'PR-017' })).toBeInTheDocument()
-  expect(screen.getByText('폐데님 원단')).toBeInTheDocument()
+  // 제목이 어느 요청인지 말한다 — 요청 번호는 UUID 라 제목이 될 수 없다.
+  expect(await screen.findByRole('heading', { name: '폐데님 원단' })).toBeInTheDocument()
   expect(screen.getByText('MAT-005')).toBeInTheDocument()
   expect(screen.getByText('데님')).toBeInTheDocument()
   expect(screen.getByText('12,500 g')).toBeInTheDocument()
@@ -83,7 +83,7 @@ test('Brand가 요청 상세와 접수된 견적을 함께 확인한다', async 
   expect(screen.getAllByText('120,000원').length).toBeGreaterThan(0)
   expect(screen.getByText('예상 5일')).toBeInTheDocument()
   expect(screen.getByText('세척 비용이 포함된 견적입니다.')).toBeInTheDocument()
-  expect(screen.getByRole('link', { name: '요청 목록' })).toHaveAttribute('href', '/brand/processing/requests')
+  expect(screen.getByRole('link', { name: '요청 내역' })).toHaveAttribute('href', '/brand/processing/requests')
   expect(apiClient.get).toHaveBeenCalledWith('/v1/processing-requests/17', { signal: expect.any(AbortSignal) })
   expect(apiClient.get).toHaveBeenCalledWith('/v1/processing-requests/17/quotes', { signal: expect.any(AbortSignal) })
 })

@@ -12,14 +12,17 @@ export interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement
   options: readonly SelectOption[]
   /** 선택 전 표시할 항목. 값은 빈 문자열이다. */
   placeholder?: string
+  /** 라벨만으로 부족한 설명. 오류가 있으면 오류가 이 자리를 쓴다 (Input 과 같다). */
+  hint?: string
 }
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select(
-  { label, error, options, placeholder, id, ...rest },
+  { label, error, options, placeholder, hint, id, ...rest },
   ref,
 ) {
   const generatedId = useId()
   const selectId = id ?? generatedId
+  const describedById = error ? `${selectId}-error` : hint ? `${selectId}-hint` : undefined
 
   return (
     <div className="ui-field">
@@ -33,6 +36,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
         id={selectId}
         ref={ref}
         aria-invalid={error ? true : undefined}
+        aria-describedby={describedById}
         className={`ui-field__control${error ? ' ui-field__control--error' : ''}`}
       >
         {placeholder && <option value="">{placeholder}</option>}
@@ -42,11 +46,15 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
           </option>
         ))}
       </select>
-      {error && (
-        <p className="ui-field__error" role="alert">
+      {error ? (
+        <p className="ui-field__error" id={`${selectId}-error`} role="alert">
           {error}
         </p>
-      )}
+      ) : hint ? (
+        <p className="ui-field__hint" id={`${selectId}-hint`}>
+          {hint}
+        </p>
+      ) : null}
     </div>
   )
 })
