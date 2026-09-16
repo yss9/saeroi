@@ -10,11 +10,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.ssafy.upcycle.common.storage.FileStorageService;
 import com.ssafy.upcycle.product.dto.ProductOrderCreateRequest;
 import com.ssafy.upcycle.product.dto.ProductOrderResponse;
 import com.ssafy.upcycle.product.entity.ProductItemStatus;
 import com.ssafy.upcycle.product.entity.ProductModel;
 import com.ssafy.upcycle.product.entity.ProductModelStatus;
+import com.ssafy.upcycle.product.repository.ProductImageRepository;
 import com.ssafy.upcycle.product.repository.ProductItemRepository;
 import com.ssafy.upcycle.product.repository.ProductModelRepository;
 import com.ssafy.upcycle.product.service.ProductOrderCommandService;
@@ -26,9 +28,16 @@ import com.ssafy.upcycle.user.entity.UserRole;
 import com.ssafy.upcycle.user.repository.CompanyProfileRepository;
 import com.ssafy.upcycle.user.repository.ConsumerAddressRepository;
 import com.ssafy.upcycle.user.repository.UserRepository;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.DefaultApplicationArguments;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -48,6 +57,31 @@ class DemoProductCatalogSeederTests {
     private static final List<String> BRAND_KEYS =
             List.of("reweave", "recode", "dusty-miller", "ocean-loop");
 
+    /** 시연 상품 하나당 최종 분류 하나. 어느 2단 메뉴를 눌러도 브랜드마다 하나씩 나온다. */
+    private static final List<String> SHOP_SLOTS = List.of(
+            "TOP", "OUTER", "PANTS", "SKIRT", "DRESS",
+            "TOTE", "SHOULDER", "CROSSBODY", "BACKPACK",
+            "WALLET", "ACCESSORY", "HOME");
+
+    private static final Path STORAGE_ROOT = createStorageRoot();
+
+    /**
+     * 시더가 임시 이미지를 실제로 저장소에 올린다. 기본 저장 루트({@code /app/files})를
+     * 그대로 두면 개발 장비에서 기동 자체가 실패한다.
+     */
+    @DynamicPropertySource
+    static void storageRoot(DynamicPropertyRegistry registry) {
+        registry.add("app.storage.root", STORAGE_ROOT::toString);
+    }
+
+    private static Path createStorageRoot() {
+        try {
+            return Files.createTempDirectory("demo-product-catalog-");
+        } catch (IOException e) {
+            throw new IllegalStateException("임시 저장 루트를 만들 수 없다", e);
+        }
+    }
+
     @Autowired
     private DemoProductCatalogSeeder seeder;
 
@@ -62,6 +96,12 @@ class DemoProductCatalogSeederTests {
 
     @Autowired
     private ProductItemRepository productItemRepository;
+
+    @Autowired
+    private ProductImageRepository productImageRepository;
+
+    @Autowired
+    private FileStorageService fileStorageService;
 
     @Autowired
     private ProductionBatchRepository productionBatchRepository;
@@ -79,10 +119,8 @@ class DemoProductCatalogSeederTests {
     void seedsDedicatedBrandsAndOrderableProducts() {
         List<ProductModel> products = seededProducts();
 
-        assertThat(products).hasSize(5);
+        assertThat(products).hasSize(48);
         assertThat(products).allMatch(model -> model.getStatus() == ProductModelStatus.ON_SALE);
-        assertThat(products).allMatch(model ->
-                model.getThumbnailUrl().startsWith("/images/landing/product-"));
 
         for (ProductModel model : products) {
             assertThat(productItemRepository.countByProductModelIdAndStatus(
@@ -95,17 +133,57 @@ class DemoProductCatalogSeederTests {
         }
     }
 
+    /**
+     * 브랜드 4개가 최종 분류 12개를 하나씩 나눠 갖는다. 이 분포가 깨지면 SHOP 의 어떤 2단
+     * 메뉴는 비고 어떤 메뉴에는 같은 브랜드가 둘 들어간다.
+     */
+    @Test
+    void spreadsProductsAcrossEveryShopSlot() {
+        Map<String, Integer> perSlot = new HashMap<>();
+        for (ProductModel model : seededProducts()) {
+            String slot = model.getSubcategory() == null
+                    ? model.getCategory().name()
+                    : model.getSubcategory().name();
+            perSlot.merge(slot, 1, Integer::sum);
+        }
+
+        assertThat(perSlot).containsOnlyKeys(SHOP_SLOTS.toArray(String[]::new));
+        assertThat(perSlot.values()).allMatch(count -> count == 4);
+
+        for (String brandKey : BRAND_KEYS) {
+            assertThat(productsOf(brandKey)).hasSize(12);
+        }
+    }
+
+    /**
+     * 대표 이미지는 저장소에 실제로 올라간 파일이다. 프론트 정적 경로에 기대면 배포 위치가
+     * 바뀔 때마다 이미지가 통째로 깨지고, 진짜 사진으로 바꿀 경로도 따로 생긴다.
+     */
+    @Test
+    void uploadsPlaceholderThumbnailsToTheFileStorage() {
+        for (ProductModel model : seededProducts()) {
+            assertThat(model.getThumbnailUrl()).doesNotStartWith("/images/");
+            assertThat(fileStorageService.exists(model.getThumbnailUrl())).isTrue();
+            // 임시 이미지 상태에서는 갤러리를 채우지 않는다 — 같은 그림을 여러 칸에
+            // 늘어놓을 이유가 없고, 상세 화면은 대표 이미지 한 장으로 물러선다.
+            assertThat(productImageRepository
+                            .findAllByProductModelIdOrderBySortOrderAsc(model.getId()))
+                    .isEmpty();
+        }
+    }
+
     @Test
     void exposesSeededProductsThroughThePublicCatalog() throws Exception {
-        mockMvc.perform(get("/api/v1/public/product-models").queryParam("size", "20"))
+        mockMvc.perform(get("/api/v1/public/product-models").queryParam("size", "50"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.content.length()").value(5))
+                .andExpect(jsonPath("$.data.totalElements").value(48))
+                .andExpect(jsonPath("$.data.content.length()").value(48))
                 .andExpect(jsonPath("$.data.content[*].status", everyItem(is("ON_SALE"))))
                 .andExpect(jsonPath(
                         "$.data.content[*].brandName", everyItem(not(emptyString()))))
                 .andExpect(jsonPath(
                         "$.data.content[*].thumbnailUrl",
-                        everyItem(startsWith("/images/landing/product-"))));
+                        everyItem(startsWith("/api/v1/public/product-models/"))));
     }
 
     @Test
@@ -113,9 +191,27 @@ class DemoProductCatalogSeederTests {
         seeder.run(new DefaultApplicationArguments(new String[0]));
 
         List<ProductModel> products = seededProducts();
-        assertThat(products).hasSize(5);
-        assertThat(productionBatchRepository.findAll()).hasSize(5);
-        assertThat(productItemRepository.findAll()).hasSize(15);
+        assertThat(products).hasSize(48);
+        assertThat(productionBatchRepository.findAll()).hasSize(48);
+        assertThat(productItemRepository.findAll()).hasSize(48 * 3);
+    }
+
+    /**
+     * 평상시 재기동에서는 이미지를 다시 올리지 않는다. 매번 올리면 저장소에 아무도
+     * 가리키지 않는 파일이 쌓이고 {@code thumbnail_url} 이 기동할 때마다 달라진다.
+     */
+    @Test
+    void keepsThumbnailsUntouchedOnAPlainRestart() {
+        Map<Long, String> before = new HashMap<>();
+        for (ProductModel model : seededProducts()) {
+            before.put(model.getId(), model.getThumbnailUrl());
+        }
+
+        seeder.run(new DefaultApplicationArguments(new String[0]));
+
+        for (ProductModel model : seededProducts()) {
+            assertThat(model.getThumbnailUrl()).isEqualTo(before.get(model.getId()));
+        }
     }
 
     @Test
@@ -143,8 +239,10 @@ class DemoProductCatalogSeederTests {
         assertThat(response.totalPrice()).isEqualTo(product.getPrice());
         assertThat(response.items()).singleElement().satisfies(item -> {
             assertThat(item.productName()).isEqualTo(product.getName());
+            // 시연 상품의 대표 이미지도 저장소 키라, 주문 응답은 브랜드 상품과 똑같이
+            // 썸네일 API 주소를 내려 준다 — 프론트 정적 경로가 섞이지 않는다.
             assertThat(item.imageUrl())
-                    .isEqualTo(product.getThumbnailUrl());
+                    .isEqualTo("/api/v1/product-models/" + product.getId() + "/thumbnail");
         });
         assertThat(productItemRepository.countByProductModelIdAndStatus(
                         product.getId(), ProductItemStatus.IN_STOCK))
@@ -159,14 +257,18 @@ class DemoProductCatalogSeederTests {
     private List<ProductModel> seededProducts() {
         List<ProductModel> products = new ArrayList<>();
         for (String brandKey : BRAND_KEYS) {
-            User brand = userRepository
-                    .findByEmail(DemoProductCatalogSeeder.DEMO_EMAIL_PREFIX
-                            + brandKey
-                            + DemoProductCatalogSeeder.DEMO_EMAIL_DOMAIN)
-                    .orElseThrow();
-            assertThat(companyProfileRepository.findById(brand.getId())).isPresent();
-            products.addAll(productModelRepository.findAllByBrandId(brand.getId()));
+            products.addAll(productsOf(brandKey));
         }
         return products;
+    }
+
+    private List<ProductModel> productsOf(String brandKey) {
+        User brand = userRepository
+                .findByEmail(DemoProductCatalogSeeder.DEMO_EMAIL_PREFIX
+                        + brandKey
+                        + DemoProductCatalogSeeder.DEMO_EMAIL_DOMAIN)
+                .orElseThrow();
+        assertThat(companyProfileRepository.findById(brand.getId())).isPresent();
+        return productModelRepository.findAllByBrandId(brand.getId());
     }
 }

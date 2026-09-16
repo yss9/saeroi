@@ -11,6 +11,10 @@
 #      DB_URL / DB_USERNAME / DB_PASSWORD / JWT_SECRET / KAKAOPAY_SECRET_KEY ...
 #
 spring:
+  main:
+    # 시연 이미지를 java.awt 로 그린다. Boot 기본값이 true 지만, 헤드리스가 아니면
+    # 서버 환경에서 그래픽 장치를 찾다 실패하므로 명시해 둔다.
+    headless: true
   servlet:
     multipart:
       # ⚠️ 기본값은 파일 1MB · 요청 10MB 다. 그대로 두면 휴대폰 사진(3~8MB)이
@@ -47,6 +51,16 @@ app:
     # 각 시연 상품에 처음 한 번 생성할 실제 product_item 수량.
     # 재기동할 때 SOLD 재고를 다시 채우지는 않는다.
     stock-per-product: ${DEMO_PRODUCT_STOCK_PER_PRODUCT:10}
+    # 진짜 상품 사진이 놓인 디렉터리. {image-dir}/{데모 키}/01-main.webp 형태로 읽는다.
+    # 기본값을 두지 않는 것이 중요하다 - 기본 경로를 두면 그 폴더가 우연히 존재하는
+    # 환경에서 의도하지 않은 사진이 시연 상품에 붙고, 로컬마다 경로가 달라 어차피
+    # 아무에게도 맞지 않는다. 비어 있으면 임시 이미지를 만들어 쓴다.
+    image-dir: ${DEMO_PRODUCT_IMAGE_DIR:}
+    # 시연 상품 이미지를 무조건 다시 올린다. 평상시에는 false 여야 한다.
+    # 진짜 사진을 v2 로 교체할 때, 그리고 임시 이미지 규격을 바꿨을 때 한 번 켠다
+    # (규격이 바뀌면 이미 올라간 임시 이미지가 진짜 사진으로 오판되어 영영 교체되지
+    #  않는다 - DemoPlaceholderImageFactory 주석 참고).
+    image-refresh: ${DEMO_PRODUCT_IMAGE_REFRESH:false}
   geocoding:
     kakao:
       # 주소를 WGS84 좌표로 변환할 카카오 REST API 키. 키가 없으면
