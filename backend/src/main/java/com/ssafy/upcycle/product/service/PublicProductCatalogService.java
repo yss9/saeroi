@@ -6,6 +6,7 @@ import com.ssafy.upcycle.product.ProductErrorCode;
 import com.ssafy.upcycle.product.dto.PublicProductModelResponse;
 import com.ssafy.upcycle.product.dto.PublicProductModelSearchCondition;
 import com.ssafy.upcycle.product.entity.ProductCategory;
+import com.ssafy.upcycle.product.entity.ProductImage;
 import com.ssafy.upcycle.product.entity.ProductItemStatus;
 import com.ssafy.upcycle.product.entity.ProductModel;
 import com.ssafy.upcycle.product.entity.ProductModelStatus;
@@ -50,6 +51,7 @@ public class PublicProductCatalogService {
     private final CompanyProfileRepository companyProfileRepository;
     private final UserRepository userRepository;
     private final ProductImageService productImageService;
+    private final ProductModelImageService productModelImageService;
 
     @Transactional(readOnly = true)
     public PageResponse<PublicProductModelResponse> search(
@@ -63,11 +65,15 @@ public class PublicProductCatalogService {
         Map<Long, Long> stocks =
                 productStockQueryRepository.countInStockByProductModelIds(modelIds);
         Map<Long, String> brandNames = brandNames(models.getContent());
+        // 페이지에 실린 제품들의 갤러리를 한 번에 읽는다. 제품마다 부르면 N+1 이다.
+        Map<Long, List<ProductImage>> galleries =
+                productModelImageService.findGalleriesOf(modelIds);
 
         return PageResponse.from(models.map(model -> PublicProductModelResponse.of(
                 model,
                 brandNames.getOrDefault(model.getBrandId(), UNKNOWN_BRAND),
-                stocks.getOrDefault(model.getId(), 0L))));
+                stocks.getOrDefault(model.getId(), 0L),
+                galleries.getOrDefault(model.getId(), List.of()))));
     }
 
     @Transactional(readOnly = true)
@@ -77,7 +83,22 @@ public class PublicProductCatalogService {
                 productModelId, ProductItemStatus.IN_STOCK);
         String brandName = brandNames(List.of(model))
                 .getOrDefault(model.getBrandId(), UNKNOWN_BRAND);
-        return PublicProductModelResponse.of(model, brandName, stock);
+        List<ProductImage> gallery = productModelImageService
+                .findGalleriesOf(List.of(productModelId))
+                .getOrDefault(productModelId, List.of());
+        return PublicProductModelResponse.of(model, brandName, stock, gallery);
+    }
+
+    /**
+     * 소비자에게 보여 줄 갤러리 사진 한 장의 바이트.
+     *
+     * <p>상세와 같은 관문을 지난다 — 판매 중이 아니거나 소비자에게 감추는 분류면 404 다.
+     * 이미지만 열어 두면 목록에서 사라진 제품의 사진이 주소만으로 계속 나간다.
+     */
+    @Transactional(readOnly = true)
+    public FileContent readImage(Long productModelId, Long productImageId) {
+        findOnSaleModel(productModelId);
+        return productModelImageService.readImage(productModelId, productImageId);
     }
 
     @Transactional(readOnly = true)

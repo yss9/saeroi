@@ -614,6 +614,25 @@ CREATE TABLE product_model (
     INDEX idx_product_model_status_category (status, category, subcategory)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+CREATE TABLE product_image (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    product_model_id BIGINT NOT NULL,
+    -- FileStorageService 가 돌려준 저장 키. 화면에 붙일 주소가 아니다 —
+    -- 바이트는 /api/v1/(public/)product-models/{id}/images/{imageId} 가 흘린다.
+    -- product_model.thumbnail_url 과 같은 성격의 값이라 길이도 같다.
+    storage_key VARCHAR(500) NOT NULL,
+    image_type ENUM('MAIN', 'ANGLE', 'DETAIL', 'CONTEXT') NOT NULL,
+    -- 갤러리 안에서의 자리. 0 부터 빈틈없이 이어진다 (교체 요청 배열의 순서).
+    sort_order INT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT pk_product_image PRIMARY KEY (id),
+    -- 같은 제품의 두 사진이 같은 자리를 차지하면 어느 쪽이 먼저인지 답이 없다.
+    -- 이 키가 제품별 조회 정렬도 함께 받친다.
+    CONSTRAINT uk_product_image_model_order UNIQUE (product_model_id, sort_order),
+    CONSTRAINT fk_product_image_model FOREIGN KEY (product_model_id) REFERENCES product_model (id),
+    CONSTRAINT chk_product_image_sort_order CHECK (sort_order >= 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 CREATE TABLE production_batch (
     id BIGINT NOT NULL AUTO_INCREMENT,
     -- ProductionRegistry.createBatch 가 채번한 번호. 이후 submitPlanAndLock ·

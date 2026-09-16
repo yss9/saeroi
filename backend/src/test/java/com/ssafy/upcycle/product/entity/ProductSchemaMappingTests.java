@@ -75,6 +75,7 @@ class ProductSchemaMappingTests {
     private static Stream<Class<?>> productDomainEntities() {
         return Stream.of(
                 ProductModel.class,
+                ProductImage.class,
                 ProductItem.class,
                 ProductOrder.class,
                 ProductOrderItem.class,
@@ -90,6 +91,7 @@ class ProductSchemaMappingTests {
     private static Stream<Arguments> productEnumColumns() {
         return Stream.of(
                 Arguments.of("product_model", "status", ProductModelStatus.class),
+                Arguments.of("product_image", "image_type", ProductImageType.class),
                 Arguments.of("product_item", "status", ProductItemStatus.class),
                 Arguments.of("product_order", "status", ProductOrderStatus.class));
     }
