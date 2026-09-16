@@ -1,11 +1,23 @@
-# 스키마 사고 트러블슈팅 로그
+# 스키마 사고 트러블슈팅 로그 — 해결 완료 (2026-09-16)
 
 `backend`는 `ddl-auto: validate`를 쓴다 — 스키마를 자동으로 만들거나 고쳐주지 않는다.
 엔티티가 기대하는 테이블/컬럼/타입이 DB에 없으면 Hibernate가 기동 단계에서 검증에
-실패하고 컨테이너가 그대로 죽는다. 이 문서는 그 특성 때문에 반복된 배포 사고를
-시간순으로 정리하고, 무엇이 자동화됐고 무엇이 아직 사람 손을 타는지 기록한다.
+실패하고 컨테이너가 그대로 죽는다. 이 문서는 그 특성 때문에 하루 사이 다섯 번 반복된
+배포 사고를 시간순으로 정리하고, 최종적으로 무엇을 자동화했고 무엇을 의도적으로
+수동으로 남겼는지 기록한다.
 
 프로젝트 마무리 시점에 "왜 이런 스크립트/구조가 생겼는지" 되짚어볼 용도로 남긴다.
+
+## 요약 — 지금 상태
+
+- **test 스택**: backend에 스키마 변경(마이그레이션 포함)이 병합되면, 검증부터 DB 적용,
+  배포, 헬스체크까지 **사람 개입 없이 전부 자동**이다. 틀린 마이그레이션은 병합 자체가
+  막힌다.
+- **운영 스택**: DB에는 여전히 사람이 직접 DDL을 적용해야 한다 — **의도적 결정**이다
+  (사용자 트래픽이 있는 상태에서의 락 영향 등, test와 위험 수준이 다르다). 다만 "적용이
+  필요하다는 사실 자체를 깜빡할 위험"은 없앴다 — 배포 스크립트가 이제 자동으로 확인하고
+  필요하면 배포를 막으며 알려준다.
+- 관련 MR: `!376`~`!380` (deploy/master), backend `!377`(마이그레이션 CI 게이트).
 
 ---
 
@@ -23,12 +35,19 @@
 
 ## 사고 타임라인
 
-| 날짜 | 사고 | 원인 | 조치 |
-| --- | --- | --- | --- |
-| 2026-09-07 | EC2 운영 DB가 테이블 0개 | 엔티티 0개 시절엔 `validate`가 통과해 아무도 몰랐다. 엔티티가 15개로 늘자 빈 DB에서 `validate`가 깨짐 | `schema.sql`을 35테이블 일괄 수동 적용. `scripts/check-schema.sh` 최초 작성(테이블·컬럼 이름만 대조) |
-| 2026-09-08 | `backend/master #10` 배포 후 헬스체크 실패 → 롤백 | `blockchain_transaction.tx_hash`가 `schema.sql`엔 `CHAR(66)`인데 엔티티는 `@Column(length=66)`만 선언 → Hibernate는 `VARCHAR(66)`을 기대. **check-schema.sh가 "OK"를 냈던 배포였다** — 컬럼 이름만 보고 타입은 안 봤기 때문 | `check-schema.sh`에 **컬럼 타입 대조** 추가(`a516ac2`). 같은 날 `processing_job.evidence_hash`에서도 동일 유형 발견·수정 |
-| 2026-09-14 | test 스택에서 `user_notification` 테이블 없음으로 backend 기동 실패 | 새 테이블 추가 마이그레이션이 test DB(`cft-mysql`)에 반영 안 된 채 배포됨 | `test-deploy.sh`에 **preflight** 추가(`f2aa01a`) — 배포 전 `check-schema.sh`로 대조하고, "없는 테이블만 있고 컬럼/타입 불일치가 전혀 없는" 안전한 경우에 한해 해당 CREATE TABLE 마이그레이션을 자동 적용. `ALTER`가 섞이면 사람에게 넘긴다 |
-| 2026-09-16 | `cft-backend` 크래시루프 (`missing column [brand_material_lock_id]`) | 두 가지가 겹쳤다 — 아래 "2026-09-16 상세" 참고 | 교정 DDL 수동 적용 + `check-schema.sh` 자체의 fetch 버그 수정 |
+| 날짜 | 사고 | 원인 | 조치 | 상태 |
+| --- | --- | --- | --- | --- |
+| 2026-09-07 | EC2 운영 DB가 테이블 0개 | 엔티티 0개 시절엔 `validate`가 통과해 아무도 몰랐다. 엔티티가 15개로 늘자 빈 DB에서 `validate`가 깨짐 | `schema.sql`을 35테이블 일괄 수동 적용. `scripts/check-schema.sh` 최초 작성(테이블·컬럼 이름만 대조) | 해결 |
+| 2026-09-08 | `backend/master #10` 배포 후 헬스체크 실패 → 롤백 | `blockchain_transaction.tx_hash`가 `schema.sql`엔 `CHAR(66)`인데 엔티티는 `@Column(length=66)`만 선언 → Hibernate는 `VARCHAR(66)`을 기대. **check-schema.sh가 "OK"를 냈던 배포였다** — 컬럼 이름만 보고 타입은 안 봤기 때문 | `check-schema.sh`에 **컬럼 타입 대조** 추가(`a516ac2`). 같은 날 `processing_job.evidence_hash`에서도 동일 유형 발견·수정 | 해결 |
+| 2026-09-14 | test 스택에서 `user_notification` 테이블 없음으로 backend 기동 실패 | 새 테이블 추가 마이그레이션이 test DB(`cft-mysql`)에 반영 안 된 채 배포됨 | `test-deploy.sh`에 **preflight** 추가(`f2aa01a`) — 배포 전 `check-schema.sh`로 대조하고, "없는 테이블만 있고 컬럼/타입 불일치가 전혀 없는" 안전한 경우에 한해 해당 CREATE TABLE 마이그레이션을 자동 적용. `ALTER`가 섞이면 사람에게 넘긴다 | 해결 (이후 확장) |
+| 2026-09-16 ① | `cft-backend` 크래시루프 (`missing column [brand_material_lock_id]`), `check-schema.sh`는 "OK"를 냈는데도 발생 | 마이그레이션 파일의 `status` ENUM에서 `CANCELED` 값 누락(backend 저작 실수) + `check-schema.sh`의 `git fetch \|\| true`가 fetch 실패를 삼켜 예전 커밋 기준으로 false OK를 냄 | test DB에 교정 DDL 수동 적용. `check-schema.sh` fetch를 fatal로 변경(`3e9efb7`) | 해결 |
+| 2026-09-16 ② | ①의 수정 배포 직후 `backend/develop #117`이 fetch 실패로 배포 자체가 막힘 | 일회성 네트워크 blip으로 오판 | fetch 3회 재시도 후 fatal(`1ad7217`) | 해결 (부분적 — 아래 ③ 참고) |
+| 2026-09-16 ③ | 재시도 보강 후에도 Jenkins(`cf-jenkins`)에서 돌리면 fetch가 100% 실패 | `docker-compose.yml`이 `/home/ubuntu/deploy`를 Jenkins에 읽기전용(`:ro`)으로 마운트 — `.git/FETCH_HEAD` 쓰기가 막혀 매번 실패. 호스트 직접 실행은 항상 성공해 "blip"으로 오판하기 쉬웠다 | `/tmp`에 별도 bare 저장소를 만들어 그쪽으로만 fetch(`f690ae8`/`8938faa`). `.git` 자체는 건드리지 않아 `:ro` 경계 유지 | 해결 |
+| 2026-09-16 ④ | 마이그레이션 CI 게이트(MR `!377`) 첫 실행이 인증 오류로 실패 | Jenkins 워크스페이스 shell 스텝엔 GitLab 체크아웃용 인증이 이어지지 않음(`fatal: could not read Username`) | `gitlab-token` credential을 `withCredentials`로 명시적으로 묶음 | 해결 |
+
+**공통 근본 원인**: schema.sql/마이그레이션 정확성을 병합 **전에** 검증하는 장치가
+없었고(①), 그 검증 장치 자체(`check-schema.sh`)의 신뢰성(②③④)도 순서대로 드러났다.
+지금은 둘 다 해결됐다 — 아래 "지금 자동화돼 있는 것" 참고.
 
 ---
 
@@ -135,11 +154,11 @@ Jenkins(`cf-jenkins` 컨테이너)에서 이 스크립트를 돌리면 fetch가 
    git 인증 문제로 한 번 더 걸렸다가(`gitlab-token` credential을 `withCredentials`로
    묶어 해결) 지금은 안정적으로 통과한다.
 
-## 아직 자동화 안 된 것 (다음에 또 터질 수 있는 지점)
+## 의도적으로 자동화하지 않은 것
 
-1. **운영(`cf-mysql`) DDL 적용은 여전히 전적으로 수동이다** — 의도적 결정이다.
-   CI 게이트가 마이그레이션의 정확성은 보장하지만, 운영 DB에 적용하는 시점과 방식
-   (트래픽이 있는 상태에서의 락 영향 등)은 여전히 사람이 판단해야 한다.
+1. **운영(`cf-mysql`) DDL 적용은 여전히 전적으로 수동이다.** CI 게이트가 마이그레이션의
+   정확성은 보장하지만, 운영 DB에 적용하는 시점과 방식(트래픽이 있는 상태에서의 락
+   영향 등)은 test와 위험 수준이 달라 사람이 판단하도록 남겨뒀다.
    **다만 "적용이 필요하다는 사실을 사람이 깜빡할 위험"은 없앴다** — 예전엔
    `deploy-service.sh`(운영 배포)에 `check-schema.sh` 호출 자체가 없어서, README의
    "배포 전에 반드시" 절차를 사람이 기억해야만 사고를 막을 수 있었다. 이제
@@ -147,11 +166,14 @@ Jenkins(`cf-jenkins` 컨테이너)에서 이 스크립트를 돌리면 fetch가 
    자동 적용 없이 **배포 자체를 막고 DDL 적용이 필요하다는 걸 알려준다**(2026-09-16).
    자동 적용이 없으므로 DDL은 여전히 사람이 직접 `cf-mysql`에 적용해야 하지만, "필요한지
    모르고 그냥 배포했다가 크래시·롤백" 시나리오는 막혔다.
-2. **`check-schema.sh`가 보지 않는 항목**(NULL 허용, DEFAULT, 인덱스, 컬럼 순서,
+
+## 남은 사각지대 (다음에 또 터질 수 있는 지점)
+
+1. **`check-schema.sh`가 보지 않는 항목**(NULL 허용, DEFAULT, 인덱스, 컬럼 순서,
    CHARACTER SET/COLLATE)은 의도적 사각지대다. Hibernate `validate`가 실제로 보는
    것만 좁게 잡는다는 원칙은 유지하되, 여기서 또 사고가 나면 "그 사각지대 중 어느
    것이 실제로 validate를 깨뜨리는지" 먼저 확인하고 범위를 넓힐 것.
-3. **CI 게이트를 우회한 커밋**(예: 보호 규칙 없이 직접 push)은 여전히 test 자동 적용
+2. **CI 게이트를 우회한 커밋**(예: 보호 규칙 없이 직접 push)은 여전히 test 자동 적용
    단계에서 걸러지지 않는다 — `test-deploy.sh`는 자동 적용 후 `check-schema.sh`를 한 번
    더 돌려 방어선을 하나 더 두긴 했지만, 애초에 틀린 마이그레이션이 이미 적용된 뒤라
    백업에서 복구해야 한다.
