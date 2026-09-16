@@ -91,7 +91,7 @@ describe('BrandProductList', () => {
     if (productRow === null) throw new Error('제품 행을 찾을 수 없습니다.')
     await user.click(productRow)
 
-    expect(screen.getByLabelText('현재 경로')).toHaveTextContent('/products/31')
+    expect(screen.getByLabelText('현재 경로')).toHaveTextContent('/business/products/31')
   })
 
   it('등록만 된 제품도 보여준다', async () => {

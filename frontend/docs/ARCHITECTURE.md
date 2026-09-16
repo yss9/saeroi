@@ -224,7 +224,7 @@ IDLE → SIGNING → PENDING → CONFIRMED
 | --- | --- |
 | Public | `/`, `/login`, `/materials`, `/marketplace` |
 | **Public (비회원 필수)** | `/qr/:qrToken` |
-| Protected | `/inventory`, `/trades/:tradeId`, `/products` |
+| Protected | `/inventory`, `/trades/:tradeId`, `/business/products`, `/business/products/:productId` |
 | Role별 | `/supplier/*`, `/brand/*`, `/processor/*`, `/admin/*` |
 | 안내 | `/403` (권한 없음), `*` (없는 경로) |
 

@@ -70,7 +70,7 @@ export function ConsumerOrderList({ orders }: { orders: readonly ConsumerRecentO
           title="주문 내역이 없습니다"
           description="새로운 쓰임을 발견하고 첫 주문을 시작해 보세요."
           action={
-            <Link className="consumer-text-link" to="/products">
+            <Link className="consumer-text-link" to="/shop">
               상품 둘러보기
             </Link>
           }

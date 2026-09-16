@@ -105,12 +105,12 @@ export function Header({ isLogoVisible, scrollToneViewportRatio }: HeaderProps) 
 
   function handleCartEntry() {
     if (isAuthenticated) {
-      navigate('/products')
+      navigate('/shop')
       return
     }
 
     navigate('/login', {
-      state: { from: { pathname: `${location.pathname}${location.hash || '#shop'}` } },
+      state: { from: { pathname: `${location.pathname}${location.search}${location.hash || (location.pathname === '/' ? '#shop' : '')}` } },
     })
   }
 

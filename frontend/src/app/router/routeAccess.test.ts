@@ -3,7 +3,7 @@ import { canAccess, getRouteAccess, getRouteAccessMap, isRoleResolving } from '.
 
 describe('routeAccess — routes.tsx 에서 파생한 접근 조건', () => {
   it('공개 경로는 비회원도 볼 수 있다', () => {
-    for (const path of ['/', '/about', '/shop', '/shop/:category', '/shop/:category/:subcategory', '/qr/:qrToken', '/403']) {
+    for (const path of ['/', '/about', '/shop', '/shop/:category', '/shop/:category/:subcategory', '/products/:productId', '/qr/:qrToken', '/403']) {
       const access = getRouteAccess(path)
       expect(access, path).toEqual({ kind: 'public' })
       expect(canAccess(access!, { isAuthenticated: false, role: null }), path).toBe(true)
@@ -29,6 +29,8 @@ describe('routeAccess — routes.tsx 에서 파생한 접근 조건', () => {
    */
   it('비회원에게 열린 경로는 이 목록이 전부다', () => {
     const EXPECTED_PUBLIC: ReadonlyMap<string, string> = new Map([
+      ['/products', '이전 목록 호환 리다이렉트. 목적지는 인증 필요'],
+      ['/products/:productId', '공개 소비자 상품 상세'],
       ['/', '쇼핑몰 랜딩. 비회원이 보는 소비자 쇼핑몰 입구'],
       ['/about', '공개 브랜드 소개. 인증이 필요한 기능 API 없이 자체 콘텐츠와 쇼핑몰 공통 헤더·푸터 사용'],
       ['/shop', '비회원 공개 상품 목록. 공개 카탈로그 API 사용'],
@@ -56,7 +58,7 @@ describe('routeAccess — routes.tsx 에서 파생한 접근 조건', () => {
   // 것을 하므로(발송 / 결제·수령) 역할로 좁히면 한쪽이 자기 거래를 못 본다 — 당사자인지는
   // 서버가 seller_id·buyer_id 로 판단한다.
   it('가드 없는 Protected 경로는 로그인만 요구한다', () => {
-    for (const path of ['/trades/:tradeId', '/products', '/products/:productId']) {
+    for (const path of ['/trades/:tradeId', '/business/products', '/business/products/:productId']) {
       expect(getRouteAccess(path), path).toEqual({ kind: 'auth' })
     }
     expect(canAccess({ kind: 'auth' }, { isAuthenticated: false, role: null })).toBe(false)

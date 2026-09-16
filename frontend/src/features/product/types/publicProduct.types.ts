@@ -3,6 +3,17 @@ import type { ProductCategory, ProductModelStatus } from './product.types.ts'
 export type ProductSubcategory = 'TOP' | 'OUTER' | 'PANTS' | 'SKIRT' | 'DRESS' | 'TOTE' | 'SHOULDER' | 'CROSSBODY' | 'BACKPACK'
 export type PublicProductSort = 'LATEST' | 'PRICE_ASC' | 'PRICE_DESC'
 
+export interface PublicProductImage {
+  productImageId: number
+  url: string
+  type: 'MAIN' | 'ANGLE' | 'DETAIL' | 'CONTEXT'
+  sortOrder: number
+}
+
+export interface PublicProductDetail extends PublicProductModel {
+  images: PublicProductImage[]
+}
+
 /** 소비자 쇼핑몰에 공개되는 판매 상품. */
 export interface PublicProductModel {
   productModelId: number

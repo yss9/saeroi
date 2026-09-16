@@ -32,7 +32,7 @@ export function ProductCard({ product }: ProductCardProps) {
 
   return (
     <li className="product-card">
-      <Link to={`/products/${product.productModelId}`} className="product-card__link">
+      <Link to={`/business/products/${product.productModelId}`} className="product-card__link">
         <div className="product-card__image">
           {thumbnail.url === null ? (
             // 이미지가 없거나 아직 못 받은 상태. 자리를 비워 두면 카드 높이가 흔들린다.
