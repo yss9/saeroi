@@ -45,6 +45,7 @@ class SchemaSqlTests {
             "processing_output",
             "processing_signature_challenge",
             "product_model",
+            "product_image",
             "production_batch",
             "production_input",
             "production_output",
