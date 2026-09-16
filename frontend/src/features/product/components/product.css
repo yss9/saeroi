@@ -5,11 +5,38 @@
  * 않는다.
  */
 
+/*
+ * 두 칸으로 편다. 한 줄로 쌓으면 화면이 넓은데도 폰처럼 길어져, 등록 버튼이 스크롤
+ * 한참 아래에 숨는다. 왼쪽은 적는 값(이름·분류·가격·설명), 오른쪽은 고르는 이미지다.
+ */
 .product-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 21rem);
+  align-items: start;
+  gap: 0 2rem;
+}
+
+.product-form__fields {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  max-width: 32rem;
+}
+
+/* 버튼과 안내는 칸이 아니라 줄이다. 버튼은 오른쪽 끝에 세운다. */
+.product-form__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: end;
+  grid-column: 1 / -1;
+  margin-top: 0.5rem;
+}
+
+.product-form__actions > .ui-error { width: 100%; }
+.product-form__actions > .product-form__note { width: 100%; }
+
+@media (max-width: 62rem) {
+  .product-form { grid-template-columns: minmax(0, 1fr); }
+  .product-form__actions { align-items: stretch; }
 }
 
 /* 설명은 여러 줄이다. 공통 Input 은 한 줄 입력이라 여기서만 textarea 를 쓴다. */
@@ -24,8 +51,9 @@
 .product-form__description:focus-visible { outline: 2px solid #1f6f4a; outline-offset: 1px; }
 .product-form__description[aria-invalid="true"] { border-color: #b42318; }
 
+/* 오른쪽 칸. 설명 상자와 나란히 서서 첫 줄부터 시작한다. */
 .product-form__thumbnail {
-  margin: 0.5rem 0 1rem;
+  margin: 0;
   padding: 0.9rem 1rem;
   border: 1px solid #ddd9cd;
   border-radius: 8px;
@@ -72,6 +100,16 @@
 .product-form__created dl > div { display: flex; justify-content: space-between; gap: 1rem; }
 .product-form__created dt { color: #6b7280; font-size: 0.875rem; }
 .product-form__created dd { margin: 0; font-variant-numeric: tabular-nums; }
+
+/* 다음 걸음. 요약과 선 하나로 갈라 "끝" 이 아니라 "다음" 으로 읽히게 한다. */
+.product-form__created-next {
+  margin: 0.9rem 0 0;
+  padding-top: 0.75rem;
+  border-top: 1px solid #b7d9c4;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: #3f5748;
+}
 
 /* ── 제품 상세 ───────────────────────────────────────── */
 

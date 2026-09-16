@@ -238,6 +238,36 @@ describe('BrandProductList', () => {
     expect(screen.queryByRole('link', { name: 'QR 라벨 보기' })).not.toBeInTheDocument()
   })
 
+  // 등록만 한 제품은 재고가 0 이라 판매를 시작할 수 없는데, 그 0 을 채우는 일이 다른
+  // 화면에 있어 "등록했는데 왜 못 파는가" 로 읽혔다.
+  it('생산 전 제품은 생산으로 가는 길을 준다', async () => {
+    api.getMyProductModels.mockResolvedValue([product({ status: 'DRAFT', stockQuantity: 0 })])
+    renderList()
+
+    expect(await screen.findByRole('link', { name: '생산하기' })).toHaveAttribute(
+      'href',
+      '/brand/production',
+    )
+  })
+
+  it('재고가 있는 제품에는 추가 생산으로 적는다', async () => {
+    api.getMyProductModels.mockResolvedValue([product({ status: 'ON_SALE', stockQuantity: 4 })])
+    renderList()
+
+    expect(await screen.findByRole('link', { name: '추가 생산' })).toBeInTheDocument()
+  })
+
+  // 만들어도 팔 수 없다. 서버가 단종된 제품의 판매 재개를 거절한다.
+  it('단종된 제품에는 생산 링크를 두지 않는다', async () => {
+    api.getMyProductModels.mockResolvedValue([
+      product({ status: 'DISCONTINUED', stockQuantity: 0 }),
+    ])
+    renderList()
+
+    await screen.findByText('업사이클 데님 토트백')
+    expect(screen.queryByRole('link', { name: /생산/ })).not.toBeInTheDocument()
+  })
+
   // 이미 만들어진 개체의 라벨은 여전히 유효하다 — 긁힌 라벨을 다시 인쇄해야 할 수 있다.
   it('단종된 제품의 라벨은 계속 볼 수 있다', async () => {
     api.getMyProductModels.mockResolvedValue([

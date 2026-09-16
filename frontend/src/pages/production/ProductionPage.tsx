@@ -8,6 +8,8 @@ import { ProductionBatchList } from '../../features/production/components/Produc
  * 배치를 열고, 작성 중인 배치를 이어서 하러 오는 화면이다. 소재 투입과 확정은 배치 상세
  * (`/brand/production/:batchId`)에서 한다 — 투입은 배치 하나에 속하는 일이라 목록 화면에
  * 두면 어느 배치에 담는지가 흐려진다.
+ *
+ * 무엇을 만들지(완성 제품)도 상세에서 정한다 — 서버가 확정 전까지만 요구한다.
  */
 export function ProductionPage() {
   const navigate = useNavigate()

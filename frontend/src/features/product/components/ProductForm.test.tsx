@@ -212,11 +212,11 @@ describe('ProductForm', () => {
 
   // 등록 결과는 언제나 DRAFT·재고 0 이다. 이 말을 빼면 사용자는 마켓에서 자기 제품을
   // 찾다가 없다고 생각한다.
-  it('등록이 판매 시작이 아니라는 것을 알린다', () => {
+  // 등록 뒤 할 일(배치 연결)은 등록 화면이 직접 보여준다 — 폼이 미리 설명하지 않는다.
+  it('등록 폼에는 안내 문구를 두지 않는다', () => {
     renderForm()
 
-    expect(screen.getByText(/판매 준비\(DRAFT\)/)).toBeInTheDocument()
-    expect(screen.getByText(/생산으로 개체가 만들어진 뒤/)).toBeInTheDocument()
+    expect(screen.queryByText(/판매 준비\(DRAFT\)/)).not.toBeInTheDocument()
   })
 
   describe('수정 모드', () => {
