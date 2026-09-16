@@ -93,12 +93,22 @@ if [ -n "${SCHEMA_FILE:-}" ]; then
     SCHEMA_SQL="$(cat "$SCHEMA_FILE")"
     SCHEMA_ORIGIN="$SCHEMA_FILE (SCHEMA_FILE)"
 else
-    git fetch -q origin "${SCHEMA_REF#origin/}" 2>/dev/null || true
+    # 2026-09-16 실사고: 이 fetch 가 실패해도 `|| true` 로 삼켜지면, 이후 git show 는
+    # 로컬에 남아 있던 "예전" origin/backend/develop 커밋을 그대로 기준으로 삼는다.
+    # 그 커밋이 아직 새 컬럼/ENUM 을 요구하지 않던 시점이면 이 스크립트가 "OK" 를
+    # 내면서도 실제로는 방금 머지된 최신 커밋(Jenkins 가 실제로 빌드한 커밋)과 다른
+    # 기준으로 검증한 것이 된다 — false OK. fetch 실패는 반드시 여기서 막는다.
+    if ! git fetch -q origin "${SCHEMA_REF#origin/}" 2>/dev/null; then
+        fail "origin 에서 ${SCHEMA_REF#origin/} 를 fetch 하지 못했다 — 네트워크/GitLab 확인 후 재시도할 것."
+        fail "(fetch 실패를 무시하고 진행하면 오래된 로컬 캐시 기준으로 잘못된 OK 를 낼 수 있다 — 2026-09-16 실사고)"
+        exit 2
+    fi
     SCHEMA_SQL="$(git show "$SCHEMA_REF:$SCHEMA_PATH" 2>/dev/null)" || {
         fail "$SCHEMA_REF:$SCHEMA_PATH 를 읽을 수 없다. 'git fetch origin' 후 다시 시도할 것"
         exit 2
     }
     SCHEMA_ORIGIN="$SCHEMA_REF"
+    log "기준 커밋   : $(git rev-parse "$SCHEMA_REF" 2>/dev/null)"
 fi
 
 # 비밀번호는 MYSQL_PWD 로 넘긴다. -p<암호> 는 컨테이너 프로세스 목록에 그대로 노출된다.
