@@ -176,6 +176,55 @@
       },
       {
         "indexed": true,
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "oldLockId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "newLockId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "from",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      }
+    ],
+    "name": "ProcessingInputCustodyTransferred",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "jobId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
         "internalType": "address",
         "name": "processor",
         "type": "address"
@@ -318,6 +367,43 @@
         "type": "address"
       },
       {
+        "indexed": true,
+        "internalType": "address",
+        "name": "brand",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "evidenceHash",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "occurredAt",
+        "type": "uint256"
+      }
+    ],
+    "name": "ProcessingRejectedInputReturned",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "jobId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "processor",
+        "type": "address"
+      },
+      {
         "indexed": false,
         "internalType": "bytes32",
         "name": "evidenceHash",
@@ -337,6 +423,37 @@
       }
     ],
     "name": "ProcessingResultSubmitted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "jobId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "processor",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "evidenceHash",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "occurredAt",
+        "type": "uint256"
+      }
+    ],
+    "name": "ProcessingReturnShipped",
     "type": "event"
   },
   {
@@ -594,7 +711,12 @@
           },
           {
             "internalType": "uint256",
-            "name": "lockId",
+            "name": "brandLockId",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "processorLockId",
             "type": "uint256"
           },
           {
@@ -641,6 +763,11 @@
           {
             "internalType": "bytes32",
             "name": "resultEvidenceHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "returnShippingEvidenceHash",
             "type": "bytes32"
           },
           {
@@ -830,6 +957,24 @@
         "type": "bytes32"
       }
     ],
+    "name": "markReturnShipped",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "jobId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "evidenceHash",
+        "type": "bytes32"
+      }
+    ],
     "name": "markShipped",
     "outputs": [],
     "stateMutability": "nonpayable",
@@ -939,6 +1084,24 @@
       }
     ],
     "name": "renounceRole",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "jobId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "evidenceHash",
+        "type": "bytes32"
+      }
+    ],
+    "name": "returnRejectedInput",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

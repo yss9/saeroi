@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { ethers } from "hardhat";
+import { ethers, network } from "hardhat";
 
 const hash = (value: string) => ethers.keccak256(ethers.toUtf8Bytes(value));
 
@@ -45,6 +45,7 @@ describe("Processing/Production 통합", function () {
       hash("processing-result")
     );
 
+    await processing.connect(processor).markReturnShipped(1, hash("return-shipping"));
     await expect(processing.connect(brand).approveProcessingResult(1)).to.emit(processing, "ProcessingApproved");
     expect((await processing.getJob(1)).status).to.equal(7);
     expect(await token.balanceOf(brand.address, 1)).to.equal(0);
@@ -56,7 +57,55 @@ describe("Processing/Production 통합", function () {
     await expect(processing.connect(brand).approveProcessingResult(1)).to.be.revertedWith("Processing: invalid status");
   });
 
-  it("출력 수량 초과를 막고 반려 시 입력 잠금을 해제한다", async function () {
+  it("Brand와 Processor 잠금 ID 및 반환 배송 증빙을 Job에 함께 보존한다", async function () {
+    const { brand, processor, processing } = await fixture();
+    await processing.connect(brand).createJob(processor.address, [1], [20_000], [0]);
+    await processing.connect(processor).acceptJob(1);
+    await processing.connect(brand).markShipped(1, hash("shipping"));
+
+    const beforeReceipt = (await processing.getInputs(1))[0];
+    expect(beforeReceipt.brandLockId).to.be.greaterThan(0);
+    expect(beforeReceipt.processorLockId).to.equal(0);
+
+    await processing.connect(processor).confirmReceipt(1);
+    const afterReceipt = (await processing.getInputs(1))[0];
+    expect(afterReceipt.brandLockId).to.equal(beforeReceipt.brandLockId);
+    expect(afterReceipt.processorLockId).to.be.greaterThan(0);
+
+    await processing.connect(processor).startProcessing(1);
+    await processing.connect(processor).submitProcessingResult(
+      1, [0], [19_000], [1], ["ipfs://output"], [hash("output")], hash("result")
+    );
+    const returnEvidenceHash = hash("return-shipping");
+    await processing.connect(processor).markReturnShipped(1, returnEvidenceHash);
+    const job = await processing.getJob(1);
+    expect(job.returnShippingEvidenceHash).to.equal(returnEvidenceHash);
+    expect(job.status).to.equal(11);
+  });
+
+  it("Processor 수령 확인 시 Brand의 잠긴 입력 토큰을 Processor에게 이전하고 다시 잠근다", async function () {
+    const { brand, processor, token, processing } = await fixture();
+    await processing.connect(brand).createJob(processor.address, [1], [20_000], [0]);
+    await processing.connect(processor).acceptJob(1);
+    await processing.connect(brand).markShipped(1, hash("shipping"));
+
+    const brandLockId = (await processing.getInputs(1))[0].brandLockId;
+    await expect(processing.connect(processor).confirmReceipt(1))
+      .to.emit(processing, "ProcessingInputCustodyTransferred");
+
+    const input = (await processing.getInputs(1))[0];
+    expect(input.brandLockId).to.equal(brandLockId);
+    expect(input.processorLockId).not.to.equal(0);
+    expect(await token.balanceOf(brand.address, 1)).to.equal(0);
+    expect(await token.balanceOf(processor.address, 1)).to.equal(20_000);
+    expect(await token.availableBalance(processor.address, 1)).to.equal(0);
+    expect((await token.materialLockInfo(brandLockId)).status).to.equal(3);
+    const processorLock = await token.materialLockInfo(input.processorLockId);
+    expect(processorLock.owner).to.equal(processor.address);
+    expect(processorLock.remainingAmount).to.equal(20_000);
+  });
+
+  it("출력 수량 초과를 막고 반려 시 Processor 입력 잠금을 유지한다", async function () {
     const { brand, processor, token, processing } = await fixture();
     await processing.connect(brand).createJob(processor.address, [1], [20_000], [0]);
     await processing.connect(processor).acceptJob(1);
@@ -67,6 +116,57 @@ describe("Processing/Production 통합", function () {
       .to.be.revertedWith("Processing: output exceeds input");
     await processing.connect(processor).submitProcessingResult(1, [0], [18_000], [1], ["ipfs://ok"], [hash("ok")], hash("result"));
     await processing.connect(brand).rejectProcessingResult(1);
+    expect(await token.balanceOf(processor.address, 1)).to.equal(20_000);
+    expect(await token.availableBalance(processor.address, 1)).to.equal(0);
+    await processing.connect(processor).submitProcessingResult(
+      1, [0], [19_000], [1], ["ipfs://retry"], [hash("retry")], hash("retry-result")
+    );
+    await processing.connect(processor).markReturnShipped(1, hash("return-shipping"));
+    await expect(processing.connect(brand).rejectProcessingResult(1)).to.be.revertedWith(
+      "Processing: invalid status"
+    );
+  });
+
+  it("Processor 입력 잠금이 ACTIVE가 아니면 결과 반환 발송을 거부한다", async function () {
+    const { admin, brand, processor, token, processing } = await fixture();
+    await processing.connect(brand).createJob(processor.address, [1], [20_000], [0]);
+    await processing.connect(processor).acceptJob(1);
+    await processing.connect(brand).markShipped(1, hash("shipping"));
+    await processing.connect(processor).confirmReceipt(1);
+    await processing.connect(processor).startProcessing(1);
+    await processing.connect(processor).submitProcessingResult(
+      1, [0], [18_000], [1], ["ipfs://output"], [hash("output")], hash("result")
+    );
+
+    const processorLockId = (await processing.getInputs(1))[0].processorLockId;
+    const processingAddress = await processing.getAddress();
+    await network.provider.send("hardhat_setBalance", [processingAddress, "0xDE0B6B3A7640000"]);
+    const registrySigner = await ethers.getImpersonatedSigner(processingAddress);
+    await token.connect(registrySigner).releaseMaterialLock(processorLockId, 20_000);
+
+    await expect(
+      processing.connect(processor).markReturnShipped(1, hash("return-shipping"))
+    ).to.be.revertedWith("Processing: processor lock is not active");
+  });
+
+  it("반려된 작업은 Processor가 원소재를 Brand에게 반환하고 종료할 수 있다", async function () {
+    const { brand, processor, token, processing } = await fixture();
+    await processing.connect(brand).createJob(processor.address, [1], [20_000], [0]);
+    await processing.connect(processor).acceptJob(1);
+    await processing.connect(brand).markShipped(1, hash("shipping"));
+    await processing.connect(processor).confirmReceipt(1);
+    await processing.connect(processor).startProcessing(1);
+    await processing.connect(processor).submitProcessingResult(
+      1, [0], [18_000], [1], ["ipfs://output"], [hash("output")], hash("result")
+    );
+    await processing.connect(brand).rejectProcessingResult(1);
+
+    await expect(processing.connect(processor).returnRejectedInput(1, hash("rejected-return")))
+      .to.emit(processing, "ProcessingRejectedInputReturned");
+
+    expect((await processing.getJob(1)).status).to.equal(12);
+    expect(await token.balanceOf(processor.address, 1)).to.equal(0);
+    expect(await token.balanceOf(brand.address, 1)).to.equal(20_000);
     expect(await token.availableBalance(brand.address, 1)).to.equal(20_000);
   });
 
@@ -81,6 +181,7 @@ describe("Processing/Production 통합", function () {
       1, [0, 1], [18_000, 9_000], [1, 2], ["ipfs://waste-output", "ipfs://virgin-output"],
       [hash("waste-output"), hash("virgin-output")], hash("result")
     );
+    await processing.connect(processor).markReturnShipped(1, hash("return-shipping"));
     await processing.connect(brand).approveProcessingResult(1);
     expect((await token.materialInfo(3)).rootOrigin).to.equal(1);
     expect((await token.materialInfo(4)).rootOrigin).to.equal(0);
@@ -184,6 +285,7 @@ describe("Processing/Production 통합", function () {
     await processing.connect(processor).submitProcessingResult(
       1, [0], [10_000], [1], ["ipfs://processed-waste"], [hash("processed-waste")], hash("result")
     );
+    await processing.connect(processor).markReturnShipped(1, hash("return-shipping"));
     await processing.connect(brand).approveProcessingResult(1);
 
     await production.connect(brand).createBatch(1);
