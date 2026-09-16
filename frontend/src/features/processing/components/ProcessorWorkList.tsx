@@ -21,7 +21,7 @@ const filters: Array<{ value: WorkView; label: string }> = [
   { value: 'jobs', label: '가공 작업' },
 ]
 const requestStatusLabel: Record<ProcessingRequestStatus, string> = {
-  QUOTING: '견적 대기', SELECTED: '선택 완료', CANCELED: '취소', REJECTED: '거절', EXPIRED: '만료',
+  QUOTING: '견적 대기', SELECTED: '견적 수락', CANCELED: '취소', REJECTED: '거절', EXPIRED: '만료',
 }
 const jobStatusLabel: Record<ProcessingJobStatus, string> = {
   CREATED: '결제 대기', PAID: '발송 대기', SHIPPED: '수령 대기', RECEIVED: '가공 시작 대기',
