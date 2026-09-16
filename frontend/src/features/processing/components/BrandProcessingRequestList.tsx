@@ -41,10 +41,7 @@ export function BrandProcessingRequestList() {
   return (
     <section className="br-list">
       <header className="br-list__heading">
-        <div>
-          <span>PROCESSING REQUESTS</span>
-          <h1>가공 요청 내역</h1>
-        </div>
+        <h1 className="ui-visually-hidden">가공 요청 내역</h1>
         <Link to="/brand/processing"><Plus aria-hidden="true" />새 가공 신청</Link>
       </header>
 

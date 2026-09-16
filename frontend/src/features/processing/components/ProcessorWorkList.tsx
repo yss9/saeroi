@@ -52,7 +52,7 @@ export function ProcessorWorkList() {
 
   return <section className="pw-shell">
     <header className="pw-heading">
-      <div><span>PROCESSING</span><h1>가공 업무</h1></div>
+      <h1 className="ui-visually-hidden">가공 업무</h1>
       <Factory size={30} weight="duotone" />
     </header>
 

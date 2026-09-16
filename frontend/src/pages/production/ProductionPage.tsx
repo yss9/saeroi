@@ -14,9 +14,7 @@ export function ProductionPage() {
 
   return (
     <main className="page">
-      <header className="page__header">
-        <h1>제품 생산</h1>
-      </header>
+      <h1 className="ui-visually-hidden">제품 생산</h1>
 
       <section className="page__section">
         <h2>배치 열기</h2>

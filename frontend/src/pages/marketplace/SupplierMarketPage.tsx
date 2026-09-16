@@ -61,9 +61,7 @@ export function SupplierMarketPage() {
 
   return (
     <main className="page">
-        <header className="page__header">
-          <h1>내 판매 관리</h1>
-        </header>
+        <h1 className="ui-visually-hidden">내 판매 관리</h1>
 
       <section className="page__section">
         <h2>판매 등록</h2>
@@ -96,6 +94,7 @@ export function SupplierMarketPage() {
         <ListingList
           params={{ sellerId, page }}
           onPageChange={setPage}
+          viewer="seller"
           emptyTitle="등록한 판매글이 없습니다"
           emptyDescription="위에서 보유 소재를 판매 등록할 수 있습니다."
           renderActions={(listing) =>

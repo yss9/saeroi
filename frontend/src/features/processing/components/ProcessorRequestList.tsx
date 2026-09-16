@@ -28,7 +28,7 @@ export function ProcessorRequestList() {
 
   return <div className="pr-shell pr-shell--embedded">
       <div className="pr-content">
-        <div className="pr-heading"><div><span>PROCESSING REQUESTS</span><h1>견적 요청</h1></div><div className="pr-heading-icon"><FileText size={28} weight="duotone" /></div></div>
+        <div className="pr-heading"><h1 className="ui-visually-hidden">견적 요청</h1><div className="pr-heading-icon"><FileText size={28} weight="duotone" /></div></div>
         <section className="pr-summary" aria-label="요청 현황">
           <article><span>조회 결과</span><strong>{requests.data?.total ?? 0}<small>건</small></strong><p>현재 조건에 맞는 요청</p></article>
           <article><span>현재 페이지 · 견적 대기</span><strong>{requests.data?.items.filter(item => item.status === 'QUOTING').length ?? 0}<small>건</small></strong><p>견적 검토가 필요해요</p></article>

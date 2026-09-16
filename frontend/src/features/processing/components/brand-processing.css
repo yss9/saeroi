@@ -180,3 +180,6 @@
   .bp-form-footer .bp-button { flex: 1; }
   .bp-results-count > span { display: none; }
 }
+
+/* 제목을 감춘 뒤 이 줄에 남는 것은 오른쪽 요소뿐이다 — space-between 이면 왼쪽으로 끌려간다. */
+.bp-page-heading { justify-content: flex-end; }
