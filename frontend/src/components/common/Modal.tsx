@@ -49,7 +49,7 @@ export function Modal({ open, onClose, title, children, footer, dismissible = tr
             {title}
           </h2>
           {dismissible && (
-            <button className="ui-modal__close" onClick={onClose} aria-label="닫기">
+            <button type="button" className="ui-modal__close" onClick={onClose} aria-label="닫기">
               ×
             </button>
           )}

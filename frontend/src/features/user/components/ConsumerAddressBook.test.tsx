@@ -168,17 +168,6 @@ describe('ConsumerAddressBook', () => {
     })
   })
 
-  it('수정 폼은 지금 값으로 채워져 있다', async () => {
-    const user = renderBook()
-    await screen.findByText('집')
-
-    await user.click(screen.getByRole('button', { name: '수정' }))
-
-    expect(screen.getByRole('heading', { name: '배송지 수정' })).toBeInTheDocument()
-    expect(screen.getByLabelText('배송지 이름')).toHaveValue('집')
-    expect(screen.getByLabelText('상세 주소')).toHaveValue('101동 1004호')
-  })
-
   // 주소를 다 적고 저장을 눌러야 한계를 알게 되면 그 입력이 통째로 헛수고다.
   it('20건이 차면 추가 버튼 대신 이유를 보여준다', async () => {
     api.getConsumerAddresses.mockResolvedValue(

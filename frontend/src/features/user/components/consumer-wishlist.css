@@ -1,0 +1,138 @@
+/* 찜한 상품 / 최근 본 상품 카드의 추가 액션(장바구니 담기 목업) 및 카드 레이아웃 오버라이드.
+   장바구니 기능은 아직 없어 로컬 상태로만 "담았습니다" 를 보여준다. */
+
+/* 썸네일 + 텍스트를 하나의 카드로 통일한다 (consumer-mypage.css 의 기본 그리드/썸네일
+   정의는 그대로 두고, 카드 전체에 테두리를 씌우는 부분만 여기서 덧씌운다). */
+.consumer-wishlist-card {
+  padding: 12px;
+  border: 1px solid var(--consumer-line);
+  border-radius: 14px;
+  background: var(--consumer-cream-soft);
+}
+
+.consumer-wishlist-card__thumbnail {
+  margin-bottom: 10px;
+}
+
+.consumer-wishlist-card__body {
+  display: flex;
+  flex-direction: column;
+}
+
+.consumer-wishlist-card__price-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.consumer-wishlist-card__price-row .consumer-wishlist-card__price {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.consumer-mock-cart-action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  min-width: 0;
+}
+
+.consumer-mock-cart-action .ui-button {
+  white-space: nowrap;
+}
+
+.consumer-mock-cart-message {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--consumer-blue);
+  white-space: nowrap;
+  text-align: center;
+}
+
+/* X 삭제 버튼 (예전엔 하트 찜 해제 버튼이었다) */
+.consumer-wishlist-card__unlike {
+  color: var(--consumer-muted);
+}
+
+.consumer-wishlist-card__unlike svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* 최근 본 상품: 썸네일 + 텍스트를 하나의 카드로 통일하고, 가로 스크롤 대신
+   찜한 상품과 같이 한 줄에 3개씩 보이는 반응형 그리드로 바꾼다. */
+.consumer-recently-viewed-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  overflow-x: visible;
+  padding-bottom: 0;
+}
+
+.consumer-recently-viewed-card {
+  flex: initial;
+  padding: 14px;
+  border: 1px solid var(--consumer-line);
+  border-radius: 14px;
+  background: var(--consumer-cream-soft);
+}
+
+.consumer-recently-viewed-card__thumbnail {
+  width: 100%;
+  height: 220px;
+  margin-bottom: 12px;
+}
+
+.consumer-recently-viewed-card__body {
+  display: flex;
+  flex-direction: column;
+}
+
+.consumer-recently-viewed-card h3 {
+  white-space: normal;
+}
+
+.consumer-recently-viewed-card__price-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.consumer-recently-viewed-card__price-row .consumer-recently-viewed-card__price {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+@media (max-width: 900px) {
+  .consumer-recently-viewed-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 680px) {
+  .consumer-recently-viewed-row {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+
+  .consumer-recently-viewed-card__thumbnail {
+    height: 160px;
+  }
+
+  .consumer-wishlist-card__price-row,
+  .consumer-recently-viewed-card__price-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .consumer-mock-cart-action {
+    align-items: stretch;
+  }
+}

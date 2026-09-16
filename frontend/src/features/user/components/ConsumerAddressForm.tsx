@@ -4,12 +4,10 @@ import { useForm } from 'react-hook-form'
 import { Button, ErrorMessage, Input } from '../../../components/common/index.ts'
 import { openKakaoPostcode } from '../../../utils/kakaoPostcode.ts'
 import { formatPhoneNumber, MOBILE_PHONE_PATTERN } from '../../../utils/phone.ts'
-import type { ConsumerAddress, ConsumerAddressRequest } from '../types/consumerAddress.types.ts'
+import type { ConsumerAddressRequest } from '../types/consumerAddress.types.ts'
 import './consumer-address.css'
 
 export interface ConsumerAddressFormProps {
-  /** 수정할 배송지. 없으면 새로 등록한다 */
-  address?: ConsumerAddress
   onSubmit: (request: ConsumerAddressRequest) => void
   onCancel: () => void
   isSubmitting?: boolean
@@ -17,10 +15,7 @@ export interface ConsumerAddressFormProps {
 }
 
 /**
- * 배송지 입력.
- *
- * **등록과 수정이 같은 폼이다.** 서버도 두 경로가 같은 본문을 받는다 — 화면을 나누면
- * 한쪽에만 검증이 붙는 일이 생긴다.
+ * 배송지 입력. 새 배송지 등록에만 쓴다 — 수정은 없다.
  *
  * 우편번호와 주소는 **검색으로만** 채운다. 가입 화면과 같은 판단이다 — 택배 송장에
  * 인쇄될 값이라 오타가 그대로 배송 사고가 되고, 우편번호와 주소가 서로 다른 곳을
@@ -30,7 +25,6 @@ export interface ConsumerAddressFormProps {
  * 고치다가 기본이 조용히 옮겨 가면 사용자는 모른 채 다른 곳으로 물건을 받는다.
  */
 export function ConsumerAddressForm({
-  address,
   onSubmit,
   onCancel,
   isSubmitting = false,
@@ -46,13 +40,12 @@ export function ConsumerAddressForm({
     formState: { errors },
   } = useForm<ConsumerAddressRequest>({
     defaultValues: {
-      alias: address?.alias ?? '',
-      receiverName: address?.receiverName ?? '',
-      receiverPhone: address?.receiverPhone ?? '',
-      zipCode: address?.zipCode ?? '',
-      address: address?.address ?? '',
-      // 서버가 빈 값을 저장하지 않아 null 로 온다. 폼은 빈 문자열을 다룬다.
-      addressDetail: address?.addressDetail ?? '',
+      alias: '',
+      receiverName: '',
+      receiverPhone: '',
+      zipCode: '',
+      address: '',
+      addressDetail: '',
     },
   })
 
@@ -171,7 +164,7 @@ export function ConsumerAddressForm({
           취소
         </Button>
         <Button type="submit" loading={isSubmitting}>
-          {address ? '수정' : '등록'}
+          등록
         </Button>
       </div>
     </form>

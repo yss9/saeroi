@@ -32,6 +32,13 @@ const NOT_IN_MENU: ReadonlyMap<string, string> = new Map([
   ['/products', '소비자가 옷을 사는 화면. 쇼핑 머리말의 "쇼핑" 으로 들어간다 — 사업자 사이드바에 둘 자리가 아니다'],
   ['/mypage/orders', '주문 내역. 마이페이지 사이드바에서 들어간다'],
   ['/mypage/addresses', '배송지 관리. 마이페이지의 기본 배송지 카드에서 들어간다'],
+  ['/mypage/cancellations', '마이페이지 사이드바(My쇼핑)에서 들어간다'],
+  ['/mypage/wishlist', '마이페이지 사이드바(My쇼핑)에서 들어간다'],
+  ['/mypage/recently-viewed', '마이페이지 사이드바(My쇼핑)에서 들어간다'],
+  ['/mypage/inquiries/new', '마이페이지 사이드바(My활동)에서 들어간다'],
+  ['/mypage/inquiries', '마이페이지 사이드바(My활동)에서 들어간다'],
+  ['/mypage/reviews', '마이페이지 사이드바(My활동)에서 들어간다'],
+  ['/mypage/profile', '마이페이지 사이드바(My정보)에서 들어간다'],
 ])
 
 /** 상세·콜백처럼 목록에서 눌러 들어가는 경로는 메뉴에 둘 대상이 아니다. */

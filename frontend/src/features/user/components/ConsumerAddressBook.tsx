@@ -16,8 +16,8 @@ import {
 import { ConsumerAddressForm } from './ConsumerAddressForm.tsx'
 import './consumer-address.css'
 
-/** 지금 화면이 무엇을 하고 있는가. 목록·등록·수정이 같은 자리를 쓴다. */
-type Mode = { kind: 'list' } | { kind: 'add' } | { kind: 'edit'; address: ConsumerAddress }
+/** 지금 화면이 무엇을 하고 있는가. 목록·등록이 같은 자리를 쓴다. */
+type Mode = { kind: 'list' } | { kind: 'add' }
 
 /**
  * 배송지 주소록.
@@ -37,28 +37,19 @@ export function ConsumerAddressBook() {
   if (isPending) return <Loading variant="skeleton" rows={3} label="배송지를 불러오는 중" />
   if (isError) return <ErrorMessage error={error} onRetry={() => void refetch()} />
 
-  if (mode.kind === 'add' || mode.kind === 'edit') {
-    const editing = mode.kind === 'edit' ? mode.address : undefined
-    const mutation = editing ? actions.update : actions.add
-
+  if (mode.kind === 'add') {
     return (
       <section className="address-book">
-        <h2 className="address-book__title">{editing ? '배송지 수정' : '새 배송지'}</h2>
+        <h2 className="address-book__title">새 배송지</h2>
         <ConsumerAddressForm
-          address={editing}
-          isSubmitting={mutation.isPending}
-          error={mutation.error}
+          isSubmitting={actions.add.isPending}
+          error={actions.add.error}
           onCancel={() => {
-            mutation.reset()
+            actions.add.reset()
             setMode({ kind: 'list' })
           }}
           onSubmit={(request) => {
-            const onSuccess = () => setMode({ kind: 'list' })
-            if (editing) {
-              actions.update.mutate({ addressId: editing.addressId, request }, { onSuccess })
-            } else {
-              actions.add.mutate(request, { onSuccess })
-            }
+            actions.add.mutate(request, { onSuccess: () => setMode({ kind: 'list' }) })
           }}
         />
       </section>
@@ -105,7 +96,6 @@ export function ConsumerAddressBook() {
                   (actions.setDefault.isPending && actions.setDefault.variables === item.addressId) ||
                   (actions.remove.isPending && actions.remove.variables === item.addressId)
                 }
-                onEdit={() => setMode({ kind: 'edit', address: item })}
                 onRemove={() => setRemoving(item)}
                 onSetDefault={() => actions.setDefault.mutate(item.addressId)}
               />
@@ -142,13 +132,11 @@ export function ConsumerAddressBook() {
 function AddressCard({
   address,
   busy,
-  onEdit,
   onRemove,
   onSetDefault,
 }: {
   address: ConsumerAddress
   busy: boolean
-  onEdit: () => void
   onRemove: () => void
   onSetDefault: () => void
 }) {
@@ -176,9 +164,6 @@ function AddressCard({
             기본으로 지정
           </Button>
         )}
-        <Button variant="secondary" size="sm" onClick={onEdit} disabled={busy}>
-          수정
-        </Button>
         <Button variant="secondary" size="sm" onClick={onRemove} disabled={busy}>
           삭제
         </Button>
