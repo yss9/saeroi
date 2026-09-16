@@ -1,0 +1,1006 @@
+/*
+ * 공급업체 콘솔 — 공통 토큰과 기본 요소.
+ *
+ * <b>모든 규칙이 `.sup` 안에 갇혀 있다.</b> 헤더와 사이드바(CompanyDashboardLayout)는
+ * 이 파일 바깥이라 영향을 받지 않고, 브랜드·가공업체 화면도 그대로다. 전역 토큰
+ * (`--ui-*`)을 재정의하지 않는 것도 같은 이유다 — 한 줄만 건드려도 앱 전체가 따라 바뀐다.
+ *
+ * 디자인 근거: Stitch "Industrial Ecological Utility".
+ * 산업용 작업대(workbench) 느낌 — 그림자 대신 선으로 층을 나누고, 여백보다 밀도를
+ * 택하고, 숫자는 자리를 맞춘다. 강조색은 상태에만 쓰고 나머지는 무채색으로 조용히 둔다.
+ */
+
+.sup {
+  /* 표면 — 캔버스에서 패널로 올라가는 네 단계 */
+  --sup-canvas: #f8fafc;
+  --sup-panel: #ffffff;
+  --sup-subtle: #f1f5f9;
+  --sup-line: #e2e8f0;
+  --sup-line-strong: #cbd5e1;
+
+  /* 글자 */
+  --sup-ink: #0f172a;
+  --sup-ink-2: #334155;
+  --sup-ink-3: #64748b;
+
+  /* 상태색 — 강조색(primary)과 의미색(amber·red)을 섞지 않는다 */
+  --sup-green: #0f4c3a;      /* 구조·주요 동작 */
+  --sup-green-hover: #145c47;
+  --sup-teal: #0d9488;       /* 진행 중·활성 */
+  --sup-amber: #d97706;      /* 할 일. 오류가 아니다 */
+  --sup-red: #ba1a1a;        /* 실제 문제 */
+
+  /* 배지 3종 */
+  --sup-ok-bg: #ecfdf5;   --sup-ok-fg: #065f46;   --sup-ok-line: #a7f3d0;
+  --sup-wait-bg: #fffbeb; --sup-wait-fg: #92400e; --sup-wait-line: #fde68a;
+  --sup-flat-bg: #f1f5f9; --sup-flat-fg: #334155; --sup-flat-line: #e2e8f0;
+  --sup-bad-bg: #fef2f2;  --sup-bad-fg: #991b1b;  --sup-bad-line: #fecaca;
+
+  /* 모서리 — 도구처럼 보이게 작게 유지한다 */
+  --sup-r-ctl: 4px;    /* 버튼·입력·배지 */
+  --sup-r-card: 8px;   /* 카드·패널 */
+
+  --sup-sans: 'Inter', system-ui, -apple-system, 'Malgun Gothic', sans-serif;
+  --sup-mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 20px var(--ui-gap) 72px;
+  background: var(--sup-canvas);
+  color: var(--sup-ink);
+  font-family: var(--sup-sans);
+  font-size: 13px;
+  line-height: 18px;
+  letter-spacing: 0;
+}
+
+/* ── 페이지 머리 ─────────────────────────────────────── */
+
+.sup__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding-bottom: 12px;
+}
+
+.sup__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sup__title h1 {
+  margin: 0;
+  font-size: 28px;
+  line-height: 36px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--sup-ink);
+}
+
+/* 화면을 식별하는 코드. 장식이 아니라 운영자가 문의할 때 대는 이름이다. */
+.sup__tag {
+  padding: 2px 6px;
+  border-radius: var(--sup-r-ctl);
+  background: var(--sup-subtle);
+  color: var(--sup-ink-3);
+  font-family: var(--sup-mono);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.sup__sub {
+  margin: 2px 0 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--sup-ink-3);
+}
+
+.sup__sub b {
+  color: var(--sup-green);
+  font-weight: 600;
+}
+
+/* 수량·금액은 자리를 맞춰 읽는 값이라 고정폭이다. */
+.sup__num {
+  font-family: var(--sup-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.sup__head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── 버튼 ─────────────────────────────────────────────── */
+
+.sup-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: var(--sup-r-ctl);
+  font-family: var(--sup-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background-color 120ms, border-color 120ms;
+}
+
+.sup-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.sup-btn--primary {
+  background: var(--sup-green);
+  color: #ffffff;
+}
+
+.sup-btn--primary:hover:not(:disabled) {
+  background: var(--sup-green-hover);
+}
+
+.sup-btn--ghost {
+  background: var(--sup-panel);
+  border-color: var(--sup-line-strong);
+  color: var(--sup-ink);
+}
+
+.sup-btn--ghost:hover:not(:disabled) {
+  background: var(--sup-canvas);
+  border-color: #94a3b8;
+}
+
+/* 서명·승인처럼 되돌릴 수 없는 동작. 위험(빨강)이 아니라 주의(호박)다. */
+.sup-btn--amber {
+  background: var(--sup-amber);
+  color: #ffffff;
+}
+
+.sup-btn--amber:hover:not(:disabled) {
+  background: #b45309;
+}
+
+.sup-btn--sm {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 11px;
+}
+
+.sup-btn:focus-visible {
+  outline: 2px solid var(--sup-teal);
+  outline-offset: 1px;
+}
+
+/* ── 배지 ─────────────────────────────────────────────── */
+
+.sup-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border: 1px solid;
+  border-radius: var(--sup-r-ctl);
+  font-family: var(--sup-mono);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.sup-badge--ok   { background: var(--sup-ok-bg);   color: var(--sup-ok-fg);   border-color: var(--sup-ok-line); }
+.sup-badge--wait { background: var(--sup-wait-bg); color: var(--sup-wait-fg); border-color: var(--sup-wait-line); }
+.sup-badge--flat { background: var(--sup-flat-bg); color: var(--sup-flat-fg); border-color: var(--sup-flat-line); }
+.sup-badge--bad  { background: var(--sup-bad-bg);  color: var(--sup-bad-fg);  border-color: var(--sup-bad-line); }
+
+/* 살아 있는 상태를 가리키는 점. 배지 앞에만 붙인다. */
+.sup-badge__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* 속성 꼬리표 — 소재 종류·등급처럼 분류를 나타내는 값 */
+.sup-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border: 1px solid var(--sup-line);
+  border-radius: var(--sup-r-ctl);
+  background: var(--sup-subtle);
+  color: var(--sup-ink-2);
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 500;
+}
+
+/* 값이 없는 칸. 빈칸으로 두면 카드마다 높이가 어긋난다. */
+.sup-chip--empty {
+  border-style: dashed;
+  background: transparent;
+  color: var(--sup-ink-3);
+}
+
+/* ── 요약 지표 스트립 ─────────────────────────────────── */
+
+.sup-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.sup-metric {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--sup-line);
+  border-radius: var(--sup-r-card);
+  background: var(--sup-panel);
+}
+
+/* 첫 지표에만 왼쪽 띠를 준다 — 지금 이 화면의 기준값이라는 표시다. */
+.sup-metric--lead { border-left: 3px solid var(--sup-teal); }
+
+/* 사람이 손을 대야 하는 지표. 나머지가 조용해야 이것이 보인다. */
+.sup-metric--todo {
+  border-color: var(--sup-wait-line);
+  background: var(--sup-wait-bg);
+}
+
+.sup-metric__label {
+  display: block;
+  font-family: var(--sup-mono);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  color: var(--sup-ink-3);
+}
+
+.sup-metric--todo .sup-metric__label { color: var(--sup-wait-fg); }
+
+.sup-metric__value {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  margin-top: 4px;
+  font-family: var(--sup-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 26px;
+  line-height: 30px;
+  font-weight: 700;
+  color: var(--sup-ink);
+}
+
+.sup-metric--todo .sup-metric__value { color: var(--sup-wait-fg); }
+
+.sup-metric__unit {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--sup-ink-3);
+}
+
+.sup-metric__icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--sup-r-ctl);
+  background: var(--sup-subtle);
+  color: var(--sup-ink-3);
+}
+
+.sup-metric--lead .sup-metric__icon { background: #ccfbf1; color: var(--sup-teal); }
+.sup-metric--todo .sup-metric__icon { background: #fef3c7; color: var(--sup-wait-fg); }
+
+.sup-metric__icon svg { width: 18px; height: 18px; }
+
+/* ── 필터 탭 ──────────────────────────────────────────── */
+
+.sup-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--sup-line);
+}
+
+.sup-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: var(--sup-r-ctl);
+  background: transparent;
+  color: var(--sup-ink-3);
+  font-family: var(--sup-sans);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 120ms, color 120ms;
+}
+
+.sup-tab:hover { background: var(--sup-subtle); color: var(--sup-ink); }
+
+.sup-tab[aria-pressed='true'] {
+  background: var(--sup-subtle);
+  border-color: var(--sup-line-strong);
+  color: var(--sup-ink);
+  font-weight: 600;
+}
+
+.sup-tab__count {
+  font-family: var(--sup-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  color: var(--sup-ink-3);
+}
+
+.sup-tab[aria-pressed='true'] .sup-tab__count { color: var(--sup-ink-2); }
+
+/* 손볼 것이 있는 탭. 숫자 대신 호박색 점으로 — 개수는 옆에 이미 있다. */
+.sup-tab--todo .sup-tab__count { color: var(--sup-amber); font-weight: 600; }
+
+.sup-tabs__right {
+  margin-left: auto;
+  font-family: var(--sup-mono);
+  font-size: 11px;
+  color: var(--sup-ink-3);
+}
+
+/* ── 카드 격자 ────────────────────────────────────────── */
+
+.sup-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sup-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--sup-line);
+  border-radius: var(--sup-r-card);
+  background: var(--sup-panel);
+  overflow: hidden;
+}
+
+/* 손볼 것이 있는 카드만 띠를 받는다. 전부에 붙이면 아무것도 두드러지지 않는다. */
+.sup-card--todo { border-left: 3px solid var(--sup-amber); }
+.sup-card--bad  { border-color: var(--sup-bad-line); background: var(--sup-bad-bg); }
+.sup-card--done { background: var(--sup-canvas); }
+
+.sup-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px 0;
+}
+
+.sup-card__code {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  font-family: var(--sup-mono);
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  color: var(--sup-ink-3);
+}
+
+/* 판매글 번호. 카드를 <b>구분</b>하는 값이라 앞에 두고 진하게 둔다 —
+   같은 소재로 판매글을 여러 개 만들 수 있어 소재 코드로는 구분되지 않는다. */
+.sup-card__code b {
+  color: var(--sup-ink-2);
+  font-weight: 600;
+}
+
+/* 어느 소재인지. 있어야 하지만 구분에는 쓰이지 않으므로 한 겹 뒤로 물린다. */
+.sup-card__code-of { color: var(--sup-ink-3); opacity: 0.85; }
+
+.sup-card__name {
+  margin: 4px 0 0;
+  padding: 0 14px;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--sup-ink);
+}
+
+.sup-card__name a { color: inherit; text-decoration: none; }
+.sup-card__name a:hover { text-decoration: underline; }
+
+.sup-card__attrs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 14px 0;
+}
+
+/* 카드 안에서 한 겹 들어간 영역. 숫자가 모이는 자리다. */
+.sup-card__figures {
+  margin: 10px 14px 0;
+  padding: 10px 12px;
+  border-radius: var(--sup-r-ctl);
+  background: var(--sup-subtle);
+}
+
+.sup-card--bad .sup-card__figures { background: var(--sup-panel); }
+
+.sup-card__price {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  padding: 8px 14px 0;
+  font-family: var(--sup-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--sup-ink);
+}
+
+.sup-card__price small {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--sup-ink-3);
+}
+
+/* 큰 수치 한 개 + 라벨. 이 카드를 보는 이유가 되는 값이다. */
+.sup-figure {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sup-figure__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sup-ink-2);
+}
+
+.sup-figure__value {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  font-family: var(--sup-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 24px;
+  line-height: 26px;
+  font-weight: 700;
+  color: var(--sup-green);
+}
+
+.sup-figure__value small { font-size: 12px; font-weight: 500; color: var(--sup-ink-3); }
+
+.sup-card--bad .sup-figure__value { color: var(--sup-red); }
+.sup-card--done .sup-figure__value { color: var(--sup-ink-3); }
+
+/* 보조 수치 두 개를 양끝에 — 큰 값이 어디서 왔는지 설명한다. */
+.sup-figure__split {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--sup-ink-3);
+}
+
+.sup-figure__split b {
+  font-family: var(--sup-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--sup-ink-2);
+}
+
+.sup-figure__lock {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.sup-figure__lock svg { width: 11px; height: 11px; }
+
+/*
+ * 비율 막대.
+ *
+ * 장식이 아니라 정보다 — 숫자 두 개를 나란히 읽는 것보다 빠르다.
+ * `--sup-bar` 로 채움 비율을 준다.
+ */
+.sup-bar {
+  position: relative;
+  height: 6px;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: var(--sup-line);
+  overflow: hidden;
+}
+
+.sup-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--sup-green);
+  transition: width 200ms;
+}
+
+.sup-card--bad .sup-bar > span { background: var(--sup-red); }
+.sup-card--done .sup-bar > span { background: var(--sup-line-strong); }
+
+.sup-figure__note {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--sup-ink-3);
+}
+
+.sup-figure__note svg { flex: none; width: 13px; height: 13px; margin-top: 1px; }
+
+/* ── 카드 안의 알림 줄 ────────────────────────────────── */
+
+.sup-card__alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 10px 14px 0;
+  padding: 8px 10px;
+  border: 1px solid var(--sup-wait-line);
+  border-radius: var(--sup-r-ctl);
+  background: var(--sup-wait-bg);
+  color: var(--sup-wait-fg);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+}
+
+.sup-card__alert--bad {
+  border-color: var(--sup-bad-line);
+  background: var(--sup-bad-bg);
+  color: var(--sup-bad-fg);
+}
+
+.sup-card__alert span { display: inline-flex; align-items: center; gap: 5px; }
+.sup-card__alert svg { flex: none; width: 14px; height: 14px; }
+
+.sup-card__alert a {
+  color: inherit;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ── 카드 바닥 ────────────────────────────────────────── */
+
+.sup-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+  padding: 10px 14px;
+}
+
+/* 머리·바닥을 본문과 선으로 가른다 — 그림자 대신 선으로 층을 만든다. */
+.sup-card__foot--ruled {
+  margin-top: 12px;
+  border-top: 1px solid var(--sup-line);
+}
+
+.sup-card__date {
+  font-family: var(--sup-mono);
+  font-size: 11px;
+  color: var(--sup-ink-3);
+}
+
+.sup-card__acts {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── 상태·빈 화면 ─────────────────────────────────────── */
+
+.sup-panel {
+  padding: 14px 16px;
+  border: 1px solid var(--sup-line);
+  border-radius: var(--sup-r-card);
+  background: var(--sup-panel);
+}
+
+.sup-empty {
+  padding: 40px 16px;
+  border: 1px dashed var(--sup-line-strong);
+  border-radius: var(--sup-r-card);
+  background: var(--sup-panel);
+  text-align: center;
+}
+
+.sup-empty h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--sup-ink);
+}
+
+.sup-empty p {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: var(--sup-ink-3);
+}
+
+/* 화면 아래에 두는 설명 상자. 읽지 않아도 되는 내용이라 조용하게. */
+.sup-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--sup-line);
+  border-radius: var(--sup-r-card);
+  background: var(--sup-subtle);
+  color: var(--sup-ink-2);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.sup-note svg { flex: none; width: 16px; height: 16px; margin-top: 1px; color: var(--sup-ink-3); }
+.sup-note strong { display: block; margin-bottom: 2px; color: var(--sup-ink); font-size: 13px; }
+
+.sup-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  font-family: var(--sup-mono);
+  font-size: 11px;
+  color: var(--sup-ink-3);
+}
+
+@media (max-width: 640px) {
+  .sup { padding-inline: 16px; }
+  .sup__head { flex-direction: column; align-items: stretch; }
+  .sup__title h1 { font-size: 22px; line-height: 30px; }
+  .sup-grid { grid-template-columns: 1fr; }
+}
+
+/* ── 판매 등록 패널 ───────────────────────────────────── */
+
+/* 목록과 다르게 보여야 한다 — 목록은 읽는 곳이고 여기는 쓰는 곳이다.
+   같은 흰 바탕에 나란히 두면 방금 연 것이 무엇인지 경계가 흐려진다. */
+.sup-register {
+  margin-bottom: 12px;
+  border-left: 3px solid var(--sup-green);
+}
+
+.sup-register__title { margin-bottom: 10px; }
+.sup-register__title strong { font-size: 14px; font-weight: 600; }
+
+.sup-register__hint {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--sup-ink-3);
+}
+
+/* 폼 요소는 공통 컴포넌트(ui-*)를 그대로 쓴다. 여기서 재정의하면 같은 입력이
+   화면마다 달라 보이고, 검증·오류 표시까지 따라 갈라진다. */
+
+/* ── 소재 등록 ────────────────────────────────────────── */
+
+/*
+ * 진행 표시.
+ *
+ * 마법사가 아니다 — 네 구획은 모두 한 화면에 펼쳐져 있고, 이 줄은 "얼마나 남았는지" 와
+ * "눌러서 건너뛰기" 만 맡는다. 12개 입력을 세로로 쌓으면 어디까지 했는지 알 수 없어
+ * 생긴 장치라, 스스로 눈에 띄려 하면 안 된다.
+ */
+.mat-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 2px;
+  margin: 0 0 12px;
+  padding: 4px;
+  border-radius: var(--sup-r-card);
+  background: var(--sup-subtle);
+  list-style: none;
+}
+
+.mat-steps button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--sup-r-ctl);
+  background: transparent;
+  color: var(--sup-ink-3);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 120ms;
+}
+
+.mat-steps button:hover:not(:disabled) { background: var(--sup-panel); color: var(--sup-ink); }
+
+/* 아직 안 지나온 구획. 눌러 건너뛰면 검증을 통과하지 않은 채 넘어간다. */
+.mat-steps button:disabled { cursor: default; opacity: 0.55; }
+
+.mat-steps__no {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--sup-line);
+  color: var(--sup-ink-3);
+  font-family: var(--sup-mono);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* 지금 있는 구획. 흰 바탕으로 한 겹 떠오르게 한다. */
+.mat-steps .is-current button { background: var(--sup-panel); color: var(--sup-ink); }
+.mat-steps .is-current .mat-steps__no { background: var(--sup-green); color: #fff; }
+
+/* 지나온 구획. 되돌아갈 수 있다는 것이 보여야 한다. */
+.mat-steps .is-done button { color: var(--sup-ink-2); }
+.mat-steps .is-done .mat-steps__no { background: var(--sup-ok-line); color: var(--sup-ok-fg); }
+
+.mat-steps strong { display: block; font-size: 13px; font-weight: 600; }
+.mat-steps small { display: block; font-size: 11px; color: var(--sup-ink-3); }
+
+/* ── 2단 배치 ─────────────────────────────────────────── */
+
+/*
+ * 왼쪽에 폼, 오른쪽에 요약·지갑·등록.
+ *
+ * 선택 항목을 감추지 않기로 했으므로 왼쪽은 길어질 수밖에 없다. 그래서 오른쪽을
+ * 붙박이(sticky)로 둔다 — 끝까지 내려가야 등록 버튼이 나오면 안 되고, 무엇을 채웠고
+ * 무엇이 비었는지가 입력하는 내내 보여야 다 쓴 뒤 위로 되짚어 올라가지 않는다.
+ */
+.mat-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  align-items: start;
+  gap: 12px;
+}
+
+.mat-main { display: flex; flex-direction: column; gap: 12px; }
+
+.mat-side {
+  position: sticky;
+  top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+@media (max-width: 1024px) {
+  /* 좁아지면 한 단으로 쌓고 요약을 폼 아래로 내린다. 옆에 억지로 붙여 두면
+     둘 다 좁아져 값이 줄바꿈된다. */
+  .mat-layout { grid-template-columns: minmax(0, 1fr); }
+  .mat-side { position: static; }
+}
+
+/* ── 구획 ─────────────────────────────────────────────── */
+
+.mat-section__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  /* 그림자 대신 선으로 층을 나눈다 — 머리와 본문의 경계가 훑을 때 기준이 된다. */
+  border-bottom: 1px solid var(--sup-line);
+}
+
+.mat-section__head h2 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--sup-ink);
+}
+
+.mat-section__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--sup-green);
+}
+
+.mat-section__note {
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  border-radius: var(--sup-r-ctl);
+  background: var(--sup-subtle);
+  color: var(--sup-ink-2);
+  font-size: 12px;
+  line-height: 17px;
+}
+
+/* ── 요약 ─────────────────────────────────────────────── */
+
+.mat-summary__list { margin: 0; display: flex; flex-direction: column; gap: 7px; }
+
+.mat-summary__list > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.mat-summary__list dt {
+  flex: none;
+  font-size: 12px;
+  color: var(--sup-ink-3);
+}
+
+.mat-summary__list dd {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--sup-ink);
+  text-align: right;
+  word-break: break-word;
+}
+
+/* 아직 안 채운 값. 줄을 빼지 않고 흐리게 남긴다 — 빼 버리면 무엇이 비었는지 안 보인다. */
+.mat-summary__empty { color: var(--sup-ink-3); font-weight: 400; }
+
+/* 이 화면에서 가장 중요한 숫자. 요약 안에서도 따로 띄운다. */
+.mat-summary__hero {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 10px 0;
+  padding: 10px 12px;
+  border-radius: var(--sup-r-ctl);
+  background: var(--sup-subtle);
+}
+
+.mat-summary__hero > span { font-size: 12px; font-weight: 600; color: var(--sup-ink-2); }
+
+.mat-summary__hero strong {
+  font-size: 26px;
+  line-height: 28px;
+  font-weight: 700;
+  color: var(--sup-green);
+}
+
+.mat-summary__hero small { margin-left: 2px; font-size: 12px; color: var(--sup-ink-3); }
+
+/* ── 서명 지갑 ────────────────────────────────────────── */
+
+.mat-wallet__address {
+  margin: 0 0 4px;
+  padding: 7px 9px;
+  border: 1px solid var(--sup-line);
+  border-radius: var(--sup-r-ctl);
+  background: var(--sup-subtle);
+  font-size: 11px;
+  color: var(--sup-ink);
+  word-break: break-all;
+}
+
+.mat-wallet__note {
+  margin: 0 0 8px;
+  font-size: 12px;
+  line-height: 17px;
+  color: var(--sup-ink-3);
+}
+
+/*
+ * 되돌릴 수 없다는 안내.
+ *
+ * danger 가 아니라 warning 이다 — 등록이 잘못됐다는 뜻이 아니라 <b>확인하고 누르라</b>는
+ * 뜻이다. 빨간색이면 사용자가 버튼을 못 누르고 멈춘다.
+ */
+.mat-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 11px 12px;
+  border: 1px solid var(--sup-wait-line);
+  border-radius: var(--sup-r-card);
+  background: var(--sup-wait-bg);
+  color: var(--sup-wait-fg);
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.mat-warn svg { flex: none; width: 15px; height: 15px; margin-top: 1px; }
+.mat-warn strong { display: block; margin-bottom: 2px; font-size: 12px; }
+
+/* 제출을 시도했는데 지갑이 없을 때만. 평소에는 조용한 패널이다. */
+.mat-wallet--required {
+  border-color: var(--sup-wait-line);
+  background: var(--sup-wait-bg);
+}
+
+.mat-wallet--required .mat-wallet__note { color: var(--sup-wait-fg); }
+.mat-wallet--required .mat-wallet__note strong { color: var(--sup-wait-fg); }
+
+/* ── 구획 이동 ────────────────────────────────────────── */
+
+.mat-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--sup-line);
+  border-radius: var(--sup-r-card);
+  background: var(--sup-panel);
+}
+
+/* 몇 번째인지. 단계 바가 위에 있지만 스크롤로 벗어나면 안 보인다. */
+.mat-nav__where {
+  margin-left: auto;
+  margin-right: auto;
+  font-size: 12px;
+  color: var(--sup-ink-3);
+}
+
+/*
+ * 이전 기록 불러오기.
+ *
+ * 구획 하나가 아니라 <b>폼 전체</b>를 덮어쓰는 동작이라 단계 바보다도 위에 둔다.
+ * 구획 안에 있으면 그 구획만 바뀌는 것으로 읽힌다.
+ */
+.mat-prefill {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.mat-prefill__note {
+  margin-right: auto;
+  font-size: 12px;
+  color: var(--sup-ink-3);
+}
+
+@media (max-width: 640px) {
+  .mat-prefill { justify-content: stretch; }
+  .mat-prefill__note { margin-right: 0; width: 100%; }
+}
