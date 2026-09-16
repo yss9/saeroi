@@ -1,6 +1,7 @@
 import { ArrowLeft, ArrowRight, Heart, ShoppingBag } from '@phosphor-icons/react'
 import { useMemo, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { publicProductImageUrl } from '../../../features/product/api/publicProductImageUrl.ts'
 import { useAuth } from '../../../features/auth/hooks/useAuth.ts'
 import { usePublicProductModels } from '../../../features/product/hooks/usePublicProductModels.ts'
 import type { PublicProductModel } from '../../../features/product/types/publicProduct.types.ts'
@@ -34,7 +35,7 @@ function toHomepageProduct(product: PublicProductModel): HomepageProduct {
     brand: product.brandName,
     price: product.price,
     material: categoryMaterial[product.category],
-    image: product.thumbnailUrl,
+    image: publicProductImageUrl(product.thumbnailUrl),
     imagePosition: imagePositions[product.thumbnailUrl] ?? '50% 50%',
   }
 }
@@ -77,9 +78,9 @@ export function ShopShowcase() {
           <h2 id="shop-title">SHOP</h2>
           <p className="editorial-heading__subtitle">New Life, New Form</p>
         </div>
-        <a className="text-link" href="#shop-all" data-reveal>
+        <Link className="text-link" to="/shop" data-reveal>
           VIEW ALL PRODUCTS <ArrowRight aria-hidden="true" />
-        </a>
+        </Link>
       </header>
 
       <div className="shop-showcase__stage">

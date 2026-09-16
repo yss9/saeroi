@@ -80,6 +80,7 @@ function publicProduct(
     productModelId,
     name,
     category,
+    subcategory: null,
     brandId: productModelId,
     brandName,
     price,
@@ -230,14 +231,13 @@ describe('LandingPage', () => {
     expect(apiClient.get).toHaveBeenCalledTimes(2)
   })
 
-  it('keeps SHOP and BRANDS on home sections and sends ABOUT discovery links to the ABOUT page', async () => {
+  it('keeps BRANDS on its home section and connects SHOP and ABOUT discovery links', async () => {
     const user = userEvent.setup()
     renderLandingPage()
 
     const primaryNavigation = screen.getByRole('navigation', { name: '주요 메뉴' })
     const sectionLinks = [
-      ...within(primaryNavigation).getAllByRole('link').filter((link) => link.textContent !== 'ABOUT'),
-      screen.getByRole('link', { name: 'VIEW ALL PRODUCTS' }),
+      within(primaryNavigation).getByRole('link', { name: 'BRANDS' }),
       screen.getByRole('link', { name: 'EXPLORE BRANDS' }),
     ]
 
@@ -251,6 +251,8 @@ describe('LandingPage', () => {
     }
 
     expect(within(primaryNavigation).getByRole('link', { name: 'ABOUT' })).toHaveAttribute('href', '/about')
+    expect(within(primaryNavigation).getByRole('link', { name: 'SHOP' })).toHaveAttribute('href', '/shop')
+    expect(screen.getByRole('link', { name: 'VIEW ALL PRODUCTS' })).toHaveAttribute('href', '/shop')
     expect(screen.getByRole('link', { name: 'OUR STORY' })).toHaveAttribute('href', '/about')
     expect(screen.getByRole('link', { name: '우리의 이야기' })).toHaveAttribute('href', '/about')
   })
