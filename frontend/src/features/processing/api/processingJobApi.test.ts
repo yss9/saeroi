@@ -21,7 +21,7 @@ describe('processingJobApi signature flow', () => {
     const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ data: challenge } as AxiosResponse)
 
     await expect(processingJobApi.challenge(JOB_ID, 'REJECT', '수량 재확인')).resolves.toEqual(challenge)
-    expect(post).toHaveBeenCalledWith(`/v1/processing-jobs/${JOB_ID}/signature-challenge`, {
+    expect(post).toHaveBeenCalledWith(`/processing-jobs/${JOB_ID}/signature-challenge`, {
       action: 'REJECT',
       rejectionReason: '수량 재확인',
     })
@@ -32,7 +32,7 @@ describe('processingJobApi signature flow', () => {
 
     await processingJobApi.submitResult(JOB_ID, 3, SIGNATURE)
 
-    expect(post).toHaveBeenCalledWith(`/v1/processing-jobs/${JOB_ID}/results/submit`, {
+    expect(post).toHaveBeenCalledWith(`/processing-jobs/${JOB_ID}/results/submit`, {
       challengeId: 3,
       signature: SIGNATURE,
     })
@@ -43,7 +43,7 @@ describe('processingJobApi signature flow', () => {
 
     await processingJobApi.reject(JOB_ID, 4, SIGNATURE, 'Loss 증빙 보완')
 
-    expect(post).toHaveBeenCalledWith(`/v1/processing-jobs/${JOB_ID}/reject`, {
+    expect(post).toHaveBeenCalledWith(`/processing-jobs/${JOB_ID}/reject`, {
       challengeId: 4,
       signature: SIGNATURE,
       reason: 'Loss 증빙 보완',

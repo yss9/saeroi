@@ -74,7 +74,7 @@ beforeEach(() => {
     accessToken: 'token',
     isAuthenticated: true,
   })
-  vi.mocked(apiClient.get).mockImplementation(async url => ({ data: url === '/v1/processing-jobs' ? jobs : requests }))
+  vi.mocked(apiClient.get).mockImplementation(async url => ({ data: url === '/processing-jobs' ? jobs : requests }))
   vi.mocked(apiClient.post).mockResolvedValue({ data: {} })
 })
 
@@ -94,7 +94,7 @@ test('견적 요청과 Job을 하나의 가공 업무 목록에 표시한다', a
 test('가공 작업 필터에서 Job 카드로 상세 페이지에 이동할 수 있다', async () => {
   const user = userEvent.setup()
   vi.mocked(apiClient.get).mockImplementation(async url => ({
-    data: url === '/v1/processing-jobs'
+    data: url === '/processing-jobs'
       ? [{ jobId: 17, jobCode: 'JOB-017', status: 'PROCESSING', inputMaterialId: 3, inputQuantity: 20_000, fee: 150_000 }]
       : requests,
   }))
@@ -188,7 +188,7 @@ test('Processor가 담당 요청을 거절한다', async () => {
 
 test('다음 페이지로 이동하면 해당 페이지를 조회한다', async () => {
   vi.mocked(apiClient.get).mockImplementation(async url => ({
-    data: url === '/v1/processing-jobs' ? jobs : { ...requests, total: 21 },
+    data: url === '/processing-jobs' ? jobs : { ...requests, total: 21 },
   }))
   const user = await openQuoteRequests()
   await screen.findByText('PR-007')

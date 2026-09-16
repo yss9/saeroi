@@ -60,7 +60,7 @@ beforeEach(() => {
     isAuthenticated: true,
   })
   vi.mocked(apiClient.get).mockImplementation((url: string) => Promise.resolve({
-    data: url === '/v1/processing-jobs' ? [] : url.endsWith('/quotes') ? [quote] : detail,
+    data: url === '/processing-jobs' ? [] : url.endsWith('/quotes') ? [quote] : detail,
   }))
 })
 
@@ -143,13 +143,13 @@ test('생성된 Job에서 결제를 준비하고 Mock 승인까지 진행한다'
 
   await user.click(screen.getByRole('button', { name: '결제 진행' }))
 
-  expect(apiClient.post).toHaveBeenCalledWith('/v1/processing-jobs/91/payment')
+  expect(apiClient.post).toHaveBeenCalledWith('/processing-jobs/91/payment')
   expect(await screen.findByText('테스트 결제 환경입니다. 실제 금액은 청구되지 않습니다.')).toBeInTheDocument()
   expect(screen.getAllByText('120,000원').length).toBeGreaterThan(0)
 
   await user.click(screen.getByRole('button', { name: '결제 완료로 처리 (시연)' }))
 
-  expect(apiClient.post).toHaveBeenCalledWith('/v1/processing-jobs/91/payment/confirm', { pgToken: 'MOCK-PG-TOKEN' })
+  expect(apiClient.post).toHaveBeenCalledWith('/processing-jobs/91/payment/confirm', { pgToken: 'MOCK-PG-TOKEN' })
   expect(await screen.findByText('가공비 결제가 완료되었습니다.')).toBeInTheDocument()
   expect(screen.getByRole('link', { name: '소재 발송하기' })).toHaveAttribute('href', '/processing/jobs/91')
 })
@@ -164,7 +164,7 @@ test('결제 완료 Job을 찾아 요청 상세에서 소재를 발송한다', a
     receivedAt: null, startedAt: null, resultSubmittedAt: null, rejectedAt: null, completedAt: null, outputs: [],
   }
   vi.mocked(apiClient.get).mockImplementation((url: string) => Promise.resolve({
-    data: url === '/v1/processing-jobs' ? [paidJob] : url.endsWith('/quotes') ? [{ ...quote, status: 'SELECTED' }] : { ...detail, status: 'SELECTED' },
+    data: url === '/processing-jobs' ? [paidJob] : url.endsWith('/quotes') ? [{ ...quote, status: 'SELECTED' }] : { ...detail, status: 'SELECTED' },
   }))
   vi.mocked(apiClient.patch).mockResolvedValue({ data: { ...paidJob, status: 'SHIPPED', carrier: '새로이택배', trackingNumber: '1234567890' } })
 
@@ -175,7 +175,7 @@ test('결제 완료 Job을 찾아 요청 상세에서 소재를 발송한다', a
   await user.type(screen.getByLabelText('운송장 번호(선택)'), '1234567890')
   await user.click(screen.getByRole('button', { name: '발송 처리' }))
 
-  expect(apiClient.patch).toHaveBeenCalledWith('/v1/processing-jobs/91/ship', {
+  expect(apiClient.patch).toHaveBeenCalledWith('/processing-jobs/91/ship', {
     carrier: '새로이택배',
     trackingNumber: '1234567890',
   })
@@ -183,7 +183,7 @@ test('결제 완료 Job을 찾아 요청 상세에서 소재를 발송한다', a
 
 test('접수된 견적이 없으면 대기 상태를 안내한다', async () => {
   vi.mocked(apiClient.get).mockImplementation((url: string) => Promise.resolve({
-    data: url === '/v1/processing-jobs' ? [] : url.endsWith('/quotes') ? [] : detail,
+    data: url === '/processing-jobs' ? [] : url.endsWith('/quotes') ? [] : detail,
   }))
   renderPage()
 

@@ -47,6 +47,16 @@ export const MATERIAL_EVIDENCE_TYPES: readonly EvidenceType[] = [
   'ETC',
 ]
 
+/** 가공 작업 결과에서 종류별로 따로 첨부하는 증빙. */
+export const PROCESSING_EVIDENCE_TYPES: readonly EvidenceType[] = [
+  'BEFORE_PHOTO',
+  'PROCESS_PHOTO',
+  'AFTER_PHOTO',
+  'WEIGHT_SLIP',
+  'INVOICE',
+  'ETC',
+]
+
 /**
  * `POST /api/evidence` 응답 항목 · `GET /api/evidence` 의 `files[]` 항목.
  *
