@@ -54,6 +54,8 @@ import org.springframework.transaction.annotation.Transactional;
  *       쓴다. 목록에서만 빼면 id 를 아는 사람에게 구매 버튼이 달린 상세가 그대로 열린다
  *   <li><b>브랜드 관리 화면은 그대로다</b> — 소비자에게 감추는 것과 브랜드에게서 빼앗는
  *       것은 다르다
+ *   <li><b>검색은 화면에 보이는 브랜드명으로 걸린다</b> — 회사명을 가진 브랜드가 대표자
+ *       이름으로 검색되면 사용자가 보는 것과 결과가 어긋난다
  * </ul>
  *
  * <p>목록 조회는 브랜드를 지정해 다른 테스트가 넣어 둔 제품과 섞이지 않게 한다.
@@ -319,6 +321,130 @@ class ConsumerShopCatalogApiTests {
                 .andExpect(jsonPath("$.data.category").value("ETC"));
     }
 
+    // ── 검색 ────────────────────────────────────────────────
+
+    @Test
+    void findsProductsByName() throws Exception {
+        ProductModel bag =
+                saveModel("데님 서클 백", ProductCategory.BAG, ProductSubcategory.TOTE, 70_000, true);
+        saveModel("울 코트", ProductCategory.CLOTHING, ProductSubcategory.OUTER, 200_000, true);
+
+        mockMvc.perform(publicList().queryParam("keyword", "서클"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalElements").value(1))
+                .andExpect(jsonPath("$.data.content[0].productModelId").value(bag.getId()));
+    }
+
+    /**
+     * 브랜드명 검색은 <b>화면에 보이는 이름</b>으로 걸려야 한다. 이 브랜드는 회사명을
+     * 가지고 있으므로 목록에도 회사명이 나가고, 대표자 이름으로는 걸리지 않아야 한다 —
+     * 걸리면 사용자가 보지도 못한 값으로 검색이 되는 셈이다.
+     */
+    @Test
+    void findsProductsByTheBrandNameShownOnScreen() throws Exception {
+        ProductModel bag =
+                saveModel("토트백", ProductCategory.BAG, ProductSubcategory.TOTE, 70_000, true);
+
+        mockMvc.perform(publicList().queryParam("keyword", "SHOP 브랜드"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalElements").value(1))
+                .andExpect(jsonPath("$.data.content[0].productModelId").value(bag.getId()))
+                .andExpect(jsonPath("$.data.content[0].brandName").value("새로이 SHOP 브랜드"));
+
+        mockMvc.perform(publicList().queryParam("keyword", "대표자"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalElements").value(0));
+    }
+
+    /** 회사 정보를 등록하지 않은 브랜드는 사용자 이름이 화면에 나가므로 그것으로 걸린다. */
+    @Test
+    void findsProductsByTheUserNameWhenTheBrandHasNoCompanyProfile() throws Exception {
+        User indieBrand = userRepository.save(User.register(
+                "consumer-shop-indie@example.com",
+                "{noop}x",
+                "독립공방",
+                "02-2222-2222",
+                UserRole.BRAND));
+        ProductModel handmade = saveModelFor(
+                indieBrand, "핸드메이드 파우치", ProductCategory.ACCESSORY, null, 30_000);
+
+        mockMvc.perform(get(PUBLIC_PATH).queryParam("keyword", "독립공방"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalElements").value(1))
+                .andExpect(jsonPath("$.data.content[0].productModelId").value(handmade.getId()))
+                .andExpect(jsonPath("$.data.content[0].brandName").value("독립공방"));
+    }
+
+    /** 목록에서 감춘 분류가 검색으로 새어 나오면 감춘 의미가 없다. */
+    @Test
+    void hidesEtcFromSearchResults() throws Exception {
+        saveModel("업사이클 기타 소품", ProductCategory.ETC, null, 30_000, true);
+        ProductModel bag = saveModel(
+                "업사이클 토트백", ProductCategory.BAG, ProductSubcategory.TOTE, 40_000, true);
+
+        mockMvc.perform(publicList().queryParam("keyword", "업사이클"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalElements").value(1))
+                .andExpect(jsonPath("$.data.content[0].productModelId").value(bag.getId()));
+    }
+
+    @Test
+    void combinesTheKeywordWithTheOtherFilters() throws Exception {
+        ProductModel bag = saveModel(
+                "리사이클 토트백", ProductCategory.BAG, ProductSubcategory.TOTE, 40_000, true);
+        saveModel("리사이클 코트", ProductCategory.CLOTHING, ProductSubcategory.OUTER, 90_000, true);
+
+        mockMvc.perform(publicList()
+                        .queryParam("keyword", "리사이클")
+                        .queryParam("category", "BAG"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalElements").value(1))
+                .andExpect(jsonPath("$.data.content[0].productModelId").value(bag.getId()));
+    }
+
+    /**
+     * 총 개수는 검색 조건이 걸린 뒤의 수여야 한다. 조회해 온 페이지를 나중에 걸러내는
+     * 방식이면 여기가 어긋나 "3건" 이라면서 페이지를 넘길 수 없는 목록이 된다.
+     */
+    @Test
+    void keepsTotalElementsConsistentWithTheSearchCondition() throws Exception {
+        saveModel("캔버스 토트백", ProductCategory.BAG, ProductSubcategory.TOTE, 40_000, true);
+        saveModel("캔버스 숄더백", ProductCategory.BAG, ProductSubcategory.SHOULDER, 50_000, true);
+        saveModel("캔버스 백팩", ProductCategory.BAG, ProductSubcategory.BACKPACK, 60_000, true);
+        saveModel("가죽 지갑", ProductCategory.WALLET, null, 80_000, true);
+
+        mockMvc.perform(publicList()
+                        .queryParam("keyword", "캔버스")
+                        .queryParam("size", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(2))
+                .andExpect(jsonPath("$.data.totalElements").value(3))
+                .andExpect(jsonPath("$.data.totalPages").value(2))
+                .andExpect(jsonPath("$.data.hasNext").value(true));
+    }
+
+    /** 검색창을 비우고 누른 사용자가 받는 것은 오류가 아니라 평소 목록이다. */
+    @Test
+    void ignoresABlankKeyword() throws Exception {
+        saveModel("토트백", ProductCategory.BAG, ProductSubcategory.TOTE, 40_000, true);
+        saveModel("코트", ProductCategory.CLOTHING, ProductSubcategory.OUTER, 90_000, true);
+
+        mockMvc.perform(publicList().queryParam("keyword", "   "))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalElements").value(2));
+    }
+
+    /** {@code %} 한 글자로 전체 목록이 나오면 검색이 아니라 와일드카드를 넘겨준 것이다. */
+    @Test
+    void treatsWildcardCharactersAsPlainText() throws Exception {
+        saveModel("토트백", ProductCategory.BAG, ProductSubcategory.TOTE, 40_000, true);
+        saveModel("코트", ProductCategory.CLOTHING, ProductSubcategory.OUTER, 90_000, true);
+
+        mockMvc.perform(publicList().queryParam("keyword", "%"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalElements").value(0));
+    }
+
     // ── helpers ─────────────────────────────────────────────
 
     /** 공개 목록은 언제나 이 브랜드로 좁힌다 — 다른 테스트가 남긴 제품과 섞이지 않는다. */
@@ -373,6 +499,25 @@ class ConsumerShopCatalogApiTests {
         if (onSale) {
             model.putOnSale();
         }
+        return productModelRepository.saveAndFlush(model);
+    }
+
+    /** 다른 브랜드의 판매 중 상품. 브랜드명 검색 표본을 만들 때 쓴다. */
+    private ProductModel saveModelFor(
+            User owner,
+            String name,
+            ProductCategory category,
+            ProductSubcategory subcategory,
+            long price) {
+        ProductModel model = productModelRepository.save(ProductModel.register(
+                name,
+                category,
+                subcategory,
+                owner.getId(),
+                price,
+                "폐소재로 만든 상품",
+                thumbnailKey));
+        model.putOnSale();
         return productModelRepository.saveAndFlush(model);
     }
 }

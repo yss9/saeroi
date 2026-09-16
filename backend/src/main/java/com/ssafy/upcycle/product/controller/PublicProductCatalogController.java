@@ -33,6 +33,15 @@ public class PublicProductCatalogController {
      * <p>필터는 {@code category}·{@code subcategory}·{@code brandId} 이고 함께 주면
      * 교집합이다. 정렬은 {@code sort=LATEST|PRICE_ASC|PRICE_DESC} 이며 기본은 최신순이다.
      *
+     * <p><b>SEARCH 페이지도 이 경로를 쓴다.</b> {@code keyword} 는 상품명 또는 브랜드명에
+     * 들어간 말을 찾고, 다른 필터와 함께 주면 역시 교집합이다. 브랜드명은 <b>화면에 보이는
+     * 이름</b> 기준이다 — 회사명이 있으면 회사명, 없으면 사용자 이름. 검색어가 없거나
+     * 공백뿐이면 조건이 붙지 않아 평소 목록과 같다.
+     *
+     * <p>검색을 별도 엔드포인트로 두지 않은 이유는 지켜야 할 규칙이 같기 때문이다 —
+     * {@code ON_SALE} 만, {@code ETC} 제외, 같은 페이지 봉투. 두 벌로 적으면 그 중 하나가
+     * 언젠가 한쪽에서만 빠진다.
+     *
      * <p><b>{@code status} 는 받지 않는다</b> — 공개 목록은 언제나 판매 중인 상품만이다.
      * <b>{@code ETC} 분류는 어떤 조건에서도 나오지 않는다</b>; 걸러내는 자리는 목록 질의라
      * 페이지 수와 총 개수가 어긋나지 않는다.

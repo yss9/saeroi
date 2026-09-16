@@ -26,6 +26,7 @@ public record ProductModelSearchCondition(
         ProductCategory category,
         ProductSubcategory subcategory,
         Long brandId,
+        String keyword,
         ProductModelSort sort,
         Integer page,
         Integer size) {
@@ -55,6 +56,23 @@ public record ProductModelSearchCondition(
      */
     public ProductModelSort sortOrDefault() {
         return sort == null ? ProductModelSort.LATEST : sort;
+    }
+
+    /**
+     * 검색어. 없거나 공백뿐이면 {@code null} 이고, 그때는 검색 조건이 붙지 않는다.
+     *
+     * <p>빈 검색어에 400 을 내지 않는 것은 이 record 의 다른 필드와 같은 판단이다 —
+     * 목록 조회는 잘못된 값에 실패하기보다 기본값으로 접는 편이 낫다. 검색창을 비우고
+     * 누른 사용자가 보게 되는 것은 오류가 아니라 전체 목록이다.
+     *
+     * <p>앞뒤 공백은 떼어낸다. 사용자가 붙여 넣은 검색어에 공백이 딸려 오는 일이 흔하고,
+     * 그대로 두면 like 패턴에 들어가 아무것도 걸리지 않는다.
+     */
+    public String keywordOrNull() {
+        if (keyword == null || keyword.isBlank()) {
+            return null;
+        }
+        return keyword.trim();
     }
 
     public int pageOrDefault() {
