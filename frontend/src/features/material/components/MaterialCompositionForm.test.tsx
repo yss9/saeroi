@@ -43,12 +43,29 @@ function renderForm() {
   )
 }
 
+async function nextStep(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: /^다음:/ }))
+}
+
+/** 단계 바로 이동. 방문한 구획이면 앞뒤 어느 쪽이든 된다. */
+async function goTo(user: ReturnType<typeof userEvent.setup>, title: RegExp) {
+  await user.click(screen.getByRole('button', { name: title }))
+}
+
+/**
+ * 필수를 채우고 <b>3구획(구성 · 발생)</b>까지 간다.
+ *
+ * 폼은 네 구획을 한 번에 하나씩 보여준다. 발생 사유와 섬유 구성은 3구획에 있어
+ * 이 파일의 테스트는 거의 다 그까지 가야 한다.
+ */
 async function fillRequired() {
   const user = userEvent.setup()
   await user.selectOptions(screen.getByLabelText('소재 유형'), 'DENIM')
   await user.type(screen.getByLabelText('소재명'), '폐데님 원단')
+  await nextStep(user)
   await user.clear(screen.getByLabelText('수량 (kg)'))
   await user.type(screen.getByLabelText('수량 (kg)'), '20')
+  await nextStep(user)
   return user
 }
 
@@ -75,6 +92,7 @@ afterEach(cleanup)
 describe('발생 사유는 폐기물에만', () => {
   it('출처가 폐기물이면 사유 칸이 보인다', async () => {
     renderForm()
+    await fillRequired()
 
     // 기본값이 WASTE 다.
     expect(screen.getByLabelText('발생 사유 (선택)')).toBeInTheDocument()
@@ -83,9 +101,12 @@ describe('발생 사유는 폐기물에만', () => {
   it('출처를 신소재로 바꾸면 사유 칸이 사라진다', async () => {
     // 신소재에 사유를 보내면 서버가 400 을 낸다. 칸을 감춰 그 오류를 없앤다.
     renderForm()
-    const user = userEvent.setup()
+    const user = await fillRequired()
 
+    // 출처는 1구획에 있다.
+    await goTo(user, /기본 정보/)
     await user.selectOptions(screen.getByLabelText('출처'), 'VIRGIN')
+    await goTo(user, /구성/)
 
     expect(screen.queryByLabelText('발생 사유 (선택)')).not.toBeInTheDocument()
   })
@@ -97,8 +118,9 @@ describe('발생 사유는 폐기물에만', () => {
     const user = await fillRequired()
 
     await user.selectOptions(screen.getByLabelText('발생 사유 (선택)'), 'DEADSTOCK')
+    await goTo(user, /기본 정보/)
     await user.selectOptions(screen.getByLabelText('출처'), 'VIRGIN')
-    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
 
     await waitFor(() => expect(api.createMaterial).toHaveBeenCalled())
     expect(submitted()).not.toHaveProperty('originReason')
@@ -109,7 +131,7 @@ describe('발생 사유는 폐기물에만', () => {
     const user = await fillRequired()
 
     await user.selectOptions(screen.getByLabelText('발생 사유 (선택)'), 'OFFCUT')
-    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
 
     await waitFor(() => expect(api.createMaterial).toHaveBeenCalled())
     expect(submitted().originReason).toBe('OFFCUT')
@@ -120,7 +142,7 @@ describe('발생 사유는 폐기물에만', () => {
     renderForm()
     const user = await fillRequired()
 
-    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
 
     await waitFor(() => expect(api.createMaterial).toHaveBeenCalled())
     expect(submitted()).not.toHaveProperty('originReason')
@@ -130,7 +152,7 @@ describe('발생 사유는 폐기물에만', () => {
 describe('기타 사유는 설명을 요구한다', () => {
   it('기타를 고르면 설명 칸이 나타난다', async () => {
     renderForm()
-    const user = userEvent.setup()
+    const user = await fillRequired()
 
     await user.selectOptions(screen.getByLabelText('발생 사유 (선택)'), 'ETC')
 
@@ -143,7 +165,7 @@ describe('기타 사유는 설명을 요구한다', () => {
     const user = await fillRequired()
 
     await user.selectOptions(screen.getByLabelText('발생 사유 (선택)'), 'ETC')
-    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
 
     expect(await screen.findByText('기타를 선택하면 설명이 필요합니다.')).toBeInTheDocument()
     expect(api.createMaterial).not.toHaveBeenCalled()
@@ -155,7 +177,7 @@ describe('기타 사유는 설명을 요구한다', () => {
 
     await user.selectOptions(screen.getByLabelText('발생 사유 (선택)'), 'ETC')
     await user.type(screen.getByLabelText('발생 사유 설명'), '행사 후 남은 배너 원단')
-    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
 
     await waitFor(() => expect(api.createMaterial).toHaveBeenCalled())
     expect(submitted()).toMatchObject({
@@ -172,7 +194,7 @@ describe('기타 사유는 설명을 요구한다', () => {
     await user.selectOptions(screen.getByLabelText('발생 사유 (선택)'), 'ETC')
     await user.type(screen.getByLabelText('발생 사유 설명'), '2024 F/W 재고')
     await user.selectOptions(screen.getByLabelText('발생 사유 (선택)'), 'DEADSTOCK')
-    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
 
     await waitFor(() => expect(api.createMaterial).toHaveBeenCalled())
     expect(submitted()).toMatchObject({
@@ -188,7 +210,7 @@ describe('구성', () => {
     renderForm()
     const user = await fillRequired()
 
-    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
 
     await waitFor(() => expect(api.createMaterial).toHaveBeenCalled())
     expect(submitted()).not.toHaveProperty('composition')
@@ -200,7 +222,7 @@ describe('구성', () => {
 
     await addFiber(user, 1, 'COTTON', '60')
     await addFiber(user, 2, 'POLYESTER', '40')
-    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
 
     await waitFor(() => expect(api.createMaterial).toHaveBeenCalled())
     expect(submitted().composition).toEqual([
@@ -216,7 +238,7 @@ describe('구성', () => {
     const user = await fillRequired()
 
     await addFiber(user, 1, 'COTTON', '60')
-    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
 
     await waitFor(() => expect(api.createMaterial).toHaveBeenCalled())
     expect(submitted().composition).toEqual([{ fiberType: 'COTTON', percentage: 60 }])
@@ -260,7 +282,7 @@ describe('구성', () => {
 
     await addFiber(user, 1, 'COTTON', '60')
     await user.click(screen.getByRole('button', { name: '섬유 추가' }))
-    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
 
     // 빈 줄은 폼 검증에 걸린다 — 그게 먼저 사용자에게 보이는 것이 맞다.
     expect(await screen.findByText('섬유 종류를 선택해 주세요.')).toBeInTheDocument()
@@ -272,7 +294,7 @@ describe('구성', () => {
     const user = await fillRequired()
 
     await addFiber(user, 1, 'COTTON', '33.33')
-    await user.click(screen.getByRole('button', { name: '소재 등록' }))
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
 
     await waitFor(() => expect(api.createMaterial).toHaveBeenCalled())
     expect(submitted().composition).toEqual([{ fiberType: 'COTTON', percentage: 33.33 }])
