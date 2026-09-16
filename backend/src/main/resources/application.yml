@@ -40,6 +40,13 @@ spring:
       hibernate:
         format_sql: true
 app:
+  demo-catalog:
+    # 시연 환경에서만 명시적으로 켠다. 기본값 false라 운영·일반 개발 DB에는
+    # 시연 브랜드와 상품이 자동으로 들어가지 않는다.
+    enabled: ${DEMO_PRODUCT_SEED_ENABLED:false}
+    # 각 시연 상품에 처음 한 번 생성할 실제 product_item 수량.
+    # 재기동할 때 SOLD 재고를 다시 채우지는 않는다.
+    stock-per-product: ${DEMO_PRODUCT_STOCK_PER_PRODUCT:10}
   geocoding:
     kakao:
       # 주소를 WGS84 좌표로 변환할 카카오 REST API 키. 키가 없으면
