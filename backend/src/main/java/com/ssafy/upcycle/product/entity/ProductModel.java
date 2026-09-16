@@ -55,6 +55,18 @@ public class ProductModel {
     @Column(name = "category", nullable = false, length = CATEGORY_MAX_LENGTH)
     private ProductCategory category;
 
+    /**
+     * 하위 분류. <b>{@code null} 일 수 있다.</b>
+     *
+     * <p>{@code WALLET}·{@code ACCESSORY}·{@code HOME}·{@code ETC} 는 2단 메뉴가 없어
+     * 언제나 비어 있고, 하위 분류가 생기기 전에 등록된 제품도 비어 있다. 그 제품들은
+     * 상위 분류 목록에는 그대로 나오고 2단 메뉴에서만 빠진다 — 필수로 만들면 기존 행이
+     * 전부 위반 상태가 되고, 임의의 값을 채워 넣으면 브랜드가 정하지 않은 분류가 된다.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "subcategory", length = CATEGORY_MAX_LENGTH)
+    private ProductSubcategory subcategory;
+
     /** 파는 브랜드. users FK 다. */
     @Column(name = "brand_id", nullable = false)
     private Long brandId;
@@ -80,12 +92,14 @@ public class ProductModel {
     private ProductModel(
             String name,
             ProductCategory category,
+            ProductSubcategory subcategory,
             Long brandId,
             long price,
             String description,
             String thumbnailUrl) {
         this.name = requireText(name, "name", NAME_MAX_LENGTH);
         this.category = requireNonNull(category, "category");
+        this.subcategory = requireMatchingSubcategory(category, subcategory);
         this.brandId = requireNonNull(brandId, "brand id");
         if (price < 0) {
             throw new IllegalArgumentException("Product model price must not be negative");
@@ -109,7 +123,26 @@ public class ProductModel {
             long price,
             String description,
             String thumbnailUrl) {
-        return new ProductModel(name, category, brandId, price, description, thumbnailUrl);
+        return register(name, category, null, brandId, price, description, thumbnailUrl);
+    }
+
+    /**
+     * 하위 분류까지 정해 등록한다.
+     *
+     * <p>하위 분류는 선택이다 — 위 오버로드는 "하위 분류 없음" 을 뜻한다. 다만 값을 줬다면
+     * 상위 분류에 실제로 속해야 한다. "가방인데 하위 분류가 원피스" 인 제품은 SHOP 의 어느
+     * 2단 메뉴에도 걸리지 않으면서 목록 수만 늘린다.
+     */
+    public static ProductModel register(
+            String name,
+            ProductCategory category,
+            ProductSubcategory subcategory,
+            Long brandId,
+            long price,
+            String description,
+            String thumbnailUrl) {
+        return new ProductModel(
+                name, category, subcategory, brandId, price, description, thumbnailUrl);
     }
 
     /**
@@ -143,6 +176,21 @@ public class ProductModel {
             this.thumbnailUrl =
                     requireText(thumbnailUrl, "thumbnail url", THUMBNAIL_URL_MAX_LENGTH);
         }
+    }
+
+    /**
+     * 하위 분류를 정하거나 바꾼다. <b>상위 분류는 그대로다.</b>
+     *
+     * <p>하위 분류가 생기기 전에 등록된 제품은 값이 비어 있어 SHOP 2단 메뉴에 걸리지
+     * 않는다. 브랜드가 나중에라도 채울 수 있어야 그 제품들이 메뉴에 들어온다.
+     *
+     * <p><b>비우는 경로는 없다.</b> 부분 수정 요청에서 {@code null} 은 "안 보냄" 이라
+     * "비움" 과 구분되지 않는다. 잘못 넣은 하위 분류는 같은 상위 분류 안의 다른 값으로
+     * 바꾸면 된다.
+     */
+    public void assignSubcategory(ProductSubcategory subcategory) {
+        this.subcategory = requireMatchingSubcategory(
+                this.category, requireNonNull(subcategory, "subcategory"));
     }
 
     /** 판매를 시작한다. 이미 내린 제품은 다시 올리지 않는다 — 새 모델로 등록한다. */
@@ -187,6 +235,21 @@ public class ProductModel {
             throw new IllegalStateException(
                     "Discontinued product model cannot " + action);
         }
+    }
+
+    /**
+     * 상위·하위 분류의 조합을 검사한다. 값이 없으면 통과한다 — 하위 분류는 선택이다.
+     *
+     * <p>서비스가 {@code PRODUCT_SUBCATEGORY_NOT_ALLOWED} 로 먼저 걸러내므로 여기까지
+     * 오는 것은 시드처럼 API 를 거치지 않는 경로뿐이다. 최후 방어선으로 남긴다.
+     */
+    private static ProductSubcategory requireMatchingSubcategory(
+            ProductCategory category, ProductSubcategory subcategory) {
+        if (subcategory != null && !subcategory.belongsTo(category)) {
+            throw new IllegalArgumentException(
+                    "Product model subcategory " + subcategory + " does not belong to " + category);
+        }
+        return subcategory;
     }
 
     private static <T> T requireNonNull(T value, String field) {

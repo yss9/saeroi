@@ -70,6 +70,20 @@ public enum ProductErrorCode implements ErrorCode {
             "PRODUCT_MODEL_NOTHING_TO_UPDATE",
             "수정할 내용을 올바르게 지정해 주세요."),
 
+    /**
+     * 상위 분류에 속하지 않는 하위 분류를 보낸 경우.
+     *
+     * <p>{@code BAG} 인데 {@code DRESS} 같은 조합이다. Bean Validation 으로는 두 필드의
+     * 관계를 볼 수 없어 여기 둔다 — 형식은 맞지만 도메인 규칙에 걸리는 경우다.
+     *
+     * <p>하위 분류가 아예 없는 분류({@code WALLET}·{@code ACCESSORY}·{@code HOME}·
+     * {@code ETC})에 값을 보낸 경우도 여기 걸린다.
+     */
+    PRODUCT_SUBCATEGORY_NOT_ALLOWED(
+            HttpStatus.BAD_REQUEST,
+            "PRODUCT_SUBCATEGORY_NOT_ALLOWED",
+            "선택한 카테고리에 없는 하위 분류입니다."),
+
     PRODUCT_MODEL_DISCONTINUED(
             HttpStatus.CONFLICT,
             "PRODUCT_MODEL_DISCONTINUED",

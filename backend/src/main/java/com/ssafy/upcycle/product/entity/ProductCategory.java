@@ -14,5 +14,23 @@ public enum ProductCategory {
     CLOTHING,
     ACCESSORY,
     HOME,
-    ETC
+
+    /**
+     * 위 어디에도 들어가지 않는 제품.
+     *
+     * <p><b>소비자 쇼핑몰에는 노출되지 않는다</b> ({@link #isConsumerVisible}). 값을 지우지
+     * 않는 것은 이미 이 분류로 등록·판매된 제품이 있기 때문이다 — 브랜드 관리 화면과 주문
+     * 이력에서는 그대로 보인다.
+     */
+    ETC;
+
+    /**
+     * 소비자 쇼핑몰(SHOP·검색·브랜드 상세)에 노출되는 분류인가.
+     *
+     * <p>목록에서 거르는 쪽과 상세를 404 로 막는 쪽이 같은 판단을 써야 한다. 두 벌로
+     * 적으면 목록에서 안 보이는 제품의 상세가 id 만 알면 열리는 상태가 된다.
+     */
+    public boolean isConsumerVisible() {
+        return this != ETC;
+    }
 }

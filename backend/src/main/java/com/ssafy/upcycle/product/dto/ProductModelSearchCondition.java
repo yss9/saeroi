@@ -2,6 +2,7 @@ package com.ssafy.upcycle.product.dto;
 
 import com.ssafy.upcycle.product.entity.ProductCategory;
 import com.ssafy.upcycle.product.entity.ProductModelStatus;
+import com.ssafy.upcycle.product.entity.ProductSubcategory;
 
 /**
  * 마켓 제품 목록의 필터·페이지 조건.
@@ -23,7 +24,9 @@ import com.ssafy.upcycle.product.entity.ProductModelStatus;
 public record ProductModelSearchCondition(
         ProductModelStatus status,
         ProductCategory category,
+        ProductSubcategory subcategory,
         Long brandId,
+        ProductModelSort sort,
         Integer page,
         Integer size) {
 
@@ -41,6 +44,17 @@ public record ProductModelSearchCondition(
     /** 기본은 판매 중인 제품만. 준비 중인 제품이 섞이면 마켓의 의미가 흐려진다. */
     public ProductModelStatus statusOrDefault() {
         return status == null ? ProductModelStatus.ON_SALE : status;
+    }
+
+    /**
+     * 기본은 최신순. 새로 올라온 제품이 먼저 보이는 것이 목록의 기본 기대다.
+     *
+     * <p><b>상위 분류와 하위 분류를 함께 주면 교집합이다.</b> 둘이 맞지 않는 조합
+     * ({@code category=BAG&subcategory=TOP})은 400 이 아니라 빈 목록이 된다 — 목록 조회는
+     * 잘못된 조합에 실패하기보다 "그런 제품이 없다" 고 답하는 편이 낫다.
+     */
+    public ProductModelSort sortOrDefault() {
+        return sort == null ? ProductModelSort.LATEST : sort;
     }
 
     public int pageOrDefault() {

@@ -3,6 +3,7 @@ package com.ssafy.upcycle.product.dto;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.ssafy.upcycle.material.dto.IntegralLongDeserializer;
 import com.ssafy.upcycle.product.entity.ProductCategory;
+import com.ssafy.upcycle.product.entity.ProductSubcategory;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
@@ -18,6 +19,10 @@ import jakarta.validation.constraints.Size;
  *   <li>{@code status} — 등록은 언제나 {@code DRAFT} 다. 개체가 하나도 없는 제품이 마켓에
  *       뜨는 것을 막는다. 판매 시작은 별도 경로다.</li>
  * </ul>
+ *
+ * <p><b>{@code subcategory} 는 선택이다.</b> 2단 메뉴가 있는 분류({@code CLOTHING}·
+ * {@code BAG})에서도 필수로 두지 않는다 — 필수로 만들면 하위 분류를 보내지 않던 기존
+ * 브랜드 등록 화면이 그날로 400 을 받는다. 다만 보냈다면 상위 분류에 속해야 한다.
  *
  * <p>{@code thumbnailUrl} 은 이미 업로드된 파일의 주소다. 업로드 자체는 파일 API 가 맡고
  * 등록은 결과만 받는다 — 소재 등록이 증빙을 다루는 방식과 같다.
@@ -35,6 +40,8 @@ public record ProductModelRegisterRequest(
 
         @NotNull(message = "카테고리는 필수입니다.")
         ProductCategory category,
+
+        ProductSubcategory subcategory,
 
         @NotNull(message = "판매가는 필수입니다.")
         @PositiveOrZero(message = "판매가는 0원 이상이어야 합니다.")
