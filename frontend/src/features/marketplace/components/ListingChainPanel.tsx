@@ -29,8 +29,7 @@ export function ListingChainPanel({ listing }: { listing: Listing }) {
   const material = useMaterial(listing.materialId)
   const chain = useListingOnChain()
 
-  // 판매자만 서명할 수 있다. 구매자에게도 "이 판매 글이 온체인에 있는가" 는 보여야 한다 —
-  // 온체인 주문을 할 수 있는지가 여기에 달려 있다.
+  // 판매자만 서명할 수 있다.
   const actionable = user?.id === listing.sellerId
   const tokenId = material.data?.tokenId ?? null
 
@@ -46,6 +45,11 @@ export function ListingChainPanel({ listing }: { listing: Listing }) {
     tokenId !== null &&
     !shortOnChain &&
     listing.chainListingId === null
+
+  // **구매자에게는 그리지 않는다.** 누를 수 없는 패널이고, 온체인 주문이 가능한지는
+  // 구매 폼이 알아서 처리한다 — 사는 사람이 판단에 쓰지 않는 상자가 소재 정보와 구매
+  // 사이를 가로막고 있었다.
+  if (!actionable) return null
 
   return (
     <OnChainPanel

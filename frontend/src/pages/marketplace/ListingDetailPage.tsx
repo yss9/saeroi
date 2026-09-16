@@ -63,39 +63,65 @@ export function ListingDetailPage() {
         </StatusBadge>
       </header>
 
-      {data.materialDescription && (
-        <p className="listing-detail__description">{data.materialDescription}</p>
-      )}
+      {/*
+        살지 말지를 정하는 값 둘(단가·살 수 있는 양)을 위에 크게 세우고, 나머지는 아래
+        한 줄로 깐다. 예전에는 여섯 칸이 모두 같은 크기라 무엇을 먼저 봐야 할지 없었다.
+      */}
+      <section className="listing-detail__box">
+        <div className="listing-detail__figures">
+          <div>
+            <span>kg당 단가</span>
+            <strong>{formatWon(data.pricePerKg)}</strong>
+          </div>
+          <div>
+            <span>구매 가능</span>
+            <strong>{formatKg(data.availableQuantity)}</strong>
+            {/* 목록 카드와 같은 막대. 남은 양을 채운다 — 숫자보다 빨리 읽힌다. */}
+            <div
+              className="listing-detail__bar"
+              role="img"
+              aria-label={`총 ${formatKg(data.totalQuantity)} 중 ${formatKg(data.availableQuantity)} 구매 가능`}
+            >
+              <span
+                style={{
+                  width: `${
+                    data.totalQuantity > 0
+                      ? Math.round((data.availableQuantity / data.totalQuantity) * 100)
+                      : 0
+                  }%`,
+                }}
+              />
+            </div>
+            <small>
+              총 {formatKg(data.totalQuantity)}
+              {sold > 0 && ` · ${formatKg(sold)} 판매됨`}
+            </small>
+          </div>
+        </div>
 
-      <dl className="listing-detail__meta">
-        <div>
-          <dt>출처</dt>
-          <dd>{ROOT_ORIGIN_LABEL[data.rootOrigin]}</dd>
-        </div>
-        <div>
-          <dt>등급</dt>
-          <dd>{data.grade ? `${data.grade}등급` : '미판정'}</dd>
-        </div>
-        <div>
-          <dt>kg당 단가</dt>
-          <dd>{formatWon(data.pricePerKg)}</dd>
-        </div>
-        <div>
-          <dt>구매 가능</dt>
-          <dd>{formatKg(data.availableQuantity)}</dd>
-        </div>
-        <div>
-          <dt>총 등록 수량</dt>
-          <dd>
-            {formatKg(data.totalQuantity)}
-            {sold > 0 && <span className="listing-detail__sold"> · {formatKg(sold)} 판매됨</span>}
-          </dd>
-        </div>
-        <div>
-          <dt>판매자</dt>
-          <dd>{data.sellerName}</dd>
-        </div>
-      </dl>
+        <dl className="listing-detail__meta">
+          <div>
+            <dt>출처</dt>
+            <dd>{ROOT_ORIGIN_LABEL[data.rootOrigin]}</dd>
+          </div>
+          <div>
+            <dt>등급</dt>
+            <dd>{data.grade ? `${data.grade}등급` : '미판정'}</dd>
+          </div>
+          <div>
+            <dt>판매자</dt>
+            {/* 서버가 주는 이름은 대표자 개인 이름이다. 업체명은 응답에 없어 백엔드에 요청해 뒀다. */}
+            <dd>{data.sellerName}</dd>
+          </div>
+        </dl>
+
+        {/*
+          소재 설명(`materialDescription`)은 그리지 않는다. 등록할 때 판매자가 자유롭게
+          적는 메모라 "봉제 공장에서 구매한 새 원단" 처럼 이 판매 글과 어긋나는 문장이
+          그대로 남고, 구매 판단에 쓰이는 값(출처·등급·단가·남은 양)은 위에 이미 있다.
+          소재 상세(/materials/:id)에는 그대로 있다.
+        */}
+      </section>
 
       {/* 판매자 본인에게만 보인다 — 패널이 스스로 판정한다. 구매자에게는 아무것도 그리지
           않으므로 여기서 역할을 다시 따지지 않는다. */}
