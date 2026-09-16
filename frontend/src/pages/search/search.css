@@ -1,0 +1,20 @@
+.product-search { padding: 145px var(--page-gutter) 100px; min-height: 80vh; }
+.product-search__heading { margin-bottom: 45px; }
+.product-search__heading > p { font: 500 10px "Inter", sans-serif; letter-spacing: .18em; margin: 0 0 18px; }
+.product-search__heading h1 { font: 500 clamp(3.825rem, 9.18vw, 7.65rem)/.95 "Manrope", sans-serif; letter-spacing: -.06em; margin: 0; }
+.product-search__form { margin-bottom: 54px; }
+.product-search__form > div { display: flex; border-bottom: 1px solid var(--ink); align-items: center; gap: 20px; }
+.product-search__form input { width: 100%; min-width: 0; border: 0; background: transparent; padding: 17px 0; color: var(--ink); font: inherit; font-size: clamp(16px, 1.4vw, 18px); }
+.product-search__form input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+.product-search__form input::placeholder { color: var(--muted); }
+.product-search__form input:focus { outline: none; }
+.product-search__form > div:focus-within { border-color: var(--brand-blue); box-shadow: 0 1px var(--brand-blue); }
+.product-search__form button { display: grid; place-items: center; width: 50px; min-height: 50px; border: 0; background: transparent; cursor: pointer; flex-shrink: 0; }
+.product-search__form .product-search__clear { width: 44px; color: var(--brand-blue); }
+.product-search__before { padding: 28px 0 20px; }
+.product-search__eyebrow { color: var(--brand-blue); font: 500 10px "Inter", sans-serif; letter-spacing: .15em; }
+.product-search__before nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 24px; }
+.product-search__before nav a { display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 12px; border: 1px solid var(--line); color: var(--muted); font: 500 11px "Manrope", sans-serif; }
+.product-search__before nav a:hover { color: var(--brand-blue); border-color: var(--brand-blue); }
+.product-search__count { margin: 0 0 20px; color: var(--muted); font-size: 12px; }
+@media (max-width: 760px) { .product-search { padding-top: 140px; } .product-search__heading { margin-bottom: 32px; } .product-search__form { margin-bottom: 38px; } .product-search__form > div { gap: 8px; } }

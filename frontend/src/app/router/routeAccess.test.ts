@@ -3,7 +3,7 @@ import { canAccess, getRouteAccess, getRouteAccessMap, isRoleResolving } from '.
 
 describe('routeAccess — routes.tsx 에서 파생한 접근 조건', () => {
   it('공개 경로는 비회원도 볼 수 있다', () => {
-    for (const path of ['/', '/about', '/shop', '/shop/:category', '/shop/:category/:subcategory', '/products/:productId', '/qr/:qrToken', '/403']) {
+    for (const path of ['/', '/about', '/search', '/shop', '/shop/:category', '/shop/:category/:subcategory', '/products/:productId', '/qr/:qrToken', '/403']) {
       const access = getRouteAccess(path)
       expect(access, path).toEqual({ kind: 'public' })
       expect(canAccess(access!, { isAuthenticated: false, role: null }), path).toBe(true)
@@ -29,6 +29,7 @@ describe('routeAccess — routes.tsx 에서 파생한 접근 조건', () => {
    */
   it('비회원에게 열린 경로는 이 목록이 전부다', () => {
     const EXPECTED_PUBLIC: ReadonlyMap<string, string> = new Map([
+      ['/search', '검색 결과와 검색 전 안내. 공개 상품 목록 API 사용'],
       ['/products', '이전 목록 호환 리다이렉트. 목적지는 인증 필요'],
       ['/products/:productId', '공개 소비자 상품 상세'],
       ['/', '쇼핑몰 랜딩. 비회원이 보는 소비자 쇼핑몰 입구'],

@@ -144,9 +144,9 @@ export function Header({ isLogoVisible, scrollToneViewportRatio }: HeaderProps) 
       </nav>
 
       <div className="site-header__actions">
-        <button type="button" aria-label="상품 검색">
+        <Link to="/search" aria-label="상품 검색">
           <MagnifyingGlass aria-hidden="true" />
-        </button>
+        </Link>
 
         <div className="site-header__account" ref={accountRef}>
           <button
