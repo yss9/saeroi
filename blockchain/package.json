@@ -16,6 +16,10 @@
     "receipt:ssafy": "hardhat run scripts/receipt-event.ts --network ssafy",
     "deploy:local": "hardhat run scripts/deploy.ts --network localhost",
     "deploy:ssafy": "hardhat run scripts/deploy.ts --network ssafy",
+    "deploy:prediction:local": "hardhat run scripts/deploy-prediction-market.ts --network localhost",
+    "deploy:prediction:ssafy": "hardhat run scripts/deploy-prediction-market.ts --network ssafy",
+    "verify:prediction:local": "hardhat run scripts/verify-prediction-deployment.ts --network localhost",
+    "verify:prediction:ssafy": "hardhat run scripts/verify-prediction-deployment.ts --network ssafy",
     "roles:local": "hardhat run scripts/grant-roles.ts --network localhost",
     "roles:ssafy": "hardhat run scripts/grant-roles.ts --network ssafy"
   },

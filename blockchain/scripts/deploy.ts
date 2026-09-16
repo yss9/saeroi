@@ -34,6 +34,25 @@ async function main() {
   );
   await productionRegistry.waitForDeployment();
 
+  const initialPredictionPointSupply = ethers.parseUnits(
+    process.env.PREDICTION_POINT_INITIAL_SUPPLY ?? "1000000",
+    18
+  );
+  const PredictionPoint = await ethers.getContractFactory("PredictionPoint");
+  const predictionPoint = await PredictionPoint.deploy(
+    deployer.address,
+    initialPredictionPointSupply
+  );
+  await predictionPoint.waitForDeployment();
+
+  const PredictionMarket = await ethers.getContractFactory("PredictionMarket");
+  const predictionMarket = await PredictionMarket.deploy(
+    await predictionPoint.getAddress(),
+    await productionRegistry.getAddress(),
+    deployer.address
+  );
+  await predictionMarket.waitForDeployment();
+
   await materialToken.grantRole(
     await materialToken.MATERIAL_LOCK_MANAGER_ROLE(),
     await marketplace.getAddress()
@@ -56,6 +75,9 @@ async function main() {
     marketplace: await marketplace.getAddress(),
     processingRegistry: await processingRegistry.getAddress(),
     productionRegistry: await productionRegistry.getAddress(),
+    predictionPoint: await predictionPoint.getAddress(),
+    predictionMarket: await predictionMarket.getAddress(),
+    predictionPointInitialSupply: initialPredictionPointSupply.toString(),
     deployer: deployer.address,
     deployedAt: new Date().toISOString()
   };

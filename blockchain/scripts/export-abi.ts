@@ -6,7 +6,9 @@ const CONTRACTS = [
   "MaterialToken",
   "Marketplace",
   "ProcessingRegistry",
-  "ProductionRegistry"
+  "ProductionRegistry",
+  "PredictionPoint",
+  "PredictionMarket"
 ];
 
 async function main() {
