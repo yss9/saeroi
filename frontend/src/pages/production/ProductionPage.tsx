@@ -3,7 +3,7 @@ import { ProductionBatchForm } from '../../features/production/components/Produc
 import { ProductionBatchList } from '../../features/production/components/ProductionBatchList.tsx'
 
 /**
- * 생산 관리.
+ * 제품 생산.
  *
  * 배치를 열고, 작성 중인 배치를 이어서 하러 오는 화면이다. 소재 투입과 확정은 배치 상세
  * (`/brand/production/:batchId`)에서 한다 — 투입은 배치 하나에 속하는 일이라 목록 화면에
@@ -15,7 +15,7 @@ export function ProductionPage() {
   return (
     <main className="page">
       <header className="page__header">
-        <h1>생산 관리</h1>
+        <h1>제품 생산</h1>
       </header>
 
       <section className="page__section">

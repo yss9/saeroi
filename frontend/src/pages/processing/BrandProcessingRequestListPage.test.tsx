@@ -76,7 +76,7 @@ test('Brand가 자신이 보낸 가공 요청과 지정 가공사를 확인한�
   expect(screen.getByText('세척 · 재단')).toBeInTheDocument()
   expect(screen.getAllByText('견적 대기').length).toBeGreaterThan(0)
   expect(screen.getByRole('link', { name: '요청 내역' })).toHaveClass('company-dashboard__nav-link--active')
-  expect(screen.getByRole('link', { name: '가공 신청' })).not.toHaveClass('company-dashboard__nav-link--active')
+  expect(screen.getByRole('link', { name: '가공 요청' })).not.toHaveClass('company-dashboard__nav-link--active')
   expect(screen.getByRole('link', { name: '새 가공 신청' })).toHaveAttribute('href', '/brand/processing')
   expect(screen.getByRole('link', { name: '견적 확인' })).toHaveAttribute('href', '/brand/processing/requests/17')
   expect(apiClient.get).toHaveBeenCalledWith('/v1/processing-requests', {

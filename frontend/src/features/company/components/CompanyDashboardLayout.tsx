@@ -1,11 +1,17 @@
-import { House, List, SignOut, UserCircle, X } from '@phosphor-icons/react'
-import { useState, type ReactNode } from 'react'
+import { CaretDown, House, List, SignOut, UserCircle, X } from '@phosphor-icons/react'
+import { useCallback, useState, type ReactNode } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import {
   ACCOUNT_MENU_ITEMS,
-  BUSINESS_MENU_ITEMS,
+  BUSINESS_MENU_GROUPS,
+  BUSINESS_TOP_ITEMS,
+  EXACT_MATCH_PATHS,
+  type NavigationMenuGroup,
 } from '../../../app/navigation/navigationMenu.ts'
-import { useVisibleMenu } from '../../../app/navigation/useVisibleMenu.ts'
+import {
+  useVisibleMenu,
+  useVisibleMenuGroups,
+} from '../../../app/navigation/useVisibleMenu.ts'
 import { useAuth } from '../../auth/hooks/useAuth.ts'
 import { useLogout } from '../../auth/hooks/useLogout.ts'
 import { getRoleHomePath } from '../../auth/utils/roleHomePath.ts'
@@ -29,28 +35,52 @@ import './company-dashboard.css'
  * 먼저 온 쪽을 남긴다 — 사업자 메뉴의 이름이 사이드바 문맥에 맞고, 겹치지 않는
  * 마이페이지·관리자 페이지는 그대로 따라 들어온다.
  */
-const UNIQUE_MENU_ITEMS = [...BUSINESS_MENU_ITEMS, ...ACCOUNT_MENU_ITEMS].filter(
-  (item, index, items) => items.findIndex((other) => other.to === item.to) === index,
-)
+/**
+ * 사업자 셸 안에서 계정 화면으로 가는 항목.
+ *
+ * 묶음 바깥에 따로 둔다 — 소비자·관리자가 이 셸에 들어왔을 때 자기 계정으로 돌아가는 길이
+ * 업무 묶음 안에 숨으면 안 된다.
+ */
+const ACCOUNT_LINKS = [...ACCOUNT_MENU_ITEMS, ...BUSINESS_TOP_ITEMS]
 
-/** 계정 항목의 경로. 중복 제거가 끝난 뒤 순서를 잡는 데 쓴다. */
-const ACCOUNT_PATHS = new Set(ACCOUNT_MENU_ITEMS.map((item) => item.to))
+/** 접어 둔 묶음을 기억해 두는 자리. 새로고침마다 다시 접게 하지 않는다. */
+const COLLAPSED_STORAGE_KEY = 'saeroi.sidebar.collapsed'
 
 /**
- * 계정 항목을 맨 위로.
+ * 접어 둔 묶음.
  *
- * **소비자에게 이 사이드바는 거의 계정 메뉴다.** 사업자 항목이 역할 필터에 거의 다 걸러져
- * "제품 둘러보기" 정도만 남는데, 그 아래에 마이페이지가 붙어 있으면 자기 계정으로 돌아가는
- * 길이 목록 끝에 숨는다.
+ * **펼친 쪽이 기본이다.** 접힌 것만 기억하므로 묶음이 새로 생겨도 처음에는 보인다 —
+ * 반대로 열린 목록을 저장하면 새 묶음이 접힌 채로 나와 아무도 찾지 못한다.
  *
- * 중복 제거는 위에서 이미 끝났다 — 순서를 바꾸려고 이어 붙이는 차례를 뒤집으면, 같은
- * 경로가 양쪽에 있을 때 남는 **이름**까지 바뀐다(사업자 메뉴의 이름이 사이드바 문맥에 맞다).
- * 그래서 거르기와 줄 세우기를 나눈다.
+ * 저장은 실패할 수 있다(시크릿 창·사이트 데이터 차단). 그때는 이번 세션만 기억한다.
  */
-const MENU_ITEMS = [
-  ...UNIQUE_MENU_ITEMS.filter((item) => ACCOUNT_PATHS.has(item.to)),
-  ...UNIQUE_MENU_ITEMS.filter((item) => !ACCOUNT_PATHS.has(item.to)),
-]
+function useCollapsedGroups(): [ReadonlySet<string>, (label: string) => void] {
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(readCollapsed)
+
+  const toggle = useCallback((label: string) => {
+    setCollapsed((current) => {
+      const next = new Set(current)
+      if (!next.delete(label)) next.add(label)
+      try {
+        localStorage.setItem(COLLAPSED_STORAGE_KEY, JSON.stringify([...next]))
+      } catch {
+        // 저장하지 못해도 화면은 접힌다. 기억만 이번 세션으로 짧아진다.
+      }
+      return next
+    })
+  }, [])
+
+  return [collapsed, toggle]
+}
+
+function readCollapsed(): ReadonlySet<string> {
+  try {
+    const saved: unknown = JSON.parse(localStorage.getItem(COLLAPSED_STORAGE_KEY) ?? '[]')
+    return new Set(Array.isArray(saved) ? saved.filter((label) => typeof label === 'string') : [])
+  } catch {
+    return new Set()
+  }
+}
 
 interface CompanyDashboardLayoutProps {
   children: ReactNode
@@ -58,6 +88,7 @@ interface CompanyDashboardLayoutProps {
 
 export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [collapsed, toggleGroup] = useCollapsedGroups()
   const navigate = useNavigate()
   const { user } = useAuth()
   const logout = useLogout()
@@ -71,12 +102,8 @@ export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps
   // 감싸므로(ProtectedRoute), 소비자에게는 사업자 항목이 하나도 남지 않고 마이페이지만
   // 남아야 한다. useVisibleMenu 가 routes.tsx 의 RoleGuard 로 걸러 주므로 두 배열을
   // 이어 붙여도 남의 메뉴가 새지 않는다.
-  const { items: visibleNavigation, isResolving } = useVisibleMenu(MENU_ITEMS)
-  // BUSINESS_MENU_ITEMS 의 "회사 정보"와 ACCOUNT_MENU_ITEMS 의 사업자 홈은 같은
-  // 경로다. 사업자에게는 앞의 구체적인 메뉴만 남기고 중복 링크를 그리지 않는다.
-  const navigation = visibleNavigation.filter(
-    (item, index, items) => items.findIndex((candidate) => candidate.to === item.to) === index,
-  )
+  const { groups, isResolving } = useVisibleMenuGroups(BUSINESS_MENU_GROUPS)
+  const { items: accountLinks } = useVisibleMenu(ACCOUNT_LINKS)
 
   function handleSignOut() {
     logout.mutate(undefined, {
@@ -163,17 +190,29 @@ export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps
             RoleGuard 가 같은 상태를 Loading 으로 처리하는 것과 같은 판단이다.
           */}
           <nav aria-label="사업자 대시보드 메뉴" aria-busy={isResolving}>
-            {navigation.map(({ label, to, Icon }) => (
+            {accountLinks.map(({ label, to, Icon }) => (
               <NavLink
                 key={to}
                 to={to}
-                end={to === '/brand/processing'}
+                end={EXACT_MATCH_PATHS.has(to)}
                 onClick={() => setIsMenuOpen(false)}
-                className={({ isActive }) => isActive ? 'company-dashboard__nav-link--active' : undefined}
+                className={({ isActive }) =>
+                  isActive ? 'company-dashboard__nav-link--active' : undefined
+                }
               >
                 <Icon aria-hidden="true" />
                 <span>{label}</span>
               </NavLink>
+            ))}
+
+            {groups.map((group) => (
+              <MenuGroup
+                key={group.label}
+                group={group}
+                open={!collapsed.has(group.label)}
+                onToggle={() => toggleGroup(group.label)}
+                onNavigate={() => setIsMenuOpen(false)}
+              />
             ))}
           </nav>
         </aside>
@@ -190,6 +229,69 @@ export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps
         <main id="company-dashboard-content" className="company-dashboard__content">
           {children}
         </main>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * 묶음 하나.
+ *
+ * **접는 것은 사용자가 정한다.** 기본은 모두 펼친 상태이고, 이름을 누른 묶음만 접힌다 —
+ * 다른 묶음을 눌러도 이미 펼쳐 둔 묶음은 그대로다.
+ *
+ * 예전에는 한 번에 하나만 열리는 아코디언이었다. 그러면 소재를 보다 제품으로 넘어갈 때
+ * 소재가 저절로 닫혀, 방금 보던 자리로 돌아가려면 다시 한 번 눌러야 했다. 사업자가
+ * 하루에 여러 번 오가는 화면들이라 그 비용이 매번 붙는다.
+ */
+function MenuGroup({
+  group,
+  open,
+  onToggle,
+  onNavigate,
+}: {
+  group: NavigationMenuGroup
+  open: boolean
+  onToggle: () => void
+  onNavigate: () => void
+}) {
+  const itemsId = `company-dashboard-group-${group.label}`
+
+  return (
+    <div className="company-dashboard__nav-group">
+      <button
+        type="button"
+        className="company-dashboard__nav-group-label"
+        aria-expanded={open}
+        aria-controls={itemsId}
+        onClick={onToggle}
+      >
+        <span>{group.label}</span>
+        <CaretDown aria-hidden="true" data-open={open} />
+      </button>
+
+      {/*
+        접어도 DOM 에서 지우지 않는다. 링크가 사라지면 활성 표시도 함께 사라져,
+        지금 있는 화면이 어느 묶음이었는지 되짚을 단서가 없어진다.
+      */}
+      <div className="company-dashboard__nav-group-items" id={itemsId} hidden={!open}>
+        {group.items.map(({ label, to, Icon }) => (
+          <NavLink
+            key={to}
+            to={to}
+            // 하위 화면을 가진 항목은 정확히 일치할 때만 켠다. NavLink 는 기본이 접두사
+            // 비교라, 제품 등록(/brand/products/new)에서 내 제품(/brand/products)까지
+            // 함께 강조된다 — 지금 어디에 있는지 잘못 읽힌다.
+            end={EXACT_MATCH_PATHS.has(to)}
+            onClick={onNavigate}
+            className={({ isActive }) =>
+              isActive ? 'company-dashboard__nav-link--active' : undefined
+            }
+          >
+            <Icon aria-hidden="true" />
+            <span>{label}</span>
+          </NavLink>
+        ))}
       </div>
     </div>
   )

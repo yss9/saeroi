@@ -218,7 +218,7 @@ describe('BrandProductList', () => {
   })
 
   // QR 은 개체마다 붙고 개체는 생산 배치가 만든다. 그래서 여태 라벨에 닿으려면 그 제품이
-  // 어느 배치에서 생산됐는지 기억해 생산 관리에서 찾아 들어가야 했다.
+  // 어느 배치에서 생산됐는지 기억해 제품 생산에서 찾아 들어가야 했다.
   it('생산된 제품은 QR 라벨로 가는 길을 준다', async () => {
     api.getMyProductModels.mockResolvedValue([product({ status: 'ON_SALE', stockQuantity: 4 })])
     renderList()

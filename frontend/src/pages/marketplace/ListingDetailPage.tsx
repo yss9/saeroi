@@ -20,7 +20,7 @@ export function ListingDetailPage() {
 
   // Public 라우트라 사이드바 셸이 없다. 조회가 실패한 화면에서도 나갈 길이 있어야
   // 하므로 이른 반환마다 함께 그린다.
-  const back = <BackLink to="/marketplace" label="소재 마켓플레이스" />
+  const back = <BackLink to="/marketplace" label="소재 검색" />
 
   if (id === null) {
     return (

@@ -9,7 +9,7 @@
 //      물건과 다른 이력을 가리키는 라벨을 인쇄한다.
 //   2) **가장 최근 확정분을 먼저 본다.** 라벨을 뽑는 대상은 거의 항상 방금 생산한 배치다.
 //   3) **라벨이 없는 것과 실패를 구분한다** (ARCHITECTURE §8). 생산 전이면 할 수 있는 일
-//      (생산 관리)로 보낸다.
+//      (제품 생산)으로 보낸다.
 //   4) **내 배치만 본다.** 남의 제품 번호를 주소에 넣어도 개체나 토큰이 새지 않는다.
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -165,7 +165,7 @@ describe('ProductQrPage', () => {
     renderPage()
 
     expect(await screen.findByText('아직 만들어진 QR 이 없습니다')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '생산 관리로 이동' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '제품 생산으로 이동' })).toHaveAttribute(
       'href',
       '/brand/production',
     )

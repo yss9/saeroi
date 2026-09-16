@@ -16,7 +16,7 @@ export function MarketplacePage() {
   return (
     <main className="page">
       <header className="page__header">
-        <h1>소재 마켓플레이스</h1>
+        <h1>소재 검색</h1>
       </header>
 
       {/* 조건이 바뀌면 첫 페이지로 돌아간다. 3페이지를 보다가 필터를 걸면 결과가 한 페이지로
