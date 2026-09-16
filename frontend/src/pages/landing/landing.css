@@ -640,6 +640,20 @@
   animation: product-enter 600ms cubic-bezier(.22, 1, .36, 1);
 }
 
+.shop-showcase__media-placeholder {
+  width: 100%;
+  height: 100%;
+  background:
+    linear-gradient(110deg, transparent 35%, rgb(255 255 255 / 18%) 50%, transparent 65%),
+    #cbc4b8;
+  background-size: 220% 100%;
+  animation: shop-placeholder 1.4s ease-in-out infinite;
+}
+
+@keyframes shop-placeholder {
+  to { background-position-x: -220%; }
+}
+
 @keyframes product-enter {
   from { opacity: .2; transform: scale(1.025); }
   to { opacity: 1; transform: scale(1); }
@@ -669,6 +683,42 @@
   justify-content: center;
   justify-self: start;
   padding: 40px 0;
+}
+
+.shop-showcase__state {
+  display: flex;
+  min-height: 220px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 12px;
+}
+
+.shop-showcase__state strong {
+  font-size: clamp(1.6rem, 2.5vw, 2.7rem);
+  font-weight: 500;
+  letter-spacing: -.04em;
+}
+
+.shop-showcase__state p {
+  margin: 0;
+  color: rgb(255 255 255 / 72%);
+  line-height: 1.6;
+}
+
+.shop-showcase__state button {
+  margin-top: 8px;
+  padding: 11px 16px;
+  border: 1px solid rgb(255 255 255 / 48%);
+  color: #fff;
+  background: transparent;
+  cursor: pointer;
+}
+
+.shop-showcase__state button:hover,
+.shop-showcase__state button:focus-visible {
+  border-color: #fff;
+  background: rgb(255 255 255 / 8%);
 }
 
 .shop-showcase__brand {

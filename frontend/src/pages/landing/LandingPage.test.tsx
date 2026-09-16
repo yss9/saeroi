@@ -4,14 +4,31 @@ import userEvent from '@testing-library/user-event'
 import type { AxiosResponse } from 'axios'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { PublicProductModel } from '../../features/product/types/publicProduct.types.ts'
 import { ShopProvider } from '../../features/shop/ShopContext.tsx'
 import { apiClient } from '../../services/apiClient.ts'
 import { useAuthStore, type AuthUser } from '../../stores/authStore.ts'
+import type { PageResponse } from '../../types/api.types.ts'
 import { createAppError, ERROR_KIND } from '../../utils/errors.ts'
 import { LandingPage } from './LandingPage.tsx'
 
+const publicCatalog: PageResponse<PublicProductModel> = {
+  content: [
+    publicProduct(1, '데님 서클 백', 'ReWeave', 'BAG', 129_000, 'product-denim-circle.webp'),
+    publicProduct(2, '패치워크 워크 자켓', 'RE:CODE', 'CLOTHING', 149_000, 'product-work-jacket.webp'),
+    publicProduct(3, '새들 슬링 백', 'DUSTY MILLER', 'BAG', 99_000, 'product-saddle-bag.webp'),
+    publicProduct(4, '패치워크 버킷 햇', 'OCEAN LOOP', 'ACCESSORY', 59_000, 'product-bucket-hat.webp'),
+  ],
+  page: 0,
+  size: 4,
+  totalElements: 4,
+  totalPages: 1,
+  hasNext: false,
+}
+
 beforeEach(() => {
   useAuthStore.getState().signOut()
+  vi.spyOn(apiClient, 'get').mockResolvedValue({ data: publicCatalog } as AxiosResponse)
 })
 
 afterEach(() => {
@@ -51,8 +68,31 @@ function renderLandingPage() {
   )
 }
 
+function publicProduct(
+  productModelId: number,
+  name: string,
+  brandName: string,
+  category: PublicProductModel['category'],
+  price: number,
+  image: string,
+): PublicProductModel {
+  return {
+    productModelId,
+    name,
+    category,
+    brandId: productModelId,
+    brandName,
+    price,
+    description: `${name} 설명`,
+    thumbnailUrl: `/images/landing/${image}`,
+    status: 'ON_SALE',
+    stockQuantity: 10,
+    createdAt: '2026-09-16T10:00:00',
+  }
+}
+
 describe('LandingPage', () => {
-  it('renders the editorial homepage sections and featured product', () => {
+  it('renders the editorial homepage sections and a product from the public catalog', async () => {
     renderLandingPage()
 
     expect(screen.getByRole('heading', { name: 'WASTE IS NOT THE END.' })).toBeInTheDocument()
@@ -60,7 +100,12 @@ describe('LandingPage', () => {
     expect(within(screen.getByRole('region', { name: 'SHOP' })).getByRole('heading', { name: 'SHOP' })).toBeInTheDocument()
     expect(within(screen.getByRole('region', { name: 'BRANDS' })).getByRole('heading', { name: 'BRANDS' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'BEFORE IT BECAME NEW.' })).toBeInTheDocument()
-    expect(screen.getByRole('article', { name: '데님 서클 백 상품' })).toBeInTheDocument()
+    expect(await screen.findByRole('article', { name: '데님 서클 백 상품' })).toBeInTheDocument()
+    expect(apiClient.get).toHaveBeenCalledWith('/v1/public/product-models', {
+      params: { page: 0, size: 4 },
+      skipAuth: true,
+      skipTokenRefresh: true,
+    })
     expect(screen.getByText('Beyond The Product')).toBeInTheDocument()
     expect(screen.getByText('제품 너머의 이야기까지.')).toBeInTheDocument()
     expect(screen.getByText('New Life, New Form')).toBeInTheDocument()
@@ -103,7 +148,7 @@ describe('LandingPage', () => {
     const user = userEvent.setup()
     renderLandingPage()
 
-    const button = screen.getByRole('button', { name: '데님 서클 백 찜하기' })
+    const button = await screen.findByRole('button', { name: '데님 서클 백 찜하기' })
     await user.click(button)
 
     expect(screen.getByLabelText('현재 위치')).toHaveTextContent('/login')
@@ -118,7 +163,7 @@ describe('LandingPage', () => {
     const user = userEvent.setup()
     renderLandingPage()
 
-    const button = screen.getByRole('button', { name: '데님 서클 백 찜하기' })
+    const button = await screen.findByRole('button', { name: '데님 서클 백 찜하기' })
     const heartBeforeHover = button.querySelector('svg')?.innerHTML
 
     await user.hover(button)
@@ -144,7 +189,7 @@ describe('LandingPage', () => {
     const user = userEvent.setup()
     renderLandingPage()
 
-    const button = screen.getByRole('button', { name: '데님 서클 백 찜하기' })
+    const button = await screen.findByRole('button', { name: '데님 서클 백 찜하기' })
     await user.click(button)
 
     expect(screen.getByRole('button', { name: '데님 서클 백 찜 해제' })).toHaveAttribute('aria-pressed', 'true')
@@ -154,9 +199,35 @@ describe('LandingPage', () => {
     const user = userEvent.setup()
     renderLandingPage()
 
-    await user.click(screen.getByRole('button', { name: '다음 상품' }))
+    await user.click(await screen.findByRole('button', { name: '다음 상품' }))
 
-    expect(screen.getByRole('article', { name: '패치워크 워크 재킷 상품' })).toBeInTheDocument()
+    expect(screen.getByRole('article', { name: '패치워크 워크 자켓 상품' })).toBeInTheDocument()
+  })
+
+  it('shows an empty state when there are no products on sale', async () => {
+    vi.mocked(apiClient.get).mockResolvedValueOnce({
+      data: { ...publicCatalog, content: [], totalElements: 0, totalPages: 0 },
+    } as AxiosResponse)
+
+    renderLandingPage()
+
+    expect(await screen.findByText('판매 중인 상품이 없습니다')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /장바구니 담기/ })).not.toBeInTheDocument()
+  })
+
+  it('shows an error state and retries the public catalog request', async () => {
+    vi.mocked(apiClient.get)
+      .mockRejectedValueOnce(createAppError(ERROR_KIND.NETWORK_ERROR))
+      .mockResolvedValueOnce({ data: publicCatalog } as AxiosResponse)
+    const user = userEvent.setup()
+
+    renderLandingPage()
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('상품을 불러오지 못했습니다')
+    await user.click(screen.getByRole('button', { name: '다시 시도' }))
+
+    expect(await screen.findByRole('article', { name: '데님 서클 백 상품' })).toBeInTheDocument()
+    expect(apiClient.get).toHaveBeenCalledTimes(2)
   })
 
   it('navigates header and discovery links to existing hash targets', async () => {
