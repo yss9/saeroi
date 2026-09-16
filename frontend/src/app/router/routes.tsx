@@ -1,5 +1,6 @@
 import { type RouteObject } from 'react-router-dom'
 import { ShopProvider } from '../../features/shop/ShopContext.tsx'
+import { AboutPage } from '../../pages/about/AboutPage.tsx'
 import { LandingPage } from '../../pages/landing/LandingPage.tsx'
 import { AdminPage } from '../../pages/auth/AdminPage.tsx'
 import { BusinessSignupPage } from '../../pages/auth/BusinessSignupPage.tsx'
@@ -52,6 +53,12 @@ const landingPageElement = (
   </ShopProvider>
 )
 
+const aboutPageElement = (
+  <ShopProvider>
+    <AboutPage />
+  </ShopProvider>
+)
+
 /**
  * 라우트 정의.
  *
@@ -67,6 +74,7 @@ const landingPageElement = (
 export const routes: RouteObject[] = [
   // ── Public ────────────────────────────────────────────
   { path: '/', element: landingPageElement },
+  { path: '/about', element: aboutPageElement },
   { path: '/login', element: <LoginPage /> },
   { path: '/signup', element: <SignupTypePage /> },
   { path: '/signup/consumer', element: <ConsumerSignupPage /> },

@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { createMemoryRouter, MemoryRouter, RouterProvider, useRoutes } from 'react-router-dom'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAuthStore } from '../../stores/authStore.ts'
 import type { UserRole } from '../../types/role.types.ts'
 import { AppProviders } from '../providers/AppProviders.tsx'
@@ -43,6 +43,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
+  vi.restoreAllMocks()
   useAuthStore.setState({ user: null, accessToken: null, isAuthenticated: false })
   localStorage.clear()
 })
@@ -57,6 +58,14 @@ describe('application router', () => {
     )
 
     expect(screen.getByRole('heading', { name: 'WASTE IS NOT THE END.' })).toBeInTheDocument()
+  })
+
+  it('renders the public ABOUT page without authentication', () => {
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
+    renderRoute('/about')
+
+    expect(screen.getByRole('heading', { name: 'WHO WE ARE' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'EVERY MATERIAL LEAVES A TRACE.' })).toBeInTheDocument()
   })
 
   // 라우트 정의에 실제로 가드가 걸려 있는지 확인한다. RoleGuard 단위 테스트는

@@ -101,7 +101,7 @@ export const saeroiValues: SaeroiValue[] = [
 export const footerNavigation: FooterNavigationGroup[] = [
   {
     title: 'ABOUT',
-    links: [{ label: '우리의 이야기', href: '#story' }],
+    links: [{ label: '우리의 이야기', href: '/about' }],
   },
   {
     title: 'CUSTOMER',

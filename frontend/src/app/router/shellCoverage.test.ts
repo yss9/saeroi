@@ -26,6 +26,7 @@ import { routes } from './routes.tsx'
  */
 const INTENTIONALLY_BARE: ReadonlyMap<string, string> = new Map([
   ['/', '쇼핑몰 랜딩. 자체 헤더를 갖고 있고 로그인 상태면 역할 홈 링크를 보여준다'],
+  ['/about', '공개 브랜드 소개. 쇼핑몰 공통 헤더·푸터와 계정 메뉴를 사용하므로 사업자 셸에서 제외'],
   ['/login', '인증 흐름. AuthLayout 이 따로 있다'],
   ['/signup', '인증 흐름'],
   ['/signup/consumer', '인증 흐름'],
