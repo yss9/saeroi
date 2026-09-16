@@ -123,6 +123,52 @@ public enum ProductErrorCode implements ErrorCode {
             "PRODUCT_THUMBNAIL_NOT_STORED",
             "업로드되지 않은 이미지입니다. 이미지를 먼저 올려 주세요."),
 
+    /**
+     * 갤러리 교체 요청이 준 저장 키가 저장소에 없는 경우.
+     *
+     * <p>{@code PRODUCT_THUMBNAIL_NOT_STORED} 와 문구가 같지만 코드를 나눈다 — 화면이
+     * 대표 이미지 입력과 갤러리 목록 중 어느 쪽을 가리켜야 할지 답에서 알 수 있어야 한다.
+     */
+    PRODUCT_IMAGE_NOT_STORED(
+            HttpStatus.BAD_REQUEST,
+            "PRODUCT_IMAGE_NOT_STORED",
+            "업로드되지 않은 이미지입니다. 이미지를 먼저 올려 주세요."),
+
+    /** 한 갤러리에 같은 이미지를 두 번 넣은 경우. 같은 사진이 두 칸을 차지할 이유가 없다. */
+    PRODUCT_IMAGE_DUPLICATED(
+            HttpStatus.BAD_REQUEST,
+            "PRODUCT_IMAGE_DUPLICATED",
+            "같은 이미지를 두 번 등록할 수 없습니다."),
+
+    /**
+     * 대표 사진을 둘 이상 지정한 경우.
+     *
+     * <p>없는 것은 허용한다 — 그때는 첫 자리가 대표 자리다. 둘이면 어느 쪽이 대표인지
+     * 서버가 답할 수 없고, 화면마다 다른 사진을 고르게 된다.
+     */
+    PRODUCT_IMAGE_MAIN_NOT_UNIQUE(
+            HttpStatus.BAD_REQUEST,
+            "PRODUCT_IMAGE_MAIN_NOT_UNIQUE",
+            "대표 이미지는 한 장만 지정할 수 있습니다."),
+
+    /** 갤러리 장수 상한을 넘긴 경우. 공개 상세 응답이 요청 하나로 커지는 것을 막는다. */
+    PRODUCT_IMAGE_TOO_MANY(
+            HttpStatus.BAD_REQUEST,
+            "PRODUCT_IMAGE_TOO_MANY",
+            "상품 이미지는 최대 10장까지 등록할 수 있습니다."),
+
+    /** 그 제품의 갤러리에 없는 이미지 id. 남의 제품 사진을 가리킨 경우도 이것이다. */
+    PRODUCT_IMAGE_NOT_FOUND(
+            HttpStatus.NOT_FOUND,
+            "PRODUCT_IMAGE_NOT_FOUND",
+            "상품 이미지를 찾을 수 없습니다."),
+
+    /** 갤러리 행은 있는데 그 파일이 저장소에서 사라진 경우. */
+    PRODUCT_IMAGE_FILE_NOT_FOUND(
+            HttpStatus.NOT_FOUND,
+            "PRODUCT_IMAGE_FILE_NOT_FOUND",
+            "상품 이미지 파일을 찾을 수 없습니다."),
+
     /** 제품 행은 있는데 그 이미지 파일이 저장소에서 사라진 경우. */
     PRODUCT_THUMBNAIL_NOT_FOUND(
             HttpStatus.NOT_FOUND,

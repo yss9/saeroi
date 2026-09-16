@@ -57,7 +57,38 @@ public class PublicProductCatalogController {
 
     @GetMapping("/{productModelId}/thumbnail")
     public ResponseEntity<Resource> thumbnail(@PathVariable Long productModelId) {
-        FileContent file = publicProductCatalogService.readThumbnail(productModelId);
+        return image(publicProductCatalogService.readThumbnail(productModelId));
+    }
+
+    /**
+     * 상품 상세 갤러리의 사진 한 장.
+     *
+     * <p>상세와 같은 관문을 지난다 — 판매 중이 아니거나 소비자에게 감추는 분류면 404 다.
+     *
+     * <p>대표 이미지와 달리 <b>제품마다 여러 장</b>이라 이미지 id 를 함께 받는다. 그 id 가
+     * 이 제품의 것이 아니면 404 다 — 다른 제품의 사진을 남의 주소로 열 수 있게 되면 그
+     * 주소가 그대로 공유된다.
+     */
+    @GetMapping("/{productModelId}/images/{productImageId}")
+    public ResponseEntity<Resource> image(
+            @PathVariable Long productModelId, @PathVariable Long productImageId) {
+        return image(publicProductCatalogService.readImage(productModelId, productImageId));
+    }
+
+    /**
+     * 공개 이미지 응답. 대표 이미지와 갤러리가 같은 헤더를 쓴다.
+     *
+     * <ul>
+     *   <li>{@code Content-Disposition: inline} — 사진은 화면에 그린다. 원본 파일명은 싣지
+     *       않는다: 한글·따옴표·개행이 들어간 이름은 헤더 인젝션이 되고 그 이름은 사용자가
+     *       정한 값이다
+     *   <li>{@code X-Content-Type-Options: nosniff} — 화이트리스트로 svg 를 막는 노력이
+     *       브라우저의 타입 추측으로 무의미해질 수 있다
+     *   <li>{@code Cache-Control: public} — 비로그인에게 열린 자료라 공용 프록시가 캐시해도
+     *       된다. 판매가 끝난 상품은 5분 안에 404 로 바뀐다
+     * </ul>
+     */
+    private ResponseEntity<Resource> image(FileContent file) {
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(file.contentType()))
                 .contentLength(file.size())
@@ -66,6 +97,7 @@ public class PublicProductCatalogController {
                         ContentDisposition.inline().build().toString())
                 .header(HttpHeaders.CACHE_CONTROL, "public, max-age=300")
                 .header("X-Content-Type-Options", "nosniff")
+                // InputStreamResource 는 한 번만 읽힌다. Spring 이 응답으로 흘린 뒤 닫아 준다.
                 .body(new InputStreamResource(file.stream()));
     }
 }
