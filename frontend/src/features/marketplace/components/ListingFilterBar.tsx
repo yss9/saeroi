@@ -1,4 +1,4 @@
-import { ArrowCounterClockwise } from '@phosphor-icons/react'
+import { ArrowCounterClockwise, MagnifyingGlass } from '@phosphor-icons/react'
 import { Select } from '../../../components/common/index.ts'
 import type { MaterialGrade, MaterialRootOrigin, MaterialType,
   MaterialGenerationType,
@@ -38,6 +38,21 @@ const GENERATION_OPTIONS = [
   { value: 'PRODUCTION_SCRAP', label: '생산 부산물' },
 ] as const
 
+/**
+ * 판매 상태.
+ *
+ * **서버 기본값이 `ON_SALE` 이다.** 즉 아무것도 고르지 않으면 이미 판매 중인 것만 보인다.
+ * 그래도 칸을 두는 이유는 그 사실이 화면 어디에도 없었기 때문이다 — 품절된 판매글이 왜
+ * 안 보이는지 알 길이 없었다.
+ *
+ * "전체" 는 없다. 서버가 상태 하나만 받는다 (`ListingSearchCondition.status`).
+ */
+const STATUS_OPTIONS = [
+  { value: 'ON_SALE', label: '판매 중' },
+  { value: 'SOLD_OUT', label: '품절' },
+  { value: 'CANCELED', label: '판매 취소' },
+] as const
+
 const GRADE_OPTIONS = [
   { value: 'A', label: 'A · 오염·손상 없음' },
   { value: 'B', label: 'B · 경미한 오염·손상' },
@@ -60,7 +75,8 @@ export function ListingFilterBar({
 }: ListingFilterBarProps) {
   // 되돌릴 것이 없으면 잠근다. 버튼 자체는 늘 같은 자리에 둔다 — 조건을 걸어야 나타나면
   // 그때까지는 되돌리는 방법이 있다는 것을 알 수 없다.
-  const hasFilters = Object.keys(filters).length > 0
+  const hasFilters = Object.keys(filters).some((key) => key !== 'status') ||
+    (filters.status !== undefined && filters.status !== 'ON_SALE')
   function patch<K extends keyof ListingFilters>(key: K, raw: string) {
     const next = { ...filters }
     if (raw === '') delete next[key]
@@ -70,7 +86,49 @@ export function ListingFilterBar({
 
   return (
     <div className="listing-filter">
-      {/* 고르는 조건 넷. 좁아지면 이 안에서만 줄이 접히고 초기화 버튼은 끝에 남는다. */}
+      {/* 이 상자가 무엇인지 한 줄로 말한다. 칸 넷만 덩그러니 있으면 화면의 일부인지
+          입력해야 하는 것인지 구분이 안 된다. */}
+      <div className="listing-filter__head">
+        <MagnifyingGlass aria-hidden="true" />
+        <span>검색 조건</span>
+
+        {/*
+          상태는 칸이 아니라 버튼이다. 하나만 고를 수 있고, 고른 것을 다시 누르면 기본인
+          판매 중으로 돌아온다 — 서버가 상태를 하나만 받아 "전부 보기" 라는 선택지가 없다.
+        */}
+        <div className="listing-filter__status" role="group" aria-label="판매 상태">
+          {STATUS_OPTIONS.map((option) => {
+            const active = (filters.status ?? 'ON_SALE') === option.value
+            return (
+              <button
+                key={option.value}
+                type="button"
+                aria-pressed={active}
+                className={active ? 'is-active' : undefined}
+                onClick={() => patch('status', active ? 'ON_SALE' : option.value)}
+              >
+                {option.label}
+              </button>
+            )
+          })}
+        </div>
+
+        {/*
+          하나씩 "전체" 로 되돌리려면 네 번을 눌러야 하고, 어떤 조건이 걸려 있었는지
+          기억하지 못하면 결과가 왜 적은지도 알 수 없다.
+        */}
+        <button
+          type="button"
+          className="listing-filter__reset"
+          disabled={!hasFilters}
+          onClick={onReset}
+        >
+          <ArrowCounterClockwise aria-hidden="true" />
+          조건 초기화
+        </button>
+      </div>
+
+      {/* 고르는 조건 넷. 좁아지면 이 안에서만 줄이 접힌다. */}
       <div className="listing-filter__fields">
         <Select
           label="소재 종류"
@@ -104,19 +162,6 @@ export function ListingFilterBar({
         />
       </div>
 
-      {/*
-        하나씩 "전체" 로 되돌리려면 네 번을 눌러야 하고, 어떤 조건이 걸려 있었는지
-        기억하지 못하면 결과가 왜 적은지도 알 수 없다.
-      */}
-      <button
-        type="button"
-        className="listing-filter__reset"
-        disabled={!hasFilters}
-        onClick={onReset}
-      >
-        <ArrowCounterClockwise aria-hidden="true" />
-        조건 초기화
-      </button>
     </div>
   )
 }
