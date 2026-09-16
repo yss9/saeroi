@@ -1,18 +1,14 @@
+import { ArrowCounterClockwise } from '@phosphor-icons/react'
 import { Select } from '../../../components/common/index.ts'
 import type { MaterialGrade, MaterialRootOrigin, MaterialType,
   MaterialGenerationType,
 } from '../../material/types/material.types.ts'
-import {
-  LISTING_SORT_LABEL,
-  type ListingFilters,
-  type ListingSort,
-} from '../types/marketplace.types.ts'
+import type { ListingFilters } from '../types/marketplace.types.ts'
 
 export interface ListingFilterBarProps {
   filters: ListingFilters
-  sort: ListingSort
   onFiltersChange: (filters: ListingFilters) => void
-  onSortChange: (sort: ListingSort) => void
+  onReset: () => void
 }
 
 const MATERIAL_TYPE_OPTIONS = [
@@ -48,23 +44,23 @@ const GRADE_OPTIONS = [
   { value: 'C', label: 'C · 파쇄·재생 원료화' },
 ] as const
 
-const SORT_OPTIONS = (Object.keys(LISTING_SORT_LABEL) as ListingSort[]).map((value) => ({
-  value,
-  label: LISTING_SORT_LABEL[value],
-}))
-
 /**
  * 목록 필터 (정책 FR-011).
+ *
+ * **정렬은 여기 없다.** 정렬은 거르는 조건이 아니라 결과를 보는 방식이라, 목록 바로 위에
+ * 따로 선다 (`ListingSortBar`) — 조건 칸들과 나란히 두면 다섯 번째 조건처럼 읽혔다.
  *
  * 빈 문자열을 `undefined` 로 바꿔서 넘긴다. 그래야 Query Key 에 빈 값이 끼지 않고,
  * "전체" 선택이 필터 없음과 같은 캐시를 쓰게 된다.
  */
 export function ListingFilterBar({
   filters,
-  sort,
   onFiltersChange,
-  onSortChange,
+  onReset,
 }: ListingFilterBarProps) {
+  // 되돌릴 것이 없으면 잠근다. 버튼 자체는 늘 같은 자리에 둔다 — 조건을 걸어야 나타나면
+  // 그때까지는 되돌리는 방법이 있다는 것을 알 수 없다.
+  const hasFilters = Object.keys(filters).length > 0
   function patch<K extends keyof ListingFilters>(key: K, raw: string) {
     const next = { ...filters }
     if (raw === '') delete next[key]
@@ -74,42 +70,53 @@ export function ListingFilterBar({
 
   return (
     <div className="listing-filter">
-      <Select
-        label="소재 종류"
-        placeholder="전체"
-        options={MATERIAL_TYPE_OPTIONS}
-        value={filters.materialType ?? ''}
-        onChange={(event) => patch('materialType', event.target.value as MaterialType)}
-      />
-      <Select
-        label="출처"
-        placeholder="전체"
-        options={ORIGIN_OPTIONS}
-        value={filters.rootOrigin ?? ''}
-        onChange={(event) => patch('rootOrigin', event.target.value as MaterialRootOrigin)}
-      />
-      <Select
-        label="생성 유형"
-        placeholder="전체"
-        options={GENERATION_OPTIONS}
-        value={filters.generationType ?? ''}
-        onChange={(event) =>
-          patch('generationType', event.target.value as MaterialGenerationType)
-        }
-      />
-      <Select
-        label="등급"
-        placeholder="전체"
-        options={GRADE_OPTIONS}
-        value={filters.grade ?? ''}
-        onChange={(event) => patch('grade', event.target.value as MaterialGrade)}
-      />
-      <Select
-        label="정렬"
-        options={SORT_OPTIONS}
-        value={sort}
-        onChange={(event) => onSortChange(event.target.value as ListingSort)}
-      />
+      {/* 고르는 조건 넷. 좁아지면 이 안에서만 줄이 접히고 초기화 버튼은 끝에 남는다. */}
+      <div className="listing-filter__fields">
+        <Select
+          label="소재 종류"
+          placeholder="전체"
+          options={MATERIAL_TYPE_OPTIONS}
+          value={filters.materialType ?? ''}
+          onChange={(event) => patch('materialType', event.target.value as MaterialType)}
+        />
+        <Select
+          label="출처"
+          placeholder="전체"
+          options={ORIGIN_OPTIONS}
+          value={filters.rootOrigin ?? ''}
+          onChange={(event) => patch('rootOrigin', event.target.value as MaterialRootOrigin)}
+        />
+        <Select
+          label="생성 유형"
+          placeholder="전체"
+          options={GENERATION_OPTIONS}
+          value={filters.generationType ?? ''}
+          onChange={(event) =>
+            patch('generationType', event.target.value as MaterialGenerationType)
+          }
+        />
+        <Select
+          label="등급"
+          placeholder="전체"
+          options={GRADE_OPTIONS}
+          value={filters.grade ?? ''}
+          onChange={(event) => patch('grade', event.target.value as MaterialGrade)}
+        />
+      </div>
+
+      {/*
+        하나씩 "전체" 로 되돌리려면 네 번을 눌러야 하고, 어떤 조건이 걸려 있었는지
+        기억하지 못하면 결과가 왜 적은지도 알 수 없다.
+      */}
+      <button
+        type="button"
+        className="listing-filter__reset"
+        disabled={!hasFilters}
+        onClick={onReset}
+      >
+        <ArrowCounterClockwise aria-hidden="true" />
+        조건 초기화
+      </button>
     </div>
   )
 }

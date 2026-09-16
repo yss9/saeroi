@@ -17,6 +17,8 @@ export interface ListingListProps {
   onPageChange?: (page: number) => void
   emptyTitle?: string
   emptyDescription?: string
+  /** 카드에 남은 수량을 뭐라고 부를지. 자기 판매글을 보는 화면만 'seller' 다. */
+  viewer?: 'buyer' | 'seller'
 }
 
 /** 목록 조회 + 로딩·에러·빈 결과 세 상태 처리. */
@@ -26,6 +28,7 @@ export function ListingList({
   onPageChange,
   emptyTitle = '판매 중인 소재가 없습니다',
   emptyDescription = '조건을 바꾸면 다른 소재를 찾을 수 있습니다.',
+  viewer = 'buyer',
 }: ListingListProps) {
   const { data, isPending, isError, error, refetch } = useListings(params)
 
@@ -39,7 +42,7 @@ export function ListingList({
       <ul className="listing-list">
         {data.content.map((listing) => (
           <li key={listing.listingId}>
-            <ListingCard listing={listing} actions={renderActions?.(listing)} />
+            <ListingCard listing={listing} actions={renderActions?.(listing)} viewer={viewer} />
           </li>
         ))}
       </ul>
