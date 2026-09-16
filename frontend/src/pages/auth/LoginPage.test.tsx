@@ -69,10 +69,10 @@ describe('LoginPage', () => {
       user: { id: 5, email: 'c@test.com', name: '고객', phone: '010', role: 'CONSUMER', status: 'ACTIVE', createdAt: '2026-09-09T00:00:00' },
     } })
     const user = userEvent.setup()
-    render(<AppProviders><MemoryRouter initialEntries={[{ pathname: '/login', state: { from: { pathname: '/products' } } }]}><Routes>
+    render(<AppProviders><MemoryRouter initialEntries={[{ pathname: '/login', state: { from: { pathname: '/products/31' } } }]}><Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/mypage" element={<h1>마이페이지 화면</h1>} />
-      <Route path="/products" element={<h1>쇼핑 화면</h1>} />
+      <Route path="/products/31" element={<h1>쇼핑 화면</h1>} />
     </Routes></MemoryRouter></AppProviders>)
 
     await user.type(screen.getByLabelText('이메일'), 'c@test.com')

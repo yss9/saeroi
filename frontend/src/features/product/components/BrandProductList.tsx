@@ -71,9 +71,9 @@ export function BrandProductList() {
 
       <ul className="brand-product-list">
         {data.map((product) => (
-          <li key={product.productModelId} className="brand-product-list__item" onClick={(event) => followClick(event, `/products/${product.productModelId}`)}>
+          <li key={product.productModelId} className="brand-product-list__item" onClick={(event) => followClick(event, `/business/products/${product.productModelId}`)}>
             <div className="brand-product-list__main">
-              <Link to={`/products/${product.productModelId}`} className="brand-product-list__name">
+              <Link to={`/business/products/${product.productModelId}`} className="brand-product-list__name">
                 {product.name}
               </Link>
               <span className="brand-product-list__meta">

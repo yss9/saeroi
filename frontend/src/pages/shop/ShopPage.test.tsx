@@ -45,7 +45,7 @@ describe('consumer SHOP', () => {
     })
     expect(within(card).getByText('품절')).toBeInTheDocument()
     expect(within(card).getByText('₩ 129,000')).toBeInTheDocument()
-    expect(within(card).queryByRole('link')).not.toBeInTheDocument()
+    expect(within(card).getByRole('link')).toHaveAttribute('href', '/products/1')
     expect(within(card).getByRole('img')).toHaveAttribute('src', '/api/v1/public/product-models/1/thumbnail')
     expect(screen.queryByRole('navigation', { name: '상품 페이지' })).not.toBeInTheDocument()
     expect(screen.queryByText('ETC')).not.toBeInTheDocument()

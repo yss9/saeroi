@@ -37,6 +37,8 @@
 .shop-catalog__sold-out { position: absolute; bottom: 16px; left: 16px; padding: 8px 12px; color: var(--paper); background: var(--ink); font-size: 11px; }
 .shop-catalog__brand { margin: 20px 0 9px; font: 500 10px "Inter", sans-serif; letter-spacing: .09em; overflow-wrap: anywhere; color: var(--muted); }
 .shop-catalog__card h2 { margin: 0; font-size: 16px; line-height: 1.5; font-weight: 500; overflow-wrap: anywhere; }
+.shop-catalog__card > a { display: block; }
+.shop-catalog__card > a:hover h2 { color: var(--brand-blue); }
 .shop-catalog__price { margin: 10px 0 0; font: 500 13px "Inter", sans-serif; }
 .shop-catalog__pagination { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin-top: 64px; }
 .shop-catalog__pagination button { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid transparent; background: transparent; cursor: pointer; font-size: 13px; }

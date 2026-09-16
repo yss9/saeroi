@@ -93,7 +93,7 @@ describe('ProtectedRoute', () => {
   // 붙이면 옷을 고르는 화면에 회사 정보·보유 소재 같은 남의 업무 메뉴가 따라붙는다.
   it('소비자에게는 사업자 셸 대신 쇼핑 껍데기를 씌운다', () => {
     setUser('CONSUMER')
-    renderAt('/products')
+    renderAt('/business/products')
 
     expect(screen.getByRole('heading', { name: '보호된 본문' })).toBeInTheDocument()
     expect(screen.queryByRole('navigation', { name: '사업자 대시보드 메뉴' })).not.toBeInTheDocument()

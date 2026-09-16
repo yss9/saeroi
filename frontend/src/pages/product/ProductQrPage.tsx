@@ -24,7 +24,7 @@ import { useProductModel } from '../../features/product/hooks/useProductModel.ts
  * 훅을 직접 부르면 feature 경계가 무너진다.
  *
  * **`/brand` 안에 둔다.** 개체의 `qrToken` 은 비회원 공개 경로의 열쇠라 서버도 배치
- * 소유자에게만 준다. 제품 상세(`/products/:id`)는 로그인한 누구나 보는 화면이므로 QR 을
+ * 소유자에게만 준다. 업무 상세(`/business/products/:id`)는 로그인한 누구나 보는 화면이므로 QR 을
  * 그쪽에 두지 않는다.
  */
 export function ProductQrPage() {

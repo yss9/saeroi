@@ -25,6 +25,8 @@ import { routes } from './routes.tsx'
  * 있어야 하는지 먼저 따진다.
  */
 const INTENTIONALLY_BARE: ReadonlyMap<string, string> = new Map([
+  ['/products', '기존 목록 호환 리다이렉트. 목적지에서 인증 및 셸 적용'],
+  ['/products/:productId', '공개 소비자 상세. 자체 쇼핑몰 헤더·푸터 사용'],
   ['/', '쇼핑몰 랜딩. 자체 헤더를 갖고 있고 로그인 상태면 역할 홈 링크를 보여준다'],
   ['/about', '공개 브랜드 소개. 쇼핑몰 공통 헤더·푸터와 계정 메뉴를 사용하므로 사업자 셸에서 제외'],
   ['/shop', '소비자 상품 목록. 쇼핑몰 공통 헤더·푸터와 계정 메뉴 사용'],

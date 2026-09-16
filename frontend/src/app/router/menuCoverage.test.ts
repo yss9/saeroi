@@ -31,7 +31,8 @@ const NOT_IN_MENU: ReadonlyMap<string, string> = new Map([
   ['/403', '가드가 보내는 안내 화면'],
   ['/admin', '관리자 전용. ACCOUNT_MENU_ITEMS 가 따로 들고 있다'],
   ['/mypage', '소비자 홈. ACCOUNT_MENU_ITEMS 가 따로 들고 있다'],
-  ['/products', '소비자가 옷을 사는 화면. 쇼핑 머리말의 "쇼핑" 으로 들어간다 — 사업자 사이드바에 둘 자리가 아니다'],
+  ['/products', '이전 인증 목록의 호환 경로. 사업자 목록으로 이동'],
+  ['/business/products', '기존 인증 제품 목록. 업무용 상세와 같은 경로 계층으로 유지'],
   ['/mypage/orders', '주문 내역. 마이페이지 사이드바에서 들어간다'],
   ['/mypage/addresses', '배송지 관리. 마이페이지의 기본 배송지 카드에서 들어간다'],
 ])
