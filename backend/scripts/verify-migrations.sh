@@ -56,7 +56,19 @@ elif [ "$BRANCH" = "backend/develop" ]; then
 else
     BASE_REF="origin/backend/develop"
 fi
-git fetch -q origin "${BASE_REF#origin/}" || { fail "origin/${BASE_REF#origin/} fetch 실패"; exit 2; }
+# Jenkins 워크스페이스에서는 이 fetch 에 자격증명이 없다 — Jenkins 의 GitLab 인증은
+# 자신의 체크아웃 스텝에만 한시적으로 걸리고, 이후 shell 스텝의 임의 git 명령까지
+# 이어지지 않는다("fatal: could not read Username ..."). 대신 멀티브랜치 체크아웃이
+# 이미 전체 브랜치 refspec(+refs/heads/*:refs/remotes/origin/*)을 이 워크스페이스에
+# 받아와 있으므로, fetch 는 신선도를 높이는 최선 노력일 뿐이고 실패해도 로컬에 이미
+# 있는 ref 로 계속 진행할 수 있다. 로컬에도 ref 가 없을 때만 진짜로 막는다.
+if ! git fetch -q origin "${BASE_REF#origin/}" 2>/dev/null; then
+    log "경고: origin fetch 실패(자격증명 없음 등) — 워크스페이스에 이미 있는 로컬 $BASE_REF 로 진행 시도."
+fi
+git rev-parse -q --verify "$BASE_REF" >/dev/null 2>&1 || {
+    fail "$BASE_REF 를 fetch 도 못 하고 로컬에서도 찾지 못했다."
+    exit 2
+}
 
 MERGE_BASE="$(git merge-base HEAD "$BASE_REF" 2>/dev/null)" || {
     fail "$BASE_REF 와의 merge-base 를 찾지 못했다"; exit 2

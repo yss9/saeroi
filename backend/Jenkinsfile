@@ -53,7 +53,15 @@ pipeline {
         stage('마이그레이션 스키마 대조') {
             when { not { branch 'backend/master' } }
             steps {
-                sh 'bash scripts/verify-migrations.sh'
+                // Jenkins 의 GitLab 인증(gitlab-token)은 자신의 체크아웃 스텝에만 한시적으로
+                // 걸리고 이후 shell 스텝의 git 명령까지 이어지지 않는다 — verify-migrations.sh가
+                // 베이스라인 브랜치를 직접 fetch 하려면 자격증명을 명시적으로 실어줘야 한다.
+                withCredentials([usernamePassword(credentialsId: 'gitlab-token', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
+                    sh '''
+                        git config --local credential.helper "!f() { echo username=$GIT_USER; echo password=$GIT_PASS; }; f"
+                        bash scripts/verify-migrations.sh
+                    '''
+                }
             }
         }
 
