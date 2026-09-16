@@ -27,7 +27,9 @@ import com.ssafy.upcycle.user.entity.User;
 import com.ssafy.upcycle.user.entity.UserRole;
 import com.ssafy.upcycle.user.repository.CompanyProfileRepository;
 import com.ssafy.upcycle.user.repository.ConsumerAddressRepository;
+import com.ssafy.upcycle.user.entity.CompanyProfile;
 import com.ssafy.upcycle.user.repository.UserRepository;
+import com.ssafy.upcycle.user.service.BrandLogoService;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -252,6 +254,41 @@ class DemoProductCatalogSeederTests {
         assertThat(productItemRepository.countByProductModelIdAndStatus(
                         product.getId(), ProductItemStatus.IN_STOCK))
                 .isEqualTo(2L);
+    }
+
+    /**
+     * BRANDS 화면이 전부 빈 소개글·빈 로고로 나오면 목록·정렬·검색이 도는지 눈으로 확인할
+     * 수 없다. 로고는 저장 키여야 한다 — 자유 문자열은 공개 응답에서 null 로 접힌다.
+     */
+    @Test
+    void seedsBrandIntroductionsAndLogos() {
+        for (String brandKey : BRAND_KEYS) {
+            CompanyProfile profile = profileOf(brandKey);
+            assertThat(profile.getIntroduction()).isNotBlank();
+            assertThat(BrandLogoService.isBrandLogoKey(profile.getLogoUrl())).isTrue();
+            assertThat(fileStorageService.exists(profile.getLogoUrl())).isTrue();
+        }
+    }
+
+    /** 브랜드가 고쳐 둔 소개글을 재기동이 덮어쓰면 그 글이 사라진다. */
+    @Test
+    void doesNotOverwriteAnIntroductionThatIsAlreadyWritten() {
+        CompanyProfile profile = profileOf("reweave");
+        profile.updateIntroduction("브랜드가 직접 쓴 소개글");
+        companyProfileRepository.saveAndFlush(profile);
+
+        seeder.run(new DefaultApplicationArguments(new String[0]));
+
+        assertThat(profileOf("reweave").getIntroduction()).isEqualTo("브랜드가 직접 쓴 소개글");
+    }
+
+    private CompanyProfile profileOf(String brandKey) {
+        User brand = userRepository
+                .findByEmail(DemoProductCatalogSeeder.DEMO_EMAIL_PREFIX
+                        + brandKey
+                        + DemoProductCatalogSeeder.DEMO_EMAIL_DOMAIN)
+                .orElseThrow();
+        return companyProfileRepository.findById(brand.getId()).orElseThrow();
     }
 
     private List<ProductModel> seededProducts() {

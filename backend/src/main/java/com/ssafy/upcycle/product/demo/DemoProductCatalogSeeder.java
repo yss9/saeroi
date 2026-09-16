@@ -66,22 +66,34 @@ public class DemoProductCatalogSeeder implements ApplicationRunner {
                     "reweave",
                     "ReWeave",
                     "101-81-00001",
-                    "0x000000000000000000000000000000000000d001"),
+                    "0x000000000000000000000000000000000000d001",
+                    "수거한 데님을 실 단위로 되돌려 다시 짭니다. 인디고 한 가지 색조 안에서 "
+                            + "패널 분할과 스티치로만 면을 나누며, 장식을 더하는 대신 구조를 "
+                            + "드러냅니다. 옷과 가방, 리빙 소품까지 같은 원단으로 이어집니다."),
             new DemoBrand(
                     "recode",
                     "RE:CODE",
                     "101-81-00002",
-                    "0x000000000000000000000000000000000000d002"),
+                    "0x000000000000000000000000000000000000d002",
+                    "재고로 남은 작업복을 해체해 다시 조합합니다. 원단의 마모와 봉제 흔적을 "
+                            + "지우지 않아 조각 배치가 제품마다 다릅니다. 포켓과 웨빙이 반복되는 "
+                            + "유틸리티 무드로 옷과 가방을 함께 만듭니다."),
             new DemoBrand(
                     "dusty-miller",
                     "DUSTY MILLER",
                     "101-81-00003",
-                    "0x000000000000000000000000000000000000d003"),
+                    "0x000000000000000000000000000000000000d003",
+                    "가구와 의류 공정에서 남은 자투리 가죽과 스웨이드를 모읍니다. 조각의 크기에 "
+                            + "맞춰 재단하므로 이음선이 그대로 디자인이 되고, 봉제를 줄여 소재의 "
+                            + "드레이프를 살립니다. 가장 작은 조각은 소품이 됩니다."),
             new DemoBrand(
                     "ocean-loop",
                     "OCEAN LOOP",
                     "101-81-00004",
-                    "0x000000000000000000000000000000000000d004"));
+                    "0x000000000000000000000000000000000000d004",
+                    "바다에서 걷어 올린 폐어망과 수거 플라스틱에서 실을 뽑습니다. 가볍고 물에 "
+                            + "강한 성질을 그대로 살려 젖어도 무거워지지 않는 옷과 가방을 "
+                            + "만듭니다. 쓰임이 끝나면 다시 실로 돌아갑니다."));
 
     /**
      * 데모 상품 48개. <b>브랜드 4개 × 최종 분류 12개</b>로, 어느 2단 메뉴를 눌러도 브랜드마다
@@ -539,6 +551,7 @@ public class DemoProductCatalogSeeder implements ApplicationRunner {
     private final ProductionBatchRepository productionBatchRepository;
     private final ProductItemRepository productItemRepository;
     private final DemoProductImageBinder imageBinder;
+    private final DemoBrandLogoBinder brandLogoBinder;
     private final PasswordEncoder passwordEncoder;
     private final Clock clock;
     private final int stockPerProduct;
@@ -550,6 +563,7 @@ public class DemoProductCatalogSeeder implements ApplicationRunner {
             ProductionBatchRepository productionBatchRepository,
             ProductItemRepository productItemRepository,
             DemoProductImageBinder imageBinder,
+            DemoBrandLogoBinder brandLogoBinder,
             PasswordEncoder passwordEncoder,
             Clock clock,
             @Value("${app.demo-catalog.stock-per-product:10}") int stockPerProduct) {
@@ -562,6 +576,7 @@ public class DemoProductCatalogSeeder implements ApplicationRunner {
         this.productionBatchRepository = productionBatchRepository;
         this.productItemRepository = productItemRepository;
         this.imageBinder = imageBinder;
+        this.brandLogoBinder = brandLogoBinder;
         this.passwordEncoder = passwordEncoder;
         this.clock = clock;
         this.stockPerProduct = stockPerProduct;
@@ -597,7 +612,7 @@ public class DemoProductCatalogSeeder implements ApplicationRunner {
             throw new IllegalStateException("Demo catalog account must be an active BRAND: " + email);
         }
 
-        companyProfileRepository.findById(user.getId()).orElseGet(() ->
+        CompanyProfile profile = companyProfileRepository.findById(user.getId()).orElseGet(() ->
                 companyProfileRepository.save(CompanyProfile.register(
                         user.getId(),
                         definition.companyName(),
@@ -608,7 +623,23 @@ public class DemoProductCatalogSeeder implements ApplicationRunner {
                         new GeoCoordinates(
                                 new BigDecimal("37.5446000"),
                                 new BigDecimal("127.0559000")))));
+
+        seedBrandProfile(profile, definition);
         return new SeededBrand(user, definition.walletAddress());
+    }
+
+    /**
+     * 브랜드의 소개글과 로고. <b>비어 있을 때만 채운다.</b>
+     *
+     * <p>이미 쓰여 있는 소개글을 재기동이 덮어쓰면 브랜드가 고쳐 둔 글이 사라진다. 로고도
+     * 같은 판단을 {@link DemoBrandLogoBinder} 가 한다.
+     */
+    private void seedBrandProfile(CompanyProfile profile, DemoBrand definition) {
+        if (profile.getIntroduction() == null || profile.getIntroduction().isBlank()) {
+            profile.updateIntroduction(definition.introduction());
+        }
+        brandLogoBinder.bind(profile, definition.key());
+        companyProfileRepository.save(profile);
     }
 
     private void seedProduct(DemoProduct definition, SeededBrand brand) {
@@ -756,7 +787,9 @@ public class DemoProductCatalogSeeder implements ApplicationRunner {
             String key,
             String companyName,
             String businessNumber,
-            String walletAddress) {}
+            String walletAddress,
+            /** 소비자 BRANDS 화면에 나가는 소개글. 비어 있는 브랜드에만 채운다. */
+            String introduction) {}
 
     private record SeededBrand(User user, String walletAddress) {}
 

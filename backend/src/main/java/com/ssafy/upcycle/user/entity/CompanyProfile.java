@@ -106,6 +106,11 @@ public class CompanyProfile {
         this.longitude = required.longitude();
     }
 
+    /** 소개글만 바꾸는 경로. 데모 데이터 시드가 주소를 다시 보내지 않고 쓴다. */
+    public void updateIntroduction(String introduction) {
+        this.introduction = optionalText(introduction, "introduction", 65_535);
+    }
+
     /** 대표 이미지 업로드가 주소나 소개를 다시 보내지 않고 저장 키만 바꾸는 경로. */
     public void updateLogoUrl(String logoUrl) {
         this.logoUrl = optionalText(logoUrl, "logoUrl", 500);

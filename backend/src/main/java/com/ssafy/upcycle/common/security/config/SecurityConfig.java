@@ -58,12 +58,15 @@ public class SecurityConfig {
                         // 추측 불가능한 값이라 접근 통제 역할을 한다 — 로그인을 요구하면
                         // 비회원이 QR 을 찍고 들어오는 진입점이 무너진다.
                         .requestMatchers(HttpMethod.GET, "/api/v1/qr/**").permitAll()
-                        // 소비자 쇼핑몰의 판매 중 상품 카탈로그. 기존 상품 관리 API는
-                        // 인증 상태로 남겨 DRAFT·등록·수정·상태 변경 경로와 분리한다.
+                        // 소비자 쇼핑몰의 판매 중 상품 카탈로그와 브랜드 카탈로그. 기존
+                        // 상품 관리·업체 정보 API는 인증 상태로 남겨 DRAFT·등록·수정·
+                        // 상태 변경 경로, 사업자 정보와 분리한다.
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/v1/public/product-models",
-                                "/api/v1/public/product-models/**")
+                                "/api/v1/public/product-models/**",
+                                "/api/v1/public/brands",
+                                "/api/v1/public/brands/**")
                         .permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2

@@ -57,9 +57,28 @@ public class DemoPlaceholderImageFactory {
     private static final int WIDTH = 800;
     private static final int HEIGHT = 1000;
 
+    /** 로고는 카드 안의 작은 자리에 들어간다. 세로로 긴 그림은 그 자리에서 잘린다. */
+    private static final int LOGO_SIZE = 480;
+
     private static final String FORMAT = "png";
     private static final String CONTENT_TYPE = "image/png";
     private static final String FILENAME = "placeholder.png";
+    private static final String LOGO_FILENAME = "brand-logo.png";
+
+    /**
+     * 데모 브랜드 4곳의 바탕색. 48개 상품에서 잡은 소재 콘셉트를 따른다 — 재직조 데님은
+     * 인디고, 워크웨어 패치워크는 카키, 자투리 가죽은 더스티 로즈, 폐어망은 딥 아쿠아.
+     */
+    private static final Map<String, Color> BRAND_COLORS = brandColors();
+
+    private static Map<String, Color> brandColors() {
+        Map<String, Color> colors = new LinkedHashMap<>();
+        colors.put("reweave", new Color(0x2A4A7B));
+        colors.put("recode", new Color(0x6B6A4B));
+        colors.put("dusty-miller", new Color(0x9C6B6B));
+        colors.put("ocean-loop", new Color(0x1E6F73));
+        return colors;
+    }
 
     /**
      * 최종 분류 12개의 바탕색.
@@ -87,6 +106,24 @@ public class DemoPlaceholderImageFactory {
         colors.put("ACCESSORY", new Color(0xC7643C));
         colors.put("HOME", new Color(0x5A6B5D));
         return colors;
+    }
+
+    /**
+     * 데모 브랜드의 임시 로고. 정사각이고 브랜드마다 색과 도형이 다르다.
+     *
+     * <p>상품 이미지와 달리 4:5 가 아니라 1:1 이다 — 로고는 카드 안의 작은 원·사각 자리에
+     * 들어가고, 세로로 긴 그림을 넣으면 그 자리에서 잘린다.
+     *
+     * <p>{@link ProductImageType#MAIN} 으로 표시하지만 갤러리에 들어가지는 않는다. 저장에
+     * 필요한 파일명·미디어 타입을 같은 record 로 나르기 위한 것뿐이다.
+     */
+    public DemoProductImage createBrandLogo(String brandKey) {
+        Color background = BRAND_COLORS.get(brandKey);
+        if (background == null) {
+            throw new IllegalArgumentException("No placeholder color for brand: " + brandKey);
+        }
+        return new DemoProductImage(
+                ProductImageType.MAIN, LOGO_FILENAME, CONTENT_TYPE, renderLogo(background));
     }
 
     /**
@@ -127,6 +164,26 @@ public class DemoPlaceholderImageFactory {
             // SHA-256 은 모든 JVM 이 반드시 제공한다.
             throw new IllegalStateException("SHA-256 is not available", impossible);
         }
+    }
+
+    /** 바탕 단색에 가운데 원 하나. 글자가 없어도 브랜드마다 다른 그림이 된다. */
+    private byte[] renderLogo(Color background) {
+        BufferedImage image = new BufferedImage(LOGO_SIZE, LOGO_SIZE, BufferedImage.TYPE_INT_RGB);
+        Graphics2D graphics = image.createGraphics();
+        try {
+            graphics.setRenderingHint(
+                    RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            graphics.setColor(background);
+            graphics.fillRect(0, 0, LOGO_SIZE, LOGO_SIZE);
+
+            graphics.setColor(lighten(background));
+            int diameter = LOGO_SIZE / 2;
+            int offset = (LOGO_SIZE - diameter) / 2;
+            graphics.fillOval(offset, offset, diameter, diameter);
+        } finally {
+            graphics.dispose();
+        }
+        return encode(image);
     }
 
     private byte[] render(ProductCategory category, ProductSubcategory subcategory) {

@@ -1,5 +1,8 @@
 package com.ssafy.upcycle.product.entity;
 
+import java.util.Arrays;
+import java.util.List;
+
 /**
  * 제품 분류.
  *
@@ -32,5 +35,17 @@ public enum ProductCategory {
      */
     public boolean isConsumerVisible() {
         return this != ETC;
+    }
+
+    /**
+     * 소비자에게 노출되는 분류 전부.
+     *
+     * <p>질의에서 {@code category in (...)} 으로 쓴다. {@code ETC} 하나를 {@code ne} 로 적지
+     * 않는 이유는 감출 분류가 늘어도 질의가 그대로이기 때문이고, 상품 목록과 브랜드 목록이
+     * <b>같은 목록</b>을 쓰게 하려는 것이다 — 두 곳이 따로 판단하면 브랜드 카드의 상품 수와
+     * 실제로 그려지는 상품 수가 어긋난다.
+     */
+    public static List<ProductCategory> consumerVisible() {
+        return Arrays.stream(values()).filter(ProductCategory::isConsumerVisible).toList();
     }
 }
