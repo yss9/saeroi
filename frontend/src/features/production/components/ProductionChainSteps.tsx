@@ -59,7 +59,7 @@ export function ProductionChainSteps({ batch }: ProductionChainStepsProps) {
 
   return (
     <ol className="chain-steps chain-steps--actions">
-      <li className="chain-steps__done">온체인 배치 생성</li>
+      <li className="chain-steps__done">온체인 생산 기록</li>
 
       <Step
         label="투입 잠금·계획 기록"
@@ -83,7 +83,7 @@ export function ProductionChainSteps({ batch }: ProductionChainStepsProps) {
 
       <Step
         label="제품 개체 연결"
-        description="만들어진 개체를 배치에 묶습니다. 이 단계가 끝나야 QR 에서 소재 이력이 이어집니다."
+        description="만들어진 개체를 생산에 묶습니다. 이 단계가 끝나야 QR 에서 소재 이력이 이어집니다."
         action={link}
         done={linkedItemCount > 0}
         ready={status === 'CONFIRMED' && linkedItemCount === 0 && itemCount === batch.producedQuantity}

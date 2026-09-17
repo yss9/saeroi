@@ -106,7 +106,7 @@ function Content({
   selected: ProductionBatch | undefined
   onSelect: (batchId: number) => void
 }) {
-  if (isPending) return <Loading variant="skeleton" rows={3} label="생산 배치를 불러오는 중" />
+  if (isPending) return <Loading variant="skeleton" rows={3} label="생산 내역을 불러오는 중" />
   if (isError) return <ErrorMessage error={error} onRetry={onRetry} />
 
   // 결과 없음과 에러를 구분한다 (ARCHITECTURE §8). 여기는 "아직 생산하지 않았다" 이고,
@@ -115,7 +115,7 @@ function Content({
     return (
       <EmptyState
         title="아직 만들어진 QR 이 없습니다"
-        description="생산 배치를 확정하면 개체마다 QR 이 생성됩니다. 작성 중인 배치는 개체가 없어 라벨도 없습니다."
+        description="생산을 확정하면 개체마다 QR 이 생성됩니다. 작성 중인 생산은 개체가 없어 라벨도 없습니다."
         action={<Link to="/brand/production">제품 생산으로 이동</Link>}
       />
     )
@@ -130,7 +130,7 @@ function Content({
       */}
       {batches.length > 1 ? (
         <Select
-          label="생산 배치"
+          label="생산 건"
           options={batches.map((batch) => ({
             value: String(batch.productionBatchId),
             label: batchLabel(batch),
@@ -139,7 +139,7 @@ function Content({
           onChange={(event) => onSelect(Number(event.target.value))}
         />
       ) : (
-        <p className="page__lead">생산 배치 · {batchLabel(selected)}</p>
+        <p className="page__lead">생산 · {batchLabel(selected)}</p>
       )}
 
       <ProductionItemQrGrid batchId={selected.productionBatchId} />

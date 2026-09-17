@@ -69,7 +69,7 @@ describe('ProductionItemList', () => {
   it('확정 전에는 조회하지 않고 무엇을 기다리는지 알린다', () => {
     renderList({ confirmed: false })
 
-    expect(screen.getByText(/배치를 확정하면 QR 이 만들어집니다/)).toBeInTheDocument()
+    expect(screen.getByText(/생산을 확정하면 QR 이 만들어집니다/)).toBeInTheDocument()
     expect(api.getProductionItems).not.toHaveBeenCalled()
   })
 

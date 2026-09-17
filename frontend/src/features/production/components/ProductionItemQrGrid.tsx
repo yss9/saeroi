@@ -64,7 +64,7 @@ export function ProductionItemQrGrid({ batchId }: ProductionItemQrGridProps) {
     return (
       <EmptyState
         title="만들어진 제품 개체가 없습니다"
-        description="확정된 배치인데 개체가 없다면 운영자에게 알려 주세요."
+        description="확정된 생산인데 개체가 없다면 운영자에게 알려 주세요."
       />
     )
   }
