@@ -26,6 +26,7 @@ class SchemaSqlTests {
             "company_profile",
             "consumer_address",
             "consumer_wishlist",
+            "consumer_cart_item",
             "refresh_token",
             "processor_profile",
             "processor_capability",
