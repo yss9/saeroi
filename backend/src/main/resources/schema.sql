@@ -653,6 +653,27 @@ CREATE TABLE consumer_wishlist (
     INDEX idx_consumer_wishlist_user (user_id, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+CREATE TABLE consumer_cart_item (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    product_model_id BIGINT NOT NULL,
+    quantity INT NOT NULL,
+    -- 이 항목을 마지막으로 담을 때 사용자가 본 가격. 결제 기준이 아니라 "담아 둔 사이에
+    -- 값이 바뀌었다" 를 알리기 위한 값이다 (ConsumerCartItem.addedPrice 주석).
+    added_price BIGINT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT pk_consumer_cart_item PRIMARY KEY (id),
+    -- 같은 상품이 두 행이 되면 목록에 같은 상품이 두 줄로 보인다. 조회 후 삽입만으로는
+    -- 동시 요청이 함께 통과한다. 이 키가 목록 범위 스캔과 항목 조회·수정·삭제도 받친다.
+    CONSTRAINT uk_consumer_cart_item_user_product UNIQUE (user_id, product_model_id),
+    CONSTRAINT fk_consumer_cart_item_user FOREIGN KEY (user_id) REFERENCES users (id),
+    -- 담긴 동안에는 상품 행을 지울 수 없다. 찜과 같은 이유다.
+    CONSTRAINT fk_consumer_cart_item_product FOREIGN KEY (product_model_id)
+        REFERENCES product_model (id),
+    CONSTRAINT chk_consumer_cart_item_quantity CHECK (quantity > 0),
+    CONSTRAINT chk_consumer_cart_item_price CHECK (added_price >= 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 CREATE TABLE production_batch (
     id BIGINT NOT NULL AUTO_INCREMENT,
     -- ProductionRegistry.createBatch 가 채번한 번호. 이후 submitPlanAndLock ·

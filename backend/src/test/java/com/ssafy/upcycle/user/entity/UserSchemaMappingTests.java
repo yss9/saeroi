@@ -77,7 +77,8 @@ class UserSchemaMappingTests {
                 UserWallet.class,
                 WalletNonce.class,
                 RefreshToken.class,
-                ConsumerWishlist.class);
+                ConsumerWishlist.class,
+                ConsumerCartItem.class);
     }
 
     private static Stream<Arguments> userEnumColumns() {
