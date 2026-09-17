@@ -19,12 +19,32 @@ const FILTERS: readonly { label: string; status?: BalanceStatus }[] = [
 ]
 
 /**
+ * 보유 상태 배지 문구.
+ *
+ * <b>`status` 와 `available` 은 다른 질문에 답한다.</b> `status` 는 "아직 갖고 있는가"
+ * 이고(`DEPLETED` 는 가공·생산 확정으로 실제로 다 써 버렸을 때만 된다), `available` 은
+ * "지금 쓸 수 있는가" 다. 판매글이나 가공 요청에 걸어 두면 잠기기만 하고 보유량은
+ * 그대로라 — 취소하면 돌아온다 — 상태는 계속 `ACTIVE` 다.
+ *
+ * 그래서 둘을 그대로 나란히 두면 <b>"0.0 kg · 보유 중"</b> 이 된다. 사용자에게는 모순으로
+ * 읽힌다. 실제 사실은 "갖고는 있는데 전부 묶여 있다" 이므로 그렇게 말한다.
+ */
+function statusLabel(status: BalanceStatus, available: number): { text: string; tone: 'success' | 'neutral' | 'warning' } {
+  if (status === 'DEPLETED') return { text: '소진', tone: 'neutral' }
+  if (available <= 0) return { text: '전량 잠김', tone: 'warning' }
+  return { text: '보유 중', tone: 'success' }
+}
+
+/**
  * 내 보유 소재 카드 목록.
  *
- * 한 행에 4장씩 — 소재 / 종류 / 판매 가능량 / 상태만 보여준다. 나머지(보유 수량 ·
- * 잠긴 수량 · 출처 · 생성 유형 · 기준 시각)는 표 한 줄에 다 욱여넣으면 읽기 힘들어져
- * 뺐다. 그 값들은 카드를 눌러 들어가는 소재 상세(`/materials/:id`)와 보유자별
- * 잔량(`MaterialBalanceTable`)에 이미 있다 — 여기서 지우는 게 아니라 옮기는 것.
+ * <b>수량을 세 층으로 보여준다.</b> 예전에는 `available` 하나만 있어서, 그 숫자가 왜
+ * 그런지 알 방법이 없었다 — 30kg 을 갖고 있는데 "판매 가능 12kg" 만 보이면 나머지 18kg 이
+ * 어디 갔는지 화면 어디에도 없다. 응답에는 보유량과 잠긴 양이 함께 오는데 쓰지 않고 있었다.
+ *
+ * <b>잠긴 이유는 아직 못 보여준다.</b> `GET /materials/{id}/locks` 가 없어서 "판매글 2건에
+ * 잠김" 같은 내역을 만들 수 없다. 숫자까지만 정직하게 보여주고, 사유는 그 API 가 생기면
+ * 붙인다 — 지금 지어내면 틀린 말이 화면에 남는다.
  */
 export function InventoryList() {
   const { data, isPending, isError, error, refetch } = useMyMaterials()
@@ -74,8 +94,8 @@ export function InventoryList() {
                 {/* 상태는 맨 위 왼쪽. 카드 아래에 있으면 여러 장을 훑을 때마다 시선이
                     끝까지 내려갔다 올라와야 한다. */}
                 <div className="inventory-card__status">
-                  <StatusBadge tone={item.status === 'ACTIVE' ? 'success' : 'neutral'}>
-                    {item.status === 'ACTIVE' ? '보유 중' : '소진'}
+                  <StatusBadge tone={statusLabel(item.status, item.available).tone}>
+                    {statusLabel(item.status, item.available).text}
                   </StatusBadge>
                 </div>
                 <strong className="inventory-card__name">{item.name}</strong>
@@ -87,10 +107,38 @@ export function InventoryList() {
                   {MATERIAL_TYPE_LABEL[item.materialType as keyof typeof MATERIAL_TYPE_LABEL] ??
                     item.materialType}
                 </span>
-                <div className="inventory-card__footer">
-                  {/* 판매 가능량이 이 카드를 보는 이유다. 음수가 와도 0으로 깎지 않는다 —
-                      잠금 합계가 보유량을 넘었다는 데이터 파손 신호이고 숨기면 원인을 못 찾는다. */}
-                  <span className="inventory-card__available">{formatKg(item.available)}</span>
+                <div className="inventory-card__figures">
+                  {/* 이 카드를 보는 이유가 되는 숫자. 음수가 와도 0으로 깎지 않는다 —
+                      잠금 합계가 보유량을 넘었다는 데이터 파손 신호이고, 숨기면 원인을 못 찾는다. */}
+                  <div className="inventory-card__lead">
+                    <span>쓸 수 있는 양</span>
+                    <strong className="inventory-card__available">{formatKg(item.available)}</strong>
+                  </div>
+
+                  {/*
+                    잠긴 양이 있을 때만 쪼개서 보여준다. 0 이면 "보유 = 가능" 이라
+                    같은 숫자를 두 번 쓰는 셈이고, 카드마다 줄 수가 달라지는 대신
+                    읽을 것이 줄어든다.
+                  */}
+                  {item.lockedQuantity > 0 && (
+                    <>
+                      <div
+                        className="inventory-card__bar"
+                        role="img"
+                        aria-label={`보유 ${formatKg(item.quantity)} 중 ${formatKg(item.lockedQuantity)} 잠김`}
+                      >
+                        <span
+                          style={{
+                            width: `${Math.min(100, Math.max(0, (item.available / item.quantity) * 100))}%`,
+                          }}
+                        />
+                      </div>
+                      <p className="inventory-card__split">
+                        <span>보유 {formatKg(item.quantity)}</span>
+                        <span>잠김 {formatKg(item.lockedQuantity)}</span>
+                      </p>
+                    </>
+                  )}
                 </div>
               </Link>
             </li>
