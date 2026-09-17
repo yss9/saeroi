@@ -17,6 +17,7 @@ import type {
   ConsumerOrderViewStatus,
   ConsumerRecentOrder,
 } from '../types/consumerMyPage.types.ts'
+import { formatDate } from '../utils/formatDate.ts'
 import { groupConsumerOrders, type ConsumerOrderGroup } from '../utils/groupConsumerOrders.ts'
 import './consumer-mypage.css'
 
@@ -224,7 +225,7 @@ function OrderGroupCard({
     <article className="consumer-order-group" aria-label={`${group.orderNumber} 주문`}>
       <header className="consumer-order-group__header">
         <div className="consumer-order-group__header-main">
-          <time dateTime={group.orderedAt}>{dateFormatter.format(new Date(group.orderedAt))}</time>
+          <time dateTime={group.orderedAt}>{formatDate(group.orderedAt, dateFormatter)}</time>
           <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
         </div>
         <Link className="consumer-order-group__detail-link" to={`/mypage/orders/${group.orderId}`}>
@@ -376,7 +377,7 @@ export function OrderProgress({ order }: { order: ConsumerRecentOrder }) {
         <li key={step.label} className={step.at ? 'is-done' : undefined}>
           <span className="consumer-order-progress__label">{step.label}</span>
           {step.at ? (
-            <time dateTime={step.at}>{dateFormatter.format(new Date(step.at))}</time>
+            <time dateTime={step.at}>{formatDate(step.at, dateFormatter)}</time>
           ) : (
             <span className="consumer-order-progress__waiting">대기</span>
           )}

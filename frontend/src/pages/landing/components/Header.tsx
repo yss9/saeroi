@@ -226,7 +226,7 @@ export function Header({ isLogoVisible, scrollToneViewportRatio, forceScrolled }
         >
           <ShoppingBag aria-hidden="true" />
           {cartCount > 0 ? (
-            <span className="site-header__cart-count" aria-hidden="true">{cartCount}</span>
+            <span className="site-header__cart-count" aria-hidden="true">{cartCount > 99 ? '99+' : cartCount}</span>
           ) : null}
         </button>
 

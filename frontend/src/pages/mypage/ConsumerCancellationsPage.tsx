@@ -12,6 +12,7 @@ import {
   RECEIVED_LABEL,
   STATUS_META,
 } from '../../features/user/utils/consumerCancellationMock.ts'
+import { formatDate } from '../../features/user/utils/formatDate.ts'
 import '../../features/user/components/consumer-cancellations.css'
 
 const priceFormatter = new Intl.NumberFormat('ko-KR', {
@@ -108,7 +109,7 @@ export function ConsumerCancellationsPage() {
                     {RECEIVED_LABEL[item.kind]} :{' '}
                     <strong>
                       <time dateTime={item.requestedAt}>
-                        {dateFormatter.format(new Date(item.requestedAt))}
+                        {formatDate(item.requestedAt, dateFormatter)}
                       </time>
                     </strong>
                     <span className="return-card__divider" aria-hidden="true">
@@ -117,7 +118,7 @@ export function ConsumerCancellationsPage() {
                     주문일 :{' '}
                     <strong>
                       <time dateTime={item.orderedAt}>
-                        {dateFormatter.format(new Date(item.orderedAt))}
+                        {formatDate(item.orderedAt, dateFormatter)}
                       </time>
                     </strong>
                     <span className="return-card__divider" aria-hidden="true">

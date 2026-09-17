@@ -274,8 +274,9 @@ function AccountHeader({
             소재 마켓은 사업자끼리 소재를 사고파는 곳이다. 소비자 머리말에 두면 눌러서
             들어갔다가 권한 없음 화면을 만난다 — /marketplace 는 사업자 전용이다.
           */}
-          <Link to="/#featured-brands">브랜드</Link>
-          <Link to="/#about">스토리</Link>
+          {/* 홈의 정지 지점 해시(LandingPage HASH_STEP) — #about 은 푸터라 스토리는 #story 로 간다. */}
+          <Link to="/#brands">브랜드</Link>
+          <Link to="/#story">스토리</Link>
         </nav>
 
         <div className="consumer-account-header__actions">

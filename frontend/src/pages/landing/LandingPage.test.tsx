@@ -416,6 +416,32 @@ describe('LandingPage', () => {
     expect(track.style.transform).toBe('translateY(-100dvh)')
   })
 
+  it('pages with the keyboard but ignores keys typed into a form field', async () => {
+    const { container } = renderLandingPage()
+    const track = container.querySelector<HTMLElement>('.landing-track')!
+
+    fireEvent.keyDown(window, { key: 'ArrowDown' })
+    expect(track.style.transform).toBe('translateY(-100dvh)')
+
+    await new Promise((resolve) => setTimeout(resolve, 950))
+    // 뉴스레터 입력창 안에서 누른 화살표는 페이지를 넘기지 않는다.
+    fireEvent.keyDown(screen.getByLabelText('이메일 주소'), { key: 'ArrowDown' })
+    expect(track.style.transform).toBe('translateY(-100dvh)')
+
+    fireEvent.keyDown(window, { key: 'End' })
+    expect(track.style.transform).toBe('translateY(-500dvh)')
+
+    await new Promise((resolve) => setTimeout(resolve, 950))
+    fireEvent.keyDown(window, { key: 'Home' })
+    expect(track.style.transform).toBe('translateY(-0dvh)')
+  })
+
+  it('applies the paginated shell modifier only to the wheel-paginated home', () => {
+    const { container } = renderLandingPage()
+
+    expect(container.firstElementChild).toHaveClass('landing-page', 'landing-page--paginated')
+  })
+
   it('splits WHY SAEROI into a fixed-image stop and a captions stop without moving the images', async () => {
     const { container } = renderLandingPage()
     const viewport = container.querySelector('.landing-viewport')!
