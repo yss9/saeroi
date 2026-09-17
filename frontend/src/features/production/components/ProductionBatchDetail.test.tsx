@@ -151,7 +151,7 @@ describe('ProductionBatchDetail', () => {
   it('확인 단계를 거친 뒤에만 확정한다', async () => {
     const user = renderDetail()
 
-    await user.click(await screen.findByRole('button', { name: '배치 확정' }))
+    await user.click(await screen.findByRole('button', { name: '생산 확정' }))
     expect(api.confirmProductionBatch).not.toHaveBeenCalled()
     // 문구가 결과를 그대로 말해야 한다.
     expect(screen.getByText(/8 kg이 소비되고 제품 10개가 만들어집니다/)).toBeInTheDocument()
@@ -164,7 +164,7 @@ describe('ProductionBatchDetail', () => {
   it('확인 모달을 닫으면 확정하지 않는다', async () => {
     const user = renderDetail()
 
-    await user.click(await screen.findByRole('button', { name: '배치 확정' }))
+    await user.click(await screen.findByRole('button', { name: '생산 확정' }))
     // '취소' 는 투입 행에도 있다(투입 취소). 모달 안에서 찾는다.
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '취소' }))
 
@@ -176,7 +176,7 @@ describe('ProductionBatchDetail', () => {
     renderDetail()
 
     expect(await screen.findByText(/투입한 소재가 없어 확정할 수 없습니다/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '배치 확정' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '생산 확정' })).toBeDisabled()
   })
 
   // 전량이 자투리·폐기면 제품을 만들 수 없다 (PRODUCTION_NO_PRODUCT_MATERIAL).
@@ -191,7 +191,7 @@ describe('ProductionBatchDetail', () => {
     renderDetail()
 
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: '배치 확정' })).toBeDisabled(),
+      expect(screen.getByRole('button', { name: '생산 확정' })).toBeDisabled(),
     )
   })
 
@@ -210,7 +210,7 @@ describe('ProductionBatchDetail', () => {
     api.getProductionBatch.mockResolvedValueOnce(batch()).mockResolvedValue(confirmed)
     const user = renderDetail()
 
-    await user.click(await screen.findByRole('button', { name: '배치 확정' }))
+    await user.click(await screen.findByRole('button', { name: '생산 확정' }))
     await user.click(screen.getByRole('button', { name: '확정' }))
 
     expect(await screen.findByText('확정 결과')).toBeInTheDocument()
@@ -233,7 +233,7 @@ describe('ProductionBatchDetail', () => {
     expect(await screen.findByText('확정')).toBeInTheDocument()
     // 선택 UI 와 확정 버튼이 모두 사라진다 — 서버가 거절할 요청을 만들 수 없게 한다.
     expect(screen.queryByLabelText('투입할 소재')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '배치 확정' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '생산 확정' })).not.toBeInTheDocument()
   })
 
   it('확정된 배치는 업사이클 비율과 다음 할 일을 보여준다', async () => {
@@ -266,7 +266,7 @@ describe('ProductionBatchDetail', () => {
     )
     const user = renderDetail()
 
-    await user.click(await screen.findByRole('button', { name: '배치 확정' }))
+    await user.click(await screen.findByRole('button', { name: '생산 확정' }))
     await user.click(screen.getByRole('button', { name: '확정' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('보유 수량이 투입량보다 적습니다')
@@ -279,7 +279,7 @@ describe('ProductionBatchDetail', () => {
     api.getProductionBatch.mockResolvedValue(batch({ productModelId: null }))
     renderDetail()
 
-    expect(await screen.findByRole('button', { name: '배치 확정' })).toBeDisabled()
+    expect(await screen.findByRole('button', { name: '생산 확정' })).toBeDisabled()
     expect(screen.getByText(/확정할 수 없습니다/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '제품을 등록' })).toHaveAttribute(
       'href',

@@ -49,7 +49,7 @@ export function ProductionChainPanel({ batch }: ProductionChainPanelProps) {
   return (
     <OnChainPanel
       title="생산 온체인 기록"
-      description={`제품 ${batch.producedQuantity}개의 생산 배치를 체인에 만듭니다. 뒤의 단계가 모두 이 번호를 사용하므로 먼저 해야 합니다.`}
+      description={`제품 ${batch.producedQuantity}개의 생산을 체인에 만듭니다. 뒤의 단계가 모두 이 번호를 사용하므로 먼저 해야 합니다.`}
       onChainId={batch.chainBatchId}
       actionable
       ready={ready}
@@ -64,7 +64,7 @@ export function ProductionChainPanel({ batch }: ProductionChainPanelProps) {
       isBusy={chain.isBusy}
       isRejected={chain.isRejected}
       onSign={() => void chain.create()}
-      actionLabel="온체인 배치 생성"
+      actionLabel="온체인 생산 기록"
     >
       <ProductionChainSteps batch={batch} />
     </OnChainPanel>
@@ -92,14 +92,14 @@ function blockedReason({
   batch: ProductionBatch
 }): string | undefined {
   if (notConfirmed) {
-    return '배치를 확정하면 온체인에 기록할 수 있습니다. 확정 전에는 투입이 더 바뀔 수 있어 체인에 남긴 내용과 어긋납니다.'
+    return '생산을 확정하면 온체인에 기록할 수 있습니다. 확정 전에는 투입이 더 바뀔 수 있어 체인에 남긴 내용과 어긋납니다.'
   }
   if (!configured) {
     return '생산 컨트랙트 주소가 설정되지 않아 온체인 기록을 할 수 없습니다. 운영자에게 알려 주세요.'
   }
   if (address === null) return '지갑을 먼저 연결해 주세요.'
   if (walletMismatch) {
-    return `이 배치는 ${shorten(batch.producerWallet)} 지갑으로 열렸습니다. 그 계정으로 연결해 주세요 — 다른 계정으로 서명하면 배치에 적힌 주소와 어긋난 기록이 남습니다.`
+    return `이 생산은 ${shorten(batch.producerWallet)} 지갑으로 시작했습니다. 그 계정으로 연결해 주세요 — 다른 계정으로 서명하면 생산에 적힌 주소와 어긋난 기록이 남습니다.`
   }
   return undefined
 }

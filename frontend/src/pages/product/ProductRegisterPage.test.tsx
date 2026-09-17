@@ -130,7 +130,7 @@ describe('ProductRegisterPage', () => {
   it('배치 없이 등록하면 연결하지 않는다', async () => {
     const user = renderPage()
 
-    await user.click(await screen.findByRole('button', { name: '배치 없이 등록' }))
+    await user.click(await screen.findByRole('button', { name: '생산 연결 없이 등록' }))
     await user.click(screen.getByRole('button', { name: '제품 등록' }))
 
     expect(await screen.findByText('토트백 등록됨')).toBeInTheDocument()
@@ -146,7 +146,7 @@ describe('ProductRegisterPage', () => {
     renderPage()
 
     expect(await screen.findByRole('button', { name: /확정된 배치/ })).toBeDisabled()
-    expect(screen.getByText('작성 중인 배치에만 연결할 수 있습니다')).toBeInTheDocument()
-    expect(screen.getByText('이미 제품이 연결된 배치입니다')).toBeInTheDocument()
+    expect(screen.getByText('작성 중인 생산에만 연결할 수 있습니다')).toBeInTheDocument()
+    expect(screen.getByText('이미 제품이 연결된 생산입니다')).toBeInTheDocument()
   })
 })

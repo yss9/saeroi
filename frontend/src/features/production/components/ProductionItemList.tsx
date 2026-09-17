@@ -43,7 +43,7 @@ export function ProductionItemList({ batchId, confirmed }: ProductionItemListPro
   // 확정 전에는 만들어진 개체가 없다. 조회하지 않고 이유를 적는다.
   if (!confirmed) {
     return (
-      <p className="item-list__note">배치를 확정하면 QR 이 만들어집니다.</p>
+      <p className="item-list__note">생산을 확정하면 QR 이 만들어집니다.</p>
     )
   }
 
@@ -54,7 +54,7 @@ export function ProductionItemList({ batchId, confirmed }: ProductionItemListPro
     return (
       <EmptyState
         title="만들어진 제품 개체가 없습니다"
-        description="확정된 배치인데 개체가 없다면 운영자에게 알려 주세요."
+        description="확정된 생산인데 개체가 없다면 운영자에게 알려 주세요."
       />
     )
   }

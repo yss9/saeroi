@@ -71,7 +71,7 @@ export function useProductionItemQr(
 function messageFor(error: AppError | null): string {
   switch (error?.status) {
     case 403:
-      return '이 배치의 QR 을 만들 권한이 없습니다. 배치를 연 계정으로 로그인해 주세요.'
+      return '이 생산의 QR 을 만들 권한이 없습니다. 생산을 시작한 계정으로 로그인해 주세요.'
     case 404:
       return '개체를 찾을 수 없습니다. 목록을 새로 고친 뒤 다시 시도해 주세요.'
     default:

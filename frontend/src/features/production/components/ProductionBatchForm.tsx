@@ -104,12 +104,12 @@ export function ProductionBatchForm({ onOpened }: ProductionBatchFormProps) {
     <form onSubmit={onSubmit} noValidate className="batch-form">
       <div className="batch-form__fields">
       <Input
-        label="배치 이름"
+        label="생산 이름"
         placeholder="예: 2026 가을 토트백 1차"
         error={errors.batchName?.message}
         {...register('batchName', {
-          required: '배치 이름을 입력해 주세요.',
-          maxLength: { value: 200, message: '배치 이름은 200자를 넘을 수 없습니다.' },
+          required: '생산 이름을 입력해 주세요.',
+          maxLength: { value: 200, message: '생산 이름은 200자를 넘을 수 없습니다.' },
         })}
       />
 
@@ -158,7 +158,7 @@ export function ProductionBatchForm({ onOpened }: ProductionBatchFormProps) {
           loading={open.isPending}
           disabled={!hasWallet || (drafts.length > 0 && !canSubmitDrafts(drafts))}
         >
-          배치 열기
+          생산 시작
         </Button>
       </div>
     </form>

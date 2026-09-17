@@ -103,7 +103,7 @@ export function ProductionInputList({ batch }: ProductionInputListProps) {
           만들지 못하기 때문이다. 확정 버튼을 눌러 보고 알게 되면 이유를 찾기 어렵다. */}
       {editable && productUsed === 0 && (
         <p className="input-list__warning" role="alert">
-          제품에 쓰인 수량이 없습니다. 투입이 전부 자투리·폐기면 제품을 만들 수 없어 배치를
+          제품에 쓰인 수량이 없습니다. 투입이 전부 자투리·폐기면 제품을 만들 수 없어 생산을
           확정할 수 없습니다.
         </p>
       )}
@@ -113,7 +113,7 @@ export function ProductionInputList({ batch }: ProductionInputListProps) {
           투입을 취소하면 잠긴 수량이 보유 소재로 돌아옵니다. 확정한 뒤에는 취소할 수 없습니다.
         </p>
       ) : (
-        <p className="input-list__note">확정된 배치입니다. 투입을 바꿀 수 없습니다.</p>
+        <p className="input-list__note">확정된 생산입니다. 투입을 바꿀 수 없습니다.</p>
       )}
     </section>
   )

@@ -153,7 +153,7 @@ function ConfirmSection({ batch }: { batch: ProductionBatch }) {
         <li>투입한 소재가 소비되고 보유량에서 빠집니다.</li>
         <li>제품 개체 {batch.producedQuantity}개가 만들어집니다.</li>
         <li>자투리는 새 소재로 발행되어 이력이 이어집니다.</li>
-        <li>업사이클 비율이 계산되어 이 배치에 굳습니다.</li>
+        <li>업사이클 비율이 계산되어 이 생산에 굳습니다.</li>
       </ul>
 
       {batch.inputs.length === 0 && (
@@ -169,22 +169,22 @@ function ConfirmSection({ batch }: { batch: ProductionBatch }) {
       */}
       {batch.productModelId === null && (
         <p className="batch-detail__note">
-          이 배치로 만들 제품이 정해지지 않아 확정할 수 없습니다.{' '}
-          <Link to="/brand/products/new">제품을 등록</Link>할 때 이 배치를 골라 연결해 주세요.
+          이 생산으로 만들 제품이 정해지지 않아 확정할 수 없습니다.{' '}
+          <Link to="/brand/products/new">제품을 등록</Link>할 때 이 생산을 골라 연결해 주세요.
         </p>
       )}
 
       {confirm.isError && <ErrorMessage error={confirm.error} />}
 
       <Button onClick={() => setAsking(true)} disabled={!ready} loading={confirm.isPending}>
-        배치 확정
+        생산 확정
       </Button>
 
       {/* 되돌릴 수 없는 동작이라 확인을 거친다. 문구가 결과를 그대로 말해야 한다 —
           "확정할까요?" 만으로는 소재가 소비된다는 사실이 전달되지 않는다. */}
       <ConfirmModal
         open={asking}
-        title="배치를 확정할까요?"
+        title="생산을 확정할까요?"
         message={`투입한 ${formatKg(productUsed)}이 소비되고 제품 ${batch.producedQuantity}개가 만들어집니다. 되돌릴 수 없습니다.`}
         confirmLabel="확정"
         destructive

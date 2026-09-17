@@ -176,7 +176,7 @@ describe('ProductionInputList', () => {
     )
 
     expect(screen.queryByRole('button', { name: '취소' })).not.toBeInTheDocument()
-    expect(screen.getByText(/확정된 배치입니다/)).toBeInTheDocument()
+    expect(screen.getByText(/확정된 생산입니다/)).toBeInTheDocument()
   })
 
   // 확정이 PRODUCTION_NO_PRODUCT_MATERIAL 로 거부되는 조건이다.

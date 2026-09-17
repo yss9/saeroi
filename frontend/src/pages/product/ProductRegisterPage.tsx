@@ -51,7 +51,7 @@ export function ProductRegisterPage() {
       {assign.isError && <ErrorMessage error={assign.error} />}
       {assign.isSuccess && (
         <p className="page__lead" role="status">
-          {assign.data.batchName} 배치에 연결했습니다. 그 배치를 확정하면 제품 개체와 QR 이
+          {assign.data.batchName} 생산에 연결했습니다. 그 생산을 확정하면 제품 개체와 QR 이
           만들어집니다.
         </p>
       )}
