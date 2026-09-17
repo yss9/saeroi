@@ -1,6 +1,8 @@
-import { type RouteObject } from 'react-router-dom'
-import { ShopProvider } from '../../features/shop/ShopContext.tsx'
+import { Navigate, type RouteObject } from 'react-router-dom'
+import { SearchPage } from '../../pages/search/SearchPage.tsx'
+import { PublicProductDetailPage } from '../../pages/product/PublicProductDetailPage.tsx'
 import { AboutPage } from '../../pages/about/AboutPage.tsx'
+import { ShopPage } from '../../pages/shop/ShopPage.tsx'
 import { LandingPage } from '../../pages/landing/LandingPage.tsx'
 import { AdminPage } from '../../pages/auth/AdminPage.tsx'
 import { BusinessSignupPage } from '../../pages/auth/BusinessSignupPage.tsx'
@@ -55,17 +57,11 @@ import { BrowseLayout } from './guards/BrowseLayout.tsx'
 import { ProtectedRoute } from './guards/ProtectedRoute.tsx'
 import { FORBIDDEN_PATH, RoleGuard } from './guards/RoleGuard.tsx'
 
-const landingPageElement = (
-  <ShopProvider>
-    <LandingPage />
-  </ShopProvider>
-)
+const landingPageElement = <LandingPage />
 
-const aboutPageElement = (
-  <ShopProvider>
-    <AboutPage />
-  </ShopProvider>
-)
+const aboutPageElement = <AboutPage />
+
+const shopPageElement = <ShopPage />
 
 /**
  * 라우트 정의.
@@ -83,6 +79,12 @@ export const routes: RouteObject[] = [
   // ── Public ────────────────────────────────────────────
   { path: '/', element: landingPageElement },
   { path: '/about', element: aboutPageElement },
+  { path: '/shop', element: shopPageElement },
+  { path: '/search', element: <SearchPage /> },
+  { path: '/shop/:category', element: shopPageElement },
+  { path: '/shop/:category/:subcategory', element: shopPageElement },
+  { path: '/products/:productId', element: <PublicProductDetailPage /> },
+  { path: '/products', element: <Navigate to="/business/products" replace /> },
   { path: '/login', element: <LoginPage /> },
   { path: '/signup', element: <SignupTypePage /> },
   { path: '/signup/consumer', element: <ConsumerSignupPage /> },
@@ -154,13 +156,13 @@ export const routes: RouteObject[] = [
         children: [{ path: '/inventory', element: <InventoryPage /> }],
       },
 
-      // 제품은 로그인 뒤에만 본다. 조회 API 와 대표 이미지 모두 인증을 요구하므로
+      // 기존 업무용 제품은 로그인 뒤에만 본다. 조회 API 와 대표 이미지 모두 인증을 요구하므로
       // 공개 라우트로 두면 비회원에게 401 로 빈 화면이 나간다.
       //
       // 소비자가 QR 로 들어오는 입구는 이 화면이 아니라 `/qr/:qrToken` 다 —
       // 그쪽은 비회원 공개를 유지해야 한다.
-      { path: '/products', element: <ProductListPage /> },
-      { path: '/products/:productId', element: <ProductDetailPage /> },
+      { path: '/business/products', element: <ProductListPage /> },
+      { path: '/business/products/:productId', element: <ProductDetailPage /> },
 
       // 거래 **상세**는 로그인만 요구한다. 판매자와 구매자가 같은 주소를 쓰고 서로 다른
       // 것을 하므로(발송 / 결제·수령) 역할로 좁힐 수 없다 — 당사자인지는 서버가
@@ -230,7 +232,7 @@ export const routes: RouteObject[] = [
           { path: '/brand/production/:batchId', element: <ProductionBatchDetailPage /> },
           // 제품 등록. 서버도 BRAND 만 허용하고 역할을 DB 에서 다시 읽어 판단한다.
           { path: '/brand/products/new', element: <ProductRegisterPage /> },
-          // 내 제품 관리(판매 시작·중단). 마켓 목록(/products)과 달리 DRAFT 를 포함한다.
+          // 내 제품 관리(판매 시작·중단). 업무 목록(/business/products)과 달리 DRAFT 를 포함한다.
           { path: '/brand/products', element: <BrandProductPage /> },
           // 제품 수정. 목록에서 눌러 들어가는 화면이라 사이드바에는 두지 않는다.
           { path: '/brand/products/:productModelId/edit', element: <ProductEditPage /> },
@@ -247,7 +249,7 @@ export const routes: RouteObject[] = [
           // 로그인 구역에 있어 양쪽이 모두 들어간다 — 목록만 관점이 갈린다.
           { path: '/trades', element: <TradeListPage /> },
           // 그 제품의 QR 라벨 미리보기. 개체의 qrToken 은 공개 경로의 열쇠라 소유자
-          // 전용이어야 한다 — 로그인한 누구나 보는 /products/:id 에는 두지 않는다.
+          // 전용이어야 한다 — 로그인한 누구나 보는 /business/products/:id 에는 두지 않는다.
           { path: '/brand/products/:productModelId/qr', element: <ProductQrPage /> },
         ],
       },

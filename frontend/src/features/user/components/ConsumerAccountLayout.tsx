@@ -257,7 +257,7 @@ function AccountHeader({
         </Link>
 
         <nav className="consumer-account-header__navigation" aria-label="쇼핑 메뉴">
-          <Link to="/products">쇼핑</Link>
+          <Link to="/shop">쇼핑</Link>
           {/*
             소재 마켓은 사업자끼리 소재를 사고파는 곳이다. 소비자 머리말에 두면 눌러서
             들어갔다가 권한 없음 화면을 만난다 — /marketplace 는 사업자 전용이다.
@@ -267,7 +267,7 @@ function AccountHeader({
         </nav>
 
         <div className="consumer-account-header__actions">
-          <Link className="consumer-account-header__shop-link" to="/products">
+          <Link className="consumer-account-header__shop-link" to="/shop">
             <ShoppingBag aria-hidden="true" />
             <span>쇼핑 계속하기</span>
           </Link>

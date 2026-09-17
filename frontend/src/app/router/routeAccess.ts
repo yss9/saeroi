@@ -25,7 +25,7 @@ import { routes } from './routes.tsx'
 /**
  * 한 경로의 접근 조건.
  *
- * - `public` — 가드 밖. 비회원도 본다 (`/materials`, `/marketplace`, `/products` 등)
+ * - `public` — 가드 밖. 비회원도 본다 (`/shop`, `/products/:productId` 등)
  * - `auth`   — ProtectedRoute 안이지만 RoleGuard 가 없다. **로그인만 하면 역할 무관.**
  *              `/inventory`, `/trades/:tradeId` 가 여기다. 거래 상세가 여기 있는 것은
  *              판매자와 구매자가 같은 주소를 쓰기 때문이다 — 당사자인지는 서버가 판단한다.

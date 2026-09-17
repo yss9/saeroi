@@ -85,15 +85,15 @@ describe('AboutPage', () => {
     expect(screen.queryByText('SCROLL TO DISCOVER')).not.toBeInTheDocument()
   })
 
-  it('uses the consumer navigation without linking to unfinished destination pages', () => {
+  it('connects SHOP and ABOUT while keeping BRANDS on its home section', () => {
     renderAboutPage()
 
     const navigation = screen.getByRole('navigation', { name: '주요 메뉴' })
-    expect(within(navigation).getByRole('link', { name: 'SHOP' })).toHaveAttribute('href', '/#shop')
+    expect(within(navigation).getByRole('link', { name: 'SHOP' })).toHaveAttribute('href', '/shop')
     expect(within(navigation).getByRole('link', { name: 'BRANDS' })).toHaveAttribute('href', '/#brands')
     expect(within(navigation).getByRole('link', { name: 'ABOUT' })).toHaveAttribute('href', '/about')
 
-    expect(screen.getAllByRole('link', { name: /^SHOP/ }).at(-1)).toHaveAttribute('href', '/#shop')
+    expect(screen.getAllByRole('link', { name: /^SHOP/ }).at(-1)).toHaveAttribute('href', '/shop')
     expect(screen.getByRole('link', { name: 'EXPLORE BRANDS' })).toHaveAttribute('href', '/#brands')
   })
 

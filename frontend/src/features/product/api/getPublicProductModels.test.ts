@@ -11,6 +11,7 @@ const response: PageResponse<PublicProductModel> = {
       productModelId: 17,
       name: '데님 서클 백',
       category: 'BAG',
+      subcategory: 'TOTE',
       brandId: 3,
       brandName: 'ReWeave',
       price: 129_000,
@@ -42,6 +43,14 @@ describe('getPublicProductModels', () => {
       params: { page: 0, size: 4 },
       skipAuth: true,
       skipTokenRefresh: true,
+    })
+  })
+
+  it('passes SHOP filtering and 0-based pagination without a status parameter', async () => {
+    const get = vi.spyOn(apiClient, 'get').mockResolvedValue({ data: response } as AxiosResponse)
+    await getPublicProductModels({ category: 'CLOTHING', subcategory: 'TOP', sort: 'PRICE_ASC', page: 1, size: 12 })
+    expect(get).toHaveBeenCalledWith('/v1/public/product-models', {
+      params: { category: 'CLOTHING', subcategory: 'TOP', sort: 'PRICE_ASC', page: 1, size: 12 }, skipAuth: true, skipTokenRefresh: true,
     })
   })
 })

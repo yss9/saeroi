@@ -408,7 +408,7 @@ export function AboutPage() {
             <h2 id="about-final-title">THE NEXT LIFE<br />STARTS HERE</h2>
             <span>Discover fashion with a journey worth knowing</span>
             <div>
-              <Link className="about-final__primary" to="/#shop">SHOP <ArrowRight aria-hidden="true" /></Link>
+              <Link className="about-final__primary" to="/shop">SHOP <ArrowRight aria-hidden="true" /></Link>
               <Link className="about-final__secondary" to="/#brands">EXPLORE BRANDS</Link>
             </div>
           </div>

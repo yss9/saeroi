@@ -298,6 +298,6 @@ describe('ConsumerOrderList', () => {
     renderList([])
 
     expect(screen.getByText('주문 내역이 없습니다')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '상품 둘러보기' })).toHaveAttribute('href', '/products')
+    expect(screen.getByRole('link', { name: '상품 둘러보기' })).toHaveAttribute('href', '/shop')
   })
 })

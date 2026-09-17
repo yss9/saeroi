@@ -20,8 +20,10 @@ import { getRouteAccessMap } from './routeAccess.ts'
  * 각 줄에 이유를 적는다 — 이유 없이 늘어나면 이 테스트가 무력해진다.
  */
 const NOT_IN_MENU: ReadonlyMap<string, string> = new Map([
+  ['/search', '공개 소비자 검색. 쇼핑몰 헤더 SEARCH 아이콘에서 접근'],
   ['/', '랜딩. 로그인 전 입구이고 헤더 로고가 데려간다'],
   ['/about', '공개 브랜드 소개. 쇼핑몰 헤더·OUR STORY·푸터에서 접근하므로 사업자 사이드바에서 제외'],
+  ['/shop', '공개 소비자 상품 목록. 쇼핑몰 헤더·VIEW ALL PRODUCTS에서 접근하므로 사업자 사이드바에서 제외'],
   ['/login', '인증 흐름'],
   ['/signup', '인증 흐름'],
   ['/signup/consumer', '인증 흐름'],
@@ -30,7 +32,8 @@ const NOT_IN_MENU: ReadonlyMap<string, string> = new Map([
   ['/403', '가드가 보내는 안내 화면'],
   ['/admin', '관리자 전용. ACCOUNT_MENU_ITEMS 가 따로 들고 있다'],
   ['/mypage', '소비자 홈. ACCOUNT_MENU_ITEMS 가 따로 들고 있다'],
-  ['/products', '소비자가 옷을 사는 화면. 쇼핑 머리말의 "쇼핑" 으로 들어간다 — 사업자 사이드바에 둘 자리가 아니다'],
+  ['/products', '이전 인증 목록의 호환 경로. 사업자 목록으로 이동'],
+  ['/business/products', '기존 인증 제품 목록. 업무용 상세와 같은 경로 계층으로 유지'],
   ['/mypage/orders', '주문 내역. 마이페이지 사이드바에서 들어간다'],
   ['/mypage/addresses', '배송지 관리. 마이페이지의 기본 배송지 카드에서 들어간다'],
   ['/mypage/cancellations', '마이페이지 사이드바(My쇼핑)에서 들어간다'],

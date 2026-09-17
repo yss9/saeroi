@@ -92,6 +92,7 @@ describe('ProductList', () => {
     const card = within(screen.getByRole('listitem'))
     expect(card.getByText('129,000원')).toBeInTheDocument()
     expect(card.getByText('가방')).toBeInTheDocument()
+    expect(card.getByRole('link')).toHaveAttribute('href', '/business/products/31')
   })
 
   // 이 테스트가 이 파일의 존재 이유다.
