@@ -1,0 +1,21 @@
+.admin-role { padding: 40px; max-width: 1180px; margin: 0 auto; }
+.admin-role__header { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; margin-bottom: 28px; }
+.admin-role__header h1 { margin: 4px 0 8px; font-size: 2rem; }
+.admin-role__header p { margin: 0; color: #66736b; }
+.admin-role__eyebrow { color: #27764a !important; font-size: .75rem; font-weight: 800; letter-spacing: .12em; }
+.admin-role__count { padding: 9px 14px; border-radius: 999px; background: #edf6ef; color: #256a43; font-weight: 700; white-space: nowrap; }
+.admin-role__list { display: grid; gap: 16px; }
+.admin-role__card { padding: 22px; border: 1px solid #dce5df; border-radius: 18px; background: #fff; box-shadow: 0 8px 24px rgb(26 54 39 / 6%); }
+.admin-role__summary { display: flex; justify-content: space-between; gap: 24px; }
+.admin-role__summary h2 { margin: 8px 0 4px; }.admin-role__summary p { margin: 0; color: #69746d; }
+.admin-role__summary dl { margin: 0; min-width: 260px; }.admin-role__summary dl div { display: grid; grid-template-columns: 64px 1fr; gap: 12px; margin-bottom: 7px; }
+.admin-role__summary dt { color: #78837c; }.admin-role__summary dd { margin: 0; overflow-wrap: anywhere; }
+.admin-role__status { display: inline-flex; align-items: center; gap: 5px; font-size: .78rem; font-weight: 800; }
+.admin-role__status--approved { color: #187844; }.admin-role__status--rejected { color: #b23a3a; }.admin-role__status--pending, .admin-role__status--waiting_wallet { color: #9a6b10; }
+.admin-role__wallet { display: flex; gap: 10px; align-items: center; margin: 18px 0 12px; padding: 13px 15px; border-radius: 12px; background: #f5f8f6; }
+.admin-role__wallet div { display: grid; gap: 2px; }.admin-role__wallet span { color: #718077; font-size: .78rem; }.admin-role__wallet code { color: #1f3d2c; }
+.admin-role__transactions { margin: 0 0 12px; color: #27764a; font-size: .86rem; }
+.admin-role__actions { display: flex; justify-content: flex-end; gap: 9px; }.admin-role__actions button { min-height: 40px; padding: 0 16px; border-radius: 10px; font: inherit; font-weight: 700; cursor: pointer; }
+.admin-role__actions button:disabled { cursor: not-allowed; opacity: .5; }.admin-role__reject { border: 1px solid #d7ded9; background: #fff; color: #59645d; }.admin-role__approve { border: 0; background: #236e45; color: #fff; }
+.admin-role__state { padding: 40px; text-align: center; color: #69746d; }
+@media (max-width: 720px) { .admin-role { padding: 24px 16px; } .admin-role__header, .admin-role__summary { flex-direction: column; } .admin-role__summary dl { min-width: 0; } }

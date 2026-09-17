@@ -15,7 +15,7 @@ const accountCopy = {
   },
   business: {
     label: '사업자회원',
-    description: '로그인하면 선택한 업체 유형에 맞는 업무 공간을 이용할 수 있습니다.',
+    description: '로그인 후 지갑을 등록하면 관리자가 업체 유형과 지갑을 확인해 온체인 권한을 승인합니다.',
     Icon: Storefront,
   },
 } as const
@@ -44,7 +44,7 @@ export function SignupCompleteContent({ accountType }: SignupCompleteContentProp
       {accountType === 'business' ? (
         <aside className="signup-complete__wallet-note">
           <strong>지갑 연결 안내</strong>
-          <p>지갑 연결은 로그인 후 마이페이지에서 진행해주세요.</p>
+          <p>로그인 후 마이페이지에서 지갑을 등록해 주세요. 관리자 승인 전에는 온체인 업무를 실행할 수 없습니다.</p>
         </aside>
       ) : null}
 
