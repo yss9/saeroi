@@ -1534,3 +1534,82 @@ a.console-btn--primary:hover { color: #ffffff; }
 .console .shipment-panel,
 .console .receipt-panel,
 .console .trade-timeline { max-width: none; }
+
+/* ── 보유 소재 표 ─────────────────────────────────────────
+   공급업체·브랜드·가공업체가 같은 표를 쓴다. 역할로 갈리는 것은 「소재 등록」뿐이다. */
+
+/*
+ * 행 안의 이름 링크.
+ *
+ * 링크로 두는 이유는 키보드와 보조 기술 때문이지, 링크처럼 <b>보이려는</b> 것이 아니다.
+ * 보정이 없으면 브라우저 기본값이 그대로 나와 이름마다 파란 글씨에 밑줄이 그어진다 —
+ * 표 한 칸에 밑줄이 네댓 줄 생기면 칸 경계선과 뒤섞여 표가 깨져 보인다.
+ */
+.inv-table .console-row__name a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.inv-table .console-row__name a:hover { text-decoration: underline; }
+
+/* 소재 코드. 이름을 고르는 기준은 이름이고 코드는 <b>구분</b>에만 쓰므로 한 겹 뒤로. */
+.inv-code {
+  display: block;
+  margin-top: 1px;
+  font-family: var(--console-mono);
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--console-ink-3);
+}
+
+/* 이 표를 보는 이유가 되는 숫자. 한 열만 크게 둔다. */
+.inv-usable {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--console-ink);
+}
+
+.inv-split > div:first-child {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 160px;
+  font-size: 12px;
+}
+
+.inv-split__lock { color: var(--console-ink-3); white-space: nowrap; }
+
+/* 표 안이라 카드보다 얇게, 위 여백도 줄인다. */
+.inv-bar { height: 4px; margin-top: 4px; }
+
+/* 잠긴 곳. 빈 칸이 절반을 넘는 것이 정상이라 「—」를 조용히 둔다. */
+.inv-lock-src {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  font-size: 12px;
+  color: var(--console-ink-3);
+  white-space: nowrap;
+}
+
+.inv-lock-src a { color: var(--console-teal); text-decoration: none; }
+.inv-lock-src a:hover { text-decoration: underline; }
+
+.inv-synced {
+  font-family: var(--console-mono);
+  font-size: 11px;
+  color: var(--console-ink-3);
+  white-space: nowrap;
+}
+
+/* 종류·등급 칩이 두 개 붙는 칸. <b>td 가 아니라 그 안의 상자를 눕힌다</b> — td 에
+   display:flex 를 걸면 칸이 표 레이아웃에서 빠져나와 열과 선이 어긋난다. */
+.inv-chips { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+
+@media (max-width: 900px) {
+  /* 좁은 화면에서는 기준 시각을 접는다. 표를 옆으로 밀지 않고 읽을 폭을 만든다 —
+     이 값은 소재 상세에도 있다. */
+  .inv-table th:nth-child(7),
+  .inv-table td:nth-child(7) { display: none; }
+}
