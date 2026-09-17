@@ -16,6 +16,7 @@ vi.mock('../../features/user/hooks/useConsumerOrderThumbnail.ts', () => ({
 const orderPage = {
   content: [
     {
+      orderId: 1,
       orderCode: 'PO-001',
       brandName: 'ReWeave',
       totalPrice: 129000,
@@ -136,10 +137,8 @@ describe('consumer mypage route', () => {
     expect(screen.queryByRole('heading', { name: '데님 서클 백' })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: '주문 현황' })).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '내 프로필' })).toBeInTheDocument()
-    expect(get).toHaveBeenCalledWith('/v1/product-orders/me', {
-      params: { page: 0, size: 20 },
-    })
-    expect(get).toHaveBeenCalledWith('/v1/product-orders/me/summary')
+    expect(get).not.toHaveBeenCalledWith('/v1/product-orders/me', expect.anything())
+    expect(get).not.toHaveBeenCalledWith('/v1/product-orders/me/summary')
   })
 
   // 주문 내역은 별도 화면이다. 배송 현황·제품 여정은 "배송조회" 모달로 옮겼다(2026-09-16).
@@ -192,7 +191,7 @@ describe('consumer mypage route', () => {
 
     expect(screen.queryByRole('navigation', { name: '사업자 대시보드 메뉴' })).not.toBeInTheDocument()
     // 자기 껍데기는 그대로 있다. 셸만 빠진 것이지 머리말까지 사라지면 나갈 길이 없다.
-    expect(screen.getByRole('navigation', { name: '쇼핑 메뉴' })).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: '주요 메뉴' })).toBeInTheDocument()
   })
 
   // 소비자는 소재를 보유하지 않는다. 언제나 비어 있는 화면으로 데려가지 않는다.
@@ -205,9 +204,74 @@ describe('consumer mypage route', () => {
     expect(await screen.findByRole('heading', { name: '접근 권한이 없습니다' })).toBeInTheDocument()
   })
 
+  it('shows delivery and payment details together and keeps receipt printing', async () => {
+    mockMyPageApi()
+    signInAsConsumer()
+    const print = vi.spyOn(window, 'print').mockImplementation(() => undefined)
+    renderRoute('/mypage/orders/1')
+    const heading = await screen.findByText('결제 정보')
+    const details = within(heading.parentElement as HTMLElement)
+    for (const label of ['상품 수', '총 결제금액', '받는사람', '주소']) {
+      expect(details.getByText(label)).toBeInTheDocument()
+    }
+    expect(screen.queryByText('받는 곳')).not.toBeInTheDocument()
+    const receipt = screen.getByRole('button', { name: '영수증 출력' })
+    expect(receipt.querySelector('svg')).toBeNull()
+    await userEvent.setup().click(receipt)
+    expect(print).toHaveBeenCalledOnce()
+  })
+
+  it('links the common storefront menus to their pages', async () => {
+    mockMyPageApi()
+    signInAsConsumer()
+    renderRoute('/mypage')
+    await screen.findByRole('heading', { name: '내 프로필' })
+    const menu = screen.getByRole('navigation', { name: '주요 메뉴' })
+    for (const [name, href] of [['SHOP', '/shop'], ['BRANDS', '/brands'], ['ABOUT', '/about']]) {
+      expect(within(menu).getByRole('link', { name })).toHaveAttribute('href', href)
+    }
+    expect(screen.queryByRole('link', { name: '쇼핑 계속하기' })).not.toBeInTheDocument()
+    expect(screen.getAllByText('MY ACCOUNT')).toHaveLength(1)
+    for (const label of ['My 정보', 'My 쇼핑', 'My 활동']) {
+      expect(screen.getByText(label)).toBeInTheDocument()
+    }
+    expect(screen.getAllByRole('banner')).toHaveLength(1)
+    expect(screen.getAllByRole('contentinfo')).toHaveLength(1)
+  })
+
+  it('keeps the profile and real default address available without order requests', async () => {
+    const get = vi.spyOn(apiClient, 'get').mockImplementation(async (url) => {
+      if (url.startsWith('/v1/product-orders/')) throw new Error('order service unavailable')
+      if (url === '/v1/consumers/me/addresses') return { data: [{ addressId: 7, receiverName: '수령인', receiverPhone: '010-1234-5678', zipCode: '12345', address: '서울 주소', addressDetail: '101호', isDefault: true }] } as AxiosResponse
+      return { data: url.endsWith('/product-ids') ? [] : { items: [] } } as AxiosResponse
+    })
+    signInAsConsumer()
+    renderRoute('/mypage')
+    await screen.findByRole('heading', { name: '내 프로필' })
+    expect(screen.getByText('[12345] 서울 주소')).toBeInTheDocument()
+    expect(screen.getByText('101호')).toBeInTheDocument()
+    expect(screen.getByText('010-1234-5678')).toBeInTheDocument()
+    expect(get.mock.calls.some(([url]) => url.startsWith('/v1/product-orders/'))).toBe(false)
+  })
+
+  it('shows common-header logout failure without clearing the session', async () => {
+    mockMyPageApi()
+    signInAsConsumer()
+    vi.spyOn(apiClient, 'post').mockRejectedValue(new Error('로그아웃 실패'))
+    const user = userEvent.setup()
+    renderRoute('/mypage')
+    await screen.findByRole('heading', { name: '내 프로필' })
+    await user.click(screen.getByRole('button', { name: '계정 메뉴' }))
+    await user.click(screen.getByRole('button', { name: '로그아웃' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('로그아웃 실패')
+    expect(useAuthStore.getState().isAuthenticated).toBe(true)
+  })
+
   it('revokes the server session before clearing the consumer session', async () => {
     mockMyPageApi()
-    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ data: null } as AxiosResponse)
+    let finishLogout!: (response: AxiosResponse) => void
+    const pending = new Promise<AxiosResponse>((resolve) => { finishLogout = resolve })
+    const post = vi.spyOn(apiClient, 'post').mockReturnValue(pending)
     useAuthStore.setState({
       user: {
         id: 5,
@@ -224,8 +288,12 @@ describe('consumer mypage route', () => {
 
     await screen.findByRole('heading', { name: '내 프로필' })
 
+    await user.click(screen.getByRole('button', { name: '계정 메뉴' }))
     await user.click(screen.getByRole('button', { name: '로그아웃' }))
 
+    expect(screen.getByRole('button', { name: '로그아웃 중…' })).toBeDisabled()
+    expect(useAuthStore.getState().isAuthenticated).toBe(true)
+    finishLogout({ data: null } as AxiosResponse)
     await waitFor(() => expect(useAuthStore.getState().isAuthenticated).toBe(false))
     expect(post).toHaveBeenCalledWith('/v1/auth/logout', undefined, {
       skipAuth: true,

@@ -146,7 +146,7 @@ export function PredictionMarketPage() {
       <section className="consumer-mypage-card prediction-intro">
         <p className="consumer-section-heading__eyebrow">ON-CHAIN PREDICTION</p>
         <h2>판매량 예측시장</h2>
-        <p>생산량은 체인에 고정되고, 실제 결제·취소에서 계산한 순판매량으로 결과를 판정합니다. 선택한 이유는 브랜드의 선호도 분석에 익명 집계됩니다.</p>
+        <p>생산량은 체인에 고정되고, 실제 결제·취소에서 계산한 순판매량으로 결과를 판정합니다.<br />선택한 이유는 브랜드의 선호도 분석에 익명 집계됩니다.</p>
         <WalletRegistrationPanel registeredAddress={registeredAddress} />
         {usableWallet ? (
           <div className="prediction-card__wallet-stats">

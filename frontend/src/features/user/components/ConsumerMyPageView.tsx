@@ -98,7 +98,7 @@ function ProfileCard({ data }: { data: ConsumerMyPageData }) {
         </div>
         <div>
           <dt>연락처</dt>
-          <dd>{address ? address.phone : <span className="consumer-profile-card__empty">등록된 배송지가 없습니다</span>}</dd>
+          <dd>{address ? address.phone : <span className="consumer-profile-card__empty">등록된 연락처가 없습니다</span>}</dd>
         </div>
         <div>
           <dt>기본 배송지</dt>
@@ -113,7 +113,7 @@ function ProfileCard({ data }: { data: ConsumerMyPageData }) {
               </address>
             ) : (
               <span className="consumer-profile-card__empty">
-                주문한 제품을 받을 곳을 등록해 주세요.
+                배송지를 등록해 주세요.
               </span>
             )}
           </dd>
