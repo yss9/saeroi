@@ -61,10 +61,10 @@ public record PublicProductModelResponse(
 
     private static String publicThumbnailUrl(ProductModel model) {
         String thumbnailUrl = model.getThumbnailUrl();
-        // 시연 상품은 프론트에 이미 포함된 공개 정적 이미지를 쓴다. 브랜드가 업로드한
+        // 데모 상품은 프론트에 이미 포함된 공개 정적 이미지를 쓴다. 브랜드가 업로드한
         // 이미지는 저장 키라 이 접두어를 가질 수 없고 기존 공개 썸네일 API를 그대로 쓴다.
         //
-        // 이 분기는 시연 상품 이미지가 FileStorageService 로 옮겨지면 사라진다. 지금
+        // 이 분기는 데모 상품 이미지가 FileStorageService 로 옮겨지면 사라진다. 지금
         // 지우면 이미 시드된 상품들의 대표 이미지가 통째로 깨진다 — 그 상품들의
         // thumbnail_url 은 저장 키가 아니라 프론트 정적 경로다.
         if (thumbnailUrl.startsWith("/images/landing/")) {

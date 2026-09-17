@@ -6,20 +6,11 @@ import com.ssafy.upcycle.product.ProductErrorCode;
 import com.ssafy.upcycle.product.dto.PublicProductModelResponse;
 import com.ssafy.upcycle.product.dto.PublicProductModelSearchCondition;
 import com.ssafy.upcycle.product.entity.ProductCategory;
-import com.ssafy.upcycle.product.entity.ProductImage;
-import com.ssafy.upcycle.product.entity.ProductItemStatus;
 import com.ssafy.upcycle.product.entity.ProductModel;
 import com.ssafy.upcycle.product.entity.ProductModelStatus;
-import com.ssafy.upcycle.product.repository.ProductItemRepository;
 import com.ssafy.upcycle.product.repository.ProductModelRepository;
 import com.ssafy.upcycle.product.repository.ProductModelSearchQueryRepository;
-import com.ssafy.upcycle.product.repository.ProductStockQueryRepository;
 import com.ssafy.upcycle.trade.dto.PageResponse;
-import com.ssafy.upcycle.user.entity.CompanyProfile;
-import com.ssafy.upcycle.user.entity.User;
-import com.ssafy.upcycle.user.repository.CompanyProfileRepository;
-import com.ssafy.upcycle.user.repository.UserRepository;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -42,14 +33,9 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class PublicProductCatalogService {
 
-    private static final String UNKNOWN_BRAND = "알 수 없는 브랜드";
-
     private final ProductModelRepository productModelRepository;
-    private final ProductItemRepository productItemRepository;
     private final ProductModelSearchQueryRepository productModelSearchQueryRepository;
-    private final ProductStockQueryRepository productStockQueryRepository;
-    private final CompanyProfileRepository companyProfileRepository;
-    private final UserRepository userRepository;
+    private final ProductCardAssembler productCardAssembler;
     private final ProductImageService productImageService;
     private final ProductModelImageService productModelImageService;
 
@@ -61,32 +47,17 @@ public class PublicProductCatalogService {
                 onSaleCondition.pageOrDefault(), onSaleCondition.sizeOrDefault());
         Page<ProductModel> models =
                 productModelSearchQueryRepository.searchConsumerVisible(onSaleCondition, pageable);
-        List<Long> modelIds = models.getContent().stream().map(ProductModel::getId).toList();
-        Map<Long, Long> stocks =
-                productStockQueryRepository.countInStockByProductModelIds(modelIds);
-        Map<Long, String> brandNames = brandNames(models.getContent());
-        // 페이지에 실린 제품들의 갤러리를 한 번에 읽는다. 제품마다 부르면 N+1 이다.
-        Map<Long, List<ProductImage>> galleries =
-                productModelImageService.findGalleriesOf(modelIds);
-
-        return PageResponse.from(models.map(model -> PublicProductModelResponse.of(
-                model,
-                brandNames.getOrDefault(model.getBrandId(), UNKNOWN_BRAND),
-                stocks.getOrDefault(model.getId(), 0L),
-                galleries.getOrDefault(model.getId(), List.of()))));
+        // 브랜드명·재고·갤러리를 붙이는 일은 찜 목록과 똑같다. 다른 것은 무엇을 담느냐뿐이라
+        // 조립만 공유하고 거르는 조건은 위 질의에 남긴다 ({@link ProductCardAssembler}).
+        Map<Long, PublicProductModelResponse> cards =
+                productCardAssembler.assemblePublic(models.getContent());
+        return PageResponse.from(models.map(model -> cards.get(model.getId())));
     }
 
     @Transactional(readOnly = true)
     public PublicProductModelResponse findDetail(Long productModelId) {
         ProductModel model = findOnSaleModel(productModelId);
-        long stock = productItemRepository.countByProductModelIdAndStatus(
-                productModelId, ProductItemStatus.IN_STOCK);
-        String brandName = brandNames(List.of(model))
-                .getOrDefault(model.getBrandId(), UNKNOWN_BRAND);
-        List<ProductImage> gallery = productModelImageService
-                .findGalleriesOf(List.of(productModelId))
-                .getOrDefault(productModelId, List.of());
-        return PublicProductModelResponse.of(model, brandName, stock, gallery);
+        return productCardAssembler.assemblePublic(List.of(model)).get(productModelId);
     }
 
     /**
@@ -125,22 +96,4 @@ public class PublicProductCatalogService {
         return model;
     }
 
-    private Map<Long, String> brandNames(List<ProductModel> models) {
-        List<Long> brandIds = models.stream()
-                .map(ProductModel::getBrandId)
-                .distinct()
-                .toList();
-        if (brandIds.isEmpty()) {
-            return Map.of();
-        }
-
-        Map<Long, String> names = new LinkedHashMap<>();
-        for (User user : userRepository.findAllById(brandIds)) {
-            names.put(user.getId(), user.getName());
-        }
-        for (CompanyProfile profile : companyProfileRepository.findAllById(brandIds)) {
-            names.put(profile.getUserId(), profile.getCompanyName());
-        }
-        return names;
-    }
 }
