@@ -129,6 +129,21 @@ public class User {
         this.phone = requireText(phone, "phone", PHONE_MAX_LENGTH);
     }
 
+    /**
+     * 비밀번호를 바꾼다.
+     *
+     * <p><b>이미 인코딩된 값만 받는다.</b> 평문을 넘기면 그 문자열이 그대로 해시 자리에
+     * 저장되고, 그 계정은 <b>아무 비밀번호로도 로그인되지 않는 상태</b>가 된다 —
+     * {@code PasswordEncoder.matches} 가 접두어 없는 문자열을 해시로 해석하지 못하기
+     * 때문이다. 인코딩은 {@code PasswordChangeService} 가 한다.
+     *
+     * <p>비밀번호를 바꾸는 통로는 이것 하나다. 필드를 직접 만지는 코드가 생기면 인코딩을
+     * 건너뛰는 경로도 함께 생긴다.
+     */
+    public void changePassword(String encodedPassword) {
+        this.password = requireText(encodedPassword, "password", PASSWORD_MAX_LENGTH);
+    }
+
     private static <T> T requireNonNull(T value, String field) {
         if (value == null) {
             throw new IllegalArgumentException("User " + field + " must not be null");

@@ -82,6 +82,23 @@ public class RefreshTokenService {
                 refreshTokenRepository.revokeIfActive(token.getId(), LocalDateTime.now(clock)));
     }
 
+    /**
+     * 한 사용자의 모든 세션을 끊는다. 비밀번호 변경이 부른다.
+     *
+     * <p><b>본인의 현재 세션도 함께 끊긴다.</b> 바꾼 기기만 남기려면 "지금 쓰는 토큰" 을
+     * 알아야 하는데, 그 값은 쿠키에 있고 비밀번호 변경 요청이 그것을 들고 다닐 이유가 없다.
+     * 무엇보다 계정 탈취가 의심되는 상황에서 하나라도 남기는 판단이 더 위험하다.
+     *
+     * <p>액세스 토큰은 여기서 끊지 못한다. 서명만으로 검증되는 값이라 만료(기본 30분)까지는
+     * 살아 있고, 그 뒤로는 갱신할 Refresh Token 이 없어 끊긴다.
+     *
+     * @return 실제로 폐기된 토큰 수
+     */
+    @Transactional
+    public int revokeAllFor(Long userId) {
+        return refreshTokenRepository.revokeAllActiveByUserId(userId, LocalDateTime.now(clock));
+    }
+
     private IssuedTokenPair issue(User user, LocalDateTime now) {
         AccessToken accessToken = jwtTokenService.issueAccessToken(
                 String.valueOf(user.getId()), List.of(user.getRole().name()));
