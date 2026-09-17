@@ -149,6 +149,8 @@ test('요청 행을 펼치면 만료 정보와 상세 조건을 확인할 수 �
   expect(screen.getByText('만료 일시')).toBeInTheDocument()
   expect(screen.getByText('DENIM')).toBeInTheDocument()
   expect(screen.getByText('견적 작성')).toBeInTheDocument()
+  expect(screen.getByText('요청 PR-007')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: '견적 제출' }).closest('form')).toHaveClass('pq-form')
 })
 
 test('Processor가 금액과 기간을 입력해 견적을 제출한다', async () => {
@@ -157,7 +159,7 @@ test('Processor가 금액과 기간을 입력해 견적을 제출한다', async 
 
   await user.click(screen.getByRole('button', { name: 'PR-007 요청 상세 보기' }))
   await user.type(screen.getByRole('textbox', { name: '견적 금액' }), '150000')
-  await user.type(screen.getByRole('spinbutton', { name: '예상 처리 기간' }), '5')
+  await user.type(screen.getByRole('textbox', { name: '예상 처리 기간' }), '5')
   await user.type(screen.getByRole('textbox', { name: '견적 메모' }), '세척 및 해체 비용 포함')
   await user.click(screen.getByRole('button', { name: '견적 제출' }))
 

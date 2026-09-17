@@ -2,6 +2,7 @@ import { OnChainPanel } from '../../../components/common/index.ts'
 import { contracts } from '../../../config/contracts.ts'
 import { env } from '../../../config/env.ts'
 import { useAuth } from '../../auth/hooks/useAuth.ts'
+import { useEvidence } from '../../evidence/hooks/useEvidence.ts'
 import { useWallet } from '../../wallet/hooks/useWallet.ts'
 import { useMintMaterialOnChain } from '../hooks/useMintMaterialOnChain.ts'
 import { evidencePlaceholder } from '../services/evidencePlaceholder.ts'
@@ -13,10 +14,10 @@ import type { MaterialDetail } from '../types/material.types.ts'
  * **등록자 본인에게만 보인다.** 컨트랙트가 SUPPLIER_ROLE 을 요구하고 서버도 등록자만
  * 받아 적으므로, 남에게 버튼을 보여 주면 지갑 팝업까지 간 뒤 revert 를 본다.
  *
- * `metadataUri` 와 `evidenceHash` 는 지금 자리표시자다. 정책상 Evidence Manifest 의
- * SHA-256 이 들어가야 하는데 그 매니페스트를 만드는 경로가 아직 없다. 컨트랙트가
- * `evidenceHash != 0` 만 요구하므로 소재 코드에서 파생한 값을 넣어 발행은 되게 하되,
- * **이 값이 증빙과 대조되지는 않는다** — 매니페스트가 붙으면 여기만 바꾼다.
+ * 등록 단계에서 올린 저울 사진이 정확히 하나면 그 파일 해시를 사용한다. 새로고침 뒤에도
+ * 같은 증빙을 복구해야 하므로 서버의 association을 다시 읽으며, 여러 장이면 임의로 하나를
+ * 고르지 않고 사용자가 정리할 때까지 발행을 막는다. 저울 사진이 없는 기존 소재만 소재 코드
+ * 기반 자리표시자를 유지한다.
  */
 export function MaterialMintPanel({ material }: { material: MaterialDetail }) {
   const { user } = useAuth()
@@ -33,6 +34,14 @@ export function MaterialMintPanel({ material }: { material: MaterialDetail }) {
   const address = wallet.address
   const chainId = wallet.chainId
   const mint = useMintMaterialOnChain()
+  const evidence = useEvidence('MATERIAL', material.materialId)
+  const weightPhotos = evidence.data?.visibility === 'FULL'
+    ? (evidence.data.files ?? []).filter((file) => file.evidenceType === 'WEIGHT_PHOTO')
+    : []
+  const hasAmbiguousWeightPhoto = weightPhotos.length > 1
+  const evidenceHash = weightPhotos.length === 1
+    ? weightPhotos[0].fileHash
+    : evidencePlaceholder(material.materialCode)
 
   // 등록자만 서명할 수 있다 — 컨트랙트가 SUPPLIER_ROLE 을, 서버가 등록자 본인을 요구한다.
   // 다만 "온체인에 있는가" 는 누구에게나 보여야 하므로 패널 자체는 감추지 않는다.
@@ -43,7 +52,10 @@ export function MaterialMintPanel({ material }: { material: MaterialDetail }) {
     address !== null &&
     material.tokenId === null &&
     correctChain &&
-    contracts.materialToken !== null
+    contracts.materialToken !== null &&
+    !evidence.isPending &&
+    !evidence.isError &&
+    !hasAmbiguousWeightPhoto
 
   const blockedReason = (() => {
     if (address === null) return '지갑을 먼저 연결해 주세요.'
@@ -52,6 +64,13 @@ export function MaterialMintPanel({ material }: { material: MaterialDetail }) {
       return `MetaMask를 SSAFY 네트워크(${BigInt(env.besuChainIdHex).toString()})로 전환해 주세요.`
     }
     if (contracts.materialToken === null) return 'MaterialToken 컨트랙트 주소 설정이 필요합니다.'
+    if (evidence.isPending) return '등록된 저울 사진 증빙을 확인하는 중입니다.'
+    if (evidence.isError || evidence.data?.visibility !== 'FULL') {
+      return '저울 사진 증빙을 확인할 수 없어 발행할 수 없습니다. 잠시 후 다시 시도해 주세요.'
+    }
+    if (hasAmbiguousWeightPhoto) {
+      return '저울 사진 증빙이 여러 개입니다. 발행에 사용할 사진을 하나만 남겨 주세요.'
+    }
     return undefined
   })()
 
@@ -81,7 +100,7 @@ export function MaterialMintPanel({ material }: { material: MaterialDetail }) {
           amount: material.totalQuantity,
           rootOrigin: material.rootOrigin,
           metadataUri: `saeroi://material/${material.materialCode}`,
-          evidenceHash: evidencePlaceholder(material.materialCode),
+          evidenceHash,
         })
       }}
     />

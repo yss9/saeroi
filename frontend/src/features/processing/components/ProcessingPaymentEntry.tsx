@@ -9,7 +9,9 @@ const date = (value: string) => new Date(/(?:Z|[+-]\d{2}:?\d{2})$/i.test(value) 
   .toLocaleString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 const message = (error: unknown) => isAppError(error) || error instanceof Error ? error.message : '결제를 진행하지 못했어요.'
 
-export function ProcessingPaymentEntry({ job }: { job: ProcessingJob }) {
+type PayableProcessingJob = Pick<ProcessingJob, 'jobId' | 'jobCode' | 'fee' | 'paymentExpiresAt'>
+
+export function ProcessingPaymentEntry({ job }: { job: PayableProcessingJob }) {
   const payment = useProcessingPayment()
 
   if (payment.phase === 'SUCCEEDED' && payment.paidJob) {

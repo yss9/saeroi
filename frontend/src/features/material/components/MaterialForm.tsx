@@ -10,6 +10,9 @@ import { useMyMaterials } from '../../inventory/hooks/useMyMaterials.ts'
 import { getMaterial } from '../api/getMaterial.ts'
 import type { ChainLinkStatus } from '../../../hooks/useOnChainLink.ts'
 import { evidencePlaceholder } from '../services/evidencePlaceholder.ts'
+import { uploadEvidence } from '../../evidence/api/uploadEvidence.ts'
+import type { EvidenceFile } from '../../evidence/types/evidence.types.ts'
+import { WeightPhotoRecognition } from './WeightPhotoRecognition.tsx'
 import './material.css'
 import { WIRE_UNIT } from '../types/materialQuantity.ts'
 import {
@@ -189,7 +192,8 @@ function SummaryRow({
  * **비율 합계 100 을 요구하지 않는다.** "면 60% 는 확실하고 나머지는 모른다" 가 흔하고,
  * 100 을 강제하면 사용자가 "기타 40%" 를 지어낸다. 그 값이 Upcycle Ratio 집계로 흘러간다.
  *
- * "이미지" 는 아직 빠져 있다. 증빙 업로드 경로(Evidence)가 없다.
+ * 저울 사진은 OCR 로 수량 입력을 돕고, 소재 생성 뒤 중량 증빙으로 업로드한다.
+ * 업로드된 파일 해시를 온체인 발행에 사용하므로 선택 사진·증빙은 재시도 상태에 보존한다.
  */
 export function MaterialForm({ onCreated }: MaterialFormProps) {
   const {
@@ -197,6 +201,7 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
     register,
     handleSubmit,
     reset,
+    setValue,
     trigger,
     setError,
     formState: { errors },
@@ -282,7 +287,13 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
   const [pendingRegistration, setPendingRegistration] = useState<{
     created: CreateMaterialResponse
     request: CreateMaterialRequest
+    weightPhoto: File | null
+    weightEvidence: EvidenceFile | null
   } | null>(null)
+  const [weightPhoto, setWeightPhoto] = useState<File | null>(null)
+  const [weightPhotoResetKey, setWeightPhotoResetKey] = useState(0)
+  const [evidenceUploadError, setEvidenceUploadError] = useState<string | null>(null)
+  const [isUploadingEvidence, setIsUploadingEvidence] = useState(false)
   // 제출을 눌러 봤는데 지갑이 없었다. 처음부터 경고를 띄우지 않는 이유는, 지갑 복원이
   // 비동기라 화면이 뜨자마자 잠깐 `null` 이기 때문이다. 그때 경고부터 보이면 정상적으로
   // 연결된 사용자에게도 한 번 번쩍인다.
@@ -354,26 +365,66 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
     if (compositionTotal > COMPOSITION_MAX_TOTAL) return
 
     try {
-      // 서명 또는 서버 연결이 실패하면 이미 만든 DB 소재를 기억한다. 다음 제출에서는
-      // 소재를 또 만들지 않고 같은 소재의 온체인 단계만 이어서 수행한다.
-      const request = pendingRegistration?.request ?? toRequest(values)
-      const created = pendingRegistration?.created ?? (await mutateAsync(request))
-      if (pendingRegistration === null) setPendingRegistration({ created, request })
+      setEvidenceUploadError(null)
+
+      // 생성 성공 시점에 요청과 선택 사진을 함께 고정한다. 이후 업로드나 발행이 실패해도
+      // 새 소재를 만들거나 다른 사진으로 바꾸지 않고 정확히 그 등록을 이어서 수행한다.
+      let registration = pendingRegistration
+      if (registration === null) {
+        const request = toRequest(values)
+        const created = await mutateAsync(request)
+        registration = {
+          created,
+          request,
+          weightPhoto,
+          weightEvidence: null,
+        }
+        setPendingRegistration(registration)
+      }
+
+      let weightEvidence = registration.weightEvidence
+      if (registration.weightPhoto !== null && weightEvidence === null) {
+        setIsUploadingEvidence(true)
+        try {
+          const files = await uploadEvidence({
+            referenceType: 'MATERIAL',
+            referenceId: registration.created.materialId,
+            evidenceType: 'WEIGHT_PHOTO',
+            files: [registration.weightPhoto],
+          })
+          if (files.length === 0) {
+            setEvidenceUploadError('저울 사진 증빙 업로드에 실패했습니다. 다시 시도해 주세요.')
+            return
+          }
+          weightEvidence = files[0]
+          registration = { ...registration, weightEvidence }
+          setPendingRegistration(registration)
+        } catch {
+          setEvidenceUploadError('저울 사진 증빙 업로드에 실패했습니다. 다시 시도해 주세요.')
+          return
+        } finally {
+          setIsUploadingEvidence(false)
+        }
+      }
 
       const linked = await mint.mint({
-        materialId: created.materialId,
+        materialId: registration.created.materialId,
         to: wallet.address,
-        amount: request.quantity,
-        rootOrigin: request.rootOrigin,
-        metadataUri: `saeroi://material/${created.materialCode}`,
-        evidenceHash: evidencePlaceholder(created.materialCode),
+        amount: registration.request.quantity,
+        rootOrigin: registration.request.rootOrigin,
+        metadataUri: `saeroi://material/${registration.created.materialCode}`,
+        evidenceHash:
+          weightEvidence?.fileHash ?? evidencePlaceholder(registration.created.materialCode),
       })
 
       if (linked) {
         setPendingRegistration(null)
+        setWeightPhoto(null)
+        setWeightPhotoResetKey((key) => key + 1)
+        setEvidenceUploadError(null)
         reset()
         previousSnapshotRef.current = null
-        onCreated?.(created.materialId)
+        onCreated?.(registration.created.materialId)
       }
     } catch {
       // API와 지갑 오류는 각 훅의 오류 상태로 화면에 표시한다.
@@ -619,6 +670,29 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
           })}
         />
       </div>
+
+      {pendingRegistration ? (
+        <section className="weight-recognition" aria-labelledby="weight-recognition-title">
+          <div className="weight-recognition__heading">
+            <div>
+              <h3 id="weight-recognition-title">저울 사진으로 무게 인식</h3>
+              <p>이미 생성된 소재의 증빙은 재시도 중에 변경할 수 없습니다.</p>
+            </div>
+          </div>
+          <p>{pendingRegistration.weightPhoto?.name ?? '선택된 저울 사진 없음'}</p>
+        </section>
+      ) : (
+        <WeightPhotoRecognition
+          key={weightPhotoResetKey}
+          onFileChange={setWeightPhoto}
+          onApply={(weightGram) => {
+            setValue('quantityKg', gramToKg(weightGram), {
+              shouldValidate: true,
+              shouldDirty: true,
+            })
+          }}
+        />
+      )}
 
       <Input
         label={isEtcMaterialType ? '설명 (기타 소재의 실제 종류를 적어주세요)' : '설명 (선택)'}
@@ -941,12 +1015,16 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
           </p>
 
           {isError && <ErrorMessage error={error} />}
+          {evidenceUploadError && <ErrorMessage error={evidenceUploadError} />}
           {mint.error && !mint.isRejected && <ErrorMessage error={mint.error} />}
+          {isUploadingEvidence && (
+            <p role="status" aria-live="polite">저울 사진 증빙을 업로드하는 중입니다…</p>
+          )}
 
           <Button
             type="submit"
             fullWidth
-            loading={isPending || mint.isBusy}
+            loading={isPending || isUploadingEvidence || mint.isBusy}
             disabled={compositionTotal > COMPOSITION_MAX_TOTAL}
           >
             {pendingRegistration && !mint.isBusy ? '소재 등록 완료하기' : '소재 등록 및 서명 시작'}

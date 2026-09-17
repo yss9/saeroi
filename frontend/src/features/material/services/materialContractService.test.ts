@@ -17,10 +17,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
  * 결과는 여전히 맞고 화면에도 오류가 없이, 그저 느려지기만 하기 때문이다.
  */
 const queryFilter = vi.fn()
+const materialInfo = vi.fn()
 const filters = { MaterialMinted: vi.fn(() => 'filter') }
 
 vi.mock('../../../services/blockchain/contractFactory.ts', () => ({
-  getReadContract: () => ({ queryFilter, filters }),
+  getReadContract: () => ({ queryFilter, filters, materialInfo }),
   getWriteContract: vi.fn(),
   readEventArg: vi.fn(),
 }))
@@ -31,6 +32,16 @@ vi.mock('../../../config/env.ts', () => ({
 
 beforeEach(() => {
   queryFilter.mockResolvedValue([])
+  materialInfo.mockResolvedValue({ evidenceHash: `0x${'ab'.repeat(32)}` })
+})
+
+describe('getOnChainMaterialEvidenceHash', () => {
+  it('materialInfo에 기록된 발행 증빙 해시를 반환한다', async () => {
+    const { getOnChainMaterialEvidenceHash } = await import('./materialContractService.ts')
+
+    await expect(getOnChainMaterialEvidenceHash(7)).resolves.toBe(`0x${'ab'.repeat(32)}`)
+    expect(materialInfo).toHaveBeenCalledWith(7)
+  })
 })
 
 afterEach(() => {

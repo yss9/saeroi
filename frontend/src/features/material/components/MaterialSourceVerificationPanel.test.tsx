@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
     isBusy: false,
     isRejected: false,
   },
+  readEvidenceHash: vi.fn(),
 }))
 
 vi.mock('../../auth/hooks/useAuth.ts', () => ({
@@ -37,6 +38,10 @@ vi.mock('../../wallet/hooks/useWallet.ts', () => ({
 
 vi.mock('../hooks/useVerifySourceOnChain.ts', () => ({
   useVerifySourceOnChain: () => ({ ...mocks.verifyState, verify: mocks.verify }),
+}))
+
+vi.mock('../services/materialContractService.ts', () => ({
+  getOnChainMaterialEvidenceHash: mocks.readEvidenceHash,
 }))
 
 vi.mock('../../../config/contracts.ts', () => ({
@@ -92,6 +97,18 @@ describe('MaterialSourceVerificationPanel', () => {
     mocks.verifyState.status = 'IDLE'
     mocks.verifyState.hash = null
     mocks.verifyState.receipt = null
+    mocks.readEvidenceHash.mockReset().mockResolvedValue(`0x${'ab'.repeat(32)}`)
+  })
+
+  it('사진 증빙으로 발행된 소재는 체인에 저장된 동일한 해시로 출처 검증한다', async () => {
+    const user = userEvent.setup()
+    render(<MaterialSourceVerificationPanel material={material()} />)
+
+    await user.click(await screen.findByRole('button', { name: '출처 검증 서명' }))
+
+    expect(mocks.verify).toHaveBeenCalledWith(expect.objectContaining({
+      evidenceHash: `0x${'ab'.repeat(32)}`,
+    }))
   })
 
   it('발행된 소재에 대해 verifySource 서명을 요청한다', async () => {

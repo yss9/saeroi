@@ -157,3 +157,20 @@ test('산출물 입력 의미를 라벨로 안내하고 선택한 등급과 판�
     }],
   })
 })
+
+test('반환 발송 폼을 작업 카드 안에 중첩 카드 없이 표시한다', () => {
+  const flow = mocks.useProcessingJob()
+  mocks.useProcessingJob.mockReturnValue({
+    ...flow,
+    detail: { ...flow.detail, data: { ...flow.detail.data, status: 'RESULT_SUBMITTED' } },
+    evidence: { data: { files: [] } },
+    shipReturn: mutation(),
+    returnRejected: mutation(),
+  })
+
+  const { container } = render(<MemoryRouter><ProcessingJobDetail jobId={17} /></MemoryRouter>)
+
+  expect(screen.getByRole('heading', { name: '가공 결과물 반환 발송' })).toBeInTheDocument()
+  expect(container.querySelector('.pj-panel .pj-panel')).not.toBeInTheDocument()
+  expect(container.querySelector('.pj-panel .pj-shipment-form')).toBeInTheDocument()
+})

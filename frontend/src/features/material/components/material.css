@@ -136,3 +136,94 @@
   font-size: 0.875rem;
   color: var(--ui-color-muted);
 }
+
+/* 저울 사진 인식 — 폼 안에서 독립된 보조 입력 단계로 읽히게 카드로 묶는다. */
+.weight-recognition {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 1.125rem;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-color-surface);
+}
+
+.weight-recognition__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.weight-recognition__heading h3,
+.weight-recognition__heading p,
+.weight-recognition__result p,
+.weight-recognition__alert p {
+  margin: 0;
+}
+
+.weight-recognition__heading p,
+.weight-recognition__hint,
+.weight-recognition__result > p:not(.weight-recognition__weight) {
+  color: var(--ui-color-muted);
+  font-size: 0.875rem;
+}
+
+.weight-recognition__file-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.weight-recognition__file-input {
+  width: 100%;
+}
+
+.weight-recognition__hint {
+  margin: -0.5rem 0 0;
+}
+
+.weight-recognition__preview {
+  display: block;
+  width: min(100%, 30rem);
+  max-height: 18rem;
+  border-radius: var(--ui-radius);
+  object-fit: contain;
+  background: var(--ui-color-bg);
+}
+
+.weight-recognition__status,
+.weight-recognition__result,
+.weight-recognition__alert {
+  padding: 0.875rem 1rem;
+  border-radius: var(--ui-radius);
+  line-height: 1.6;
+}
+
+.weight-recognition__status,
+.weight-recognition__result {
+  border: 1px solid var(--ui-color-primary);
+  background: var(--ui-color-primary-soft);
+}
+
+.weight-recognition__result {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.weight-recognition__result--warning {
+  border-color: var(--ui-color-warning);
+  background: var(--ui-color-surface);
+}
+
+.weight-recognition__weight {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.weight-recognition__alert {
+  border: 1px solid var(--ui-color-danger);
+  background: var(--ui-color-surface);
+  color: var(--ui-color-danger);
+}
