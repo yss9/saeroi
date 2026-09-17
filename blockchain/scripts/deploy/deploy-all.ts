@@ -1,6 +1,7 @@
 import { ethers, network } from "hardhat";
 import fs from "node:fs";
 import path from "node:path";
+import { PROJECT_ROOT } from "../lib/paths";
 
 async function main() {
   const [deployer] = await ethers.getSigners();
@@ -82,7 +83,7 @@ async function main() {
     deployedAt: new Date().toISOString()
   };
 
-  const deploymentsDir = path.join(__dirname, "..", "deployments");
+  const deploymentsDir = path.join(PROJECT_ROOT, "deployments");
   fs.mkdirSync(deploymentsDir, { recursive: true });
   fs.writeFileSync(
     path.join(deploymentsDir, `${network.name}.json`),

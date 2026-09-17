@@ -1,6 +1,6 @@
 import { ethers, network } from "hardhat";
 import fs from "node:fs";
-import path from "node:path";
+import { abiFile } from "../lib/paths";
 
 const CONTRACTS = ["MaterialToken", "Marketplace", "ProcessingRegistry", "ProductionRegistry"];
 
@@ -13,7 +13,7 @@ async function main() {
   if (!block) throw new Error(`Block not found: ${receipt.blockNumber}`);
 
   const interfaces = CONTRACTS.map((name) => {
-    const abi = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "abi", `${name}.json`), "utf8"));
+    const abi = JSON.parse(fs.readFileSync(abiFile(name), "utf8"));
     return { name, iface: new ethers.Interface(abi) };
   });
   const events = receipt.logs.flatMap((log) => {

@@ -1,6 +1,6 @@
 import { ethers, network } from "hardhat";
 import fs from "node:fs";
-import path from "node:path";
+import { deploymentFile as resolveDeploymentFile } from "../lib/paths";
 
 interface Deployment {
   network: string;
@@ -12,7 +12,7 @@ interface Deployment {
 }
 
 function deploymentFile() {
-  return path.join(__dirname, "..", "deployments", `${network.name}.json`);
+  return resolveDeploymentFile(network.name);
 }
 
 function loadDeployment(file: string): Deployment {

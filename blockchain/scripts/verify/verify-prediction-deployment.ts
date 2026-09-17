@@ -1,6 +1,6 @@
 import { ethers, network } from "hardhat";
 import fs from "node:fs";
-import path from "node:path";
+import { deploymentFile } from "../lib/paths";
 
 interface Deployment {
   predictionPoint: string;
@@ -10,7 +10,7 @@ interface Deployment {
 }
 
 async function main() {
-  const file = path.join(__dirname, "..", "deployments", `${network.name}.json`);
+  const file = deploymentFile(network.name);
   if (!fs.existsSync(file)) throw new Error(`${file} 이 없다.`);
   const deployment = JSON.parse(fs.readFileSync(file, "utf8")) as Deployment;
   const [deployer] = await ethers.getSigners();
