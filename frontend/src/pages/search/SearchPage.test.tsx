@@ -125,12 +125,13 @@ describe('public product search', () => {
   it('reuses SHOP cards and image URL handling without adding wishlist or cart controls', async () => {
     show('/search?q=bag')
     const card = await screen.findByRole('article')
-    expect(within(card).getByRole('link')).toHaveAttribute('href', '/products/31')
+    expect(within(card).getByRole('link', { name: '데님 토트백 상세 보기' })).toHaveAttribute('href', '/products/31')
     expect(within(card).getByRole('img')).toHaveAttribute('src', product.thumbnailUrl)
     expect(within(card).getByText('품절')).toBeInTheDocument()
     expect(within(card).queryByRole('button')).not.toBeInTheDocument()
-    expect(within(card).queryByRole('link', { name: 'REWEAVE' })).not.toBeInTheDocument()
-    fireEvent.click(within(card).getByRole('link'))
+    expect(within(card).getByRole('link', { name: 'REWEAVE' })).toHaveAttribute('href', '/brands/5')
+    expect(card.querySelector('a a')).toBeNull()
+    fireEvent.click(within(card).getByRole('link', { name: '데님 토트백 상세 보기' }))
     expect(screen.getByRole('heading', { name: '공개 상품 상세' })).toBeInTheDocument()
   })
   it('clears a submitted blank keyword back to the pre-search view', async () => {

@@ -48,7 +48,7 @@ function ProductBody({ product }: { product: Product }) {
         <ProductGallery product={product} />
         <div className="public-product__info">
           <p className="public-product__eyebrow">NEW LIFE, NEW FORM</p>
-          <p className="public-product__brand">{product.brandName}</p>
+          <p className="public-product__brand"><Link to={`/brands/${product.brandId}`}>{product.brandName}</Link></p>
           <h1 id="public-product-title">{product.name}</h1>
           <p className="public-product__price">₩ {new Intl.NumberFormat('ko-KR').format(product.price)}</p>
           <p className="public-product__category">{PRODUCT_CATEGORY_LABEL[product.category]}{product.subcategory ? ` · ${product.subcategory}` : ''}</p>

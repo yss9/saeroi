@@ -59,7 +59,7 @@ describe('public consumer product detail', () => {
     expect(screen.getByText('남은 수량 2개')).toBeInTheDocument()
     expect(screen.getByRole('img', { name: '데님 토트백 대표 이미지' })).toHaveAttribute('src', product.thumbnailUrl)
     expect(screen.queryByRole('button', { name: /번째 상품 이미지/ })).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: product.brandName })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: product.brandName })).toHaveAttribute('href', `/brands/${product.brandId}`)
     expect(screen.getByText(/소재의 다음 이야기/)).toHaveTextContent('오래 사용할 가방')
     expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, left: 0, behavior: 'instant' })
   })

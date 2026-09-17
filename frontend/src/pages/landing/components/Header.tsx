@@ -17,11 +17,10 @@ import { BUSINESS_ROLES } from '../../../features/company/types/companyAccount.t
 import { useShop } from '../../../features/shop/ShopContext.tsx'
 import type { UserRole } from '../../../types/role.types.ts'
 
-// 소비자 페이지 공통 내비게이션. SHOP·ABOUT은 독립 페이지로 연결하고,
-// 아직 목적지 페이지가 없는 BRANDS만 홈 발견 섹션을 유지한다.
+// 소비자 페이지 공통 내비게이션. 목적지 페이지와 함께 공개 링크를 활성화한다.
 const navigation = [
   { label: 'SHOP', homeHref: '/shop', route: '/shop' },
-  { label: 'BRANDS', homeHref: '#brands', route: '/#brands' },
+  { label: 'BRANDS', homeHref: '/brands', route: '/brands' },
   { label: 'ABOUT', homeHref: '/about', route: '/about' },
 ]
 
