@@ -37,6 +37,7 @@ import { ConsumerProfilePage } from '../../pages/mypage/ConsumerProfilePage.tsx'
 import { ConsumerRecentlyViewedPage } from '../../pages/mypage/ConsumerRecentlyViewedPage.tsx'
 import { ConsumerReviewsPage } from '../../pages/mypage/ConsumerReviewsPage.tsx'
 import { ConsumerWishlistPage } from '../../pages/mypage/ConsumerWishlistPage.tsx'
+import { PredictionMarketPage } from '../../pages/prediction/PredictionMarketPage.tsx'
 import { ProductOrderReturnPage } from '../../pages/mypage/ProductOrderReturnPage.tsx'
 import { BrandProcessingPage } from '../../pages/processing/BrandProcessingPage.tsx'
 import { BrandProcessingRequestDetailPage } from '../../pages/processing/BrandProcessingRequestDetailPage.tsx'
@@ -150,6 +151,7 @@ export const routes: RouteObject[] = [
       { path: '/mypage/inquiries/new', element: <ConsumerAskInquiryPage /> },
       { path: '/mypage/inquiries', element: <ConsumerInquiriesPage /> },
       { path: '/mypage/reviews', element: <ConsumerReviewsPage /> },
+      { path: '/mypage/predictions', element: <PredictionMarketPage /> },
       { path: '/mypage/profile', element: <ConsumerProfilePage /> },
       // 카카오페이 결제창이 돌아오는 자리. 승인·취소·실패가 모두 이 주소로 오고
       // pg_token 유무로 갈린다.

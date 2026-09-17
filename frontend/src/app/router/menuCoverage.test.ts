@@ -46,6 +46,7 @@ const NOT_IN_MENU: ReadonlyMap<string, string> = new Map([
   ['/mypage/inquiries', '마이페이지 사이드바(My활동)에서 들어간다'],
   ['/mypage/reviews', '마이페이지 사이드바(My활동)에서 들어간다'],
   ['/mypage/profile', '마이페이지 사이드바(My정보)에서 들어간다'],
+  ['/mypage/predictions', '마이페이지 사이드바(My활동)에서 들어간다'],
   ['/terms', '정적 안내 페이지. 쇼핑몰 푸터 법적 고지에서 접근하므로 사업자 사이드바에서 제외'],
   ['/privacy', '정적 안내 페이지. 쇼핑몰 푸터 법적 고지에서 접근하므로 사업자 사이드바에서 제외'],
   ['/faq', '정적 안내 페이지(배송·반품 문의 포함). 쇼핑몰 푸터(FAQ·자주 묻는 질문)에서 접근하므로 사업자 사이드바에서 제외'],
