@@ -13,3 +13,6 @@ target/
 # 템플릿은 application-local.yml.example 로 커밋되어 있다.
 src/main/resources/application-local.yml
 application-local.yml
+
+# 로컬 DB 장애 복구용 덤프. 회원·주소 등 실제 테스트 데이터가 포함될 수 있다.
+.local-backup-*.sql

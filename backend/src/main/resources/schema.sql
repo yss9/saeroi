@@ -355,6 +355,7 @@ CREATE TABLE evidence_file (
         'BEFORE_PHOTO',
         'AFTER_PHOTO',
         'WEIGHT_SLIP',
+        'WEIGHT_PHOTO',
         'INVOICE',
         'PROCESS_PHOTO',
         'ETC'

@@ -44,6 +44,11 @@ spring:
       hibernate:
         format_sql: true
 app:
+  ai:
+    # 저울 사진 분석용 내부 AI 서비스. 브라우저는 이 주소를 직접 호출하지 않는다.
+    base-url: ${AI_SERVER_BASE_URL:http://localhost:8000}
+    connect-timeout: ${AI_CONNECT_TIMEOUT:PT2S}
+    read-timeout: ${AI_READ_TIMEOUT:PT30S}
   demo-catalog:
     # 시연 환경에서만 명시적으로 켠다. 기본값 false라 운영·일반 개발 DB에는
     # 시연 브랜드와 상품이 자동으로 들어가지 않는다.
