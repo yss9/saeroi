@@ -25,6 +25,8 @@ import { routes } from './routes.tsx'
  * 있어야 하는지 먼저 따진다.
  */
 const INTENTIONALLY_BARE: ReadonlyMap<string, string> = new Map([
+  ['/order-groups/:orderGroupId', '소비자 묶음 주문·결제. 자체 쇼핑몰 헤더·푸터 사용'],
+  ['/order-groups/:orderGroupId/payment/return', '묶음 결제 복귀. 자체 쇼핑몰 헤더·푸터 사용'],
   ['/cart', '소비자 장바구니. 자체 쇼핑몰 헤더·푸터 사용'],
   ['/brands', '공개 브랜드 목록. 자체 쇼핑몰 헤더·푸터 사용'],
   ['/brands/:brandId', '공개 브랜드 상세. 자체 쇼핑몰 헤더·푸터 사용'],
@@ -54,7 +56,12 @@ const INTENTIONALLY_BARE: ReadonlyMap<string, string> = new Map([
   ['/mypage/inquiries', '소비자 계정 화면. 마이페이지와 같은 껍데기를 쓴다'],
   ['/mypage/reviews', '소비자 계정 화면. 마이페이지와 같은 껍데기를 쓴다'],
   ['/mypage/profile', '소비자 계정 화면. 마이페이지와 같은 껍데기를 쓴다'],
+  ['/mypage/predictions', '소비자 예측 화면. ConsumerAccountLayout을 쓴다'],
   ['/orders/:orderId/payment/return', '카카오페이에서 돌아오는 자리. 소비자 구역이라 사업자 셸이 어울리지 않는다'],
+  ['/terms', '정적 안내 페이지. 쇼핑몰 공통 헤더·푸터 사용, 비회원도 접근'],
+  ['/privacy', '정적 안내 페이지. 쇼핑몰 공통 헤더·푸터 사용, 비회원도 접근'],
+  ['/faq', '정적 안내 페이지(배송·반품 문의 포함). 쇼핑몰 공통 헤더·푸터 사용, 비회원도 접근'],
+  ['/support', '공개 문의 페이지. 쇼핑몰 공통 헤더·푸터 사용, 비회원도 접근 — 로그인 후 마이페이지 문의하기와 별개'],
 ])
 
 interface Walked {

@@ -159,8 +159,6 @@ describe('consumer mypage route', () => {
     await user.click(screen.getByRole('button', { name: '배송조회' }))
     const progress = within(screen.getByRole('dialog')).getByRole('list', { name: '배송 현황' })
     expect(within(progress).getAllByRole('listitem')).toHaveLength(4)
-    // 상태별 건수는 목록 바로 아래에서 이어 본다.
-    expect(screen.getByRole('heading', { name: '주문 현황' })).toBeInTheDocument()
   })
 
   it('사이드바로 주문 내역과 배송지 관리를 오간다', async () => {

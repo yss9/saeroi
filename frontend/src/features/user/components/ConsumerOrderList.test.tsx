@@ -90,6 +90,12 @@ afterEach(() => {
 })
 
 describe('ConsumerOrderList', () => {
+  it('묶음 주문은 코드를 표시하고 개별 취소를 막는다', () => {
+    renderList([order({ status: 'PREPARING', orderGroupCode: 'ORG-3' })])
+    expect(screen.getByText(/묶음 번호 ORG-3/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '주문 취소' })).not.toBeInTheDocument()
+    expect(api.cancelProductOrder).not.toHaveBeenCalled()
+  })
   // 이 테스트가 이 파일의 존재 이유다.
   it('배송 중인 주문을 수령 확인한다', async () => {
     const user = renderList()

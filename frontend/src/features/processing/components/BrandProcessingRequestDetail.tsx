@@ -9,7 +9,6 @@ import { progressLabel, progressTone } from '../utils/processingProgress.ts'
 import { MATERIAL_TYPE_LABEL } from '../types/processorProfile.types.ts'
 import { BrandProcessingJobPanel } from './BrandProcessingJobPanel.tsx'
 import { ProcessingPaymentEntry } from './ProcessingPaymentEntry.tsx'
-import { ProcessingShipmentForm } from './ProcessingShipmentForm.tsx'
 import { formatDateTime } from '../utils/processingTime.ts'
 import './brand-processing-detail.css'
 
@@ -27,7 +26,7 @@ interface Props { requestId: number }
 
 export function BrandProcessingRequestDetail({ requestId }: Props) {
   const [confirmingQuoteId, setConfirmingQuoteId] = useState<number | null>(null)
-  const { detail, quotes, selection, job, ship } = useBrandProcessingRequestDetail(requestId)
+  const { detail, quotes, selection, job } = useBrandProcessingRequestDetail(requestId)
 
   if (detail.isPending || quotes.isPending) {
     return <div className="br-detail__state" role="status">요청과 견적을 불러오는 중이에요…</div>
@@ -159,7 +158,13 @@ export function BrandProcessingRequestDetail({ requestId }: Props) {
       </section>
 
       {job?.status === 'PAID' && (
-        <ProcessingShipmentForm isPending={ship.isPending} error={ship.error} onSubmit={input => ship.mutate(input)} />
+        <div className="br-detail__job-link">
+          {/* 소재 발송은 온체인 작업 등록 → Processor 수락 → 발송 서명까지 여러 단계를 거친다.
+              그 단계는 작업 상세(useProcessingJobs)에만 있다 — 여기서 다시 만들면
+              온체인 등록 없이 상태만 SHIPPED로 바뀌는 두 번째 발송 경로가 생긴다. */}
+          <span>결제가 완료되었습니다. 소재 발송은 작업 상세에서 온체인으로 진행합니다.</span>
+          <Link to={`/processing/jobs/${job.jobId}`}>소재 발송하기</Link>
+        </div>
       )}
       {/*
         진행 상황과 수령 확인은 이 화면 안에서 끝난다 (가공 진행 화면은 없앴다).

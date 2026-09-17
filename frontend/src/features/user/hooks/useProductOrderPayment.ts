@@ -10,6 +10,8 @@
 
 import { useCallback, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
+import { orderGroupRedirect } from '../../cart/orderGroupRedirect.ts'
 import { toErrorMessage, type AppError } from '../../../utils/errors.ts'
 import { productKeys } from '../../product/api/productKeys.ts'
 import { consumerOrderKeys } from '../api/consumerOrderKeys.ts'
@@ -41,6 +43,7 @@ export interface UseProductOrderPaymentResult {
 
 export function useProductOrderPayment(): UseProductOrderPaymentResult {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const [phase, setPhase] = useState<ProductOrderPaymentPhase>('IDLE')
   const [message, setMessage] = useState<string | null>(null)
   const [live, setLive] = useState<boolean | null>(null)
@@ -108,13 +111,17 @@ export function useProductOrderPayment(): UseProductOrderPaymentResult {
         }
         // redirectUrl 이 없으면 결제 키가 없는 환경이다. 화면이 승인 버튼을 띄운다.
       } catch (error) {
+        const target = orderGroupRedirect(error)
+        if (target) { navigate(target, { replace: true }); return }
         setPhase('FAILED')
         setMessage(toErrorMessage(error as AppError))
 
         // **주문은 만들어졌는데 결제 준비가 실패한 경우를 그대로 두면 안 된다.** 개체가
         // RESERVED 로 묶인 채 남고, 한 점씩인 제품이라 그 제품은 즉시 품절로 보인다.
         if (created !== null) {
-          await cancelProductOrder(created).catch(() => {
+          await cancelProductOrder(created).catch((cancelError: unknown) => {
+            const target = orderGroupRedirect(cancelError)
+            if (target) navigate(target, { replace: true })
             // 취소까지 실패하면 서버의 30분 마감 배치가 정리한다. 여기서 더 할 일이 없다.
           })
           setOrderId(null)
@@ -124,7 +131,7 @@ export function useProductOrderPayment(): UseProductOrderPaymentResult {
         running.current = false
       }
     },
-    [refresh],
+    [refresh, navigate],
   )
 
   /**
@@ -144,12 +151,14 @@ export function useProductOrderPayment(): UseProductOrderPaymentResult {
       setPhase('SUCCEEDED')
       setMessage(null)
     } catch (error) {
+      const target = orderGroupRedirect(error)
+      if (target) { navigate(target, { replace: true }); return }
       setPhase('FAILED')
       setMessage(toErrorMessage(error as AppError))
     } finally {
       running.current = false
     }
-  }, [orderId, refresh])
+  }, [orderId, refresh, navigate])
 
   return {
     phase,

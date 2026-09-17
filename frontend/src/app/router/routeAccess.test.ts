@@ -46,6 +46,10 @@ describe('routeAccess — routes.tsx 에서 파생한 접근 조건', () => {
       ['/signup/complete', '가입 직후. 아직 로그인 상태가 아니다'],
       ['/qr/:qrToken', 'QR 여권. 소비자가 제품을 찍고 들어오는 입구라 로그인을 요구하면 서비스 목적이 무너진다'],
       ['/403', '가드가 보내는 곳. 이 화면 자체가 막히면 갈 곳이 없어진다'],
+      ['/terms', '이용약관. 정적 안내 페이지, 비회원도 봐야 한다'],
+      ['/privacy', '개인정보처리방침. 정적 안내 페이지, 비회원도 봐야 한다'],
+      ['/faq', '자주 묻는 질문(배송·반품 문의 포함). 정적 안내 페이지, 비회원도 봐야 한다'],
+      ['/support', '문의하기(공개). 로그인 전 방문자를 위한 문의 창구 — 로그인 후 마이페이지 문의하기(/mypage/inquiries/new)와는 별개'],
     ])
 
     const actual = [...getRouteAccessMap()]
@@ -71,6 +75,8 @@ describe('routeAccess — routes.tsx 에서 파생한 접근 조건', () => {
   it('RoleGuard 가 걸린 경로는 allow 목록을 그대로 파생한다', () => {
     expect(getRouteAccess('/mypage/wishlist')).toEqual({ kind: 'role', allow: ['CONSUMER'] })
     expect(getRouteAccess('/cart')).toEqual({ kind: 'role', allow: ['CONSUMER'] })
+    expect(getRouteAccess('/order-groups/:orderGroupId')).toEqual({ kind: 'role', allow: ['CONSUMER'] })
+    expect(getRouteAccess('/order-groups/:orderGroupId/payment/return')).toEqual({ kind: 'role', allow: ['CONSUMER'] })
     // 구매 내역은 BRAND 전용이다 — 서버의 수령 확인이 hasRole('BRAND') 라 다른 역할은
     // 구매를 끝낼 수 없고, 목록이 언제나 비어 있었다. 상세(/trades/:tradeId)는 그대로
     // 로그인만 요구한다.

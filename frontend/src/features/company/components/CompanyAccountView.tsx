@@ -15,6 +15,14 @@ interface CompanyAccountViewProps {
   state: CompanyAccountViewState
   walletState: CompanyWalletViewState
   onRetryWallet?: () => void
+  /**
+   * 수정 화면으로 보내는 손잡이.
+   *
+   * <b>없으면 버튼을 그리지 않는다.</b> 업체 정보를 아직 못 읽었거나(조회 중·실패)
+   * 고칠 수 없는 상태면 부르는 쪽이 넘기지 않는다 — 여기서 상태를 다시 따지면
+   * 같은 판단이 두 곳에 생긴다.
+   */
+  onEdit?: () => void
 }
 
 export type CompanyWalletViewState =
@@ -35,7 +43,7 @@ function DetailItem({ label, value }: { label: string; value: string | null }) {
   )
 }
 
-export function CompanyAccountView({ state, walletState, onRetryWallet }: CompanyAccountViewProps) {
+export function CompanyAccountView({ state, walletState, onRetryWallet, onEdit }: CompanyAccountViewProps) {
   if (state.status === 'error') {
     return (
       <section className="company-account" aria-labelledby="company-account-title">
@@ -62,6 +70,13 @@ export function CompanyAccountView({ state, walletState, onRetryWallet }: Compan
         <StatusBadge tone={data.status === 'ACTIVE' ? 'success' : 'neutral'}>
           {data.status === 'ACTIVE' ? '활성 계정' : '상태 확인 필요'}
         </StatusBadge>
+        {/* 고칠 수 있는 것은 대표자명·연락처·주소·소개뿐이라 버튼도 한 개다. 카드마다
+            달면 "업체명도 고칠 수 있다" 로 읽힌다 — 그건 서버가 받지 않는다. */}
+        {onEdit ? (
+          <Button variant="secondary" size="sm" onClick={onEdit}>
+            정보 수정
+          </Button>
+        ) : null}
       </div>
 
       <article className="company-account__summary">

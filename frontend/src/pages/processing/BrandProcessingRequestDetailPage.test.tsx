@@ -183,8 +183,7 @@ test('결제 실패 후 다시 들어와도 기존 미결제 Job에서 결제를
   expect(await screen.findByText('테스트 결제 환경입니다. 실제 금액은 청구되지 않습니다.')).toBeInTheDocument()
 })
 
-test('결제 완료 Job을 찾아 요청 상세에서 소재를 발송한다', async () => {
-  const user = userEvent.setup()
+test('결제 완료 Job을 찾으면 요청 상세는 발송을 가공 진행 화면으로 안내한다', async () => {
   const paidJob = {
     jobId: 91, jobCode: 'JOB-091', requestId: 17, quoteId: 31, brandId: 3, processorId: 8,
     fee: 120_000, paymentAmount: 120_000, status: 'PAID', paymentExpiresAt: '2026-09-09T03:15:00',
@@ -195,20 +194,14 @@ test('결제 완료 Job을 찾아 요청 상세에서 소재를 발송한다', a
   vi.mocked(apiClient.get).mockImplementation((url: string) => Promise.resolve({
     data: url === '/processing-jobs' ? [paidJob] : url.endsWith('/quotes') ? [{ ...quote, status: 'SELECTED' }] : { ...detail, status: 'SELECTED' },
   }))
-  vi.mocked(apiClient.patch).mockResolvedValue({ data: { ...paidJob, status: 'SHIPPED', carrier: '새로이택배', trackingNumber: '1234567890' } })
 
   renderPage()
 
-  expect(await screen.findByRole('heading', { name: '소재 발송' })).toBeInTheDocument()
-  // 목록에 없는 업체도 적을 수 있어야 한다 — 제안(datalist)일 뿐 고르는 칸이 아니다.
-  await user.type(screen.getByLabelText('택배사'), '새로이택배')
-  await user.type(screen.getByLabelText('운송장 번호'), '1234567890')
-  await user.click(screen.getByRole('button', { name: '발송 처리' }))
-
-  expect(apiClient.patch).toHaveBeenCalledWith('/processing-jobs/91/ship', {
-    carrier: '새로이택배',
-    trackingNumber: '1234567890',
-  })
+  // 소재 발송은 온체인 작업 등록 · 수락 · 발송 서명을 거치는 여러 단계라 요청 상세에서
+  // 바로 처리할 수 없다 — 그 단계가 있는 작업 상세로 보낸다.
+  expect(await screen.findByRole('link', { name: '소재 발송하기' })).toHaveAttribute('href', '/processing/jobs/91')
+  expect(screen.queryByRole('heading', { name: '소재 발송' })).not.toBeInTheDocument()
+  expect(apiClient.patch).not.toHaveBeenCalled()
 })
 
 test('접수된 견적이 없으면 대기 상태를 안내한다', async () => {

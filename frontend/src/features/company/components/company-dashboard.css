@@ -912,3 +912,72 @@
 
 /* 제목을 감춘 뒤로 이 줄에 남는 것은 오른쪽 요소뿐이다 — space-between 이면 왼쪽으로 끌려간다. */
 .company-account__page-heading { justify-content: flex-end; }
+
+/* ── 업체 정보 수정 폼 ────────────────────────────────────
+   조회 화면과 같은 폭·여백을 쓴다. 수정으로 들어갈 때 칸이 움직이면 같은 화면을 고치는
+   중이라는 감각이 끊긴다. */
+
+.company-profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  border: 1px solid var(--ui-color-border);
+  border-radius: 12px;
+  background: var(--ui-color-surface);
+}
+
+.company-profile-form__address {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 1rem;
+  border: 1px solid var(--ui-color-border);
+  border-radius: 8px;
+}
+
+.company-profile-form__address > legend {
+  padding: 0 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ui-color-muted);
+}
+
+/* 우편번호 칸과 검색 버튼을 한 줄에. 버튼은 라벨 높이만큼 내려 입력칸과 밑선을 맞춘다. */
+.company-profile-form__zip {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.company-profile-form__zip > .ui-field { flex: 1 1 auto; min-width: 0; }
+.company-profile-form__zip > button { flex: none; margin-bottom: 1rem; }
+
+/* 검색으로만 채우는 칸. 눌러도 커서가 서지 않는다는 것이 보여야 한다. */
+.company-profile-form input[readonly] {
+  background: var(--ui-color-surface-muted, #f5f6f8);
+  cursor: default;
+}
+
+.company-profile-form textarea.ui-field__control {
+  min-height: 6rem;
+  padding: 0.6rem 0.75rem;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.company-profile-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+@media (max-width: 560px) {
+  .company-profile-form { padding: 1rem; }
+  /* 좁아지면 검색 버튼을 아래로 내린다 — 한 줄에 두면 우편번호 칸이 읽을 수 없게 줄어든다. */
+  .company-profile-form__zip { flex-direction: column; align-items: stretch; }
+  .company-profile-form__zip > button { margin-bottom: 0; }
+}

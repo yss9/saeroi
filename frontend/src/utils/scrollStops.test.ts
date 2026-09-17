@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { adjacentScrollStop } from './aboutScroll.ts'
+import { adjacentScrollStop } from './scrollStops.ts'
 
-describe('ABOUT content scroll stops', () => {
+describe('adjacentScrollStop', () => {
   const stops = [0, 800, 1200, 1600, 2400]
 
   it('moves one content stop down or up, including connection phases', () => {

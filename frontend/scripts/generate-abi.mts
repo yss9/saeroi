@@ -19,7 +19,11 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
-const ABI_DIR = [resolve(here, '../../blockchain/abi'), resolve(here, '../../S15P21E104_blockchain/abi')]
+const ABI_DIR = [
+  resolve(here, '../../S15P21E104-blockchain/abi'),
+  resolve(here, '../../blockchain/abi'),
+  resolve(here, '../../S15P21E104_blockchain/abi'),
+]
   .find((candidate) => existsSync(candidate)) ?? resolve(here, '../../blockchain/abi')
 const OUT_DIR = resolve(here, '../src/config/abi')
 
@@ -82,6 +86,8 @@ const CONTRACTS = [
   { file: 'Marketplace', constant: 'MARKETPLACE_ABI', out: 'marketplace.abi.ts' },
   { file: 'ProcessingRegistry', constant: 'PROCESSING_REGISTRY_ABI', out: 'processingRegistry.abi.ts' },
   { file: 'ProductionRegistry', constant: 'PRODUCTION_REGISTRY_ABI', out: 'productionRegistry.abi.ts' },
+  { file: 'PredictionPoint', constant: 'PREDICTION_POINT_ABI', out: 'predictionPoint.abi.ts' },
+  { file: 'PredictionMarket', constant: 'PREDICTION_MARKET_ABI', out: 'predictionMarket.abi.ts' },
 ]
 
 if (!existsSync(ABI_DIR)) {

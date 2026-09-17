@@ -20,6 +20,7 @@ import { getRouteAccessMap } from './routeAccess.ts'
  * 각 줄에 이유를 적는다 — 이유 없이 늘어나면 이 테스트가 무력해진다.
  */
 const NOT_IN_MENU: ReadonlyMap<string, string> = new Map([
+  ['/order-groups/:orderGroupId', '장바구니 체크아웃에서 접근하는 묶음 주문'],
   ['/cart', '소비자 장바구니. 쇼핑몰 헤더 장바구니 아이콘에서 접근'],
   ['/brands', '공개 브랜드 목록. 쇼핑몰 헤더와 홈 발견 링크에서 접근'],
   ['/brands/:brandId', '공개 브랜드 상세. 브랜드 카드와 상품 브랜드명에서 접근'],
@@ -46,6 +47,11 @@ const NOT_IN_MENU: ReadonlyMap<string, string> = new Map([
   ['/mypage/inquiries', '마이페이지 사이드바(My활동)에서 들어간다'],
   ['/mypage/reviews', '마이페이지 사이드바(My활동)에서 들어간다'],
   ['/mypage/profile', '마이페이지 사이드바(My정보)에서 들어간다'],
+  ['/mypage/predictions', '마이페이지 사이드바(My활동)에서 들어간다'],
+  ['/terms', '정적 안내 페이지. 쇼핑몰 푸터 법적 고지에서 접근하므로 사업자 사이드바에서 제외'],
+  ['/privacy', '정적 안내 페이지. 쇼핑몰 푸터 법적 고지에서 접근하므로 사업자 사이드바에서 제외'],
+  ['/faq', '정적 안내 페이지(배송·반품 문의 포함). 쇼핑몰 푸터(FAQ·자주 묻는 질문)에서 접근하므로 사업자 사이드바에서 제외'],
+  ['/support', '공개 문의 페이지. 쇼핑몰 푸터(문의하기)에서 접근하므로 사업자 사이드바에서 제외'],
 ])
 
 /** 상세·콜백처럼 목록에서 눌러 들어가는 경로는 메뉴에 둘 대상이 아니다. */

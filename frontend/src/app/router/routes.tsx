@@ -1,5 +1,6 @@
 import { Navigate, type RouteObject } from 'react-router-dom'
 import { CartPage } from '../../pages/cart/CartPage.tsx'
+import { OrderGroupPage } from '../../pages/cart/OrderGroupPage.tsx'
 import { BrandsPage } from '../../pages/brands/BrandsPage.tsx'
 import { SearchPage } from '../../pages/search/SearchPage.tsx'
 import { PublicProductDetailPage } from '../../pages/product/PublicProductDetailPage.tsx'
@@ -10,10 +11,14 @@ import { AdminPage } from '../../pages/auth/AdminPage.tsx'
 import { BusinessSignupPage } from '../../pages/auth/BusinessSignupPage.tsx'
 import { ConsumerSignupPage } from '../../pages/auth/ConsumerSignupPage.tsx'
 import { ForbiddenPage } from '../../pages/auth/ForbiddenPage.tsx'
+import { FaqPage } from '../../pages/faq/FaqPage.tsx'
+import { TermsPage } from '../../pages/legal/TermsPage.tsx'
+import { PrivacyPage } from '../../pages/legal/PrivacyPage.tsx'
 import { LoginPage } from '../../pages/auth/LoginPage.tsx'
 import { NotFoundPage } from '../../pages/auth/NotFoundPage.tsx'
 import { SignupCompletePage } from '../../pages/auth/SignupCompletePage.tsx'
 import { SignupTypePage } from '../../pages/auth/SignupTypePage.tsx'
+import { SupportPage } from '../../pages/support/SupportPage.tsx'
 import { CompanyAccountPage } from '../../pages/company/CompanyAccountPage.tsx'
 import { InventoryPage } from '../../pages/inventory/InventoryPage.tsx'
 import { ListingDetailPage } from '../../pages/marketplace/ListingDetailPage.tsx'
@@ -33,6 +38,7 @@ import { ConsumerProfilePage } from '../../pages/mypage/ConsumerProfilePage.tsx'
 import { ConsumerRecentlyViewedPage } from '../../pages/mypage/ConsumerRecentlyViewedPage.tsx'
 import { ConsumerReviewsPage } from '../../pages/mypage/ConsumerReviewsPage.tsx'
 import { ConsumerWishlistPage } from '../../pages/mypage/ConsumerWishlistPage.tsx'
+import { PredictionMarketPage } from '../../pages/prediction/PredictionMarketPage.tsx'
 import { ProductOrderReturnPage } from '../../pages/mypage/ProductOrderReturnPage.tsx'
 import { BrandProcessingPage } from '../../pages/processing/BrandProcessingPage.tsx'
 import { BrandProcessingRequestDetailPage } from '../../pages/processing/BrandProcessingRequestDetailPage.tsx'
@@ -94,6 +100,10 @@ export const routes: RouteObject[] = [
   { path: '/signup/consumer', element: <ConsumerSignupPage /> },
   { path: '/signup/business', element: <BusinessSignupPage /> },
   { path: '/signup/complete', element: <SignupCompletePage /> },
+  { path: '/terms', element: <TermsPage /> },
+  { path: '/privacy', element: <PrivacyPage /> },
+  { path: '/faq', element: <FaqPage /> },
+  { path: '/support', element: <SupportPage /> },
 
   // 권한 없음(403 성격) 안내. RoleGuard 가 여기로 보낸다.
   // Public 에 두는 이유: 이 화면 자체가 가드에 막히면 사용자가 갈 곳이 없어진다.
@@ -142,6 +152,7 @@ export const routes: RouteObject[] = [
       { path: '/mypage/inquiries/new', element: <ConsumerAskInquiryPage /> },
       { path: '/mypage/inquiries', element: <ConsumerInquiriesPage /> },
       { path: '/mypage/reviews', element: <ConsumerReviewsPage /> },
+      { path: '/mypage/predictions', element: <PredictionMarketPage /> },
       { path: '/mypage/profile', element: <ConsumerProfilePage /> },
       // 카카오페이 결제창이 돌아오는 자리. 승인·취소·실패가 모두 이 주소로 오고
       // pg_token 유무로 갈린다.
@@ -149,6 +160,8 @@ export const routes: RouteObject[] = [
       // ⚠️ 경로가 서버 설정(app.payment.kakao.product-order-return-url)과 같아야 한다.
       // 어긋나면 결제를 마친 사용자가 없는 페이지에 떨어지고, 묶인 개체도 풀리지 않는다.
       { path: '/orders/:orderId/payment/return', element: <ProductOrderReturnPage /> },
+      { path: '/order-groups/:orderGroupId', element: <OrderGroupPage /> },
+      { path: '/order-groups/:orderGroupId/payment/return', element: <OrderGroupPage returning /> },
     ],
   },
 

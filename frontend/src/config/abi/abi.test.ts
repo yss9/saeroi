@@ -49,6 +49,8 @@ const REQUIRED: Record<ContractName, ReadonlyArray<readonly [string, number]>> =
   // 가공·생산 서비스는 각 도메인 담당이 만든다. 여기서는 ABI 가 실려 있는지만 확인한다.
   processingRegistry: [],
   productionRegistry: [],
+  predictionPoint: [['approve', 2], ['balanceOf', 1]],
+  predictionMarket: [['placeBet', 3], ['claim', 1], ['getMarket', 1]],
 }
 
 describe.each(Object.keys(abis) as ContractName[])('%s ABI', (name) => {

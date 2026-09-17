@@ -42,6 +42,8 @@ export interface AppError {
   validationErrors: ValidationError[]
   /** 디버깅용 원본. 로깅에만 쓰고 화면에 출력하지 않는다. */
   cause: unknown
+  /** 업무 오류 응답의 data. 화면에서 코드별로 검증한 뒤 사용한다. */
+  details?: unknown
 }
 
 /** 기본 문구. Backend 가 message 를 주면 그쪽이 우선한다. */
@@ -67,6 +69,7 @@ export function createAppError(
     status: overrides.status ?? null,
     validationErrors: overrides.validationErrors ?? [],
     cause: overrides.cause ?? null,
+    details: overrides.details ?? null,
   }
 }
 

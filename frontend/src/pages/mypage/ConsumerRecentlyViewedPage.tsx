@@ -58,11 +58,11 @@ const LATEST_VIEWED_AT = new Date('2026-09-16T10:12:00').getTime()
 /**
  * 화면 확인용 목데이터. 조회 이력 저장이 아직 없다(프론트 로컬 기록도, 서버 기록도 없음).
  *
- * 15~20개로 채운다(2026-09-17) — 예전엔 4개뿐이라 한 줄에 다 들어가, 여러 줄로 넘어갔을
+ * 30개로 채운다(2026-09-17) — 예전엔 4개뿐이라 한 줄에 다 들어가, 여러 줄로 넘어갔을
  * 때 카드 크기·간격이 어떻게 보이는지 확인할 수 없었다.
  */
 const MOCK_RECENTLY_VIEWED: readonly RecentlyViewedItem[] = Array.from(
-  { length: 18 },
+  { length: 30 },
   (_, index) => ({
     id: String(index + 1),
     ...PRODUCT_POOL[index % PRODUCT_POOL.length],

@@ -1,4 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
+import { orderGroupRedirect } from '../../cart/orderGroupRedirect.ts'
 import type { AppError } from '../../../utils/errors.ts'
 import { productKeys } from '../../product/api/productKeys.ts'
 import { consumerOrderKeys } from '../api/consumerOrderKeys.ts'
@@ -16,9 +18,11 @@ import { cancelProductOrder } from '../api/productOrderPaymentApi.ts'
  */
 export function useCancelProductOrder() {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
 
   return useMutation<void, AppError, number>({
     mutationFn: (orderId) => cancelProductOrder(orderId),
+    onError: error => { const target = orderGroupRedirect(error); if (target) navigate(target, { replace: true }) },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: consumerOrderKeys.all })
       void queryClient.invalidateQueries({ queryKey: productKeys.all })
