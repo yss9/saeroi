@@ -8,17 +8,16 @@ import './trade.css'
 /**
  * 구매자가 보는 상태 묶음.
  *
- * 서버의 `TradeStatus` 를 그대로 나열하지 않는다. 구매자에게 `PAID`(결제 완료)는 판매자가
- * 보내 주기를 기다리는 구간이라 "발송 대기" 로 읽어야 하고, `RECEIVED` 는 서버가
- * `COMPLETED` 로 연달아 넘기므로 그 상태로 멈춘 거래는 사실상 없다.
+ * 서버의 `TradeStatus` 를 그대로 나열하지 않는다. `RECEIVED` 는 서버가 `COMPLETED` 로
+ * 연달아 넘기므로 그 상태로 멈춘 거래가 사실상 없고, `CREATED`(결제 전)는 결제 화면으로
+ * 이어지는 중간 상태라 목록을 거를 축이 되지 못한다 — 둘 다 전체에서만 보인다.
  *
- * 순서는 **거래가 흘러가는 순서**다 — 결제 → 발송 대기 → 배송 중 → 완료. 그래야 지금 내
- * 거래가 어디쯤인지 목록을 보기 전에 눈으로 짚을 수 있다.
+ * 순서는 **거래가 흘러가는 순서**다 — 결제 완료 → 배송 중 → 완료. 그래야 지금 내 거래가
+ * 어디쯤인지 목록을 보기 전에 눈으로 짚을 수 있다.
  */
 const FILTERS: readonly { label: string; status?: TradeStatus }[] = [
   { label: '전체' },
-  { label: '결제 필요', status: 'CREATED' },
-  { label: '발송 대기', status: 'PAID' },
+  { label: '결제 완료', status: 'PAID' },
   { label: '배송 중', status: 'SHIPPED' },
   { label: '거래 완료', status: 'COMPLETED' },
   // 취소는 끝난 거래라 맨 뒤다. 앞에 두면 진행 중인 거래를 찾는 눈길을 가로챈다.
@@ -63,13 +62,15 @@ export function BuyerTradeBoard() {
 
       <TradeList filters={{ status }} onSelect={setOpened} />
 
-      <Modal
-        open={opened !== null}
-        title="거래 상세"
-        onClose={() => setOpened(null)}
-      >
-        {opened !== null && <TradeDetail tradeId={opened} />}
-      </Modal>
+      {/*
+        열렸을 때만 창을 그린다. 닫아 둔 창을 남겨 두면 지난 거래의 DOM 과 그때 내려둔
+        스크롤이 그대로 남아, 다음 거래를 열었을 때 중간부터 보인다.
+      */}
+      {opened !== null && (
+        <Modal open title="거래 상세" onClose={() => setOpened(null)}>
+          <TradeDetail tradeId={opened} />
+        </Modal>
+      )}
     </>
   )
 }

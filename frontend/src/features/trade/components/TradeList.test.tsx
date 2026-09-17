@@ -113,7 +113,9 @@ describe('거래 카드', () => {
     expect(await screen.findByText('발송 필요')).toBeInTheDocument()
   })
 
-  it('구매자 화면에서는 배송 중 건에 확인 필요를 붙인다', async () => {
+  // 물건이 오는 동안 구매자가 할 수 있는 일은 없다 — 배송 중마다 안내가 붙으면 정작
+  // 결제가 남은 건이 묻힌다.
+  it('구매자 화면에서 배송 중 건에는 안내를 붙이지 않는다', async () => {
     api.getTrades.mockResolvedValue({
       content: [trade({ status: 'SHIPPED' })],
       page: 0,
@@ -123,7 +125,23 @@ describe('거래 카드', () => {
     })
     renderList({ side: 'BUY' })
 
-    expect(await screen.findByText('확인 필요')).toBeInTheDocument()
+    await screen.findByText('배송 중')
+    expect(screen.queryByText('확인 필요')).not.toBeInTheDocument()
+    expect(screen.queryByText('결제 필요')).not.toBeInTheDocument()
+  })
+
+  // 아직 결제하지 않은 건은 목록에서 바로 짚여야 한다.
+  it('구매자 화면에서는 결제 전 건에 결제 필요를 붙인다', async () => {
+    api.getTrades.mockResolvedValue({
+      content: [trade({ status: 'CREATED' })],
+      page: 0,
+      size: 20,
+      totalElements: 1,
+      totalPages: 1,
+    })
+    renderList({ side: 'BUY' })
+
+    expect(await screen.findByText('결제 필요')).toBeInTheDocument()
   })
 
   it('완료된 거래에는 안내를 붙이지 않는다', async () => {

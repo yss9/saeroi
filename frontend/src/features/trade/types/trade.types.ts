@@ -37,8 +37,14 @@ export const TRADE_STATUS_LABEL: Record<TradeStatus, string> = {
   CANCELED: '거래 취소',
 }
 
-/** 구매자가 다음에 할 수 있는 행동이 있는 단계인지. 목록에서 강조 표시에 쓴다. */
-export const BUYER_ACTION_REQUIRED: readonly TradeStatus[] = ['CREATED', 'SHIPPED']
+/**
+ * 구매자가 다음에 할 수 있는 행동이 있는 단계인지. 목록에서 강조 표시에 쓴다.
+ *
+ * **배송 중은 넣지 않는다.** 물건이 오는 동안 구매자가 할 수 있는 일은 없고, 수령 확인은
+ * 실물을 받은 뒤의 일이다 — 배송 중인 줄마다 "확인 필요" 가 붙으면 정작 결제가 남은 건이
+ * 묻힌다.
+ */
+export const BUYER_ACTION_REQUIRED: readonly TradeStatus[] = ['CREATED']
 
 /** 판매자가 다음에 할 수 있는 행동이 있는 단계인지. */
 export const SELLER_ACTION_REQUIRED: readonly TradeStatus[] = ['PAID']

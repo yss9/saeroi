@@ -44,7 +44,9 @@ export function toRequest(draft: DraftInput): ProductionInputRequest {
 export function problemOf(draft: DraftInput): string | null {
   const total = inputQuantityOf(draft)
 
-  if (total <= 0) return '투입량을 입력해 주세요. 제품·자투리·폐기 중 하나는 1g 이상이어야 합니다.'
+  // **아직 안 적은 것은 잘못이 아니다.** 소재를 고르자마자 붉은 글씨가 뜨면 방금 연 칸을
+  // 나무라는 꼴이고, 채워야 한다는 것은 빈 칸과 잠긴 저장 버튼이 이미 말한다.
+  if (total <= 0) return null
   if (total > draft.material.available) {
     return `가용 수량(${formatKg(draft.material.available)})을 넘을 수 없습니다.`
   }
@@ -54,9 +56,17 @@ export function problemOf(draft: DraftInput): string | null {
   return null
 }
 
+/** 아직 아무 수량도 적지 않은 줄. 막기는 하되 글씨로 나무라지는 않는다 (problemOf 참고). */
+export function isEmptyDraft(draft: DraftInput): boolean {
+  return inputQuantityOf(draft) <= 0
+}
+
 /** 초안이 전부 보낼 수 있는 상태인가. 한 건이라도 어긋나면 서버가 통째로 거절한다. */
 export function canSubmitDrafts(drafts: readonly DraftInput[]): boolean {
-  return drafts.length > 0 && drafts.every((draft) => problemOf(draft) === null)
+  return (
+    drafts.length > 0 &&
+    drafts.every((draft) => !isEmptyDraft(draft) && problemOf(draft) === null)
+  )
 }
 
 /** 초안 전체의 투입 합계 (gram). */

@@ -42,12 +42,25 @@ const response = {
 function mockApi(
   requests: (url: string, config?: { params?: Record<string, unknown> }) => unknown,
   jobs: unknown[] = [],
+  quotes: unknown[] = [],
 ) {
-  vi.mocked(apiClient.get).mockImplementation((url, config) =>
-    String(url).includes('/processing-jobs')
-      ? Promise.resolve({ data: jobs })
-      : Promise.resolve({ data: requests(String(url), config as { params?: Record<string, unknown> }) }),
-  )
+  vi.mocked(apiClient.get).mockImplementation((url, config) => {
+    const path = String(url)
+    if (path.includes('/processing-jobs')) return Promise.resolve({ data: jobs })
+    // 견적 대기 줄마다 "견적이 왔는가" 를 따로 묻는다(목록 응답에 견적 수가 없다).
+    if (path.includes('/quotes')) return Promise.resolve({ data: quotes })
+    return Promise.resolve({
+      data: requests(path, config as { params?: Record<string, unknown> }),
+    })
+  })
+}
+
+/** 목록 조회만 골라 본다 — 견적·작업 조회가 뒤따라 나가 "마지막 호출" 이 목록이 아니다. */
+function lastRequestListCall() {
+  return vi
+    .mocked(apiClient.get)
+    .mock.calls.filter(([url]) => String(url) === '/v1/processing-requests')
+    .at(-1)
 }
 
 function renderPage() {
@@ -133,17 +146,18 @@ test('가공 요청 행의 빈 영역을 클릭하면 상세로 이동한다', a
   expect(screen.getByLabelText('현재 경로')).toHaveTextContent('/brand/processing/requests/17')
 })
 
-test('상태 필터를 바꾸면 첫 페이지부터 다시 조회한다', async () => {
+// 묶음(내 차례·진행 중…)은 서버가 모르는 축이라 목록은 늘 전체를 받아 와 화면에서 거른다.
+// 견적이 온 요청은 "내 차례" 다 — 고르라는 뜻이기 때문이다.
+test('내 차례를 누르면 견적이 온 요청만 남는다', async () => {
   const user = userEvent.setup()
+  mockApi(() => response, [], [{ quoteId: 1 }])
   renderPage()
   await screen.findByText('폐데님 원단')
 
-  await user.click(screen.getByRole('button', { name: '견적 수락' }))
+  await user.click(screen.getByRole('button', { name: /내 차례/ }))
 
-  expect(apiClient.get).toHaveBeenLastCalledWith('/v1/processing-requests', {
-    params: { page: 0, size: 20, status: 'SELECTED' },
-    signal: expect.any(AbortSignal),
-  })
+  const table = await screen.findByRole('table', { name: '내 가공 요청 목록' })
+  expect(within(table).getByText('견적 1건 도착')).toBeInTheDocument()
 })
 
 test('요청이 없으면 새 신청으로 이동할 수 있는 빈 상태를 표시한다', async () => {
@@ -162,47 +176,34 @@ test('다음 페이지로 이동하면 같은 필터로 후속 목록을 조회�
 
   await user.click(screen.getByRole('button', { name: '다음 페이지' }))
 
-  expect(apiClient.get).toHaveBeenLastCalledWith('/v1/processing-requests', {
-    params: { page: 1, size: 20 },
-    signal: expect.any(AbortSignal),
-  })
+  expect(lastRequestListCall()).toEqual([
+    '/v1/processing-requests',
+    { params: { page: 1, size: 20 }, signal: expect.any(AbortSignal) },
+  ])
 })
 
-// 아래 필터를 누르면 목록만 걸러져야 한다. 예전에는 위의 "전체 요청" 까지 걸러진 개수로
-// 바뀌어, 견적 대기를 누르면 전체가 0 으로 떨어지는 것처럼 보였다.
-test('상태 필터를 눌러도 위의 요청 현황은 그대로다', async () => {
-  const user = userEvent.setup()
-  // 현황은 상태별로 따로 묻는다. 목록 응답이 무엇이든 그 숫자를 쓰지 않는다.
-  mockApi(
-    (_url, config) => {
-      const params = (config?.params ?? {}) as { status?: string; size?: number }
-      if (params.size === 1) {
-        return {
-          ...response,
-          items: [],
-          total: params.status === 'QUOTING' ? 4 : 5,
-        }
-      }
-      // 목록: 필터를 걸면 서버가 걸러진 total 을 돌려준다.
-      return { ...response, total: params.status ? 4 : 9 }
-    },
-    // 가공 완료·수령 완료는 요청이 모르는 값이라 작업 목록에서 센다.
-    [
-      { jobId: 40, requestId: 17, status: 'RETURN_SHIPPED' },
-      { jobId: 41, requestId: 18, status: 'CONFIRMED' },
-    ],
-  )
-
+// 견적을 기다리는 동안 상태는 계속 "견적 대기" 라, 가공사가 견적을 보냈는지 알려면 요청을
+// 하나씩 열어 봐야 했다. 목록 응답에 견적 수가 없어 대기 건만 따로 물어 센다.
+test('견적이 도착한 요청은 목록에서 그 사실을 말한다', async () => {
+  mockApi(() => response, [], [{ quoteId: 1 }, { quoteId: 2 }])
   renderPage()
-  const summary = await screen.findByRole('region', { name: '요청 현황' })
-  // 견적 대기 4 · 견적 수락 5 − (가공 완료 1 + 수령 완료 1) = 3
-  expect(await within(summary).findByText('4')).toBeInTheDocument()
-  expect(within(summary).getByText('3')).toBeInTheDocument()
-  expect(within(summary).getAllByText('1')).toHaveLength(2)
 
-  await user.click(screen.getByRole('button', { name: '견적 대기' }))
+  const table = await screen.findByRole('table', { name: '내 가공 요청 목록' })
+  expect(await within(table).findByText('견적 2건 도착')).toBeInTheDocument()
+  expect(within(table).queryByText('견적 대기')).not.toBeInTheDocument()
+})
 
-  expect(within(summary).getByText('4')).toBeInTheDocument()
-  expect(within(summary).getByText('3')).toBeInTheDocument()
-  expect(within(summary).getAllByText('1')).toHaveLength(2)
+// 견적이 오지 않은 요청은 기다리는 중이다 — 내 차례가 아니라 진행 중에 들어간다.
+test('견적이 없으면 내 차례가 비고 진행 중에 남는다', async () => {
+  const user = userEvent.setup()
+  mockApi(() => response, [], [])
+  renderPage()
+  await screen.findByText('폐데님 원단')
+
+  await user.click(screen.getByRole('button', { name: /내 차례/ }))
+  expect(await screen.findByText('지금 손댈 요청이 없어요')).toBeInTheDocument()
+
+  await user.click(screen.getByRole('button', { name: /진행 중/ }))
+  const table = await screen.findByRole('table', { name: '내 가공 요청 목록' })
+  expect(within(table).getByText('견적 대기')).toBeInTheDocument()
 })

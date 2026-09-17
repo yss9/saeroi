@@ -210,4 +210,15 @@ describe('본문 갈래', () => {
     expect(await screen.findByRole('heading', { name: '세척된 폐데님' })).toBeInTheDocument()
     expect(screen.queryByText('발송 필요')).not.toBeInTheDocument()
   })
+
+  // 결제를 마치고 발송을 기다리는 구간에는 구매자가 할 수 있는 일이 없다. 그때 온체인
+  // 기록과 수령 확인이 서 있으면 지금 눌러야 하는 것으로 읽힌다.
+  it('결제 완료 구간의 구매자에게는 온체인 기록과 수령 확인을 두지 않는다', async () => {
+    signInAs('BRAND', BUYER_ID)
+    renderDetail()
+
+    await screen.findByRole('heading', { name: '세척된 폐데님' })
+    expect(screen.queryByText('구매 온체인 기록')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '수령 확인' })).not.toBeInTheDocument()
+  })
 })

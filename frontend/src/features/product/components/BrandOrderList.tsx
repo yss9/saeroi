@@ -152,7 +152,6 @@ function OrderRow({ order, onShip }: { order: BrandOrder; onShip: () => void }) 
       <div className="brand-order__main">
         <div className="brand-order__head">
           <span className="brand-order__code">{order.orderCode}</span>
-          <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>
         </div>
 
         {/* 일련번호는 남긴다. 같은 모델이라도 개체마다 다른 물건이라 무엇을 담아야
@@ -179,22 +178,29 @@ function OrderRow({ order, onShip }: { order: BrandOrder; onShip: () => void }) 
           {order.shipping.addressDetail ? ` ${order.shipping.addressDetail}` : ''}
         </address>
 
-        {/* 송장은 배송지 바로 아래다 — 고객 문의가 오면 이 둘을 함께 읽는다. 오른쪽
-            버튼 칸에 두면 있고 없고에 따라 그 칸의 폭이 달라져 배송지가 밀린다. */}
+      </div>
+
+      {/*
+        송장은 배송지와 다른 칸이다. 주소 밑에 붙여 두면 긴 주소 끝에 딸린 줄로 읽히는데,
+        고객 문의에서 찾는 값은 이 번호 하나다 — 자리를 고정해 두면 눈이 늘 같은 곳을 본다.
+      */}
+      <div className="brand-order__tracking-cell">
         {order.shipping.trackingNumber && (
-          <p className="brand-order__tracking">
+          <>
             <span className="brand-order__label">운송장</span>
-            {order.shipping.carrier} {order.shipping.trackingNumber}
-          </p>
+            <p className="brand-order__tracking">
+              {order.shipping.carrier}
+              <b>{order.shipping.trackingNumber}</b>
+            </p>
+          </>
         )}
       </div>
 
+      {/* 상태는 줄의 오른쪽 위다 — 여러 줄을 훑을 때 눈이 같은 자리에서 찾는다. */}
       <div className="brand-order__actions">
-        {order.status === 'PAID' && <Button size="sm" onClick={onShip}>발송 처리</Button>}
+        <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>
 
-        {order.status === 'SHIPPED' && (
-          <p className="brand-order__hint">소비자가 수령을 확인하면 완료됩니다.</p>
-        )}
+        {order.status === 'PAID' && <Button size="sm" onClick={onShip}>발송 처리</Button>}
       </div>
     </article>
   )

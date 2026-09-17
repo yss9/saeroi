@@ -1,6 +1,12 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { EmptyState, ErrorMessage, Loading, StatusBadge } from '../../../components/common/index.ts'
+import {
+  EmptyState,
+  ErrorMessage,
+  Loading,
+  StatusBadge,
+  type StatusTone,
+} from '../../../components/common/index.ts'
 import { formatKg, formatWon } from '../../../utils/quantity.ts'
 import { useTrades } from '../hooks/useTrades.ts'
 import {
@@ -17,13 +23,19 @@ const CARD_TONE: Partial<Record<TradeStatus, string>> = {
   CANCELED: 'trade-card--canceled',
 }
 
-const TONE: Record<TradeStatus, 'neutral' | 'info' | 'warning' | 'success'> = {
+/*
+  **진행 중인 상태는 서로 다른 색이어야 한다.** 결제 완료와 배송 중이 같은 파랑이면
+  목록에서 두 줄을 나란히 놓고도 어느 것이 이미 떠났는지 글자를 읽어야 안다.
+
+  끝난 거래는 색을 빼거나(완료) 붉게(취소) 둔다 — 카드 자체도 뒤로 물러나 있다.
+*/
+const TONE: Record<TradeStatus, StatusTone> = {
   CREATED: 'warning',
   PAID: 'info',
-  SHIPPED: 'info',
-  RECEIVED: 'info',
-  COMPLETED: 'success',
-  CANCELED: 'neutral',
+  SHIPPED: 'success',
+  RECEIVED: 'success',
+  COMPLETED: 'neutral',
+  CANCELED: 'danger',
 }
 
 export interface TradeListProps {
@@ -77,7 +89,7 @@ export function TradeList({ filters, onSelect }: TradeListProps) {
                   판매자에게는 결제 완료 건이 곧 발송해야 할 건이다. */}
               {actionRequired.includes(trade.status) && (
                 <span className="trade-card__action-hint">
-                  {isSellerView ? '발송 필요' : '확인 필요'}
+                  {isSellerView ? '발송 필요' : '결제 필요'}
                 </span>
               )}
             </div>
@@ -85,8 +97,24 @@ export function TradeList({ filters, onSelect }: TradeListProps) {
               거래 번호는 적지 않는다. 고르는 기준은 소재 이름이지 번호가 아니다.
             */}
             <strong className="trade-card__name">{trade.materialName}</strong>
-            <span className="trade-card__quantity">{formatKg(trade.quantity)}</span>
-            <span className="trade-card__price">{formatWon(trade.totalPrice)}</span>
+            {/*
+              **누구와 한 거래인지 목록에서 보여야 한다.** 소재 이름이 비슷한 건이 여러
+              줄이면(같은 소재를 여러 곳에서 산다) 상대를 알아야 어느 건인지 갈린다.
+              보는 쪽에 따라 상대가 다르다 — 구매자는 판매자를, 판매자는 구매자를 본다.
+            */}
+            <span className="trade-card__party">
+              <small>{isSellerView ? '구매자' : '판매자'}</small>
+              {isSellerView ? trade.buyerName : trade.sellerName}
+            </span>
+
+            {/*
+              수량과 금액은 한 줄의 양끝이다. 세로로 쌓으면 카드마다 값이 네 줄로 늘어서
+              무엇이 이름이고 무엇이 숫자인지 훑어서는 갈리지 않는다.
+            */}
+            <div className="trade-card__footer">
+              <span className="trade-card__quantity">{formatKg(trade.quantity)}</span>
+              <span className="trade-card__price">{formatWon(trade.totalPrice)}</span>
+            </div>
           </CardShell>
         </li>
       ))}

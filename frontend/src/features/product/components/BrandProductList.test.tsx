@@ -128,10 +128,10 @@ describe('BrandProductList', () => {
     renderList()
 
     // DRAFT: "아직 만들지 않았다". SOLD_OUT: 배지가 품절을 말하고 재고 줄은 수량만 말한다.
-    expect(await screen.findByText(/생산 전 · 판매 가능 수량 0개/)).toBeInTheDocument()
+    expect(await screen.findByText(/생산 전 · 판매 가능 0개/)).toBeInTheDocument()
     const soldOut = row('다 팔린 가방')
     expect(within(soldOut).getByText('품절')).toBeInTheDocument()
-    expect(within(soldOut).getByText('판매 가능 수량 0개')).toBeInTheDocument()
+    expect(within(soldOut).getByText('판매 가능 0개')).toBeInTheDocument()
   })
 
   it('재고가 있으면 판매를 시작한다', async () => {

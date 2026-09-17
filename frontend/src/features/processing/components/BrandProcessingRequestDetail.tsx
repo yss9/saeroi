@@ -1,4 +1,4 @@
-import { ArrowLeft, CalendarBlank, CheckCircle, Clock, Factory, Package } from '@phosphor-icons/react'
+import { ArrowLeft, CalendarBlank, CheckCircle, Clock, Factory, Package, Receipt } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { isAppError } from '../../../utils/errors.ts'
@@ -9,6 +9,7 @@ import { progressLabel, progressTone } from '../utils/processingProgress.ts'
 import { MATERIAL_TYPE_LABEL } from '../types/processorProfile.types.ts'
 import { BrandProcessingJobPanel } from './BrandProcessingJobPanel.tsx'
 import { ProcessingPaymentEntry } from './ProcessingPaymentEntry.tsx'
+import { formatDateTime } from '../utils/processingTime.ts'
 import './brand-processing-detail.css'
 
 const quoteStatusLabel: Record<ProcessingQuoteStatus, string> = {
@@ -16,8 +17,7 @@ const quoteStatusLabel: Record<ProcessingQuoteStatus, string> = {
 }
 const won = (value: number) => `${value.toLocaleString('ko-KR')}원`
 const grams = (value: number) => `${value.toLocaleString('ko-KR')} g`
-const date = (value: string) => new Date(/(?:Z|[+-]\d{2}:?\d{2})$/i.test(value) ? value : `${value}Z`)
-  .toLocaleString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+const date = formatDateTime
 const message = (error: unknown) => isAppError(error) || error instanceof Error
   ? error.message
   : '정보를 불러오지 못했어요.'
@@ -45,6 +45,10 @@ export function BrandProcessingRequestDetail({ requestId }: Props) {
   const request = detail.data
   const canSelect = request.status === 'QUOTING' && !selection.data
   const paymentJob = selection.data ?? (job?.status === 'CREATED' ? job : null)
+  // 고른 견적. 방금 누른 것은 아직 목록 상태가 갱신되기 전이라 함께 본다.
+  const chosen =
+    quotes.data?.find(quote => quote.quoteId === selection.variables) ??
+    quotes.data?.find(quote => quote.status === 'SELECTED')
 
   function select(quote: SubmittedProcessingQuote) {
     selection.mutate(quote.quoteId, { onSuccess: () => setConfirmingQuoteId(null) })
@@ -80,20 +84,57 @@ export function BrandProcessingRequestDetail({ requestId }: Props) {
       </section>
 
       <section className="br-detail__quotes" aria-labelledby="quotes-title">
-        <div className="br-detail__section-title"><div><Factory aria-hidden="true" /><h2 id="quotes-title">접수된 견적</h2></div><span>{quotes.data?.length ?? 0}건</span></div>
+        {/* 표시는 가공사(Factory)와 달라야 한다 — 같은 그림이 두 뜻을 가리키면 흐려진다.
+            여기는 "받은 견적서" 다. */}
+        <div className="br-detail__section-title">
+          <div>
+            <Receipt aria-hidden="true" />
+            <h2 id="quotes-title">{chosen ? '선택한 견적' : '접수된 견적'}</h2>
+          </div>
+          {!chosen && <span>{quotes.data?.length ?? 0}건</span>}
+        </div>
 
         {selection.data && (
           <>
             <div className="br-detail__selected" role="status">
               <CheckCircle aria-hidden="true" />
-              <div><strong>견적 선택이 완료되었습니다.</strong><span>생성된 작업 <b>{selection.data.jobCode}</b> · 결제 기한 {date(selection.data.paymentExpiresAt)}</span></div>
+              {/* 작업 번호는 읽어서 얻을 것이 없고, 결제 기한은 바로 아래 결제 칸이
+                  이미 말한다 — 같은 값을 두 줄에 적지 않는다. */}
+              <div><strong>견적 선택이 완료되었습니다.</strong></div>
             </div>
           </>
         )}
+        {/*
+          **누구에게 맡겼는지를 결제 위에 둔다.** 아래 견적 목록은 고르고 나면 지나가 버려,
+          결제 버튼 앞에서 "이 금액이 어느 업체의 것인가" 를 다시 확인할 곳이 없었다.
+        */}
+        {chosen && (
+          <section className="br-detail__chosen" aria-label="선택한 가공업체">
+            <div className="br-detail__chosen-head">
+              <Factory aria-hidden="true" />
+              <div>
+                <strong>{chosen.processorName}</strong>
+                <span>{request.processTypes.map(type => PROCESS_TYPE_LABEL[type]).join(' · ')}</span>
+              </div>
+            </div>
+            <dl>
+              <div><dt>견적 금액</dt><dd>{won(chosen.price)}</dd></div>
+              <div><dt>예상 소요 시간</dt><dd>{chosen.leadDays}일</dd></div>
+              <div><dt>요청 수량</dt><dd>{grams(request.quantity)}</dd></div>
+            </dl>
+            {chosen.memo && <p>{chosen.memo}</p>}
+          </section>
+        )}
+
         {paymentJob && <ProcessingPaymentEntry job={paymentJob} />}
         {selection.isError && <div className="br-detail__selection-error" role="alert">{message(selection.error)}</div>}
 
-        {!quotes.data?.length ? (
+        {/*
+          **고르고 나면 목록을 두지 않는다.** 위의 카드가 고른 업체와 금액을 이미 말하고,
+          아래에 같은 내용이 한 번 더 있으면 어느 쪽이 지금 것인지 되짚어야 한다.
+          고를 수 없게 된 견적(미선택)을 남겨 둘 이유도 없다.
+        */}
+        {chosen ? null : !quotes.data?.length ? (
           <div className="br-detail__empty"><Clock aria-hidden="true" /><strong>아직 접수된 견적이 없어요</strong><p>지정한 가공사가 견적을 제출하면 이곳에서 확인할 수 있습니다.</p></div>
         ) : (
           <div className="br-detail__quote-list">
@@ -125,12 +166,24 @@ export function BrandProcessingRequestDetail({ requestId }: Props) {
           <Link to={`/processing/jobs/${job.jobId}`}>소재 발송하기</Link>
         </div>
       )}
-      {/* 진행 상황과 수령 확인은 이 화면 안에서 끝난다 (가공 진행 화면은 없앴다). */}
-      {job && job.status !== 'CREATED' && job.status !== 'PAID' && (
+      {/*
+        진행 상황과 수령 확인은 이 화면 안에서 끝난다 (가공 진행 화면은 없앴다).
+
+        **만료된 작업에는 두지 않는다.** 결제 기한이 지나 소재 Lock 까지 풀린 건이라 진행할
+        것도, 받을 것도 없다 — 빈 진행 칸은 아직 무언가 남아 있다는 오해만 만든다.
+      */}
+      {job && !['CREATED', 'PAID', 'EXPIRED'].includes(job.status) && (
         <BrandProcessingJobPanel jobId={job.jobId} />
       )}
 
-      <aside className="br-detail__notice"><CalendarBlank aria-hidden="true" /><p>요청은 {date(request.expiresAt)}까지 유효합니다. 견적 선택 시 현재 요청 Lock은 생성된 Job에 연결되어 결제가 완료될 때까지 유지됩니다.</p></aside>
+      {/*
+        **견적을 기다리는 동안만 둔다.** "언제까지 유효한가" 는 견적을 받는 창이 열려 있을
+        때의 이야기다 — 이미 고른 요청이나 만료·취소된 요청에서는 지난 일을 다시 알리는
+        칸이 되고, 만료된 화면에서는 아직 유효한 것처럼 읽히기까지 한다.
+      */}
+      {request.status === 'QUOTING' && (
+        <aside className="br-detail__notice"><CalendarBlank aria-hidden="true" /><p>요청은 {date(request.expiresAt)}까지 유효합니다. 견적 선택 시 현재 요청 Lock은 생성된 Job에 연결되어 결제가 완료될 때까지 유지됩니다.</p></aside>
+      )}
     </section>
   )
 }

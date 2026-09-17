@@ -113,14 +113,19 @@ it('요청 처리 중에는 중복 신청을 막는다', async () => {
   expect(screen.getByRole('button', { name: /신청 중/ })).toBeDisabled()
   expect(apiClient.post).toHaveBeenCalledTimes(1)
 })
-it('UTC 시각으로 내려온 만료일을 사용자 시간대로 표시한다', async () => {
+// 서버 시각은 이미 한국 시각이다 — 백엔드의 모든 시각 소스가 Asia/Seoul 로 고정돼 있고
+// (common/config/ClockConfig), 시간대 없이 내려온다. 여기서 UTC 로 보고 Z 를 붙이면
+// 브라우저가 한 번 더 옮겨 아홉 시간이 더해진다.
+it('시간대 없이 내려온 만료일을 그대로(한국 시각) 표시한다', async () => {
   const user = await conditions()
   await user.click(screen.getByRole('button', { name: '검색' }))
   await user.click(await screen.findByRole('radio', { name: /새로 가공소/ }))
   await user.click(screen.getByRole('button', { name: /신청 내용 확인/ }))
   await user.click(screen.getByRole('button', { name: '가공 신청하기' }))
   await screen.findByRole('heading', { name: '가공 신청이 완료되었어요' })
-  expect(screen.getByText(/만료 일시:/)).toHaveTextContent(new Date('2026-09-14T10:00:00Z').toLocaleString('ko-KR'))
+  expect(screen.getByText(/만료 일시:/)).toHaveTextContent(
+    new Date('2026-09-14T10:00:00').toLocaleString('ko-KR'),
+  )
 })
 it('신청 후 가용 재고가 감소해도 완료 요약의 신청 수량을 유지한다', async () => {
   const user = await conditions()

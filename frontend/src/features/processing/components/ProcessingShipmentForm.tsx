@@ -1,5 +1,6 @@
 import { Package } from '@phosphor-icons/react'
 import { useState } from 'react'
+import { CARRIERS } from '../../../utils/carriers.ts'
 import { isAppError } from '../../../utils/errors.ts'
 import './processing-jobs.css'
 
@@ -36,8 +37,28 @@ export function ProcessingShipmentForm({
   const content = <>
       <h2><Package aria-hidden="true" />{title}</h2>
       <div className="pj-fields">
-        <label>택배사(선택)<input value={carrier} onChange={event => setCarrier(event.target.value)} /></label>
-        <label>운송장 번호(선택)<input value={trackingNumber} onChange={event => setTrackingNumber(event.target.value)} /></label>
+        {/*
+          **고르게 하되 가두지 않는다.** 거래 발송(공급사) 화면과 같은 목록·같은 방식이다 —
+          자주 쓰는 업체를 제안하되 목록에 없는 화물 업체도 적을 수 있다.
+        */}
+        <label>
+          택배사
+          <input
+            list="processing-carriers"
+            value={carrier}
+            onChange={event => setCarrier(event.target.value)}
+          />
+        </label>
+        <datalist id="processing-carriers">
+          {CARRIERS.map(name => <option value={name} key={name} />)}
+        </datalist>
+        <label>
+          운송장 번호
+          <input
+            value={trackingNumber}
+            onChange={event => setTrackingNumber(event.target.value)}
+          />
+        </label>
       </div>
       {evidenceRequired && <label>반환 발송 증빙
         <select value={evidenceId} onChange={event => setEvidenceId(event.target.value)}>

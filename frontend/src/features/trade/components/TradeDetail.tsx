@@ -73,21 +73,27 @@ export function TradeDetail({ tradeId }: TradeDetailProps) {
       {isBuyer && (
         <>
           <PaymentPanel trade={data} />
-          {/* 온체인 주문은 결제와 별개다 — 컨트랙트에 금액이 없고(정책 v3), 체인이 남기는
-              것은 "누가 무엇을 얼마나 사기로 했는가" 뿐이다. 그래서 결제 실패와 체인 실패가
-              서로를 막지 않도록 패널을 나란히 둔다. */}
-          <TradeChainPanel trade={data} />
-          {/*
-            <b>온체인 수령 버튼을 따로 두지 않는다.</b> ReceiptPanel 의 「수령 확인」이
-            서버 기록에 성공하면 곧바로 `chain.receive` 로 이어간다.
 
-            예전에는 여기에 TradeChainActionPanel 이 함께 있어서 같은 시점에 버튼이 둘
-            보였다. 온체인 버튼을 먼저 누르면 서버는 모른 채 체인만 앞서가고, 이어서
-            「수령 확인」을 누르면 이미 RECEIVED 인 주문에 다시 서명하려다 되돌려진다
-            ("order is not shipped"). 사용자에게는 둘 다 눌러야 하는 것처럼 보이는데
-            순서에 따라 한쪽이 반드시 실패하는 화면이었다.
+          {/*
+            **결제를 마치고 발송을 기다리는 동안에는 아무 칸도 두지 않는다.** 그 구간에서
+            구매자가 할 수 있는 일이 없는데, 온체인 기록과 수령 확인이 버튼처럼 서 있으면
+            지금 눌러야 하는 것으로 읽힌다 — 수령 확인은 물건을 받은 뒤의 일이다.
+
+            온체인 주문은 결제와 별개다 — 컨트랙트에 금액이 없고(정책 v3), 체인이 남기는
+            것은 "누가 무엇을 얼마나 사기로 했는가" 뿐이다. 그래서 결제 직후(CREATED)에
+            남기고, 놓친 거래는 오프체인 기록만 남는다(TradeChainPanel 의 tooLate).
+
+            <b>온체인 수령 버튼을 따로 두지 않는다.</b> ReceiptPanel 의 「수령 확인」이
+            서버 기록에 성공하면 곧바로 `chain.receive` 로 이어간다. 예전에는 버튼이 둘
+            보여서, 온체인 쪽을 먼저 누르면 서버는 모른 채 체인만 앞서가고 이어서
+            「수령 확인」을 누르면 이미 RECEIVED 인 주문에 다시 서명하려다 되돌려졌다.
           */}
-          <ReceiptPanel trade={data} />
+          {data.status !== 'PAID' && (
+            <>
+              <TradeChainPanel trade={data} />
+              <ReceiptPanel trade={data} />
+            </>
+          )}
         </>
       )}
 

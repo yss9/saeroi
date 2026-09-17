@@ -98,7 +98,8 @@ function renderPage() {
 }
 
 beforeEach(() => {
-  api.getMyProductionBatches.mockResolvedValue([batch()])
+  // 제품을 붙이는 대상은 확정된 생산이다 — 작성 중인 생산에는 확정으로 가는 길만 준다.
+  api.getMyProductionBatches.mockResolvedValue([batch({ status: 'CONFIRMED' })])
 })
 
 afterEach(() => {
@@ -118,9 +119,10 @@ describe('ProductRegisterPage', () => {
 
     await user.click(openButton())
 
-    // 창 제목이 어느 생산에 적는지 말한다.
+    // 창은 하는 일(제목)과 대상(생산 이름)을 줄을 나눠 말한다.
     const dialog = within(screen.getByRole('dialog'))
-    expect(dialog.getByRole('heading', { name: /2026 가을 1차/ })).toBeInTheDocument()
+    expect(dialog.getByRole('heading', { name: '제품 등록' })).toBeInTheDocument()
+    expect(dialog.getByText('2026 가을 1차')).toBeInTheDocument()
     expect(dialog.getByRole('button', { name: '제품 등록' })).toBeVisible()
   })
 
@@ -154,16 +156,18 @@ describe('ProductRegisterPage', () => {
 
   // 작성 중인 생산은 개체가 없어 재고가 0 이다 — 서버가 PRODUCT_MODEL_HAS_NO_STOCK 로
   // 거절할 요청을 보내지 않는다.
-  it('작성 중인 생산이면 판매 시작을 보내지 않는다', async () => {
-    api.assignProductModel.mockResolvedValue(batch({ productModelId: 31 }))
-    const user = renderPage()
+  // 제품은 확정된 생산의 개체에 붙는다. 확정 전에 걸어 두면 재고 0 인 제품이 남는다 —
+  // 그래서 이 줄에는 등록이 아니라 확정으로 가는 길을 준다.
+  it('작성 중인 생산에는 생산 확정으로 가는 길을 준다', async () => {
+    api.getMyProductionBatches.mockResolvedValue([batch({ status: 'DRAFT' })])
+    renderPage()
 
-    await screen.findByRole('list')
-    await user.click(openButton())
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '제품 등록' }))
-
-    await waitFor(() => expect(api.assignProductModel).toHaveBeenCalled())
-    expect(api.changeProductModelStatus).not.toHaveBeenCalled()
+    const list = within(await screen.findByRole('list'))
+    expect(list.getByRole('link', { name: '생산 확정' })).toHaveAttribute(
+      'href',
+      '/brand/production/3',
+    )
+    expect(list.queryByRole('button', { name: '제품 등록' })).not.toBeInTheDocument()
   })
 
   // 생산 없이 올린 제품은 재고가 0 이라 팔 수 없고, 결국 생산으로 돌아와 이어야 한다.
@@ -197,7 +201,7 @@ describe('ProductRegisterPage', () => {
 
   // 확정된 생산이 오히려 정상 경로다 — 생산을 끝내고 그 결과물에 제품을 붙인다.
   // 서버가 그때 이미 만들어진 개체의 제품까지 함께 채운다.
-  it('확정된 생산에도 제품을 붙일 수 있다', async () => {
+  it('확정된 생산에는 제품 등록 버튼을 준다', async () => {
     api.getMyProductionBatches.mockResolvedValue([
       batch({ productionBatchId: 4, batchName: '확정된 생산', status: 'CONFIRMED' }),
     ])

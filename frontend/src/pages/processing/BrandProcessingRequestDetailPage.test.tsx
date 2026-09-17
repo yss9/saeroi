@@ -115,8 +115,8 @@ test('견적 선택은 확인 단계를 거친 뒤 Job을 생성한다', async (
   await user.click(screen.getByRole('button', { name: '견적 선택 확정' }))
 
   expect(apiClient.post).toHaveBeenCalledWith('/v1/quotes/31/select', { paymentMethod: 'MOCK' })
-  expect((await screen.findAllByText('JOB-091')).length).toBeGreaterThan(0)
-  expect(screen.getByText('견적 선택이 완료되었습니다.')).toBeInTheDocument()
+  // 작업 번호는 화면에 적지 않는다 — 읽어서 얻을 것이 없다. 선택이 끝난 신호로 본다.
+  expect(await screen.findByText('견적 선택이 완료되었습니다.')).toBeInTheDocument()
   expect(screen.getByText('결제 금액').parentElement).toHaveTextContent('120,000원')
 })
 
@@ -139,7 +139,7 @@ test('생성된 Job에서 결제를 준비하고 Mock 승인까지 진행한다'
   await screen.findByText('120,000원')
   await user.click(screen.getByRole('button', { name: '이 견적 선택' }))
   await user.click(screen.getByRole('button', { name: '견적 선택 확정' }))
-  await screen.findAllByText('JOB-091')
+  await screen.findByText('견적 선택이 완료되었습니다.')
 
   await user.click(screen.getByRole('button', { name: '결제 진행' }))
 
@@ -198,7 +198,7 @@ test('결제 완료 Job을 찾으면 요청 상세는 발송을 가공 진행 �
   renderPage()
 
   // 소재 발송은 온체인 작업 등록 · 수락 · 발송 서명을 거치는 여러 단계라 요청 상세에서
-  // 바로 처리할 수 없다 — 그 단계가 있는 가공 진행 화면으로 보낸다.
+  // 바로 처리할 수 없다 — 그 단계가 있는 작업 상세로 보낸다.
   expect(await screen.findByRole('link', { name: '소재 발송하기' })).toHaveAttribute('href', '/processing/jobs/91')
   expect(screen.queryByRole('heading', { name: '소재 발송' })).not.toBeInTheDocument()
   expect(apiClient.patch).not.toHaveBeenCalled()

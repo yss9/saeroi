@@ -114,8 +114,12 @@
 
 /* ── 거래 진행 타임라인 ──────────────────────────────── */
 
+/*
+  상자는 화면(팝업) 폭을 그대로 쓴다. 고정 폭(28rem)으로 두면 옆의 카드들만 넓고 이
+  상자만 좁아, 오른쪽이 통째로 빈 자리로 남았다.
+*/
 .trade-timeline {
-  max-width: 28rem;
+  width: 100%;
   margin: 0 0 1.5rem;
   padding: 1.15rem 1.25rem 1.25rem;
   border: 1px solid var(--ui-color-border);

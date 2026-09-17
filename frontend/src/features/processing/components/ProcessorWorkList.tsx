@@ -8,6 +8,7 @@ import { useProcessingJobs } from '../hooks/useProcessingJobs.ts'
 import { useProcessorRequests } from '../hooks/useProcessorRequests.ts'
 import { PROCESS_TYPE_LABEL, type ProcessingJobStatus, type ProcessingRequestStatus } from '../types/processing.types.ts'
 import { ProcessorQuoteForm } from './ProcessorQuoteForm.tsx'
+import { parseServerTime } from '../utils/processingTime.ts'
 import './processor-work-list.css'
 
 type WorkView = 'all' | 'requests' | 'jobs'
@@ -28,9 +29,7 @@ const jobStatusLabel: Record<ProcessingJobStatus, string> = {
   PROCESSING: '가공 중', RESULT_SUBMITTED: '검토 대기', RETURN_SHIPPED: '결과물 반환 중', CONFIRMED: '완료', REJECTED: '보완 요청', EXPIRED: '만료', CANCELED: '반환 종료',
 }
 const grams = (value: number) => `${value.toLocaleString('ko-KR')} g`
-const formatDate = (value: string) => new Date(/(?:Z|[+-]\d{2}:?\d{2})$/i.test(value) ? value : `${value}Z`).toLocaleString('ko-KR', {
-  month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
-})
+const formatDate = (value: string) => parseServerTime(value).toLocaleString('ko-KR', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 const errorMessage = (error: unknown) => isAppError(error) || error instanceof Error ? error.message : '목록을 불러오지 못했어요.'
 
 export function ProcessorWorkList() {

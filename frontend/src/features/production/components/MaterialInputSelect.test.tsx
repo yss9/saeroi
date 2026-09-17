@@ -109,12 +109,14 @@ describe('MaterialInputSelect', () => {
     expect(option.closest('optgroup')).toHaveAttribute('label', '이미 투입한 소재')
   })
 
-  it('투입량을 입력하기 전에는 저장할 수 없다', async () => {
+  // 막되 나무라지 않는다 — 소재를 고르자마자 붉은 글씨가 뜨면 방금 연 칸을 탓하는 꼴이다.
+  // 채워야 한다는 것은 빈 칸과 잠긴 저장 버튼이 이미 말한다.
+  it('투입량을 입력하기 전에는 저장을 잠그되 경고하지 않는다', async () => {
     const user = renderSelect()
     await addDraft(user)
 
-    expect(screen.getByRole('button', { name: /투입 1건 저장/ })).toBeDisabled()
-    expect(screen.getByRole('alert')).toHaveTextContent('투입량을 입력해 주세요')
+    expect(screen.getByRole('button', { name: '투입 저장' })).toBeDisabled()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
   it('제품·자투리·폐기의 합을 투입량으로 보낸다', async () => {
@@ -129,7 +131,7 @@ describe('MaterialInputSelect', () => {
     await user.type(screen.getByLabelText('폐기 (g)'), '500')
     await user.type(screen.getByLabelText('폐기 사유'), '오염으로 사용 불가')
 
-    await user.click(screen.getByRole('button', { name: /투입 1건 저장/ }))
+    await user.click(screen.getByRole('button', { name: '투입 저장' }))
 
     await waitFor(() => expect(api.addProductionInputs).toHaveBeenCalledTimes(1))
     expect(api.addProductionInputs.mock.calls[0]).toEqual([
@@ -156,7 +158,7 @@ describe('MaterialInputSelect', () => {
     await user.type(screen.getByLabelText('제품 사용 (g)'), '20001') // 가용 20,000g
 
     expect(screen.getByRole('alert')).toHaveTextContent('가용 수량(20 kg)을 넘을 수 없습니다')
-    expect(screen.getByRole('button', { name: /투입 1건 저장/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '투입 저장' })).toBeDisabled()
     expect(api.addProductionInputs).not.toHaveBeenCalled()
   })
 
@@ -170,7 +172,7 @@ describe('MaterialInputSelect', () => {
 
     expect(screen.queryByLabelText('폐기 사유')).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: /투입 1건 저장/ }))
+    await user.click(screen.getByRole('button', { name: '투입 저장' }))
     await waitFor(() => expect(api.addProductionInputs).toHaveBeenCalledTimes(1))
     expect(api.addProductionInputs.mock.calls[0][1][0]).not.toHaveProperty('wasteReason')
   })
@@ -192,7 +194,7 @@ describe('MaterialInputSelect', () => {
     await user.clear(screen.getByLabelText('제품 사용 (g)'))
     await user.type(screen.getByLabelText('제품 사용 (g)'), '5000')
 
-    await user.click(screen.getByRole('button', { name: /투입 1건 저장/ }))
+    await user.click(screen.getByRole('button', { name: '투입 저장' }))
 
     await waitFor(() => expect(onSaved).toHaveBeenCalled())
     // 저장된 투입이 초안에 남아 있으면 사용자가 같은 소재를 또 보낸다.

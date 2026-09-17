@@ -4,10 +4,11 @@ import { isAppError } from '../../../utils/errors.ts'
 import { PROCESS_TYPE_LABEL, type ProcessingRequestStatus } from '../types/processing.types.ts'
 import { useProcessorRequests } from '../hooks/useProcessorRequests.ts'
 import { ProcessorQuoteForm } from './ProcessorQuoteForm.tsx'
+import { parseServerTime } from '../utils/processingTime.ts'
 import './processor-requests.css'
 
 const grams = (value: number) => `${value.toLocaleString('ko-KR')} g`
-const date = (value: string) => new Date(/(?:Z|[+-]\d{2}:?\d{2})$/i.test(value) ? value : `${value}Z`).toLocaleString('ko-KR', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+const date = (value: string) => parseServerTime(value).toLocaleString('ko-KR', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 const errorMessage = (error: unknown) => isAppError(error) || error instanceof Error ? error.message : '요청 목록을 불러오지 못했어요.'
 const statusOptions: { value?: ProcessingRequestStatus; label: string }[] = [
   { label: '전체' },

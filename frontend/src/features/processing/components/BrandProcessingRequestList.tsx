@@ -1,27 +1,50 @@
-import { ArrowLeft, ArrowRight, CaretRight, CheckCircle, Factory, FileText, Package, Plus, Storefront } from '@phosphor-icons/react'
+import { ArrowLeft, ArrowRight, CaretRight, Package, Plus, Storefront } from '@phosphor-icons/react'
+import { useQueries } from '@tanstack/react-query'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { isAppError } from '../../../utils/errors.ts'
 import { useClickNavigation } from '../../../utils/useClickNavigation.ts'
 import { useBrandProcessingRequests } from '../hooks/useBrandProcessingRequests.ts'
-import { useBrandProcessingRequestSummary } from '../hooks/useBrandProcessingRequestSummary.ts'
 import { useProcessingJobs } from '../hooks/useProcessingJobs.ts'
-import { PROCESS_TYPE_LABEL, type ProcessingRequestStatus } from '../types/processing.types.ts'
-import { progressLabel, progressTone } from '../utils/processingProgress.ts'
+import { processingKeys } from '../api/processingKeys.ts'
+import { processingRequestApi } from '../api/processingRequestApi.ts'
+import {
+  PROCESS_TYPE_LABEL,
+  type ProcessingRequestStatus,
+} from '../types/processing.types.ts'
+import {
+  PHASE_ORDER,
+  phaseOf,
+  progressLabel,
+  progressTone,
+  type ProcessingPhase,
+} from '../utils/processingProgress.ts'
+import { formatDate } from '../utils/processingTime.ts'
 import './brand-processing-list.css'
 
-const statusOptions: { value?: ProcessingRequestStatus; label: string }[] = [
-  { label: '전체' },
-  { value: 'QUOTING', label: '견적 대기' },
-  { value: 'SELECTED', label: '견적 수락' },
-  { value: 'CANCELED', label: '취소' },
-  { value: 'REJECTED', label: '거절' },
-  { value: 'EXPIRED', label: '만료' },
+/**
+ * 목록을 거르는 축 — **지금 누구 차례인가.**
+ *
+ * **상태를 그대로 나열하지 않는다.** 요청 상태 다섯에 작업 상태 열까지 더하면 버튼이
+ * 열댓 개가 되는데, 브랜드가 목록에서 찾는 것은 둘뿐이다 — 내가 손대야 하는 건과
+ * 기다리면 되는 건. 어느 줄이 무슨 상태인지는 상태 칸이 이미 말하므로, 버튼은 훑을
+ * 범위만 줄인다.
+ *
+ * ⚠️ **거르기는 화면이 한다.** 한 묶음이 요청 상태 여럿과 작업 상태 여럿에 걸쳐 있어
+ * 서버의 `status` 하나로는 표현할 수 없다. 그래서 목록은 늘 전체를 받아 와 여기서
+ * 거른다 — 요청이 한 쪽(20건)을 넘기면 다음 쪽의 건은 세지도, 걸러지지도 않는다.
+ * 서버가 이 묶음(`phase`)을 받아 주면 그때 서버로 넘긴다.
+ */
+const FILTERS: readonly { key: 'ALL' | ProcessingPhase; label: string; empty: string }[] = [
+  { key: 'ALL', label: '전체', empty: '아직 생성한 가공 요청이 없어요' },
+  { key: 'MY_TURN', label: '내 차례', empty: '지금 손댈 요청이 없어요' },
+  { key: 'IN_PROGRESS', label: '진행 중', empty: '진행 중인 요청이 없어요' },
+  { key: 'DONE', label: '완료', empty: '수령을 마친 가공이 없어요' },
+  { key: 'CLOSED', label: '종료', empty: '취소·거절·만료된 요청이 없어요' },
 ]
 
 const grams = (quantity: number) => `${quantity.toLocaleString('ko-KR')} g`
-const localDate = (value: string) => new Date(
-  /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value) ? value : `${value}Z`,
-).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' })
+const localDate = formatDate
 const errorMessage = (error: unknown) => isAppError(error) || error instanceof Error
   ? error.message
   : '요청 목록을 불러오지 못했어요.'
@@ -29,6 +52,9 @@ const errorMessage = (error: unknown) => isAppError(error) || error instanceof E
 export function BrandProcessingRequestList() {
   const followClick = useClickNavigation()
   const requests = useBrandProcessingRequests()
+  // 지금 고른 묶음. 서버는 이 축을 모르므로 목록은 늘 전체를 받아 온다.
+  const [filterKey, setFilterKey] = useState<'ALL' | ProcessingPhase>('ALL')
+  const filter = FILTERS.find((option) => option.key === filterKey) ?? FILTERS[0]
   /*
     **작업 상태를 함께 읽는다.** 견적을 수락한 뒤로 요청은 `SELECTED` 에서 움직이지 않고
     결제·발송·가공·반환은 전부 작업에 적힌다 — 요청 상태만 보여주면 가공이 끝났는데도
@@ -37,8 +63,42 @@ export function BrandProcessingRequestList() {
   const jobs = useProcessingJobs()
   const jobOf = (requestId: number) =>
     jobs.data?.find(job => job.requestId === requestId)?.status
-  // 아래 필터와 무관한 숫자다 — 무엇을 누르든 위는 그대로여야 한다.
-  const summary = useBrandProcessingRequestSummary()
+
+  /*
+    **견적이 도착한 요청을 목록에서 알아볼 수 있어야 한다.** 견적을 기다리는 동안 상태는
+    계속 "견적 대기" 라, 가공사가 견적을 보냈는지 알려면 요청을 하나씩 열어 봐야 했다.
+
+    목록 응답에 견적 수가 없어(`ProcessingRequestListResponse.Item`) 지금 쪽의 대기 건만
+    따로 물어본다 — 상세 화면과 같은 키를 쓰므로 들어가서 또 받지 않는다.
+    서버가 이 숫자를 함께 내려주면 이 조회는 사라진다.
+  */
+  const waiting = (requests.data?.items ?? []).filter(item => item.status === 'QUOTING')
+  const quoteCounts = useQueries({
+    queries: waiting.map(item => ({
+      queryKey: processingKeys.list({ requestId: item.requestId, resource: 'quotes' }),
+      queryFn: ({ signal }: { signal: AbortSignal }) =>
+        processingRequestApi.quotes(item.requestId, signal),
+    })),
+    combine: (results: { data?: unknown[] }[]) =>
+      new Map(waiting.map((item, index) => [item.requestId, results[index]?.data?.length ?? 0])),
+  })
+
+  const quotedOf = (requestId: number) => quoteCounts.get(requestId) ?? 0
+  const phaseFor = (item: { requestId: number; status: ProcessingRequestStatus }) =>
+    phaseOf(item.status, jobOf(item.requestId), quotedOf(item.requestId))
+
+  const items = requests.data?.items ?? []
+  const countOf = (key: 'ALL' | ProcessingPhase) =>
+    key === 'ALL' ? items.length : items.filter((item) => phaseFor(item) === key).length
+
+  /*
+    거르고 나서 **내 차례를 맨 위로** 올린다. 손댈 건이 목록 아래에 흩어져 있으면 필터를
+    누르지 않고는 찾을 수 없는데, 대부분의 방문은 "할 일 있나" 를 보러 오는 것이다.
+    같은 묶음 안의 순서는 서버가 준 그대로 둔다 (sort 는 안정 정렬이다).
+  */
+  const shown = items
+    .filter((item) => filterKey === 'ALL' || phaseFor(item) === filterKey)
+    .sort((left, right) => PHASE_ORDER.indexOf(phaseFor(left)) - PHASE_ORDER.indexOf(phaseFor(right)))
   const pageCount = requests.data
     ? Math.max(1, Math.ceil(requests.data.total / requests.data.size))
     : 1
@@ -47,30 +107,18 @@ export function BrandProcessingRequestList() {
     <section className="br-list">
       <h1 className="ui-visually-hidden">가공 요청 내역</h1>
 
-      {/*
-        일이 흘러가는 순서대로 넷. 견적을 받고 → 수락해 맡기고 → 가공이 끝나고 → 받는다.
-        한 건은 그중 한 칸에만 선다 — 겹쳐 세면 합이 전체보다 커져 무엇을 세는 숫자인지
-        알 수 없다.
-      */}
-      <section className="br-list__summary" aria-label="요청 현황" aria-busy={summary.isPending}>
-        <article><FileText aria-hidden="true" /><div><span>견적 대기</span><strong>{summary.quoting}<small>건</small></strong></div></article>
-        <article><Storefront aria-hidden="true" /><div><span>견적 수락</span><strong>{summary.selected}<small>건</small></strong></div></article>
-        <article><Factory aria-hidden="true" /><div><span>가공 완료</span><strong>{summary.processed}<small>건</small></strong></div></article>
-        <article><CheckCircle aria-hidden="true" /><div><span>수령 완료</span><strong>{summary.received}<small>건</small></strong></div></article>
-      </section>
-
       {/* 새 요청을 만드는 자리는 목록 바로 위다 — 맨 위에 있으면 목록을 훑고 나서
           다시 화면 꼭대기로 올라가야 한다. */}
       <div className="br-list__toolbar">
       <div className="br-list__filters" aria-label="요청 상태 필터">
-        {statusOptions.map(option => (
+        {FILTERS.map((option) => (
           <button
-            key={option.value ?? 'ALL'}
+            key={option.key}
             type="button"
-            className={requests.status === option.value ? 'is-active' : ''}
-            onClick={() => requests.selectStatus(option.value)}
+            className={filterKey === option.key ? 'is-active' : ''}
+            onClick={() => setFilterKey(option.key)}
           >
-            {option.label}
+            {option.label} {countOf(option.key)}
           </button>
         ))}
       </div>
@@ -88,12 +136,16 @@ export function BrandProcessingRequestList() {
           <p>{errorMessage(requests.error)}</p>
           <button type="button" onClick={() => void requests.refetch()}>다시 시도</button>
         </div>
-      ) : !requests.data?.items.length ? (
+      ) : !shown.length ? (
         <div className="br-list__state">
           <Package aria-hidden="true" />
-          <strong>{requests.status ? '조건에 맞는 가공 요청이 없어요' : '아직 생성한 가공 요청이 없어요'}</strong>
-          <p>{requests.status ? '다른 상태를 선택해 요청을 확인해 보세요.' : '보유 소재와 가공 조건을 선택해 첫 요청을 만들어 보세요.'}</p>
-          {!requests.status && <Link to="/brand/processing">첫 가공 신청하기</Link>}
+          <strong>{filter.empty}</strong>
+          <p>
+            {filterKey === 'ALL'
+              ? '보유 소재와 가공 조건을 선택해 첫 요청을 만들어 보세요.'
+              : '다른 묶음을 눌러 요청을 확인해 보세요.'}
+          </p>
+          {filterKey === 'ALL' && <Link to="/brand/processing">첫 가공 신청하기</Link>}
         </div>
       ) : (
         <div className="br-list__card">
@@ -101,7 +153,7 @@ export function BrandProcessingRequestList() {
             <div className="br-list__row br-list__row--head" role="row">
               <span>소재</span><span>가공</span><span>가공업체</span><span>수량</span><span>만료</span><span>상태</span><span aria-hidden="true" />
             </div>
-            {requests.data.items.map(item => (
+            {shown.map(item => (
               <article className="br-list__row" role="row" key={item.requestId} onClick={(event) => followClick(event, `/brand/processing/requests/${item.requestId}`)}>
                 {/*
                   요청 번호(`PR` + UUID 28자리)는 적지 않는다. 순번도 날짜도 아니라 읽어서
@@ -121,11 +173,19 @@ export function BrandProcessingRequestList() {
                 {/* 요청일은 이미 지난 일이라 목록에서 결정을 바꾸지 않는다. 남은 것은
                     "언제까지 견적을 받을 수 있는가" 다. */}
                 <strong className="br-list__date">{localDate(item.expiresAt)}</strong>
-                <span
-                  className={`br-list__status is-${progressTone(item.status, jobOf(item.requestId))}`}
-                >
-                  {progressLabel(item.status, jobOf(item.requestId))}
-                </span>
+                {/* 견적이 왔으면 상태 자리에서 그 사실을 먼저 말한다 — "견적 대기" 는
+                    기다리라는 말이라 눌러 볼 이유가 없는 줄로 읽힌다. */}
+                {item.status === 'QUOTING' && quotedOf(item.requestId) > 0 ? (
+                  <span className="br-list__status is-quoted">
+                    견적 {quotedOf(item.requestId)}건 도착
+                  </span>
+                ) : (
+                  <span
+                    className={`br-list__status is-${progressTone(item.status, jobOf(item.requestId))}`}
+                  >
+                    {progressLabel(item.status, jobOf(item.requestId))}
+                  </span>
+                )}
                 <Link
                   className="br-list__quote"
                   to={`/brand/processing/requests/${item.requestId}`}

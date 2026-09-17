@@ -62,3 +62,47 @@ export function progressTone(
 export function canConfirmReceipt(jobStatus: ProcessingJobStatus | undefined): boolean {
   return jobStatus === 'RETURN_SHIPPED'
 }
+
+/**
+ * 목록을 훑는 단위 — **지금 누구 차례인가.**
+ *
+ * 상태는 열다섯 가지지만 브랜드가 목록에서 찾는 것은 둘뿐이다. 내가 손대야 하는 건과
+ * 기다리면 되는 건. 그래서 버튼은 상태가 아니라 이 네 묶음으로 둔다 — 어느 줄이 무슨
+ * 상태인지는 상태 칸이 이미 말한다.
+ */
+export type ProcessingPhase = 'MY_TURN' | 'IN_PROGRESS' | 'DONE' | 'CLOSED'
+
+/** 브랜드가 직접 눌러야 다음으로 넘어가는 작업 상태. */
+const MY_TURN_JOB: readonly ProcessingJobStatus[] = [
+  'CREATED', // 결제 대기
+  'PAID', // 발송 대기
+  'RETURN_SHIPPED', // 수령 확인 대기 — 확인해야 산출 소재가 발행된다
+]
+
+/** 더 손댈 것이 없는 작업 상태. */
+const CLOSED_JOB: readonly ProcessingJobStatus[] = ['REJECTED', 'EXPIRED', 'CANCELED']
+
+export function phaseOf(
+  requestStatus: ProcessingRequestStatus,
+  jobStatus: ProcessingJobStatus | undefined,
+  quoteCount: number,
+): ProcessingPhase {
+  if (jobStatus === undefined) {
+    // 견적이 왔다는 것은 "고르라" 는 뜻이다. 오지 않았으면 기다리는 중이다.
+    if (requestStatus === 'QUOTING') return quoteCount > 0 ? 'MY_TURN' : 'IN_PROGRESS'
+    // 수락 직후의 짧은 구간. 곧 작업이 생겨 그쪽이 말한다.
+    if (requestStatus === 'SELECTED') return 'IN_PROGRESS'
+    return 'CLOSED'
+  }
+  if (MY_TURN_JOB.includes(jobStatus)) return 'MY_TURN'
+  if (CLOSED_JOB.includes(jobStatus)) return 'CLOSED'
+  return jobStatus === 'CONFIRMED' ? 'DONE' : 'IN_PROGRESS'
+}
+
+/** 목록 순서. 내 차례가 맨 위다 — 대부분은 위 몇 줄만 보고 끝난다. */
+export const PHASE_ORDER: readonly ProcessingPhase[] = [
+  'MY_TURN',
+  'IN_PROGRESS',
+  'DONE',
+  'CLOSED',
+]

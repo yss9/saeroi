@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import {
   Button,
   EmptyState,
@@ -19,7 +19,6 @@ import {
 } from '../types/production.types.ts'
 import {
   canSubmitDrafts,
-  inputQuantityOf,
   problemOf,
   toRequest,
   totalDraftQuantity,
@@ -58,16 +57,21 @@ export function MaterialInputSelect({
 
   return (
     <>
+      {/*
+        저장 줄은 마지막 투입 칸 **안**에 들어간다 — 따로 상자를 세우면 담는 일과 보내는
+        일이 다른 화면처럼 갈린다. 자리는 picker 가 정하고 여기서는 무엇을 놓을지만 준다.
+      */}
       <MaterialInputPicker
         drafts={drafts}
         onChange={setDrafts}
         inputMaterialIds={inputMaterialIds}
-      />
+        actions={
+          <div className="material-input__actions">
+          {/* 합계가 버튼 왼쪽이다 — 무엇을 보내는지 읽고 그 손끝에서 누른다. */}
+          <span className="material-input__total">
+            합계 {formatKg(totalDraftQuantity(drafts))}
+          </span>
 
-      {save.isError && <ErrorMessage error={save.error} />}
-
-      {drafts.length > 0 && (
-        <div className="material-input__actions">
           {/* 저장은 전부 성공하거나 전부 실패한다. 그래서 한 건이라도 값이 어긋나면
               보내지 않는다 — 서버가 거절하면 아무것도 저장되지 않으므로 헛걸음이다. */}
           <Button
@@ -82,13 +86,13 @@ export function MaterialInputSelect({
             loading={save.isPending}
             disabled={!canSubmitDrafts(drafts)}
           >
-            투입 {drafts.length}건 저장
+            투입 저장
           </Button>
-          <span className="material-input__total">
-            합계 {formatKg(totalDraftQuantity(drafts))}
-          </span>
-        </div>
-      )}
+          </div>
+        }
+      />
+
+      {save.isError && <ErrorMessage error={save.error} />}
     </>
   )
 }
@@ -98,6 +102,13 @@ export interface MaterialInputPickerProps {
   onChange: (drafts: DraftInput[]) => void
   /** 이 배치에 이미 들어간 소재. 같은 소재를 두 번 넣을 수 없다 */
   inputMaterialIds?: readonly number[]
+  /**
+   * 마지막 투입 칸 안에 붙일 것 (저장 줄).
+   *
+   * 저장을 모르는 컴포넌트라 무엇을 놓을지는 부르는 쪽이 정하고, **어디에 놓을지**만
+   * 여기서 정한다 — 담은 것의 끝에 붙어야 "이만큼을 보낸다" 로 읽힌다.
+   */
+  actions?: ReactNode
 }
 
 /**
@@ -111,6 +122,7 @@ export function MaterialInputPicker({
   drafts,
   onChange,
   inputMaterialIds = [],
+  actions,
 }: MaterialInputPickerProps) {
   const materials = useMyMaterials()
   const [picked, setPicked] = useState<number | null>(null)
@@ -192,11 +204,23 @@ export function MaterialInputPicker({
         </p>
       )}
 
+      {/*
+        자투리를 적는 자리에서 그 뜻을 말한다. 확정 안내(아래 박스)에 적어 두면 수량을
+        적는 순간에는 보이지 않아, 무엇이 남고 무엇이 사라지는지 모른 채 칸을 채운다.
+      */}
+      {drafts.length > 0 && (
+        <p className="material-input__note">
+          자투리는 생산을 확정할 때 <strong>새 소재로 발행</strong>되어 보유 소재로
+          돌아옵니다. 폐기는 그대로 사라집니다.
+        </p>
+      )}
+
       {drafts.map((draft, index) => (
         <DraftRow
           key={draft.material.materialId}
           draft={draft}
           problem={problems[index]}
+          footer={index === drafts.length - 1 ? actions : undefined}
           onChange={(patch) => update(draft.material.materialId, patch)}
           onRemove={() =>
             onChange(
@@ -221,14 +245,14 @@ function DraftRow({
   problem,
   onChange,
   onRemove,
+  footer,
 }: {
   draft: DraftInput
   problem: string | null
+  footer?: ReactNode
   onChange: (patch: Partial<DraftInput>) => void
   onRemove: () => void
 }) {
-  const total = inputQuantityOf(draft)
-
   return (
     <div className="material-input__row">
       <div className="material-input__row-head">
@@ -253,7 +277,6 @@ function DraftRow({
           label="자투리 (g)"
           type="number"
           min={0}
-          hint="새 소재로 되살아납니다"
           value={blankIfZero(draft.reusableScrap)}
           onChange={(event) => onChange({ reusableScrap: toGram(event.target.value) })}
         />
@@ -276,15 +299,13 @@ function DraftRow({
         />
       )}
 
-      <p className={`material-input__row-total${problem ? ' material-input__row-total--error' : ''}`}>
-        투입 합계 {formatKg(total)}
-      </p>
-
       {problem && (
         <p className="material-input__error" role="alert">
           {problem}
         </p>
       )}
+
+      {footer}
     </div>
   )
 }
