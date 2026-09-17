@@ -189,6 +189,13 @@ export async function getOnChainBalance(
   return { total, locked, available }
 }
 
+/** 발행 시 {@code materialInfo}에 영구 저장된 권위 있는 증빙 해시를 읽는다. */
+export async function getOnChainMaterialEvidenceHash(tokenId: number): Promise<string> {
+  const contract = getReadContract('materialToken')
+  const info = await contract.materialInfo(tokenId) as { evidenceHash: string }
+  return info.evidenceHash
+}
+
 /**
  * 증빙 해시가 온체인 기록과 일치하는지 확인한다.
  * QR Passport 의 "증빙 무결성 확인" 이 이 함수를 쓴다.

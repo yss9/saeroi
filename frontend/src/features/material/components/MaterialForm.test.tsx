@@ -7,7 +7,7 @@
 // afterEach 에서 직접 부른다.
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactElement } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -15,6 +15,12 @@ import { MaterialForm } from './MaterialForm.tsx'
 
 const api = vi.hoisted(() => ({ createMaterial: vi.fn() }))
 vi.mock('../api/createMaterial.ts', () => api)
+
+const evidenceApi = vi.hoisted(() => ({ uploadEvidence: vi.fn() }))
+vi.mock('../../evidence/api/uploadEvidence.ts', () => evidenceApi)
+
+const weightApi = vi.hoisted(() => ({ recognizeWeight: vi.fn() }))
+vi.mock('../api/recognizeWeight.ts', () => weightApi)
 
 /**
  * "이전 기록 불러오기" 는 보유 소재 목록에서 가장 최근 항목의 상세를 받아와 채운다.
@@ -89,6 +95,26 @@ async function fillRequired(quantityKg = '20.5') {
   return user
 }
 
+function weightPhoto(name = 'scale.jpg'): File {
+  return new File(['scale-photo'], name, { type: 'image/jpeg' })
+}
+
+async function selectWeightPhoto(user: ReturnType<typeof userEvent.setup>, photo: File) {
+  await user.upload(screen.getByLabelText('저울 사진'), photo)
+  await screen.findByRole('button', { name: '인식 무게 적용' })
+}
+
+const uploadedWeightEvidence = {
+  evidenceFileId: 7,
+  storageKey: 'MATERIAL/41/weight/scale.jpg',
+  contentPath: '/api/evidence/7/content',
+  fileHash: '0xactualhash',
+  evidenceType: 'WEIGHT_PHOTO',
+  uploadedBy: 1,
+  uploadedAt: '2026-09-16T00:00:00Z',
+  deletedAt: null,
+}
+
 function submitted() {
   expect(api.createMaterial).toHaveBeenCalledTimes(1)
   return api.createMaterial.mock.calls[0][0]
@@ -96,7 +122,18 @@ function submitted() {
 
 beforeEach(() => {
   api.createMaterial.mockReset()
-  api.createMaterial.mockResolvedValue({ materialId: 42, materialCode: 'MAT-000042' })
+  api.createMaterial.mockResolvedValue({ materialId: 41, materialCode: 'MAT-000041' })
+  evidenceApi.uploadEvidence.mockReset()
+  evidenceApi.uploadEvidence.mockResolvedValue([uploadedWeightEvidence])
+  weightApi.recognizeWeight.mockReset()
+  weightApi.recognizeWeight.mockResolvedValue({
+    status: 'SUCCESS',
+    weight: { value: 2_350, unit: 'g' },
+    ocr: { rawText: '2350 g', confidence: 0.98 },
+    detection: { scaleConfidence: 0.97, displayConfidence: 0.96 },
+    confidence: 0.96,
+    message: null,
+  })
   wallet.address = '0xabc'
   mint.mint.mockReset()
   mint.mint.mockResolvedValue(true)
@@ -145,6 +182,149 @@ describe('수량 환산', () => {
 
     expect(await screen.findByText('수량은 0보다 커야 합니다.')).toBeInTheDocument()
     expect(api.createMaterial).not.toHaveBeenCalled()
+  })
+
+  it('인식된 2350g을 적용하면 수량 입력에 2.35kg을 보여 준다', async () => {
+    renderForm()
+    const user = await fillRequired()
+    const photo = weightPhoto()
+
+    await selectWeightPhoto(user, photo)
+    await user.click(screen.getByRole('button', { name: '인식 무게 적용' }))
+
+    expect(weightApi.recognizeWeight).toHaveBeenCalledWith(photo)
+    expect(screen.getByLabelText('수량 (kg)')).toHaveValue(2.35)
+  })
+})
+
+describe('저울 사진 증빙과 온체인 발행', () => {
+  it('선택한 사진을 생성된 소재의 중량 증빙으로 올리고 실제 해시로 발행한다', async () => {
+    renderForm()
+    const user = await fillRequired()
+    const photo = weightPhoto()
+    await selectWeightPhoto(user, photo)
+
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
+
+    await waitFor(() => {
+      expect(evidenceApi.uploadEvidence).toHaveBeenCalledWith(expect.objectContaining({
+        referenceType: 'MATERIAL',
+        referenceId: 41,
+        evidenceType: 'WEIGHT_PHOTO',
+        files: [photo],
+      }))
+    })
+    expect(mint.mint).toHaveBeenCalledWith(expect.objectContaining({
+      evidenceHash: '0xactualhash',
+    }))
+  })
+
+  it('증빙 업로드가 실패하면 발행하지 않고 같은 소재와 사진으로 업로드만 재시도한다', async () => {
+    evidenceApi.uploadEvidence
+      .mockRejectedValueOnce(new Error('upload failed'))
+      .mockResolvedValueOnce([uploadedWeightEvidence])
+    renderForm()
+    const user = await fillRequired()
+    const photo = weightPhoto('first-scale.jpg')
+    await selectWeightPhoto(user, photo)
+
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('증빙 업로드')
+    expect(api.createMaterial).toHaveBeenCalledTimes(1)
+    expect(evidenceApi.uploadEvidence).toHaveBeenCalledTimes(1)
+    expect(mint.mint).not.toHaveBeenCalled()
+    expect(screen.queryByLabelText('저울 사진')).not.toBeInTheDocument()
+    expect(screen.getByText('first-scale.jpg')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '소재 등록 완료하기' }))
+
+    await waitFor(() => expect(mint.mint).toHaveBeenCalledTimes(1))
+    expect(api.createMaterial).toHaveBeenCalledTimes(1)
+    expect(evidenceApi.uploadEvidence).toHaveBeenCalledTimes(2)
+    expect(evidenceApi.uploadEvidence.mock.calls[1][0].files).toEqual([photo])
+  })
+
+  it('증빙 업로드가 빈 목록을 반환하면 실패로 처리하고 발행하지 않는다', async () => {
+    evidenceApi.uploadEvidence.mockResolvedValue([])
+    renderForm()
+    const user = await fillRequired()
+    await selectWeightPhoto(user, weightPhoto())
+
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('증빙 업로드')
+    expect(mint.mint).not.toHaveBeenCalled()
+  })
+
+  it('증빙 업로드 중에는 완료 버튼을 잠가 같은 사진의 중복 업로드를 막는다', async () => {
+    let finishUpload: ((files: typeof uploadedWeightEvidence[]) => void) | undefined
+    evidenceApi.uploadEvidence.mockReturnValue(
+      new Promise<typeof uploadedWeightEvidence[]>((resolve) => {
+        finishUpload = resolve
+      }),
+    )
+    renderForm()
+    const user = await fillRequired()
+    await selectWeightPhoto(user, weightPhoto())
+
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
+    await waitFor(() => expect(evidenceApi.uploadEvidence).toHaveBeenCalledTimes(1))
+
+    expect(screen.getByRole('status')).toHaveTextContent('저울 사진 증빙을 업로드')
+
+    const finishButton = screen.getByRole('button', { name: '소재 등록 완료하기' })
+    expect(finishButton).toBeDisabled()
+    await user.click(finishButton)
+    expect(evidenceApi.uploadEvidence).toHaveBeenCalledTimes(1)
+
+    await act(async () => finishUpload?.([uploadedWeightEvidence]))
+    await waitFor(() => expect(mint.mint).toHaveBeenCalledTimes(1))
+  })
+
+  it('발행이 실패하면 생성과 증빙 업로드를 반복하지 않고 같은 증빙 해시로 재시도한다', async () => {
+    mint.mint
+      .mockRejectedValueOnce(new Error('signature rejected'))
+      .mockResolvedValueOnce(true)
+    renderForm()
+    const user = await fillRequired()
+    await selectWeightPhoto(user, weightPhoto())
+
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
+    await waitFor(() => expect(mint.mint).toHaveBeenCalledTimes(1))
+    await user.click(screen.getByRole('button', { name: '소재 등록 완료하기' }))
+
+    await waitFor(() => expect(mint.mint).toHaveBeenCalledTimes(2))
+    expect(api.createMaterial).toHaveBeenCalledTimes(1)
+    expect(evidenceApi.uploadEvidence).toHaveBeenCalledTimes(1)
+    expect(mint.mint.mock.calls[1][0]).toMatchObject({ evidenceHash: '0xactualhash' })
+  })
+
+  it('사진이 없으면 증빙을 올리지 않고 기존 소재 코드 placeholder로 발행한다', async () => {
+    renderForm()
+    const user = await fillRequired()
+
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
+
+    await waitFor(() => expect(mint.mint).toHaveBeenCalledTimes(1))
+    expect(evidenceApi.uploadEvidence).not.toHaveBeenCalled()
+    expect(mint.mint).toHaveBeenCalledWith(expect.objectContaining({
+      evidenceHash: '0x00000000000000000000000000000000000000000000000000077027d675ebaa',
+    }))
+  })
+
+  it('등록이 끝나면 선택한 사진과 재시도 상태를 비운다', async () => {
+    const onCreated = vi.fn()
+    renderForm(onCreated)
+    const user = await fillRequired()
+    await selectWeightPhoto(user, weightPhoto())
+    expect(screen.getByRole('img', { name: '선택한 저울 사진 미리보기' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /소재 등록/ }))
+
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith(41))
+    expect(screen.queryByRole('img', { name: '선택한 저울 사진 미리보기' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /소재 등록/ })).toBeInTheDocument()
   })
 })
 
@@ -300,7 +480,7 @@ describe('등록 후', () => {
     const user = await fillRequired()
     await user.click(screen.getByRole('button', { name: /소재 등록/ }))
 
-    await waitFor(() => expect(onCreated).toHaveBeenCalledWith(42))
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith(41))
   })
 
   it('실패하면 에러를 보여주고 onCreated 를 부르지 않는다', async () => {

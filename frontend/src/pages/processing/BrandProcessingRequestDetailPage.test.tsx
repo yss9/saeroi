@@ -154,6 +154,35 @@ test('생성된 Job에서 결제를 준비하고 Mock 승인까지 진행한다'
   expect(screen.getByRole('link', { name: '소재 발송하기' })).toHaveAttribute('href', '/processing/jobs/91')
 })
 
+test('결제 실패 후 다시 들어와도 기존 미결제 Job에서 결제를 재시도한다', async () => {
+  const user = userEvent.setup()
+  const createdJob = {
+    jobId: 91, jobCode: 'JOB-091', requestId: 17, quoteId: 31, brandId: 3, processorId: 8,
+    fee: 120_000, paymentAmount: 0, status: 'CREATED', paymentExpiresAt: '2026-09-09T03:15:00',
+    createdAt: '2026-09-09T03:00:00', inputMaterialId: 5, inputQuantity: 12_500, lossQuantity: 0,
+    resultRevision: 0, carrier: null, trackingNumber: null, returnCarrier: null, returnTrackingNumber: null,
+    returnShippingEvidenceHash: null, rejectionReason: null, shippedAt: null, receivedAt: null,
+    startedAt: null, resultSubmittedAt: null, rejectedAt: null, returnShippedAt: null,
+    completedAt: null, outputs: [],
+  }
+  vi.mocked(apiClient.get).mockImplementation((url: string) => Promise.resolve({
+    data: url === '/processing-jobs' ? [createdJob] : url.endsWith('/quotes')
+      ? [{ ...quote, status: 'SELECTED' }]
+      : { ...detail, status: 'SELECTED' },
+  }))
+  vi.mocked(apiClient.post).mockResolvedValue({ data: {
+    jobId: 91, tid: 'MOCK-TID-RETRY', redirectUrl: '', amount: 120_000, live: false,
+    paymentExpiresAt: '2026-09-09T03:15:00',
+  } })
+
+  renderPage()
+
+  await user.click(await screen.findByRole('button', { name: '결제 진행' }))
+
+  expect(apiClient.post).toHaveBeenCalledWith('/processing-jobs/91/payment')
+  expect(await screen.findByText('테스트 결제 환경입니다. 실제 금액은 청구되지 않습니다.')).toBeInTheDocument()
+})
+
 test('결제 완료 Job을 찾아 요청 상세에서 소재를 발송한다', async () => {
   const user = userEvent.setup()
   const paidJob = {

@@ -20,6 +20,7 @@ export type EvidenceType =
   | 'BEFORE_PHOTO'
   | 'AFTER_PHOTO'
   | 'WEIGHT_SLIP'
+  | 'WEIGHT_PHOTO'
   | 'INVOICE'
   | 'PROCESS_PHOTO'
   | 'ETC'
@@ -28,6 +29,7 @@ export const EVIDENCE_TYPE_LABEL: Record<EvidenceType, string> = {
   BEFORE_PHOTO: '작업 전 사진',
   AFTER_PHOTO: '작업 후 사진',
   WEIGHT_SLIP: '계근표',
+  WEIGHT_PHOTO: '저울 측정 사진',
   INVOICE: '거래명세서',
   PROCESS_PHOTO: '공정 사진',
   ETC: '기타',
@@ -43,6 +45,7 @@ export const MATERIAL_EVIDENCE_TYPES: readonly EvidenceType[] = [
   'BEFORE_PHOTO',
   'AFTER_PHOTO',
   'WEIGHT_SLIP',
+  'WEIGHT_PHOTO',
   'INVOICE',
   'ETC',
 ]
