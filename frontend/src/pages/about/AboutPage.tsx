@@ -4,6 +4,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import logoUrl from '../../assets/saeroi-logo-vector.svg'
+import { siteAssetUrl } from '../../utils/siteAssetUrl.ts'
 import { Footer } from '../landing/components/Footer.tsx'
 import { Header } from '../landing/components/Header.tsx'
 import '../landing/landing.css'
@@ -21,21 +22,21 @@ const journeySteps = [
     number: '01',
     label: 'MATERIAL',
     copy: <>버려진 원단과 재고 소재가<br />다시 활용할 수 있는 자원이 됩니다.</>,
-    image: '/images/landing/journey/trace-material.webp',
+    image: siteAssetUrl('/images/landing/journey/trace-material.webp'),
     alt: '재사용을 기다리는 폐섬유와 데드스톡 소재',
   },
   {
     number: '02',
     label: 'PROCESS',
     copy: <>검증된 소재는 가공과 생산 과정을 거쳐<br />새로운 형태를 만듭니다.</>,
-    image: '/images/landing/journey/transform-process.webp',
+    image: siteAssetUrl('/images/landing/journey/transform-process.webp'),
     alt: '회수 소재를 새로운 제품으로 만드는 봉제 과정',
   },
   {
     number: '03',
     label: 'PRODUCT',
     copy: <>소재의 이전 여정을 품은 채<br />새로운 제품으로 다시 태어납니다.</>,
-    image: '/images/landing/product-work-jacket.webp',
+    image: siteAssetUrl('/images/landing/product-work-jacket.webp'),
     alt: '완성된 업사이클 데님 워크 재킷',
   },
 ]
@@ -279,7 +280,7 @@ export function AboutPage() {
             </div>
           </div>
           <figure className="about-perspective__media" data-about-reveal data-about-stop>
-            <img src="/images/landing/journey/trace-material.webp" alt="다음 쓰임을 기다리는 회수 섬유 소재" />
+            <img src={siteAssetUrl('/images/landing/journey/trace-material.webp')} alt="다음 쓰임을 기다리는 회수 섬유 소재" />
           </figure>
         </section>
 
@@ -338,7 +339,7 @@ export function AboutPage() {
             </div>
             <div className="about-trace__showcase">
               <figure>
-                <img src="/images/landing/journey/verify-qr.webp" alt="제품 QR을 스캔해 소재 여정을 확인하는 모습" />
+                <img src={siteAssetUrl('/images/landing/journey/verify-qr.webp')} alt="제품 QR을 스캔해 소재 여정을 확인하는 모습" />
               </figure>
               <div className="about-phone" aria-label="SAEROI Material Journey 예시 화면">
                 <div className="about-phone__top"><span>9:41</span><img src={logoUrl} alt="SAEROI" /></div>
@@ -402,7 +403,7 @@ export function AboutPage() {
         </section>
 
         <section className="about-final" aria-labelledby="about-final-title" data-about-stop>
-          <img src="/images/landing/hero-upcycled-denim.webp" alt="업사이클 패션 제품을 착용한 사람" />
+          <img src={siteAssetUrl('/images/landing/hero-upcycled-denim.webp')} alt="업사이클 패션 제품을 착용한 사람" />
           <div className="about-final__overlay" data-about-reveal>
             <p>DISCOVER WHAT COMES NEXT.</p>
             <h2 id="about-final-title">THE NEXT LIFE<br />STARTS HERE</h2>
