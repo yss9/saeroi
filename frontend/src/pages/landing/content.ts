@@ -106,8 +106,8 @@ export const footerNavigation: FooterNavigationGroup[] = [
   {
     title: 'CUSTOMER',
     links: [
-      { label: '문의하기', href: '#support' },
-      { label: '자주 묻는 질문', href: '#faq' },
+      { label: '문의하기', href: '/support' },
+      { label: '자주 묻는 질문', href: '/faq' },
     ],
   },
 ]
