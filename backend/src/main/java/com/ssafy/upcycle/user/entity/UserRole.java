@@ -17,15 +17,23 @@ public enum UserRole {
     /**
      * 지갑을 가질 수 있는 역할인가.
      *
-     * <p>정책상 {@code user_wallet} 행은 SUPPLIER / BRAND / PROCESSOR 만 갖는다.
-     * CONSUMER 는 지갑 없이 서비스를 쓰고, ADMIN 은 온체인 작업 주체가 아니다.
-     *
      * <p><b>DB 에는 이걸 막는 제약이 없다.</b> 시드나 향후 등록 API 가 잘못 넣으면
      * 지갑 로그인이 그 계정에 토큰을 발급해 버리므로, 역할 경계를 코드에서 강제한다.
      * 역할 목록을 여기 한 곳에만 두어 지갑 등록 API 가 생겨도 같은 기준을 쓰게 한다.
      */
     public boolean canOwnWallet() {
         return this == SUPPLIER || this == BRAND || this == PROCESSOR;
+    }
+
+    /**
+     * 이메일 로그인 뒤 지갑을 연결할 수 있는 역할인가.
+     *
+     * <p>사업자 지갑 로그인 대상은 기존 세 역할로 유지한다. 소비자는 일반 쇼핑에는 지갑이
+     * 필요 없지만 예측시장에 참여할 때만 MetaMask를 연결한다. ADMIN은 결과 통제 주체라
+     * 연결 대상에서 제외한다.
+     */
+    public boolean canLinkWallet() {
+        return canOwnWallet() || this == CONSUMER;
     }
 
     /**

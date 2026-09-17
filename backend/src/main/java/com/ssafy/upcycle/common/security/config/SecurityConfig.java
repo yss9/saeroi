@@ -66,7 +66,9 @@ public class SecurityConfig {
                                 "/api/v1/public/product-models",
                                 "/api/v1/public/product-models/**",
                                 "/api/v1/public/brands",
-                                "/api/v1/public/brands/**")
+                                "/api/v1/public/brands/**",
+                                "/api/v1/prediction-markets",
+                                "/api/v1/prediction-markets/*")
                         .permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2

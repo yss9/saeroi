@@ -194,7 +194,7 @@ public class WalletRegistrationService {
         User user = userRepository
                 .findById(userId)
                 .orElseThrow(() -> new BusinessException(WalletAuthErrorCode.USER_NOT_FOUND));
-        if (!user.getRole().canOwnWallet()) {
+        if (!user.getRole().canLinkWallet()) {
             throw new BusinessException(WalletAuthErrorCode.WALLET_ROLE_NOT_ALLOWED);
         }
         if (!user.isActive()) {

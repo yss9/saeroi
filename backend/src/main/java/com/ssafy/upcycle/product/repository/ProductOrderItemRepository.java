@@ -5,6 +5,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import java.time.LocalDateTime;
 
 /**
  * 주문 항목 조회.
@@ -23,4 +26,15 @@ public interface ProductOrderItemRepository extends JpaRepository<ProductOrderIt
 
     /** 주문 취소 시 원본을 지우는 경로. 지운 기록은 취소 이력 테이블이 받는다. */
     void deleteAllByProductOrderId(Long productOrderId);
+
+    @Query(value = """
+            SELECT COUNT(*) FROM product_order_item item
+            JOIN product_order orders ON orders.id = item.product_order_id
+            WHERE item.product_model_id = :productModelId
+              AND orders.paid_at >= :startsAt AND orders.paid_at < :endsAt
+            """, nativeQuery = true)
+    long countPaidItems(
+            @Param("productModelId") Long productModelId,
+            @Param("startsAt") LocalDateTime startsAt,
+            @Param("endsAt") LocalDateTime endsAt);
 }
