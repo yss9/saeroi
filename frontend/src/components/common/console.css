@@ -1,54 +1,64 @@
 /*
- * 공급업체 콘솔 — 공통 토큰과 기본 요소.
+ * 사업자 콘솔 — 공통 토큰과 기본 요소.
  *
- * <b>모든 규칙이 `.sup` 안에 갇혀 있다.</b> 헤더와 사이드바(CompanyDashboardLayout)는
- * 이 파일 바깥이라 영향을 받지 않고, 브랜드·가공업체 화면도 그대로다. 전역 토큰
+ * <b>`.console` 은 역할이 아니라 화면의 종류다.</b> 처음에는 `.sup`(공급업체)이었는데,
+ * 거래 상세(`/trades/:id`)가 판매자와 구매자가 함께 쓰는 화면이라 이름이 사실과
+ * 어긋났다 — 브랜드가 자기 거래를 볼 때 "공급업체 디자인" 을 입고 있는 셈이었다.
+ * 정책 07.1 로 브랜드 재판매가 열리면 브랜드가 판매자 자리에도 선다. 그때 역할 이름은
+ * 한 번 더 틀린다.
+ *
+ * <b>모든 규칙이 `.console` 안에 갇혀 있다.</b> 헤더와 사이드바(CompanyDashboardLayout)는
+ * 이 파일 바깥이라 영향을 받지 않고, 이 클래스를 안 쓰는 화면도 그대로다. 전역 토큰
  * (`--ui-*`)을 재정의하지 않는 것도 같은 이유다 — 한 줄만 건드려도 앱 전체가 따라 바뀐다.
+ *
+ * 쓰는 화면: 판매 관리 · 소재 등록 · 판매 거래 · 거래 상세.
+ * 앞의 셋은 공급업체 전용이고 거래 상세만 양쪽이 본다. 브랜드·가공업체 화면에 이
+ * 디자인을 넓힐지는 팀에서 정할 일이라, 여기서는 클래스를 붙인 화면에만 적용된다.
  *
  * 디자인 근거: Stitch "Industrial Ecological Utility".
  * 산업용 작업대(workbench) 느낌 — 그림자 대신 선으로 층을 나누고, 여백보다 밀도를
  * 택하고, 숫자는 자리를 맞춘다. 강조색은 상태에만 쓰고 나머지는 무채색으로 조용히 둔다.
  */
 
-.sup {
+.console {
   /* 표면 — 캔버스에서 패널로 올라가는 네 단계 */
-  --sup-canvas: #f8fafc;
-  --sup-panel: #ffffff;
-  --sup-subtle: #f1f5f9;
-  --sup-line: #e2e8f0;
-  --sup-line-strong: #cbd5e1;
+  --console-canvas: #f8fafc;
+  --console-panel: #ffffff;
+  --console-subtle: #f1f5f9;
+  --console-line: #e2e8f0;
+  --console-line-strong: #cbd5e1;
 
   /* 글자 */
-  --sup-ink: #0f172a;
-  --sup-ink-2: #334155;
-  --sup-ink-3: #64748b;
+  --console-ink: #0f172a;
+  --console-ink-2: #334155;
+  --console-ink-3: #64748b;
 
   /* 상태색 — 강조색(primary)과 의미색(amber·red)을 섞지 않는다 */
-  --sup-green: #0f4c3a;      /* 구조·주요 동작 */
-  --sup-green-hover: #145c47;
-  --sup-teal: #0d9488;       /* 진행 중·활성 */
-  --sup-amber: #d97706;      /* 할 일. 오류가 아니다 */
-  --sup-red: #ba1a1a;        /* 실제 문제 */
+  --console-green: #0f4c3a;      /* 구조·주요 동작 */
+  --console-green-hover: #145c47;
+  --console-teal: #0d9488;       /* 진행 중·활성 */
+  --console-amber: #d97706;      /* 할 일. 오류가 아니다 */
+  --console-red: #ba1a1a;        /* 실제 문제 */
 
   /* 배지 3종 */
-  --sup-ok-bg: #ecfdf5;   --sup-ok-fg: #065f46;   --sup-ok-line: #a7f3d0;
-  --sup-wait-bg: #fffbeb; --sup-wait-fg: #92400e; --sup-wait-line: #fde68a;
-  --sup-flat-bg: #f1f5f9; --sup-flat-fg: #334155; --sup-flat-line: #e2e8f0;
-  --sup-bad-bg: #fef2f2;  --sup-bad-fg: #991b1b;  --sup-bad-line: #fecaca;
+  --console-ok-bg: #ecfdf5;   --console-ok-fg: #065f46;   --console-ok-line: #a7f3d0;
+  --console-wait-bg: #fffbeb; --console-wait-fg: #92400e; --console-wait-line: #fde68a;
+  --console-flat-bg: #f1f5f9; --console-flat-fg: #334155; --console-flat-line: #e2e8f0;
+  --console-bad-bg: #fef2f2;  --console-bad-fg: #991b1b;  --console-bad-line: #fecaca;
 
   /* 모서리 — 도구처럼 보이게 작게 유지한다 */
-  --sup-r-ctl: 4px;    /* 버튼·입력·배지 */
-  --sup-r-card: 8px;   /* 카드·패널 */
+  --console-r-ctl: 4px;    /* 버튼·입력·배지 */
+  --console-r-card: 8px;   /* 카드·패널 */
 
-  --sup-sans: 'Inter', system-ui, -apple-system, 'Malgun Gothic', sans-serif;
-  --sup-mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+  --console-sans: 'Inter', system-ui, -apple-system, 'Malgun Gothic', sans-serif;
+  --console-mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
 
   max-width: 1600px;
   margin: 0 auto;
   padding: 20px var(--ui-gap) 72px;
-  background: var(--sup-canvas);
-  color: var(--sup-ink);
-  font-family: var(--sup-sans);
+  background: var(--console-canvas);
+  color: var(--console-ink);
+  font-family: var(--console-sans);
   font-size: 13px;
   line-height: 18px;
   letter-spacing: 0;
@@ -56,7 +66,7 @@
 
 /* ── 페이지 머리 ─────────────────────────────────────── */
 
-.sup__head {
+.console__head {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
@@ -65,28 +75,28 @@
   padding-bottom: 12px;
 }
 
-.sup__title {
+.console__title {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.sup__title h1 {
+.console__title h1 {
   margin: 0;
   font-size: 28px;
   line-height: 36px;
   font-weight: 700;
   letter-spacing: -0.02em;
-  color: var(--sup-ink);
+  color: var(--console-ink);
 }
 
 /* 화면을 식별하는 코드. 장식이 아니라 운영자가 문의할 때 대는 이름이다. */
-.sup__tag {
+.console__tag {
   padding: 2px 6px;
-  border-radius: var(--sup-r-ctl);
-  background: var(--sup-subtle);
-  color: var(--sup-ink-3);
-  font-family: var(--sup-mono);
+  border-radius: var(--console-r-ctl);
+  background: var(--console-subtle);
+  color: var(--console-ink-3);
+  font-family: var(--console-mono);
   font-size: 11px;
   line-height: 14px;
   font-weight: 500;
@@ -94,25 +104,25 @@
   text-transform: uppercase;
 }
 
-.sup__sub {
+.console__sub {
   margin: 2px 0 0;
   font-size: 13px;
   line-height: 18px;
-  color: var(--sup-ink-3);
+  color: var(--console-ink-3);
 }
 
-.sup__sub b {
-  color: var(--sup-green);
+.console__sub b {
+  color: var(--console-green);
   font-weight: 600;
 }
 
 /* 수량·금액은 자리를 맞춰 읽는 값이라 고정폭이다. */
-.sup__num {
-  font-family: var(--sup-mono);
+.console__num {
+  font-family: var(--console-mono);
   font-variant-numeric: tabular-nums;
 }
 
-.sup__head-actions {
+.console__head-actions {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -120,7 +130,7 @@
 
 /* ── 버튼 ─────────────────────────────────────────────── */
 
-.sup-btn {
+.console-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -128,8 +138,8 @@
   height: 36px;
   padding: 0 14px;
   border: 1px solid transparent;
-  border-radius: var(--sup-r-ctl);
-  font-family: var(--sup-mono);
+  border-radius: var(--console-r-ctl);
+  font-family: var(--console-mono);
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -137,62 +147,62 @@
   transition: background-color 120ms, border-color 120ms;
 }
 
-.sup-btn:disabled {
+.console-btn:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
 
-.sup-btn--primary {
-  background: var(--sup-green);
+.console-btn--primary {
+  background: var(--console-green);
   color: #ffffff;
 }
 
-.sup-btn--primary:hover:not(:disabled) {
-  background: var(--sup-green-hover);
+.console-btn--primary:hover:not(:disabled) {
+  background: var(--console-green-hover);
 }
 
-.sup-btn--ghost {
-  background: var(--sup-panel);
-  border-color: var(--sup-line-strong);
-  color: var(--sup-ink);
+.console-btn--ghost {
+  background: var(--console-panel);
+  border-color: var(--console-line-strong);
+  color: var(--console-ink);
 }
 
-.sup-btn--ghost:hover:not(:disabled) {
-  background: var(--sup-canvas);
+.console-btn--ghost:hover:not(:disabled) {
+  background: var(--console-canvas);
   border-color: #94a3b8;
 }
 
 /* 서명·승인처럼 되돌릴 수 없는 동작. 위험(빨강)이 아니라 주의(호박)다. */
-.sup-btn--amber {
-  background: var(--sup-amber);
+.console-btn--amber {
+  background: var(--console-amber);
   color: #ffffff;
 }
 
-.sup-btn--amber:hover:not(:disabled) {
+.console-btn--amber:hover:not(:disabled) {
   background: #b45309;
 }
 
-.sup-btn--sm {
+.console-btn--sm {
   height: 28px;
   padding: 0 10px;
   font-size: 11px;
 }
 
-.sup-btn:focus-visible {
-  outline: 2px solid var(--sup-teal);
+.console-btn:focus-visible {
+  outline: 2px solid var(--console-teal);
   outline-offset: 1px;
 }
 
 /* ── 배지 ─────────────────────────────────────────────── */
 
-.sup-badge {
+.console-badge {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   padding: 2px 7px;
   border: 1px solid;
-  border-radius: var(--sup-r-ctl);
-  font-family: var(--sup-mono);
+  border-radius: var(--console-r-ctl);
+  font-family: var(--console-mono);
   font-size: 11px;
   line-height: 14px;
   font-weight: 600;
@@ -200,13 +210,13 @@
   white-space: nowrap;
 }
 
-.sup-badge--ok   { background: var(--sup-ok-bg);   color: var(--sup-ok-fg);   border-color: var(--sup-ok-line); }
-.sup-badge--wait { background: var(--sup-wait-bg); color: var(--sup-wait-fg); border-color: var(--sup-wait-line); }
-.sup-badge--flat { background: var(--sup-flat-bg); color: var(--sup-flat-fg); border-color: var(--sup-flat-line); }
-.sup-badge--bad  { background: var(--sup-bad-bg);  color: var(--sup-bad-fg);  border-color: var(--sup-bad-line); }
+.console-badge--ok   { background: var(--console-ok-bg);   color: var(--console-ok-fg);   border-color: var(--console-ok-line); }
+.console-badge--wait { background: var(--console-wait-bg); color: var(--console-wait-fg); border-color: var(--console-wait-line); }
+.console-badge--flat { background: var(--console-flat-bg); color: var(--console-flat-fg); border-color: var(--console-flat-line); }
+.console-badge--bad  { background: var(--console-bad-bg);  color: var(--console-bad-fg);  border-color: var(--console-bad-line); }
 
 /* 살아 있는 상태를 가리키는 점. 배지 앞에만 붙인다. */
-.sup-badge__dot {
+.console-badge__dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -214,164 +224,164 @@
 }
 
 /* 속성 꼬리표 — 소재 종류·등급처럼 분류를 나타내는 값 */
-.sup-chip {
+.console-chip {
   display: inline-flex;
   align-items: center;
   padding: 1px 6px;
-  border: 1px solid var(--sup-line);
-  border-radius: var(--sup-r-ctl);
-  background: var(--sup-subtle);
-  color: var(--sup-ink-2);
+  border: 1px solid var(--console-line);
+  border-radius: var(--console-r-ctl);
+  background: var(--console-subtle);
+  color: var(--console-ink-2);
   font-size: 11px;
   line-height: 16px;
   font-weight: 500;
 }
 
 /* 값이 없는 칸. 빈칸으로 두면 카드마다 높이가 어긋난다. */
-.sup-chip--empty {
+.console-chip--empty {
   border-style: dashed;
   background: transparent;
-  color: var(--sup-ink-3);
+  color: var(--console-ink-3);
 }
 
 /* ── 요약 지표 스트립 ─────────────────────────────────── */
 
-.sup-metrics {
+.console-metrics {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 8px;
   margin-bottom: 12px;
 }
 
-.sup-metric {
+.console-metric {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
   padding: 12px 14px;
-  border: 1px solid var(--sup-line);
-  border-radius: var(--sup-r-card);
-  background: var(--sup-panel);
+  border: 1px solid var(--console-line);
+  border-radius: var(--console-r-card);
+  background: var(--console-panel);
 }
 
 /* 첫 지표에만 왼쪽 띠를 준다 — 지금 이 화면의 기준값이라는 표시다. */
-.sup-metric--lead { border-left: 3px solid var(--sup-teal); }
+.console-metric--lead { border-left: 3px solid var(--console-teal); }
 
 /* 사람이 손을 대야 하는 지표. 나머지가 조용해야 이것이 보인다. */
-.sup-metric--todo {
-  border-color: var(--sup-wait-line);
-  background: var(--sup-wait-bg);
+.console-metric--todo {
+  border-color: var(--console-wait-line);
+  background: var(--console-wait-bg);
 }
 
-.sup-metric__label {
+.console-metric__label {
   display: block;
-  font-family: var(--sup-mono);
+  font-family: var(--console-mono);
   font-size: 11px;
   line-height: 14px;
   font-weight: 500;
   letter-spacing: 0.03em;
-  color: var(--sup-ink-3);
+  color: var(--console-ink-3);
 }
 
-.sup-metric--todo .sup-metric__label { color: var(--sup-wait-fg); }
+.console-metric--todo .console-metric__label { color: var(--console-wait-fg); }
 
-.sup-metric__value {
+.console-metric__value {
   display: flex;
   align-items: baseline;
   gap: 3px;
   margin-top: 4px;
-  font-family: var(--sup-mono);
+  font-family: var(--console-mono);
   font-variant-numeric: tabular-nums;
   font-size: 26px;
   line-height: 30px;
   font-weight: 700;
-  color: var(--sup-ink);
+  color: var(--console-ink);
 }
 
-.sup-metric--todo .sup-metric__value { color: var(--sup-wait-fg); }
+.console-metric--todo .console-metric__value { color: var(--console-wait-fg); }
 
-.sup-metric__unit {
+.console-metric__unit {
   font-size: 12px;
   font-weight: 500;
-  color: var(--sup-ink-3);
+  color: var(--console-ink-3);
 }
 
-.sup-metric__icon {
+.console-metric__icon {
   display: grid;
   place-items: center;
   flex: none;
   width: 34px;
   height: 34px;
-  border-radius: var(--sup-r-ctl);
-  background: var(--sup-subtle);
-  color: var(--sup-ink-3);
+  border-radius: var(--console-r-ctl);
+  background: var(--console-subtle);
+  color: var(--console-ink-3);
 }
 
-.sup-metric--lead .sup-metric__icon { background: #ccfbf1; color: var(--sup-teal); }
-.sup-metric--todo .sup-metric__icon { background: #fef3c7; color: var(--sup-wait-fg); }
+.console-metric--lead .console-metric__icon { background: #ccfbf1; color: var(--console-teal); }
+.console-metric--todo .console-metric__icon { background: #fef3c7; color: var(--console-wait-fg); }
 
-.sup-metric__icon svg { width: 18px; height: 18px; }
+.console-metric__icon svg { width: 18px; height: 18px; }
 
 /* ── 필터 탭 ──────────────────────────────────────────── */
 
-.sup-tabs {
+.console-tabs {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 4px;
   margin-bottom: 10px;
   padding-bottom: 8px;
-  border-bottom: 1px solid var(--sup-line);
+  border-bottom: 1px solid var(--console-line);
 }
 
-.sup-tab {
+.console-tab {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   height: 30px;
   padding: 0 12px;
   border: 1px solid transparent;
-  border-radius: var(--sup-r-ctl);
+  border-radius: var(--console-r-ctl);
   background: transparent;
-  color: var(--sup-ink-3);
-  font-family: var(--sup-sans);
+  color: var(--console-ink-3);
+  font-family: var(--console-sans);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   transition: background-color 120ms, color 120ms;
 }
 
-.sup-tab:hover { background: var(--sup-subtle); color: var(--sup-ink); }
+.console-tab:hover { background: var(--console-subtle); color: var(--console-ink); }
 
-.sup-tab[aria-pressed='true'] {
-  background: var(--sup-subtle);
-  border-color: var(--sup-line-strong);
-  color: var(--sup-ink);
+.console-tab[aria-pressed='true'] {
+  background: var(--console-subtle);
+  border-color: var(--console-line-strong);
+  color: var(--console-ink);
   font-weight: 600;
 }
 
-.sup-tab__count {
-  font-family: var(--sup-mono);
+.console-tab__count {
+  font-family: var(--console-mono);
   font-variant-numeric: tabular-nums;
   font-size: 11px;
-  color: var(--sup-ink-3);
+  color: var(--console-ink-3);
 }
 
-.sup-tab[aria-pressed='true'] .sup-tab__count { color: var(--sup-ink-2); }
+.console-tab[aria-pressed='true'] .console-tab__count { color: var(--console-ink-2); }
 
 /* 손볼 것이 있는 탭. 숫자 대신 호박색 점으로 — 개수는 옆에 이미 있다. */
-.sup-tab--todo .sup-tab__count { color: var(--sup-amber); font-weight: 600; }
+.console-tab--todo .console-tab__count { color: var(--console-amber); font-weight: 600; }
 
-.sup-tabs__right {
+.console-tabs__right {
   margin-left: auto;
-  font-family: var(--sup-mono);
+  font-family: var(--console-mono);
   font-size: 11px;
-  color: var(--sup-ink-3);
+  color: var(--console-ink-3);
 }
 
 /* ── 카드 격자 ────────────────────────────────────────── */
 
-.sup-grid {
+.console-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 10px;
@@ -380,21 +390,21 @@
   list-style: none;
 }
 
-.sup-card {
+.console-card {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--sup-line);
-  border-radius: var(--sup-r-card);
-  background: var(--sup-panel);
+  border: 1px solid var(--console-line);
+  border-radius: var(--console-r-card);
+  background: var(--console-panel);
   overflow: hidden;
 }
 
 /* 손볼 것이 있는 카드만 띠를 받는다. 전부에 붙이면 아무것도 두드러지지 않는다. */
-.sup-card--todo { border-left: 3px solid var(--sup-amber); }
-.sup-card--bad  { border-color: var(--sup-bad-line); background: var(--sup-bad-bg); }
-.sup-card--done { background: var(--sup-canvas); }
+.console-card--todo { border-left: 3px solid var(--console-amber); }
+.console-card--bad  { border-color: var(--console-bad-line); background: var(--console-bad-bg); }
+.console-card--done { background: var(--console-canvas); }
 
-.sup-card__top {
+.console-card__top {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -402,40 +412,40 @@
   padding: 10px 14px 0;
 }
 
-.sup-card__code {
+.console-card__code {
   display: inline-flex;
   align-items: baseline;
   gap: 6px;
-  font-family: var(--sup-mono);
+  font-family: var(--console-mono);
   font-size: 11px;
   letter-spacing: 0.03em;
-  color: var(--sup-ink-3);
+  color: var(--console-ink-3);
 }
 
 /* 판매글 번호. 카드를 <b>구분</b>하는 값이라 앞에 두고 진하게 둔다 —
    같은 소재로 판매글을 여러 개 만들 수 있어 소재 코드로는 구분되지 않는다. */
-.sup-card__code b {
-  color: var(--sup-ink-2);
+.console-card__code b {
+  color: var(--console-ink-2);
   font-weight: 600;
 }
 
 /* 어느 소재인지. 있어야 하지만 구분에는 쓰이지 않으므로 한 겹 뒤로 물린다. */
-.sup-card__code-of { color: var(--sup-ink-3); opacity: 0.85; }
+.console-card__code-of { color: var(--console-ink-3); opacity: 0.85; }
 
-.sup-card__name {
+.console-card__name {
   margin: 4px 0 0;
   padding: 0 14px;
   font-size: 16px;
   line-height: 24px;
   font-weight: 600;
   letter-spacing: -0.01em;
-  color: var(--sup-ink);
+  color: var(--console-ink);
 }
 
-.sup-card__name a { color: inherit; text-decoration: none; }
-.sup-card__name a:hover { text-decoration: underline; }
+.console-card__name a { color: inherit; text-decoration: none; }
+.console-card__name a:hover { text-decoration: underline; }
 
-.sup-card__attrs {
+.console-card__attrs {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -444,156 +454,156 @@
 }
 
 /* 카드 안에서 한 겹 들어간 영역. 숫자가 모이는 자리다. */
-.sup-card__figures {
+.console-card__figures {
   margin: 10px 14px 0;
   padding: 10px 12px;
-  border-radius: var(--sup-r-ctl);
-  background: var(--sup-subtle);
+  border-radius: var(--console-r-ctl);
+  background: var(--console-subtle);
 }
 
-.sup-card--bad .sup-card__figures { background: var(--sup-panel); }
+.console-card--bad .console-card__figures { background: var(--console-panel); }
 
-.sup-card__price {
+.console-card__price {
   display: flex;
   align-items: baseline;
   gap: 2px;
   padding: 8px 14px 0;
-  font-family: var(--sup-mono);
+  font-family: var(--console-mono);
   font-variant-numeric: tabular-nums;
   font-size: 18px;
   font-weight: 700;
-  color: var(--sup-ink);
+  color: var(--console-ink);
 }
 
-.sup-card__price small {
+.console-card__price small {
   font-size: 12px;
   font-weight: 500;
-  color: var(--sup-ink-3);
+  color: var(--console-ink-3);
 }
 
 /* 큰 수치 한 개 + 라벨. 이 카드를 보는 이유가 되는 값이다. */
-.sup-figure {
+.console-figure {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
   gap: 8px;
 }
 
-.sup-figure__label {
+.console-figure__label {
   font-size: 12px;
   font-weight: 600;
-  color: var(--sup-ink-2);
+  color: var(--console-ink-2);
 }
 
-.sup-figure__value {
+.console-figure__value {
   display: flex;
   align-items: baseline;
   gap: 2px;
-  font-family: var(--sup-mono);
+  font-family: var(--console-mono);
   font-variant-numeric: tabular-nums;
   font-size: 24px;
   line-height: 26px;
   font-weight: 700;
-  color: var(--sup-green);
+  color: var(--console-green);
 }
 
-.sup-figure__value small { font-size: 12px; font-weight: 500; color: var(--sup-ink-3); }
+.console-figure__value small { font-size: 12px; font-weight: 500; color: var(--console-ink-3); }
 
-.sup-card--bad .sup-figure__value { color: var(--sup-red); }
-.sup-card--done .sup-figure__value { color: var(--sup-ink-3); }
+.console-card--bad .console-figure__value { color: var(--console-red); }
+.console-card--done .console-figure__value { color: var(--console-ink-3); }
 
 /* 보조 수치 두 개를 양끝에 — 큰 값이 어디서 왔는지 설명한다. */
-.sup-figure__split {
+.console-figure__split {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
   margin-top: 6px;
   font-size: 12px;
-  color: var(--sup-ink-3);
+  color: var(--console-ink-3);
 }
 
-.sup-figure__split b {
-  font-family: var(--sup-mono);
+.console-figure__split b {
+  font-family: var(--console-mono);
   font-variant-numeric: tabular-nums;
   font-weight: 600;
-  color: var(--sup-ink-2);
+  color: var(--console-ink-2);
 }
 
-.sup-figure__lock {
+.console-figure__lock {
   display: inline-flex;
   align-items: center;
   gap: 3px;
 }
 
-.sup-figure__lock svg { width: 11px; height: 11px; }
+.console-figure__lock svg { width: 11px; height: 11px; }
 
 /*
  * 비율 막대.
  *
  * 장식이 아니라 정보다 — 숫자 두 개를 나란히 읽는 것보다 빠르다.
- * `--sup-bar` 로 채움 비율을 준다.
+ * `--console-bar` 로 채움 비율을 준다.
  */
-.sup-bar {
+.console-bar {
   position: relative;
   height: 6px;
   margin-top: 8px;
   border-radius: 999px;
-  background: var(--sup-line);
+  background: var(--console-line);
   overflow: hidden;
 }
 
-.sup-bar > span {
+.console-bar > span {
   display: block;
   height: 100%;
   border-radius: 999px;
-  background: var(--sup-green);
+  background: var(--console-green);
   transition: width 200ms;
 }
 
-.sup-card--bad .sup-bar > span { background: var(--sup-red); }
-.sup-card--done .sup-bar > span { background: var(--sup-line-strong); }
+.console-card--bad .console-bar > span { background: var(--console-red); }
+.console-card--done .console-bar > span { background: var(--console-line-strong); }
 
-.sup-figure__note {
+.console-figure__note {
   display: flex;
   align-items: flex-start;
   gap: 5px;
   margin-top: 8px;
   font-size: 12px;
   line-height: 16px;
-  color: var(--sup-ink-3);
+  color: var(--console-ink-3);
 }
 
-.sup-figure__note svg { flex: none; width: 13px; height: 13px; margin-top: 1px; }
+.console-figure__note svg { flex: none; width: 13px; height: 13px; margin-top: 1px; }
 
 /* ── 카드 안의 알림 줄 ────────────────────────────────── */
 
-.sup-card__alert {
+.console-card__alert {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
   margin: 10px 14px 0;
   padding: 8px 10px;
-  border: 1px solid var(--sup-wait-line);
-  border-radius: var(--sup-r-ctl);
-  background: var(--sup-wait-bg);
-  color: var(--sup-wait-fg);
+  border: 1px solid var(--console-wait-line);
+  border-radius: var(--console-r-ctl);
+  background: var(--console-wait-bg);
+  color: var(--console-wait-fg);
   font-size: 12px;
   line-height: 16px;
   font-weight: 500;
 }
 
-.sup-card__alert--bad {
-  border-color: var(--sup-bad-line);
-  background: var(--sup-bad-bg);
-  color: var(--sup-bad-fg);
+.console-card__alert--bad {
+  border-color: var(--console-bad-line);
+  background: var(--console-bad-bg);
+  color: var(--console-bad-fg);
 }
 
-.sup-card__alert span { display: inline-flex; align-items: center; gap: 5px; }
-.sup-card__alert svg { flex: none; width: 14px; height: 14px; }
+.console-card__alert span { display: inline-flex; align-items: center; gap: 5px; }
+.console-card__alert svg { flex: none; width: 14px; height: 14px; }
 
-.sup-card__alert a {
+.console-card__alert a {
   color: inherit;
   font-weight: 600;
   white-space: nowrap;
@@ -601,7 +611,7 @@
 
 /* ── 카드 바닥 ────────────────────────────────────────── */
 
-.sup-card__foot {
+.console-card__foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -611,18 +621,18 @@
 }
 
 /* 머리·바닥을 본문과 선으로 가른다 — 그림자 대신 선으로 층을 만든다. */
-.sup-card__foot--ruled {
+.console-card__foot--ruled {
   margin-top: 12px;
-  border-top: 1px solid var(--sup-line);
+  border-top: 1px solid var(--console-line);
 }
 
-.sup-card__date {
-  font-family: var(--sup-mono);
+.console-card__date {
+  font-family: var(--console-mono);
   font-size: 11px;
-  color: var(--sup-ink-3);
+  color: var(--console-ink-3);
 }
 
-.sup-card__acts {
+.console-card__acts {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -630,86 +640,86 @@
 
 /* ── 상태·빈 화면 ─────────────────────────────────────── */
 
-.sup-panel {
+.console-panel {
   padding: 14px 16px;
-  border: 1px solid var(--sup-line);
-  border-radius: var(--sup-r-card);
-  background: var(--sup-panel);
+  border: 1px solid var(--console-line);
+  border-radius: var(--console-r-card);
+  background: var(--console-panel);
 }
 
-.sup-empty {
+.console-empty {
   padding: 40px 16px;
-  border: 1px dashed var(--sup-line-strong);
-  border-radius: var(--sup-r-card);
-  background: var(--sup-panel);
+  border: 1px dashed var(--console-line-strong);
+  border-radius: var(--console-r-card);
+  background: var(--console-panel);
   text-align: center;
 }
 
-.sup-empty h3 {
+.console-empty h3 {
   margin: 0 0 4px;
   font-size: 16px;
   font-weight: 600;
-  color: var(--sup-ink);
+  color: var(--console-ink);
 }
 
-.sup-empty p {
+.console-empty p {
   margin: 0 0 14px;
   font-size: 13px;
-  color: var(--sup-ink-3);
+  color: var(--console-ink-3);
 }
 
 /* 화면 아래에 두는 설명 상자. 읽지 않아도 되는 내용이라 조용하게. */
-.sup-note {
+.console-note {
   display: flex;
   align-items: flex-start;
   gap: 10px;
   margin-top: 12px;
   padding: 12px 14px;
-  border: 1px solid var(--sup-line);
-  border-radius: var(--sup-r-card);
-  background: var(--sup-subtle);
-  color: var(--sup-ink-2);
+  border: 1px solid var(--console-line);
+  border-radius: var(--console-r-card);
+  background: var(--console-subtle);
+  color: var(--console-ink-2);
   font-size: 12px;
   line-height: 18px;
 }
 
-.sup-note svg { flex: none; width: 16px; height: 16px; margin-top: 1px; color: var(--sup-ink-3); }
-.sup-note strong { display: block; margin-bottom: 2px; color: var(--sup-ink); font-size: 13px; }
+.console-note svg { flex: none; width: 16px; height: 16px; margin-top: 1px; color: var(--console-ink-3); }
+.console-note strong { display: block; margin-bottom: 2px; color: var(--console-ink); font-size: 13px; }
 
-.sup-foot {
+.console-foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   margin-top: 14px;
-  font-family: var(--sup-mono);
+  font-family: var(--console-mono);
   font-size: 11px;
-  color: var(--sup-ink-3);
+  color: var(--console-ink-3);
 }
 
 @media (max-width: 640px) {
-  .sup { padding-inline: 16px; }
-  .sup__head { flex-direction: column; align-items: stretch; }
-  .sup__title h1 { font-size: 22px; line-height: 30px; }
-  .sup-grid { grid-template-columns: 1fr; }
+  .console { padding-inline: 16px; }
+  .console__head { flex-direction: column; align-items: stretch; }
+  .console__title h1 { font-size: 22px; line-height: 30px; }
+  .console-grid { grid-template-columns: 1fr; }
 }
 
 /* ── 판매 등록 패널 ───────────────────────────────────── */
 
 /* 목록과 다르게 보여야 한다 — 목록은 읽는 곳이고 여기는 쓰는 곳이다.
    같은 흰 바탕에 나란히 두면 방금 연 것이 무엇인지 경계가 흐려진다. */
-.sup-register {
+.console-register {
   margin-bottom: 12px;
-  border-left: 3px solid var(--sup-green);
+  border-left: 3px solid var(--console-green);
 }
 
-.sup-register__title { margin-bottom: 10px; }
-.sup-register__title strong { font-size: 14px; font-weight: 600; }
+.console-register__title { margin-bottom: 10px; }
+.console-register__title strong { font-size: 14px; font-weight: 600; }
 
-.sup-register__hint {
+.console-register__hint {
   margin: 10px 0 0;
   font-size: 13px;
-  color: var(--sup-ink-3);
+  color: var(--console-ink-3);
 }
 
 /* 폼 요소는 공통 컴포넌트(ui-*)를 그대로 쓴다. 여기서 재정의하면 같은 입력이
@@ -730,8 +740,8 @@
   gap: 2px;
   margin: 0 0 12px;
   padding: 4px;
-  border-radius: var(--sup-r-card);
-  background: var(--sup-subtle);
+  border-radius: var(--console-r-card);
+  background: var(--console-subtle);
   list-style: none;
 }
 
@@ -742,16 +752,16 @@
   width: 100%;
   padding: 8px 10px;
   border: 0;
-  border-radius: var(--sup-r-ctl);
+  border-radius: var(--console-r-ctl);
   background: transparent;
-  color: var(--sup-ink-3);
+  color: var(--console-ink-3);
   font: inherit;
   text-align: left;
   cursor: pointer;
   transition: background-color 120ms;
 }
 
-.mat-steps button:hover:not(:disabled) { background: var(--sup-panel); color: var(--sup-ink); }
+.mat-steps button:hover:not(:disabled) { background: var(--console-panel); color: var(--console-ink); }
 
 /* 아직 안 지나온 구획. 눌러 건너뛰면 검증을 통과하지 않은 채 넘어간다. */
 .mat-steps button:disabled { cursor: default; opacity: 0.55; }
@@ -763,23 +773,23 @@
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: var(--sup-line);
-  color: var(--sup-ink-3);
-  font-family: var(--sup-mono);
+  background: var(--console-line);
+  color: var(--console-ink-3);
+  font-family: var(--console-mono);
   font-size: 11px;
   font-weight: 600;
 }
 
 /* 지금 있는 구획. 흰 바탕으로 한 겹 떠오르게 한다. */
-.mat-steps .is-current button { background: var(--sup-panel); color: var(--sup-ink); }
-.mat-steps .is-current .mat-steps__no { background: var(--sup-green); color: #fff; }
+.mat-steps .is-current button { background: var(--console-panel); color: var(--console-ink); }
+.mat-steps .is-current .mat-steps__no { background: var(--console-green); color: #fff; }
 
 /* 지나온 구획. 되돌아갈 수 있다는 것이 보여야 한다. */
-.mat-steps .is-done button { color: var(--sup-ink-2); }
-.mat-steps .is-done .mat-steps__no { background: var(--sup-ok-line); color: var(--sup-ok-fg); }
+.mat-steps .is-done button { color: var(--console-ink-2); }
+.mat-steps .is-done .mat-steps__no { background: var(--console-ok-line); color: var(--console-ok-fg); }
 
 .mat-steps strong { display: block; font-size: 13px; font-weight: 600; }
-.mat-steps small { display: block; font-size: 11px; color: var(--sup-ink-3); }
+.mat-steps small { display: block; font-size: 11px; color: var(--console-ink-3); }
 
 /* ── 2단 배치 ─────────────────────────────────────────── */
 
@@ -824,7 +834,7 @@
   margin-bottom: 12px;
   padding-bottom: 10px;
   /* 그림자 대신 선으로 층을 나눈다 — 머리와 본문의 경계가 훑을 때 기준이 된다. */
-  border-bottom: 1px solid var(--sup-line);
+  border-bottom: 1px solid var(--console-line);
 }
 
 .mat-section__head h2 {
@@ -835,22 +845,22 @@
   font-size: 15px;
   font-weight: 600;
   letter-spacing: -0.01em;
-  color: var(--sup-ink);
+  color: var(--console-ink);
 }
 
 .mat-section__dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--sup-green);
+  background: var(--console-green);
 }
 
 .mat-section__note {
   margin: 0 0 12px;
   padding: 8px 10px;
-  border-radius: var(--sup-r-ctl);
-  background: var(--sup-subtle);
-  color: var(--sup-ink-2);
+  border-radius: var(--console-r-ctl);
+  background: var(--console-subtle);
+  color: var(--console-ink-2);
   font-size: 12px;
   line-height: 17px;
 }
@@ -869,20 +879,20 @@
 .mat-summary__list dt {
   flex: none;
   font-size: 12px;
-  color: var(--sup-ink-3);
+  color: var(--console-ink-3);
 }
 
 .mat-summary__list dd {
   margin: 0;
   font-size: 12px;
   font-weight: 500;
-  color: var(--sup-ink);
+  color: var(--console-ink);
   text-align: right;
   word-break: break-word;
 }
 
 /* 아직 안 채운 값. 줄을 빼지 않고 흐리게 남긴다 — 빼 버리면 무엇이 비었는지 안 보인다. */
-.mat-summary__empty { color: var(--sup-ink-3); font-weight: 400; }
+.mat-summary__empty { color: var(--console-ink-3); font-weight: 400; }
 
 /* 이 화면에서 가장 중요한 숫자. 요약 안에서도 따로 띄운다. */
 .mat-summary__hero {
@@ -892,31 +902,31 @@
   gap: 10px;
   margin: 10px 0;
   padding: 10px 12px;
-  border-radius: var(--sup-r-ctl);
-  background: var(--sup-subtle);
+  border-radius: var(--console-r-ctl);
+  background: var(--console-subtle);
 }
 
-.mat-summary__hero > span { font-size: 12px; font-weight: 600; color: var(--sup-ink-2); }
+.mat-summary__hero > span { font-size: 12px; font-weight: 600; color: var(--console-ink-2); }
 
 .mat-summary__hero strong {
   font-size: 26px;
   line-height: 28px;
   font-weight: 700;
-  color: var(--sup-green);
+  color: var(--console-green);
 }
 
-.mat-summary__hero small { margin-left: 2px; font-size: 12px; color: var(--sup-ink-3); }
+.mat-summary__hero small { margin-left: 2px; font-size: 12px; color: var(--console-ink-3); }
 
 /* ── 서명 지갑 ────────────────────────────────────────── */
 
 .mat-wallet__address {
   margin: 0 0 4px;
   padding: 7px 9px;
-  border: 1px solid var(--sup-line);
-  border-radius: var(--sup-r-ctl);
-  background: var(--sup-subtle);
+  border: 1px solid var(--console-line);
+  border-radius: var(--console-r-ctl);
+  background: var(--console-subtle);
   font-size: 11px;
-  color: var(--sup-ink);
+  color: var(--console-ink);
   word-break: break-all;
 }
 
@@ -924,7 +934,7 @@
   margin: 0 0 8px;
   font-size: 12px;
   line-height: 17px;
-  color: var(--sup-ink-3);
+  color: var(--console-ink-3);
 }
 
 /*
@@ -939,10 +949,10 @@
   gap: 8px;
   margin: 0;
   padding: 11px 12px;
-  border: 1px solid var(--sup-wait-line);
-  border-radius: var(--sup-r-card);
-  background: var(--sup-wait-bg);
-  color: var(--sup-wait-fg);
+  border: 1px solid var(--console-wait-line);
+  border-radius: var(--console-r-card);
+  background: var(--console-wait-bg);
+  color: var(--console-wait-fg);
   font-size: 12px;
   line-height: 17px;
 }
@@ -952,12 +962,12 @@
 
 /* 제출을 시도했는데 지갑이 없을 때만. 평소에는 조용한 패널이다. */
 .mat-wallet--required {
-  border-color: var(--sup-wait-line);
-  background: var(--sup-wait-bg);
+  border-color: var(--console-wait-line);
+  background: var(--console-wait-bg);
 }
 
-.mat-wallet--required .mat-wallet__note { color: var(--sup-wait-fg); }
-.mat-wallet--required .mat-wallet__note strong { color: var(--sup-wait-fg); }
+.mat-wallet--required .mat-wallet__note { color: var(--console-wait-fg); }
+.mat-wallet--required .mat-wallet__note strong { color: var(--console-wait-fg); }
 
 /* ── 구획 이동 ────────────────────────────────────────── */
 
@@ -966,9 +976,9 @@
   align-items: center;
   gap: 10px;
   padding: 12px 14px;
-  border: 1px solid var(--sup-line);
-  border-radius: var(--sup-r-card);
-  background: var(--sup-panel);
+  border: 1px solid var(--console-line);
+  border-radius: var(--console-r-card);
+  background: var(--console-panel);
 }
 
 /* 몇 번째인지. 단계 바가 위에 있지만 스크롤로 벗어나면 안 보인다. */
@@ -976,7 +986,7 @@
   margin-left: auto;
   margin-right: auto;
   font-size: 12px;
-  color: var(--sup-ink-3);
+  color: var(--console-ink-3);
 }
 
 /*
@@ -997,7 +1007,7 @@
 .mat-prefill__note {
   margin-right: auto;
   font-size: 12px;
-  color: var(--sup-ink-3);
+  color: var(--console-ink-3);
 }
 
 @media (max-width: 640px) {
