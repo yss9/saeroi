@@ -1,8 +1,8 @@
-import { Heart, ShoppingBag } from '@phosphor-icons/react'
+import { CartButton } from '../../cart/CartButton.tsx'
+import { WishlistButton } from '../../wishlist/WishlistButton.tsx'
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../auth/hooks/useAuth.ts'
-import { useShop } from '../../shop/ShopContext.tsx'
 import { shopPath } from '../../shop/catalog.ts'
 import { isAppError } from '../../../utils/errors.ts'
 import { publicProductImageUrl } from '../api/publicProductImageUrl.ts'
@@ -22,13 +22,10 @@ export function PublicProductDetail({ productId }: { productId: number | null })
 
 function ProductBody({ product }: { product: Product }) {
   const { isAuthenticated, role } = useAuth()
-  const { wishlist, toggleWishlist, addToCart } = useShop()
   const navigate = useNavigate()
   const location = useLocation()
   const [notice, setNotice] = useState('')
-  const id = String(product.productModelId)
   const soldOut = product.stockQuantity === 0
-  const wished = wishlist.has(id)
 
   function requireLogin(action: () => void) {
     if (!isAuthenticated) {
@@ -55,11 +52,11 @@ function ProductBody({ product }: { product: Product }) {
           <p className={`public-product__stock${soldOut ? ' public-product__stock--empty' : ''}`}>{soldOut ? '품절' : `남은 수량 ${product.stockQuantity}개`}</p>
           <div className="public-product__actions">
             <button className="public-product__buy" type="button" disabled={soldOut} onClick={() => requireLogin(() => setNotice(role === 'CONSUMER' ? '구매 기능 연결을 준비하고 있습니다. 현재 주문이나 결제는 진행되지 않습니다.' : '구매는 소비자 계정에서 이용할 수 있습니다.'))}>{soldOut ? '품절' : '구매하기'}</button>
-            <button type="button" aria-label="찜하기" aria-pressed={wished} onClick={() => requireLogin(() => { toggleWishlist(id); setNotice(wished ? '찜 목록에서 해제했습니다.' : '찜 목록에 담았습니다. 새로고침 시 초기화됩니다.') })}><Heart size={21} weight={wished ? 'fill' : 'regular'} aria-hidden="true" />찜하기</button>
-            <button type="button" disabled={soldOut} onClick={() => requireLogin(() => { addToCart(id); setNotice('장바구니에 담았습니다. 새로고침 시 초기화됩니다.') })}><ShoppingBag size={21} aria-hidden="true" />장바구니 담기</button>
+            <WishlistButton productId={product.productModelId} name={product.name} text="찜하기" />
+            <CartButton productId={product.productModelId} name={product.name} text="장바구니 담기" disabled={soldOut} />
           </div>
           <p className="public-product__notice" role="status">{notice}</p>
-          <p className="public-product__memory">찜·장바구니는 현재 화면 세션에만 유지됩니다.</p>
+          <p className="public-product__memory">찜과 장바구니는 계정에 저장됩니다.</p>
           <section className="public-product__description" aria-labelledby="product-description-title"><h2 id="product-description-title">상품 이야기</h2><p>{product.description || '등록된 상품 설명이 없습니다.'}</p></section>
           <Link className="public-product__back" to="/shop">전체 상품 보기 →</Link>
         </div>

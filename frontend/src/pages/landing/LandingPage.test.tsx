@@ -28,7 +28,9 @@ const publicCatalog: PageResponse<PublicProductModel> = {
 
 beforeEach(() => {
   useAuthStore.getState().signOut()
-  vi.spyOn(apiClient, 'get').mockResolvedValue({ data: publicCatalog } as AxiosResponse)
+  vi.spyOn(apiClient, 'get').mockImplementation(async (url) => ({ data: url.endsWith('/product-ids') ? [] : url.endsWith('/cart') ? { items: [], totalQuantity: 0, totalPrice: 0 } : publicCatalog }) as AxiosResponse)
+  vi.spyOn(apiClient, 'post').mockResolvedValue({ data: {} } as AxiosResponse)
+  vi.spyOn(apiClient, 'delete').mockResolvedValue({ data: {} } as AxiosResponse)
 })
 
 afterEach(() => {
@@ -193,7 +195,18 @@ describe('LandingPage', () => {
     const button = await screen.findByRole('button', { name: '데님 서클 백 찜하기' })
     await user.click(button)
 
-    expect(screen.getByRole('button', { name: '데님 서클 백 찜 해제' })).toHaveAttribute('aria-pressed', 'true')
+    expect(await screen.findByRole('button', { name: '데님 서클 백 찜 해제' })).toHaveAttribute('aria-pressed', 'true')
+    expect(apiClient.post).toHaveBeenCalledWith('/v1/consumers/me/wishlist', { productModelId: 1 })
+  })
+  it('adds to the server cart and connects the header cart icon to /cart', async () => {
+    useAuthStore.getState().signIn({ id: 1, email: 'consumer@test.com', name: '고객', role: 'CONSUMER', walletAddress: null }, 'token')
+    vi.mocked(apiClient.post).mockResolvedValue({ data: { items: [{ product: publicCatalog.content[0], quantity: 1, addedPrice: 129000, priceChanged: false, purchasable: true }], totalQuantity: 1, totalPrice: 129000 } } as AxiosResponse)
+    renderLandingPage()
+    fireEvent.click(await screen.findByRole('button', { name: '데님 서클 백 장바구니 담기' }))
+    await screen.findByRole('button', { name: '장바구니, 상품 1개' })
+    expect(apiClient.post).toHaveBeenCalledWith('/v1/consumers/me/cart', { productModelId: 1, quantity: 1 })
+    fireEvent.click(screen.getByRole('button', { name: '장바구니, 상품 1개' }))
+    expect(screen.getByLabelText('현재 위치')).toHaveTextContent('/cart')
   })
 
   it('changes the featured product with the carousel controls', async () => {

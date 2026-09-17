@@ -1,8 +1,14 @@
-/* 취소/반품/교환/환불내역. 소비자 마이페이지 안에서 쓰인다.
+/* 취소/반품/교환/환불내역 + 상세(2026-09-17). 소비자 마이페이지 안에서 쓰인다.
  * consumer-mypage.css 는 다른 작업이 동시에 편집 중이라 건드리지 않고, 이 화면 전용
  * 스타일은 여기에만 둔다. 색상 변수(--consumer-line 등)는 그 파일에서 정의된 것을
- * 참조만 한다.
+ * 참조만 한다. 상세 화면의 상품명/수량·금액/사유 목록은 consumer-mypage.css의
+ * .consumer-profile-edit__field-list(개인정보 화면의 라벨-값 두 칸 레이아웃)를 그대로
+ * 재사용한다 — 같은 모양을 여기서 또 만들 이유가 없다.
  */
+
+.return-detail__badge {
+  margin: 4px 0 20px;
+}
 
 .return-toolbar {
   display: flex;
@@ -69,10 +75,16 @@
 
 .return-card__body {
   display: grid;
-  grid-template-columns: auto 1fr auto auto;
+  grid-template-columns: auto auto 1fr auto auto;
   align-items: center;
   gap: 20px;
   padding: 18px 20px;
+}
+
+/* 유형+상태 배지 — 카드 왼쪽에서 한눈에 보이도록 맨 앞에 둔다(2026-09-17) */
+.return-card__kind-status {
+  display: flex;
+  align-items: center;
 }
 
 .return-card__thumbnail {
@@ -127,18 +139,12 @@
   font-weight: 800;
 }
 
-.return-card__status-actions {
+.return-card__actions-col {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 8px;
   min-width: 140px;
-}
-
-.return-card__status {
-  margin: 0;
-  font-size: 0.9rem;
-  font-weight: 700;
 }
 
 .return-card__actions {
@@ -152,9 +158,14 @@
   .return-card__body {
     grid-template-columns: auto 1fr;
     grid-template-areas:
+      'kind-status kind-status'
       'thumbnail product'
       'qty-price qty-price'
-      'status-actions status-actions';
+      'actions-col actions-col';
+  }
+
+  .return-card__kind-status {
+    grid-area: kind-status;
   }
 
   .return-card__thumbnail {
@@ -169,8 +180,8 @@
     grid-area: qty-price;
   }
 
-  .return-card__status-actions {
-    grid-area: status-actions;
+  .return-card__actions-col {
+    grid-area: actions-col;
   }
 
   .return-card__qty-price {
@@ -178,7 +189,7 @@
     text-align: left;
   }
 
-  .return-card__status-actions {
+  .return-card__actions-col {
     align-items: flex-start;
   }
 }

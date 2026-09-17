@@ -3,6 +3,8 @@ import { Link, MemoryRouter, Route, Routes, useLocation, useRoutes } from 'react
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AxiosResponse } from 'axios'
 import { useShop } from '../../features/shop/ShopContext.tsx'
+import { useWishlistIds } from '../../features/wishlist/useWishlist.ts'
+import { WishlistButton } from '../../features/wishlist/WishlistButton.tsx'
 import { AppProviders } from '../../app/providers/AppProviders.tsx'
 import { routes } from '../../app/router/routes.tsx'
 import type { PublicProductDetail } from '../../features/product/types/publicProduct.types.ts'
@@ -24,7 +26,8 @@ function Probe() {
 }
 function HomeMemory() {
   const shop = useShop()
-  return <><button onClick={() => { shop.toggleWishlist('31'); shop.addToCart('31') }}>HOME 메모리 동작</button><Link to="/products/31">상품 상세</Link><output aria-label="HOME 찜 상태">{String(shop.wishlist.has('31'))}</output></>
+  const ids = useWishlistIds()
+  return <><WishlistButton productId={31} name="HOME 상품" /><button onClick={() => shop.addToCart('31')}>HOME 장바구니 동작</button><Link to="/products/31">상품 상세</Link><output aria-label="HOME 찜 상태">{String(ids.data?.includes(31) === true)}</output></>
 }
 function show(path = '/products/31') {
   return render(<AppProviders><MemoryRouter initialEntries={[path]}><Routes>
@@ -38,8 +41,16 @@ function ActualRoutes() { return useRoutes(routes) }
 beforeEach(() => {
   useAuthStore.getState().signOut()
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
-  vi.spyOn(apiClient, 'get').mockResolvedValue({ data: product } as AxiosResponse)
-  vi.spyOn(apiClient, 'post').mockResolvedValue({ data: { accessToken: 'test-token', user: { id: 5, email: 'c@test.com', name: '고객', role: 'CONSUMER' } } } as AxiosResponse)
+  vi.spyOn(apiClient, 'get').mockImplementation(async (url) => ({ data: url.endsWith('/product-ids') ? [] : url.endsWith('/cart') ? { items: [], totalQuantity: 0, totalPrice: 0 } : product }) as AxiosResponse)
+  vi.spyOn(apiClient, 'delete').mockResolvedValue({ data: {} } as AxiosResponse)
+  let cartQuantity = 0
+  vi.spyOn(apiClient, 'post').mockImplementation(async (url) => {
+    if (url.endsWith('/cart')) {
+      cartQuantity += 1
+      return { data: { items: [{ product, quantity: cartQuantity, addedPrice: product.price, priceChanged: false, purchasable: true }], totalQuantity: cartQuantity, totalPrice: product.price * cartQuantity } } as AxiosResponse
+    }
+    return { data: { accessToken: 'test-token', user: { id: 5, email: 'c@test.com', name: '고객', role: 'CONSUMER' } } } as AxiosResponse
+  })
 })
 afterEach(() => { cleanup(); useAuthStore.getState().signOut(); vi.restoreAllMocks() })
 
@@ -114,21 +125,31 @@ describe('public consumer product detail', () => {
     expect(apiClient.post).toHaveBeenCalledTimes(1)
     expect(screen.getByLabelText('장바구니 수')).toHaveTextContent('0')
   })
-  it('shares HOME memory state across routes and never creates orders', async () => {
+  it('shares server wishlist and cumulative cart state across routes without creating orders', async () => {
     signIn()
     show('/shop')
-    fireEvent.click(screen.getByRole('button', { name: 'HOME 메모리 동작' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'HOME 상품 찜하기' })).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: 'HOME 상품 찜하기' }))
+    await screen.findByRole('button', { name: 'HOME 상품 찜 해제' })
+    fireEvent.click(screen.getByRole('button', { name: 'HOME 장바구니 동작' }))
+    await waitFor(() => expect(screen.getByLabelText('장바구니 수')).toHaveTextContent('1'))
     fireEvent.click(screen.getByRole('link', { name: '상품 상세' }))
     expect(await screen.findByRole('button', { name: '찜하기' })).toHaveAttribute('aria-pressed', 'true')
     fireEvent.click(screen.getByRole('button', { name: '장바구니 담기' }))
-    expect(screen.getByLabelText('장바구니 수')).toHaveTextContent('2')
+    await waitFor(() => expect(apiClient.post).toHaveBeenCalledTimes(3))
+    await waitFor(() => expect(screen.getByRole('button', { name: '장바구니 담기' })).toBeEnabled())
+    expect(screen.getByLabelText('장바구니 수')).toHaveTextContent('1')
     fireEvent.click(screen.getByRole('button', { name: '찜하기' }))
     fireEvent.click(screen.getByRole('button', { name: '구매하기' }))
     expect(screen.getByText(/현재 주문이나 결제는 진행되지 않습니다/)).toBeInTheDocument()
-    expect(apiClient.post).not.toHaveBeenCalled()
+    expect(apiClient.post).toHaveBeenCalledTimes(3)
+    expect(apiClient.post).toHaveBeenCalledWith('/v1/consumers/me/cart', { productModelId: 31, quantity: 1 })
+    expect(apiClient.post).toHaveBeenCalledWith('/v1/consumers/me/wishlist', { productModelId: 31 })
+    await waitFor(() => expect(screen.getByRole('button', { name: '찜하기' })).toHaveAttribute('aria-pressed', 'false'))
+    expect(apiClient.delete).toHaveBeenCalledWith('/v1/consumers/me/wishlist/31')
     fireEvent.click(screen.getByRole('link', { name: '전체 상품 보기 →' }))
     expect(screen.getByLabelText('HOME 찜 상태')).toHaveTextContent('false')
-    expect(screen.getByLabelText('장바구니 수')).toHaveTextContent('2')
+    expect(screen.getByLabelText('장바구니 수')).toHaveTextContent('1')
   })
   it('handles 404 as missing product without retry or a forbidden page', async () => {
     vi.mocked(apiClient.get).mockRejectedValue(createAppError(ERROR_KIND.API_ERROR, { status: 404 }))

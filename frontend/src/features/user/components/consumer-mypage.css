@@ -4,6 +4,7 @@
   --consumer-blue: #216a9f;
   --consumer-blue-dark: #194f78;
   --consumer-orange: #ff9b69;
+  --consumer-star-yellow: #ffc107;
   --consumer-ink: #172033;
   --consumer-muted: #667085;
   --consumer-line: #e6dfd3;
@@ -44,11 +45,26 @@
 
 .consumer-account-header__inner {
   display: grid;
-  grid-template-columns: 180px 1fr auto;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
   width: min(1180px, calc(100% - 48px));
   min-height: 76px;
   margin: 0 auto;
+}
+
+.consumer-account-header__brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.consumer-account-header__section-title {
+  padding-left: 14px;
+  border-left: 1px solid var(--consumer-line);
+  color: var(--consumer-ink);
+  font-size: 0.92rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .consumer-account-header__actions {
@@ -309,9 +325,15 @@
 }
 
 .consumer-order-detail__ordered-at {
-  margin: -14px 0 20px;
+  margin: -14px 0 2px;
   color: var(--consumer-muted);
   font-size: 0.82rem;
+}
+
+.consumer-order-detail__ordered-time {
+  margin: 0 0 20px;
+  color: var(--consumer-muted);
+  font-size: 0.78rem;
 }
 
 .consumer-section-heading__note {
@@ -354,6 +376,25 @@
   text-align: center;
 }
 
+/*
+  누르면 그 상태로 아래 목록을 필터링하는 버튼(2026-09-17). 버튼 기본 스타일(테두리·
+  배경·검정 글자색)을 리셋해야 원 아이콘의 색이 의도대로 보인다 — 리셋하지 않으면
+  브라우저가 버튼에 직접 먹이는 검정 글자색이 상속을 덮어써 버린다.
+*/
+.consumer-order-steps__button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
 .consumer-order-steps__number {
   display: grid;
   width: 56px;
@@ -365,29 +406,25 @@
   background: var(--consumer-cream-soft);
   font-size: 1.45rem;
   font-weight: 800;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-/*
-  건수가 있는 칸만 강조한다.
-
-  예전에는 `li:nth-child(3)` 으로 세 번째 칸(배송 중)을 무조건 칠했다. 목데이터일 때는
-  그럴듯했지만 실제 주문이 붙자 **0 건인 칸이 파랗고 1 건인 칸은 회색**이 되어, 표가
-  정확히 반대로 읽혔다. 자리가 아니라 값을 따라야 한다.
-*/
-.consumer-order-steps li.is-active .consumer-order-steps__number {
+/* 건수와 무관하게 모든 칸의 배경을 아이보리로 통일한다(2026-09-17) — 마우스를 올리면
+   파란색으로 바뀌어 누를 수 있음을 보여준다. */
+.consumer-order-steps__button:hover .consumer-order-steps__number {
   color: #fff;
   background: var(--consumer-blue);
+}
+
+/* 지금 이 칸으로 목록이 필터링돼 있다는 표시 — 채우지 않고 테두리만 둘러 hover(채움)와
+   구분한다. */
+.consumer-order-steps li.is-selected .consumer-order-steps__number {
+  box-shadow: 0 0 0 3px var(--consumer-blue);
 }
 
 .consumer-order-steps strong {
   margin-bottom: 6px;
   font-size: 0.9rem;
-}
-
-.consumer-order-steps li > span:last-of-type {
-  color: var(--consumer-muted);
-  font-size: 0.7rem;
-  line-height: 1.4;
 }
 
 .consumer-order-steps__arrow {
@@ -790,6 +827,11 @@
     min-height: 66px;
   }
 
+  /* 좁은 화면에서는 로고 자리도 빠듯하다 — 옆의 문구까지 끼워 넣지 않는다. */
+  .consumer-account-header__section-title {
+    display: none;
+  }
+
   .consumer-account-header__logo {
     width: 94px;
   }
@@ -941,6 +983,59 @@
 }
 .consumer-order-progress__label { font-weight: 600; }
 .consumer-order-progress__waiting { font-variant-numeric: tabular-nums; }
+
+/* 주문 상세 화면 전용 — 목록 페이지 썸네일(84px)은 그대로 두고 상세만 키운다 */
+.consumer-order-item--detail .consumer-order-item__thumbnail {
+  width: 160px;
+  height: 160px;
+}
+
+/* 주문 상세 배송 현황 — 목록 페이지의 compact한 .consumer-order-progress는 그대로 두고,
+   상세 화면(.consumer-order-detail__progress 안)에서만 카드형으로 다시 그린다 */
+.consumer-order-detail__progress .consumer-order-progress {
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
+  flex-wrap: nowrap;
+  gap: 0;
+  margin: 20px 0 0;
+}
+
+.consumer-order-detail__progress .consumer-order-progress li {
+  flex: 1 1 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 4px;
+  padding: 14px 8px;
+  border: 1px solid var(--consumer-line);
+  border-radius: 12px;
+  background: var(--consumer-cream-soft);
+}
+
+.consumer-order-detail__progress .consumer-order-progress li.is-done {
+  border-color: var(--consumer-blue-dark, #1f4d6b);
+  background: #fff;
+}
+
+.consumer-order-detail__progress .consumer-order-progress li:not(:last-child) {
+  margin-right: 22px;
+}
+
+.consumer-order-detail__progress .consumer-order-progress li:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -22px;
+  width: 0;
+  height: 0;
+  transform: translateY(-50%);
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  border-left: 8px solid var(--consumer-line);
+}
 
 /* ── 기본 배송지 편집 ─────────────────────────────────── */
 
@@ -1170,10 +1265,15 @@
   background: var(--consumer-cream-soft);
 }
 
-.consumer-wishlist-card__thumbnail > span {
+.consumer-wishlist-card__thumbnail > span,
+.consumer-wishlist-card__thumbnail > img {
   display: block;
   width: 100%;
   height: 100%;
+}
+
+.consumer-wishlist-card__thumbnail > img {
+  object-fit: cover;
 }
 
 .consumer-wishlist-card__unlike {
@@ -1223,10 +1323,15 @@
   background: var(--consumer-cream-soft);
 }
 
-.consumer-recently-viewed-card__thumbnail > span {
+.consumer-recently-viewed-card__thumbnail > span,
+.consumer-recently-viewed-card__thumbnail > img {
   display: block;
   width: 100%;
   height: 100%;
+}
+
+.consumer-recently-viewed-card__thumbnail > img {
+  object-fit: cover;
 }
 
 .consumer-recently-viewed-card__brand {
@@ -1256,6 +1361,7 @@
   display: flex;
   flex-direction: column;
   max-width: 520px;
+  margin: 0 auto;
 }
 
 .consumer-inquiry-form__textarea { resize: vertical; }
@@ -1277,10 +1383,10 @@
   gap: 14px;
 }
 
-/* 주문 내역의 큰 박스(.consumer-order-group)와 같은 테두리·radius 로 맞춘다(2026-09-16). */
+/* 별다른 꾸밈 없이 검정 선 사각형으로만 구분한다(2026-09-17 재요청 — 테두리 제거를 되돌림). */
 .consumer-inquiry-item {
-  border: 1px solid var(--consumer-line);
-  border-radius: 16px;
+  border: 1px solid #000;
+  border-radius: 0;
   overflow: hidden;
 }
 
@@ -1292,14 +1398,34 @@
   background: transparent;
 }
 
+.consumer-inquiry-item__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
 .consumer-inquiry-item__badges {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
   color: var(--consumer-muted);
   font-size: 0.78rem;
   font-weight: 700;
+}
+
+/* 클릭하면 펼쳐지는 문의 항목이라는 것을 보여주는 화살표 — 펼치면 위를 향하게 뒤집는다 */
+.consumer-inquiry-item__chevron {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  color: var(--consumer-blue);
+  transition: transform 0.15s ease;
+}
+
+.consumer-inquiry-item__summary[aria-expanded='true'] .consumer-inquiry-item__chevron {
+  transform: rotate(180deg);
 }
 
 .consumer-inquiry-item__product {
@@ -1359,10 +1485,18 @@
 .consumer-review-stars {
   display: inline-flex;
   gap: 4px;
-  color: var(--consumer-orange);
+  color: var(--consumer-star-yellow);
 }
 
-.consumer-review-stars button { display: flex; }
+.consumer-review-stars button {
+  display: flex;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  cursor: pointer;
+}
 .consumer-review-stars svg { width: 20px; height: 20px; }
 .consumer-review-stars--display svg { width: 16px; height: 16px; }
 
@@ -1380,20 +1514,6 @@
   gap: 10px;
 }
 
-.consumer-profile-edit__form {
-  display: flex;
-  flex-direction: column;
-  max-width: 420px;
-  margin-bottom: 8px;
-}
-
-.consumer-profile-edit__subheading {
-  margin: 28px 0 18px;
-  padding-top: 24px;
-  border-top: 1px solid var(--consumer-line);
-  font-size: 1.05rem;
-}
-
 .consumer-profile-edit__saved {
   margin: 0 0 18px;
   padding: 12px 16px;
@@ -1402,4 +1522,165 @@
   color: #1f7a44;
   font-size: 0.86rem;
   font-weight: 700;
+}
+
+/* 개인정보 열람 전 비밀번호 확인 게이트 */
+.consumer-profile-edit__gate {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 360px;
+}
+
+.consumer-profile-edit__gate-notice {
+  margin: 0;
+  color: var(--consumer-muted);
+  font-size: 0.86rem;
+}
+
+/* 아이디/이름/전화번호 — 필드별 변경 버튼 */
+/* 라벨 칸(dt, 96px)과 값 칸(dd) 사이를 가르는 세로선. 행마다 따로 긋지 않고, 목록
+   전체 높이만큼 한 번에 그어 끊기지 않게 한다(2026-09-17). */
+.consumer-profile-edit__field-list {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 640px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.consumer-profile-edit__field-list::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 96px;
+  width: 1px;
+  background: var(--consumer-line);
+}
+
+.consumer-profile-edit__field-row {
+  display: flex;
+  align-items: stretch;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--consumer-line);
+}
+
+.consumer-profile-edit__field-row dt {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 96px;
+  color: var(--consumer-muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.consumer-profile-edit__field-row dd {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0;
+}
+
+/* .consumer-profile-edit__field-row dd 의 align-items:center 보다 특정도가 높아야
+   이긴다 — 그냥 .consumer-profile-edit__field-edit 만으로는 그 규칙에 밀려 세로로
+   쌓인 줄들이 가운데 정렬돼 버린다. */
+dd.consumer-profile-edit__field-edit {
+  flex-direction: column;
+  align-items: stretch;
+  text-align: left;
+}
+
+.consumer-profile-edit__field-edit .ui-field {
+  flex: 1;
+}
+
+.consumer-profile-edit__field-edit-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.consumer-profile-edit__change-btn {
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--consumer-blue);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* 비밀번호 변경 행 — dd 하나에 라벨 세 줄(현재/새/새 확인)이 쌓이므로, 다른 행들과
+   달리 세로로 늘어선다(2026-09-17. 배송지 행은 위 .consumer-profile-edit__field-row
+   기본 스타일을 그대로 쓴다 — 따로 박스를 두지 않는다).
+   좌측 "비밀번호 변경" 라벨은 기본 행 스타일만으로 이미 이 행 전체 높이에 맞춰
+   가운데로 온다(2026-09-17 dt 가운데 정렬을 모든 행의 기본값으로 바꿈) — dd 만
+   세로로 늘어서도록 여기서 덧씌운다. */
+.consumer-profile-edit__field-row--password dd {
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+.consumer-profile-edit__password-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 360px;
+}
+
+/* ── 주문 상세 전용 (2026-09-17) ──────────────────────────
+   목록 페이지와 마크업/클래스를 공유하는 .consumer-order-item__thumbnail,
+   .consumer-order-progress 는 그대로 두고, 상세 페이지에서만 감싸는
+   .consumer-order-item--detail / .consumer-order-detail__progress 로 스코프를
+   좁혀 override 한다 — 목록 페이지 레이아웃엔 영향이 없다. */
+
+.consumer-order-item--detail .consumer-order-item__thumbnail {
+  width: 140px;
+  height: 140px;
+}
+
+.consumer-order-detail__progress .consumer-order-progress {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: space-between;
+  gap: 0;
+  margin: 16px 0 0;
+}
+
+.consumer-order-detail__progress .consumer-order-progress li {
+  flex: 1;
+  align-items: center;
+  text-align: center;
+  padding: 14px 8px;
+  border: 1px solid var(--consumer-line);
+  border-radius: 12px;
+  background: var(--consumer-cream-soft);
+  position: relative;
+}
+
+.consumer-order-detail__progress .consumer-order-progress li.is-done {
+  border-color: var(--consumer-blue-dark);
+}
+
+/* 카드 사이 화살표 — 마지막 카드 뒤에는 그리지 않는다 */
+.consumer-order-detail__progress .consumer-order-progress li:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  right: -13px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-top: 2px solid var(--consumer-muted);
+  border-right: 2px solid var(--consumer-muted);
+  transform: translateY(-50%) rotate(45deg);
 }
