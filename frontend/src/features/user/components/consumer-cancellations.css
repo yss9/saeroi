@@ -18,14 +18,14 @@
   gap: 0.75rem;
   margin: 0.75rem 0 1rem;
   padding-bottom: 0.85rem;
-  border-bottom: 1px solid var(--consumer-line);
+  border-bottom: 1px solid var(--line);
 }
 
 .return-toolbar__note {
   margin: 0;
   font-size: 0.82rem;
   line-height: 1.6;
-  color: var(--consumer-muted);
+  color: var(--muted);
 }
 
 .return-list {
@@ -35,18 +35,18 @@
 }
 
 .return-card {
-  border: 1px solid var(--consumer-line);
-  border-radius: 10px;
+  border: 1px solid var(--line);
+  border-radius: 0;
   overflow: hidden;
-  background: #fff;
+  background: transparent;
 }
 
 .return-card__header {
   padding: 10px 18px;
-  background: var(--consumer-cream-soft);
-  border-bottom: 1px solid var(--consumer-line);
+  background: var(--paper-warm);
+  border-bottom: 1px solid var(--line);
   font-size: 0.8rem;
-  color: var(--consumer-muted);
+  color: var(--muted);
 }
 
 .return-card__header strong {
@@ -57,7 +57,7 @@
 .return-card__divider {
   display: inline-block;
   margin: 0 10px;
-  color: var(--consumer-line);
+  color: var(--line);
 }
 
 .return-card__body {
@@ -81,9 +81,9 @@
   flex-shrink: 0;
   width: 80px;
   height: 80px;
-  border-radius: 10px;
+  border-radius: 0;
   overflow: hidden;
-  background: var(--consumer-cream-soft);
+  background: var(--paper-warm);
 }
 
 .return-card__thumbnail > span {
@@ -105,7 +105,7 @@
 .return-card__subtitle {
   margin: 0;
   font-size: 0.84rem;
-  color: var(--consumer-muted);
+  color: var(--muted);
 }
 
 .return-card__qty-price {
@@ -120,7 +120,7 @@
 .return-card__qty {
   margin: 0;
   font-size: 0.84rem;
-  color: var(--consumer-muted);
+  color: var(--muted);
 }
 
 .return-card__price {

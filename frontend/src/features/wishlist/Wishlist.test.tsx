@@ -13,6 +13,8 @@ import { createAppError, ERROR_KIND } from '../../utils/errors.ts'
 import { WishlistButton } from './WishlistButton.tsx'
 import { wishlistKeys, type WishlistItem } from './useWishlist.ts'
 
+vi.mock('../shop/ShopContext.tsx', () => ({ useShop: () => ({ cartCount: 0 }) }))
+
 const entry: WishlistItem = {
   product: { productModelId: 31, name: '데님 백', brandId: 5, brandName: 'REWEAVE', price: 39000,
     category: 'BAG', subcategory: 'TOTE', status: 'ON_SALE', stockQuantity: 3,

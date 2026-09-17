@@ -30,7 +30,7 @@ interface HeaderProps {
 }
 
 function getAccountTypeLabel(role: UserRole) {
-  if (role === 'CONSUMER') return '개인회원'
+  if (role === 'CONSUMER') return ''
   if (role === 'ADMIN') return '관리자'
   if ((BUSINESS_ROLES as readonly UserRole[]).includes(role)) return '사업자회원'
   return ''
@@ -163,7 +163,7 @@ export function Header({ isLogoVisible, scrollToneViewportRatio }: HeaderProps) 
                 <>
                   <div className="site-header__account-summary">
                     <strong>{user.name}</strong>
-                    <span>{getAccountTypeLabel(user.role)}</span>
+                    {getAccountTypeLabel(user.role) && <span>{getAccountTypeLabel(user.role)}</span>}
                   </div>
                   <Link
                     className="site-header__account-link"
@@ -186,10 +186,6 @@ export function Header({ isLogoVisible, scrollToneViewportRatio }: HeaderProps) 
                 </>
               ) : (
                 <>
-                  <div className="site-header__account-summary">
-                    <strong>SAEROI에 오신 것을 환영합니다.</strong>
-                    <span>로그인하고 새로이의 서비스를 이용해 보세요.</span>
-                  </div>
                   <Link
                     className="site-header__account-link site-header__account-link--primary"
                     to="/login"

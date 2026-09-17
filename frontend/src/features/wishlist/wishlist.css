@@ -2,4 +2,3 @@
 .consumer-server-wishlist .shop-catalog__card h2 { font-size: 16px; }
 @media (max-width: 1000px) { .consumer-server-wishlist .shop-catalog__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 420px) { .consumer-server-wishlist .shop-catalog__grid { grid-template-columns: 1fr; } }
-.consumer-server-wishlist { --ink: var(--consumer-ink); --paper: #faf8f3; --paper-warm: var(--consumer-cream-soft); --muted: var(--consumer-muted); --line: var(--consumer-line); --brand-blue: var(--consumer-blue); }

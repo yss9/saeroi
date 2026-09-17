@@ -9,13 +9,13 @@ import {
   Heart,
   MapPin,
   Receipt,
-  ShoppingBag,
-  SignOut,
   Star,
   User,
   UserCircle,
 } from '@phosphor-icons/react'
-import { toErrorMessage } from '../../../utils/errors.ts'
+import { Header } from '../../../pages/landing/components/Header.tsx'
+import { Footer } from '../../../pages/landing/components/Footer.tsx'
+import '../../../pages/landing/landing.css'
 import './consumer-mypage.css'
 
 /**
@@ -40,11 +40,11 @@ import './consumer-mypage.css'
  */
 export function ConsumerShopLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="consumer-mypage">
+    <div className="landing-page consumer-mypage">
       <a className="consumer-skip-link" href="#consumer-main-content">본문으로 건너뛰기</a>
-      <AccountHeader />
+      <Header isLogoVisible />
       <div id="consumer-main-content">{children}</div>
-      <AccountFooter />
+      <Footer />
     </div>
   )
 }
@@ -115,14 +115,14 @@ interface ConsumerNavGroup {
 
 const NAV_GROUPS: readonly ConsumerNavGroup[] = [
   {
-    label: 'My정보',
+    label: 'My 정보',
     items: [
       { label: '개인정보', to: '/mypage', Icon: UserCircle, end: true },
       { label: '배송지 관리', to: '/mypage/addresses', Icon: MapPin },
     ],
   },
   {
-    label: 'My쇼핑',
+    label: 'My 쇼핑',
     items: [
       { label: '주문목록/배송조회', to: '/mypage/orders', Icon: Receipt },
       { label: '취소/반품/교환/환불내역', to: '/mypage/cancellations', Icon: ArrowsClockwise },
@@ -131,7 +131,7 @@ const NAV_GROUPS: readonly ConsumerNavGroup[] = [
     ],
   },
   {
-    label: 'My활동',
+    label: 'My 활동',
     items: [
       { label: '판매량 예측시장', to: '/mypage/predictions', Icon: ChartBar },
       { label: '문의하기', to: '/mypage/inquiries/new', Icon: ChatCircleText },
@@ -156,9 +156,6 @@ export function ConsumerAccountLayout({
   children,
   current,
   profile,
-  onSignOut,
-  signOutPending = false,
-  signOutError,
 }: ConsumerAccountLayoutProps) {
   const section = SECTIONS[current]
   const location = useLocation()
@@ -173,14 +170,9 @@ export function ConsumerAccountLayout({
   }, [location.pathname])
 
   return (
-    <div className="consumer-mypage">
+    <div className="landing-page consumer-mypage">
       <a className="consumer-skip-link" href="#consumer-main-content">본문으로 건너뛰기</a>
-      <AccountHeader
-        sectionTitle="마이페이지"
-        onSignOut={onSignOut}
-        signOutPending={signOutPending}
-        signOutError={signOutError}
-      />
+      <Header isLogoVisible />
 
       <main id="consumer-main-content" className="consumer-mypage-main">
         <nav className="consumer-breadcrumb" aria-label="현재 위치">
@@ -193,10 +185,14 @@ export function ConsumerAccountLayout({
           <span aria-current="page">{section.label}</span>
         </nav>
 
+        <div className="consumer-account-heading">
+          <p aria-hidden="true">&nbsp;</p>
+          <h1>MY ACCOUNT</h1>
+        </div>
+
         <div className="consumer-mypage-layout">
           <aside className="consumer-account-sidebar">
             <div>
-              <p>MY ACCOUNT</p>
               <strong>{profile?.name ?? '내 계정'}</strong>
               {profile && <span>{profile.email}</span>}
             </div>
@@ -212,7 +208,7 @@ export function ConsumerAccountLayout({
                     // NavLink 가 활성일 때 aria-current="page" 를 붙인다. 사이드바 CSS 가
                     // 그 속성을 보고 있어 따로 class 를 주지 않는다.
                     <NavLink key={item.label} to={item.to} end={item.end}>
-                      <item.Icon aria-hidden="true" />
+                      <item.Icon weight="regular" size={23} aria-hidden="true" />
                       <span>{item.label}</span>
                     </NavLink>
                   ))}
@@ -225,95 +221,7 @@ export function ConsumerAccountLayout({
         </div>
       </main>
 
-      <AccountFooter />
+      <Footer />
     </div>
-  )
-}
-
-/**
- * 로그아웃은 여기(머리말)에 둔다.
- *
- * **파란 소개 배너(2026-09-16 삭제)가 있던 자리다.** 화면마다 제목·설명을 큰 박스로
- * 반복해 보여줬는데, 사이드바·breadcrumb 로 이미 "어디 있는지" 는 충분히 드러나 로그아웃
- * 버튼 하나 두려고 그 박스 전체를 유지할 이유가 없었다. 로그아웃은 어느 계정 화면에서든
- * 화면 맨 위에서 바로 눌러야 해 머리말로 옮겼다.
- */
-function AccountHeader({
-  sectionTitle,
-  onSignOut,
-  signOutPending = false,
-  signOutError,
-}: {
-  /** 사이드바에서 지금 활성화된 항목 이름. 사이드바가 없는 화면(쇼핑 화면)에서는 생략한다. */
-  sectionTitle?: string
-  onSignOut?: () => void
-  signOutPending?: boolean
-  signOutError?: unknown
-} = {}) {
-  return (
-    <header className="consumer-account-header">
-      <div className="consumer-account-header__inner">
-        <div className="consumer-account-header__brand">
-          <Link className="consumer-account-header__logo" to="/" aria-label="SAEROI 홈">
-            {/* public/ 자산 경로라 vite base 가 자동으로 안 붙는다 — /test/ 에서 404 방지 */}
-            <img src={`${import.meta.env.BASE_URL}img/logo.png`} alt="" />
-          </Link>
-          {/*
-            지금 사이드바에서 어느 메뉴가 활성인지를 로고 옆에도 보여준다(2026-09-17).
-            사이드바는 화면을 좁히면(900px 이하) 아래로 내려가 처음엔 안 보이는데, 그
-            상태에서도 "지금 어디 있는지"는 로고 옆에서 바로 읽혀야 한다.
-          */}
-          {sectionTitle && (
-            <span className="consumer-account-header__section-title">{sectionTitle}</span>
-          )}
-        </div>
-
-        <nav className="consumer-account-header__navigation" aria-label="쇼핑 메뉴">
-          <Link to="/shop">쇼핑</Link>
-          {/*
-            소재 마켓은 사업자끼리 소재를 사고파는 곳이다. 소비자 머리말에 두면 눌러서
-            들어갔다가 권한 없음 화면을 만난다 — /marketplace 는 사업자 전용이다.
-          */}
-          <Link to="/#featured-brands">브랜드</Link>
-          <Link to="/#about">스토리</Link>
-        </nav>
-
-        <div className="consumer-account-header__actions">
-          <Link className="consumer-account-header__shop-link" to="/shop">
-            <ShoppingBag aria-hidden="true" />
-            <span>쇼핑 계속하기</span>
-          </Link>
-          {onSignOut && (
-            <button
-              type="button"
-              className="consumer-account-header__signout"
-              disabled={signOutPending}
-              onClick={onSignOut}
-            >
-              <SignOut aria-hidden="true" />
-              <span>{signOutPending ? '로그아웃 중…' : '로그아웃'}</span>
-            </button>
-          )}
-        </div>
-      </div>
-      {signOutError ? (
-        <p className="consumer-account-header__signout-error" role="alert">
-          {toErrorMessage(signOutError)}
-        </p>
-      ) : null}
-    </header>
-  )
-}
-
-function AccountFooter() {
-  return (
-    <footer className="consumer-account-footer">
-      <div>
-        {/* public/ 자산 경로라 vite base 가 자동으로 안 붙는다 — /test/ 에서 404 방지 */}
-        <img src={`${import.meta.env.BASE_URL}img/logo.png`} alt="" />
-        <p>쓰임을 다한 소재에 새로운 가치를 더합니다.</p>
-      </div>
-      <p>© 2026 SAEROI. 모든 권리 보유.</p>
-    </footer>
   )
 }

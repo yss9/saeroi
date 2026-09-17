@@ -5,9 +5,9 @@
    정의는 그대로 두고, 카드 전체에 테두리를 씌우는 부분만 여기서 덧씌운다). */
 .consumer-wishlist-card {
   padding: 12px;
-  border: 1px solid var(--consumer-line);
+  border: 1px solid var(--line);
   border-radius: 14px;
-  background: var(--consumer-cream-soft);
+  background: var(--paper-warm);
 }
 
 .consumer-wishlist-card__thumbnail {
@@ -47,7 +47,7 @@
 
 /* X 삭제 버튼 (예전엔 하트 찜 해제 버튼이었다) */
 .consumer-wishlist-card__unlike {
-  color: var(--consumer-muted);
+  color: var(--muted);
 }
 
 .consumer-wishlist-card__unlike svg {
@@ -68,9 +68,9 @@
 .consumer-recently-viewed-card {
   flex: initial;
   padding: 14px;
-  border: 1px solid var(--consumer-line);
+  border: 1px solid var(--line);
   border-radius: 14px;
-  background: var(--consumer-cream-soft);
+  background: var(--paper-warm);
 }
 
 .consumer-recently-viewed-card__thumbnail {
