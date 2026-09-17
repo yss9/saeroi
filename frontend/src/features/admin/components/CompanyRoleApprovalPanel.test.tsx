@@ -10,7 +10,9 @@ const api = vi.hoisted(() => ({
   approveCompanyRole: vi.fn(),
   rejectCompanyRole: vi.fn(),
 }))
+const blockchain = vi.hoisted(() => ({ grantCompanyRoles: vi.fn() }))
 vi.mock('../api/companyRoleApprovalApi.ts', () => api)
+vi.mock('../../../services/blockchain/adminRoleApproval.ts', () => blockchain)
 
 const pending: CompanyRoleApplication = {
   userId: 7,
@@ -40,11 +42,12 @@ describe('CompanyRoleApprovalPanel', () => {
     api.getCompanyRoleApplications.mockResolvedValue([{ ...pending, walletAddress: null, walletVerified: false, status: 'WAITING_WALLET' }])
     renderPanel()
     expect(await screen.findByText('지갑 등록 대기')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '승인 및 역할 부여' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'MetaMask로 승인' })).toBeDisabled()
   })
 
   it('승인하면 응답의 온체인 반영 결과로 카드를 갱신한다', async () => {
     api.getCompanyRoleApplications.mockResolvedValue([pending])
+    blockchain.grantCompanyRoles.mockResolvedValue(['0xaaa', '0xbbb', '0xccc'])
     api.approveCompanyRole.mockResolvedValue({
       ...pending,
       status: 'APPROVED',
@@ -52,8 +55,9 @@ describe('CompanyRoleApprovalPanel', () => {
       transactionHashes: ['0xaaa', '0xbbb', '0xccc'],
     })
     renderPanel()
-    await userEvent.click(await screen.findByRole('button', { name: '승인 및 역할 부여' }))
-    await waitFor(() => expect(api.approveCompanyRole).toHaveBeenCalledWith(7, expect.anything()))
+    await userEvent.click(await screen.findByRole('button', { name: 'MetaMask로 승인' }))
+    await waitFor(() => expect(blockchain.grantCompanyRoles).toHaveBeenCalledWith('BRAND', pending.walletAddress))
+    expect(api.approveCompanyRole).toHaveBeenCalledWith(7, ['0xaaa', '0xbbb', '0xccc'])
     expect(await screen.findByText('온체인 반영 3건 완료')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '승인 완료' })).toBeDisabled()
   })

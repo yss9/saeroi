@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { AppError } from '../../../utils/errors.ts'
+import { createAppError, ERROR_KIND, type AppError } from '../../../utils/errors.ts'
+import { grantCompanyRoles } from '../../../services/blockchain/adminRoleApproval.ts'
 import { approveCompanyRole, getCompanyRoleApplications, rejectCompanyRole } from '../api/companyRoleApprovalApi.ts'
 import type { CompanyRoleApplication } from '../types/companyRoleApproval.types.ts'
 
@@ -9,17 +10,37 @@ export function useCompanyRoleApplications() {
   return useQuery<CompanyRoleApplication[], AppError>({ queryKey: key, queryFn: getCompanyRoleApplications })
 }
 
-function useReviewCompanyRole(review: (userId: number) => Promise<CompanyRoleApplication>) {
+function updateCachedApplication(
+  current: CompanyRoleApplication[] = [],
+  updated: CompanyRoleApplication,
+) {
+  return current.map((application) => application.userId === updated.userId ? updated : application)
+}
+
+export function useApproveCompanyRole() {
   const client = useQueryClient()
-  return useMutation<CompanyRoleApplication, AppError, number>({
-    mutationFn: review,
+  return useMutation<CompanyRoleApplication, AppError, CompanyRoleApplication>({
+    mutationFn: async (application) => {
+      if (!application.walletAddress) {
+        throw createAppError(ERROR_KIND.WALLET_DISCONNECTED, {
+          message: '검증된 사업자 지갑이 없습니다.',
+        })
+      }
+      const hashes = await grantCompanyRoles(application.role, application.walletAddress)
+      return approveCompanyRole(application.userId, hashes)
+    },
     onSuccess: (updated) => {
-      client.setQueryData<CompanyRoleApplication[]>(key, (current = []) =>
-        current.map((application) => application.userId === updated.userId ? updated : application),
-      )
+      client.setQueryData<CompanyRoleApplication[]>(key, (current) => updateCachedApplication(current, updated))
     },
   })
 }
 
-export function useApproveCompanyRole() { return useReviewCompanyRole(approveCompanyRole) }
-export function useRejectCompanyRole() { return useReviewCompanyRole(rejectCompanyRole) }
+export function useRejectCompanyRole() {
+  const client = useQueryClient()
+  return useMutation<CompanyRoleApplication, AppError, number>({
+    mutationFn: rejectCompanyRole,
+    onSuccess: (updated) => {
+      client.setQueryData<CompanyRoleApplication[]>(key, (current) => updateCachedApplication(current, updated))
+    },
+  })
+}

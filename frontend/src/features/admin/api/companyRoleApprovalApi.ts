@@ -8,8 +8,13 @@ export async function getCompanyRoleApplications(): Promise<CompanyRoleApplicati
   return data
 }
 
-export async function approveCompanyRole(userId: number): Promise<CompanyRoleApplication> {
-  const { data } = await apiClient.post<CompanyRoleApplication>(`${BASE}/${userId}/approve`)
+export async function approveCompanyRole(
+  userId: number,
+  transactionHashes: string[],
+): Promise<CompanyRoleApplication> {
+  const { data } = await apiClient.post<CompanyRoleApplication>(`${BASE}/${userId}/approve`, {
+    transactionHashes,
+  })
   return data
 }
 

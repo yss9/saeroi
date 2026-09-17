@@ -14,7 +14,7 @@ export function CompanyRoleApprovalPanel() {
   const applications = useCompanyRoleApplications()
   const approve = useApproveCompanyRole()
   const reject = useRejectCompanyRole()
-  const pendingUserId = approve.variables ?? reject.variables ?? null
+  const pendingUserId = approve.variables?.userId ?? reject.variables ?? null
 
   if (applications.isLoading) return <p className="admin-role__state">가입 승인 목록을 불러오는 중입니다.</p>
   if (applications.error) return <ErrorMessage error={applications.error} />
@@ -22,7 +22,7 @@ export function CompanyRoleApprovalPanel() {
   return (
     <section className="admin-role" aria-labelledby="company-role-title">
       <header className="admin-role__header">
-        <div><p className="admin-role__eyebrow">BLOCKCHAIN ACCESS</p><h1 id="company-role-title">사업자 가입 승인</h1><p>검증된 지갑을 확인한 뒤 회원 유형에 맞는 온체인 역할을 자동으로 부여합니다.</p></div>
+        <div><p className="admin-role__eyebrow">BLOCKCHAIN ACCESS</p><h1 id="company-role-title">사업자 가입 승인</h1><p>관리자 MetaMask로 직접 서명해 검증된 사업자 지갑에 온체인 역할을 부여합니다.</p></div>
         <span className="admin-role__count">{applications.data?.length ?? 0}개 업체</span>
       </header>
 
@@ -41,7 +41,7 @@ export function CompanyRoleApprovalPanel() {
             {application.transactionHashes.length > 0 ? <p className="admin-role__transactions">온체인 반영 {application.transactionHashes.length}건 완료</p> : null}
             <div className="admin-role__actions">
               <button type="button" className="admin-role__reject" disabled={working || application.status === 'APPROVED'} onClick={() => reject.mutate(application.userId)}>반려</button>
-              <button type="button" className="admin-role__approve" disabled={working || !canApprove} onClick={() => approve.mutate(application.userId)}>{working ? '처리 중…' : application.status === 'APPROVED' ? '승인 완료' : '승인 및 역할 부여'}</button>
+              <button type="button" className="admin-role__approve" disabled={working || !canApprove} onClick={() => approve.mutate(application)}>{working ? 'MetaMask 확인 중…' : application.status === 'APPROVED' ? '승인 완료' : 'MetaMask로 승인'}</button>
             </div>
           </article>
         })}
