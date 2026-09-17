@@ -133,7 +133,8 @@ describe('ProductionBatchDetail', () => {
 
     expect(await screen.findByRole('heading', { name: '2026 가을 토트백 1차' })).toBeInTheDocument()
     expect(screen.getByText('PB-000003')).toBeInTheDocument()
-    expect(screen.getByText('10개')).toBeInTheDocument()
+    // 숫자와 단위를 다른 태그로 나눠 그린다(숫자를 크게, 단위를 작게).
+    expect(screen.getByText('10')).toBeInTheDocument()
     // 배치의 totalUsedQuantity 는 0 이지만 투입 합계는 10kg 이다.
     expect(screen.getByText('작성 중')).toBeInTheDocument()
   })

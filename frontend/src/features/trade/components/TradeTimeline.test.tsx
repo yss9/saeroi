@@ -177,7 +177,8 @@ describe('TradeTimeline', () => {
       expect(step('발송').className).toContain('--stopped')
       expect(step('수령 확인').className).toContain('--stopped')
       expect(within(step('발송')).getByText('진행되지 않음')).toBeInTheDocument()
-      expect(screen.getByRole('status')).toHaveTextContent('취소되었습니다')
+      // 취소는 첫 줄의 이름이 말한다. 따로 문단을 두면 같은 말이 두 번이다.
+      expect(step('구매 요청 · 취소')).toBeInTheDocument()
     })
 
     it('취소 전에 끝난 결제는 그대로 남긴다', () => {
@@ -188,7 +189,7 @@ describe('TradeTimeline', () => {
       expect(within(step('결제 완료')).getByText(localized(PAID_AT))).toBeInTheDocument()
     })
 
-    it('취소 시각과 사유를 함께 보여준다', () => {
+    it('취소 시각은 첫 단계 옆에, 사유는 아래에 적는다', () => {
       renderTimeline(
         trade({
           status: 'CANCELED',
@@ -197,9 +198,11 @@ describe('TradeTimeline', () => {
         }),
       )
 
-      const notice = screen.getByRole('status')
-      expect(notice).toHaveTextContent(localized('2026-09-02T15:00:00'))
-      expect(notice).toHaveTextContent('사유: 재고 부족으로 발송이 어렵습니다')
+      // 수량 옆에 취소 시각이 붙는다.
+      expect(step('구매 요청 · 취소')).toHaveTextContent(/12 kg · .+취소/)
+      expect(screen.getByRole('status')).toHaveTextContent(
+        '취소 사유: 재고 부족으로 발송이 어렵습니다',
+      )
     })
 
     // 사유 없는 취소가 정상 경로다. "사유 없음" 같은 빈 자리를 만들면 뭔가 누락된
@@ -207,13 +210,12 @@ describe('TradeTimeline', () => {
     it('사유가 없으면 사유 줄을 만들지 않는다', () => {
       renderTimeline(trade({ status: 'CANCELED', canceledAt: '2026-09-02T15:00:00' }))
 
-      expect(screen.getByRole('status')).not.toHaveTextContent('사유')
+      expect(screen.queryByRole('status')).not.toBeInTheDocument()
     })
 
     it('다음 할 일을 안내하지 않는다', () => {
       renderTimeline(trade({ status: 'CANCELED' }), 'SELLER')
 
-      expect(screen.getByRole('status')).toHaveTextContent('취소되었습니다')
       expect(screen.queryByText(/기다리는 중/)).not.toBeInTheDocument()
     })
   })

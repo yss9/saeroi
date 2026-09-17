@@ -13,7 +13,6 @@ import { useConfirmProductionBatch } from '../hooks/useConfirmProductionBatch.ts
 import { useProductionBatch } from '../hooks/useProductionBatch.ts'
 import type { ProductionBatch, ProductionBatchStatus } from '../types/production.types.ts'
 import { MaterialInputSelect } from './MaterialInputSelect.tsx'
-import { ProductionChainPanel } from './ProductionChainPanel.tsx'
 import { ProductionInputList } from './ProductionInputList.tsx'
 import { ProductionItemList } from './ProductionItemList.tsx'
 import './production.css'
@@ -76,21 +75,13 @@ export function ProductionBatchDetail({ batchId }: ProductionBatchDetailProps) {
         <ProductionInputList batch={data} />
       </section>
 
-
       {editable && <ConfirmSection batch={data} />}
 
       {data.status === 'CONFIRMED' && <ConfirmedResult batch={data} />}
 
-      {/* 온체인 기록. 확정 전에는 못 하는 이유를 적는다 — 투입이 더 바뀔 수 있어
-          체인에 남긴 내용과 어긋난다. */}
+      {/* 확정으로 만들어진 개체의 QR. 확정 전에는 조회하지 않는다. */}
       <section className="batch-detail__section">
-        <h2>온체인 기록</h2>
-        <ProductionChainPanel batch={data} />
-      </section>
-
-      {/* 확정으로 만들어진 개체와 QR. 확정 전에는 조회하지 않고 안내만 한다. */}
-      <section className="batch-detail__section">
-        <h2>제품 개체와 QR</h2>
+        <h2>제품 QR</h2>
         <ProductionItemList batchId={batchId} confirmed={data.status === 'CONFIRMED'} />
       </section>
     </div>
@@ -111,19 +102,23 @@ function BatchSummary({ batch }: { batch: ProductionBatch }) {
       <div className="batch-detail__title">
         <h1>{batch.batchName}</h1>
         <StatusBadge tone={TONE[batch.status]}>{STATUS_LABEL[batch.status]}</StatusBadge>
+        <span className="batch-detail__code">{batch.batchCode}</span>
       </div>
+
+      {/* 이 배치를 말하는 숫자 셋. 같은 크기로 늘어놓으면 무엇이 결과인지 알 수 없어
+          만들 개수와 넣은 양을 크게 세운다. */}
       <dl className="batch-detail__meta">
         <div>
-          <dt>배치 번호</dt>
-          <dd className="batch-detail__code">{batch.batchCode}</dd>
-        </div>
-        <div>
           <dt>생산 개수</dt>
-          <dd>{batch.producedQuantity}개</dd>
+          <dd>{batch.producedQuantity}<small>개</small></dd>
         </div>
         <div>
           <dt>투입 합계</dt>
           <dd>{formatKg(inputTotal)}</dd>
+        </div>
+        <div>
+          <dt>투입 소재</dt>
+          <dd>{batch.inputs.length}<small>건</small></dd>
         </div>
       </dl>
     </header>

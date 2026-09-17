@@ -163,3 +163,23 @@ describe('네 가지 상태', () => {
     await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(2))
   })
 })
+
+// 서버가 DEPLETED 로 넘기지 않는다(MaterialStatus 에 전환 메서드가 없다) — 0g 이 된
+// 소재도 ACTIVE 로 온다. 그 값을 그대로 적으면 0kg 짜리가 "보유 중" 으로 보인다.
+it('보유량이 0 이면 소진으로 적는다', async () => {
+  api.getMyMaterials.mockResolvedValue([item({ status: 'ACTIVE', quantity: 0, available: 0 })])
+  renderList()
+
+  expect(await screen.findByText('소진', { selector: 'span' })).toBeInTheDocument()
+  expect(screen.queryByText('보유 중', { selector: 'span' })).not.toBeInTheDocument()
+})
+
+// 판매글이나 가공에 전량이 잠긴 소재는 없어진 것이 아니다 — 잠금이 풀리면 돌아온다.
+it('전량이 잠겨 가용량만 0 이면 소진이 아니다', async () => {
+  api.getMyMaterials.mockResolvedValue([
+    item({ status: 'ACTIVE', quantity: 20_200, available: 0 }),
+  ])
+  renderList()
+
+  expect(await screen.findByText('보유 중', { selector: 'span' })).toBeInTheDocument()
+})

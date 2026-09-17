@@ -407,6 +407,11 @@ a.ui-button { text-decoration: none; }
   box-shadow: var(--ui-shadow);
   overflow: hidden;
 }
+/* 소진된 소재. 지울 수는 없다 — 이력이 남아 있고 추적에 쓰인다 — 대신 뒤로 물린다. */
+.inventory-card--used-up { background: var(--ui-color-bg); }
+.inventory-card--used-up .inventory-card__name { color: var(--ui-color-muted); }
+.inventory-card--used-up .inventory-card__available { color: var(--ui-color-muted); }
+
 .inventory-card:hover {
   border-color: var(--inv-blue);
 }

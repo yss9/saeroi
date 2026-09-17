@@ -78,19 +78,12 @@ export function TradeTimeline({ trade, viewer }: TradeTimelineProps) {
         ))}
       </ol>
 
-      {/* 취소된 거래. 시각은 항상 있고 사유는 사람이 적었을 때만 있다 —
-          사유 없는 취소가 정상 경로라 "사유 없음" 같은 빈 자리를 만들지 않는다. */}
-      {isCanceled && (
-        <div className="trade-timeline__canceled" role="status">
-          <p>
-            이 거래는 취소되었습니다
-            {trade.canceledAt !== null && ` · ${formatTradeDateTime(trade.canceledAt)}`}. 취소
-            이후 단계는 진행되지 않습니다.
-          </p>
-          {trade.cancelReason && (
-            <p className="trade-timeline__cancel-reason">사유: {trade.cancelReason}</p>
-          )}
-        </div>
+      {/* 취소 사유는 사람이 적었을 때만 있다 — 사유 없는 취소가 정상 경로라 "사유 없음"
+          같은 빈 자리를 만들지 않는다. 취소 시각은 위 첫 단계 옆에 붙는다. */}
+      {isCanceled && trade.cancelReason && (
+        <p className="trade-timeline__cancel-reason" role="status">
+          취소 사유: {trade.cancelReason}
+        </p>
       )}
 
       {/* 지금 누구를 기다리는지. 상태 배지만으로는 "내가 뭘 해야 하나" 에 답하지 못한다. */}
@@ -125,9 +118,13 @@ function buildSteps(trade: Trade): Step[] {
   const definitions: Omit<Step, 'state'>[] = [
     {
       key: 'created',
-      label: '구매 요청',
+      label: canceled ? '구매 요청 · 취소' : '구매 요청',
       at: trade.createdAt,
-      detail: formatKg(trade.quantity),
+      // 취소는 어느 단계에서 났는지 상태가 말해 주지 않는다. 그래서 시각만 첫 줄에 붙여
+      // "언제 끝났는가" 를 남긴다 — 따로 문단을 두면 같은 말이 두 번이다.
+      detail: canceled && trade.canceledAt !== null
+        ? `${formatKg(trade.quantity)} · ${formatTradeDateTime(trade.canceledAt)} 취소`
+        : formatKg(trade.quantity),
       actor: 'BUYER',
     },
     { key: 'paid', label: '결제 완료', at: trade.paidAt, actor: 'BUYER' },

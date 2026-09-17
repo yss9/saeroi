@@ -156,3 +156,25 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* 올리기 입구. 목록 위 오른쪽에 둔다 — 목록을 훑고 나서 다시 올라가지 않게.
+   색은 사이트 파랑이다. 공통 기본값(초록)은 이 도메인의 색이 아니다. */
+.evidence__add { display: flex; justify-content: flex-end; }
+.evidence__add .ui-button--primary { background: #216a9f; color: #fff; }
+.evidence__add .ui-button--primary:hover:not(:disabled) { background: #174b72; }
+
+/* 창 제목도 같은 파랑. 버튼만 색이 있으면 제목이 다른 화면 것처럼 떠 보인다.
+   모달은 한 번에 하나만 뜨므로 이 화면이 연 창의 제목이 맞다. */
+.ui-modal:has(.evidence__form-row) .ui-modal__title { color: #216a9f; }
+
+/* 창 안에서는 종류와 파일을 위아래로 쌓는다 — 나란히 두면 칸이 좁아 이름이 잘린다. */
+.ui-modal .evidence__form-row { flex-direction: column; gap: 0; }
+.ui-modal .evidence__form-actions .ui-button--primary { background: #216a9f; color: #fff; }
+.ui-modal .evidence__form-actions .ui-button--primary:hover:not(:disabled) { background: #174b72; }
+
+.evidence__form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}

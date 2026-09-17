@@ -88,8 +88,8 @@ export function BrandProductList() {
             </div>
 
             <div className="brand-product-list__side">
-              <StatusBadge tone={TONE[product.status]}>
-                {PRODUCT_MODEL_STATUS_LABEL[product.status]}
+              <StatusBadge tone={TONE[shownStatus(product)]}>
+                {PRODUCT_MODEL_STATUS_LABEL[shownStatus(product)]}
               </StatusBadge>
               <StatusActions
                 product={product}
@@ -124,6 +124,22 @@ export function BrandProductList() {
       />
     </>
   )
+}
+
+/**
+ * 배지에 적을 상태.
+ *
+ * **재고가 0 이면 품절로 적는다.** 서버도 다 팔리면 `ON_SALE → SOLD_OUT` 으로 넘기지만
+ * (`ProductModel.markSoldOut`), 그 표시는 개체를 세는 쪽의 사본일 뿐이라 둘이 어긋날 수
+ * 있다. 어긋났을 때 화면이 "판매 중" 이라고 적으면 살 수 없는 제품을 팔리는 것처럼
+ * 보여준다 — 근거는 언제나 재고다.
+ *
+ * 단종·판매 준비는 그대로 둔다. 만든 적이 없어 0 인 것을 품절이라 부르면 "팔린 적 없는데
+ * 품절" 이 된다 (서버가 DRAFT 를 SOLD_OUT 으로 만들지 않는 것과 같은 이유다).
+ */
+function shownStatus(product: ProductModel): ProductModelStatus {
+  if (product.status === 'ON_SALE' && product.stockQuantity <= 0) return 'SOLD_OUT'
+  return product.status
 }
 
 /**

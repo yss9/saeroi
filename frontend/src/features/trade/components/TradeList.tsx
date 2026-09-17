@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { EmptyState, ErrorMessage, Loading, StatusBadge } from '../../../components/common/index.ts'
 import { formatKg, formatWon } from '../../../utils/quantity.ts'
@@ -10,6 +11,12 @@ import {
   type TradeStatus,
 } from '../types/trade.types.ts'
 
+/** 끝난 거래는 카드 자체를 뒤로 물린다. 진행 중인 거래를 찾는 목록이다. */
+const CARD_TONE: Partial<Record<TradeStatus, string>> = {
+  COMPLETED: 'trade-card--completed',
+  CANCELED: 'trade-card--canceled',
+}
+
 const TONE: Record<TradeStatus, 'neutral' | 'info' | 'warning' | 'success'> = {
   CREATED: 'warning',
   PAID: 'info',
@@ -21,9 +28,14 @@ const TONE: Record<TradeStatus, 'neutral' | 'info' | 'warning' | 'success'> = {
 
 export interface TradeListProps {
   filters?: TradeFilters
+  /**
+   * 카드를 눌렀을 때. 주면 상세로 이동하는 대신 이것을 부른다 — 구매 내역은 팝업으로
+   * 연다. 주지 않으면 그대로 상세 주소로 간다(판매 거래·알림에서 들어오는 길).
+   */
+  onSelect?: (tradeId: number) => void
 }
 
-export function TradeList({ filters }: TradeListProps) {
+export function TradeList({ filters, onSelect }: TradeListProps) {
   const { data, isPending, isError, error, refetch } = useTrades(filters)
 
   // 구매·판매 양쪽이 같은 목록 컴포넌트를 쓴다. 강조해야 할 상태가 서로 다르므로
@@ -50,8 +62,8 @@ export function TradeList({ filters }: TradeListProps) {
   return (
     <ul className="trade-grid">
       {data.content.map((trade) => (
-        <li key={trade.tradeId} className="trade-card">
-          <Link to={`/trades/${trade.tradeId}`} className="trade-card__link">
+        <li key={trade.tradeId} className={`trade-card ${CARD_TONE[trade.status] ?? ''}`}>
+          <CardShell tradeId={trade.tradeId} onSelect={onSelect}>
             {/*
               상태를 맨 위 왼쪽에 둔다. 카드 아래에 있으면 여러 장을 훑을 때 시선이
               카드마다 끝까지 내려갔다 올라와야 한다 — 목록에서 먼저 읽는 것이 상태다.
@@ -70,15 +82,45 @@ export function TradeList({ filters }: TradeListProps) {
               )}
             </div>
             {/*
-              거래 번호는 적지 않는다. 카드에서 고르는 기준은 소재 이름이지 번호가 아니고,
-              번호가 맨 위에 있으면 이름보다 먼저 읽힌다. 상세 화면에는 그대로 있다.
+              거래 번호는 적지 않는다. 고르는 기준은 소재 이름이지 번호가 아니다.
             */}
             <strong className="trade-card__name">{trade.materialName}</strong>
             <span className="trade-card__quantity">{formatKg(trade.quantity)}</span>
             <span className="trade-card__price">{formatWon(trade.totalPrice)}</span>
-          </Link>
+          </CardShell>
         </li>
       ))}
     </ul>
+  )
+}
+
+/**
+ * 카드 껍데기.
+ *
+ * 누르면 팝업을 여는 화면과 주소로 넘어가는 화면이 같은 카드를 쓴다. 링크로만 두면 팝업
+ * 쪽에서 새 탭·가운데 클릭이 상세 주소로 새 버리고, 버튼으로만 두면 링크 쪽에서 주소를
+ * 복사할 수 없다 — 그래서 쓰는 쪽에 맞춰 태그를 바꾼다.
+ */
+function CardShell({
+  tradeId,
+  onSelect,
+  children,
+}: {
+  tradeId: number
+  onSelect?: (tradeId: number) => void
+  children: ReactNode
+}) {
+  if (onSelect) {
+    return (
+      <button type="button" className="trade-card__link" onClick={() => onSelect(tradeId)}>
+        {children}
+      </button>
+    )
+  }
+
+  return (
+    <Link to={`/trades/${tradeId}`} className="trade-card__link">
+      {children}
+    </Link>
   )
 }

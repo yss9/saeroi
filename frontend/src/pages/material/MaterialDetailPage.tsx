@@ -6,14 +6,11 @@ import {
   ErrorMessage,
   Loading,
   StatusBadge,
-  VerificationBadge,
 } from '../../components/common/index.ts'
+import { canAccess, getRouteAccess } from '../../app/router/routeAccess.ts'
+import { useAuth } from '../../features/auth/hooks/useAuth.ts'
 import { MaterialBalanceTable } from '../../features/material/components/MaterialBalanceTable.tsx'
 import { EvidenceUpload } from '../../features/evidence/components/EvidenceUpload.tsx'
-import { MaterialJourneyTimeline } from '../../features/material/components/MaterialJourneyTimeline.tsx'
-import { MaterialLineageTree } from '../../features/material/components/MaterialLineageTree.tsx'
-import { MaterialMintPanel } from '../../features/material/components/MaterialMintPanel.tsx'
-import { MaterialSourceVerificationPanel } from '../../features/material/components/MaterialSourceVerificationPanel.tsx'
 import { ListingList } from '../../features/marketplace/components/ListingList.tsx'
 import { useMaterial } from '../../features/material/hooks/useMaterial.ts'
 import {
@@ -52,6 +49,13 @@ export function MaterialDetailPage() {
   // 숫자로 파싱되지 않으면 null 을 넘겨 조회 자체를 막는다 (useMaterial 의 enabled).
   const parsed = Number(materialId)
   const id = Number.isInteger(parsed) && parsed > 0 ? parsed : null
+
+  // 판매 등록은 공급업체의 화면이다. 역할을 여기서 나열하지 않고 라우터가 정한 권한을 묻는다.
+  const { user, isAuthenticated } = useAuth()
+  const sellAccess = getRouteAccess('/supplier/listings')
+  const canSell =
+    sellAccess !== undefined &&
+    canAccess(sellAccess, { isAuthenticated, role: user?.role ?? null })
 
   const { data, isPending, isError, error, refetch } = useMaterial(id)
   const navigate = useNavigate()
@@ -96,16 +100,22 @@ export function MaterialDetailPage() {
         <StatusBadge tone={data.status === 'ACTIVE' ? 'success' : 'neutral'}>
           {data.status === 'ACTIVE' ? '보유 중' : '소진'}
         </StatusBadge>
-        {/* 소재 선택까지 골라 두면(SupplierMarketPage 의 materialId 쿼리) 판매
-            등록 화면에서 소재를 다시 고를 필요가 없다. */}
-        <Button size="sm" onClick={() => navigate(`/supplier/listings?materialId=${id}`)}>
-          보유 소재 팔기
-        </Button>
+        {/*
+          **팔 수 있는 사람에게만 낸다.** 판매 등록(/supplier/listings)은 공급업체의
+          화면이라 브랜드가 누르면 /403 으로 튕긴다 — 브랜드는 소재를 사서 쓰는 쪽이다.
+          역할을 여기서 나열하지 않고 라우터가 정한 접근 권한을 그대로 묻는다.
+        */}
+        {canSell && (
+          <Button size="sm" onClick={() => navigate(`/supplier/listings?materialId=${id}`)}>
+            보유 소재 팔기
+          </Button>
+        )}
       </header>
 
+      <div className="material-detail__columns">
       <section aria-labelledby="material-info">
         <h2 id="material-info">소재 정보</h2>
-        {data.description && <p>{data.description}</p>}
+        {data.description && <p className="material-detail__description">{data.description}</p>}
         <dl className="material-detail__info">
           <div>
             <dt>출처</dt>
@@ -144,25 +154,6 @@ export function MaterialDetailPage() {
         </dl>
       </section>
 
-      <section aria-labelledby="material-onchain">
-        <h2 id="material-onchain">온체인</h2>
-        {data.tokenId !== null && (
-          <dl className="material-detail__info">
-            <div>
-              <dt>Token ID</dt>
-              <dd>{data.tokenId}</dd>
-            </div>
-            <div>
-              <dt>Chain ID</dt>
-              <dd>{data.chainId}</dd>
-            </div>
-          </dl>
-        )}
-        {/* null tokenId 가 "등록됐지만 온체인에 없음" 의 유일한 신호다.
-            패널이 그 상태에서 발행 버튼을, 발행 후에는 토큰 번호를 보여준다. */}
-        <MaterialMintPanel material={data} />
-      </section>
-
       <section aria-labelledby="material-composition">
         <h2 id="material-composition">구성</h2>
         {data.composition.length === 0 ? (
@@ -172,6 +163,13 @@ export function MaterialDetailPage() {
           />
         ) : (
           <>
+            {/* 비율 막대. 숫자만 늘어놓으면 어느 섬유가 주된 것인지 한 번에 읽히지 않는다. */}
+            <div className="material-detail__mix" role="img" aria-label={compositionLabel(data)}>
+              {data.composition.map((row) => (
+                <span key={row.fiberType} style={{ width: `${row.percentage}%` }} />
+              ))}
+            </div>
+
             <dl className="material-detail__info">
               {/* 서버가 비율 내림차순으로 정렬해 준다. 여기서 다시 정렬하지 않는다 —
                   양쪽에서 정렬하면 같은 소재의 줄 순서가 화면마다 달라 보인다. */}
@@ -185,28 +183,18 @@ export function MaterialDetailPage() {
             {/* 합계가 100 미만인 것은 정상이다. 모르는 부분을 지어내지 않은 결과이므로
                 "나머지 미확인" 이라고 밝힌다 — 밝히지 않으면 데이터 누락으로 읽힌다. */}
             {compositionTotal(data.composition) < 100 && (
-              <p>나머지 {100 - compositionTotal(data.composition)}% 는 확인되지 않았습니다.</p>
+              <p className="material-detail__note">
+                나머지 {100 - compositionTotal(data.composition)}% 는 확인되지 않았습니다.
+              </p>
             )}
           </>
         )}
       </section>
+      </div>
 
       <section aria-labelledby="material-owners">
         <h2 id="material-owners">보유 현황</h2>
         <MaterialBalanceTable materialId={id} />
-      </section>
-
-      <section aria-labelledby="material-history">
-        <h2 id="material-history">소재 이력</h2>
-        <MaterialLineageTree materialId={id} />
-      </section>
-
-      <section aria-labelledby="material-journey">
-        <h2 id="material-journey">진행 상황</h2>
-        {/* 위 소재 이력(혈통)이 "어느 소재에서 와서 어느 소재로 이어졌는가"(공간)를
-            보여준다면, 이 목록은 "이 소재에 무슨 일이 언제 있었는가"(시간)를 보여준다
-            (S15P21E104-73/-77). */}
-        <MaterialJourneyTimeline materialId={id} />
       </section>
 
       <section aria-labelledby="material-evidence">
@@ -221,31 +209,6 @@ export function MaterialDetailPage() {
           evidence_file 이 갖는다. 둘을 섞으면 "증빙 없음" 인데 파일은 있는 상태가 된다.
         */}
         <EvidenceUpload referenceType="MATERIAL" referenceId={id} />
-      </section>
-
-      <section aria-labelledby="material-verification">
-        <h2 id="material-verification">검증 상태</h2>
-        <VerificationBadge state={data.verificationState} />
-        {/* null tokenId 가 "온체인에 없음" 인 것처럼, verification 이 null 인 것은
-            "출처 검증 근거 없음" 이다. 패널이 그 상태에서 서명 버튼을, 확정 후에는
-            근거(지갑·Tx 해시·시각)를 보여준다. */}
-        <MaterialSourceVerificationPanel material={data} />
-        {data.verification && (
-          <dl className="material-detail__info">
-            <div>
-              <dt>서명 지갑</dt>
-              <dd>{data.verification.signerWallet}</dd>
-            </div>
-            <div>
-              <dt>검증 시각</dt>
-              <dd>{formatDate(data.verification.signedAt)}</dd>
-            </div>
-            <div>
-              <dt>Tx 해시</dt>
-              <dd title={data.verification.txHash}>{data.verification.txHash}</dd>
-            </div>
-          </dl>
-        )}
       </section>
 
       {/*
@@ -282,6 +245,11 @@ function formatDimensions(material: MaterialDetail): string {
  */
 function fiberLabel(fiberType: string): string {
   return FIBER_TYPE_LABEL[fiberType as MaterialFiberType] ?? fiberType
+}
+
+/** 막대가 읽어 주는 문장. 색만으로는 무엇이 얼마인지 알 수 없다. */
+function compositionLabel(data: MaterialDetail): string {
+  return data.composition.map((row) => `${fiberLabel(row.fiberType)} ${row.percentage}%`).join(', ')
 }
 
 function compositionTotal(composition: MaterialCompositionItem[]): number {

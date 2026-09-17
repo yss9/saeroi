@@ -7,6 +7,7 @@ import {
   FileUploader,
   LocalFilePreview,
   Loading,
+  Modal,
   Select,
 } from '../../../components/common/index.ts'
 import { useDeleteEvidence } from '../hooks/useDeleteEvidence.ts'
@@ -102,6 +103,8 @@ export function EvidenceUpload({
   const [selected, setSelected] = useState<File[]>([])
   const [selectedByType, setSelectedByType] = useState<Partial<Record<EvidenceType, File[]>>>({})
   const [uploadingType, setUploadingType] = useState<EvidenceType | null>(null)
+  // 올리는 칸은 창으로 연다. 목록 위에 늘 펼쳐 두면 증빙을 보러 온 사람이 매번 지나친다.
+  const [adding, setAdding] = useState(false)
   // 지우려는 파일 하나만 든다 — 확인 모달은 한 번에 하나만 뜬다.
   const [pendingDelete, setPendingDelete] = useState<EvidenceFile | null>(null)
 
@@ -125,9 +128,19 @@ export function EvidenceUpload({
 
   return (
     <div className="evidence">
-      {!readOnly && (
+      {/*
+        **올리는 칸은 창으로 연다.** 종류와 파일 칸이 목록 위에 늘 펼쳐져 있으면 증빙을
+        보러 온 사람도 그 폼을 지나쳐야 하고, 여기서 올리는 일은 가끔이다. 여러 종류를
+        한꺼번에 받는 가공(type-grid)은 그 자체가 할 일 목록이라 펼친 채 둔다.
+      */}
+      {!readOnly && uploadMode === 'select' && (
+        <div className="evidence__add">
+          <Button onClick={() => setAdding(true)}>증빙 등록</Button>
+        </div>
+      )}
+
+      {!readOnly && uploadMode === 'type-grid' && (
         <div className="evidence__form">
-          {uploadMode === 'type-grid' ? (
             <div className="evidence__type-grid">
               {PROCESSING_EVIDENCE_TYPES.map((type) => {
                 const files = selectedByType[type] ?? []
@@ -169,61 +182,24 @@ export function EvidenceUpload({
                 )
               })}
             </div>
-          ) : (
-            <>
-              <div className="evidence__form-row">
-                <Select
-                  label="증빙 종류"
-                  options={MATERIAL_EVIDENCE_TYPES.map((value) => ({
-                    value,
-                    label: EVIDENCE_TYPE_LABEL[value],
-                  }))}
-                  value={evidenceType}
-                  onChange={(event) => setEvidenceType(event.target.value as EvidenceType)}
-                />
-                <FileUploader
-                  label="파일 선택"
-                  hint={`사진(jpg·png·webp)과 pdf 를 최대 ${EVIDENCE_MAX_FILES}개, 개당 10MB 까지 올릴 수 있습니다.`}
-                  accept={EVIDENCE_ACCEPT}
-                  multiple
-                  maxSizeBytes={EVIDENCE_MAX_FILE_SIZE}
-                  maxFiles={EVIDENCE_MAX_FILES}
-                  uploading={upload.isPending}
-                  progress={upload.progress}
-                  onChange={setSelected}
-                />
-              </div>
-              {selected.length > 0 && (
-                <>
-                  <SelectedFiles files={selected} label="올릴 파일" />
-                  <Button
-                    type="button"
-                    onClick={() => submit(evidenceType, selected, () => setSelected([]))}
-                    loading={upload.isPending}
-                  >
-                    증빙 {selected.length}개 올리기
-                  </Button>
-                </>
-              )}
-            </>
-          )}
 
-          {upload.isSuccess && upload.data.length > 0 && (
-            <div className="evidence__result" role="status">
-              <p>증빙 {upload.data.length}개를 올렸습니다.</p>
-              <ul aria-label="업로드 결과">
-                {upload.data.map((file) => (
-                  <li key={file.evidenceFileId}>
-                    {EVIDENCE_TYPE_LABEL[file.evidenceType]}
-                    <span className="evidence__hash">{file.fileHash}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {upload.isError && <ErrorMessage error={upload.error} />}
+          {upload.isError && uploadMode === 'type-grid' && <ErrorMessage error={upload.error} />}
         </div>
       )}
+
+        {upload.isSuccess && upload.data.length > 0 && (
+          <div className="evidence__result" role="status">
+            <p>증빙 {upload.data.length}개를 올렸습니다.</p>
+            <ul aria-label="업로드 결과">
+              {upload.data.map((file) => (
+                <li key={file.evidenceFileId}>
+                  {EVIDENCE_TYPE_LABEL[file.evidenceType]}
+                  <span className="evidence__hash">{file.fileHash}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       {list.isPending ? (
         <Loading variant="skeleton" rows={2} label="증빙을 불러오는 중" />
       ) : list.isError ? (
@@ -309,13 +285,79 @@ export function EvidenceUpload({
 
       {remove.isError && <ErrorMessage error={remove.error} />}
 
+      {/* 창 하나에 종류와 파일이 같이 있다 — 둘은 한 번에 정하는 값이다. */}
+      {/*
+        열려 있을 때만 마운트한다. 닫힌 `<dialog>` 도 DOM 에 남아 닫기 버튼("×") 같은
+        마크업이 문서에 들어간다 — 이 컴포넌트를 끼는 화면의 "그 문구가 없어야 한다" 류
+        단언과 부딪힌다 (아래 삭제 확인 모달과 같은 이유다).
+      */}
+      {!readOnly && uploadMode === 'select' && adding && (
+      <Modal
+        open={adding}
+        title="증빙 등록"
+        dismissible={!upload.isPending}
+        onClose={() => {
+          setSelected([])
+          upload.reset()
+          setAdding(false)
+        }}
+      >
+        <div className="evidence__form-row">
+          <Select
+            label="증빙 종류"
+            options={MATERIAL_EVIDENCE_TYPES.map((value) => ({
+              value,
+              label: EVIDENCE_TYPE_LABEL[value],
+            }))}
+            value={evidenceType}
+            onChange={(event) => setEvidenceType(event.target.value as EvidenceType)}
+          />
+          <FileUploader
+            label="파일 선택"
+            hint={`사진(jpg·png·webp)과 pdf 를 최대 ${EVIDENCE_MAX_FILES}개, 개당 10MB 까지 올릴 수 있습니다.`}
+            accept={EVIDENCE_ACCEPT}
+            multiple
+            maxSizeBytes={EVIDENCE_MAX_FILE_SIZE}
+            maxFiles={EVIDENCE_MAX_FILES}
+            uploading={upload.isPending}
+            progress={upload.progress}
+            // 고른 파일 목록은 여기 한 곳에서만 그린다. 밖에서 또 그리면 같은 파일 이름이
+            // 두 줄로 보인다.
+            showPreview
+            onChange={setSelected}
+          />
+        </div>
+
+        {upload.isError && <ErrorMessage error={upload.error} />}
+
+        <div className="evidence__form-actions">
+          {/* 파일을 고르기 전에는 보낼 것이 없다. */}
+          <Button
+            type="button"
+            disabled={selected.length === 0}
+            loading={upload.isPending}
+            onClick={() =>
+              submit(evidenceType, selected, () => {
+                setSelected([])
+                setAdding(false)
+              })
+            }
+          >
+            {selected.length > 0 ? `증빙 ${selected.length}개 올리기` : '증빙 올리기'}
+          </Button>
+        </div>
+      </Modal>
+      )}
+
       {/*
         열려 있을 때만 마운트한다. `<dialog>` 는 항상 DOM 에 있으면 닫혀 있어도
         닫기 버튼("×") 같은 마크업이 문서에 남는다 — 이 화면이 끼는 다른 페이지의
         "이 문구가 없어야 한다" 류 단언과 부딪힌다.
       */}
       {pendingDelete && (
-        <ConfirmModal
+  
+
+      <ConfirmModal
           open
           title="증빙을 지울까요?"
           message={`${EVIDENCE_TYPE_LABEL[pendingDelete.evidenceType]} 파일을 지웁니다. 온체인에 이미 기록된 증빙은 지울 수 없습니다.`}
