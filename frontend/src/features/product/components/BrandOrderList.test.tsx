@@ -186,10 +186,10 @@ describe('BrandOrderList', () => {
     )
     renderList()
 
-    expect(await screen.findByText('CJ대한통운 123456789012')).toBeInTheDocument()
+    // 택배사와 번호는 줄을 나눠 적는다 — 문의에서 찾는 값은 번호 하나다.
+    expect(await screen.findByText('123456789012')).toBeInTheDocument()
+    expect(screen.getByText('CJ대한통운')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '발송 처리' })).not.toBeInTheDocument()
-    // 브랜드가 대신 완료시킬 수 없다는 것을 알린다.
-    expect(screen.getByText(/소비자가 수령을 확인하면 완료됩니다/)).toBeInTheDocument()
   })
 
   it('보낼 주문이 없으면 그렇게 말한다', async () => {

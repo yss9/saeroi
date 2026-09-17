@@ -98,6 +98,32 @@ export interface CreateProductModelRequest {
  * `hash` 는 기록된 바이트의 SHA-256 이다. 같은 사진을 다시 올렸는지 판단할 수 있지만
  * 지금 화면은 쓰지 않는다.
  */
+/**
+ * 상세 갤러리에 걸리는 사진의 성격. `product_image.image_type` ENUM 과 같다.
+ *
+ * **대표(`MAIN`)는 갤러리에 한 장뿐이다** — 서버가 둘 이상이면
+ * `PRODUCT_IMAGE_MAIN_NOT_UNIQUE` 로 거절한다.
+ */
+export type ProductImageType = 'MAIN' | 'ANGLE' | 'DETAIL' | 'CONTEXT'
+
+/** 갤러리를 교체할 때 보내는 한 장. 순서는 배열의 순서다. */
+export interface ProductImageRef {
+  storageKey: string
+  type: ProductImageType
+}
+
+/** 서버가 돌려주는 갤러리 한 장. */
+export interface ProductImageItem {
+  productImageId: number
+  /** 이미지 바이트를 주는 경로. 인증이 필요해 `<img src>` 로 바로 걸 수 없다 */
+  url: string
+  type: ProductImageType
+  sortOrder: number
+}
+
+/** 제품 하나가 가질 수 있는 사진 수 (`ProductModelImageService.MAX_IMAGES_PER_MODEL`). */
+export const PRODUCT_IMAGES_MAX = 10
+
 export interface ProductImageUpload {
   storageKey: string
   originalFilename: string

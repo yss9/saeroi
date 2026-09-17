@@ -126,7 +126,15 @@ export function BrandProductList({ actions }: BrandProductListProps) {
 
       <ul className="brand-product-list">
         {shown.map((product) => (
-          <li key={product.productModelId} className="brand-product-list__item" onClick={(event) => followClick(event, `/products/${product.productModelId}`)}>
+          <li
+            key={product.productModelId}
+            className={
+              shownStatus(product) === 'SOLD_OUT'
+                ? 'brand-product-list__item brand-product-list__item--soldout'
+                : 'brand-product-list__item'
+            }
+            onClick={(event) => followClick(event, `/products/${product.productModelId}`)}
+          >
             {/*
               상태가 줄의 첫 칸이다 — 여러 줄을 훑을 때 "이건 지금 팔리는가" 가 가장 먼저
               걸러지는 값이고, 눈이 같은 자리에서 찾는다.
@@ -322,9 +330,10 @@ function StockLine({ product }: { product: ProductModel }) {
     return <span className="brand-product-list__stock">판매 가능 {product.stockQuantity}개</span>
   }
 
+  // 있을 때와 없을 때의 문장을 같은 모양으로 둔다 — "판매 가능 N개" 한 줄만 읽으면 된다.
   return (
     <span className="brand-product-list__stock brand-product-list__stock--empty">
-      {product.status === 'DRAFT' && '생산 전 · '}판매 가능 수량 0개
+      {product.status === 'DRAFT' && '생산 전 · '}판매 가능 0개
     </span>
   )
 }

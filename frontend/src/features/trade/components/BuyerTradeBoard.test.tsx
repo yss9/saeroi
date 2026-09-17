@@ -77,11 +77,11 @@ describe('BuyerTradeBoard', () => {
     const user = renderBoard()
     await waitFor(() => expect(api.getTrades).toHaveBeenCalled())
 
-    await user.click(screen.getByRole('button', { name: '결제 필요' }))
+    await user.click(screen.getByRole('button', { name: '결제 완료' }))
 
     // TanStack Query 가 두 번째 인자로 컨텍스트를 넘기므로 첫 인자만 본다.
     await waitFor(() =>
-      expect(api.getTrades.mock.calls.at(-1)?.[0]).toEqual({ status: 'CREATED' }),
+      expect(api.getTrades.mock.calls.at(-1)?.[0]).toEqual({ status: 'PAID' }),
     )
   })
 

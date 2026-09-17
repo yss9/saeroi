@@ -25,3 +25,10 @@
 
 @media(max-width:980px){.pj-panel dl{grid-template-columns:repeat(2,minmax(0,1fr))}.pj-output__grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){.pj-detail>header{align-items:stretch;flex-direction:column}.pj-status{align-self:flex-start}.pj-progress{margin-right:0;margin-left:0}.pj-panel{padding:17px}.pj-panel dl,.pj-output__grid{grid-template-columns:1fr}.pj-fields{align-items:stretch;flex-direction:column}}
+
+/*
+  발송 칸의 이름표(택배사·운송장 번호)는 옆 문장과 같은 굵기로 둔다. 진하게 두면 적어 넣은
+  값보다 이름표가 먼저 눈에 들어와, 무엇이 입력한 내용인지 헷갈린다. 크기도 이 화면의
+  다른 글씨(.78rem)에 맞춘다 — .68rem 짜리 진한 글씨는 작고 검어 덩어리로 보였다.
+*/
+.pj-fields label { font-size: 0.78rem; font-weight: 400; color: #4b5563; }

@@ -696,6 +696,8 @@
   padding: 0;
   display: grid;
   gap: 1rem;
+  /* 모든 줄의 높이를 같게 맞춘다 — 소재명이 한 줄이냐 두 줄이냐로 카드가 들쭉날쭉했다. */
+  grid-auto-rows: 1fr;
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 @media (max-width: 64rem) {
@@ -706,6 +708,8 @@
 }
 
 .trade-card {
+  /* 안쪽 링크가 카드 높이를 다 쓰게 한다. 그러지 않으면 카드 아래가 빈 채로 남는다. */
+  display: flex;
   border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius);
   background: var(--ui-color-surface);
@@ -728,9 +732,11 @@
   display: flex;
   width: 100%;
   flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 0.3rem;
+  /* 왼쪽으로 세운다. 가운데 정렬은 값이 넷이면 길이가 제각각인 줄이 층층이 흔들린다. */
+  align-items: stretch;
+  text-align: left;
+  gap: 0.25rem;
+  flex: 1;
   padding: 0.9rem 1rem 1rem;
   border: 0;
   background: none;
@@ -740,10 +746,33 @@
   cursor: pointer;
 }
 
-.trade-card__name { font-size: 0.95rem; font-weight: 600; }
+.trade-card__name {
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+/* 거래 상대. 이름 바로 아래에서 같은 소재의 여러 건을 가른다. */
+.trade-card__party { font-size: 0.82rem; font-weight: 600; }
+.trade-card__party small {
+  margin-right: 0.35rem;
+  color: var(--ui-color-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+/* 수량과 금액은 줄의 양끝. 그 사이의 선이 "이름 · 상대" 와 "숫자" 를 가른다. */
+.trade-card__footer {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+  /* 카드 맨 아래에 붙는다 — 이름이 짧은 카드에서만 숫자가 위로 떠 있지 않게. */
+  margin-top: auto;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--ui-color-border);
+}
 .trade-card__quantity { font-size: 0.82rem; color: var(--ui-color-muted); }
 .trade-card__price {
-  margin-top: 0.2rem;
   font-size: 1.05rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;

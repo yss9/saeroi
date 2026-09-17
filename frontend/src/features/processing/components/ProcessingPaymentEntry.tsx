@@ -3,10 +3,10 @@ import { Link } from 'react-router-dom'
 import { isAppError } from '../../../utils/errors.ts'
 import type { ProcessingJob } from '../api/processingRequestApi.ts'
 import { useProcessingPayment } from '../hooks/useProcessingPayment.ts'
+import { formatDateTime } from '../utils/processingTime.ts'
 
 const won = (value: number) => `${value.toLocaleString('ko-KR')}원`
-const date = (value: string) => new Date(/(?:Z|[+-]\d{2}:?\d{2})$/i.test(value) ? value : `${value}Z`)
-  .toLocaleString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+const date = formatDateTime
 const message = (error: unknown) => isAppError(error) || error instanceof Error ? error.message : '결제를 진행하지 못했어요.'
 
 type PayableProcessingJob = Pick<ProcessingJob, 'jobId' | 'jobCode' | 'fee' | 'paymentExpiresAt'>
@@ -20,7 +20,7 @@ export function ProcessingPaymentEntry({ job }: { job: PayableProcessingJob }) {
 
   return (
     <section className="br-payment" aria-labelledby="processing-payment-title">
-      <div className="br-payment__title"><CreditCard aria-hidden="true" /><div><h3 id="processing-payment-title">가공비 결제</h3><span>{job.jobCode}</span></div></div>
+      <div className="br-payment__title"><CreditCard aria-hidden="true" /><div><h3 id="processing-payment-title">가공비 결제</h3></div></div>
       <dl><div><dt>결제 금액</dt><dd>{won(job.fee)}</dd></div><div><dt>결제 기한</dt><dd>{date(job.paymentExpiresAt)}</dd></div></dl>
       <p className="br-payment__deadline"><Clock aria-hidden="true" />기한 내 결제하지 않으면 Job과 소재 Lock이 자동으로 만료됩니다.</p>
       {payment.phase === 'FAILED' && <p className="br-payment__error" role="alert">{message(payment.error)}</p>}

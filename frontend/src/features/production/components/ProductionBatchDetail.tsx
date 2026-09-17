@@ -191,7 +191,7 @@ function ConfirmSection({ batch }: { batch: ProductionBatch }) {
       */}
       <p className="batch-detail__effects">
         투입한 {formatKg(productUsed)}이 소비되고 제품 {batch.producedQuantity}개가
-        만들어집니다. 자투리는 새 소재로 발행됩니다. <strong>되돌릴 수 없습니다.</strong>
+        만들어집니다. <strong>되돌릴 수 없습니다.</strong>
       </p>
 
       {confirm.isError && <ErrorMessage error={confirm.error} />}

@@ -58,7 +58,7 @@ export function ProductRegisterPage() {
 
       {/* 열렸을 때만 그린다 — 닫아 둔 폼에 지난번 입력이 남는다. */}
       {batch !== null && (
-        <Modal open title={`${batch.batchName} · 제품 등록`} onClose={() => setBatch(null)}>
+        <Modal open title="제품 등록" subtitle={batch.batchName} onClose={() => setBatch(null)}>
           <ProductForm
             onCreated={(product) => {
               setCreated(product)

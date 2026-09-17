@@ -3,10 +3,10 @@ import { Link } from 'react-router-dom'
 import { isAppError } from '../../../utils/errors.ts'
 import { PROCESS_TYPE_LABEL, type ProcessType } from '../types/processing.types.ts'
 import { useBrandProcessingRequest } from '../hooks/useBrandProcessingRequest.ts'
+import { parseServerTime } from '../utils/processingTime.ts'
 import './brand-processing.css'
 
-// Backend LocalDateTime values represent UTC even when the offset is omitted.
-const requestDate = (value: string) => new Date(/(?:Z|[+-]\d{2}:?\d{2})$/i.test(value) ? value : value + 'Z').toLocaleString('ko-KR')
+const requestDate = (value: string) => parseServerTime(value).toLocaleString('ko-KR')
 const gram = (value: number) => `${value.toLocaleString('ko-KR')} g`
 const errorMessage = (error: unknown) => isAppError(error) || error instanceof Error ? error.message : '요청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요.'
 const materialLabel: Record<string, string> = { DENIM: '데님', COTTON: '면', LEATHER: '가죽', LINING: '안감', METAL: '금속', MIXED: '혼합', ETC: '기타' }

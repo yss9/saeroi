@@ -78,11 +78,26 @@ export function ProductionBatchChooser({ onChoose }: ProductionBatchChooserProps
                   <small className="batch-chooser__code">{batch.batchCode}</small>
                 </Link>
 
-                {blocked === null && (
-                  <Button size="sm" onClick={() => onChoose(batch)}>
-                    제품 등록
-                  </Button>
-                )}
+                {/*
+                  **확정 전에는 확정이 먼저다.** 제품은 확정된 생산의 개체에 붙는 것이라,
+                  아직 확정하지 않은 생산에 제품을 걸어 두면 재고 0 인 제품이 남는다.
+
+                  확정 자체는 여기서 하지 않는다 — 되돌릴 수 없는 동작이라 무엇이 얼마나
+                  소비되는지 읽고 눌러야 하고, 그 안내는 생산 상세에 있다.
+                */}
+                {blocked === null &&
+                  (batch.status === 'CONFIRMED' ? (
+                    <Button size="sm" onClick={() => onChoose(batch)}>
+                      제품 등록
+                    </Button>
+                  ) : (
+                    <Link
+                      className="ui-button ui-button--sm batch-chooser__confirm"
+                      to={`/brand/production/${batch.productionBatchId}`}
+                    >
+                      생산 확정
+                    </Link>
+                  ))}
               </li>
             )
           })}

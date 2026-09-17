@@ -115,8 +115,8 @@ test('견적 선택은 확인 단계를 거친 뒤 Job을 생성한다', async (
   await user.click(screen.getByRole('button', { name: '견적 선택 확정' }))
 
   expect(apiClient.post).toHaveBeenCalledWith('/v1/quotes/31/select', { paymentMethod: 'MOCK' })
-  expect((await screen.findAllByText('JOB-091')).length).toBeGreaterThan(0)
-  expect(screen.getByText('견적 선택이 완료되었습니다.')).toBeInTheDocument()
+  // 작업 번호는 화면에 적지 않는다 — 읽어서 얻을 것이 없다. 선택이 끝난 신호로 본다.
+  expect(await screen.findByText('견적 선택이 완료되었습니다.')).toBeInTheDocument()
   expect(screen.getByText('결제 금액').parentElement).toHaveTextContent('120,000원')
 })
 
@@ -139,7 +139,7 @@ test('생성된 Job에서 결제를 준비하고 Mock 승인까지 진행한다'
   await screen.findByText('120,000원')
   await user.click(screen.getByRole('button', { name: '이 견적 선택' }))
   await user.click(screen.getByRole('button', { name: '견적 선택 확정' }))
-  await screen.findAllByText('JOB-091')
+  await screen.findByText('견적 선택이 완료되었습니다.')
 
   await user.click(screen.getByRole('button', { name: '결제 진행' }))
 
@@ -200,8 +200,9 @@ test('결제 완료 Job을 찾아 요청 상세에서 소재를 발송한다', a
   renderPage()
 
   expect(await screen.findByRole('heading', { name: '소재 발송' })).toBeInTheDocument()
-  await user.type(screen.getByLabelText('택배사(선택)'), '새로이택배')
-  await user.type(screen.getByLabelText('운송장 번호(선택)'), '1234567890')
+  // 목록에 없는 업체도 적을 수 있어야 한다 — 제안(datalist)일 뿐 고르는 칸이 아니다.
+  await user.type(screen.getByLabelText('택배사'), '새로이택배')
+  await user.type(screen.getByLabelText('운송장 번호'), '1234567890')
   await user.click(screen.getByRole('button', { name: '발송 처리' }))
 
   expect(apiClient.patch).toHaveBeenCalledWith('/processing-jobs/91/ship', {

@@ -66,7 +66,8 @@ export function ProductionInputList({ batch }: ProductionInputListProps) {
         <tbody>
           {batch.inputs.map((input) => (
             <tr key={input.productionInputId}>
-              <th scope="row" className="input-list__material">
+              {/* 칸보다 긴 이름은 끝을 줄인다 — 전체는 마우스를 올리면 보인다. */}
+              <th scope="row" className="input-list__material" title={nameOf(input, materials.data)}>
                 {nameOf(input, materials.data)}
               </th>
               <td>{formatKg(input.inputQuantity)}</td>

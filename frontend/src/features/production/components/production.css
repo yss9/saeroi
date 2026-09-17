@@ -4,7 +4,12 @@
  * 여러 사람이 함께 고치는 파일이고 이 스타일은 production 도메인 밖에서 쓰이지 않는다.
  */
 
-.material-input { display: flex; flex-direction: column; gap: 0.75rem; max-width: 40rem; }
+/*
+  폭을 묶지 않는다. 40rem 으로 잘라 두니 생산 상세의 넓은 카드 안에서 선택 칸과 수량
+  칸만 왼쪽에 몰리고 오른쪽 절반이 비었다 — 담는 칸은 그 상자를 다 쓰는 것이 맞다.
+  (생산 시작 화면은 폼 자체가 폭을 정한다.)
+*/
+.material-input { display: flex; flex-direction: column; gap: 0.75rem; width: 100%; }
 
 /* 소재 선택과 추가 버튼을 한 줄에 둔다. 버튼이 아래로 떨어지면 "추가" 를 눌러야 하는 줄로
    보이지 않는다. */
@@ -71,7 +76,19 @@
 .material-input__row-total--error { color: #b42318; }
 .material-input__error { margin: 0.35rem 0 0; font-size: 0.82rem; color: #b42318; }
 
-.material-input__actions { display: flex; align-items: center; gap: 0.75rem; }
+/*
+  저장 줄은 마지막 투입 칸 안, 맨 아래다. 합계는 버튼 왼쪽 — 무엇을 보내는지 읽고 그
+  손끝에서 누른다. 위의 수량 칸과는 가는 선으로만 나눈다.
+*/
+.material-input__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.9rem;
+  margin-top: 0.85rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid #ece9e0;
+}
 .material-input__total { font-size: 0.875rem; color: #6b7280; font-variant-numeric: tabular-nums; }
 
 /* ── 투입 목록 ───────────────────────────────────────── */
@@ -106,7 +123,7 @@
    이름은 가장 긴 값이라 다른 칸보다 조금 넓게 주고, 상자 벽에 붙지 않게 들여쓴다. */
 .input-list__table th:first-child,
 .input-list__table td:first-child {
-  width: 22%;
+  width: 26%;
   padding-left: 0.4rem;
   text-align: left;
   font-variant-numeric: normal;
@@ -124,19 +141,22 @@
 .input-list__table td { white-space: nowrap; }
 .input-list__table thead th { color: #6b7280; font-weight: 600; font-size: 0.8rem; }
 /* 소재 이름은 왼쪽 정렬. 숫자와 섞이면 읽는 시작점이 흔들린다. */
-/* 이름 아래에는 줄을 긋지 않는다 — 한 줄짜리 표에서 이름에 밑줄이 그어진 것처럼 보인다. */
-.input-list__table th[scope="row"] { text-align: left; font-weight: 600; border-bottom: none; }
+.input-list__table th[scope="row"] { text-align: left; font-weight: 600; }
 /*
-  소재 이름은 낱말 단위로만 접는다. 한글은 기본값(break-word)이면 글자 사이 아무 데서나
-  잘려 "매끈한 금속" 이 석 줄이 된다 — 이름이 세로로 서면 어느 줄의 수량인지 놓친다.
+  줄과 줄 사이에만 선을 긋는다. 마지막 줄 아래까지 그으면 한 건뿐인 표에서 이름에 밑줄이
+  그어진 것처럼 보이고, 바로 아래 합계 줄의 굵은 선과도 겹친다.
+*/
+.input-list__table tbody tr:last-child th,
+.input-list__table tbody tr:last-child td { border-bottom: none; }
+/*
+  **이름은 한 줄이다.** 접히면 그 줄만 키가 커져 옆의 수량들과 눈높이가 어긋나고, 표를
+  훑을 때 어느 줄의 값인지 놓친다. 칸을 넘치면 끝을 …으로 줄이고 전체는 title 로 남긴다.
 */
 .input-list__material {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
   justify-content: center;
-  white-space: normal;
-  word-break: keep-all;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 /* 폐기 수량 아래 한 줄. 문장이라 칸 폭에서 접힌다(수량 칸은 nowrap 이다). */
 .input-list__reason {
@@ -771,6 +791,20 @@
   font-size: 0.72rem;
 }
 .batch-chooser__row:hover .batch-chooser__link strong { color: #216a9f; }
+
+/*
+  확정으로 보내는 길은 제품 등록과 다른 색이다. 둘이 같은 파랑이면 줄마다 버튼 하나씩
+  있는 목록에서 무엇을 누르는 것인지 글자를 읽어야만 안다 — 확정은 아직 남은 일이라
+  주황으로 둔다.
+*/
+.batch-chooser__confirm {
+  background: #ff9b69;
+  border-color: #ff9b69;
+  color: #6b2f0b;
+  font-weight: 700;
+  text-decoration: none;
+}
+.batch-chooser__confirm:hover { background: #f3874f; border-color: #f3874f; }
 
 /* 제품 등록은 사이트 파랑으로. 기본 초록은 공통값이다. */
 .batch-chooser__row .ui-button--primary { background: #216a9f; color: #fff; }

@@ -23,8 +23,12 @@ const api = vi.hoisted(() => ({
   uploadProductImage: vi.fn(),
   createProductModel: vi.fn(),
   updateProductModel: vi.fn(),
+  replaceProductImages: vi.fn(),
 }))
 vi.mock('../api/uploadProductImage.ts', () => ({ uploadProductImage: api.uploadProductImage }))
+vi.mock('../api/replaceProductImages.ts', () => ({
+  replaceProductImages: api.replaceProductImages,
+}))
 vi.mock('../api/createProductModel.ts', () => ({ createProductModel: api.createProductModel }))
 vi.mock('../api/updateProductModel.ts', () => ({ updateProductModel: api.updateProductModel }))
 
@@ -109,10 +113,41 @@ describe('ProductForm', () => {
     expect(api.createProductModel).not.toHaveBeenCalled()
   })
 
+  /*
+    상세 화면이 갤러리를 보여주므로 여러 장을 받는다. 그중 한 장이 대표다 — 목록과 마켓에
+    걸리는 얼굴이고, 서버도 갤러리에 대표를 한 장만 허용한다.
+  */
+  it('여러 장을 올리고 그중 대표를 골라 등록한다', async () => {
+    api.uploadProductImage
+      .mockResolvedValueOnce({ ...UPLOADED, storageKey: 'key-1' })
+      .mockResolvedValueOnce({ ...UPLOADED, storageKey: 'key-2' })
+    api.replaceProductImages.mockResolvedValue([])
+    const user = renderForm()
+    await fillFields(user)
+
+    await user.upload(screen.getByLabelText('제품 사진'), [image('a.png'), image('b.png')])
+    await waitFor(() => expect(api.uploadProductImage).toHaveBeenCalledTimes(2))
+
+    // 기본 대표는 첫 장이다. 두 번째를 대표로 바꾼다.
+    const mains = await screen.findAllByRole('radio', { name: '대표' })
+    await user.click(mains[1])
+    await user.click(screen.getByRole('button', { name: '제품 등록' }))
+
+    await waitFor(() => expect(api.createProductModel).toHaveBeenCalled())
+    // 대표가 제품의 대표 이미지가 된다.
+    expect(api.createProductModel.mock.calls[0][0].thumbnailUrl).toBe('key-2')
+    // 갤러리는 대표가 맨 앞이다 — 서버가 배열 순서를 그대로 자리로 쓴다.
+    await waitFor(() => expect(api.replaceProductImages).toHaveBeenCalled())
+    expect(api.replaceProductImages.mock.calls[0][1]).toEqual([
+      { storageKey: 'key-2', type: 'MAIN' },
+      { storageKey: 'key-1', type: 'ANGLE' },
+    ])
+  })
+
   it('파일을 고르는 즉시 업로드한다', async () => {
     const user = renderForm()
 
-    await user.upload(screen.getByLabelText('대표 이미지'), image())
+    await user.upload(screen.getByLabelText('제품 사진'), image())
 
     // 제출을 기다리지 않는다 — 실패 지점을 분리하기 위해 즉시 올린다.
     await waitFor(() => expect(api.uploadProductImage).toHaveBeenCalledTimes(1))
@@ -123,7 +158,7 @@ describe('ProductForm', () => {
   it('업로드가 끝나면 등록할 수 있고, 받은 저장 키를 그대로 보낸다', async () => {
     const user = renderForm()
     await fillFields(user)
-    await user.upload(screen.getByLabelText('대표 이미지'), image())
+    await user.upload(screen.getByLabelText('제품 사진'), image())
 
     const submit = screen.getByRole('button', { name: '제품 등록' })
     await waitFor(() => expect(submit).toBeEnabled())
@@ -151,7 +186,7 @@ describe('ProductForm', () => {
     const user = renderForm()
     await fillFields(user)
 
-    await user.upload(screen.getByLabelText('대표 이미지'), image())
+    await user.upload(screen.getByLabelText('제품 사진'), image())
 
     expect(await screen.findByRole('alert')).toHaveTextContent('허용되지 않는 이미지 형식')
     expect(screen.getByRole('button', { name: '제품 등록' })).toBeDisabled()
@@ -162,14 +197,14 @@ describe('ProductForm', () => {
   it('허용되지 않는 형식은 업로드하지 않는다', async () => {
     const user = renderForm()
 
-    await user.upload(screen.getByLabelText('대표 이미지'), image('spec.pdf', 'application/pdf'))
+    await user.upload(screen.getByLabelText('제품 사진'), image('spec.pdf', 'application/pdf'))
 
     expect(api.uploadProductImage).not.toHaveBeenCalled()
   })
 
   it('필수 항목을 비우면 등록하지 않고 어느 칸인지 알린다', async () => {
     const user = renderForm()
-    await user.upload(screen.getByLabelText('대표 이미지'), image())
+    await user.upload(screen.getByLabelText('제품 사진'), image())
     await waitFor(() => expect(screen.getByRole('button', { name: '제품 등록' })).toBeEnabled())
 
     await user.click(screen.getByRole('button', { name: '제품 등록' }))
@@ -186,7 +221,7 @@ describe('ProductForm', () => {
     await fillFields(user)
     await user.clear(screen.getByLabelText('판매가 (원)'))
     await user.type(screen.getByLabelText('판매가 (원)'), '129000.5')
-    await user.upload(screen.getByLabelText('대표 이미지'), image())
+    await user.upload(screen.getByLabelText('제품 사진'), image())
     await waitFor(() => expect(screen.getByRole('button', { name: '제품 등록' })).toBeEnabled())
 
     await user.click(screen.getByRole('button', { name: '제품 등록' }))
@@ -199,7 +234,7 @@ describe('ProductForm', () => {
     const onCreated = vi.fn()
     const user = renderForm(onCreated)
     await fillFields(user)
-    await user.upload(screen.getByLabelText('대표 이미지'), image())
+    await user.upload(screen.getByLabelText('제품 사진'), image())
     await waitFor(() => expect(screen.getByRole('button', { name: '제품 등록' })).toBeEnabled())
 
     await user.click(screen.getByRole('button', { name: '제품 등록' }))
@@ -285,7 +320,7 @@ describe('ProductForm', () => {
     await user.selectOptions(screen.getByLabelText('카테고리'), 'BAG')
     await user.type(screen.getByLabelText('판매가 (원)'), '2147483648')
     await user.type(screen.getByLabelText('제품 설명'), '설명')
-    await user.upload(screen.getByLabelText(/대표 이미지/), image())
+    await user.upload(screen.getByLabelText(/제품 사진/), image())
     await waitFor(() => expect(api.uploadProductImage).toHaveBeenCalled())
 
     await user.click(screen.getByRole('button', { name: '제품 등록' }))

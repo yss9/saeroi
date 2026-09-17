@@ -20,6 +20,7 @@ import {
   type TradeShipResult,
 } from '../types/trade.types.ts'
 import './trade.css'
+import { CARRIERS } from '../../../utils/carriers.ts'
 
 export interface ShipmentPanelProps {
   trade: Trade
@@ -38,16 +39,6 @@ export interface ShipmentPanelProps {
  * 송장은 선택이다 — 직접 수령이나 화물처럼 송장이 없는 전달 방식이 있다. 다만 운송장만
  * 입력하면 조회할 방법이 없어 서버가 거절하므로(`TRADE_CARRIER_REQUIRED`) 여기서 먼저 막는다.
  */
-/** 택배사 추천 목록. 고르게 하되 가두지 않는다 — 직접 입력이 막히지 않는다. */
-const CARRIERS = [
-  'CJ대한통운',
-  '한진택배',
-  '롯데택배',
-  '우체국택배',
-  '로젠택배',
-  '경동화물',
-  '대신화물',
-] as const
 
 export function ShipmentPanel({ trade }: ShipmentPanelProps) {
   const {

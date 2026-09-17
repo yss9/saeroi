@@ -154,11 +154,27 @@ a.ui-button { text-decoration: none; }
 .ui-quantity__unit { color: var(--ui-color-muted); font-size: 0.9375rem; }
 
 /* ── Modal ──────────────────────────────────────────── */
-.ui-modal { border: none; border-radius: var(--ui-radius); padding: 0; max-width: min(32rem, 92vw); }
+/*
+  **창은 위에서 시작한다.** `<dialog>` 의 기본 `margin: auto` 는 창을 화면 한가운데에
+  세우는데, 거래 상세처럼 내용이 길면 그 가운데 정렬 때문에 제목이 화면 위로 잘려 나가
+  스크롤을 올려야 무엇을 보고 있는지 알 수 있었다. 위를 고정하고 안에서 스크롤시킨다.
+*/
+.ui-modal {
+  border: none;
+  border-radius: var(--ui-radius);
+  padding: 0;
+  max-width: min(32rem, 92vw);
+  margin: 4vh auto auto;
+  max-height: 88vh;
+  overflow-y: auto;
+}
 .ui-modal::backdrop { background: rgb(0 0 0 / 0.4); }
 .ui-modal__panel { padding: 1.25rem; }
 .ui-modal__header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-.ui-modal__title { margin: 0; font-size: 1.125rem; }
+.ui-modal__heading { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.ui-modal__title { margin: 0; font-size: 1.125rem; color: #174b72; }
+/* 대상은 제목과 다른 색·크기로 한 줄 아래. 무엇을 하는 창인지가 먼저 읽힌다. */
+.ui-modal__subtitle { margin: 0; font-size: 0.9rem; font-weight: 600; color: #216a9f; }
 .ui-modal__close { background: none; border: none; font-size: 1.5rem; line-height: 1; cursor: pointer; }
 .ui-modal__body { margin: 1rem 0; }
 /*
