@@ -203,6 +203,32 @@ public enum ProductErrorCode implements ErrorCode {
             "PRODUCT_ORDER_OUT_OF_STOCK",
             "품절되었습니다."),
 
+    /**
+     * 여러 상품을 한 번에 주문했는데 그중 일부의 재고가 모자란 경우.
+     *
+     * <p><b>되는 것만 주문하지 않고 전부 실패시킨다.</b> 일부만 담기면 사용자가 기대한 것과
+     * 다른 금액이 결제되고 그건 분쟁이 된다. 결제 전에 걸러지므로 환불도 필요 없다.
+     *
+     * <p>어떤 상품이 모자란지는 응답의 {@code data} 에 {@code OutOfStockLine} 목록으로
+     * 실린다 — 코드와 문구만으로는 사용자가 장바구니에서 무엇을 뺄지 알 수 없다.
+     */
+    PRODUCT_ORDER_ITEMS_OUT_OF_STOCK(
+            HttpStatus.CONFLICT,
+            "PRODUCT_ORDER_ITEMS_OUT_OF_STOCK",
+            "일부 상품의 재고가 부족합니다."),
+
+    /** 주문할 항목이 하나도 없는 요청. */
+    PRODUCT_ORDER_NO_ITEMS(
+            HttpStatus.BAD_REQUEST,
+            "PRODUCT_ORDER_NO_ITEMS",
+            "주문할 상품이 없습니다."),
+
+    /** 0 이하이거나 한 번에 담을 수 있는 수를 넘긴 수량. */
+    PRODUCT_ORDER_QUANTITY_INVALID(
+            HttpStatus.BAD_REQUEST,
+            "PRODUCT_ORDER_QUANTITY_INVALID",
+            "주문 수량이 올바르지 않습니다."),
+
     /** 본인의 배송지가 아니거나 없는 id 를 가리킨 경우. 둘을 같은 답으로 덮는다. */
     PRODUCT_ORDER_ADDRESS_NOT_FOUND(
             HttpStatus.NOT_FOUND,

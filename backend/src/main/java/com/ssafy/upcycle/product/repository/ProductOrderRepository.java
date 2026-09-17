@@ -21,6 +21,14 @@ public interface ProductOrderRepository extends JpaRepository<ProductOrder, Long
 
     Optional<ProductOrder> findByOrderCode(String orderCode);
 
+    /**
+     * 한 묶음에 속한 주문 전부. 묶음 결제 승인과 묶음 취소가 쓴다.
+     *
+     * <p>{@code idx_product_order_group} 이 받친다. 단일 주문은 {@code order_group_id} 가
+     * {@code null} 이라 어떤 묶음에도 딸려 나오지 않는다.
+     */
+    List<ProductOrder> findAllByOrderGroupIdOrderByIdAsc(Long orderGroupId);
+
     List<ProductOrder> findAllByBuyerIdAndStatus(Long buyerId, ProductOrderStatus status);
 
     List<ProductOrder> findAllByBrandIdAndStatus(Long brandId, ProductOrderStatus status);

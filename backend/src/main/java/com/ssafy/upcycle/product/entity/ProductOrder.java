@@ -70,6 +70,16 @@ public class ProductOrder {
     @Column(name = "brand_id", nullable = false)
     private Long brandId;
 
+    /**
+     * 한 번의 결제로 함께 만들어진 주문들의 묶음. <b>단일 주문은 {@code null} 이다.</b>
+     *
+     * <p>{@code null} 이면 이 주문이 자기 결제 컬럼({@code paymentReference} 등)을 쓴다 —
+     * 상품 상세의 "바로 구매" 가 그 경로다. 값이 있으면 결제는 묶음이 한 번에 하고 이 주문의
+     * 결제 컬럼은 쓰이지 않는다 ({@link ProductOrderGroup} 문서 참고).
+     */
+    @Column(name = "order_group_id")
+    private Long orderGroupId;
+
     /** 주문 시점 총액 (원). 모델 가격이 나중에 바뀌어도 이 값은 그대로다. */
     @Column(name = "total_price", nullable = false)
     private long totalPrice;
@@ -148,6 +158,21 @@ public class ProductOrder {
             LocalDateTime paymentDeadline) {
         return new ProductOrder(
                 orderCode, buyerId, brandId, totalPrice, paymentMethod, paymentDeadline);
+    }
+
+    /**
+     * 이 주문을 결제 묶음에 넣는다.
+     *
+     * <p>주문을 만든 직후 한 번만 부른다 — 묶음이 먼저 저장되어야 그 id 를 알 수 있어서
+     * 생성자로 받지 않는다. 한 번 묶인 주문이 다른 묶음으로 옮겨 가는 일은 없다: 결제가
+     * 이미 그 묶음 단위로 이뤄지므로 옮기면 청구와 주문이 어긋난다.
+     */
+    public void assignOrderGroup(Long orderGroupId) {
+        if (this.orderGroupId != null) {
+            throw new IllegalStateException(
+                    "Product order is already in a group: " + this.orderGroupId);
+        }
+        this.orderGroupId = requireNonNull(orderGroupId, "order group id");
     }
 
     /**
