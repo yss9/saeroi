@@ -141,6 +141,10 @@ function formatBytes(bytes: number): string {
  * **`svg` 는 여기서도 제외된다.** 로컬 blob URL 이라 저장형 XSS 는 아니지만, 그려지는
  * 것을 보면 사용자는 올릴 수 있다고 믿는다 — 서버는 거절한다.
  */
-export function isPreviewableImage(contentType: string): boolean {
-  return /^image\/(jpeg|png|webp|gif|avif)$/.test(contentType.toLowerCase())
+export function isPreviewableImage(contentType: string, fileName = ''): boolean {
+  if (/^image\/(jpeg|png|webp|gif|avif)$/.test(contentType.toLowerCase())) return true
+  // OS 에 확장자 매핑이 없으면 브라우저가 type 을 빈 문자열로 준다. 그때 이름으로 한 번
+  // 더 본다 — 사진인데 회색 상자만 뜨면 사용자는 파일이 잘못된 줄 안다.
+  if (contentType !== '') return false
+  return /\.(jpe?g|png|webp|gif|avif)$/i.test(fileName)
 }

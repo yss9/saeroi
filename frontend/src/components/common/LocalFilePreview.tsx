@@ -21,7 +21,7 @@ export interface LocalFilePreviewProps {
 export function LocalFilePreview({ file }: LocalFilePreviewProps) {
   // 이미지가 아니면 blob URL 을 아예 만들지 않는다. 쓰지 않을 URL 을 만들어 두면
   // 해제 시점만 늘어난다.
-  const url = useObjectUrl(isPreviewableImage(file.type) ? file : null)
+  const url = useObjectUrl(isPreviewableImage(file.type, file.name) ? file : null)
 
   if (url === null) {
     return (
