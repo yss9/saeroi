@@ -1,47 +1,23 @@
-import { createContext, useCallback, useContext, useMemo, useReducer, type ReactNode } from 'react'
+import { createContext, useContext, type ReactNode } from 'react'
+import { useCart, useCartChange } from '../cart/useCart.ts'
 
-export interface ShopContextValue {
-  cartCount: number
-  addToCart: (productId: string) => void
-}
-
-type ShopState = {
-  cartCount: number
-}
-
-type ShopAction =
-  | { type: 'add-to-cart'; productId: string }
-
-const initialState: ShopState = { cartCount: 0 }
-
-function shopReducer(state: ShopState, action: ShopAction): ShopState {
-  switch (action.type) {
-    case 'add-to-cart':
-      return { ...state, cartCount: state.cartCount + 1 }
-  }
-}
-
+export interface ShopContextValue { cartCount: number; addToCart: (productId: string) => void }
 const ShopContext = createContext<ShopContextValue | undefined>(undefined)
 
+/** Compatibility facade over server cart data; no local cart state remains. */
 export function ShopProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(shopReducer, initialState)
-
-  const addToCart = useCallback((productId: string) => {
-    dispatch({ type: 'add-to-cart', productId })
-  }, [])
-
-  const value = useMemo<ShopContextValue>(() => ({
-    cartCount: state.cartCount,
-    addToCart,
-  }), [state, addToCart])
-
+  const cart = useCart()
+  const action = useCartChange()
+  const value: ShopContextValue = {
+    cartCount: cart.data?.items?.length ?? 0,
+    addToCart: (productId) => action.changeCart({ kind: 'add', productModelId: Number(productId), quantity: 1 }),
+  }
   return <ShopContext.Provider value={value}>{children}</ShopContext.Provider>
 }
 
-// The provider and hook intentionally share this public single-file interface.
 // eslint-disable-next-line react-refresh/only-export-components
 export function useShop(): ShopContextValue {
-  const context = useContext(ShopContext)
-  if (!context) throw new Error('useShop must be used within ShopProvider')
-  return context
+  const value = useContext(ShopContext)
+  if (!value) throw new Error('useShop must be used within ShopProvider')
+  return value
 }

@@ -1,13 +1,12 @@
-import { ArrowLeft, ArrowRight, ShoppingBag } from '@phosphor-icons/react'
+import { ArrowLeft, ArrowRight } from '@phosphor-icons/react'
+import { CartButton } from '../../../features/cart/CartButton.tsx'
 import { WishlistButton } from '../../../features/wishlist/WishlistButton.tsx'
 import { useMemo, useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { publicProductImageUrl } from '../../../features/product/api/publicProductImageUrl.ts'
-import { useAuth } from '../../../features/auth/hooks/useAuth.ts'
 import { usePublicProductModels } from '../../../features/product/hooks/usePublicProductModels.ts'
 import type { PublicProductModel } from '../../../features/product/types/publicProduct.types.ts'
 import type { ProductCategory } from '../../../features/product/types/product.types.ts'
-import { useShop } from '../../../features/shop/ShopContext.tsx'
 import type { HomepageProduct } from '../content.ts'
 
 const priceFormatter = new Intl.NumberFormat('ko-KR')
@@ -44,26 +43,14 @@ function toHomepageProduct(product: PublicProductModel): HomepageProduct {
 export function ShopShowcase() {
   const [activeIndex, setActiveIndex] = useState(0)
   const catalog = usePublicProductModels({ page: 0, size: HOME_PRODUCT_COUNT })
-  const { addToCart } = useShop()
-  const { isAuthenticated } = useAuth()
-  const navigate = useNavigate()
   const location = useLocation()
   const products = useMemo(
     () => catalog.data?.content.map(toHomepageProduct) ?? [],
     [catalog.data],
   )
   const product = products.length > 0 ? products[activeIndex % products.length] : null
+  const soldOut = catalog.data?.content[activeIndex % Math.max(products.length, 1)]?.stockQuantity === 0
 
-  function requireLogin(action: () => void) {
-    if (isAuthenticated) {
-      action()
-      return
-    }
-
-    navigate('/login', {
-      state: { from: { pathname: `${location.pathname}#shop` } },
-    })
-  }
 
   function move(direction: -1 | 1) {
     if (products.length === 0) return
@@ -120,14 +107,7 @@ export function ShopShowcase() {
               <h3>{product.name}</h3>
               <p className="shop-showcase__price">₩ {priceFormatter.format(product.price)}</p>
               <div className="shop-showcase__actions">
-                <button
-                  type="button"
-                  className="shop-showcase__bag"
-                  aria-label={`${product.name} 장바구니 담기`}
-                  onClick={() => requireLogin(() => addToCart(product.id))}
-                >
-                  <ShoppingBag aria-hidden="true" />
-                </button>
+                <CartButton productId={Number(product.id)} name={product.name} className="shop-showcase__bag" disabled={soldOut} returnPath={`${location.pathname}#shop`} />
                 <WishlistButton productId={Number(product.id)} name={product.name} className="shop-showcase__wishlist" returnPath={`${location.pathname}#shop`} />
               </div>
 

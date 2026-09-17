@@ -35,7 +35,7 @@ export function ConsumerWishlistPage() {
         : query.isError ? <div className="shop-catalog__state" role="alert"><h3>찜 목록을 불러오지 못했습니다</h3><button type="button" onClick={() => void query.refetch()}>다시 시도</button></div>
         : data && page > 0 && page >= data.totalPages ? <div className="shop-catalog__state" role="status"><p>이 페이지에 찜한 상품이 없습니다</p><button type="button" onClick={() => changePage(0)}>첫 페이지 보기</button></div>
         : !data || data.content.length === 0 ? <div className="shop-catalog__state" role="status"><h3>찜한 상품이 없습니다</h3><p>마음에 드는 상품을 찜해 보세요.</p><Link to="/shop">상품 둘러보기</Link></div>
-        : <ul className="shop-catalog__grid" aria-label="찜한 상품 목록">{data.content.map(({ product, purchasable }) => <li key={product.productModelId}><CatalogCard product={product} imageMode="authenticated" purchasable={purchasable} /></li>)}</ul>}
+        : <ul className="shop-catalog__grid" aria-label="찜한 상품 목록">{data.content.map(({ product, purchasable }) => <li key={product.productModelId}><CatalogCard product={product} imageMode="authenticated" purchasable={purchasable} wishedInList /></li>)}</ul>}
       {!query.isError && data && page < data.totalPages && <CatalogPagination label="찜 목록 페이지" page={data.page} totalPages={data.totalPages} hasNext={data.hasNext} onPageChange={changePage} />}
     </section>
   </ConsumerAccountLayout>

@@ -122,14 +122,14 @@ describe('public product search', () => {
     expect(url().searchParams.get('q')).toBe('retry')
     expect(apiClient.get).toHaveBeenLastCalledWith('/v1/public/product-models', expect.objectContaining({ params: { keyword: 'retry', sort: 'LATEST', page: 0, size: 12 } }))
   })
-  it('reuses SHOP cards and image URL handling with the shared wishlist heart and no cart controls', async () => {
+  it('reuses SHOP cards, image URL handling and shared wishlist/cart controls', async () => {
     show('/search?q=bag')
     const card = await screen.findByRole('article')
     expect(within(card).getByRole('link', { name: '데님 토트백 상세 보기' })).toHaveAttribute('href', '/products/31')
     expect(within(card).getByRole('img')).toHaveAttribute('src', product.thumbnailUrl)
     expect(within(card).getByText('품절')).toBeInTheDocument()
     expect(within(card).getByRole('button', { name: '데님 토트백 찜하기' })).toHaveAttribute('aria-pressed', 'false')
-    expect(within(card).queryByRole('button', { name: /장바구니/ })).not.toBeInTheDocument()
+    expect(within(card).getByRole('button', { name: '데님 토트백 장바구니 담기' })).toBeDisabled()
     expect(within(card).getByRole('link', { name: 'REWEAVE' })).toHaveAttribute('href', '/brands/5')
     expect(card.querySelector('a a')).toBeNull()
     fireEvent.click(within(card).getByRole('link', { name: '데님 토트백 상세 보기' }))
