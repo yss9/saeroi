@@ -28,7 +28,9 @@ const publicCatalog: PageResponse<PublicProductModel> = {
 
 beforeEach(() => {
   useAuthStore.getState().signOut()
-  vi.spyOn(apiClient, 'get').mockResolvedValue({ data: publicCatalog } as AxiosResponse)
+  vi.spyOn(apiClient, 'get').mockImplementation(async (url) => ({ data: url.endsWith('/product-ids') ? [] : publicCatalog }) as AxiosResponse)
+  vi.spyOn(apiClient, 'post').mockResolvedValue({ data: {} } as AxiosResponse)
+  vi.spyOn(apiClient, 'delete').mockResolvedValue({ data: {} } as AxiosResponse)
 })
 
 afterEach(() => {
@@ -193,7 +195,8 @@ describe('LandingPage', () => {
     const button = await screen.findByRole('button', { name: '데님 서클 백 찜하기' })
     await user.click(button)
 
-    expect(screen.getByRole('button', { name: '데님 서클 백 찜 해제' })).toHaveAttribute('aria-pressed', 'true')
+    expect(await screen.findByRole('button', { name: '데님 서클 백 찜 해제' })).toHaveAttribute('aria-pressed', 'true')
+    expect(apiClient.post).toHaveBeenCalledWith('/v1/consumers/me/wishlist', { productModelId: 1 })
   })
 
   it('changes the featured product with the carousel controls', async () => {

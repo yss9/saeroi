@@ -129,11 +129,12 @@ export const routes: RouteObject[] = [
       { path: '/mypage/orders/:orderId', element: <ConsumerOrderDetailPage /> },
       // 배송지 관리. 마이페이지의 기본 배송지 카드에서 "편집" 으로 들어간다.
       { path: '/mypage/addresses', element: <ConsumerAddressPage /> },
-      // 아래 8개는 2026-09-16 사이드바 개편에서 "준비 중"으로 남겨뒀던 화면이다.
+      // 서버에 영구 저장된 소비자 찜 목록.
+      { path: '/mypage/wishlist', element: <ConsumerWishlistPage /> },
+      // 아래 화면은 2026-09-16 사이드바 개편에서 "준비 중"으로 남겨뒀던 화면이다.
       // 프론트엔드 UI만 먼저 채웠다 — 백엔드가 없어 전부 목데이터로 동작한다
       // (각 페이지 컴포넌트 상단 주석 참고).
       { path: '/mypage/cancellations', element: <ConsumerCancellationsPage /> },
-      { path: '/mypage/wishlist', element: <ConsumerWishlistPage /> },
       { path: '/mypage/recently-viewed', element: <ConsumerRecentlyViewedPage /> },
       { path: '/mypage/inquiries/new', element: <ConsumerAskInquiryPage /> },
       { path: '/mypage/inquiries', element: <ConsumerInquiriesPage /> },

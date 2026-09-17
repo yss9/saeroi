@@ -1,4 +1,5 @@
-import { ArrowLeft, ArrowRight, Heart, ShoppingBag } from '@phosphor-icons/react'
+import { ArrowLeft, ArrowRight, ShoppingBag } from '@phosphor-icons/react'
+import { WishlistButton } from '../../../features/wishlist/WishlistButton.tsx'
 import { useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { publicProductImageUrl } from '../../../features/product/api/publicProductImageUrl.ts'
@@ -42,9 +43,8 @@ function toHomepageProduct(product: PublicProductModel): HomepageProduct {
 
 export function ShopShowcase() {
   const [activeIndex, setActiveIndex] = useState(0)
-  const [isWishlistHovered, setIsWishlistHovered] = useState(false)
   const catalog = usePublicProductModels({ page: 0, size: HOME_PRODUCT_COUNT })
-  const { wishlist, toggleWishlist, addToCart } = useShop()
+  const { addToCart } = useShop()
   const { isAuthenticated } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -53,7 +53,6 @@ export function ShopShowcase() {
     [catalog.data],
   )
   const product = products.length > 0 ? products[activeIndex % products.length] : null
-  const isWished = product ? wishlist.has(product.id) : false
 
   function requireLogin(action: () => void) {
     if (isAuthenticated) {
@@ -129,22 +128,7 @@ export function ShopShowcase() {
                 >
                   <ShoppingBag aria-hidden="true" />
                 </button>
-                <button
-                  type="button"
-                  className="shop-showcase__wishlist"
-                  aria-label={`${product.name} ${isWished ? '찜 해제' : '찜하기'}`}
-                  aria-pressed={isWished}
-                  onClick={() => requireLogin(() => toggleWishlist(product.id))}
-                  onPointerEnter={() => setIsWishlistHovered(true)}
-                  onPointerLeave={() => setIsWishlistHovered(false)}
-                  onFocus={() => setIsWishlistHovered(true)}
-                  onBlur={() => setIsWishlistHovered(false)}
-                >
-                  <Heart
-                    aria-hidden="true"
-                    weight={isWished || isWishlistHovered ? 'fill' : 'regular'}
-                  />
-                </button>
+                <WishlistButton productId={Number(product.id)} name={product.name} className="shop-showcase__wishlist" returnPath={`${location.pathname}#shop`} />
               </div>
 
               <div className="shop-showcase__controls">
