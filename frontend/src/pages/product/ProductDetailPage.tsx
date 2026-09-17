@@ -1,5 +1,5 @@
 import { useParams } from 'react-router-dom'
-import { ErrorMessage } from '../../components/common/index.ts'
+import { BackLink, ErrorMessage } from '../../components/common/index.ts'
 import { useAuth } from '../../features/auth/hooks/useAuth.ts'
 import { ProductDetail } from '../../features/product/components/ProductDetail.tsx'
 import { useProductModel } from '../../features/product/hooks/useProductModel.ts'
@@ -18,7 +18,14 @@ import { ProductPurchasePanel } from '../../features/user/components/ProductPurc
  *
  * ⚠️ 소비자가 QR 로 들어오는 입구는 이 화면이 아니라 `/qr/:qrToken` 다.
  * 그쪽은 비회원 공개여야 한다 (ARCHITECTURE §9) — 이 화면과 혼동하지 말 것.
+ *
+ * **돌아갈 곳이 역할마다 다르다.** 브랜드는 내 제품에서, 나머지는 업무 목록에서 들어온다 —
+ * 한쪽으로 고정하면 브랜드가 남의 목록으로 튕겨 자기 제품을 다시 찾아야 한다.
  */
+/** 돌아갈 목록. 문구와 경로를 한 쌍으로 묶는다 — 따로 두면 이름과 목적지가 어긋난다. */
+const MY_PRODUCTS = { to: '/brand/products', label: '내 제품' } as const
+const CATALOG = { to: '/business/products', label: '제품 목록' } as const
+
 export function ProductDetailPage() {
   const { productId } = useParams<{ productId: string }>()
   const { role } = useAuth()
@@ -28,10 +35,21 @@ export function ProductDetailPage() {
   // 상세와 같은 Query 키를 본다. 요청이 한 번 더 나가지 않는다.
   const product = useProductModel(id)
 
-  if (id === null) return <ErrorMessage error="잘못된 주소입니다." />
+  const back = role === 'BRAND' ? MY_PRODUCTS : CATALOG
+
+  if (id === null) {
+    return (
+      <main className="page">
+        <BackLink {...back} />
+        <ErrorMessage error="잘못된 주소입니다." />
+      </main>
+    )
+  }
 
   return (
     <main className="page">
+      <BackLink {...back} />
+
       <ProductDetail productModelId={id} />
 
       {role === 'CONSUMER' && product.data && (

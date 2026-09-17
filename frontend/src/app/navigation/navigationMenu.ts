@@ -16,7 +16,6 @@ import {
   ClipboardText,
   Cube,
   Factory,
-  Gear,
   IdentificationCard,
   Package,
   PaperPlaneTilt,
@@ -45,6 +44,9 @@ export interface NavigationMenuItem {
  *
  *   SUPPLIER  회사 정보 · 보유 소재 · 소재 등록 · 판매 관리 · 판매 거래
  *   BRAND     회사 정보 · 보유 소재 · 가공 요청 · 요청 내역 · 제품 생산 · 제품 등록 · 내 제품 · 제품 발송 · 구매 내역
+ *
+ * 가공 진행은 없앴다. 요청 하나가 곧 작업 하나라 목록이 둘일 이유가 없었고, 브랜드는
+ * "내가 보낸 요청" 으로만 그 일을 기억한다 — 진행 상황과 수령 확인은 요청 상세가 맡는다.
  *   PROCESSOR 회사 정보 · 보유 소재 · 업체 등록 · 가공 작업
  *
  * **공개 상품(`/shop`)은 사이드바에 없다.** 소비자가 옷을 사는 화면이라 사업자
@@ -112,7 +114,6 @@ export const BUSINESS_MENU_GROUPS: readonly NavigationMenuGroup[] = [
     items: [
       { label: '가공 요청', to: '/brand/processing', Icon: PaperPlaneTilt },
       { label: '요청 내역', to: '/brand/processing/requests', Icon: ClipboardText },
-      { label: '가공 진행', to: '/brand/processing/jobs', Icon: Gear },
       // 가공사 쪽. 맡기는 일과 받는 일이 같은 묶음이다.
       { label: '업체 등록', to: '/processor/profile', Icon: IdentificationCard },
       { label: '가공 작업', to: '/processor/jobs', Icon: Factory },
@@ -156,6 +157,44 @@ export const EXACT_MATCH_PATHS: ReadonlySet<string> = new Set(
     BUSINESS_MENU_ITEMS.some((other) => other.to.startsWith(`${item.to}/`)),
   ).map((item) => item.to),
 )
+
+/**
+ * 메뉴 항목이 데려가는 하위 화면.
+ *
+ * **접두사만으로는 주인을 못 정하는 경로가 있다.** 생산 상세(`/brand/production/:id`)가
+ * 그렇다 — 주소는 제품 생산 아래지만 그 화면에 들어가는 길은 제품 등록의 생산 목록이고,
+ * 거기서 눌러 들어갔는데 사이드바가 제품 생산으로 넘어가면 방금 있던 목록이 어디였는지
+ * 잃는다. 돌아가는 곳(제품 등록)과 켜지는 곳을 맞춘다.
+ *
+ * 여기 적은 경로는 **접두사 주인에게서 빼앗아 온다** — 같은 주소에서 두 항목이 켜지면
+ * 아무것도 가리키지 않는 것과 같다.
+ */
+const OWNED_SUBPATHS: Readonly<Record<string, readonly string[]>> = {
+  '/brand/products/new': ['/brand/production/'],
+}
+
+/**
+ * 이 메뉴 항목을 지금 켜야 하는가.
+ *
+ * `NavLink` 의 기본(접두사) 규칙을 이 함수로 대신한다 — 예외를 `end` 하나로 표현할 수
+ * 없어서다. 규칙은 셋이고 순서가 곧 우선순위다.
+ *
+ *   1. 내가 데려가는 하위 화면이면 켠다.
+ *   2. 남이 데려가는 하위 화면이면 끈다 (접두사가 나를 가리켜도).
+ *   3. 나머지는 정확히 일치(하위 화면을 가진 항목) 또는 접두사 일치.
+ */
+export function isMenuActive(to: string, pathname: string): boolean {
+  if (ownsPath(to, pathname)) return true
+  if (Object.keys(OWNED_SUBPATHS).some((owner) => owner !== to && ownsPath(owner, pathname))) {
+    return false
+  }
+  if (EXACT_MATCH_PATHS.has(to)) return pathname === to
+  return pathname === to || pathname.startsWith(`${to}/`)
+}
+
+function ownsPath(to: string, pathname: string): boolean {
+  return (OWNED_SUBPATHS[to] ?? []).some((prefix) => pathname.startsWith(prefix))
+}
 
 /**
  * 헤더 계정 팝오버가 쓰는 "내 홈" 후보. 보이는 것 중 **첫 번째**를 쓴다.

@@ -3,6 +3,8 @@ import type { ContractTransactionResponse } from 'ethers'
 import { processingJobApi, type ProcessingSignatureAction, type ResultDraftInput } from '../api/processingJobApi.ts'
 import { processingRequestApi } from '../api/processingRequestApi.ts'
 import { processingKeys } from '../api/processingKeys.ts'
+import { inventoryKeys } from '../../inventory/api/inventoryKeys.ts'
+import { materialKeys } from '../../material/api/materialKeys.ts'
 import { signMessage } from '../../wallet/services/walletService.ts'
 import { getEvidence } from '../../evidence/api/getEvidence.ts'
 import { evidenceKeys } from '../../evidence/api/evidenceKeys.ts'
@@ -67,9 +69,16 @@ export function useProcessingJob(jobId: number) {
     enabled: chainJobId !== null && chainJobId !== undefined,
     refetchInterval: 30_000,
   })
+  /*
+    보유 소재까지 함께 비운다. 수령 확인(approve)이 산출 소재를 브랜드 잔액으로 발행하므로,
+    소재 캐시를 그대로 두면 방금 받은 소재가 제품 생산의 투입 후보에 뜨지 않는다 — 사용자는
+    소재가 오지 않았다고 읽는다.
+  */
   const refresh = async () => Promise.all([
     client.invalidateQueries({ queryKey: keys.detail(jobId) }),
     client.invalidateQueries({ queryKey: keys.all }),
+    client.invalidateQueries({ queryKey: inventoryKeys.all }),
+    client.invalidateQueries({ queryKey: materialKeys.all }),
     client.invalidateQueries({ queryKey: keys.chainPreparation(jobId) }),
     client.invalidateQueries({ queryKey: keys.chainStatus(jobId) }),
   ])

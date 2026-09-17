@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Button,
-  ConfirmModal,
   ErrorMessage,
   Loading,
   StatusBadge,
@@ -14,7 +13,6 @@ import { useProductionBatch } from '../hooks/useProductionBatch.ts'
 import type { ProductionBatch, ProductionBatchStatus } from '../types/production.types.ts'
 import { MaterialInputSelect } from './MaterialInputSelect.tsx'
 import { ProductionInputList } from './ProductionInputList.tsx'
-import { ProductionItemList } from './ProductionItemList.tsx'
 import './production.css'
 
 export interface ProductionBatchDetailProps {
@@ -56,22 +54,17 @@ export function ProductionBatchDetail({ batchId }: ProductionBatchDetailProps) {
 
   return (
     <div className="batch-detail">
+      <h1 className="batch-detail__page-title">생산 상세</h1>
+
       <BatchSummary batch={data} />
 
-      {/* 확정된 배치는 소재를 이미 소비했다. 선택 UI 를 남기면 서버가
+      {/* 확정된 생산은 소재를 이미 소비했다. 선택 UI 를 남기면 서버가
           PRODUCTION_BATCH_NOT_EDITABLE 로 거절할 요청만 만들게 된다. */}
-      {editable && (
-        <section className="batch-detail__section">
-          <h2>소재 투입</h2>
-          <MaterialInputSelect
-            batchId={batchId}
-            inputMaterialIds={data.inputs.map((input) => input.materialId)}
-          />
-        </section>
-      )}
-
       <section className="batch-detail__section">
-        <h2>담긴 투입</h2>
+        <div className="batch-detail__section-head">
+          <h2>투입된 소재</h2>
+          {editable && <AddInputToggle batch={data} batchId={batchId} />}
+        </div>
         <ProductionInputList batch={data} />
       </section>
 
@@ -79,12 +72,54 @@ export function ProductionBatchDetail({ batchId }: ProductionBatchDetailProps) {
 
       {data.status === 'CONFIRMED' && <ConfirmedResult batch={data} />}
 
-      {/* 확정으로 만들어진 개체의 QR. 확정 전에는 조회하지 않는다. */}
-      <section className="batch-detail__section">
-        <h2>제품 QR</h2>
-        <ProductionItemList batchId={batchId} confirmed={data.status === 'CONFIRMED'} />
-      </section>
+      {/*
+        개체와 QR 은 여기서 보여주지 않는다. 라벨을 뽑는 일은 제품 단위로 일어나고
+        (내 제품 → QR 라벨 보기), 같은 것을 생산 상세에도 두면 이 화면이 확정을 마친 뒤에도
+        끝나지 않는다 — 확정 결과까지 읽고 생산 목록으로 돌아가는 것이 이 화면의 끝이다.
+      */}
     </div>
+  )
+}
+
+/**
+ * 소재를 더 담는 자리.
+ *
+ * **평소에는 접어 둔다.** 생산을 시작하면서 소재를 이미 담고 온 사람이 대부분인데, 빈
+ * 선택 칸이 담긴 목록 위에 펼쳐져 있으면 "안 담겼나" 로 읽힌다.
+ *
+ * **지우지는 않는다.** 소재 없이 시작한 생산은 여기서만 담을 수 있어, 없애면 그 생산이
+ * 막다른 길이 된다. 그래서 담긴 것이 없으면 처음부터 열어 둔다.
+ */
+function AddInputToggle({ batch, batchId }: { batch: ProductionBatch; batchId: number }) {
+  /*
+    **사용자가 건드리기 전까지는 지금 담긴 투입을 따른다.** 처음 한 번만 보고 정하면,
+    캐시에 있던 빈 배치를 먼저 그린 뒤 투입이 도착해도 선택 칸이 열린 채 남는다 — 방금
+    소재를 골라 시작한 사람에게 "또 담으라" 고 말하는 꼴이다.
+  */
+  const [touched, setTouched] = useState<boolean | null>(null)
+  const open = touched ?? batch.inputs.length === 0
+  const setOpen = (next: boolean) => setTouched(next)
+
+  return (
+    <>
+      {/*
+        담는 일은 이 화면에서 시작하는 동작이라 채운 버튼으로 둔다 — 표 안의 "취소" 와 같은
+        모양이면 줄이 비슷비슷해져 어느 것이 무엇을 하는 버튼인지 눈으로 갈리지 않는다.
+      */}
+      <Button size="sm" onClick={() => setOpen(!open)}>
+        {open ? '닫기' : '+ 소재 더 담기'}
+      </Button>
+
+      {open && (
+        <div className="batch-detail__add-input">
+          <MaterialInputSelect
+            batchId={batchId}
+            inputMaterialIds={batch.inputs.map((input) => input.materialId)}
+            onSaved={() => setOpen(false)}
+          />
+        </div>
+      )}
+    </>
   )
 }
 
@@ -100,7 +135,8 @@ function BatchSummary({ batch }: { batch: ProductionBatch }) {
   return (
     <header className="batch-detail__header">
       <div className="batch-detail__title">
-        <h1>{batch.batchName}</h1>
+        {/* 화면 제목은 "생산 상세" 다. 이름은 그 아래 이 생산이 무엇인지 말하는 자리다. */}
+        <h2>{batch.batchName}</h2>
         <StatusBadge tone={TONE[batch.status]}>{STATUS_LABEL[batch.status]}</StatusBadge>
         <span className="batch-detail__code">{batch.batchCode}</span>
       </div>
@@ -139,59 +175,33 @@ function BatchSummary({ batch }: { batch: ProductionBatch }) {
  */
 function ConfirmSection({ batch }: { batch: ProductionBatch }) {
   const confirm = useConfirmProductionBatch(batch.productionBatchId)
-  const [asking, setAsking] = useState(false)
 
   const productUsed = batch.inputs.reduce((total, input) => total + input.productUsedQuantity, 0)
-  const ready =
-    batch.inputs.length > 0 && productUsed > 0 && batch.productModelId !== null
+  const ready = batch.inputs.length > 0 && productUsed > 0
 
   return (
-    <section className="batch-detail__section">
-      <h2>확정</h2>
-
-      <ul className="batch-detail__effects">
-        <li>투입한 소재가 소비되고 보유량에서 빠집니다.</li>
-        <li>제품 개체 {batch.producedQuantity}개가 만들어집니다.</li>
-        <li>자투리는 새 소재로 발행되어 이력이 이어집니다.</li>
-        <li>업사이클 비율이 계산되어 이 생산에 굳습니다.</li>
-      </ul>
-
-      {batch.inputs.length === 0 && (
-        <p className="batch-detail__note">
-          투입한 소재가 없어 확정할 수 없습니다. 위에서 소재를 투입해 주세요.
-        </p>
-      )}
-
+    /*
+      **상자에 담지 않는다.** 확정은 이 화면의 마지막 한 걸음이라 제목을 달아 구획으로
+      세울 것이 없다 — 위의 투입 상자를 읽고 내려오면 바로 누르는 자리다.
+    */
+    <section className="batch-detail__confirm-area">
       {/*
-        확정하면 서버가 개체를 만들고 그 개체가 어느 상품인지 여기서 정해진다. 비어 있으면
-        서버도 PRODUCTION_PRODUCT_MODEL_REQUIRED 로 거절한다 — 되돌릴 수 없는 버튼이라
-        눌러 보고 알게 두지 않는다.
+        **확인 단계를 두지 않는다.** 대신 무엇이 일어나는지를 버튼 바로 위에 둔다 — 누르기
+        전에 읽는 자리가 여기여야 하고, 모달로 한 번 더 물으면 같은 말을 두 번 하게 된다.
       */}
-      {batch.productModelId === null && (
-        <p className="batch-detail__note">
-          이 생산으로 만들 제품이 정해지지 않아 확정할 수 없습니다.{' '}
-          <Link to="/brand/products/new">제품을 등록</Link>할 때 이 생산을 골라 연결해 주세요.
-        </p>
-      )}
+      <p className="batch-detail__effects">
+        투입한 {formatKg(productUsed)}이 소비되고 제품 {batch.producedQuantity}개가
+        만들어집니다. 자투리는 새 소재로 발행됩니다. <strong>되돌릴 수 없습니다.</strong>
+      </p>
 
       {confirm.isError && <ErrorMessage error={confirm.error} />}
 
-      <Button onClick={() => setAsking(true)} disabled={!ready} loading={confirm.isPending}>
-        생산 확정
-      </Button>
-
-      {/* 되돌릴 수 없는 동작이라 확인을 거친다. 문구가 결과를 그대로 말해야 한다 —
-          "확정할까요?" 만으로는 소재가 소비된다는 사실이 전달되지 않는다. */}
-      <ConfirmModal
-        open={asking}
-        title="생산을 확정할까요?"
-        message={`투입한 ${formatKg(productUsed)}이 소비되고 제품 ${batch.producedQuantity}개가 만들어집니다. 되돌릴 수 없습니다.`}
-        confirmLabel="확정"
-        destructive
-        loading={confirm.isPending}
-        onConfirm={() => confirm.mutate(undefined, { onSettled: () => setAsking(false) })}
-        onClose={() => setAsking(false)}
-      />
+      {/* 마지막 동작은 오른쪽 끝이다 — 위의 설명을 읽고 내려온 눈이 마치는 자리. */}
+      <div className="batch-detail__confirm">
+        <Button onClick={() => confirm.mutate()} disabled={!ready} loading={confirm.isPending}>
+          생산 확정
+        </Button>
+      </div>
     </section>
   )
 }
@@ -199,8 +209,8 @@ function ConfirmSection({ batch }: { batch: ProductionBatch }) {
 /**
  * 확정 결과.
  *
- * 만들어진 개체와 QR 은 아래 `ProductionItemList` 가 보여준다
- * (`GET /{batchId}/items`).
+ * 개체와 QR 은 여기서 보여주지 않는다 — 라벨은 제품 단위로 뽑는 것이라 내 제품의
+ * "QR 라벨 보기" 가 맡는다.
  *
  * 업사이클 비율은 서버가 확정 시점에 계산해 스냅샷으로 굳힌 값이라 여기서 다시 계산하지
  * 않는다 — 다시 계산하면 소재 데이터가 바뀔 때 이미 팔린 제품의 비율이 소급해 변한다.
@@ -223,10 +233,22 @@ function ConfirmedResult({ batch }: { batch: ProductionBatch }) {
           <dd>{Number(batch.upcycleRatio).toFixed(2)}%</dd>
         </div>
       </dl>
-      <p className="batch-detail__note">
-        제품 개체가 만들어졌습니다.{' '}
-        <Link to="/brand/products">내 제품에서 판매를 시작</Link>할 수 있습니다.
-      </p>
+      {/*
+        다음 할 일이 제품에 따라 다르다. 제품을 아직 안 붙인 생산은 개체가 있어도 팔리지
+        않는다 — 서버가 제품 모델로 재고를 세기 때문이다.
+      */}
+      {batch.productModelId === null ? (
+        <p className="batch-detail__note">
+          제품 개체가 만들어졌습니다.{' '}
+          <Link to="/brand/products/new">제품 등록</Link>에서 이 생산을 골라 제품을 붙이면
+          판매할 수 있습니다.
+        </p>
+      ) : (
+        <p className="batch-detail__note">
+          제품 개체가 만들어졌습니다.{' '}
+          <Link to="/brand/products">내 제품에서 판매를 시작</Link>할 수 있습니다.
+        </p>
+      )}
     </section>
   )
 }

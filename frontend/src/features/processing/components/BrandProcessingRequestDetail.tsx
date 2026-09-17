@@ -4,15 +4,14 @@ import { Link } from 'react-router-dom'
 import { isAppError } from '../../../utils/errors.ts'
 import type { SubmittedProcessingQuote } from '../api/processingRequestApi.ts'
 import { useBrandProcessingRequestDetail } from '../hooks/useBrandProcessingRequestDetail.ts'
-import { PROCESS_TYPE_LABEL, type ProcessingQuoteStatus, type ProcessingRequestStatus } from '../types/processing.types.ts'
+import { PROCESS_TYPE_LABEL, type ProcessingQuoteStatus } from '../types/processing.types.ts'
+import { progressLabel, progressTone } from '../utils/processingProgress.ts'
 import { MATERIAL_TYPE_LABEL } from '../types/processorProfile.types.ts'
+import { BrandProcessingJobPanel } from './BrandProcessingJobPanel.tsx'
 import { ProcessingPaymentEntry } from './ProcessingPaymentEntry.tsx'
 import { ProcessingShipmentForm } from './ProcessingShipmentForm.tsx'
 import './brand-processing-detail.css'
 
-const requestStatusLabel: Record<ProcessingRequestStatus, string> = {
-  QUOTING: '견적 대기', SELECTED: '견적 수락', CANCELED: '취소', REJECTED: '거절', EXPIRED: '만료',
-}
 const quoteStatusLabel: Record<ProcessingQuoteStatus, string> = {
   SUBMITTED: '선택 가능', SELECTED: '선택 완료', REJECTED: '미선택', EXPIRED: '만료',
 }
@@ -58,7 +57,10 @@ export function BrandProcessingRequestDetail({ requestId }: Props) {
         {/* 요청 번호(`PR` + UUID 28자리)는 제목이 될 수 없다 — 읽어서 얻을 것이 없다.
             어느 요청인지는 소재 이름이 말한다. */}
         <div><span>PROCESSING REQUEST DETAIL</span><h1>{request.materialName}</h1></div>
-        <span className={`br-detail__request-status is-${request.status.toLowerCase()}`}>{requestStatusLabel[request.status]}</span>
+        {/* 견적을 수락한 뒤로 요청 상태는 움직이지 않는다 — 그 뒤의 일은 작업이 말한다. */}
+        <span className={`br-detail__request-status is-${progressTone(request.status, job?.status)}`}>
+          {progressLabel(request.status, job?.status)}
+        </span>
       </header>
 
       <section className="br-detail__request-card" aria-labelledby="request-information-title">
@@ -117,8 +119,9 @@ export function BrandProcessingRequestDetail({ requestId }: Props) {
       {job?.status === 'PAID' && (
         <ProcessingShipmentForm isPending={ship.isPending} error={ship.error} onSubmit={input => ship.mutate(input)} />
       )}
+      {/* 진행 상황과 수령 확인은 이 화면 안에서 끝난다 (가공 진행 화면은 없앴다). */}
       {job && job.status !== 'CREATED' && job.status !== 'PAID' && (
-        <div className="br-detail__job-link"><span>작업 상태를 가공 진행 화면에서 확인할 수 있습니다.</span><Link to={`/processing/jobs/${job.jobId}`}>작업 상세 보기</Link></div>
+        <BrandProcessingJobPanel jobId={job.jobId} />
       )}
 
       <aside className="br-detail__notice"><CalendarBlank aria-hidden="true" /><p>요청은 {date(request.expiresAt)}까지 유효합니다. 견적 선택 시 현재 요청 Lock은 생성된 Job에 연결되어 결제가 완료될 때까지 유지됩니다.</p></aside>

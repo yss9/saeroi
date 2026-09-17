@@ -85,21 +85,28 @@ describe('MaterialInputSelect', () => {
     ])
     renderSelect()
 
-    const option = await screen.findByRole('option', { name: /가공을 거쳐야 투입 가능/ })
+    // 이유는 항목 줄이 아니라 묶음 이름이 말한다 — 한 줄에 붙여 적으면 어디까지가 소재
+    // 이름인지 읽히지 않는다.
+    const option = await screen.findByRole('option', { name: '수거한 폐데님' })
     expect(option).toBeDisabled()
+    expect(option.closest('optgroup')).toHaveAttribute('label', '가공을 거쳐야 투입 가능')
   })
 
   it('가용 수량이 없는 소재는 고를 수 없다', async () => {
     api.getMyMaterials.mockResolvedValue([material({ available: 0, lockedQuantity: 30_000 })])
     renderSelect()
 
-    expect(await screen.findByRole('option', { name: /가용 수량 없음/ })).toBeDisabled()
+    const option = await screen.findByRole('option', { name: '세척된 폐데님' })
+    expect(option).toBeDisabled()
+    expect(option.closest('optgroup')).toHaveAttribute('label', '가용 수량 없음')
   })
 
   it('이미 투입된 소재는 고를 수 없다', async () => {
     renderSelect({ inputMaterialIds: [11] })
 
-    expect(await screen.findByRole('option', { name: /이미 투입됨/ })).toBeDisabled()
+    const option = await screen.findByRole('option', { name: '세척된 폐데님' })
+    expect(option).toBeDisabled()
+    expect(option.closest('optgroup')).toHaveAttribute('label', '이미 투입한 소재')
   })
 
   it('투입량을 입력하기 전에는 저장할 수 없다', async () => {
@@ -173,7 +180,9 @@ describe('MaterialInputSelect', () => {
     const user = renderSelect()
     await addDraft(user)
 
-    expect(screen.getByRole('option', { name: /아래에 추가됨/ })).toBeDisabled()
+    const option = screen.getByRole('option', { name: '세척된 폐데님' })
+    expect(option).toBeDisabled()
+    expect(option.closest('optgroup')).toHaveAttribute('label', '아래에 추가한 소재')
   })
 
   it('저장에 성공하면 초안을 비우고 결과를 넘긴다', async () => {
@@ -203,6 +212,6 @@ describe('MaterialInputSelect', () => {
     ])
     renderSelect()
 
-    expect(await screen.findByText(/가공을 한 번 거쳐야 하고/)).toBeInTheDocument()
+    expect(await screen.findByText('지금 투입할 수 있는 소재가 없습니다.')).toBeInTheDocument()
   })
 })

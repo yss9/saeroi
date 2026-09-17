@@ -1,10 +1,12 @@
-import { ArrowLeft, ArrowRight, CaretRight, Factory, FileText, Package, Plus, Storefront } from '@phosphor-icons/react'
+import { ArrowLeft, ArrowRight, CaretRight, CheckCircle, Factory, FileText, Package, Plus, Storefront } from '@phosphor-icons/react'
 import { Link } from 'react-router-dom'
 import { isAppError } from '../../../utils/errors.ts'
 import { useClickNavigation } from '../../../utils/useClickNavigation.ts'
 import { useBrandProcessingRequests } from '../hooks/useBrandProcessingRequests.ts'
 import { useBrandProcessingRequestSummary } from '../hooks/useBrandProcessingRequestSummary.ts'
+import { useProcessingJobs } from '../hooks/useProcessingJobs.ts'
 import { PROCESS_TYPE_LABEL, type ProcessingRequestStatus } from '../types/processing.types.ts'
+import { progressLabel, progressTone } from '../utils/processingProgress.ts'
 import './brand-processing-list.css'
 
 const statusOptions: { value?: ProcessingRequestStatus; label: string }[] = [
@@ -15,14 +17,6 @@ const statusOptions: { value?: ProcessingRequestStatus; label: string }[] = [
   { value: 'REJECTED', label: '거절' },
   { value: 'EXPIRED', label: '만료' },
 ]
-
-const statusLabel: Record<ProcessingRequestStatus, string> = {
-  QUOTING: '견적 대기',
-  SELECTED: '견적 수락',
-  CANCELED: '취소',
-  REJECTED: '거절',
-  EXPIRED: '만료',
-}
 
 const grams = (quantity: number) => `${quantity.toLocaleString('ko-KR')} g`
 const localDate = (value: string) => new Date(
@@ -35,6 +29,14 @@ const errorMessage = (error: unknown) => isAppError(error) || error instanceof E
 export function BrandProcessingRequestList() {
   const followClick = useClickNavigation()
   const requests = useBrandProcessingRequests()
+  /*
+    **작업 상태를 함께 읽는다.** 견적을 수락한 뒤로 요청은 `SELECTED` 에서 움직이지 않고
+    결제·발송·가공·반환은 전부 작업에 적힌다 — 요청 상태만 보여주면 가공이 끝났는데도
+    목록은 "견적 수락" 이라고 말한다. 목록 화면이 둘을 합쳐 한 칸으로 보여준다.
+  */
+  const jobs = useProcessingJobs()
+  const jobOf = (requestId: number) =>
+    jobs.data?.find(job => job.requestId === requestId)?.status
   // 아래 필터와 무관한 숫자다 — 무엇을 누르든 위는 그대로여야 한다.
   const summary = useBrandProcessingRequestSummary()
   const pageCount = requests.data
@@ -45,10 +47,16 @@ export function BrandProcessingRequestList() {
     <section className="br-list">
       <h1 className="ui-visually-hidden">가공 요청 내역</h1>
 
+      {/*
+        일이 흘러가는 순서대로 넷. 견적을 받고 → 수락해 맡기고 → 가공이 끝나고 → 받는다.
+        한 건은 그중 한 칸에만 선다 — 겹쳐 세면 합이 전체보다 커져 무엇을 세는 숫자인지
+        알 수 없다.
+      */}
       <section className="br-list__summary" aria-label="요청 현황" aria-busy={summary.isPending}>
-        <article><FileText aria-hidden="true" /><div><span>전체 요청</span><strong>{summary.total}<small>건</small></strong></div></article>
-        <article><Factory aria-hidden="true" /><div><span>견적 대기</span><strong>{summary.quoting}<small>건</small></strong></div></article>
+        <article><FileText aria-hidden="true" /><div><span>견적 대기</span><strong>{summary.quoting}<small>건</small></strong></div></article>
         <article><Storefront aria-hidden="true" /><div><span>견적 수락</span><strong>{summary.selected}<small>건</small></strong></div></article>
+        <article><Factory aria-hidden="true" /><div><span>가공 완료</span><strong>{summary.processed}<small>건</small></strong></div></article>
+        <article><CheckCircle aria-hidden="true" /><div><span>수령 완료</span><strong>{summary.received}<small>건</small></strong></div></article>
       </section>
 
       {/* 새 요청을 만드는 자리는 목록 바로 위다 — 맨 위에 있으면 목록을 훑고 나서
@@ -113,7 +121,11 @@ export function BrandProcessingRequestList() {
                 {/* 요청일은 이미 지난 일이라 목록에서 결정을 바꾸지 않는다. 남은 것은
                     "언제까지 견적을 받을 수 있는가" 다. */}
                 <strong className="br-list__date">{localDate(item.expiresAt)}</strong>
-                <span className={`br-list__status is-${item.status.toLowerCase()}`}>{statusLabel[item.status]}</span>
+                <span
+                  className={`br-list__status is-${progressTone(item.status, jobOf(item.requestId))}`}
+                >
+                  {progressLabel(item.status, jobOf(item.requestId))}
+                </span>
                 <Link
                   className="br-list__quote"
                   to={`/brand/processing/requests/${item.requestId}`}

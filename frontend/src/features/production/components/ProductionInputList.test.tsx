@@ -198,10 +198,14 @@ describe('ProductionInputList', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
-  it('폐기 사유를 그 소재 옆에 보여준다', () => {
+  // 사유는 폐기 수량을 설명하는 말이라 그 숫자 바로 아래에 붙는다.
+  it('폐기 사유를 폐기 수량 아래에 보여준다', () => {
     renderList(batch({ inputs: [input({ wasteReason: '오염으로 사용 불가' })] }))
 
-    expect(screen.getByText('폐기 사유: 오염으로 사용 불가')).toBeInTheDocument()
+    const reason = screen.getByText('오염으로 사용 불가')
+    expect(reason).toBeInTheDocument()
+    // 같은 칸 안에 폐기 수량이 함께 있다.
+    expect(reason.closest('td')).toHaveTextContent('0.5 kg')
   })
 
   // 확정된 배치의 소재는 소비되어 보유 목록에서 사라진다. 그때도 무엇을 가리키는지는
@@ -216,6 +220,7 @@ describe('ProductionInputList', () => {
   it('투입이 없으면 무엇을 해야 하는지 알린다', () => {
     renderList(batch({ inputs: [] }))
 
-    expect(screen.getByText('투입한 소재가 없습니다')).toBeInTheDocument()
+    expect(screen.getByText('소재를 투입해주세요')).toBeInTheDocument()
+    expect(screen.getByText('투입한 소재가 없어 생산을 확정할 수 없습니다.')).toBeInTheDocument()
   })
 })

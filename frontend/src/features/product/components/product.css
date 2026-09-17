@@ -96,18 +96,31 @@
   color: #172033;
 }
 
+/* 등록 결과 — 사이트 파랑. 한 줄로 적고 다음 걸음을 오른쪽에 둔다. */
 .product-form__created {
-  margin: 0 0 1.5rem;
-  padding: 1rem 1.15rem;
-  border: 1px solid #b7d9c4;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 0 0 1.25rem;
+  padding: 0.85rem 1.1rem;
+  border: 1px solid #cfe1ee;
   border-radius: 8px;
-  background: #f1f8f3;
+  background: #eef5fa;
 }
-.product-form__created-title { margin: 0 0 0.75rem; font-weight: 700; }
-.product-form__created dl { display: flex; flex-direction: column; gap: 0.5rem; margin: 0; }
-.product-form__created dl > div { display: flex; justify-content: space-between; gap: 1rem; }
-.product-form__created dt { color: #6b7280; font-size: 0.875rem; }
-.product-form__created dd { margin: 0; font-variant-numeric: tabular-nums; }
+.product-form__created-title { margin: 0; min-width: 0; font-weight: 700; color: #174b72; }
+/*
+  글자색을 상자 안에서 한 번 더 못박는다. 링크로 만든 버튼이라 전역 a 규칙이 색을
+  가져가면 파란 바탕에 검은 글씨가 된다 — 읽히지 않는다.
+*/
+.product-form__created .product-form__created-link {
+  flex: 0 0 auto;
+  background: #216a9f;
+  color: #fff;
+  text-decoration: none;
+}
+.product-form__created .product-form__created-link:hover { background: #174b72; color: #fff; }
 
 /* 다음 걸음. 요약과 선 하나로 갈라 "끝" 이 아니라 "다음" 으로 읽히게 한다. */
 .product-form__created-next {
@@ -179,6 +192,43 @@
 
 /* ── 브랜드 제품 관리 ────────────────────────────────── */
 
+/* 거르개와 동작이 같은 줄에 선다. */
+.brand-product-list__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 0.8rem;
+}
+
+/* 목록 위의 상태 거르개. 고른 것만 채워 칠한다. */
+.brand-product-list__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.brand-product-list__filter {
+  padding: 0.35rem 0.8rem;
+  border: 1px solid #ddd9cd;
+  border-radius: 999px;
+  background: #fff;
+  color: #6b7280;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.brand-product-list__filter:hover { border-color: #216a9f; color: #216a9f; }
+.brand-product-list__filter--on {
+  border-color: #216a9f;
+  background: #216a9f;
+  color: #fff;
+}
+.brand-product-list__filter--on:hover { color: #fff; }
+
+.brand-product-list__empty { margin: 0 0 0.8rem; font-size: 0.85rem; color: #6b7280; }
+
 .brand-product-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }
 
 .brand-product-list__item {
@@ -207,12 +257,93 @@
 .brand-product-list__stock { font-size: 0.8rem; color: #1f6f4a; font-variant-numeric: tabular-nums; }
 /* 팔 수 없는 상태는 색을 낮춘다 — 판매 가능 수량과 눈으로 갈려야 한다. */
 .brand-product-list__stock--empty { color: #6b7280; }
-/* 라벨 인쇄·수정으로 가는 입구. 이름·가격보다 뒤로 물러나 있어야 목록이 읽힌다. */
-.brand-product-list__qr { font-size: 0.78rem; }
-.brand-product-list__links { display: flex; flex-wrap: wrap; gap: 0.7rem; }
+/*
+  생산·수정·라벨로 가는 곁가지 셋.
 
-.brand-product-list__side { display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; }
+  **셋이 같은 모양이어야 한다.** 하나만 밑줄이 있으면 다른 종류의 동작으로 읽히고, 그렇다고
+  테두리를 두르면 옆의 판매 중단(버튼)과 구분이 사라진다. 그래서 테두리 없는 파란 글자로
+  맞추고, 누를 수 있다는 신호는 hover 의 밑줄이 맡는다. 셋 사이는 가는 구분선으로 가른다 —
+  띄우기만 하면 긴 이름 옆에서 한 덩어리로 뭉쳐 보인다.
+*/
+.brand-product-list__link {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #216a9f;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.brand-product-list__link:hover { text-decoration: underline; }
+/* 버튼도 글자로 보이게 되돌린다. 팝업을 여는 자리라 링크가 아닐 뿐이다. */
+.brand-product-list__link--button {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  line-height: inherit;
+  cursor: pointer;
+}
+.brand-product-list__links > * + *::before {
+  content: '';
+  display: inline-block;
+  width: 1px;
+  height: 0.8em;
+  margin-right: 0.7rem;
+  background: #ddd9cd;
+  vertical-align: -0.05em;
+}
+/* 오른쪽 곁가지 묶음. 한 줄로 흐르다 좁아지면 접힌다. */
+.brand-product-list__links {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.7rem;
+}
+
+.brand-product-list__side {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
 .brand-product-list__actions { display: flex; gap: 0.4rem; }
+
+/* 상태 배지는 줄의 첫 칸이다. 여러 줄을 훑는 눈이 같은 자리에서 찾도록 너비를 고정하고,
+   글자는 그 칸 가운데에 둔다 (배지는 inline-block 이라 justify-content 가 듣지 않는다). */
+.brand-product-list__item > .ui-badge {
+  flex: 0 0 auto;
+  min-width: 5rem;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.85rem;
+  text-align: center;
+}
+/* 이름 쪽이 남는 폭을 가져간다 — 배지가 왼쪽에 서면서 가운데가 비지 않게. */
+.brand-product-list__main { flex: 1 1 auto; }
+
+/* 판매 중단·판매 시작은 그 옆의 곁가지다 — 상태보다 작아야 상태가 먼저 읽힌다. */
+.brand-product-list__actions .ui-button {
+  min-height: 28px;
+  padding: 0 0.6rem;
+  font-size: 0.75rem;
+}
+
+/* 목록 위 오른쪽 버튼. */
+/* 새 제품 등록 — 거르개와 같은 줄의 오른쪽 끝. */
+.brand-product-page__action {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  padding: 0 1.1rem;
+  border-radius: 8px;
+  background: #216a9f;
+  color: #fff !important;
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+.brand-product-page__action:hover { background: #174b72; }
 
 /* 버튼을 비활성으로 남기는 대신 이유를 적는다 — 비활성 버튼은 이유를 말하지 않는다. */
 .brand-product-list__hint { font-size: 0.78rem; color: #6b7280; }

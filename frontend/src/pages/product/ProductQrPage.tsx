@@ -68,6 +68,9 @@ export function ProductQrPage() {
           onRetry={() => void batches.refetch()}
           selected={selected}
           onSelect={setChosen}
+          // 라벨에 제품 이름을 적는다. 이름은 product, 개체는 production 이 아는 값이라
+          // 이 화면이 건네준다 (ARCHITECTURE §12.1).
+          productName={product.data?.name}
         />
       )}
     </main>
@@ -97,6 +100,7 @@ function Content({
   onRetry,
   selected,
   onSelect,
+  productName,
 }: {
   batches: readonly ProductionBatch[]
   isPending: boolean
@@ -105,6 +109,7 @@ function Content({
   onRetry: () => void
   selected: ProductionBatch | undefined
   onSelect: (batchId: number) => void
+  productName: string | undefined
 }) {
   if (isPending) return <Loading variant="skeleton" rows={3} label="생산 내역을 불러오는 중" />
   if (isError) return <ErrorMessage error={error} onRetry={onRetry} />
@@ -142,7 +147,7 @@ function Content({
         <p className="page__lead">생산 · {batchLabel(selected)}</p>
       )}
 
-      <ProductionItemQrGrid batchId={selected.productionBatchId} />
+      <ProductionItemQrGrid batchId={selected.productionBatchId} productName={productName} />
     </>
   )
 }
