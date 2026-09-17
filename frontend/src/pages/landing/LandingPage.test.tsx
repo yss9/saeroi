@@ -389,17 +389,49 @@ describe('LandingPage', () => {
   })
 
   it('moves to the top with the fixed back-to-top control', async () => {
-    const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
     const user = userEvent.setup()
-    renderLandingPage()
+    const { container } = renderLandingPage()
+    const viewport = container.querySelector('.landing-viewport')!
+    const track = container.querySelector<HTMLElement>('.landing-track')!
 
     expect(screen.queryByRole('button', { name: '페이지 맨 위로 이동' })).not.toBeInTheDocument()
-    Object.defineProperty(window, 'scrollY', { configurable: true, value: 1000 })
-    fireEvent.scroll(window)
+    fireEvent.wheel(viewport, { deltaY: 100 })
+    expect(track.style.transform).toBe('translateY(-100dvh)')
 
     await user.click(await screen.findByRole('button', { name: '페이지 맨 위로 이동' }))
 
-    expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' })
+    expect(track.style.transform).toBe('translateY(-0dvh)')
+  })
+
+  it('advances exactly one panel per wheel notch and ignores further input until the transition settles', () => {
+    const { container } = renderLandingPage()
+    const viewport = container.querySelector('.landing-viewport')!
+    const track = container.querySelector<HTMLElement>('.landing-track')!
+
+    fireEvent.wheel(viewport, { deltaY: 120 })
+    expect(track.style.transform).toBe('translateY(-100dvh)')
+
+    // 잠금 시간 안에 들어온 두 번째 휠 입력은 무시된다.
+    fireEvent.wheel(viewport, { deltaY: 120 })
+    expect(track.style.transform).toBe('translateY(-100dvh)')
+  })
+
+  it('splits WHY SAEROI into a fixed-image stop and a captions stop without moving the images', async () => {
+    const { container } = renderLandingPage()
+    const viewport = container.querySelector('.landing-viewport')!
+    const track = container.querySelector<HTMLElement>('.landing-track')!
+
+    fireEvent.wheel(viewport, { deltaY: 120 })
+    expect(track.style.transform).toBe('translateY(-100dvh)')
+    const copy = container.querySelector('.value-story--trace .value-story__copy')!
+    expect(copy).toHaveAttribute('aria-hidden', 'true')
+
+    // 두 번째 휠은 잠금이 풀린 뒤에만 반영된다.
+    await new Promise((resolve) => setTimeout(resolve, 950))
+    fireEvent.wheel(viewport, { deltaY: 120 })
+    // 같은 패널에 머무른다 — 이미지는 옮겨지지 않고 설명만 켜진다.
+    expect(track.style.transform).toBe('translateY(-100dvh)')
+    expect(copy).toHaveAttribute('aria-hidden', 'false')
   })
 
   it('validates and accepts a newsletter email', async () => {

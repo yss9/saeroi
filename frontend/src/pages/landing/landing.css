@@ -12,15 +12,51 @@
   --line: rgb(29 29 27 / 18%);
   --page-gutter: clamp(20px, 4vw, 72px);
   --section-space: clamp(96px, 12vw, 190px);
-  min-height: 100vh;
-  overflow: clip;
+  height: 100dvh;
+  overflow: hidden;
   color: var(--ink);
   background: var(--paper);
   font-family: "Pretendard", "Noto Sans KR", system-ui, sans-serif;
 }
 
-.landing-page main {
-  display: block;
+/* Wheel-paginated fullscreen sections ---------------------------------- */
+/* 휠 한 번 = 화면 한 칸. .landing-track 을 translateY 로 옮기고,
+   각 .landing-panel 은 정확히 한 화면(100dvh)만 차지해 잘리지 않게 한다. */
+.landing-viewport {
+  position: relative;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.landing-track {
+  display: flex;
+  flex-direction: column;
+  height: 600dvh;
+  transition: transform 850ms cubic-bezier(.22, 1, .36, 1);
+  will-change: transform;
+}
+
+.landing-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.landing-panel:not(:first-child) {
+  padding-top: 78px;
+}
+
+.landing-panel--footer {
+  overflow-y: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-track {
+    transition: none;
+  }
 }
 
 .landing-page img,
@@ -381,7 +417,7 @@
 .hero {
   position: relative;
   display: grid;
-  min-height: max(720px, 100svh);
+  height: 100%;
   place-items: center;
   padding: 112px var(--page-gutter) 96px;
   color: #fff;
@@ -443,9 +479,14 @@
   display: grid;
   justify-items: center;
   gap: 9px;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: none;
   font-family: "Inter", sans-serif;
   font-size: 9px;
   letter-spacing: .18em;
+  cursor: pointer;
   transform: translateX(-50%);
 }
 
@@ -529,8 +570,32 @@
 
 /* Why */
 .why-saeroi {
-  padding: var(--section-space) 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
+  padding: 0 0 clamp(16px, 3vh, 32px);
   background: var(--paper);
+}
+
+.why-saeroi .editorial-heading {
+  max-height: 260px;
+  margin-bottom: clamp(20px, 3.5vh, 36px);
+  overflow: hidden;
+  transition:
+    max-height 520ms cubic-bezier(.22, 1, .36, 1),
+    margin-bottom 520ms cubic-bezier(.22, 1, .36, 1),
+    opacity 400ms ease,
+    transform 400ms ease;
+}
+
+/* 세 번째 정지 지점: 제목이 위로 빠지며 이미지·설명 영역에 그만큼 공간을 내준다. */
+.why-saeroi .editorial-heading[data-collapsed="true"] {
+  max-height: 0;
+  margin-bottom: 0;
+  opacity: 0;
+  transform: translateY(-24px);
+  pointer-events: none;
 }
 
 .why-saeroi__journey {
@@ -540,11 +605,18 @@
   gap: clamp(18px, 3.2vw, 52px);
   width: min(calc(100% - (2 * var(--page-gutter))), 1380px);
   margin: 0 auto;
+  padding-top: 0;
+  transition: padding-top 520ms cubic-bezier(.22, 1, .36, 1);
+}
+
+/* 세 번째 정지 지점: 제목이 빠진 자리에 이미지가 바로 붙지 않도록 위쪽에 살짝 여백을 준다. */
+.why-saeroi__journey--captions {
+  padding-top: clamp(16px, 3vh, 32px);
 }
 
 .value-story {
-  display: grid;
-  gap: 24px;
+  display: flex;
+  flex-direction: column;
 }
 
 .value-story--transform {
@@ -555,15 +627,23 @@
   margin-top: 0;
 }
 
+/* 이미지는 두 번째/세 번째 정지 지점에서 크기가 똑같이 유지된다 — 예전엔 설명이
+   나타날 때 이미지가 그만큼 줄어들었는데, 그러면 이미지가 화면 전체에서 계속
+   "고정"되어야 한다는 요구와 어긋난다. 대신 부모(.why-saeroi)를 세로 중앙 정렬해서
+   설명이 추가되며 늘어난 전체 높이를 위아래로 나눠 흡수한다. */
+/* 세 번째 정지 지점(설명 표시)에서는 컴포넌트가 실측 폭으로 계산한 픽셀 높이를
+   인라인 style로 얹어 배포본과 같은 4:5 비율까지 늘린다 — 카드마다 순서대로(0/150/300ms)
+   커지도록 transition-delay도 인라인으로 함께 받는다. */
 .value-story__media {
+  height: clamp(240px, 46vh, 440px);
   overflow: hidden;
   background: var(--paper-warm);
+  transition: height 520ms cubic-bezier(.22, 1, .36, 1);
 }
 
 .value-story__media img {
   width: 100%;
   height: 100%;
-  aspect-ratio: 4 / 5;
   object-fit: cover;
   transition: transform 900ms cubic-bezier(.22, 1, .36, 1);
 }
@@ -572,8 +652,30 @@
   transform: scale(1.035);
 }
 
+/* 이미지는 그대로 두고 설명만 왼쪽 카드부터 순서대로 켠다(위로 살짝 올라오며 페이드인).
+   height를 고정값으로 줘야 한다 — max-height만 쓰면 설명 글자 수에 따라 실제 박스
+   높이가 달라져서, 남는 공간을 나눠 갖는 이미지 3개의 세로 크기가 서로 어긋난다. */
+.value-story__copy {
+  flex: 0 0 auto;
+  height: 0;
+  margin-top: 0;
+  opacity: 0;
+  overflow: hidden;
+  transform: translateY(14px);
+  transition: height 480ms ease, margin-top 480ms ease, opacity 420ms ease, transform 420ms ease;
+  pointer-events: none;
+}
+
+.why-saeroi__journey--captions .value-story__copy {
+  height: 220px;
+  margin-top: 18px;
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
 .value-story__copy > p {
-  margin: 0 0 9px;
+  margin: 0 0 8px;
   color: var(--brand-blue);
   font-family: "Inter", sans-serif;
   font-size: 13px;
@@ -582,8 +684,8 @@
 }
 
 .value-story__copy h3 {
-  margin: 0 0 12px;
-  font-size: clamp(20px, 1.8vw, 27px);
+  margin: 0 0 8px;
+  font-size: clamp(18px, 1.6vw, 24px);
   font-weight: 500;
   letter-spacing: -.04em;
 }
@@ -592,25 +694,62 @@
   display: block;
   max-width: 340px;
   color: var(--muted);
-  font-size: 15px;
-  line-height: 1.7;
+  font-size: 14px;
+  line-height: 1.55;
   word-break: keep-all;
 }
 
 /* Shop */
 .shop-showcase {
   position: relative;
-  padding: var(--section-space) 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
+  padding: 0 0 clamp(16px, 3vh, 32px);
   color: #fff;
   background: var(--deep-blue-soft);
 }
 
-.shop-showcase [data-reveal] {
-  transition-duration: 1000ms;
+/* 왼쪽 제목 - 가운데 이미지 - 오른쪽 상품정보(장바구니/찜/다음 상품 넘기기) 세 칸.
+   이미지를 가장자리에 붙이면 한 화면 높이에 맞추려다 가로로 지나치게 길어져
+   비율이 깨졌던 문제가 있어, 가운데 배치로 폭을 좁혀 세로로 자연스러운 비율을 준다. */
+.shop-showcase__layout {
+  display: grid;
+  grid-template-columns: minmax(230px, .82fr) minmax(0, 1.1fr) minmax(260px, .8fr);
+  align-items: stretch;
+  gap: clamp(24px, 3vw, 48px);
+  width: min(calc(100% - (2 * var(--page-gutter))), 1380px);
+  height: 100%;
+  max-height: 100%;
+  margin: 0 auto;
 }
 
-.shop-showcase .editorial-heading > .text-link[data-reveal] {
-  --reveal-delay: 120ms;
+.shop-showcase .editorial-heading {
+  display: flex;
+  grid-column: 1;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: 12px;
+  height: 100%;
+  min-width: 0;
+  margin: 0;
+  /* 가운데 이미지가 위아래에 두는 여백만큼 맞춰, 제목이 이미지 상단과 나란히 오게 한다. */
+  padding-top: clamp(20px, 3.5vh, 48px);
+}
+
+/* 왼쪽 칸이 좁아 "New Life, New Form"이 두 줄로 꺾이던 것을 한 줄로 고정한다.
+   일반 editorial-heading의 vw 기반 큰 글자 크기로는 이 칸 폭에서 항상 줄바꿈되므로
+   Shop 화면 전용으로 더 작게 잡는다. */
+.shop-showcase .editorial-heading__subtitle {
+  max-width: 100%;
+  font-size: clamp(1.05rem, 1.5vw, 1.5rem);
+  white-space: nowrap;
+}
+
+.shop-showcase [data-reveal] {
+  transition-duration: 1000ms;
 }
 
 .shop-showcase__media[data-reveal] {
@@ -621,17 +760,15 @@
   --reveal-delay: 340ms;
 }
 
-.shop-showcase__stage {
-  display: grid;
-  grid-template-columns: minmax(0, 1.32fr) minmax(360px, .68fr);
-  gap: clamp(36px, 4.5vw, 72px);
-  width: min(calc(100% - (2 * var(--page-gutter))), 1380px);
-  margin: 0 auto;
-}
-
+/* 화면 세로를 꽉 채우면 이미지가 지나치게 커 보여서, 위아래로 살짝 여백을 준다.
+   grid-row 높이는 그대로 두고 margin으로만 줄이면 위아래 빈 자리에 섹션 배경(짙은 파랑)이
+   그대로 비쳐 보인다. */
 .shop-showcase__media {
   position: relative;
-  height: clamp(520px, 44vw, 650px);
+  grid-column: 2;
+  align-self: stretch;
+  min-height: 0;
+  margin: clamp(20px, 3.5vh, 48px) 0;
   overflow: hidden;
   background: #d8d1c5;
 }
@@ -640,7 +777,7 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  animation: product-enter 600ms cubic-bezier(.22, 1, .36, 1);
+  animation: product-enter 520ms cubic-bezier(.22, 1, .36, 1);
 }
 
 .shop-showcase__media-placeholder {
@@ -678,14 +815,24 @@
 }
 
 .shop-showcase__product {
+  position: relative;
   display: flex;
+  grid-column: 3;
   width: 100%;
   max-width: 420px;
   min-width: 0;
+  height: 100%;
   flex-direction: column;
   justify-content: center;
   justify-self: start;
-  padding: 40px 0;
+  padding: 8px 0;
+}
+
+/* 오른쪽 칸의 우측 상단 고정 — 상품 정보(가운데 정렬)와는 별도로 다룬다. */
+.shop-showcase__view-all {
+  position: absolute;
+  top: clamp(20px, 3.5vh, 48px);
+  right: 0;
 }
 
 .shop-showcase__state {
@@ -725,7 +872,7 @@
 }
 
 .shop-showcase__brand {
-  margin: 0 0 20px;
+  margin: 0 0 8px;
   color: var(--brand-orange);
   font-family: "Inter", sans-serif;
   font-size: 12px;
@@ -745,7 +892,7 @@
 }
 
 .shop-showcase__price {
-  margin: 24px 0 0;
+  margin: 10px 0 0;
   font-family: "Inter", sans-serif;
   font-size: 18px;
   font-weight: 500;
@@ -754,7 +901,7 @@
 .shop-showcase__actions {
   display: flex;
   gap: 10px;
-  margin-top: 38px;
+  margin-top: 18px;
 }
 
 .shop-showcase__bag,
@@ -813,8 +960,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 58px;
-  padding-top: 20px;
+  margin-top: 20px;
+  padding-top: 12px;
   border-top: 1px solid rgb(255 255 255 / 22%);
 }
 
@@ -859,8 +1006,16 @@
 
 /* Brands */
 .brand-showcase {
-  padding: var(--section-space) 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
+  padding: 0 0 clamp(16px, 3vh, 32px);
   background: var(--paper);
+}
+
+.brand-showcase .editorial-heading {
+  margin-bottom: clamp(20px, 3.5vh, 36px);
 }
 
 .brand-showcase__layout {
@@ -929,8 +1084,14 @@
   background: var(--paper-warm);
 }
 
+.brand-showcase__image {
+  max-height: clamp(220px, 42vh, 460px);
+}
+
 .brand-showcase__image img {
   width: 100%;
+  height: 100%;
+  max-height: clamp(220px, 42vh, 460px);
   aspect-ratio: 1.18 / 1;
   object-fit: cover;
   animation: brand-enter 500ms cubic-bezier(.22, 1, .36, 1);
@@ -970,7 +1131,7 @@
 /* Story */
 .story {
   position: relative;
-  min-height: min(860px, 90svh);
+  height: 100%;
   overflow: hidden;
   color: #fff;
   background: #18232a;
@@ -1029,11 +1190,11 @@
   z-index: 1;
   display: flex;
   width: min(calc(100% - (2 * var(--page-gutter))), 1380px);
-  min-height: min(860px, 90svh);
+  height: 100%;
   flex-direction: column;
   justify-content: center;
   margin: 0 auto;
-  padding: 100px 0;
+  padding: clamp(24px, 6vh, 100px) 0;
 }
 
 .story__overlay > p {
@@ -1082,7 +1243,11 @@
 
 /* Footer */
 .site-footer {
-  padding: clamp(72px, 8vw, 110px) var(--page-gutter) 28px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100%;
+  padding: clamp(48px, 6vh, 90px) var(--page-gutter) 28px;
   color: #fff;
   background: var(--deep-blue);
 }
@@ -1304,13 +1469,9 @@
     gap: 22px;
   }
 
-  .shop-showcase__stage {
-    grid-template-columns: minmax(0, 1.2fr) minmax(300px, .8fr);
-    gap: 36px;
-  }
-
-  .shop-showcase__media {
-    height: 500px;
+  .shop-showcase__layout {
+    grid-template-columns: minmax(160px, .7fr) minmax(0, 1.1fr) minmax(220px, .78fr);
+    gap: 28px;
   }
 
   .brand-showcase__layout {
@@ -1374,7 +1535,6 @@
   }
 
   .hero {
-    min-height: max(650px, 100svh);
     padding-top: 124px;
   }
 
@@ -1436,9 +1596,16 @@
     aspect-ratio: 4 / 4.6;
   }
 
-  .shop-showcase__stage {
+  .shop-showcase__layout {
     grid-template-columns: 1fr;
     gap: 20px;
+  }
+
+  .shop-showcase .editorial-heading,
+  .shop-showcase__media,
+  .shop-showcase__product {
+    grid-column: 1;
+    height: auto;
   }
 
   .shop-showcase__media,
@@ -1476,11 +1643,6 @@
 
   .brand-showcase__image img {
     aspect-ratio: 4 / 3.7;
-  }
-
-  .story,
-  .story__overlay {
-    min-height: 760px;
   }
 
   .story__media img {

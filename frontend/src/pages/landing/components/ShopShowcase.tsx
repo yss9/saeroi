@@ -59,18 +59,20 @@ export function ShopShowcase() {
 
   return (
     <section id="shop" className="shop-showcase" aria-labelledby="shop-title">
-      <header className="editorial-heading editorial-heading--light">
-        <div data-reveal>
-          <h2 id="shop-title">SHOP</h2>
-          <p className="editorial-heading__subtitle">New Life, New Form</p>
-        </div>
-        <Link className="text-link" to="/shop" data-reveal>
-          VIEW ALL PRODUCTS <ArrowRight aria-hidden="true" />
-        </Link>
-      </header>
+      {/* 왼쪽 제목 - 가운데 이미지 - 오른쪽 상품정보 세 칸 구성. */}
+      <div className="shop-showcase__layout">
+        <header className="editorial-heading editorial-heading--light">
+          <div data-reveal>
+            <h2 id="shop-title">SHOP</h2>
+            <p className="editorial-heading__subtitle">New Life, New Form</p>
+          </div>
+        </header>
 
-      <div className="shop-showcase__stage">
-        <div className="shop-showcase__media" aria-live="polite" data-reveal>
+        <div
+          className="shop-showcase__media"
+          aria-live="polite"
+          data-reveal
+        >
           {product ? (
             <>
               <img
@@ -92,6 +94,10 @@ export function ShopShowcase() {
           aria-busy={catalog.isPending}
           data-reveal
         >
+          <Link className="shop-showcase__view-all text-link" to="/shop">
+            VIEW ALL PRODUCTS <ArrowRight aria-hidden="true" />
+          </Link>
+
           {catalog.isPending ? (
             <CatalogState title="상품을 불러오는 중" />
           ) : catalog.isError ? (

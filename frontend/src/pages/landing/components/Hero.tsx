@@ -13,14 +13,18 @@ const MOVING_LETTERS = [
 ]
 const HERO_WORDS = ['WASTE', 'IS', 'NOT', 'THE', 'END.']
 
-interface HeroProps { onLogoReveal: () => void }
+interface HeroProps {
+  onLogoReveal: () => void
+  // 휠 페이지네이션에서는 실제 앵커 스크롤이 없다 — 클릭도 다음 정지 지점으로 넘어가야 한다.
+  onScrollNext?: () => void
+}
 
 // Parent header/scroll state must not replace SVG nodes while GSAP owns them.
 const HeroLogo = memo(function HeroLogo() {
   return <div className="hero__logo" role="img" aria-label="SAEROI" dangerouslySetInnerHTML={{ __html: logoMarkup }} />
 })
 
-export function Hero({ onLogoReveal }: HeroProps) {
+export function Hero({ onLogoReveal, onScrollNext }: HeroProps) {
   const heroRef = useRef<HTMLElement>(null)
 
   useLayoutEffect(() => {
@@ -111,7 +115,7 @@ export function Hero({ onLogoReveal }: HeroProps) {
         </h1>
         <p data-hero-subcopy>버려진 소재의 다음을 만나는 곳, SAEROI</p>
       </div>
-      <a className="hero__scroll" href="#why-saeroi" data-hero-scroll><span>SCROLL</span><i aria-hidden="true" /></a>
+      <button className="hero__scroll" type="button" onClick={onScrollNext} data-hero-scroll><span>SCROLL</span><i aria-hidden="true" /></button>
     </section>
   )
 }
