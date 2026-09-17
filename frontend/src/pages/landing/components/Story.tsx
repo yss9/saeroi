@@ -1,12 +1,13 @@
 import { ArrowUpRight } from '@phosphor-icons/react'
 import { Link } from 'react-router-dom'
+import { siteAssetUrl } from '../../../utils/siteAssetUrl.ts'
 
 export function Story() {
   return (
     <section id="story" className="story" aria-labelledby="story-title">
       <div className="story__media" data-reveal>
         <img
-          src="/images/landing/hero-upcycled-denim.webp"
+          src={siteAssetUrl('/images/landing/hero-upcycled-denim.webp')}
           alt="버려진 데님 소재가 새로운 제품으로 이어지는 제작 현장"
         />
       </div>
