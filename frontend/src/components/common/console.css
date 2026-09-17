@@ -1014,3 +1014,106 @@
   .mat-prefill { justify-content: stretch; }
   .mat-prefill__note { margin-right: 0; width: 100%; }
 }
+
+/* ── 표 ───────────────────────────────────────────────────
+   거래처럼 필드가 똑같이 반복되는 기록에 쓴다. 카드로 늘어놓으면 같은 값을 세로로
+   훑게 되어 비교가 안 된다. */
+
+.console-table-wrap {
+  border: 1px solid var(--console-line);
+  border-radius: var(--console-r-card);
+  background: var(--console-panel);
+  /* 좁은 화면에서 표만 가로로 밀린다. 페이지 전체가 밀리면 안 된다. */
+  overflow-x: auto;
+}
+
+.console-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.console-table th {
+  height: 32px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--console-line);
+  background: var(--console-canvas);
+  color: var(--console-ink-3);
+  font-family: var(--console-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.console-table td {
+  height: 44px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--console-line);
+  vertical-align: middle;
+  color: var(--console-ink-2);
+}
+
+.console-table tbody tr:last-child td { border-bottom: 0; }
+
+/* 숫자 칸. 자리를 맞춰 읽는 값이라 고정폭 + 오른쪽 정렬이다. */
+.console-table .is-num {
+  text-align: right;
+  font-family: var(--console-mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ── 행 ─────────────────────────────────────────────────── */
+
+.console-row { cursor: pointer; transition: background-color 100ms; }
+.console-row:hover { background: var(--console-canvas); }
+
+/*
+ * 손댈 것이 있는 행.
+ *
+ * <b>이것만 색을 쓴다.</b> 전부에 주면 급한 것이 묻힌다 — 이 화면에 오는 이유는
+ * "오늘 뭘 보내야 하나" 하나고, 보통 한둘이다.
+ */
+.console-row--todo > td:first-child { box-shadow: inset 3px 0 0 var(--console-amber); }
+.console-row--todo > td { background: var(--console-wait-bg); }
+.console-row--todo:hover > td { background: #fef6e0; }
+
+/* 끝난 거래. 남겨는 두되 눈길을 가로채지 않는다. */
+.console-row--off > td { color: var(--console-ink-3); }
+.console-row--off .console-row__name { color: var(--console-ink-3); text-decoration: line-through; }
+
+.console-row__name { font-weight: 600; color: var(--console-ink); }
+.console-row__money { font-weight: 600; color: var(--console-ink); }
+
+.console-row__when { white-space: nowrap; }
+.console-row__when small {
+  display: block;
+  margin-top: 1px;
+  font-family: var(--console-mono);
+  font-size: 11px;
+  color: var(--console-ink-3);
+}
+
+/* 거래번호. 필요하지만 고르는 기준은 아니라 맨 오른쪽에 흐리게 둔다. */
+.console-row__code {
+  font-family: var(--console-mono);
+  font-size: 11px;
+  color: var(--console-ink-3);
+  white-space: nowrap;
+}
+
+.console-row__act { width: 1%; text-align: right; white-space: nowrap; }
+.console-row__chevron { width: 14px; height: 14px; color: var(--console-line-strong); }
+
+/* 머리말의 "보낼 것이 N건". 이 화면에 온 이유라 여기만 색이 붙는다. */
+.console__sub--todo { color: var(--console-amber); font-weight: 600; }
+
+@media (max-width: 720px) {
+  /* 좁은 화면에서는 거래번호를 접는다 — 표를 옆으로 밀지 않고 읽을 수 있는 폭을 만든다.
+     번호는 상세 화면에 그대로 있다. */
+  .console-table th:nth-child(7),
+  .console-table td:nth-child(7) { display: none; }
+}
+
