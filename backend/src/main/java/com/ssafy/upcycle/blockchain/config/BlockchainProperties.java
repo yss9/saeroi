@@ -20,8 +20,7 @@ public record BlockchainProperties(
         String materialTokenAddress,
         String marketplaceAddress,
         String processingRegistryAddress,
-        String productionRegistryAddress,
-        String adminPrivateKey) {
+        String productionRegistryAddress) {
 
     /**
      * 소재·마켓 주소가 하나라도 비어 있으면 온체인 기록을 받지 않는다.
@@ -45,10 +44,6 @@ public record BlockchainProperties(
     public boolean hasProcessingRegistry() { return hasAddress(processingRegistryAddress); }
 
     public boolean hasRpcUrl() { return rpcUrl != null && !rpcUrl.isBlank(); }
-
-    public boolean hasAdminSigner() {
-        return hasRpcUrl() && adminPrivateKey != null && !adminPrivateKey.isBlank();
-    }
 
     private static boolean hasAddress(String address) {
         return address != null && address.length() == 42 && address.startsWith("0x");

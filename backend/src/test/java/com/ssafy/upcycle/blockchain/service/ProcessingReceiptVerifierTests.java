@@ -96,7 +96,7 @@ class ProcessingReceiptVerifierTests {
                 31337L, "http://localhost:8545",
                 "0x1111111111111111111111111111111111111111",
                 "0x2222222222222222222222222222222222222222", REGISTRY,
-                "0x4444444444444444444444444444444444444444", null));
+                "0x4444444444444444444444444444444444444444"));
     }
 
     private com.fasterxml.jackson.databind.JsonNode receipt(

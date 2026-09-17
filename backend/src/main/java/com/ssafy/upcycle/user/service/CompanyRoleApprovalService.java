@@ -1,10 +1,10 @@
 package com.ssafy.upcycle.user.service;
 
-import com.ssafy.upcycle.blockchain.service.OnChainRoleGrantGateway;
-import com.ssafy.upcycle.blockchain.service.RoleGrantResult;
+import com.ssafy.upcycle.blockchain.service.OnChainRoleVerificationGateway;
 import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.user.CompanyRoleApprovalErrorCode;
 import com.ssafy.upcycle.user.dto.CompanyRoleApplicationResponse;
+import com.ssafy.upcycle.user.dto.CompanyRoleApprovalRequest;
 import com.ssafy.upcycle.user.entity.CompanyProfile;
 import com.ssafy.upcycle.user.entity.User;
 import com.ssafy.upcycle.user.entity.UserRole;
@@ -29,7 +29,7 @@ public class CompanyRoleApprovalService {
     private final UserRepository userRepository;
     private final CompanyProfileRepository companyProfileRepository;
     private final UserWalletRepository userWalletRepository;
-    private final OnChainRoleGrantGateway roleGrantGateway;
+    private final OnChainRoleVerificationGateway roleVerificationGateway;
     private final Clock clock;
 
     @Transactional(readOnly = true)
@@ -39,19 +39,21 @@ public class CompanyRoleApprovalService {
                 .toList();
     }
 
-    /** 체인 트랜잭션이 성공한 뒤에만 승인 상태를 확정한다. */
+    /** 관리자 MetaMask 트랜잭션과 실제 온체인 역할을 검증한 뒤에만 승인 상태를 확정한다. */
     @Transactional
-    public CompanyRoleApplicationResponse approve(Long adminId, Long userId) {
+    public CompanyRoleApplicationResponse approve(
+            Long adminId, Long userId, CompanyRoleApprovalRequest request) {
         User user = requireBusiness(userId);
         CompanyProfile profile = requireProfile(userId);
         UserWallet wallet = userWalletRepository.findByUserIdAndActiveTrue(userId)
                 .filter(UserWallet::isVerified)
                 .orElseThrow(() -> new BusinessException(CompanyRoleApprovalErrorCode.WALLET_REQUIRED));
 
-        RoleGrantResult result = roleGrantGateway.grant(user.getRole(), wallet.getWalletAddress());
+        roleVerificationGateway.verifyGranted(
+                user.getRole(), wallet.getWalletAddress(), request.transactionHashes());
         profile.approveRole(
                 wallet.getWalletAddress(),
-                String.join(",", result.transactionHashes()),
+                String.join(",", request.transactionHashes()),
                 adminId,
                 LocalDateTime.now(clock));
         return response(user);

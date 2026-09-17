@@ -2,15 +2,13 @@ package com.ssafy.upcycle.user.controller;
 
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.ssafy.upcycle.blockchain.service.OnChainRoleGrantGateway;
-import com.ssafy.upcycle.blockchain.service.RoleGrantResult;
+import com.ssafy.upcycle.blockchain.service.OnChainRoleVerificationGateway;
 import com.ssafy.upcycle.user.entity.CompanyProfile;
 import com.ssafy.upcycle.user.entity.User;
 import com.ssafy.upcycle.user.entity.UserRole;
@@ -42,7 +40,7 @@ class AdminCompanyRoleControllerTests {
     @Autowired UserRepository userRepository;
     @Autowired CompanyProfileRepository companyProfileRepository;
     @Autowired UserWalletRepository userWalletRepository;
-    @MockitoBean OnChainRoleGrantGateway roleGrantGateway;
+    @MockitoBean OnChainRoleVerificationGateway roleVerificationGateway;
 
     private Long adminId;
     private Long brandId;
@@ -76,21 +74,27 @@ class AdminCompanyRoleControllerTests {
         UserWallet wallet = userWalletRepository.save(UserWallet.link(brandId, WALLET, 31221));
         wallet.markVerified(LocalDateTime.now());
         userWalletRepository.saveAndFlush(wallet);
-        when(roleGrantGateway.grant(UserRole.BRAND, WALLET))
-                .thenReturn(new RoleGrantResult(List.of("0xaaa", "0xbbb", "0xccc")));
+        String tx1 = "0x" + "a".repeat(64);
+        String tx2 = "0x" + "b".repeat(64);
+        String tx3 = "0x" + "c".repeat(64);
 
-        mockMvc.perform(admin(post("/api/v1/admin/company-role-applications/{id}/approve", brandId)))
+        mockMvc.perform(admin(post("/api/v1/admin/company-role-applications/{id}/approve", brandId))
+                        .contentType("application/json")
+                        .content("{\"transactionHashes\":[\"" + tx1 + "\",\"" + tx2 + "\",\"" + tx3 + "\"]}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("APPROVED"))
                 .andExpect(jsonPath("$.data.approvedWallet").value(WALLET))
                 .andExpect(jsonPath("$.data.transactionHashes.length()").value(3));
 
-        verify(roleGrantGateway).grant(eq(UserRole.BRAND), eq(WALLET));
+        verify(roleVerificationGateway).verifyGranted(
+                eq(UserRole.BRAND), eq(WALLET), eq(List.of(tx1, tx2, tx3)));
     }
 
     @Test
     void refusesApprovalWithoutAVerifiedWallet() throws Exception {
-        mockMvc.perform(admin(post("/api/v1/admin/company-role-applications/{id}/approve", brandId)))
+        mockMvc.perform(admin(post("/api/v1/admin/company-role-applications/{id}/approve", brandId))
+                        .contentType("application/json")
+                        .content("{\"transactionHashes\":[]}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("COMPANY_WALLET_REQUIRED"));
     }

@@ -2,7 +2,9 @@ package com.ssafy.upcycle.user.controller;
 
 import com.ssafy.upcycle.common.response.ApiResponse;
 import com.ssafy.upcycle.user.dto.CompanyRoleApplicationResponse;
+import com.ssafy.upcycle.user.dto.CompanyRoleApprovalRequest;
 import com.ssafy.upcycle.user.service.CompanyRoleApprovalService;
+import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -12,6 +14,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -28,8 +31,11 @@ public class AdminCompanyRoleController {
 
     @PostMapping("/{userId}/approve")
     public ApiResponse<CompanyRoleApplicationResponse> approve(
-            @AuthenticationPrincipal Jwt jwt, @PathVariable Long userId) {
-        return ApiResponse.success(approvalService.approve(Long.valueOf(jwt.getSubject()), userId));
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long userId,
+            @Valid @RequestBody CompanyRoleApprovalRequest request) {
+        return ApiResponse.success(
+                approvalService.approve(Long.valueOf(jwt.getSubject()), userId, request));
     }
 
     @PostMapping("/{userId}/reject")
