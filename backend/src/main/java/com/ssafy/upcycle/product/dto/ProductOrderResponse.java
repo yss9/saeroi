@@ -15,6 +15,18 @@ import java.util.List;
 public record ProductOrderResponse(
         Long orderId,
         String orderCode,
+
+        /**
+         * 이 주문이 속한 묶음 번호. <b>단일 주문은 {@code null} 이다.</b>
+         *
+         * <p>장바구니로 주문하면 브랜드 수만큼 주문이 생기고 결제는 묶음이 한 번 받는다.
+         * 주문 목록에서 어느 주문들이 같은 결제였는지 알려면 이 값이 필요하다 — 없으면
+         * 같은 순간에 생긴 주문 여러 건이 서로 무관해 보인다.
+         *
+         * <p>결제·취소 경로가 받는 값은 아니다. 묶음의 결제와 취소는
+         * {@code orderGroupId} 를 받는 별도 경로가 처리한다.
+         */
+        String orderGroupCode,
         String brandName,
         long totalPrice,
         ProductOrderStatus status,

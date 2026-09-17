@@ -70,6 +70,41 @@ class KakaoPayPropertiesTests {
                 .isEqualTo("http://localhost:5173/orders/12/payment/return");
     }
 
+    // ── 주문 묶음 복귀 주소 ─────────────────────────────────
+
+    @Test
+    void theOrderGroupUrlIsDerivedTheSameWay() {
+        // 장바구니 주문도 배포가 KAKAOPAY_RETURN_URL 하나만 넘겨도 동작해야 한다.
+        KakaoPayProperties properties = properties(
+                "https://j15e104.p.ssafy.io/test/trades/{tradeId}/payment/return", null);
+
+        assertThat(properties.productOrderGroupReturnUrlFor(12L))
+                .isEqualTo("https://j15e104.p.ssafy.io/test/order-groups/12/payment/return");
+    }
+
+    @Test
+    void theOrderGroupUrlIsSeparateFromTheSingleOrderUrl() {
+        // 묶음은 브랜드별 주문 여러 건을 한 화면에 보여 준다. 단일 주문 라우트로 보내면
+        // 화면이 주문 한 건을 찾다 실패한다.
+        KakaoPayProperties properties = properties(null, null);
+
+        assertThat(properties.productOrderGroupReturnUrlFor(12L))
+                .isEqualTo("http://localhost:5173/order-groups/12/payment/return");
+        assertThat(properties.productOrderReturnUrlFor(12L))
+                .isEqualTo("http://localhost:5173/orders/12/payment/return");
+    }
+
+    @Test
+    void anExplicitOrderGroupSettingAlsoWins() {
+        KakaoPayProperties properties = properties(
+                "https://j15e104.p.ssafy.io/trades/{tradeId}/payment/return",
+                null,
+                "https://j15e104.p.ssafy.io/carts/{orderGroupId}/done");
+
+        assertThat(properties.productOrderGroupReturnUrlFor(12L))
+                .isEqualTo("https://j15e104.p.ssafy.io/carts/12/done");
+    }
+
     // ── 치환 ────────────────────────────────────────────────
 
     @Test
@@ -94,7 +129,13 @@ class KakaoPayPropertiesTests {
     // ── helpers ─────────────────────────────────────────────
 
     private KakaoPayProperties properties(String returnUrl, String productOrderReturnUrl) {
+        return properties(returnUrl, productOrderReturnUrl, null);
+    }
+
+    private KakaoPayProperties properties(
+            String returnUrl, String productOrderReturnUrl, String productOrderGroupReturnUrl) {
         return new KakaoPayProperties(
-                null, null, SECRET, returnUrl, productOrderReturnUrl, Duration.ofSeconds(10));
+                null, null, SECRET, returnUrl, productOrderReturnUrl, productOrderGroupReturnUrl,
+                Duration.ofSeconds(10));
     }
 }

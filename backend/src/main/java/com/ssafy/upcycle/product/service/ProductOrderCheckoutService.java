@@ -5,7 +5,6 @@ import com.ssafy.upcycle.product.ProductErrorCode;
 import com.ssafy.upcycle.product.dto.OutOfStockLine;
 import com.ssafy.upcycle.product.dto.ProductOrderGroupResponse;
 import com.ssafy.upcycle.product.dto.ProductOrderLine;
-import com.ssafy.upcycle.product.dto.ProductOrderResponse;
 import com.ssafy.upcycle.product.entity.ProductItem;
 import com.ssafy.upcycle.product.entity.ProductItemStatus;
 import com.ssafy.upcycle.product.entity.ProductModel;
@@ -131,26 +130,19 @@ public class ProductOrderCheckoutService {
                 LocalDateTime.now(clock).plus(PAYMENT_WINDOW)));
         group.assignCode(codeGenerator.ofGroup(group.getId()));
 
-        List<Long> createdOrderIds = new ArrayList<>();
         for (Map.Entry<Long, List<Long>> entry : modelIdsByBrand.entrySet()) {
-            createdOrderIds.add(placeBrandOrder(
+            placeBrandOrder(
                     buyerId, group, entry.getKey(), entry.getValue(),
-                    modelsById, quantities, reserved, address));
+                    modelsById, quantities, reserved, address);
         }
 
-        List<ProductOrderResponse> orderResponses = createdOrderIds.stream()
-                .map(orderId -> queryService.findMyOrder(buyerId, orderId))
-                .toList();
-        return new ProductOrderGroupResponse(
-                group.getId(),
-                group.getGroupCode(),
-                group.getTotalPrice(),
-                group.getCreatedAt(),
-                orderResponses);
+        // 조회와 같은 조립을 쓴다. 생성 응답만 따로 만들면 두 응답이 서로 다른 모양으로
+        // 갈라진다.
+        return queryService.toGroupResponse(group);
     }
 
     /** 브랜드 하나의 주문을 만든다. 금액은 그 브랜드 상품들의 합이다. */
-    private Long placeBrandOrder(
+    private void placeBrandOrder(
             Long buyerId,
             ProductOrderGroup group,
             Long brandId,
@@ -191,7 +183,6 @@ public class ProductOrderCheckoutService {
                 address.getZipCode(),
                 address.getAddress(),
                 address.getAddressDetail()));
-        return order.getId();
     }
 
     /**

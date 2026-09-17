@@ -60,6 +60,7 @@ public class ProductOrderPaymentService {
     private final ProductItemRepository items;
     private final ProductModelRepository models;
     private final ProductOrderArchiver archiver;
+    private final ProductOrderGroupPaymentService groupPaymentService;
     private final ProductOrderQueryService queryService;
     private final ProductPaymentCoordinator paymentCoordinator;
     private final KakaoPayProperties kakaoPayProperties;
@@ -165,9 +166,19 @@ public class ProductOrderPaymentService {
      */
     @Transactional
     public void expire(Long orderId) {
-        orders.findByIdForUpdate(orderId)
-                .filter(order -> order.isPaymentExpiredAt(LocalDateTime.now(clock)))
-                .ifPresent(order -> archiver.archiveAndDelete(order, null));
+        ProductOrder order = orders.findByIdForUpdate(orderId)
+                .filter(found -> found.isPaymentExpiredAt(LocalDateTime.now(clock)))
+                .orElse(null);
+        if (order == null) {
+            return;
+        }
+        // 묶음 주문은 주문만 지우면 안 된다. 주문이 0건인 묶음 행이 남아 조회에 잡힌다.
+        // 같은 묶음의 주문은 마감 시각이 같아 어차피 함께 만료된다.
+        if (order.getOrderGroupId() != null) {
+            groupPaymentService.expire(order.getOrderGroupId());
+            return;
+        }
+        archiver.archiveAndDelete(order, null);
     }
 
     /**
