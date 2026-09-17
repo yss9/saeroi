@@ -3,12 +3,16 @@ package com.ssafy.upcycle.user.entity;
 import com.ssafy.upcycle.user.geolocation.GeoCoordinates;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.ColumnDefault;
 
 /** SUPPLIER, BRAND, PROCESSOR 계정의 업체 정보. */
 @Getter
@@ -48,6 +52,23 @@ public class CompanyProfile {
     @Column(name = "logo_url", length = 500)
     private String logoUrl;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role_approval_status", nullable = false)
+    @ColumnDefault("'PENDING'")
+    private CompanyRoleApprovalStatus roleApprovalStatus;
+
+    @Column(name = "role_approved_wallet", length = 42)
+    private String roleApprovedWallet;
+
+    @Column(name = "role_approval_tx_hashes", columnDefinition = "TEXT")
+    private String roleApprovalTxHashes;
+
+    @Column(name = "role_reviewed_at")
+    private LocalDateTime roleReviewedAt;
+
+    @Column(name = "role_reviewed_by")
+    private Long roleReviewedBy;
+
     private CompanyProfile(
             Long userId,
             String companyName,
@@ -62,6 +83,7 @@ public class CompanyProfile {
         this.zipCode = requireText(zipCode, "zipCode", 20);
         this.address = requireText(address, "address", 255);
         this.addressDetail = optionalText(addressDetail, "addressDetail", 255);
+        this.roleApprovalStatus = CompanyRoleApprovalStatus.PENDING;
         updateCoordinates(coordinates);
     }
 
@@ -114,6 +136,32 @@ public class CompanyProfile {
     /** 대표 이미지 업로드가 주소나 소개를 다시 보내지 않고 저장 키만 바꾸는 경로. */
     public void updateLogoUrl(String logoUrl) {
         this.logoUrl = optionalText(logoUrl, "logoUrl", 500);
+    }
+
+    public void approveRole(String walletAddress, String transactionHashes, Long adminId, LocalDateTime now) {
+        this.roleApprovalStatus = CompanyRoleApprovalStatus.APPROVED;
+        this.roleApprovedWallet = requireText(walletAddress, "roleApprovedWallet", 42);
+        this.roleApprovalTxHashes = transactionHashes;
+        this.roleReviewedBy = requireNonNull(adminId, "roleReviewedBy");
+        this.roleReviewedAt = requireNonNull(now, "roleReviewedAt");
+    }
+
+    public void rejectRole(Long adminId, LocalDateTime now) {
+        this.roleApprovalStatus = CompanyRoleApprovalStatus.REJECTED;
+        this.roleApprovedWallet = null;
+        this.roleApprovalTxHashes = null;
+        this.roleReviewedBy = requireNonNull(adminId, "roleReviewedBy");
+        this.roleReviewedAt = requireNonNull(now, "roleReviewedAt");
+    }
+
+    /** 지갑이 바뀌면 이전 주소의 승인 결과를 새 주소에 승계하지 않는다. */
+    public void resetRoleApprovalForWallet(String walletAddress) {
+        if (roleApprovedWallet != null && roleApprovedWallet.equalsIgnoreCase(walletAddress)) return;
+        this.roleApprovalStatus = CompanyRoleApprovalStatus.PENDING;
+        this.roleApprovedWallet = null;
+        this.roleApprovalTxHashes = null;
+        this.roleReviewedBy = null;
+        this.roleReviewedAt = null;
     }
 
     private static <T> T requireNonNull(T value, String field) {

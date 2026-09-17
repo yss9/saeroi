@@ -121,6 +121,8 @@ app:
     # 생산 배치 기록용 레지스트리. 이 주소만 비어 있어도 소재·거래 기록은 계속 동작한다 —
     # 나중에 붙는 컨트랙트가 앞선 기능을 멈추게 하지 않는다.
     production-registry-address: ${PRODUCTION_REGISTRY_ADDRESS:}
+    # 회원 승인 시 온체인 역할을 부여하는 운영 지갑. 저장소에는 절대 키를 적지 않는다.
+    admin-private-key: ${BLOCKCHAIN_ADMIN_PRIVATE_KEY:}
   material:
     # 소재 최초 발행을 어디가 정본으로 하는가.
     #

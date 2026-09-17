@@ -1,6 +1,8 @@
 package com.ssafy.upcycle.user.repository;
 
 import com.ssafy.upcycle.user.entity.User;
+import com.ssafy.upcycle.user.entity.UserRole;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -13,4 +15,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmail(String email);
 
     boolean existsByEmail(String email);
+
+    List<User> findAllByRoleInOrderByCreatedAtDesc(List<UserRole> roles);
 }

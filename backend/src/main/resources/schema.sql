@@ -78,8 +78,14 @@ CREATE TABLE company_profile (
     longitude DECIMAL(10,7) NULL,
     introduction TEXT NULL,
     logo_url VARCHAR(500) NULL,
+    role_approval_status ENUM('PENDING', 'APPROVED', 'REJECTED') NOT NULL DEFAULT 'PENDING',
+    role_approved_wallet VARCHAR(42) NULL,
+    role_approval_tx_hashes TEXT NULL,
+    role_reviewed_at DATETIME NULL,
+    role_reviewed_by BIGINT NULL,
     CONSTRAINT pk_company_profile PRIMARY KEY (user_id),
     CONSTRAINT fk_company_profile_user FOREIGN KEY (user_id) REFERENCES users (id),
+    CONSTRAINT fk_company_profile_role_reviewer FOREIGN KEY (role_reviewed_by) REFERENCES users (id),
     CONSTRAINT chk_company_profile_latitude
         CHECK (latitude IS NULL OR latitude BETWEEN -90 AND 90),
     CONSTRAINT chk_company_profile_longitude
