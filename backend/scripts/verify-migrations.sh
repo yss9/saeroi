@@ -78,7 +78,26 @@ log "베이스라인 : $BASE_REF (merge-base $MERGE_BASE)"
 BASELINE_SCHEMA="$(git show "$MERGE_BASE:$SCHEMA_PATH" 2>/dev/null)" || {
     fail "$MERGE_BASE:$SCHEMA_PATH 를 읽을 수 없다"; exit 2
 }
-HEAD_SCHEMA="$(cat "$SCHEMA_PATH")"
+# 워킹트리가 아니라 HEAD 에서 읽는다.
+#
+# 이유가 둘이다.
+#
+# 1) 이 게이트가 보는 것은 커밋된 상태다. 마이그레이션 파일은 이미 HEAD 에서 읽고 있고
+#    (git ls-tree HEAD, git show HEAD:$mf), schema.sql 만 워킹트리를 보면 한 대조 안에
+#    커밋된 것과 커밋 안 된 것이 섞인다. 커밋 전에 돌리면 오히려 거짓 경보가 난다 —
+#    schema.sql 과 마이그레이션을 함께 써 두고 아직 커밋하지 않은 상태에서, 마이그레이션은
+#    HEAD 에 없으니 "새 마이그레이션 없음" 이 되고 schema.sql 만 바뀐 것으로 보인다.
+#
+# 2) cat 은 체크아웃된 줄바꿈을 그대로 읽는다. core.autocrlf 가 켜진 Windows 워킹트리는
+#    CRLF 라, 내용이 한 글자도 다르지 않아도 git show 가 주는 LF 본문과 문자열이 달라져
+#    "schema.sql 이 바뀌었는데 마이그레이션이 없다" 로 항상 실패했다. 그래서 Windows 에서는
+#    이 스크립트를 로컬로 돌려 볼 수 없었다 — 푸시 전에 잡을 수 있던 고장을 CI 에서야
+#    발견하게 만든 원인이다.
+#
+# Jenkins 는 리눅스 체크아웃이라 두 값이 원래 같다. CI 동작은 바뀌지 않는다.
+HEAD_SCHEMA="$(git show "HEAD:$SCHEMA_PATH" 2>/dev/null)" || {
+    fail "HEAD:$SCHEMA_PATH 를 읽을 수 없다"; exit 2
+}
 
 # ── 2) 새로 추가된 마이그레이션 파일 ──────────────────────────────────
 BASELINE_FILES="$(git ls-tree -r "$MERGE_BASE" --name-only -- "$MIGRATIONS_DIR" 2>/dev/null || true)"
