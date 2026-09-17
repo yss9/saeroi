@@ -27,7 +27,7 @@ GIT_CONVENTION에 따라 develop / feat 하위 브랜치 없이 이 브랜치에
 │   ├── deploy-*.sh            # 파트 Jenkinsfile이 부르는 진입점 (deploy-service.sh 호출)
 │   ├── health-check.sh        # 컨테이너 + 엔드포인트 확인 (2xx만 통과)
 │   ├── check-schema.sh        # 배포 전 스키마 검증 — DB가 엔티티보다 오래되면 앱이 기동에 실패한다
-│   │                          #   없는 테이블·컬럼 + 컬럼 타입 불일치(CHAR vs VARCHAR 등)를 대조한다
+│   │                          #   없는 테이블·컬럼 + 컬럼 타입(CHAR vs VARCHAR 등)·NULL 허용 불일치를 대조한다
 │   │                          #   테이블 0개(빈 DB)와 접속 실패를 구분해 보고한다
 │   ├── gitlab-status.sh       # 빌드 결과를 GitLab 커밋 상태로 보고 (초록 체크/빨간 X)
 │   │                          #   실패 시 그 커밋을 만든 MR에도 코멘트를 남긴다 (머지 후 커밋이라
@@ -139,11 +139,12 @@ bash scripts/health-check.sh
 # deploy-service.sh(운영)가 이제 배포 직전에 이 확인을 자동으로 하고 불일치 시 배포를
 # 막아준다(2026-09-16) — 자동 적용은 하지 않는다, "적용이 필요하다"만 알려준다. 아래는
 # 그 배포가 막히기 전에 사람이 직접 미리 보고 DDL을 적용할 때 쓰는 수동 절차다.
-bash scripts/check-schema.sh          # 없는 테이블·컬럼 + 컬럼 타입 불일치 보고 (읽기만 함)
+bash scripts/check-schema.sh          # 없는 테이블·컬럼 + 컬럼 타입·NULL 허용 불일치 보고 (읽기만 함)
 bash scripts/check-schema.sh --ddl    # 적용할 DDL 출력
 SCHEMA_REF=origin/backend/master bash scripts/check-schema.sh   # 기준 브랜치 지정
-# 대조 범위: 테이블 존재 / 컬럼 존재 / 컬럼 타입.
-# NULL 허용·DEFAULT·인덱스는 일부러 보지 않는다 (거짓 양성이 많고 validate 도 보지 않는다).
+# 대조 범위: 테이블 존재 / 컬럼 존재 / 컬럼 타입 / 컬럼 NULL 허용 여부(2026-09-17 추가
+# — production_batch.product_model_id 가 NOT NULL로 남아 있던 실사고로 추가함).
+# DEFAULT·인덱스는 일부러 보지 않는다 (거짓 양성이 많고 validate 도 보지 않는다).
 # → OK 를 확인한 뒤에 <파트>/master 로 올려 배포를 트리거한다
 # 이후 Jenkins 에서 backend/frontend/ai 의 <파트>/master 빌드를 실행하면
 # deploy-*.sh 가 실제 이미지로 교체한다. DB 는 scripts/restore-mysql.sh 로 복구.

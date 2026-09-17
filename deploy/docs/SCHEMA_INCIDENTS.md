@@ -1,4 +1,4 @@
-# 스키마 사고 트러블슈팅 로그 — 해결 완료 (2026-09-16)
+# 스키마 사고 트러블슈팅 로그 — 해결 완료 (2026-09-17)
 
 `backend`는 `ddl-auto: validate`를 쓴다 — 스키마를 자동으로 만들거나 고쳐주지 않는다.
 엔티티가 기대하는 테이블/컬럼/타입이 DB에 없으면 Hibernate가 기동 단계에서 검증에
@@ -44,6 +44,7 @@
 | 2026-09-16 ② | ①의 수정 배포 직후 `backend/develop #117`이 fetch 실패로 배포 자체가 막힘 | 일회성 네트워크 blip으로 오판 | fetch 3회 재시도 후 fatal(`1ad7217`) | 해결 (부분적 — 아래 ③ 참고) |
 | 2026-09-16 ③ | 재시도 보강 후에도 Jenkins(`cf-jenkins`)에서 돌리면 fetch가 100% 실패 | `docker-compose.yml`이 `/home/ubuntu/deploy`를 Jenkins에 읽기전용(`:ro`)으로 마운트 — `.git/FETCH_HEAD` 쓰기가 막혀 매번 실패. 호스트 직접 실행은 항상 성공해 "blip"으로 오판하기 쉬웠다 | `/tmp`에 별도 bare 저장소를 만들어 그쪽으로만 fetch(`f690ae8`/`8938faa`). `.git` 자체는 건드리지 않아 `:ro` 경계 유지 | 해결 |
 | 2026-09-16 ④ | 마이그레이션 CI 게이트(MR `!377`) 첫 실행이 인증 오류로 실패 | Jenkins 워크스페이스 shell 스텝엔 GitLab 체크아웃용 인증이 이어지지 않음(`fatal: could not read Username`) | `gitlab-token` credential을 `withCredentials`로 명시적으로 묶음 | 해결 |
+| 2026-09-17 | `production_batch.product_model_id`를 nullable로 바꾸는 마이그레이션이 test DB(`cft-mysql`)에 반영되지 않은 채 배포·기동 모두 성공 | `check-schema.sh`와 Hibernate `validate` 둘 다 NULL 허용 여부는 애초에 대조 대상이 아니었다(의도적 사각지대) — 그래서 타입 대조 때와 달리 배포 자체는 막히지 않았다 | test DB에 `ALTER TABLE ... MODIFY COLUMN product_model_id BIGINT NULL` 수동 적용. `check-schema.sh`에 컬럼 NULL 허용 여부 대조를 추가(2026-09-17) | 해결 |
 
 **공통 근본 원인**: schema.sql/마이그레이션 정확성을 병합 **전에** 검증하는 장치가
 없었고(①), 그 검증 장치 자체(`check-schema.sh`)의 신뢰성(②③④)도 순서대로 드러났다.
@@ -120,11 +121,31 @@ Jenkins(`cf-jenkins` 컨테이너)에서 이 스크립트를 돌리면 fetch가 
 
 ---
 
+## 2026-09-17 상세 — NULL 허용 여부는 애초에 대조 대상이 아니었다
+
+`production_batch.product_model_id`를 nullable로 바꾸는 마이그레이션이 test DB
+(`cft-mysql`)에 반영되지 않은 채로 배포와 기동이 둘 다 성공했다. 앞선 사고들과 다른
+점: `check-schema.sh`가 "OK"를 낸 게 아니라, **애초에 이 항목을 보지 않았다.**
+컬럼 이름·타입은 일치했으므로 실제로 OK가 맞았다.
+
+이 유형이 특히 늦게 드러나는 이유: Hibernate `validate`는 기동 시점에 테이블·컬럼의
+존재와 타입만 확인하고 NULL 허용 여부는 보지 않는다. 그래서 컨테이너는 멀쩡히
+떠 있다가, 그 컬럼에 실제로 NULL 값을 넣는 요청이 들어온 순간에야 SQL 예외로
+실패한다 — "언제 터질지"가 배포 시점이 아니라 트래픽 패턴에 달려 있다.
+
+**조치**: test DB에 `ALTER TABLE production_batch MODIFY COLUMN product_model_id
+BIGINT NULL` 수동 적용(즉시 반영, 재빌드 불필요 — 컬럼 정의만 바뀌면 되는 변경이라).
+`check-schema.sh`에 컬럼 NULL 허용 여부 대조를 추가해 같은 유형의 불일치를 배포 전에
+잡도록 했다. 실제 스키마(테이블 42개, 컬럼 412개) 전체를 대조해 새 검사가 거짓 양성을
+내지 않는 것과, 일부러 되돌린 사본에서는 정확히 잡아내는 것을 둘 다 확인했다.
+
+---
+
 ## 지금 자동화돼 있는 것
 
-- **컬럼 이름 + 타입 대조** (`check-schema.sh`) — NULL 허용/DEFAULT/인덱스는 의도적으로
-  대조하지 않는다(표기 방식이 다양해 거짓 양성이 쏟아지면 사람이 스크립트를 무시하게
-  되고, 그게 더 위험하다).
+- **컬럼 이름 + 타입 + NULL 허용 여부 대조** (`check-schema.sh`, NULL 허용은 2026-09-17
+  추가) — DEFAULT/인덱스는 여전히 의도적으로 대조하지 않는다(표기 방식이 다양해 거짓
+  양성이 쏟아지면 사람이 스크립트를 무시하게 되고, 그게 더 위험하다).
 - **비교 기준 커밋의 신선도 보장** (`check-schema.sh`, 2026-09-16) — fetch 실패를 더
   이상 무시하지 않는다(단, 일회성 blip 은 3회 재시도로 흡수).
 - **병합 전 마이그레이션 검증 CI 게이트** (`scripts/verify-migrations.sh`, backend
@@ -169,10 +190,12 @@ Jenkins(`cf-jenkins` 컨테이너)에서 이 스크립트를 돌리면 fetch가 
 
 ## 남은 사각지대 (다음에 또 터질 수 있는 지점)
 
-1. **`check-schema.sh`가 보지 않는 항목**(NULL 허용, DEFAULT, 인덱스, 컬럼 순서,
-   CHARACTER SET/COLLATE)은 의도적 사각지대다. Hibernate `validate`가 실제로 보는
-   것만 좁게 잡는다는 원칙은 유지하되, 여기서 또 사고가 나면 "그 사각지대 중 어느
-   것이 실제로 validate를 깨뜨리는지" 먼저 확인하고 범위를 넓힐 것.
+1. **`check-schema.sh`가 보지 않는 항목**(DEFAULT, 인덱스, 컬럼 순서,
+   CHARACTER SET/COLLATE)은 의도적 사각지대다. NULL 허용 여부는 2026-09-17 실사고
+   이후 예외적으로 대조 대상에 넣었다 — Hibernate `validate`는 여전히 안 보지만,
+   "기동은 성공하고 나중에 SQL 에러로 뒤늦게 터진다"는 유형이라 방치할 수 없다고
+   판단했다. 남은 항목(DEFAULT 등)에서 또 사고가 나면 같은 기준(다음 기동에서 걸러지는
+   문제인지, 나중에 뒤늦게 터지는 문제인지)으로 대조 범위를 넓힐지 판단할 것.
 2. **CI 게이트를 우회한 커밋**(예: 보호 규칙 없이 직접 push)은 여전히 test 자동 적용
    단계에서 걸러지지 않는다 — `test-deploy.sh`는 자동 적용 후 `check-schema.sh`를 한 번
    더 돌려 방어선을 하나 더 두긴 했지만, 애초에 틀린 마이그레이션이 이미 적용된 뒤라
