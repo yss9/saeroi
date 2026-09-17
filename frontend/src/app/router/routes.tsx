@@ -1,4 +1,5 @@
 import { Navigate, type RouteObject } from 'react-router-dom'
+import { CartPage } from '../../pages/cart/CartPage.tsx'
 import { BrandsPage } from '../../pages/brands/BrandsPage.tsx'
 import { SearchPage } from '../../pages/search/SearchPage.tsx'
 import { PublicProductDetailPage } from '../../pages/product/PublicProductDetailPage.tsx'
@@ -122,6 +123,7 @@ export const routes: RouteObject[] = [
     element: <RoleGuard allow={['CONSUMER']} />,
     children: [
       { path: '/mypage', element: <ConsumerMyPage /> },
+      { path: '/cart', element: <CartPage /> },
       // 주문 내역. 홈에 주문을 통째로 쌓아 두면 주문이 늘어날수록 배송지처럼 짧은 정보가
       // 목록 아래로 밀려 내려간다.
       { path: '/mypage/orders', element: <ConsumerOrdersPage /> },

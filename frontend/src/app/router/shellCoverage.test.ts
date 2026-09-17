@@ -25,6 +25,7 @@ import { routes } from './routes.tsx'
  * 있어야 하는지 먼저 따진다.
  */
 const INTENTIONALLY_BARE: ReadonlyMap<string, string> = new Map([
+  ['/cart', '소비자 장바구니. 자체 쇼핑몰 헤더·푸터 사용'],
   ['/brands', '공개 브랜드 목록. 자체 쇼핑몰 헤더·푸터 사용'],
   ['/brands/:brandId', '공개 브랜드 상세. 자체 쇼핑몰 헤더·푸터 사용'],
   ['/search', '공개 소비자 검색. 자체 쇼핑몰 헤더·푸터 사용'],

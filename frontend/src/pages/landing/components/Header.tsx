@@ -103,14 +103,7 @@ export function Header({ isLogoVisible, scrollToneViewportRatio }: HeaderProps) 
   }
 
   function handleCartEntry() {
-    if (isAuthenticated) {
-      navigate('/shop')
-      return
-    }
-
-    navigate('/login', {
-      state: { from: { pathname: `${location.pathname}${location.search}${location.hash || (location.pathname === '/' ? '#shop' : '')}` } },
-    })
+    navigate('/cart')
   }
 
   // 역할별 "내 홈" 링크. 어느 역할이 어디로 가는지를 이 파일이 정하지 않는다 —

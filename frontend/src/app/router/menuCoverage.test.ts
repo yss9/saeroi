@@ -20,6 +20,7 @@ import { getRouteAccessMap } from './routeAccess.ts'
  * 각 줄에 이유를 적는다 — 이유 없이 늘어나면 이 테스트가 무력해진다.
  */
 const NOT_IN_MENU: ReadonlyMap<string, string> = new Map([
+  ['/cart', '소비자 장바구니. 쇼핑몰 헤더 장바구니 아이콘에서 접근'],
   ['/brands', '공개 브랜드 목록. 쇼핑몰 헤더와 홈 발견 링크에서 접근'],
   ['/brands/:brandId', '공개 브랜드 상세. 브랜드 카드와 상품 브랜드명에서 접근'],
   ['/search', '공개 소비자 검색. 쇼핑몰 헤더 SEARCH 아이콘에서 접근'],
