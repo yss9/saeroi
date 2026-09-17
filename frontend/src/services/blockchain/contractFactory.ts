@@ -36,7 +36,10 @@ export function getReadContract(name: ContractName): Contract {
  * 계정이 연결되어 있지 않으면 ethers 가 `eth_requestAccounts` 를 호출해 팝업을 띄운다.
  * 즉 렌더링 중이 아니라 **이벤트 핸들러 안에서** 불러야 한다.
  */
-export async function getWriteContract(name: ContractName): Promise<Contract> {
+export async function getWriteContract(
+  name: ContractName,
+  options: { enforceRegisteredWallet?: boolean } = {},
+): Promise<Contract> {
   const provider = getBrowserProvider()
   if (!provider) throw createAppError(ERROR_KIND.WALLET_NOT_FOUND)
 
@@ -70,7 +73,7 @@ export async function getWriteContract(name: ContractName): Promise<Contract> {
   //
   // 여기서 막는 이유는 체인 검사와 같다. 패널마다 두면 새 패널이 생길 때 빠진다.
   const registered = useAuthStore.getState().user?.walletAddress
-  if (registered) {
+  if (options.enforceRegisteredWallet !== false && registered) {
     const signing = await signer.getAddress()
     if (signing.toLowerCase() !== registered.toLowerCase()) {
       throw createAppError(ERROR_KIND.WALLET_DISCONNECTED, {
