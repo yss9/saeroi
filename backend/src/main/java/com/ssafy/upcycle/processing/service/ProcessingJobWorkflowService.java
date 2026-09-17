@@ -73,6 +73,7 @@ public class ProcessingJobWorkflowService {
     @Transactional
     public ProcessingJobResponse ship(Long actorId, Long jobId, ProcessingJobShipRequest request) {
         ProcessingJob job = lockJob(jobId); requireBrand(job, actorId);
+        if (job.getChainJobId() == null) throw new BusinessException(PROCESSING_CHAIN_NOT_LINKED);
         job.ship(request.carrier(), request.trackingNumber(), now());
         recordInput(job, MaterialEventType.PROCESSING_MATERIAL_SHIPPED, actorId, "가공 소재 발송");
         businessNotifications.jobEvent(job, NotificationType.PROCESSING_MATERIAL_SHIPPED);
