@@ -53,6 +53,16 @@
   --console-sans: 'Inter', system-ui, -apple-system, 'Malgun Gothic', sans-serif;
   --console-mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
 
+  /*
+   * <b>`width: 100%` 가 없으면 화면 가운데로 쪼그라든다.</b>
+   *
+   * 대시보드 본문(`company-dashboard__body`)은 그리드이고, 그리드 항목은 기본으로 칸을
+   * 가득 채운다(stretch). 그런데 <b>auto 마진이 있으면 그 stretch 가 꺼지고</b> 내용
+   * 크기로 줄어든 뒤 가운데 정렬된다 — 1200px 칸에 827px 짜리가 떠 있고 양옆이 비었다.
+   *
+   * 마진은 그대로 둔다. 화면이 1600px 보다 넓어지면 그때는 가운데로 모아야 한다.
+   */
+  width: 100%;
   max-width: 1600px;
   margin: 0 auto;
   padding: 20px var(--ui-gap) 72px;
@@ -1117,3 +1127,388 @@
   .console-table td:nth-child(7) { display: none; }
 }
 
+/* ── 거래 상세 ────────────────────────────────────────── */
+
+.trade-detail__head { align-items: center; padding-bottom: 8px; }
+
+/*
+ * 거래 요약.
+ *
+ * 총 금액만 크게 둔다 — 돈 이야기에서 가장 먼저 보고 싶은 숫자이고, 예전에는 수량과
+ * 단가만 있어서 사용자가 직접 곱해야 했다.
+ */
+/*
+ * 2단 배치.
+ *
+ * 왼쪽은 지금 할 일(발송·결제·수령), 오른쪽은 사실(요약·진행). 세로 한 줄로 쌓으면
+ * 화면이 넓을수록 허전해지고, 정작 손댈 곳이 스크롤 어딘가에 묻힌다.
+ *
+ * 상세는 표가 아니라 읽고 처리하는 화면이라 폭을 1120px 로 좁힌다 — 목록의 1600px 을
+ * 그대로 쓰면 요소 네댓 개가 넓은 벌판에 흩어진다.
+ */
+.trade-detail__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  align-items: start;
+  gap: 12px;
+  max-width: 1000px;
+}
+
+.trade-detail__main { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+.trade-detail__side {
+  position: sticky;
+  top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* 머리말도 같은 폭으로 맞춘다. 본문만 좁으면 제목이 홀로 떠 보인다. */
+.trade-detail__head,
+.console > .ui-back-link { max-width: 1000px; }
+
+@media (max-width: 1024px) {
+  .trade-detail__layout { grid-template-columns: minmax(0, 1fr); }
+  .trade-detail__side { position: static; }
+}
+
+.trade-detail__meta {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  border: 1px solid var(--console-line);
+  border-radius: var(--console-r-card);
+  background: var(--console-line);
+  overflow: hidden;
+}
+
+.trade-detail__meta > div {
+  padding: 12px 14px;
+  background: var(--console-panel);
+}
+
+.trade-detail__meta dt {
+  font-family: var(--console-mono);
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  color: var(--console-ink-3);
+}
+
+.trade-detail__meta dd {
+  margin: 4px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--console-ink);
+}
+
+.trade-detail__total dd {
+  font-size: 22px;
+  line-height: 26px;
+  font-weight: 700;
+  color: var(--console-green);
+}
+
+/* ── 발송 패널 ────────────────────────────────────────────
+   판매자만 보는 패널이다. 상세 화면의 새 언어(각진 모서리, 1px 선, 고정폭 숫자)를
+   패널 안쪽까지 맞춘다 — 껍데기만 바꾸면 새 액자에 옛 그림이 들어앉는다. */
+
+.console .shipment-panel {
+  padding: 14px;
+  border: 1px solid var(--console-line);
+  border-radius: var(--console-r-card);
+  background: var(--console-panel);
+  box-shadow: none;
+}
+
+.console .shipment-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--console-line);
+}
+
+.console .shipment-panel__header h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--console-ink);
+}
+
+/* 배송지 — 한 겹 들어간 자리. 읽어서 옮겨 적는 값이라 본문과 구분한다. */
+.console .shipment-panel__address {
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid var(--console-line);
+  border-radius: var(--console-r-ctl);
+  background: var(--console-subtle);
+}
+
+.console .shipment-panel__address > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--console-line);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--console-ink-2);
+}
+
+.console .shipment-panel__address dl { margin: 0; display: flex; flex-direction: column; gap: 6px; }
+
+.console .shipment-panel__address dl > div { display: flex; gap: 10px; font-size: 12px; }
+
+.console .shipment-panel__address dt {
+  flex: none;
+  width: 44px;
+  color: var(--console-ink-3);
+}
+
+.console .shipment-panel__address dd {
+  margin: 0;
+  color: var(--console-ink);
+  line-height: 1.6;
+  word-break: keep-all;
+}
+
+.console .shipment-panel__copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border: 1px solid var(--console-line-strong);
+  border-radius: var(--console-r-ctl);
+  background: var(--console-panel);
+  color: var(--console-ink-2);
+  font-family: var(--console-mono);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.console .shipment-panel__copy:hover { background: var(--console-canvas); }
+.console .shipment-panel__copy svg { width: 12px; height: 12px; }
+
+/* 택배사·운송장을 한 줄에. 택배사가 짧고 운송장이 길다. */
+.console .shipment-panel__form {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 10px;
+}
+
+/* 폼 안에서 칸을 넘어 전체 폭을 쓰는 것들 */
+.console .shipment-panel__form > datalist,
+.console .shipment-panel__form > .shipment-panel__rule,
+.console .shipment-panel__form > .shipment-panel__warn,
+.console .shipment-panel__form > .ui-error-message,
+.console .shipment-panel__form > button { grid-column: 1 / -1; }
+
+/*
+ * 제출 전에 알리는 규칙.
+ *
+ * 오류(빨강)가 아니라 주의(호박)다 — 아직 아무것도 틀리지 않았고, 틀릴 수 있는 조합을
+ * 미리 말해 주는 것뿐이다.
+ */
+.console .shipment-panel__rule {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--console-wait-line);
+  border-radius: var(--console-r-ctl);
+  background: var(--console-wait-bg);
+  color: var(--console-wait-fg);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.console .shipment-panel__rule svg { flex: none; width: 14px; height: 14px; }
+
+.console .shipment-panel__warn {
+  margin: 4px 0 0;
+  color: var(--console-ink-3);
+  font-size: 11px;
+  text-align: center;
+}
+
+@media (max-width: 560px) {
+  .console .shipment-panel__form { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ── 오른쪽 기둥 카드 ─────────────────────────────────────
+   거래 요약 · 진행 · 이력 기록. 셋 다 제목과 구분선을 갖는다 — 제목이 없으면
+   어디까지가 한 덩어리인지 알 수 없어 값들이 한 줄로 흘러 보인다. */
+
+.trade-detail__card { padding: 14px; }
+
+.trade-detail__card > h2 {
+  margin: 0 0 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--console-line);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--console-ink);
+}
+
+/* 손볼 것이 있는 카드만 색을 받는다. */
+.trade-detail__card--todo { border-color: var(--console-wait-line); background: var(--console-wait-bg); }
+
+/* 요약은 카드 안이라 테두리를 걷어낸다 — 카드가 이미 경계를 만든다. */
+.trade-detail__card .trade-detail__meta {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  gap: 8px;
+}
+
+.trade-detail__card .trade-detail__meta > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0;
+  background: transparent;
+}
+
+.trade-detail__card .trade-detail__meta dt {
+  margin: 0;
+  flex: none;
+  font-family: var(--console-sans);
+  font-size: 12px;
+  letter-spacing: 0;
+  color: var(--console-ink-3);
+}
+
+.trade-detail__card .trade-detail__meta dd {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: right;
+  word-break: break-word;
+}
+
+/* 총액. 위에 선을 둬서 "여기부터 돈" 임을 가른다. */
+.trade-detail__card .trade-detail__total {
+  margin-top: 2px;
+  padding-top: 10px !important;
+  border-top: 1px solid var(--console-line);
+}
+
+.trade-detail__card .trade-detail__total dt { font-weight: 600; color: var(--console-ink-2); }
+
+.trade-detail__card .trade-detail__total dd {
+  font-size: 18px;
+  line-height: 22px;
+  font-weight: 700;
+  color: var(--console-ink);
+}
+
+/* 결제 수단은 총액에 딸린 각주다. */
+.trade-detail__card .trade-detail__paid dt,
+.trade-detail__card .trade-detail__paid dd {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--console-ink-3);
+}
+
+/* 진행 타임라인도 카드 안에서는 여백을 줄인다. */
+.trade-detail__card .trade-timeline {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* ── 이력 기록 ────────────────────────────────────────── */
+
+.trade-detail__ledger { display: flex; align-items: center; gap: 8px; margin: 0; }
+
+.trade-detail__ledger-note {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--console-wait-fg);
+}
+
+/* 기술 정보는 접어 둔다 — 심사·문의 때 필요하지만 평소에 읽을 값이 아니다. */
+.trade-detail__ledger-more { margin-top: 8px; }
+
+.trade-detail__ledger-more > summary {
+  font-family: var(--console-mono);
+  font-size: 11px;
+  color: var(--console-ink-3);
+  cursor: pointer;
+}
+
+.trade-detail__ledger-more dl {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--console-line);
+}
+
+.trade-detail__ledger-more dl > div { display: flex; justify-content: space-between; gap: 8px; }
+.trade-detail__ledger-more dt { font-size: 11px; color: var(--console-ink-3); }
+.trade-detail__ledger-more dd { margin: 0; font-size: 11px; color: var(--console-ink-2); }
+
+/* ── 공통 요소를 콘솔 밀도에 맞춘다 ───────────────────────
+   `.console` 안에서만 적용한다. 공통 컴포넌트(ui-*)는 앱 전체가 쓰므로 원본을 고치면
+   브랜드·가공업체 화면까지 따라 바뀐다.
+
+   이 콘솔은 여백보다 밀도를 택한다 — 한 화면에 사실이 많고, 사용자는 읽으러 오지
+   머무르러 오지 않는다. 기본 여백(ui-field 아래 16px, 버튼 글자 16px)은 그보다
+   느슨해서 카드가 실제 내용보다 커 보인다. */
+
+/* 아래 여백을 걷어내고 간격은 부모의 gap 에 맡긴다 — 두 값이 겹쳐 쌓이면
+   칸 사이가 26px 이 된다. */
+.console .ui-field { margin-bottom: 0; gap: 4px; }
+
+.console .ui-field__label { font-size: 12px; font-weight: 500; color: var(--console-ink-2); }
+
+/* `.ui-field__control` 이 입력칸 자체다 (Input·Select 둘 다 이 이름을 쓴다). */
+.console .ui-field__control {
+  height: 36px;
+  padding: 0 10px;
+  border-radius: var(--console-r-ctl);
+  border-color: var(--console-line-strong);
+  font-size: 13px;
+}
+
+/* 여러 줄 입력은 높이를 고정하면 안 된다. */
+.console textarea.ui-field__control { height: auto; padding: 8px 10px; }
+
+.console .ui-field__hint { font-size: 11px; color: var(--console-ink-3); }
+.console .ui-field__error { font-size: 11px; }
+
+/* 버튼 글자를 콘솔 기준으로. 기본 16px 은 이 밀도에서 혼자 크다. */
+.console .ui-button { border-radius: var(--console-r-ctl); font-size: 13px; }
+.console .ui-button--md { padding: 0.5em 1em; }
+.console .ui-button--sm { padding: 0.3em 0.7em; font-size: 11px; }
+
+/* 아래 여백을 줄인다. 72px 은 목록이 길어질 때를 위한 값이고,
+   상세처럼 짧은 화면에서는 빈 벌판이 된다. */
+.console { padding-bottom: 32px; }
+
+/*
+ * 패널 폭 제한을 푼다.
+ *
+ * `trade.css` 가 발송 패널과 타임라인에 `max-width: 28rem` 을 걸어 뒀다. 세로 한 줄로
+ * 쌓이던 시절에 글줄이 너무 길어지지 않게 한 값인데, 2단에서는 왼쪽 칸이 668px 인데
+ * 카드가 448px 에서 멈춰 칸 안에 카드가 떠 있는 모양이 된다.
+ *
+ * `.console` 안에서만 푼다 — 구매자 화면도 같은 2단을 쓰므로 함께 맞는다.
+ */
+.console .shipment-panel,
+.console .receipt-panel,
+.console .trade-timeline { max-width: none; }

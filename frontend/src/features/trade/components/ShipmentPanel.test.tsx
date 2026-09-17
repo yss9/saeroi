@@ -327,3 +327,78 @@ describe('ShipmentPanel', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('운영자에게 알려 주세요')
   })
 })
+
+/**
+ * 배송지는 <b>읽어서 옮겨 적는 값</b>이다.
+ *
+ * 택배사 화면이나 송장에 그대로 넣는 주소라, 눈으로 읽어 다시 치면 그 자리에서 오타가
+ * 난다. 오타 난 주소는 그대로 배송 사고가 된다.
+ */
+/** 배송지가 있는 거래. 기본 픽스처는 `shipping: null` 이라 주소 칸 자체가 없다. */
+function withAddress() {
+  return trade({
+    shipping: {
+      receiverName: '브랜드 B 자재팀',
+      receiverPhone: '010-0000-0000',
+      zipCode: '06236',
+      address: '서울 강남구 테헤란로 1',
+      addressDetail: '3층',
+      carrier: null,
+      trackingNumber: null,
+      shippedAt: null,
+      deliveredAt: null,
+    },
+  })
+}
+
+describe('배송지 복사', () => {
+  it('우편번호와 상세 주소까지 한 번에 복사한다', async () => {
+    renderPanel(withAddress())
+    const user = userEvent.setup()
+
+    // **setup() 뒤에 깐다.** userEvent 가 자체 클립보드 스텁을 navigator 에 심으므로,
+    // 먼저 깔면 그것이 우리 목을 덮어쓴다. jsdom 의 clipboard 는 getter 라
+    // 대입이 아니라 defineProperty 로 갈아 끼운다.
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+
+    await user.click(screen.getByRole('button', { name: /주소 복사/ }))
+
+    // 주소만 복사하면 우편번호와 상세 주소를 따로 옮겨 적어야 한다 — 두 번 일하게 된다.
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining('(06236)'))
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining('서울 강남구 테헤란로 1'))
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining('3층'))
+  })
+
+  it('복사했다는 사실을 알린다', async () => {
+    // 아무 반응이 없으면 눌렸는지 알 수 없어 한 번 더 누른다.
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: vi.fn().mockResolvedValue(undefined) },
+      configurable: true,
+    })
+
+    renderPanel(withAddress())
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /주소 복사/ }))
+
+    expect(await screen.findByRole('button', { name: /복사됨/ })).toBeInTheDocument()
+  })
+})
+
+/**
+ * 서버는 택배사 없는 운송장을 거절한다(`TRADE_CARRIER_REQUIRED`). 그 규칙을 제출 <b>전에</b>
+ * 알려 주면 한 번 헛수고할 일이 없다.
+ */
+describe('입력 규칙 안내', () => {
+  it('제출하기 전에 택배사 규칙을 보여준다', () => {
+    renderPanel()
+
+    expect(screen.getByText(/운송장 번호만 적고 택배사를 비우면/)).toBeInTheDocument()
+  })
+
+  it('되돌릴 수 없다는 사실을 버튼 앞에 알린다', () => {
+    renderPanel()
+
+    expect(screen.getByText('발송을 확정하면 되돌릴 수 없습니다.')).toBeInTheDocument()
+  })
+})
