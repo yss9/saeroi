@@ -21,6 +21,7 @@ import { MaterialDetailPage } from '../../pages/material/MaterialDetailPage.tsx'
 import { MaterialRegisterPage } from '../../pages/material/MaterialRegisterPage.tsx'
 import { ConsumerAddressPage } from '../../pages/mypage/ConsumerAddressPage.tsx'
 import { ConsumerAskInquiryPage } from '../../pages/mypage/ConsumerAskInquiryPage.tsx'
+import { ConsumerCancellationDetailPage } from '../../pages/mypage/ConsumerCancellationDetailPage.tsx'
 import { ConsumerCancellationsPage } from '../../pages/mypage/ConsumerCancellationsPage.tsx'
 import { ConsumerInquiriesPage } from '../../pages/mypage/ConsumerInquiriesPage.tsx'
 import { ConsumerMyPage } from '../../pages/mypage/ConsumerMyPage.tsx'
@@ -130,6 +131,7 @@ export const routes: RouteObject[] = [
       // 프론트엔드 UI만 먼저 채웠다 — 백엔드가 없어 전부 목데이터로 동작한다
       // (각 페이지 컴포넌트 상단 주석 참고).
       { path: '/mypage/cancellations', element: <ConsumerCancellationsPage /> },
+      { path: '/mypage/cancellations/:id', element: <ConsumerCancellationDetailPage /> },
       { path: '/mypage/wishlist', element: <ConsumerWishlistPage /> },
       { path: '/mypage/recently-viewed', element: <ConsumerRecentlyViewedPage /> },
       { path: '/mypage/inquiries/new', element: <ConsumerAskInquiryPage /> },

@@ -1,3 +1,4 @@
+import { CaretDown } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { EmptyState, StatusBadge, type StatusTone } from '../../components/common/index.ts'
@@ -113,9 +114,12 @@ export function ConsumerInquiriesPage() {
                     aria-expanded={isOpen}
                     onClick={() => setOpenId(isOpen ? null : inquiry.id)}
                   >
-                    <div className="consumer-inquiry-item__badges">
-                      <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
-                      <span>{inquiry.typeLabel}</span>
+                    <div className="consumer-inquiry-item__header">
+                      <div className="consumer-inquiry-item__badges">
+                        <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
+                        <span>{inquiry.typeLabel}</span>
+                      </div>
+                      <CaretDown className="consumer-inquiry-item__chevron" weight="bold" aria-hidden="true" />
                     </div>
                     <p className="consumer-inquiry-item__product">{inquiry.productName}</p>
                     <p className="consumer-inquiry-item__content">{inquiry.content}</p>

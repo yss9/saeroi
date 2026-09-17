@@ -172,6 +172,7 @@ export function ConsumerAccountLayout({
     <div className="consumer-mypage">
       <a className="consumer-skip-link" href="#consumer-main-content">본문으로 건너뛰기</a>
       <AccountHeader
+        sectionTitle={current === 'home' ? '마이페이지' : section.label}
         onSignOut={onSignOut}
         signOutPending={signOutPending}
         signOutError={signOutError}
@@ -240,10 +241,13 @@ export function ConsumerAccountLayout({
  * 화면 맨 위에서 바로 눌러야 해 머리말로 옮겼다.
  */
 function AccountHeader({
+  sectionTitle,
   onSignOut,
   signOutPending = false,
   signOutError,
 }: {
+  /** 사이드바에서 지금 활성화된 항목 이름. 사이드바가 없는 화면(쇼핑 화면)에서는 생략한다. */
+  sectionTitle?: string
   onSignOut?: () => void
   signOutPending?: boolean
   signOutError?: unknown
@@ -251,10 +255,20 @@ function AccountHeader({
   return (
     <header className="consumer-account-header">
       <div className="consumer-account-header__inner">
-        <Link className="consumer-account-header__logo" to="/" aria-label="SAEROI 홈">
-          {/* public/ 자산 경로라 vite base 가 자동으로 안 붙는다 — /test/ 에서 404 방지 */}
-          <img src={`${import.meta.env.BASE_URL}img/logo.png`} alt="" />
-        </Link>
+        <div className="consumer-account-header__brand">
+          <Link className="consumer-account-header__logo" to="/" aria-label="SAEROI 홈">
+            {/* public/ 자산 경로라 vite base 가 자동으로 안 붙는다 — /test/ 에서 404 방지 */}
+            <img src={`${import.meta.env.BASE_URL}img/logo.png`} alt="" />
+          </Link>
+          {/*
+            지금 사이드바에서 어느 메뉴가 활성인지를 로고 옆에도 보여준다(2026-09-17).
+            사이드바는 화면을 좁히면(900px 이하) 아래로 내려가 처음엔 안 보이는데, 그
+            상태에서도 "지금 어디 있는지"는 로고 옆에서 바로 읽혀야 한다.
+          */}
+          {sectionTitle && (
+            <span className="consumer-account-header__section-title">{sectionTitle}</span>
+          )}
+        </div>
 
         <nav className="consumer-account-header__navigation" aria-label="쇼핑 메뉴">
           <Link to="/shop">쇼핑</Link>

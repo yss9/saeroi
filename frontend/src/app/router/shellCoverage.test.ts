@@ -44,6 +44,7 @@ const INTENTIONALLY_BARE: ReadonlyMap<string, string> = new Map([
   ['/mypage/orders/:orderId', '소비자 계정 화면. 마이페이지와 같은 껍데기를 쓴다'],
   ['/mypage/addresses', '소비자 계정 화면. 마이페이지와 같은 껍데기를 쓴다'],
   ['/mypage/cancellations', '소비자 계정 화면. 마이페이지와 같은 껍데기를 쓴다'],
+  ['/mypage/cancellations/:id', '소비자 계정 화면. 마이페이지와 같은 껍데기를 쓴다'],
   ['/mypage/wishlist', '소비자 계정 화면. 마이페이지와 같은 껍데기를 쓴다'],
   ['/mypage/recently-viewed', '소비자 계정 화면. 마이페이지와 같은 껍데기를 쓴다'],
   ['/mypage/inquiries/new', '소비자 계정 화면. 마이페이지와 같은 껍데기를 쓴다'],

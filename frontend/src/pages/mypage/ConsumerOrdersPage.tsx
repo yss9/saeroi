@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ErrorMessage, Loading } from '../../components/common/index.ts'
 import { useAuth } from '../../features/auth/hooks/useAuth.ts'
@@ -6,6 +7,7 @@ import { ConsumerAccountLayout } from '../../features/user/components/ConsumerAc
 import { ConsumerOrderList } from '../../features/user/components/ConsumerOrderList.tsx'
 import { ConsumerOrderSummary } from '../../features/user/components/ConsumerOrderSummary.tsx'
 import { useConsumerMyPage } from '../../features/user/hooks/useConsumerMyPage.ts'
+import type { ConsumerOrderStage } from '../../features/user/types/consumerMyPage.types.ts'
 
 /**
  * 주문 내역.
@@ -25,6 +27,7 @@ export function ConsumerOrdersPage() {
   const logout = useLogout()
   const profile = user ? { id: user.id, name: user.name, email: user.email } : null
   const myPage = useConsumerMyPage(profile)
+  const [selectedStage, setSelectedStage] = useState<ConsumerOrderStage | null>(null)
 
   return (
     <ConsumerAccountLayout
@@ -54,8 +57,18 @@ export function ConsumerOrdersPage() {
             훑는다(2026-09-16 순서 변경) — 목록을 다 지나야 현황이 나오면 주문이 늘수록
             현황을 보려고 목록 전체를 지나쳐야 했다.
           */}
-          <ConsumerOrderSummary stages={myPage.data.orderStages} />
-          <ConsumerOrderList orders={myPage.data.recentOrders} />
+          <ConsumerOrderSummary
+            stages={myPage.data.orderStages}
+            selectedStage={selectedStage}
+            onSelectStage={setSelectedStage}
+          />
+          <ConsumerOrderList
+            orders={
+              selectedStage
+                ? myPage.data.recentOrders.filter((order) => order.status === selectedStage)
+                : myPage.data.recentOrders
+            }
+          />
         </>
       )}
     </ConsumerAccountLayout>
