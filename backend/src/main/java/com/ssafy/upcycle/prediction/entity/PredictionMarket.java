@@ -31,9 +31,9 @@ public class PredictionMarket {
     @Enumerated(EnumType.STRING) @Column(name = "status", nullable = false) private PredictionMarketStatus status;
     @Column(name = "sold_quantity") private Integer soldQuantity;
     @Column(name = "winning_bucket_index") private Integer winningBucketIndex;
-    @Column(name = "result_hash", length = 66) private String resultHash;
-    @Column(name = "creation_tx_hash", nullable = false, length = 66) private String creationTxHash;
-    @Column(name = "resolution_tx_hash", length = 66) private String resolutionTxHash;
+    @Column(name = "result_hash", columnDefinition = "CHAR(66)") private String resultHash;
+    @Column(name = "creation_tx_hash", nullable = false, columnDefinition = "CHAR(66)") private String creationTxHash;
+    @Column(name = "resolution_tx_hash", columnDefinition = "CHAR(66)") private String resolutionTxHash;
     @CreatedDate @Column(name = "created_at", nullable = false, updatable = false) private LocalDateTime createdAt;
     @Column(name = "resolved_at") private LocalDateTime resolvedAt;
 
