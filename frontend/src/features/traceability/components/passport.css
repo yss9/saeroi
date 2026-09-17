@@ -336,7 +336,7 @@
 
 .journey-explorer__workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1.85fr) minmax(330px, 1fr);
+  grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
   gap: 16px;
   align-items: stretch;
 }
@@ -380,7 +380,7 @@
   font-weight: 750;
 }
 
-.journey-canvas svg {
+.journey-canvas > svg {
   display: block;
   width: 100%;
   min-height: 485px;
@@ -419,6 +419,11 @@
 .journey-flow-backdrop__stage rect {
   fill: color-mix(in srgb, var(--stage-color) 13%, #fff);
   stroke: color-mix(in srgb, var(--stage-color) 38%, transparent);
+}
+
+.journey-canvas--map > svg {
+  height: clamp(500px, 48vw, 650px);
+  max-height: 650px;
 }
 
 .journey-flow-backdrop__stage text {
@@ -479,7 +484,7 @@
 .journey-canvas__traveler circle {
   fill: white;
   stroke: var(--edge-color);
-  stroke-width: 3;
+  stroke-width: 2;
 }
 
 .journey-canvas__traveler {
@@ -502,6 +507,14 @@
   font-size: 10px;
   font-weight: 800;
 }
+
+/* Keep captions readable while preserving the existing route emphasis. */
+.journey-canvas__edge { opacity: 1; --route-opacity: 0.28; }
+.journey-canvas__edge.is-selected { opacity: 1; --route-opacity: 0.5; }
+.journey-canvas__edge.is-active,
+.journey-canvas__edge.is-active.is-selected { opacity: 1; --route-opacity: 1; }
+.journey-canvas__edge.is-dimmed { opacity: 1; --route-opacity: 0.1; }
+.journey-canvas__edge > :not(.journey-canvas__route-label) { opacity: var(--route-opacity); }
 
 .journey-node {
   cursor: pointer;
@@ -581,7 +594,9 @@
 }
 
 .journey-canvas__legend {
-  position: absolute;
+  position: static;
+  width: fit-content;
+  margin: 8px 0 0 auto;
   right: 28px;
   bottom: 25px;
   display: flex;
@@ -1030,7 +1045,7 @@
   }
 
   .journey-explorer__workspace {
-    grid-template-columns: minmax(0, 1.55fr) minmax(300px, 1fr);
+    grid-template-columns: minmax(0, 1.8fr) minmax(320px, 1fr);
   }
 }
 
@@ -1221,10 +1236,11 @@
     border-radius: 15px;
   }
 
-  .journey-canvas--compact svg {
+  .journey-canvas--compact > svg {
     width: 100%;
+    height: auto;
     min-height: 0;
-    aspect-ratio: 0.9 / 1;
+    aspect-ratio: 525 / 620;
   }
 
   .journey-canvas--compact .journey-canvas__heading {
@@ -1245,14 +1261,6 @@
     bottom: 15px;
     gap: 9px;
     font-size: 8px;
-  }
-
-  .journey-canvas--compact .journey-node__halo {
-    r: 31px;
-  }
-
-  .journey-canvas--compact .journey-node__body {
-    r: 21px;
   }
 
   .mobile-journey__stages {
@@ -1400,6 +1408,11 @@
     font-size: 12px;
   }
 }
+
+.journey-canvas--map .journey-node__stage-badge text { font-size: 8px; }
+.journey-route-list { margin: 8px 12px; color: #536a7a; font-size: 13px; }
+.journey-route-list summary { cursor: pointer; padding: 8px 0; }
+.journey-route-list p { margin: 6px 0; line-height: 1.6; }
 
 @media (max-width: 560px) {
   .passport-brandbar {

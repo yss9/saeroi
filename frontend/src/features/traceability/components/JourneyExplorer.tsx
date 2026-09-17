@@ -13,9 +13,11 @@ import {
   Storefront,
   Truck,
 } from '@phosphor-icons/react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Modal, TransactionHash } from '../../../components/common/index.ts'
+import { resolveRegionCoordinates } from '../regionCoordinates.ts'
+import { routeLabelPosition } from '../routeLabelPosition.ts'
 import type {
   BlockchainProof,
   JourneyEdge,
@@ -365,6 +367,8 @@ function JourneyCanvas({
   onSelectNode: (nodeId: string) => void
 }) {
   const reducedMotion = useReducedMotion()
+  const svgRef = useRef<SVGSVGElement>(null)
+  const [mapScale, setMapScale] = useState(1)
   const positions = useMemo(
     () => viewMode === 'MAP' ? mapPositions(journey.nodes) : flowPositions(journey.nodes),
     [journey.nodes, viewMode],
@@ -413,6 +417,33 @@ function JourneyCanvas({
       || connectedIds.has(node.nodeId)
       || focusedNodeIds.has(node.nodeId),
   )
+  const mapViewport = useMemo(() => {
+    const points = Object.values(positions)
+    const left = Math.min(315, ...points.map((point) => point.x - 48))
+    const top = Math.min(0, ...points.map((point) => point.y - 48))
+    const right = Math.max(840, ...points.map((point) => point.x + 48))
+    const bottom = Math.max(620, ...points.map((point) => point.y + 48))
+    return { left, top, right, bottom }
+  }, [positions])
+  useEffect(() => {
+    const svg = svgRef.current
+    if (!svg || viewMode !== 'MAP') return
+    const measure = () => {
+      const box = svg.getBoundingClientRect()
+      if (box.width && box.height) setMapScale(Math.min(box.width / (mapViewport.right - mapViewport.left), box.height / (mapViewport.bottom - mapViewport.top)))
+    }
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(svg)
+    return () => observer.disconnect()
+  }, [viewMode, mapViewport])
+  // Geographic positions stay truthful; only drawing order changes for overlapping markers.
+  const markerPriority = (node: JourneyNode) =>
+    (node.stage === activeStage ? 1 : 0) + (node.nodeId === activeNodeId ? 2 : 0)
+  const renderedNodes = viewMode === 'MAP'
+    ? [...visibleNodes].sort((a, b) => markerPriority(a) - markerPriority(b))
+    : visibleNodes
 
   return (
     <div className={`journey-canvas journey-canvas--${viewMode.toLowerCase()}${compact ? ' journey-canvas--compact' : ''}`}>
@@ -421,17 +452,12 @@ function JourneyCanvas({
         <strong>{STAGE_LABEL[activeStage]}</strong>
       </div>
       <svg
-        viewBox={compact && viewMode === 'MAP' ? '240 0 560 620' : '0 0 1000 620'}
+        ref={svgRef}
+        viewBox={viewMode === 'MAP' ? `${mapViewport.left} ${mapViewport.top} ${mapViewport.right - mapViewport.left} ${mapViewport.bottom - mapViewport.top}` : '0 0 1000 620'}
         role="img"
         aria-label={`${STAGE_LABEL[activeStage]} 업체 위치와 이동 경로`}
       >
         {viewMode === 'MAP' ? <KoreaMapBackdrop /> : <FlowBackdrop />}
-
-        <defs>
-          <marker id="journey-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-            <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" />
-          </marker>
-        </defs>
 
         <g className="journey-canvas__edges">
           {visibleEdges.map((edge, index) => {
@@ -444,6 +470,10 @@ function JourneyCanvas({
               : activeEdgeIds.has(edge.edgeId)
             const selected = focused || activeNodeId === edge.fromNodeId || activeNodeId === edge.toNodeId
             const route = curvedRoute(from, to, index)
+            const label = routeLabelPosition(route.label, visibleNodes.flatMap((node) => {
+              const point = positions[node.nodeId]
+              return point ? [point] : []
+            }), viewMode === 'MAP', mapScale, mapViewport)
             const TravelerIcon = STAGE_META[edge.stage].icon
             return (
               <g
@@ -454,23 +484,14 @@ function JourneyCanvas({
                 data-edge-stage={edge.stage}
               >
                 <path className="journey-canvas__edge-shadow" d={route.path} />
-                <path className="journey-canvas__edge-line" d={route.path} markerEnd="url(#journey-arrow)" />
-                {active && edge.stage === 'COLLECTION' ? (
-                  <g
-                    className="journey-canvas__route-label"
-                    transform={`translate(${route.label.x} ${route.label.y})`}
-                  >
-                    <rect x="-37" y="-12" width="74" height="24" rx="12" />
-                    <text textAnchor="middle" dy="4">
-                      {stageIndex(edge.stage) + 1}. {STAGE_LABEL[edge.stage]}
-                    </text>
-                  </g>
-                ) : null}
+                <path className="journey-canvas__edge-line" d={route.path} />
                 {active && !reducedMotion ? (
                   <g className="journey-canvas__traveler" data-traveler-stage={edge.stage}>
-                    <circle r="16" />
-                    <g transform="translate(-10 -10)">
-                      <TravelerIcon size={20} weight="fill" aria-hidden="true" />
+                    <g transform={viewMode === 'MAP' ? `scale(${1 / mapScale})` : undefined}>
+                      <circle r="12" />
+                      <g transform="translate(-7 -7)">
+                        <TravelerIcon size={14} weight="fill" aria-hidden="true" />
+                      </g>
                     </g>
                     <animateMotion
                       path={route.path}
@@ -480,13 +501,19 @@ function JourneyCanvas({
                     />
                   </g>
                 ) : null}
+                {edge.stage === 'COLLECTION' && label ? (
+                  <g className="journey-canvas__route-label" transform={`translate(${label.x} ${label.y}) scale(${viewMode === 'MAP' ? 1 / mapScale : 1})`}>
+                    <rect x="-37" y="-12" width="74" height="24" rx="12" />
+                    <text textAnchor="middle" dy="4">2. {STAGE_LABEL[edge.stage]}</text>
+                  </g>
+                ) : null}
               </g>
             )
           })}
         </g>
 
         <g className="journey-canvas__nodes">
-          {visibleNodes.map((node) => {
+          {renderedNodes.map((node) => {
             const point = positions[node.nodeId]
             if (!point) return null
             const selected = node.nodeId === activeNodeId
@@ -508,13 +535,14 @@ function JourneyCanvas({
                   if (event.key === 'Enter' || event.key === ' ') onSelectNode(node.nodeId)
                 }}
               >
-                <circle className="journey-node__halo" r="34" />
-                <circle className="journey-node__body" r="23" />
-                <g className="journey-node__icon" transform="translate(-12 -12)">
-                  <NodeIcon size={24} weight="fill" aria-hidden="true" />
+                <g transform={viewMode === 'MAP' ? `scale(${1 / mapScale})` : undefined}>
+                <circle className="journey-node__halo" r={viewMode === 'MAP' ? 16 : 34} />
+                <circle className="journey-node__body" r={viewMode === 'MAP' ? 13 : 23} />
+                <g className="journey-node__icon" transform={viewMode === 'MAP' ? 'translate(-7 -7)' : 'translate(-12 -12)'}>
+                  <NodeIcon size={viewMode === 'MAP' ? 14 : 24} weight="fill" aria-hidden="true" />
                 </g>
-                <g className="journey-node__stage-badge" transform="translate(17 -17)">
-                  <circle r="10" />
+                <g className="journey-node__stage-badge" transform={viewMode === 'MAP' ? 'translate(10 -10)' : 'translate(17 -17)'}>
+                  <circle r={viewMode === 'MAP' ? 6 : 10} />
                   <text textAnchor="middle" dy="4">{stageIndex(node.stage) + 1}</text>
                 </g>
                 {viewMode === 'FLOW' ? (
@@ -526,11 +554,18 @@ function JourneyCanvas({
                     </text>
                   </g>
                 ) : null}
+                </g>
               </g>
             )
           })}
         </g>
       </svg>
+      {visibleEdges.some((edge) => edge.stage === 'COLLECTION') ? <details className="journey-route-list">
+        <summary>수거 경로 보기</summary>
+        {visibleEdges.filter((edge) => edge.stage === 'COLLECTION').map((edge) => <p key={edge.edgeId}>
+          {journey.nodes.find((node) => node.nodeId === edge.fromNodeId)?.companyName} → {journey.nodes.find((node) => node.nodeId === edge.toNodeId)?.companyName} · 수거
+        </p>)}
+      </details> : null}
       <div className="journey-canvas__legend" aria-hidden="true">
         <span><i className="is-active" />현재 단계</span>
         <span><i />이전 경로</span>
@@ -809,46 +844,20 @@ function JourneyMetrics({ journey }: { journey: ProductJourney }) {
 
 function mapPositions(nodes: JourneyNode[]): Record<string, Point> {
   const positions: Record<string, Point> = {}
-  const stageCounts = new Map<JourneyStageType, number>()
   nodes.forEach((node) => {
     let latitude = node.latitude
     let longitude = node.longitude
     if ((latitude === null || longitude === null) && node.locationName) {
-      const region = Object.entries(REGION_COORDINATES).find(([name]) => node.locationName?.startsWith(name))
-      latitude = region?.[1].latitude ?? null
-      longitude = region?.[1].longitude ?? null
+      const region = resolveRegionCoordinates(node.locationName)
+      latitude = region?.latitude ?? null
+      longitude = region?.longitude ?? null
     }
-    const count = stageCounts.get(node.stage) ?? 0
-    stageCounts.set(node.stage, count + 1)
     if (latitude === null || longitude === null) {
-      positions[node.nodeId] = { x: 150 + stageIndex(node.stage) * 170, y: 150 + count * 92 }
       return
     }
-    const projected = projectGeo(latitude, longitude)
-    positions[node.nodeId] = avoidMarkerCollisions(projected, Object.values(positions), count)
+    positions[node.nodeId] = projectGeo(latitude, longitude)
   })
   return positions
-}
-
-function avoidMarkerCollisions(origin: Point, placed: Point[], seed: number): Point {
-  const minimumDistance = 82
-  const isAvailable = (candidate: Point) => placed.every((point) => (
-    Math.hypot(candidate.x - point.x, candidate.y - point.y) >= minimumDistance
-  ))
-  if (isAvailable(origin)) return origin
-
-  for (let ring = 1; ring <= 4; ring += 1) {
-    const radius = ring * 58
-    for (let offset = 0; offset < 8; offset += 1) {
-      const angle = ((seed + offset) / 8) * Math.PI * 2
-      const candidate = {
-        x: clamp(origin.x + Math.cos(angle) * radius, 70, 930),
-        y: clamp(origin.y + Math.sin(angle) * radius, 55, 575),
-      }
-      if (isAvailable(candidate)) return candidate
-    }
-  }
-  return origin
 }
 
 function flowPositions(nodes: JourneyNode[]): Record<string, Point> {
@@ -924,29 +933,6 @@ function compositionGradient(items: ProductJourney['materialComposition']): stri
   return `conic-gradient(${stops.join(', ')})`
 }
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max)
-}
-
-const REGION_COORDINATES: Record<string, { latitude: number; longitude: number }> = {
-  서울특별시: { latitude: 37.5665, longitude: 126.978 },
-  부산광역시: { latitude: 35.1796, longitude: 129.0756 },
-  대구광역시: { latitude: 35.8714, longitude: 128.6014 },
-  인천광역시: { latitude: 37.4563, longitude: 126.7052 },
-  광주광역시: { latitude: 35.1595, longitude: 126.8526 },
-  대전광역시: { latitude: 36.3504, longitude: 127.3845 },
-  울산광역시: { latitude: 35.5384, longitude: 129.3114 },
-  세종특별자치시: { latitude: 36.48, longitude: 127.289 },
-  경기도: { latitude: 37.4138, longitude: 127.5183 },
-  강원특별자치도: { latitude: 37.8228, longitude: 128.1555 },
-  충청북도: { latitude: 36.6357, longitude: 127.4917 },
-  충청남도: { latitude: 36.6588, longitude: 126.6728 },
-  전북특별자치도: { latitude: 35.8203, longitude: 127.1088 },
-  전라남도: { latitude: 34.8161, longitude: 126.4629 },
-  경상북도: { latitude: 36.4919, longitude: 128.8889 },
-  경상남도: { latitude: 35.4606, longitude: 128.2132 },
-  제주특별자치도: { latitude: 33.4996, longitude: 126.5312 },
-}
 
 // Natural Earth 1:50m Admin 0 공개 경계에서 대한민국 도형만 추출해 화면용으로 단순화한 좌표.
 // 좌표 순서는 GeoJSON과 동일한 [경도, 위도].
