@@ -6,6 +6,7 @@ import {
   Input,
   Loading,
   Select,
+  type SelectOption,
 } from '../../../components/common/index.ts'
 import { formatKg } from '../../../utils/quantity.ts'
 import { useMyMaterials } from '../../inventory/hooks/useMyMaterials.ts'
@@ -168,11 +169,7 @@ export function MaterialInputPicker({
           label="투입할 소재"
           placeholder="소재를 선택하세요"
           value={picked === null ? '' : String(picked)}
-          options={materials.data.map((item) => ({
-            value: String(item.materialId),
-            label: optionLabel(item, draftIds, inputMaterialIds),
-            disabled: !usable.some((candidate) => candidate.materialId === item.materialId),
-          }))}
+          options={optionsOf(materials.data, draftIds, inputMaterialIds)}
           onChange={(event) => setPicked(event.target.value ? Number(event.target.value) : null)}
         />
         <Button variant="secondary" onClick={addPicked} disabled={picked === null || full}>
@@ -180,13 +177,13 @@ export function MaterialInputPicker({
         </Button>
       </div>
 
-      {/* 고를 수 있는 소재가 하나도 없으면 이유를 알려준다. 목록은 보이는데 전부 선택이
-          안 되는 상태가 설명 없이 남으면 고장으로 읽힌다. */}
+      {/*
+        고를 수 있는 소재가 하나도 없다는 사실만 적는다. 목록은 보이는데 전부 선택이 안 되는
+        상태가 설명 없이 남으면 고장으로 읽힌다 — 못 고르는 이유는 목록의 각 줄이 이미
+        자기 자리에서 말한다(가공 필요·가용 수량 없음·이미 투입됨).
+      */}
       {usable.length === 0 && drafts.length === 0 && (
-        <p className="material-input__note">
-          지금 투입할 수 있는 소재가 없습니다. 폐기물에서 바로 등록한 소재는 가공을 한 번
-          거쳐야 하고, 다른 판매글이나 가공 요청에 잠긴 수량은 쓸 수 없습니다.
-        </p>
+        <p className="material-input__empty">지금 투입할 수 있는 소재가 없습니다.</p>
       )}
 
       {full && (
@@ -316,14 +313,59 @@ function toGram(raw: string): number {
  * 고를 수 없는 소재는 **왜 못 고르는지**를 이름 옆에 적는다. 선택 후에야 알게 하면
  * 사용자가 목록을 여러 번 열어보며 비교해야 한다.
  */
-function optionLabel(
+function optionsOf(
+  items: readonly InventoryItem[],
+  draftIds: readonly number[],
+  inputMaterialIds: readonly number[],
+): SelectOption[] {
+  const labeled = items.map((item) => {
+    const group = groupOf(item, draftIds, inputMaterialIds)
+    const usable = group === GROUPS.usable
+    return {
+      value: String(item.materialId),
+      // 고를 수 있는 것에만 가용량을 붙인다. 못 고르는 소재의 수량은 지금 쓸 수 없는 값이라
+      // 읽는 사람을 헷갈리게 한다.
+      label: usable ? `${item.name} · 가용 ${formatKg(item.available)}` : item.name,
+      group,
+      disabled: !usable,
+    }
+  })
+
+  // 고를 수 있는 것이 맨 위다. 묶음 안의 순서는 보유 목록 그대로 둔다 — 다시 정렬하면
+  // 같은 소재가 화면마다 다른 자리에 온다.
+  return GROUP_ORDER.flatMap((group) => labeled.filter((option) => option.group === group))
+}
+
+/**
+ * 못 고르는 이유 = 묶음 이름.
+ *
+ * **한 줄에 "이름 · 이유" 로 붙여 적던 것을 올린 것이다.** `<option>` 안의 글자는 일부만
+ * 색이나 굵기를 달리할 수 없어서, 붙여 적으면 어디까지가 소재 이름인지 읽히지 않았다.
+ */
+const GROUPS = {
+  usable: '투입 가능',
+  inBatch: '이미 투입한 소재',
+  inDraft: '아래에 추가한 소재',
+  needsProcessing: '가공을 거쳐야 투입 가능',
+  empty: '가용 수량 없음',
+} as const
+
+const GROUP_ORDER: readonly string[] = [
+  GROUPS.usable,
+  GROUPS.inDraft,
+  GROUPS.inBatch,
+  GROUPS.needsProcessing,
+  GROUPS.empty,
+]
+
+function groupOf(
   item: InventoryItem,
   draftIds: readonly number[],
   inputMaterialIds: readonly number[],
 ): string {
-  if (inputMaterialIds.includes(item.materialId)) return `${item.name} · 이미 투입됨`
-  if (draftIds.includes(item.materialId)) return `${item.name} · 아래에 추가됨`
-  if (!isProductionEligible(item)) return `${item.name} · 가공을 거쳐야 투입 가능`
-  if (item.available <= 0) return `${item.name} · 가용 수량 없음`
-  return `${item.name} · 가용 ${formatKg(item.available)}`
+  if (inputMaterialIds.includes(item.materialId)) return GROUPS.inBatch
+  if (draftIds.includes(item.materialId)) return GROUPS.inDraft
+  if (!isProductionEligible(item)) return GROUPS.needsProcessing
+  if (item.available <= 0) return GROUPS.empty
+  return GROUPS.usable
 }

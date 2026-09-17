@@ -1,9 +1,13 @@
 import { useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { Button, ErrorMessage, Input, Loading } from '../../../components/common/index.ts'
 import { formatKg } from '../../../utils/quantity.ts'
 import { useMyWallets } from '../../wallet/hooks/useMyWallets.ts'
 import { addProductionInputs } from '../api/addProductionInputs.ts'
+import { productionKeys } from '../api/productionKeys.ts'
+import { inventoryKeys } from '../../inventory/api/inventoryKeys.ts'
+import { materialKeys } from '../../material/api/materialKeys.ts'
 import { useOpenProductionBatch } from '../hooks/useOpenProductionBatch.ts'
 import type { ProductionBatch } from '../types/production.types.ts'
 import {
@@ -17,6 +21,17 @@ import './production.css'
 
 export interface ProductionBatchFormProps {
   onOpened?: (batch: ProductionBatch) => void
+  /**
+   * 지난 생산을 베껴 온 값. 같은 제품을 또 만들 때 이름·개수·투입이 대개 같아, 처음부터
+   * 다시 적게 하지 않는다.
+   *
+   * 값이 준비된 뒤에만 그린다 — 나중에 채우면 사용자가 이미 고친 칸을 덮어쓴다.
+   */
+  initial?: {
+    batchName: string
+    producedQuantity: number
+    drafts: DraftInput[]
+  }
 }
 
 interface BatchFormValues {
@@ -35,18 +50,24 @@ interface BatchFormValues {
  * 서버가 등록된 지갑에서 가져와 배치에 굳히기 때문이다. 제출해 보고 알게 하지 않고 미리
  * 막는다 — 지갑 등록은 다른 화면에서 해야 하는 일이라 되돌아오는 길이 길다.
  */
-export function ProductionBatchForm({ onOpened }: ProductionBatchFormProps) {
+export function ProductionBatchForm({ onOpened, initial }: ProductionBatchFormProps) {
   const {
     register,
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm<BatchFormValues>({ defaultValues: { batchName: '' } })
+  } = useForm<BatchFormValues>({
+    defaultValues: {
+      batchName: initial?.batchName ?? '',
+      ...(initial ? { producedQuantity: initial.producedQuantity } : {}),
+    },
+  })
 
   const wallets = useMyWallets()
   const open = useOpenProductionBatch()
+  const queryClient = useQueryClient()
   // 배치가 아직 없어 투입은 화면이 모아 둔다. 서버로는 배치를 만든 뒤에 보낸다.
-  const [drafts, setDrafts] = useState<DraftInput[]>([])
+  const [drafts, setDrafts] = useState<DraftInput[]>(initial?.drafts ?? [])
   const [inputError, setInputError] = useState<unknown>(null)
 
   if (wallets.isPending) {
@@ -88,6 +109,21 @@ export function ProductionBatchForm({ onOpened }: ProductionBatchFormProps) {
               batch.productionBatchId,
               drafts.map(toRequest),
             )
+            /*
+              **투입까지 담긴 배치를 상세 캐시에 심는다.** 배치 열기가 방금 빈 배치를
+              심어 두었기 때문에(useOpenProductionBatch), 그대로 두면 상세 화면이 그 빈
+              값을 먼저 그린다 — 고른 소재가 사라진 것처럼 보이고 "소재를 담으라" 는
+              안내가 뜬다.
+
+              보유 소재도 함께 무효화한다. 투입한 만큼 가용량이 잠긴다.
+            */
+            queryClient.setQueryData(
+              productionKeys.detail(batch.productionBatchId),
+              withInputs,
+            )
+            void queryClient.invalidateQueries({ queryKey: productionKeys.lists() })
+            void queryClient.invalidateQueries({ queryKey: inventoryKeys.all })
+            void queryClient.invalidateQueries({ queryKey: materialKeys.all })
             reset()
             setDrafts([])
             onOpened?.(withInputs)

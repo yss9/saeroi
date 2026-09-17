@@ -19,11 +19,13 @@ export interface ProductionBatch {
   batchCode: string
   batchName: string
   /**
-   * 무엇을 만드는가. **확정 전에는 비어 있을 수 있다.**
+   * 무엇을 만들었는가. **확정된 뒤에도 비어 있을 수 있다.**
    *
-   * 배치를 열 때는 정하지 않아도 된다 — 실제 순서가 "배치 생성 → 소재 선택 → 사용량
-   * 입력" 이라 소재도 고르기 전에 확정하라고 강제할 이유가 없다. 확정 시점에는 반드시
-   * 채워져 있어야 한다 (`PRODUCTION_PRODUCT_MODEL_REQUIRED`).
+   * 브랜드의 순서는 "생산을 끝내고 → 그 결과물에 제품 정보를 붙인다" 라 확정이 이 값을
+   * 요구하지 않는다. 제품 등록에서 이 생산을 고르면 그때 채워지고, 서버가 이미 만들어진
+   * 개체의 제품까지 함께 채운다.
+   *
+   * 붙기 전까지 그 개체는 어느 제품의 재고로도 세지 않는다 = 팔리지 않는다.
    */
   productModelId: number | null
   producedQuantity: number

@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
+import { Link } from 'react-router-dom'
 import {
   Button,
   ErrorMessage,
@@ -7,7 +8,6 @@ import {
   Input,
   Select,
 } from '../../../components/common/index.ts'
-import { formatWon } from '../../../utils/quantity.ts'
 import { useCreateProductModel } from '../hooks/useCreateProductModel.ts'
 import { useUpdateProductModel } from '../hooks/useUpdateProductModel.ts'
 import { useUploadProductImage } from '../hooks/useUploadProductImage.ts'
@@ -356,27 +356,34 @@ function ThumbnailField({
   )
 }
 
-/** 등록 결과 요약. 폼 밖에서 쓰라고 내보낸다 (페이지가 등록 후 화면을 정한다). */
+/**
+ * 등록 결과 요약. 폼 밖에서 쓰라고 내보낸다 (페이지가 등록 후 화면을 정한다).
+ *
+ * **초록 상자를 걷어냈다.** 이 서비스의 색은 파랑이고, 초록은 공통 성공색이라 이 줄만
+ * 다른 서비스에서 떨어져 나온 것처럼 보였다.
+ *
+ * **값을 다시 적지 않는다.** 카테고리·판매가·수량은 방금 제 손으로 넣은 값이라 읽을 이유가
+ * 없고, 등록을 마친 사람이 하려는 일은 하나다 — "쇼핑몰에서 어떻게 보이나" 를 보는 것.
+ */
 export function ProductCreatedSummary({ product }: { product: ProductModel }) {
   return (
     <div className="product-form__created" role="status">
-      <p className="product-form__created-title">{product.name} 등록이 완료되었습니다.</p>
-      <dl>
-        <div>
-          <dt>카테고리</dt>
-          <dd>{PRODUCT_CATEGORY_LABEL[product.category]}</dd>
-        </div>
-        <div>
-          <dt>판매가</dt>
-          <dd>{formatWon(product.price)}</dd>
-        </div>
-        <div>
-          <dt>판매 가능 수량</dt>
-          {/* 등록 직후에는 언제나 0 이다. 제품 모델은 설계도이고 팔 물건은 생산에서 나온다. */}
-          <dd>{product.stockQuantity}개</dd>
-        </div>
-      </dl>
+      <p className="product-form__created-title">
+        {product.status === 'ON_SALE'
+          ? `${product.name} 을(를) 쇼핑몰에 올렸습니다.`
+          : `${product.name} 등록이 완료되었습니다.`}
+      </p>
 
+      {/*
+        소비자가 보는 그 화면으로 보낸다. 아직 판매 전이면 그 사실도 그 화면이 말한다 —
+        여기서 미리 적으면 같은 말이 두 곳에서 어긋난다.
+      */}
+      <Link
+        className="ui-button ui-button--primary ui-button--sm product-form__created-link"
+        to={`/products/${product.productModelId}`}
+      >
+        쇼핑몰에서 보기
+      </Link>
     </div>
   )
 }

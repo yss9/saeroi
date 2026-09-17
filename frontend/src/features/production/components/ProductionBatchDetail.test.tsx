@@ -12,12 +12,13 @@
 //      투입이 지워진 것이 아니라 확정 서비스가 목록을 다시 만들지 않는 것이다.
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createAppError, ERROR_KIND } from '../../../utils/errors.ts'
 import type { ProductionBatch, ProductionInput } from '../types/production.types.ts'
+import { productionKeys } from '../api/productionKeys.ts'
 import { ProductionBatchDetail } from './ProductionBatchDetail.tsx'
 
 const api = vi.hoisted(() => ({
@@ -90,10 +91,12 @@ function batch(overrides: Partial<ProductionBatch> = {}): ProductionBatch {
   }
 }
 
-function renderDetail() {
+function renderDetail(seed?: ProductionBatch) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
+  // 생산 시작이 상세 캐시에 값을 심어 두고 넘어오는 경로를 그대로 재현한다.
+  if (seed) queryClient.setQueryData(productionKeys.detail(3), seed)
   render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter>
@@ -139,43 +142,32 @@ describe('ProductionBatchDetail', () => {
     expect(screen.getByText('작성 중')).toBeInTheDocument()
   })
 
-  it('확정이 무엇을 하는지 미리 적는다', async () => {
+  // 확인 모달을 두지 않으므로 이 줄이 마지막 경고다 — 되돌릴 수 없는 동작이다.
+  it('확정이 무엇을 하는지 버튼 위에 적는다', async () => {
     renderDetail()
 
-    expect(await screen.findByText(/투입한 소재가 소비되고/)).toBeInTheDocument()
-    expect(screen.getByText(/제품 개체 10개가 만들어집니다/)).toBeInTheDocument()
-    expect(screen.getByText(/자투리는 새 소재로 발행되어/)).toBeInTheDocument()
+    expect(await screen.findByText(/8 kg이 소비되고/)).toBeInTheDocument()
+    expect(screen.getByText(/제품 10개가/)).toBeInTheDocument()
+    expect(screen.getByText('되돌릴 수 없습니다.')).toBeInTheDocument()
   })
 
-  // 이 테스트가 이 파일의 존재 이유다.
-  it('확인 단계를 거친 뒤에만 확정한다', async () => {
+  it('누르면 바로 확정한다', async () => {
     const user = renderDetail()
 
     await user.click(await screen.findByRole('button', { name: '생산 확정' }))
-    expect(api.confirmProductionBatch).not.toHaveBeenCalled()
-    // 문구가 결과를 그대로 말해야 한다.
-    expect(screen.getByText(/8 kg이 소비되고 제품 10개가 만들어집니다/)).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: '확정' }))
 
     await waitFor(() => expect(api.confirmProductionBatch).toHaveBeenCalledWith(3))
-  })
-
-  it('확인 모달을 닫으면 확정하지 않는다', async () => {
-    const user = renderDetail()
-
-    await user.click(await screen.findByRole('button', { name: '생산 확정' }))
-    // '취소' 는 투입 행에도 있다(투입 취소). 모달 안에서 찾는다.
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '취소' }))
-
-    expect(api.confirmProductionBatch).not.toHaveBeenCalled()
   })
 
   it('투입이 없으면 확정할 수 없고 무엇을 해야 하는지 알린다', async () => {
     api.getProductionBatch.mockResolvedValue(batch({ inputs: [] }))
     renderDetail()
 
-    expect(await screen.findByText(/투입한 소재가 없어 확정할 수 없습니다/)).toBeInTheDocument()
+    // 안내는 담는 자리(담긴 투입)에 있다. 확정 칸에 또 적으면 같은 말이 화면 위아래로
+    // 흩어져 읽는 사람이 오간다.
+    expect(
+      await screen.findByText(/투입한 소재가 없어 생산을 확정할 수 없습니다/),
+    ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '생산 확정' })).toBeDisabled()
   })
 
@@ -211,7 +203,6 @@ describe('ProductionBatchDetail', () => {
     const user = renderDetail()
 
     await user.click(await screen.findByRole('button', { name: '생산 확정' }))
-    await user.click(screen.getByRole('button', { name: '확정' }))
 
     expect(await screen.findByText('확정 결과')).toBeInTheDocument()
     // 투입 목록이 비지 않는다.
@@ -267,24 +258,17 @@ describe('ProductionBatchDetail', () => {
     const user = renderDetail()
 
     await user.click(await screen.findByRole('button', { name: '생산 확정' }))
-    await user.click(screen.getByRole('button', { name: '확정' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('보유 수량이 투입량보다 적습니다')
   })
 
-  // 확정하면 서버가 개체를 만들고, 그 개체가 어느 상품인지는 배치에 적힌 제품으로 정해진다.
-  // 비어 있으면 서버도 PRODUCTION_PRODUCT_MODEL_REQUIRED 로 거절한다 — 되돌릴 수 없는
-  // 버튼이라 눌러 보고 알게 두지 않는다.
-  it('제품이 연결되지 않은 배치는 확정을 막고 연결할 곳을 가리킨다', async () => {
+  // 브랜드의 순서는 "생산을 끝내고 → 그 결과물에 제품 정보를 붙인다" 다. 서버도 확정에
+  // 제품을 요구하지 않는다 — 제품 등록을 기다리느라 생산을 못 닫게 두지 않는다.
+  it('제품이 없어도 확정할 수 있다', async () => {
     api.getProductionBatch.mockResolvedValue(batch({ productModelId: null }))
     renderDetail()
 
-    expect(await screen.findByRole('button', { name: '생산 확정' })).toBeDisabled()
-    expect(screen.getByText(/확정할 수 없습니다/)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '제품을 등록' })).toHaveAttribute(
-      'href',
-      '/brand/products/new',
-    )
+    expect(await screen.findByRole('button', { name: '생산 확정' })).toBeEnabled()
   })
 
   it('배치 조회가 실패하면 다시 시도할 수 있게 한다', async () => {
@@ -300,4 +284,33 @@ describe('ProductionBatchDetail', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('생산 배치를 찾을 수 없습니다')
     expect(screen.getByRole('button', { name: '다시 시도' })).toBeInTheDocument()
   })
+})
+
+// 생산을 시작하면서 소재를 담고 온 사람이 대부분인데, 빈 선택 칸이 담긴 목록 위에
+// 펼쳐져 있으면 "안 담겼나" 로 읽힌다.
+it('투입이 있으면 소재 선택 칸을 접어 둔다', async () => {
+  api.getProductionBatch.mockResolvedValue(batch({ inputs: [input()] }))
+  renderDetail()
+
+  expect(await screen.findByRole('button', { name: '+ 소재 더 담기' })).toBeInTheDocument()
+  expect(screen.queryByText('보유한 소재가 없습니다')).not.toBeInTheDocument()
+})
+
+// 생산 시작이 빈 배치를 캐시에 심어 두고 오는 경로. 투입이 도착하면 선택 칸은 닫혀야
+// 한다 — 방금 소재를 골라 시작한 사람에게 "또 담으라" 고 말하는 꼴이 된다.
+it('먼저 그린 값이 비어 있어도 투입이 도착하면 선택 칸을 접는다', async () => {
+  api.getProductionBatch.mockResolvedValue(batch({ inputs: [input()] }))
+  renderDetail(batch({ inputs: [] }))
+
+  expect(await screen.findByRole('button', { name: '+ 소재 더 담기' })).toBeInTheDocument()
+})
+
+// 소재 없이 시작한 생산은 여기서만 담을 수 있다 — 접어 두면 막다른 길이 된다.
+it('투입이 없으면 소재 선택 칸을 열어 둔다', async () => {
+  api.getProductionBatch.mockResolvedValue(batch({ inputs: [] }))
+  renderDetail()
+
+  // 보유 소재가 없는 고정값이라 선택 칸 대신 그 이유가 열린 채로 보인다.
+  expect(await screen.findByText('보유한 소재가 없습니다')).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: '+ 소재 더 담기' })).not.toBeInTheDocument()
 })

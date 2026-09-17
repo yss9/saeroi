@@ -81,8 +81,11 @@ export async function getMyProductionBatches(): Promise<ProductionBatch[]> {
  * 바디가 없다. 확정에 필요한 것은 전부 이미 배치에 있고, 수량이나 비율을 여기서 받으면
  * 실제 투입과 다른 값을 적어 넣을 수 있다 — 그 값이 그대로 제품에 붙는다.
  *
- * 거절 조건: 무엇을 만들지 정하지 않았거나(`PRODUCTION_PRODUCT_MODEL_REQUIRED`), 투입이
- * 하나도 없거나(`PRODUCTION_NO_INPUT`), 제품에 쓰인 수량이 전부 0 이거나
+ * **제품은 없어도 된다.** 만들어진 개체는 제품 없이 남았다가 나중에 붙는다
+ * (`assignProductModel` 이 개체까지 함께 채운다). 그때까지 그 개체는 어느 제품의 재고로도
+ * 세지 않으므로 팔리지 않는다.
+ *
+ * 거절 조건: 투입이 하나도 없거나(`PRODUCTION_NO_INPUT`), 제품에 쓰인 수량이 전부 0 이거나
  * (`PRODUCTION_NO_PRODUCT_MATERIAL`), 이미 확정된 배치(`PRODUCTION_BATCH_NOT_EDITABLE`).
  *
  * ⚠️ **응답의 `inputs` 는 빈 배열이다** (`ProductionBatchResponse.of(batch, List.of())`).

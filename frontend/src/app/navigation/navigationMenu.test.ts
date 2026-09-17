@@ -7,7 +7,12 @@ import { canAccess, getRouteAccess, getRouteAccessMap } from '../router/routeAcc
 import { useAuthStore } from '../../stores/authStore.ts'
 import { USER_ROLES, type UserRole } from '../../types/role.types.ts'
 import { getRoleHomePath } from '../../features/auth/utils/roleHomePath.ts'
-import { ALL_MENU_ITEMS, BUSINESS_MENU_ITEMS, ROLE_HOME_MENU_ITEMS } from './navigationMenu.ts'
+import {
+  ALL_MENU_ITEMS,
+  BUSINESS_MENU_ITEMS,
+  isMenuActive,
+  ROLE_HOME_MENU_ITEMS,
+} from './navigationMenu.ts'
 
 /**
  * routes.tsx 의 RoleGuard allow 를 **routeAccess 와 무관한 방법**으로 다시 읽는다.
@@ -138,7 +143,7 @@ describe('역할별 사업자 메뉴', () => {
     expect(visibleLabels('BRAND')).toEqual([
       '회사 정보',
       '소재 검색', '구매 내역', '보유 소재',
-      '가공 요청', '요청 내역', '가공 진행',
+      '가공 요청', '요청 내역',
       '제품 생산', '제품 등록', '내 제품', '제품 발송',
     ])
   })
@@ -206,5 +211,33 @@ describe('계정 메뉴', () => {
     expect(getRoleHomePath('BRAND')).toBe('/company/account')
     expect(getRoleHomePath('PROCESSOR')).toBe('/company/account')
     expect(getRoleHomePath('CONSUMER')).toBe('/mypage')
+  })
+})
+
+/**
+ * 지금 어디에 있는지 사이드바가 가리키는 규칙.
+ *
+ * 켜지는 항목이 둘이거나 없으면 사용자는 자기 위치를 잃는다 — 특히 하위 화면에서 그렇다.
+ */
+describe('메뉴 활성 규칙', () => {
+  it('하위 화면을 가진 항목은 정확히 일치할 때만 켠다', () => {
+    expect(isMenuActive('/brand/products', '/brand/products')).toBe(true)
+    // 제품 등록에서 내 제품까지 함께 켜지면 어느 화면인지 읽히지 않는다.
+    expect(isMenuActive('/brand/products', '/brand/products/new')).toBe(false)
+    expect(isMenuActive('/brand/products/new', '/brand/products/new')).toBe(true)
+  })
+
+  it('하위 화면이 없는 항목은 그 아래 주소에서도 켠다', () => {
+    expect(isMenuActive('/brand/processing/requests', '/brand/processing/requests/17')).toBe(true)
+  })
+
+  // 생산 상세로 들어가는 길은 제품 등록의 생산 목록이다. 거기서 눌렀는데 사이드바가
+  // 제품 생산으로 넘어가면 방금 있던 목록이 어디였는지 잃는다.
+  it('생산 상세에서는 제품 등록에 머문다', () => {
+    expect(isMenuActive('/brand/products/new', '/brand/production/12')).toBe(true)
+    expect(isMenuActive('/brand/production', '/brand/production/12')).toBe(false)
+    // 새 생산을 시작하는 화면 자체는 그대로 제품 생산이다.
+    expect(isMenuActive('/brand/production', '/brand/production')).toBe(true)
+    expect(isMenuActive('/brand/products/new', '/brand/production')).toBe(false)
   })
 })

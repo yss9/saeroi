@@ -161,6 +161,19 @@ a.ui-button { text-decoration: none; }
 .ui-modal__title { margin: 0; font-size: 1.125rem; }
 .ui-modal__close { background: none; border: none; font-size: 1.5rem; line-height: 1; cursor: pointer; }
 .ui-modal__body { margin: 1rem 0; }
+/*
+  팝업의 스크롤 막대를 감춘다 — 스크롤 자체는 그대로다.
+
+  창이 작아 보이는 폼(제품 등록·수정)에서 막대가 제목과 닫기 버튼 사이를 세로로 갈라
+  창이 잘린 것처럼 보였다. 내용이 더 있다는 신호는 창 아래로 이어지는 폼 자체가 준다.
+*/
+.ui-modal,
+.ui-modal__body {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.ui-modal::-webkit-scrollbar,
+.ui-modal__body::-webkit-scrollbar { width: 0; height: 0; }
 .ui-modal__footer { display: flex; justify-content: flex-end; gap: 0.5rem; }
 
 /* ── Loading / Empty / Error ────────────────────────── */

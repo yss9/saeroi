@@ -1,11 +1,11 @@
 import { CaretDown, House, List, SignOut, UserCircle, X } from '@phosphor-icons/react'
 import { useCallback, useState, type ReactNode } from 'react'
-import { Link, NavLink, useNavigate } from 'react-router-dom'
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
   ACCOUNT_MENU_ITEMS,
   BUSINESS_MENU_GROUPS,
   BUSINESS_TOP_ITEMS,
-  EXACT_MATCH_PATHS,
+  isMenuActive,
   type NavigationMenuGroup,
 } from '../../../app/navigation/navigationMenu.ts'
 import {
@@ -104,6 +104,7 @@ export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps
   // 이어 붙여도 남의 메뉴가 새지 않는다.
   const { groups, isResolving } = useVisibleMenuGroups(BUSINESS_MENU_GROUPS)
   const { items: accountLinks } = useVisibleMenu(ACCOUNT_LINKS)
+  const { pathname } = useLocation()
 
   function handleSignOut() {
     logout.mutate(undefined, {
@@ -194,10 +195,9 @@ export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps
               <NavLink
                 key={to}
                 to={to}
-                end={EXACT_MATCH_PATHS.has(to)}
                 onClick={() => setIsMenuOpen(false)}
-                className={({ isActive }) =>
-                  isActive ? 'company-dashboard__nav-link--active' : undefined
+                className={() =>
+                  isMenuActive(to, pathname) ? 'company-dashboard__nav-link--active' : undefined
                 }
               >
                 <Icon aria-hidden="true" />
@@ -256,6 +256,7 @@ function MenuGroup({
   onNavigate: () => void
 }) {
   const itemsId = `company-dashboard-group-${group.label}`
+  const { pathname } = useLocation()
 
   return (
     <div className="company-dashboard__nav-group">
@@ -279,14 +280,13 @@ function MenuGroup({
           <NavLink
             key={to}
             to={to}
-            // 하위 화면을 가진 항목은 정확히 일치할 때만 켠다. NavLink 는 기본이 접두사
-            // 비교라, 제품 등록(/brand/products/new)에서 내 제품(/brand/products)까지
-            // 함께 강조된다 — 지금 어디에 있는지 잘못 읽힌다.
-            end={EXACT_MATCH_PATHS.has(to)}
-            onClick={onNavigate}
-            className={({ isActive }) =>
-              isActive ? 'company-dashboard__nav-link--active' : undefined
+            // 켜는 판단은 NavLink 에 맡기지 않는다. 접두사 비교로는 제품 등록
+            // (/brand/products/new)에서 내 제품(/brand/products)까지 켜지고, 생산 상세를
+            // 제품 등록 쪽에 붙여 두는 예외도 표현할 수 없다 — 규칙은 isMenuActive 하나다.
+            className={() =>
+              isMenuActive(to, pathname) ? 'company-dashboard__nav-link--active' : undefined
             }
+            onClick={onNavigate}
           >
             <Icon aria-hidden="true" />
             <span>{label}</span>

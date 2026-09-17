@@ -7,8 +7,6 @@ import './production.css'
 
 export interface ProductionBatchChooserProps {
   onChoose: (batch: ProductionBatch) => void
-  /** 배치를 걸지 않고 제품만 등록한다 */
-  onSkip: () => void
 }
 
 /**
@@ -18,11 +16,14 @@ export interface ProductionBatchChooserProps {
  * 없어, 사용자가 배치 목록을 따로 열어 확인하고 돌아와야 했다. 수량과 투입량을 함께
  * 보여주면 여기서 끝난다.
  *
- * **작성 중이고 아직 제품이 붙지 않은 배치만** 고를 수 있다. 확정된 배치는 이미 개체를
- * 만들어 버려 바꿀 수 없고(서버도 `DRAFT` 에서만 받는다), 제품이 붙은 배치를 고르면 그
- * 제품의 재고를 빼앗는다.
+ * **아직 제품이 붙지 않은 생산만** 고를 수 있다. 확정 여부는 상관없다 — 브랜드의 순서는
+ * "생산을 끝내고 → 그 결과물에 제품 정보를 붙인다" 이고, 서버도 확정된 생산에 제품을 붙일
+ * 때 그 생산이 만든 개체까지 함께 채운다.
+ *
+ * 이미 제품이 붙은 생산은 바꿀 수 없다(`PRODUCTION_PRODUCT_MODEL_ALREADY_SET`, 409) —
+ * 개체가 팔린 뒤 제품이 바뀌면 그 주문이 산 것과 재고가 가리키는 제품이 달라진다.
  */
-export function ProductionBatchChooser({ onChoose, onSkip }: ProductionBatchChooserProps) {
+export function ProductionBatchChooser({ onChoose }: ProductionBatchChooserProps) {
   const batches = useMyProductionBatches()
 
   if (batches.isPending) return <Loading variant="skeleton" rows={3} label="생산 내역을 불러오는 중" />
@@ -32,56 +33,56 @@ export function ProductionBatchChooser({ onChoose, onSkip }: ProductionBatchChoo
 
   return (
     <section className="batch-chooser">
-      <div className="batch-chooser__head">
-        <div>
-          <h2>어느 생산으로 만든 제품인가요?</h2>
-          <p>
-            생산을 누르면 제품을 적는 창이 열립니다. 그 생산을 확정하면 이 제품의 개체와
-            QR 이 만들어지고, 그만큼 판매할 수 있게 됩니다.
-          </p>
-        </div>
-
-        {/* 배치 없이 등록하는 것도 정상 경로다. 제품을 먼저 올려 두고 나중에 이어도 된다. */}
-        <Button variant="secondary" onClick={onSkip}>
-          생산 연결 없이 등록
-        </Button>
-      </div>
-
       {batches.data.length === 0 ? (
         <p className="batch-chooser__empty">
           생산 내역이 없습니다. <Link to="/brand/production">생산을 시작하고</Link> 소재를
           투입하면 그 생산으로 만들 제품을 등록할 수 있습니다.
         </p>
       ) : (
-        <ul className="batch-chooser__list">
-          {batches.data.map((batch) => {
+        // 보이는 제목이 없으므로 목록 이름은 여기서 준다. 화면을 소리로 읽는 사람에게
+        // "목록" 하나만 남으면 무엇의 목록인지 알 수 없다.
+        <ul className="batch-chooser__list" aria-label="내 생산">
+          {sortForChoosing(batches.data).map((batch) => {
             // 고를 수 없는 배치도 지우지 않고 왜 못 고르는지 적는다. 빼버리면 "내 배치가
             // 사라졌다" 로 읽힌다.
             const blocked = blockedReason(batch)
             return (
-              <li key={batch.productionBatchId}>
-                <button
-                  type="button"
-                  disabled={blocked !== null}
-                  onClick={() => onChoose(batch)}
+              <li
+                key={batch.productionBatchId}
+                className={
+                  blocked === null
+                    ? 'batch-chooser__row'
+                    : 'batch-chooser__row batch-chooser__row--locked'
+                }
+              >
+                {/*
+                  칸은 생산 상세로 간다 — 소재를 더 담거나 확정하는 일이 거기 있다.
+                  제품 등록은 오른쪽 버튼이 따로 맡는다. 둘을 한 곳에 묶으면 상세를 보러
+                  누른 사람에게 등록 창이 열린다.
+                */}
+                <Link
+                  className="batch-chooser__link"
+                  to={`/brand/production/${batch.productionBatchId}`}
                 >
+                  {/*
+                    못 고르는 이유는 맨 위 왼쪽이다 — 이름을 읽기 전에 눈에 들어와야
+                    "왜 등록 버튼이 없지" 를 찾지 않는다. 지우지 않는 이유는 빼버리면
+                    "내 생산이 사라졌다" 로 읽히기 때문이다.
+                  */}
+                  {blocked !== null && <small className="batch-chooser__blocked">{blocked}</small>}
                   <strong>{batch.batchName}</strong>
                   <span>
                     {batch.producedQuantity}개 생산 · 투입 {formatKg(usedOf(batch))} ·{' '}
                     {batch.inputs.length}건
                   </span>
-                  {blocked !== null && (
-                    <small className="batch-chooser__blocked">{blocked}</small>
-                  )}
-                </button>
-
-                {/*
-                  배치 자체를 이어서 하러 가는 길. 소재를 더 담거나 확정하는 일은 상세에서
-                  하는데, 이 카드를 누르면 제품 등록 창이 열리므로 따로 둔다.
-                */}
-                <Link to={`/brand/production/${batch.productionBatchId}`}>
-                  {batch.batchCode} 생산 상세
+                  <small className="batch-chooser__code">{batch.batchCode}</small>
                 </Link>
+
+                {blocked === null && (
+                  <Button size="sm" onClick={() => onChoose(batch)}>
+                    제품 등록
+                  </Button>
+                )}
               </li>
             )
           })}
@@ -92,14 +93,47 @@ export function ProductionBatchChooser({ onChoose, onSkip }: ProductionBatchChoo
 }
 
 /**
- * 이 배치에 제품을 붙일 수 없는 이유.
+ * 고르는 순서.
  *
- * 확정된 배치는 이미 개체를 만들어 버려 바꿀 수 없고(서버도 `DRAFT` 에서만 받는다),
- * 제품이 이미 붙은 배치를 고르면 그 제품의 재고를 빼앗는다.
+ * **서버가 순서를 정해 주지 않는다** (`findAllByProducerId` 에 정렬이 없다). 그대로 그리면
+ * DB 가 주는 순서 = 사실상 만든 순서라, 방금 확정하고 제품을 붙이러 온 사람이 목록 끝까지
+ * 내려가야 방금 그 생산을 만난다.
+ *
+ * 그래서 두 가지로 줄을 세운다.
+ *
+ *   1) **고를 수 있는 것이 먼저.** 이 화면에 온 목적이 그것이고, 잠긴 줄은 "왜 없지" 를
+ *      막기 위해 남겨 둔 참고 자료다.
+ *   2) 고를 수 있는 것 안에서는 **최신순** — 제품을 붙이는 대상은 거의 항상 방금 끝낸
+ *      생산이다. 잠긴 것은 **번호순**으로 둔다. 그쪽은 찾아보는 목록이라 자리가 매번
+ *      바뀌지 않는 편이 낫다.
+ */
+function sortForChoosing(batches: readonly ProductionBatch[]): ProductionBatch[] {
+  const open = batches.filter((batch) => blockedReason(batch) === null)
+  const blocked = batches.filter((batch) => blockedReason(batch) !== null)
+
+  return [
+    ...open.sort((left, right) => right.createdAt.localeCompare(left.createdAt)),
+    ...blocked.sort((left, right) => left.productionBatchId - right.productionBatchId),
+  ]
+}
+
+/**
+ * 이 생산에 제품을 붙일 수 없는 이유.
+ *
+ * 서버가 받는 상태는 `DRAFT` 와 `CONFIRMED` 다. 서명 중(`SIGNING`)은 막는다 — 서명하는
+ * 도중에 내용이 바뀌면 서명한 것과 저장된 것이 어긋난다. 실패·취소된 생산은 만들어진
+ * 개체가 없어 붙일 곳이 없다.
+ *
+ * 제품이 이미 붙은 생산도 막는다. 확정된 뒤에는 서버가 거절하고
+ * (`PRODUCTION_PRODUCT_MODEL_ALREADY_SET`), 그 전이라도 다른 제품으로 바꾸면 먼저 고른
+ * 제품이 조용히 재고를 잃는다.
  */
 function blockedReason(batch: ProductionBatch): string | null {
   if (batch.productModelId !== null) return '이미 제품이 연결된 생산입니다'
-  if (batch.status !== 'DRAFT') return '작성 중인 생산에만 연결할 수 있습니다'
+  if (batch.status === 'SIGNING') return '서명이 끝난 뒤에 연결할 수 있습니다'
+  if (batch.status !== 'DRAFT' && batch.status !== 'CONFIRMED') {
+    return '작성 중이거나 확정된 생산에만 연결할 수 있습니다'
+  }
   return null
 }
 

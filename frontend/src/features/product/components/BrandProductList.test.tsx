@@ -84,14 +84,15 @@ afterEach(() => {
 })
 
 describe('BrandProductList', () => {
-  it('제품 행의 빈 영역을 클릭하면 상세로 이동한다', async () => {
+  // 브랜드가 확인하려는 것은 자기 제품이 쇼핑몰에서 어떻게 보이는가다.
+  it('제품 행을 클릭하면 소비자가 보는 상품 페이지로 간다', async () => {
     const user = renderList()
 
     const productRow = (await screen.findByText('업사이클 데님 토트백')).closest('li')
     if (productRow === null) throw new Error('제품 행을 찾을 수 없습니다.')
     await user.click(productRow)
 
-    expect(screen.getByLabelText('현재 경로')).toHaveTextContent('/business/products/31')
+    expect(screen.getByLabelText('현재 경로')).toHaveTextContent('/products/31')
   })
 
   it('등록만 된 제품도 보여준다', async () => {
@@ -240,21 +241,15 @@ describe('BrandProductList', () => {
 
   // 등록만 한 제품은 재고가 0 이라 판매를 시작할 수 없는데, 그 0 을 채우는 일이 다른
   // 화면에 있어 "등록했는데 왜 못 파는가" 로 읽혔다.
-  it('생산 전 제품은 생산으로 가는 길을 준다', async () => {
+  // 같은 제품을 또 만드는 일이라 지난 생산을 베껴 채우도록 제품 번호를 들고 간다.
+  it('추가 생산은 그 제품을 지목해 생산 화면으로 보낸다', async () => {
     api.getMyProductModels.mockResolvedValue([product({ status: 'DRAFT', stockQuantity: 0 })])
     renderList()
 
-    expect(await screen.findByRole('link', { name: '생산하기' })).toHaveAttribute(
+    expect(await screen.findByRole('link', { name: '추가 생산' })).toHaveAttribute(
       'href',
-      '/brand/production',
+      '/brand/production?product=31',
     )
-  })
-
-  it('재고가 있는 제품에는 추가 생산으로 적는다', async () => {
-    api.getMyProductModels.mockResolvedValue([product({ status: 'ON_SALE', stockQuantity: 4 })])
-    renderList()
-
-    expect(await screen.findByRole('link', { name: '추가 생산' })).toBeInTheDocument()
   })
 
   // 만들어도 팔 수 없다. 서버가 단종된 제품의 판매 재개를 거절한다.
@@ -278,26 +273,44 @@ describe('BrandProductList', () => {
     expect(await screen.findByRole('link', { name: 'QR 라벨 보기' })).toBeInTheDocument()
   })
 
+  // 이 화면에서 손대는 대상은 지금 팔리는 제품이다 — 준비·단종을 지나쳐 내려가게 두지 않는다.
+  it('판매 중인 제품을 목록 위로 올린다', async () => {
+    api.getMyProductModels.mockResolvedValue([
+      product({ productModelId: 1, name: '단종된 가방', status: 'DISCONTINUED' }),
+      product({ productModelId: 2, name: '준비 중 가방', status: 'DRAFT', stockQuantity: 0 }),
+      product({ productModelId: 3, name: '판매 중 가방', status: 'ON_SALE', stockQuantity: 5 }),
+      product({ productModelId: 4, name: '품절 가방', status: 'ON_SALE', stockQuantity: 0 }),
+    ])
+    renderList()
+
+    await screen.findByText('판매 중 가방')
+    const names = screen.getAllByRole('listitem').map((row) => row.querySelector('a')?.textContent)
+    expect(names).toEqual(['판매 중 가방', '품절 가방', '준비 중 가방', '단종된 가방'])
+  })
+
   // 오타 하나를 고칠 방법이 없었다. 가격을 잘못 넣으면 결제가 통째로 실패한다.
-  it('제품 수정으로 가는 길을 준다', async () => {
+  // 목록을 떠나지 않고 고친다 — 화면을 옮기면 어디까지 훑었는지 잃는다.
+  it('제품 수정은 목록 위에 팝업으로 연다', async () => {
     api.getMyProductModels.mockResolvedValue([product({ status: 'ON_SALE', stockQuantity: 4 })])
     renderList()
 
-    expect(await screen.findByRole('link', { name: '제품 수정' })).toHaveAttribute(
-      'href',
-      '/brand/products/31/edit',
-    )
+    await userEvent.click(await screen.findByRole('button', { name: '제품 수정' }))
+
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByLabelText(/제품명/)).toHaveValue('업사이클 데님 토트백')
+    // 목록은 그대로 있다. 주소도 바뀌지 않는다.
+    expect(screen.getByLabelText('현재 경로')).toHaveTextContent('/')
   })
 
   // 서버가 PRODUCT_MODEL_DISCONTINUED 로 거절한다. 눌러 보고 알게 하지 않는다.
-  it('단종된 제품에는 수정 링크를 두지 않는다', async () => {
+  it('단종된 제품에는 수정 버튼을 두지 않는다', async () => {
     api.getMyProductModels.mockResolvedValue([
       product({ status: 'DISCONTINUED', stockQuantity: 0 }),
     ])
     renderList()
 
     await screen.findByText('업사이클 데님 토트백')
-    expect(screen.queryByRole('link', { name: '제품 수정' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '제품 수정' })).not.toBeInTheDocument()
   })
 
   it('조회가 실패하면 다시 시도할 수 있게 한다', async () => {

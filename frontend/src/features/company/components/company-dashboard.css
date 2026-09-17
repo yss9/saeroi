@@ -296,9 +296,17 @@
   gap: 5px;
   margin-top: 22px;
   overflow-y: auto;
-  /* 스크롤바가 나타났다 사라지며 링크가 흔들리는 것을 막는다. */
-  scrollbar-gutter: stable;
+  /*
+    막대는 감추고 스크롤은 남긴다. 사이드바는 늘 같은 자리에 있는 판이라 그 위에 뜨는
+    회색 막대가 메뉴보다 먼저 눈에 들어왔다 — 휠·터치·키보드 스크롤은 그대로 된다.
+
+    scrollbar-gutter 는 함께 지운다. 감춘 막대의 자리를 비워 두면 링크가 오른쪽으로
+    밀린 채 고정된다.
+  */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
+.company-dashboard__sidebar nav::-webkit-scrollbar { width: 0; height: 0; }
 
 /* ── 묶음 ───────────────────────────────────────────────
    같은 일끼리 이름 아래 모은다. 기본은 펼침이고, 접는 것은 사용자가 정한다.

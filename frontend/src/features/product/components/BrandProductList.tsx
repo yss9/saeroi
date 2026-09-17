@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Button,
@@ -6,12 +6,14 @@ import {
   EmptyState,
   ErrorMessage,
   Loading,
+  Modal,
   StatusBadge,
   type StatusTone,
 } from '../../../components/common/index.ts'
 import { formatWon } from '../../../utils/quantity.ts'
 import { useClickNavigation } from '../../../utils/useClickNavigation.ts'
 import { useChangeProductModelStatus } from '../hooks/useChangeProductModelStatus.ts'
+import { ProductForm } from './ProductForm.tsx'
 import { useMyProductModels } from '../hooks/useMyProductModels.ts'
 import {
   PRODUCT_CATEGORY_LABEL,
@@ -44,53 +46,121 @@ const TONE: Record<ProductModelStatus, StatusTone> = {
  * 그래서 판매 시작이 막힌다 (`PRODUCT_MODEL_HAS_NO_STOCK`). 버튼을 눌러 보고 알게 하지
  * 않고 왜 못 누르는지 미리 적는다.
  */
-export function BrandProductList() {
+export interface BrandProductListProps {
+  /**
+   * 목록 위 오른쪽에 함께 놓을 것. 화면이 넣어 준다.
+   *
+   * **거르개와 같은 줄에 서야 한다.** 새 제품 등록이 그 위에 따로 한 줄을 차지하면 목록이
+   * 시작되기 전에 줄이 둘 생기고, 버튼과 거르개가 어긋난 자리에 놓인다.
+   */
+  actions?: ReactNode
+}
+
+export function BrandProductList({ actions }: BrandProductListProps) {
   const followClick = useClickNavigation()
   const { data, isPending, isError, error, refetch } = useMyProductModels()
   const change = useChangeProductModelStatus()
 
   // 단종은 되돌릴 수 없다. 확인 단계를 거칠 대상을 들고 있는다.
   const [discontinuing, setDiscontinuing] = useState<ProductModel | null>(null)
+  // 지금 고치고 있는 제품. 등록과 같은 방식으로 팝업에서 고친다 — 오타 하나를 고치려고
+  // 목록을 떠났다가 돌아오면 어디까지 훑었는지 잃는다.
+  const [editing, setEditing] = useState<ProductModel | null>(null)
+  const [filter, setFilter] = useState<StatusFilter>('ALL')
 
-  if (isPending) return <Loading variant="skeleton" rows={3} label="등록한 제품을 불러오는 중" />
-  if (isError) return <ErrorMessage error={error} onRetry={() => void refetch()} />
+  // 목록이 아직 없어도 새 제품을 올리는 길은 열려 있어야 한다 — 그래서 어느 갈래에서나
+  // 같은 줄을 먼저 그린다.
+  if (isPending) {
+    return (
+      <>
+        <Toolbar actions={actions} />
+        <Loading variant="skeleton" rows={3} label="등록한 제품을 불러오는 중" />
+      </>
+    )
+  }
+  if (isError) {
+    return (
+      <>
+        <Toolbar actions={actions} />
+        <ErrorMessage error={error} onRetry={() => void refetch()} />
+      </>
+    )
+  }
 
   if (data.length === 0) {
     return (
-      <EmptyState
-        title="등록한 제품이 없습니다"
-        description="제품을 등록하면 여기에서 판매를 시작할 수 있습니다."
-        action={<Link to="/brand/products/new">제품 등록하기</Link>}
-      />
+      <>
+        <Toolbar actions={actions} />
+        <EmptyState
+          title="등록한 제품이 없습니다"
+          description="제품을 등록하면 여기에서 판매를 시작할 수 있습니다."
+          action={<Link to="/brand/products/new">제품 등록하기</Link>}
+        />
+      </>
     )
   }
+
+  // 배지에 적히는 상태로 거른다. 서버의 `status` 로 거르면 재고가 0 인데 ON_SALE 로 남은
+  // 제품이 "판매 중" 에 섞인다 — 화면에는 품절이라고 적혀 있는 채로.
+  const shown = byStatus(
+    filter === 'ALL' ? data : data.filter((item) => shownStatus(item) === filter),
+  )
 
   return (
     <>
       {change.isError && <ErrorMessage error={change.error} />}
 
+      <Toolbar actions={actions}>
+        <StatusFilterBar
+          value={filter}
+          onChange={setFilter}
+          countOf={(next) =>
+            next === 'ALL' ? data.length : data.filter((item) => shownStatus(item) === next).length
+          }
+        />
+      </Toolbar>
+
+      {shown.length === 0 && (
+        <p className="brand-product-list__empty">해당하는 제품이 없습니다.</p>
+      )}
+
       <ul className="brand-product-list">
-        {data.map((product) => (
-          <li key={product.productModelId} className="brand-product-list__item" onClick={(event) => followClick(event, `/business/products/${product.productModelId}`)}>
+        {shown.map((product) => (
+          <li key={product.productModelId} className="brand-product-list__item" onClick={(event) => followClick(event, `/products/${product.productModelId}`)}>
+            {/*
+              상태가 줄의 첫 칸이다 — 여러 줄을 훑을 때 "이건 지금 팔리는가" 가 가장 먼저
+              걸러지는 값이고, 눈이 같은 자리에서 찾는다.
+            */}
+            <StatusBadge tone={TONE[shownStatus(product)]}>
+              {PRODUCT_MODEL_STATUS_LABEL[shownStatus(product)]}
+            </StatusBadge>
+
             <div className="brand-product-list__main">
-              <Link to={`/business/products/${product.productModelId}`} className="brand-product-list__name">
+              {/*
+                **소비자가 보는 그 화면으로 보낸다.** 브랜드가 확인하려는 것은 자기 제품이
+                쇼핑몰에서 어떻게 보이는가다 — 업무용 상세는 같은 값을 다른 껍데기로 한 번
+                더 보여줄 뿐이다. 아직 공개되지 않은 제품이면 그 사실을 그 화면이 말한다.
+              */}
+              <Link to={`/products/${product.productModelId}`} className="brand-product-list__name">
                 {product.name}
               </Link>
               <span className="brand-product-list__meta">
                 {PRODUCT_CATEGORY_LABEL[product.category]} · {formatWon(product.price)}
               </span>
               <StockLine product={product} />
-              <div className="brand-product-list__links">
-                <ProduceLink product={product} />
-                <ProductEditLink product={product} />
-                <QrLabelLink product={product} />
-              </div>
             </div>
 
             <div className="brand-product-list__side">
-              <StatusBadge tone={TONE[shownStatus(product)]}>
-                {PRODUCT_MODEL_STATUS_LABEL[shownStatus(product)]}
-              </StatusBadge>
+              {/*
+                곁가지 동작은 오른쪽 빈 자리에 모은다. 이름 밑에 두면 제품마다 줄이 하나씩
+                더 생겨 목록이 두 배로 길어지고, 정작 이름과 재고가 뒤로 밀린다.
+              */}
+              <div className="brand-product-list__links">
+                <ProduceLink product={product} />
+                <ProductEditButton product={product} onEdit={() => setEditing(product)} />
+                <QrLabelLink product={product} />
+              </div>
+
               <StatusActions
                 product={product}
                 busyId={change.isPending ? change.variables?.productModelId : undefined}
@@ -103,6 +173,20 @@ export function BrandProductList() {
           </li>
         ))}
       </ul>
+
+      {/*
+        수정 팝업. 열렸을 때만 그린다 — 줄마다 폼을 심어 두면 제품 수만큼 파일 업로드
+        입력이 쌓이고, 닫아 둔 폼의 값이 다음에 열 때까지 남는다.
+      */}
+      {editing !== null && (
+        <Modal open title={`${editing.name} · 제품 수정`} onClose={() => setEditing(null)}>
+          <ProductForm
+            product={editing}
+            // 저장되면 닫는다. 목록은 무효화로 스스로 새 값을 받아 온다.
+            onUpdated={() => setEditing(null)}
+          />
+        </Modal>
+      )}
 
       {/* 단종은 서버가 되돌리지 못한다 (`PRODUCT_MODEL_DISCONTINUED`). 같은 제품을 다시
           팔려면 새로 등록해야 하고, 이미 생산된 개체는 옛 제품에 붙어 있다. */}
@@ -123,6 +207,87 @@ export function BrandProductList() {
         onClose={() => setDiscontinuing(null)}
       />
     </>
+  )
+}
+
+/** 목록 위 한 줄 — 왼쪽은 거르개, 오른쪽은 화면이 건넨 동작. */
+function Toolbar({ actions, children }: { actions?: ReactNode; children?: ReactNode }) {
+  return (
+    <div className="brand-product-list__toolbar">
+      <div>{children}</div>
+      {actions}
+    </div>
+  )
+}
+
+/**
+ * 목록 위의 거르개.
+ *
+ * **셋으로 나눈다 — 전체 · 판매 중 · 품절.** 브랜드가 이 화면에서 찾는 것은 거의 언제나
+ * "지금 팔리는 것" 아니면 "비어서 다시 만들어야 하는 것" 둘 중 하나다. 판매 준비·단종은
+ * 따로 두지 않고 전체에 남긴다 — 줄 수가 적고, 버튼이 늘수록 고르는 일이 일이 된다.
+ *
+ * 개수를 함께 적는다. 눌러 보고 비어 있는 것을 알게 하지 않는다.
+ */
+type StatusFilter = 'ALL' | 'ON_SALE' | 'SOLD_OUT'
+
+const FILTERS: readonly { value: StatusFilter; label: string }[] = [
+  { value: 'ALL', label: '전체' },
+  { value: 'ON_SALE', label: '판매 중' },
+  { value: 'SOLD_OUT', label: '품절' },
+]
+
+function StatusFilterBar({
+  value,
+  onChange,
+  countOf,
+}: {
+  value: StatusFilter
+  onChange: (next: StatusFilter) => void
+  countOf: (filter: StatusFilter) => number
+}) {
+  return (
+    <div className="brand-product-list__filters" role="group" aria-label="판매 상태">
+      {FILTERS.map((filter) => (
+        <button
+          key={filter.value}
+          type="button"
+          // 고른 것을 소리로도 알린다. 색만으로 표시하면 화면을 못 보는 사람에게는 셋 다
+          // 같은 버튼이다.
+          aria-pressed={value === filter.value}
+          className={
+            value === filter.value
+              ? 'brand-product-list__filter brand-product-list__filter--on'
+              : 'brand-product-list__filter'
+          }
+          onClick={() => onChange(filter.value)}
+        >
+          {filter.label} {countOf(filter.value)}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * 파는 것이 맨 위다.
+ *
+ * **지금 팔리는 제품이 이 화면에서 손대는 대상이다** — 값을 고치고, 라벨을 뽑고, 다시
+ * 만드는 일이 전부 그쪽에서 일어난다. 판매 준비·단종이 위에 섞여 있으면 그것들을 지나쳐
+ * 내려가야 오늘 할 일이 나온다.
+ *
+ * 같은 상태끼리는 서버가 준 순서 그대로 둔다. `sort` 는 안정 정렬이라 그 순서가 보존된다.
+ */
+const STATUS_ORDER: Record<ProductModelStatus, number> = {
+  ON_SALE: 0,
+  SOLD_OUT: 1,
+  DRAFT: 2,
+  DISCONTINUED: 3,
+}
+
+function byStatus(products: readonly ProductModel[]): ProductModel[] {
+  return [...products].sort(
+    (left, right) => STATUS_ORDER[shownStatus(left)] - STATUS_ORDER[shownStatus(right)],
   )
 }
 
@@ -176,31 +341,46 @@ function StockLine({ product }: { product: ProductModel }) {
 function ProduceLink({ product }: { product: ProductModel }) {
   if (product.status === 'DISCONTINUED') return null
 
+  // 지난 생산을 그대로 베껴 넣도록 제품 번호를 들고 간다 — 같은 제품을 또 만드는 일이라
+  // 이름·개수·투입 소재가 대개 같다.
   return (
-    <Link to="/brand/production" className="brand-product-list__qr">
-      {product.stockQuantity > 0 ? '추가 생산' : '생산하기'}
+    <Link
+      to={`/brand/production?product=${product.productModelId}`}
+      className="brand-product-list__link"
+    >
+      추가 생산
     </Link>
   )
 }
 
 /**
- * 제품 수정으로 가는 링크.
+ * 제품 수정을 여는 버튼.
  *
  * **오타 하나를 고칠 방법이 없었다.** 가격을 잘못 넣으면 결제가 통째로 실패하는데도 제품을
  * 새로 등록하는 것 말고는 손쓸 수가 없었고, 새로 등록하면 이미 만든 개체가 옛 제품에 붙는다.
  *
+ * **등록과 같은 방식으로 팝업에서 고친다.** 다른 화면으로 나갔다 오면 목록의 어디를 보고
+ * 있었는지 잃는데, 고치는 값은 제품명·가격 몇 칸이라 화면을 옮길 만한 일이 아니다.
+ *
  * 단종된 제품에는 두지 않는다 — 서버가 수정을 거절한다(`PRODUCT_MODEL_DISCONTINUED`).
  */
-function ProductEditLink({ product }: { product: ProductModel }) {
+function ProductEditButton({
+  product,
+  onEdit,
+}: {
+  product: ProductModel
+  onEdit: () => void
+}) {
   if (product.status === 'DISCONTINUED') return null
 
   return (
-    <Link
-      to={`/brand/products/${product.productModelId}/edit`}
-      className="brand-product-list__qr"
+    <button
+      type="button"
+      className="brand-product-list__link brand-product-list__link--button"
+      onClick={onEdit}
     >
       제품 수정
-    </Link>
+    </button>
   )
 }
 
@@ -223,7 +403,7 @@ function QrLabelLink({ product }: { product: ProductModel }) {
   return (
     <Link
       to={`/brand/products/${product.productModelId}/qr`}
-      className="brand-product-list__qr"
+      className="brand-product-list__link"
     >
       QR 라벨 보기
     </Link>

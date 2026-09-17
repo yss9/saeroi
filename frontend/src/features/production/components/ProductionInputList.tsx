@@ -32,9 +32,13 @@ export function ProductionInputList({ batch }: ProductionInputListProps) {
 
   if (batch.inputs.length === 0) {
     return (
+      /*
+        확정을 막는 이유를 이 자리에서 말한다. 예전에는 확정 칸에 같은 말이 또 있었는데,
+        정작 담는 자리는 여기라 읽는 사람이 화면 아래위를 오갔다.
+      */
       <EmptyState
-        title="투입한 소재가 없습니다"
-        description="위에서 보유 소재를 골라 사용량을 입력하면 여기에 표시됩니다."
+        title="소재를 투입해주세요"
+        description="투입한 소재가 없어 생산을 확정할 수 없습니다."
       />
     )
   }
@@ -44,7 +48,11 @@ export function ProductionInputList({ batch }: ProductionInputListProps) {
   return (
     <section className="input-list">
       <table className="input-list__table">
-        <caption className="input-list__caption">투입 소재와 사용량</caption>
+        {/*
+          제목은 위의 "투입된 소재" 가 이미 말한다 — 화면에 두 번 적지 않는다. 지우지 않고
+          감추는 이유는 표를 소리로 읽는 사람에게는 그 이름이 유일한 안내여서다.
+        */}
+        <caption className="ui-visually-hidden">투입 소재와 사용량</caption>
         <thead>
           <tr>
             <th scope="col">소재</th>
@@ -60,15 +68,17 @@ export function ProductionInputList({ batch }: ProductionInputListProps) {
             <tr key={input.productionInputId}>
               <th scope="row" className="input-list__material">
                 {nameOf(input, materials.data)}
-                {/* 폐기 사유는 그 소재에 붙은 설명이라 같은 칸에 둔다. */}
-                {input.wasteReason && (
-                  <span className="input-list__reason">폐기 사유: {input.wasteReason}</span>
-                )}
               </th>
               <td>{formatKg(input.inputQuantity)}</td>
               <td>{formatKg(input.productUsedQuantity)}</td>
               <td>{formatKg(input.reusableScrapQuantity)}</td>
-              <td>{formatKg(input.wasteQuantity)}</td>
+              {/* 사유는 폐기 수량 바로 아래다 — 그 숫자를 설명하는 말이라 붙어 있어야 한다. */}
+              <td>
+                {formatKg(input.wasteQuantity)}
+                {input.wasteReason && (
+                  <span className="input-list__reason">{input.wasteReason}</span>
+                )}
+              </td>
               {editable && (
                 <td>
                   <Button
@@ -108,8 +118,12 @@ export function ProductionInputList({ batch }: ProductionInputListProps) {
         </p>
       )}
 
+      {/*
+        되돌릴 수 있는 구간이 여기까지라는 경고다 — 확정 버튼 바로 위라, 눈이 마지막으로
+        닿는 오른쪽 끝에 붉게 둔다.
+      */}
       {editable ? (
-        <p className="input-list__note">
+        <p className="input-list__warn-note">
           투입을 취소하면 잠긴 수량이 보유 소재로 돌아옵니다. 확정한 뒤에는 취소할 수 없습니다.
         </p>
       ) : (
