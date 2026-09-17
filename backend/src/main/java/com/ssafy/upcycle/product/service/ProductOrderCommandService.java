@@ -18,10 +18,6 @@ import com.ssafy.upcycle.product.repository.ProductOrderRepository;
 import com.ssafy.upcycle.product.repository.ProductShippingRepository;
 import com.ssafy.upcycle.trade.entity.PaymentMethod;
 import com.ssafy.upcycle.user.entity.ConsumerAddress;
-import com.ssafy.upcycle.user.entity.User;
-import com.ssafy.upcycle.user.entity.UserRole;
-import com.ssafy.upcycle.user.repository.ConsumerAddressRepository;
-import com.ssafy.upcycle.user.repository.UserRepository;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -64,17 +60,16 @@ public class ProductOrderCommandService {
     private final ProductShippingRepository productShippingRepository;
     private final ProductItemRepository productItemRepository;
     private final ProductModelRepository productModelRepository;
-    private final ConsumerAddressRepository consumerAddressRepository;
-    private final UserRepository userRepository;
+    private final ProductOrderBuyerPolicy buyerPolicy;
     private final ProductOrderCodeGenerator orderCodeGenerator;
     private final ProductOrderQueryService productOrderQueryService;
     private final Clock clock;
 
     @Transactional
     public ProductOrderResponse place(Long buyerId, ProductOrderCreateRequest request) {
-        requireActiveConsumer(buyerId);
+        buyerPolicy.requireActiveConsumer(buyerId);
         ProductModel model = requirePurchasableModel(request.productModelId());
-        ConsumerAddress address = requireOwnAddress(buyerId, request.addressId());
+        ConsumerAddress address = buyerPolicy.requireOwnAddress(buyerId, request.addressId());
         ProductItem item = takeFromStock(model.getId());
 
         ProductOrder order = productOrderRepository.saveAndFlush(ProductOrder.place(
@@ -136,30 +131,4 @@ public class ProductOrderCommandService {
         return model;
     }
 
-    /**
-     * 본인 배송지인지 확인한다.
-     *
-     * <p>남의 배송지를 가리키면 "없음" 으로 답한다. 403 은 "그 id 는 존재하고 남의 것" 이라는
-     * 사실을 흘리고, 그 값은 남의 집 주소다.
-     */
-    private ConsumerAddress requireOwnAddress(Long buyerId, Long addressId) {
-        return consumerAddressRepository.findById(addressId)
-                .filter(address -> address.isOwnedBy(buyerId))
-                .orElseThrow(() -> new BusinessException(
-                        ProductErrorCode.PRODUCT_ORDER_ADDRESS_NOT_FOUND));
-    }
-
-    /** 조회와 같은 기준으로 판정한다 — 토큰의 역할 클레임이 아니라 DB 의 현재 역할이다. */
-    private User requireActiveConsumer(Long buyerId) {
-        User buyer = userRepository.findById(buyerId)
-                .orElseThrow(() -> new BusinessException(
-                        ProductErrorCode.PRODUCT_ORDER_BUYER_NOT_FOUND));
-        if (!buyer.isActive()) {
-            throw new BusinessException(ProductErrorCode.PRODUCT_ORDER_BUYER_SUSPENDED);
-        }
-        if (buyer.getRole() != UserRole.CONSUMER) {
-            throw new BusinessException(ProductErrorCode.PRODUCT_ORDER_ROLE_NOT_ALLOWED);
-        }
-        return buyer;
-    }
 }

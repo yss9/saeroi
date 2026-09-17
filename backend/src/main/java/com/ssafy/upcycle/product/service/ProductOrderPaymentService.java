@@ -19,14 +19,9 @@ import com.ssafy.upcycle.product.repository.ProductOrderItemRepository;
 import com.ssafy.upcycle.product.repository.ProductOrderRepository;
 import com.ssafy.upcycle.product.repository.ProductShippingRepository;
 import com.ssafy.upcycle.trade.TradeErrorCode;
-import com.ssafy.upcycle.trade.entity.PaymentMethod;
 import com.ssafy.upcycle.trade.payment.KakaoPayProperties;
 import com.ssafy.upcycle.trade.payment.PaymentApproval;
-import com.ssafy.upcycle.trade.payment.PaymentApproveCommand;
-import com.ssafy.upcycle.trade.payment.PaymentCancelCommand;
-import com.ssafy.upcycle.trade.payment.PaymentGateway;
 import com.ssafy.upcycle.trade.payment.PaymentReady;
-import com.ssafy.upcycle.trade.payment.PaymentReadyCommand;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -73,7 +68,7 @@ public class ProductOrderPaymentService {
     private final CanceledProductOrderRepository canceledOrders;
     private final CanceledProductOrderItemRepository canceledOrderItems;
     private final ProductOrderQueryService queryService;
-    private final PaymentGateway paymentGateway;
+    private final ProductPaymentCoordinator paymentCoordinator;
     private final KakaoPayProperties kakaoPayProperties;
     private final Clock clock;
 
@@ -91,12 +86,12 @@ public class ProductOrderPaymentService {
         ProductOrder order = requireOwnOrder(buyerId, orderId);
         requireStatus(order, ProductOrderStatus.CREATED);
 
-        PaymentReady ready = paymentGateway.ready(new PaymentReadyCommand(
+        PaymentReady ready = paymentCoordinator.ready(
                 order.getOrderCode(),
-                String.valueOf(order.getBuyerId()),
+                order.getBuyerId(),
                 itemNameOf(order),
                 order.getTotalPrice(),
-                kakaoPayProperties.productOrderReturnUrlFor(order.getId())));
+                kakaoPayProperties.productOrderReturnUrlFor(order.getId()));
 
         order.preparePayment(ready.tid());
         return new ProductOrderPaymentReadyResponse(
@@ -104,7 +99,7 @@ public class ProductOrderPaymentService {
                 ready.tid(),
                 ready.redirectUrl(),
                 order.getTotalPrice(),
-                paymentGateway.isLive());
+                paymentCoordinator.isLive());
     }
 
     /**
@@ -125,27 +120,18 @@ public class ProductOrderPaymentService {
         ProductOrder order = requireOwnOrder(buyerId, orderId);
         requireStatus(order, ProductOrderStatus.CREATED);
 
-        String tid = order.getPaymentReference();
-        if (tid == null || tid.isBlank()) {
-            throw new BusinessException(TradeErrorCode.PAYMENT_NOT_PREPARED);
-        }
-
-        PaymentApproval approval = paymentGateway.approve(new PaymentApproveCommand(
-                tid,
+        PaymentApproval approval = paymentCoordinator.approve(
+                order.getPaymentReference(),
                 order.getOrderCode(),
-                String.valueOf(order.getBuyerId()),
+                order.getBuyerId(),
                 pgToken,
-                order.getTotalPrice()));
-
-        if (approval.approvedAmount() != order.getTotalPrice()) {
-            throw new BusinessException(TradeErrorCode.PAYMENT_AMOUNT_MISMATCH);
-        }
+                order.getTotalPrice());
 
         order.markPaid(
                 approval.tid(),
                 approval.approvedAmount(),
                 approval.approvedAt(),
-                paymentGateway.isLive() ? PaymentMethod.KAKAO_PAY : PaymentMethod.MOCK);
+                paymentCoordinator.chargedMethod());
         itemsOf(order).forEach(ProductItem::markSold);
 
         return queryService.findMyOrder(buyerId, order.getId());
@@ -232,11 +218,8 @@ public class ProductOrderPaymentService {
         if (order.getStatus() != ProductOrderStatus.PAID) {
             return;
         }
-        if (order.getPaymentMethod() == PaymentMethod.MOCK) {
-            return;
-        }
-        paymentGateway.cancel(
-                new PaymentCancelCommand(order.getPaymentReference(), order.getPaymentAmount()));
+        paymentCoordinator.refund(
+                order.getPaymentMethod(), order.getPaymentReference(), order.getPaymentAmount());
     }
 
     /**

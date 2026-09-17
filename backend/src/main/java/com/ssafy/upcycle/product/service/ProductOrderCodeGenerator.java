@@ -34,6 +34,8 @@ public class ProductOrderCodeGenerator {
     private static final int CODE_MAX_LENGTH = ProductOrder.ORDER_CODE_MAX_LENGTH;
     private static final String PLACEHOLDER_PREFIX = ProductOrder.TEMPORARY_CODE_PREFIX;
     private static final String CODE_PREFIX = "ORD-";
+    /** 묶음 번호. 주문번호와 접두어가 달라야 고객 문의에서 둘을 섞지 않는다. */
+    private static final String GROUP_CODE_PREFIX = "ORG-";
     private static final int SEQUENCE_DIGITS = 8;
     private static final int PLACEHOLDER_RANDOM_BYTES = 8;
 
@@ -57,6 +59,26 @@ public class ProductOrderCodeGenerator {
      * <p>8자리를 넘는 id 는 0 패딩 없이 그대로 길어진다 — 1억 건을 넘겨도 코드가 깨지지
      * 않는 편이 낫다. {@code VARCHAR(30)} 은 넘을 수 없으므로 여기서 막는다.
      */
+    /**
+     * 확정된 {@code id} 로 정식 묶음 번호를 만든다.
+     *
+     * <p>주문번호와 규칙은 같고 접두어만 다르다. 고객이 {@code ORG-} 를 대면 묶음이고
+     * {@code ORD-} 를 대면 그 안의 한 브랜드 주문이라는 것이 번호만 보고 구분된다.
+     */
+    public String ofGroup(long groupId) {
+        if (groupId <= 0) {
+            throw new IllegalArgumentException(
+                    "Product order group id must be positive but was " + groupId);
+        }
+        String code = GROUP_CODE_PREFIX + String.format("%0" + SEQUENCE_DIGITS + "d", groupId);
+        if (code.length() > CODE_MAX_LENGTH) {
+            throw new IllegalStateException(
+                    "Product order group code must not exceed " + CODE_MAX_LENGTH
+                            + " characters: " + code);
+        }
+        return code;
+    }
+
     public String of(long orderId) {
         if (orderId <= 0) {
             throw new IllegalArgumentException("Product order id must be positive but was " + orderId);

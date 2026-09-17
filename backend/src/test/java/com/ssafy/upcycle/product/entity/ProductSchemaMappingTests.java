@@ -76,6 +76,7 @@ class ProductSchemaMappingTests {
         return Stream.of(
                 ProductModel.class,
                 ProductImage.class,
+                ProductOrderGroup.class,
                 ProductItem.class,
                 ProductOrder.class,
                 ProductOrderItem.class,
@@ -93,7 +94,8 @@ class ProductSchemaMappingTests {
                 Arguments.of("product_model", "status", ProductModelStatus.class),
                 Arguments.of("product_image", "image_type", ProductImageType.class),
                 Arguments.of("product_item", "status", ProductItemStatus.class),
-                Arguments.of("product_order", "status", ProductOrderStatus.class));
+                Arguments.of("product_order", "status", ProductOrderStatus.class),
+                Arguments.of("product_order_group", "status", ProductOrderGroupStatus.class));
     }
 
     private Set<String> mappedColumns(Class<?> entityType) {

@@ -52,6 +52,7 @@ class SchemaSqlTests {
             "production_input",
             "production_output",
             "product_item",
+            "product_order_group",
             "product_order",
             "product_order_item",
             "product_shipping",

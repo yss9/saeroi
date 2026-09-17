@@ -787,11 +787,36 @@ CREATE TABLE product_item (
     INDEX idx_product_item_model_status (product_model_id, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+CREATE TABLE product_order_group (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    group_code VARCHAR(30) NOT NULL,
+    buyer_id BIGINT NOT NULL,
+    -- 묶음에 속한 주문들의 금액 합. 결제창에 청구하는 금액이 이 값이다.
+    total_price BIGINT NOT NULL,
+    status ENUM('CREATED', 'PAID') NOT NULL DEFAULT 'CREATED',
+    -- 결제는 묶음 단위로 한 번만 한다. 주문마다 결제하면 브랜드가 셋인 장바구니에서
+    -- 결제창이 세 번 뜬다. product_order 의 같은 이름 컬럼들은 단일 주문 경로가 계속 쓴다.
+    payment_method ENUM('MOCK', 'KAKAO_PAY') NOT NULL,
+    payment_reference VARCHAR(100) NULL,
+    payment_amount BIGINT NOT NULL DEFAULT 0,
+    payment_deadline DATETIME NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    paid_at DATETIME NULL,
+    CONSTRAINT pk_product_order_group PRIMARY KEY (id),
+    CONSTRAINT uk_product_order_group_code UNIQUE (group_code),
+    CONSTRAINT fk_product_order_group_buyer FOREIGN KEY (buyer_id) REFERENCES users (id),
+    CONSTRAINT chk_product_order_group_amounts CHECK (total_price >= 0 AND payment_amount >= 0),
+    INDEX idx_product_order_group_buyer (buyer_id, status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 CREATE TABLE product_order (
     id BIGINT NOT NULL AUTO_INCREMENT,
     order_code VARCHAR(30) NOT NULL,
     buyer_id BIGINT NOT NULL,
     brand_id BIGINT NOT NULL,
+    -- 한 번의 결제로 함께 만들어진 주문들을 묶는다. 단일 주문(상품 상세의 "바로 구매")은
+    -- NULL 이고 자기 결제 컬럼을 그대로 쓴다 - 그 경로를 건드리지 않기 위한 설계다.
+    order_group_id BIGINT NULL,
     total_price BIGINT NOT NULL,
     status ENUM('CREATED', 'PAID', 'SHIPPED', 'DELIVERED') NOT NULL DEFAULT 'CREATED',
     payment_method ENUM('MOCK', 'KAKAO_PAY') NOT NULL,
@@ -807,8 +832,12 @@ CREATE TABLE product_order (
     CONSTRAINT fk_product_order_buyer FOREIGN KEY (buyer_id) REFERENCES users (id),
     CONSTRAINT fk_product_order_brand FOREIGN KEY (brand_id) REFERENCES users (id),
     CONSTRAINT chk_product_order_amounts CHECK (total_price >= 0 AND payment_amount >= 0),
+    CONSTRAINT fk_product_order_group FOREIGN KEY (order_group_id)
+        REFERENCES product_order_group (id),
     INDEX idx_product_order_buyer_status (buyer_id, status),
-    INDEX idx_product_order_brand_status (brand_id, status)
+    INDEX idx_product_order_brand_status (brand_id, status),
+    -- 묶음에 속한 주문을 한 번에 읽는 경로. 결제 승인과 묶음 취소가 쓴다.
+    INDEX idx_product_order_group (order_group_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE product_order_item (
