@@ -516,12 +516,12 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
       <div className="mat-layout">
         <div className="mat-main">
           {step === 0 && (
-          <section id="mat-step-1" className="sup-panel mat-section">
+          <section id="mat-step-1" className="console-panel mat-section">
             <div className="mat-section__head">
               <h2>
                 <span className="mat-section__dot" aria-hidden="true" />1. 기본 정보
               </h2>
-              <span className="sup__tag">identification</span>
+              <span className="console__tag">identification</span>
             </div>
 
       {/* 짧은 필드는 한 줄에 여러 개 — 선택지 하나하나가 줄 하나를 다 차지하면
@@ -565,12 +565,12 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
           )}
 
           {step === 1 && (
-          <section id="mat-step-2" className="sup-panel mat-section">
+          <section id="mat-step-2" className="console-panel mat-section">
             <div className="mat-section__head">
               <h2>
                 <span className="mat-section__dot" aria-hidden="true" />2. 수량 · 규격
               </h2>
-              <span className="sup__tag">metrics</span>
+              <span className="console__tag">metrics</span>
             </div>
 
       <div className="material-form__row">
@@ -646,12 +646,12 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
           )}
 
           {step === 2 && (
-          <section id="mat-step-3" className="sup-panel mat-section">
+          <section id="mat-step-3" className="console-panel mat-section">
             <div className="mat-section__head">
               <h2>
                 <span className="mat-section__dot" aria-hidden="true" />3. 구성 · 발생 사유
               </h2>
-              <span className="sup__tag">composition</span>
+              <span className="console__tag">composition</span>
             </div>
 
             {/*
@@ -763,12 +763,12 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
           )}
 
           {step === 3 && (
-            <section id="mat-step-4" className="sup-panel mat-section">
+            <section id="mat-step-4" className="console-panel mat-section">
               <div className="mat-section__head">
                 <h2>
                   <span className="mat-section__dot" aria-hidden="true" />4. 등록 · 서명
                 </h2>
-                <span className="sup__tag">sign</span>
+                <span className="console__tag">sign</span>
               </div>
               <p className="mat-section__note">
                 오른쪽 요약에서 값을 확인한 뒤 등록하세요. 등록을 누르면 지갑 서명 창이 뜨고,
@@ -803,7 +803,7 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
             >
               이전
             </Button>
-            <span className="mat-nav__where sup__num">
+            <span className="mat-nav__where console__num">
               {step + 1} / {STEPS.length}
             </span>
             {step < STEPS.length - 1 && (
@@ -822,10 +822,10 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
           내내 보여야, 다 쓴 뒤에 위로 되짚어 올라가는 일이 없다.
         */}
         <aside className="mat-side">
-          <section className="sup-panel mat-summary">
+          <section className="console-panel mat-summary">
             <div className="mat-section__head">
               <h2>실시간 요약</h2>
-              <span className="sup-badge sup-badge--flat">draft</span>
+              <span className="console-badge console-badge--flat">draft</span>
             </div>
 
             <dl className="mat-summary__list">
@@ -848,7 +848,7 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
             {/* 이 화면에서 가장 중요한 숫자. 요약 안에서도 따로 띄운다. */}
             <div className="mat-summary__hero">
               <span>등록 수량</span>
-              <strong className="sup__num">
+              <strong className="console__num">
                 {Number.isFinite(quantityKg) && quantityKg > 0 ? quantityKg.toLocaleString('ko-KR') : '—'}
                 <small>kg</small>
               </strong>
@@ -883,16 +883,16 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
             늘 경고 모양이면 아무도 보지 않는다.
           */}
           <section
-            className={`sup-panel mat-wallet${walletRequired && wallet.address === null ? ' mat-wallet--required' : ''}`}
+            className={`console-panel mat-wallet${walletRequired && wallet.address === null ? ' mat-wallet--required' : ''}`}
             role={walletRequired && wallet.address === null ? 'alert' : undefined}
           >
             <div className="mat-section__head">
               <h2>서명 지갑</h2>
               {wallet.address === null ? (
-                <span className="sup-badge sup-badge--wait">연결 필요</span>
+                <span className="console-badge console-badge--wait">연결 필요</span>
               ) : (
-                <span className="sup-badge sup-badge--ok">
-                  <span className="sup-badge__dot" aria-hidden="true" />
+                <span className="console-badge console-badge--ok">
+                  <span className="console-badge__dot" aria-hidden="true" />
                   연결됨
                 </span>
               )}
@@ -920,7 +920,7 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
               </>
             ) : (
               <>
-                <p className="mat-wallet__address sup__num">{wallet.address}</p>
+                <p className="mat-wallet__address console__num">{wallet.address}</p>
                 <p className="mat-wallet__note">이 지갑으로 서명합니다.</p>
               </>
             )}

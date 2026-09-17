@@ -1,14 +1,14 @@
 import { useNavigate } from 'react-router-dom'
 import { MaterialForm } from '../../features/material/components/MaterialForm.tsx'
-import '../../features/supplier/components/supplier-console.css'
+import '../../components/common/console.css'
 
 /** SUPPLIER 전용. Role 제한은 라우터의 RoleGuard 가 건다. */
 export function MaterialRegisterPage() {
   const navigate = useNavigate()
 
   return (
-    <main className="sup">
-      <header className="sup__head">
+    <main className="console">
+      <header className="console__head">
         <div>
           {/*
             <b>제목은 눈에 보이지 않는다.</b> 사이드바가 이미 "소재 등록" 을 켠 채로
@@ -17,7 +17,7 @@ export function MaterialRegisterPage() {
             에게는 이것이 유일한 화면 이름이다.
           */}
           <h1 className="ui-visually-hidden">소재 등록</h1>
-          <p className="sup__sub">
+          <p className="console__sub">
             수거한 폐섬유를 등록하면 고유 소재 코드가 발급되고 이력 기록이 시작됩니다.
           </p>
         </div>

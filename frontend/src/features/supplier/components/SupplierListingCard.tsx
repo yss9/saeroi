@@ -40,14 +40,14 @@ export function SupplierListingCard({ listing, onCancel, extraAction }: Supplier
   return (
     <li
       className={[
-        'sup-card',
-        unrecorded ? 'sup-card--todo' : '',
-        listing.status === 'CANCELED' ? 'sup-card--done' : '',
+        'console-card',
+        unrecorded ? 'console-card--todo' : '',
+        listing.status === 'CANCELED' ? 'console-card--done' : '',
       ]
         .filter(Boolean)
         .join(' ')}
     >
-      <div className="sup-card__top">
+      <div className="console-card__top">
         {/*
           **판매글 번호를 앞에 둔다.**
 
@@ -60,40 +60,40 @@ export function SupplierListingCard({ listing, onCancel, extraAction }: Supplier
           소재 코드도 남긴다 — 어느 소재인지는 여전히 알아야 하고, 같은 소재의 글끼리
           묶어 보는 데도 쓴다. 다만 뒤로 물러나 옅게 둔다.
         */}
-        <span className="sup-card__code">
+        <span className="console-card__code">
           <b>#{listing.listingId}</b>
-          <span className="sup-card__code-of">{listing.materialCode}</span>
+          <span className="console-card__code-of">{listing.materialCode}</span>
         </span>
         <StatusBadge status={listing.status} unrecorded={unrecorded} />
       </div>
 
-      <h3 className="sup-card__name">
+      <h3 className="console-card__name">
         <Link to={detailPath}>{listing.materialName}</Link>
       </h3>
 
-      <div className="sup-card__attrs">
-        <span className="sup-chip">
+      <div className="console-card__attrs">
+        <span className="console-chip">
           {MATERIAL_TYPE_LABEL[listing.materialType] ?? listing.materialType}
         </span>
-        <span className="sup-chip">{ROOT_ORIGIN_LABEL[listing.rootOrigin]}</span>
+        <span className="console-chip">{ROOT_ORIGIN_LABEL[listing.rootOrigin]}</span>
         {/* 등급이 없는 소재가 실제로 적지 않다. 빈칸으로 두면 카드마다 높이가 어긋나고,
             "등급을 못 받은 것" 인지 "화면이 빠뜨린 것" 인지도 구분되지 않는다. */}
         {listing.grade ? (
-          <span className="sup-chip">{listing.grade}등급</span>
+          <span className="console-chip">{listing.grade}등급</span>
         ) : (
-          <span className="sup-chip sup-chip--empty">등급 미지정</span>
+          <span className="console-chip console-chip--empty">등급 미지정</span>
         )}
       </div>
 
-      <p className="sup-card__price">
+      <p className="console-card__price">
         {formatWon(listing.pricePerKg)}
         <small>/kg</small>
       </p>
 
-      <div className="sup-card__figures">
-        <div className="sup-figure">
-          <span className="sup-figure__label">판매 가능</span>
-          <span className="sup-figure__value">
+      <div className="console-card__figures">
+        <div className="console-figure">
+          <span className="console-figure__label">판매 가능</span>
+          <span className="console-figure__value">
             {formatKg(listing.availableQuantity, { withUnit: false })}
             <small>kg</small>
           </span>
@@ -101,11 +101,11 @@ export function SupplierListingCard({ listing, onCancel, extraAction }: Supplier
 
         {/* 남은 양만 보여주면 30kg 짜리가 12kg 남았을 때 "원래 작은 물량" 처럼 읽힌다.
             얼마나 팔렸는지가 판매자의 판단에 들어간다. */}
-        <div className="sup-bar" role="img" aria-label={`총 ${formatKg(listing.totalQuantity)} 중 ${soldPercent}% 판매됨`}>
+        <div className="console-bar" role="img" aria-label={`총 ${formatKg(listing.totalQuantity)} 중 ${soldPercent}% 판매됨`}>
           <span style={{ width: `${soldPercent}%` }} />
         </div>
 
-        <div className="sup-figure__split">
+        <div className="console-figure__split">
           <span>
             소진율 <b>{soldPercent}%</b>
           </span>
@@ -116,7 +116,7 @@ export function SupplierListingCard({ listing, onCancel, extraAction }: Supplier
       </div>
 
       {unrecorded ? (
-        <p className="sup-card__alert">
+        <p className="console-card__alert">
           <span>
             <Warning aria-hidden="true" weight="fill" />
             이력 기록이 남지 않았습니다
@@ -127,12 +127,12 @@ export function SupplierListingCard({ listing, onCancel, extraAction }: Supplier
         </p>
       ) : null}
 
-      <div className="sup-card__foot sup-card__foot--ruled">
-        <span className="sup-card__date">{formatDate(listing.createdAt)} 등록</span>
-        <span className="sup-card__acts">
+      <div className="console-card__foot console-card__foot--ruled">
+        <span className="console-card__date">{formatDate(listing.createdAt)} 등록</span>
+        <span className="console-card__acts">
           {extraAction}
           {onCancel && listing.status !== 'CANCELED' && (
-            <button type="button" className="sup-btn sup-btn--ghost sup-btn--sm" onClick={() => onCancel(listing)}>
+            <button type="button" className="console-btn console-btn--ghost console-btn--sm" onClick={() => onCancel(listing)}>
               판매 취소
             </button>
           )}
@@ -151,7 +151,7 @@ export function SupplierListingCard({ listing, onCancel, extraAction }: Supplier
 function StatusBadge({ status, unrecorded }: { status: ListingStatus; unrecorded: boolean }) {
   if (unrecorded) {
     return (
-      <span className="sup-badge sup-badge--wait">
+      <span className="console-badge console-badge--wait">
         <Warning aria-hidden="true" weight="fill" style={{ width: 11, height: 11 }} />
         이력 미기록
       </span>
@@ -160,15 +160,15 @@ function StatusBadge({ status, unrecorded }: { status: ListingStatus; unrecorded
 
   if (status === 'ON_SALE') {
     return (
-      <span className="sup-badge sup-badge--ok">
-        <span className="sup-badge__dot" aria-hidden="true" />
+      <span className="console-badge console-badge--ok">
+        <span className="console-badge__dot" aria-hidden="true" />
         {LISTING_STATUS_LABEL[status]}
       </span>
     )
   }
 
   return (
-    <span className="sup-badge sup-badge--flat">
+    <span className="console-badge console-badge--flat">
       {status === 'SOLD_OUT' && <ShieldCheck aria-hidden="true" style={{ width: 11, height: 11 }} />}
       {status === 'CANCELED' && <Lock aria-hidden="true" style={{ width: 11, height: 11 }} />}
       {LISTING_STATUS_LABEL[status]}
