@@ -14,6 +14,7 @@ import com.ssafy.upcycle.user.entity.WalletNonce;
 import com.ssafy.upcycle.user.repository.UserRepository;
 import com.ssafy.upcycle.user.repository.UserWalletRepository;
 import com.ssafy.upcycle.user.repository.WalletNonceRepository;
+import com.ssafy.upcycle.user.repository.CompanyProfileRepository;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -41,6 +42,7 @@ public class WalletRegistrationService {
     private final UserRepository userRepository;
     private final UserWalletRepository userWalletRepository;
     private final WalletNonceRepository walletNonceRepository;
+    private final CompanyProfileRepository companyProfileRepository;
     private final WalletSignatureVerifier signatureVerifier;
     private final WalletNonceGenerator nonceGenerator;
     private final WalletAuthProperties properties;
@@ -108,12 +110,14 @@ public class WalletRegistrationService {
             UserWallet reactivated = existing.get();
             deactivateCurrentWallet(userId, now, reactivated.getId());
             reactivated.reactivate(request.chainId(), now);
+            resetCompanyApproval(userId, address);
             return WalletResponse.from(reactivated, checksummed);
         }
 
         deactivateCurrentWallet(userId, now, null);
         UserWallet wallet = userWalletRepository.save(UserWallet.link(userId, address, request.chainId()));
         wallet.markVerified(now);
+        resetCompanyApproval(userId, address);
         return WalletResponse.from(wallet, checksummed);
     }
 
@@ -197,6 +201,11 @@ public class WalletRegistrationService {
             throw new BusinessException(WalletAuthErrorCode.USER_SUSPENDED);
         }
         return user;
+    }
+
+    private void resetCompanyApproval(Long userId, String walletAddress) {
+        companyProfileRepository.findById(userId)
+                .ifPresent(profile -> profile.resetRoleApprovalForWallet(walletAddress));
     }
 
     private static String normalize(String walletAddress) {

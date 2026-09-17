@@ -90,13 +90,17 @@
             <scope>provided</scope>
         </dependency>
         <!--
-            지갑 서명 검증(ecrecover)에만 쓴다. web3j:core 가 아니라 crypto 모듈만 넣는다 —
-            노드 RPC 클라이언트는 필요 없고, secp256k1 복구와 EIP-191 프리픽스 처리만 있으면 된다.
-            BouncyCastle 이 전이 의존으로 딸려 온다.
+            crypto 는 지갑 서명 검증(ecrecover)에 사용한다. core 는 관리자의 사업자 승인 시
+            배포 지갑으로 AccessControl.grantRole 트랜잭션을 서명·전송하는 데 사용한다.
         -->
         <dependency>
             <groupId>org.web3j</groupId>
             <artifactId>crypto</artifactId>
+            <version>${web3j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.web3j</groupId>
+            <artifactId>core</artifactId>
             <version>${web3j.version}</version>
         </dependency>
         <!--
