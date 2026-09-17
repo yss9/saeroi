@@ -45,6 +45,11 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>사용자는 언제나 JWT 의 {@code sub} 에서 얻는다. 경로나 조건으로 사람을 지정하게 하면
  * 남의 주문을, 그리고 그 배송지를 들여다볼 길이 생긴다.
+ *
+ * <p><b>결제·취소는 묶이지 않은 주문만 받는다.</b> 장바구니로 만든 주문을 여기로 보내면
+ * {@code PRODUCT_ORDER_BELONGS_TO_GROUP} 으로 거절하고 갈 묶음을 상세에 실어 답한다 —
+ * 결제가 묶음 단위라 주문 한 건만 따로 결제하거나 취소하면 돈과 주문이 어긋난다. 발송과
+ * 수령 확인은 그렇지 않다: 브랜드가 따로 보내므로 배송은 묶음 주문에서도 주문 단위다.
  */
 @RestController
 @RequestMapping("/api/v1/product-orders")
