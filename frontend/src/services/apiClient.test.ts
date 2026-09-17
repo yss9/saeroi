@@ -51,6 +51,10 @@ function networkError(config: InternalAxiosRequestConfig): AxiosError {
 }
 
 describe('apiClient', () => {
+  it('업무 실패의 data를 details로 보존하고 검증 오류와 구분한다', async () => {
+    const details = [{ productModelId: 1, requested: 3, available: 1 }]
+    await expect(apiClient.get('/checkout', { adapter: async config => { throw httpError(config, 409, { ...errorEnvelope('PRODUCT_ORDER_ITEMS_OUT_OF_STOCK', '재고 부족'), data: details }) } })).rejects.toMatchObject({ details, validationErrors: [] })
+  })
   beforeEach(() => {
     useAuthStore.setState({
       user: null,

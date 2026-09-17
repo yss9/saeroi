@@ -135,6 +135,8 @@ export function ConsumerOrderDetailPage() {
             </time>
           </p>
 
+          {group.orderGroupCode && <p>묶음 번호 {group.orderGroupCode} · 같은 번호의 브랜드별 주문은 한 번에 결제되었습니다. 개별 결제·취소 불가</p>}
+
           <div className="consumer-order-group__items">
             {group.items.map((item) => (
               <OrderDetailItemRow key={item.id} item={item} />

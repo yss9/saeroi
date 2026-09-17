@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { ErrorMessage, Loading } from '../../components/common/index.ts'
 import { productKeys } from '../../features/product/api/productKeys.ts'
@@ -10,6 +10,7 @@ import {
 } from '../../features/user/api/productOrderPaymentApi.ts'
 import { PAYMENT_ORDER_KEY } from '../../features/user/hooks/useProductOrderPayment.ts'
 import { toErrorMessage, type AppError } from '../../utils/errors.ts'
+import { orderGroupRedirect } from '../../features/cart/orderGroupRedirect.ts'
 
 /**
  * 제품 주문 결제창에서 돌아오는 화면.
@@ -31,6 +32,7 @@ export function ProductOrderReturnPage() {
   const { orderId: orderIdParam } = useParams<{ orderId: string }>()
   const [searchParams] = useSearchParams()
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
 
   const orderId = Number(orderIdParam ?? readStoredOrderId())
   const pgToken = searchParams.get('pg_token')
@@ -65,6 +67,8 @@ export function ProductOrderReturnPage() {
           refresh()
         })
         .catch((error: AppError) => {
+          const target = orderGroupRedirect(error)
+          if (target) { clearStoredOrderId(); navigate(target, { replace: true }); return }
           setStatus('FAILED')
           setMessage(toErrorMessage(error))
         })
@@ -77,12 +81,14 @@ export function ProductOrderReturnPage() {
         refresh()
       })
       .catch((error: AppError) => {
+        const target = orderGroupRedirect(error)
+        if (target) { clearStoredOrderId(); navigate(target, { replace: true }); return }
         // 취소까지 실패하면 개체가 묶인 채 남는다. 조용히 넘기면 아무도 모른다 —
         // 서버 배치가 정리할 때까지 그 제품은 품절로 보인다.
         setStatus('FAILED')
         setMessage(toErrorMessage(error))
       })
-  }, [hasOrderId, orderId, pgToken, queryClient])
+  }, [hasOrderId, orderId, pgToken, queryClient, navigate])
 
   return (
     <main className="page payment-return">
