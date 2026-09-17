@@ -78,6 +78,14 @@
 
 .product-form__hint { margin: 0.6rem 0 0; font-size: 0.78rem; color: #6b7280; }
 
+/*
+ * 팝업 안에서는 한 칸이다. 두 칸 배치는 화면 폭을 보고 접히는데(미디어 쿼리), 모달은
+ * 넓은 화면에서도 32rem 이라 그대로 두면 칸들이 서로를 밀어낸다.
+ */
+.ui-modal .product-form { grid-template-columns: minmax(0, 1fr); }
+.ui-modal .product-form__thumbnail { margin-top: 1rem; }
+.ui-modal .product-form__actions { align-items: stretch; }
+
 /* 등록해도 바로 팔리지 않는다는 안내. 버튼 아래에서 다음 할 일을 말한다. */
 .product-form__note {
   margin: 0.75rem 0 0;
@@ -283,7 +291,8 @@
 */
 .brand-order {
   display: grid;
-  grid-template-columns: minmax(220px, 1.3fr) minmax(200px, 1fr) auto;
+  /* 마지막 칸을 auto 로 두면 송장이 있는 줄만 그 칸이 넓어져 배송지가 밀린다. */
+  grid-template-columns: minmax(220px, 1.3fr) minmax(200px, 1fr) 10rem;
   gap: 1rem;
   padding: 1rem;
   border: 1px solid #ece9e0;
@@ -313,10 +322,16 @@
 .brand-order__shipping address { font-style: normal; }
 .brand-order__label { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; color: #8fa3b3; }
 /* 주문자는 참고값이다. 송장에 쓰는 이름은 받는 분이라 그쪽보다 낮춘다. */
-.brand-order__buyer { margin: 0.2rem 0 0; font-size: 0.78rem; color: #9ca3af; }
 
 .brand-order__actions { display: flex; flex-direction: column; align-items: flex-end; gap: 0.4rem; }
-.brand-order__tracking { margin: 0; font-size: 0.8rem; font-family: ui-monospace, Menlo, monospace; }
+.brand-order__tracking {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin: 0.35rem 0 0;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 0.8rem;
+}
 .brand-order__hint { margin: 0; font-size: 0.75rem; color: #6b7280; text-align: right; }
 
 /* ── 발송 처리 폼 (모달 안) ──────────────────────────── */

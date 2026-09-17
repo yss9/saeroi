@@ -7,8 +7,8 @@
 //
 //   1) **송장에 쓰는 이름은 수령인이다.** 주문자와 다를 수 있다(선물·가족 집) — 주문자
 //      이름을 적으면 물건이 엉뚱한 사람 앞으로 간다.
-//   2) **개체 코드와 일련번호를 보여준다.** 같은 모델이라도 개체마다 다른 물건이라(QR 이
-//      다르다) 제품 이름만 보고 집으면 다른 제품이 나간다.
+//   2) **일련번호를 보여준다.** 같은 모델이라도 개체마다 다른 물건이라(QR 이 다르다)
+//      제품 이름만 보고 집으면 다른 제품이 나간다.
 //   3) **기본 탭이 발송 대기다.** 거르지 않으면 배송 완료된 주문까지 섞여 할 일이 묻힌다.
 //   4) **운송장만 적고 택배사를 비울 수 없다.** 조회할 방법이 없는 조합이라 서버가 400 을
 //      준다 — 송장을 다 입력하고 거절당하면 그 입력이 헛수고다.
@@ -104,20 +104,20 @@ describe('BrandOrderList', () => {
   })
 
   // 이 테스트가 이 파일의 존재 이유다 — 주문자 이름을 송장에 적으면 물건이 엉뚱한 곳으로 간다.
-  it('받는 사람과 주문자를 구분해 보여준다', async () => {
+  // 송장에 쓰는 이름은 주문자가 아니라 받는 사람이다.
+  it('받는 사람 이름과 연락처를 보여준다', async () => {
     renderList()
 
     expect(await screen.findByText('홍수령')).toBeInTheDocument()
     expect(screen.getByText('010-9999-0000')).toBeInTheDocument()
-    expect(screen.getByText('주문자 홍길동')).toBeInTheDocument()
   })
 
-  // 같은 모델이라도 개체마다 다른 물건이다.
-  it('개체 코드와 일련번호를 보여준다', async () => {
+  // 같은 모델이라도 개체마다 다른 물건이다. 개체 코드는 일련번호와 같은 말이라 뺐다.
+  it('일련번호를 보여준다', async () => {
     renderList()
 
-    expect(await screen.findByText('ITEM-1')).toBeInTheDocument()
-    expect(screen.getByText('#1')).toBeInTheDocument()
+    expect(await screen.findByText('#1')).toBeInTheDocument()
+    expect(screen.queryByText('ITEM-1')).not.toBeInTheDocument()
   })
 
   it('송장을 입력해 발송 처리한다', async () => {

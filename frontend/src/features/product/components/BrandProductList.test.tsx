@@ -310,3 +310,22 @@ describe('BrandProductList', () => {
     expect(screen.getByRole('button', { name: '다시 시도' })).toBeInTheDocument()
   })
 })
+
+// 서버도 다 팔리면 SOLD_OUT 으로 넘기지만 그 표시는 개체를 세는 쪽의 사본일 뿐이다.
+// 둘이 어긋났을 때 "판매 중" 이라고 적으면 살 수 없는 제품을 팔리는 것처럼 보여준다.
+it('판매 중인데 재고가 0 이면 품절로 적는다', async () => {
+  api.getMyProductModels.mockResolvedValue([product({ status: 'ON_SALE', stockQuantity: 0 })])
+  renderList()
+
+  expect(await screen.findByText('품절')).toBeInTheDocument()
+  expect(screen.queryByText('판매 중')).not.toBeInTheDocument()
+})
+
+// 만든 적이 없어 0 인 것을 품절이라 부르면 "팔린 적 없는데 품절" 이 된다.
+it('판매 준비 중인 제품은 재고가 0 이어도 품절이 아니다', async () => {
+  api.getMyProductModels.mockResolvedValue([product({ status: 'DRAFT', stockQuantity: 0 })])
+  renderList()
+
+  expect(await screen.findByText('판매 준비')).toBeInTheDocument()
+  expect(screen.queryByText('품절')).not.toBeInTheDocument()
+})
