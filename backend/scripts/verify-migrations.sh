@@ -105,33 +105,94 @@ docker run -d --name "$CONTAINER" \
     -e MYSQL_DATABASE=expected \
     mysql:8.0 --default-authentication-plugin=mysql_native_password >/dev/null
 
-log "MySQL 기동 대기..."
-for i in $(seq 1 60); do
-    if docker exec -e MYSQL_PWD="$ROOT_PW" "$CONTAINER" mysql -uroot -e 'SELECT 1' >/dev/null 2>&1; then
+# 모든 mysql 호출을 TCP 로 한다. 이유는 바로 아래 대기 루프 주석에 있다.
+#
+# -h localhost 는 유닉스에서 여전히 소켓으로 붙으므로 127.0.0.1 과 --protocol=TCP 를
+# 둘 다 적는다. 포트를 publish 하지 않아도 된다 — docker exec 이라 컨테이너가 자기
+# 루프백으로 붙는 것이고, 그 접속은 역방향 해석으로 root@localhost 에 매칭된다
+# (공식 이미지는 root@'%' 도 함께 만든다).
+mysql_exec() {
+    docker exec -e MYSQL_PWD="$ROOT_PW" "$CONTAINER" \
+        mysql --protocol=TCP -h 127.0.0.1 -uroot "$@"
+}
+
+# 표준입력으로 SQL 을 흘려 넣는 경로. docker exec 에 -i 가 필요해 위와 나눈다.
+mysql_pipe() {
+    docker exec -i -e MYSQL_PWD="$ROOT_PW" "$CONTAINER" \
+        mysql --protocol=TCP -h 127.0.0.1 -uroot "$@"
+}
+
+dump_container_state() {
+    fail "컨테이너 상태: $(docker inspect \
+        -f '{{.State.Status}} (exit {{.State.ExitCode}})' "$CONTAINER" 2>/dev/null \
+        || echo '조회 실패')"
+    fail "컨테이너 로그 마지막 30줄:"
+    docker logs --tail 30 "$CONTAINER" 2>&1 | sed 's/^/  /' >&2
+}
+
+# ── 기동 대기: 소켓이 아니라 TCP 로 묻는다 ────────────────────────────
+#
+# mysql:8.0 이미지는 초기화를 이렇게 한다.
+#
+#   1) docker_temp_server_start : mysqld --skip-networking --socket=... 로 임시 서버
+#   2) docker_setup_db          : root 계정·비밀번호·MYSQL_DATABASE 생성
+#   3) docker_temp_server_stop  : 임시 서버 종료
+#   4) exec mysqld              : 진짜 서버 기동 (여기서 처음 TCP 를 연다)
+#
+# 예전에는 이 루프가 -h 없이, 즉 유닉스 소켓으로 SELECT 1 을 던졌다. 그러면 2) 시점부터
+# 임시 서버가 응답해 루프가 일찍 빠져나오고, 3) 이 서버를 내리는 사이에 다음 명령이
+# 들어가 "ERROR 2002 ... mysqld.sock (2)" 로 죽는다. 초기화 시퀀스의 타이밍이 일정해서
+# 이 경합은 거의 항상 같은 자리에서 터졌다.
+#
+# 임시 서버는 --skip-networking 이라 TCP 를 열지 않는다. 그래서 TCP 로 물으면 4) 의
+# 진짜 서버가 뜰 때까지 루프가 기다린다.
+#
+# 통과한 뒤의 명령에 재시도를 넣지 않는다. 진짜 서버는 컨테이너의 PID 1 이라 살아 있는
+# 한 재시작하지 않으므로, 그 뒤의 연결 실패는 일시적인 것이 아니라 컨테이너가 죽었다는
+# 뜻이다 — 재시도로 덮으면 진짜 고장을 늦게 알게 된다.
+log "MySQL 기동 대기 (TCP)..."
+WAIT_SECONDS=120
+LAST_ERROR=""
+for i in $(seq 1 "$WAIT_SECONDS"); do
+    # 컨테이너가 죽었으면 더 기다릴 이유가 없다. 이 확인이 없으면 설정 오류로 즉시
+    # 종료한 컨테이너를 상대로 2분을 버리고, 그 뒤에도 이유를 알 수 없다.
+    if [ "$(docker inspect -f '{{.State.Running}}' "$CONTAINER" 2>/dev/null)" != "true" ]; then
+        fail "MySQL 컨테이너가 기동 중에 종료됐다."
+        dump_container_state
+        exit 2
+    fi
+    # stderr 만 담는다(2>&1 >/dev/null 순서가 중요하다). 전부 버리면 타임아웃 때
+    # 무엇이 막았는지 로그에 아무것도 남지 않는다 — 이 스크립트가 한 번 그렇게 실패했다.
+    if LAST_ERROR="$(mysql_exec -e 'SELECT 1' 2>&1 >/dev/null)"; then
         break
     fi
-    [ "$i" -eq 60 ] && { fail "MySQL 이 60초 안에 뜨지 않았다"; exit 2; }
+    if [ "$i" -eq "$WAIT_SECONDS" ]; then
+        fail "MySQL 이 ${WAIT_SECONDS}초 안에 TCP 로 응답하지 않았다."
+        fail "마지막 오류: ${LAST_ERROR:-(없음)}"
+        dump_container_state
+        exit 2
+    fi
     sleep 1
 done
 
-docker exec -e MYSQL_PWD="$ROOT_PW" "$CONTAINER" mysql -uroot -e 'CREATE DATABASE actual' >/dev/null
+mysql_exec -e 'CREATE DATABASE actual' >/dev/null
 
 # ── 4) expected: 지금 schema.sql 그대로 ───────────────────────────────
-echo "$HEAD_SCHEMA" | docker exec -i -e MYSQL_PWD="$ROOT_PW" "$CONTAINER" mysql -uroot expected
+echo "$HEAD_SCHEMA" | mysql_pipe expected
 
 # ── 5) actual: 베이스라인 schema.sql + 새 마이그레이션 순서대로 ────────
-echo "$BASELINE_SCHEMA" | docker exec -i -e MYSQL_PWD="$ROOT_PW" "$CONTAINER" mysql -uroot actual
+echo "$BASELINE_SCHEMA" | mysql_pipe actual
 while IFS= read -r mf; do
     [ -n "$mf" ] || continue
     log "적용 중: $mf"
-    if ! git show "HEAD:$mf" | docker exec -i -e MYSQL_PWD="$ROOT_PW" "$CONTAINER" mysql -uroot actual; then
+    if ! git show "HEAD:$mf" | mysql_pipe actual; then
         fail "$mf 적용 중 SQL 오류 — 위 mysql 에러 참고."
         exit 1
     fi
 done <<< "$(echo "$NEW_FILES" | sort)"
 
 # ── 6) 두 DB 대조 (테이블·컬럼·타입만 — NULL/DEFAULT/인덱스는 안 본다) ──
-DIFF="$(docker exec -e MYSQL_PWD="$ROOT_PW" "$CONTAINER" mysql -uroot -N -e "
+DIFF="$(mysql_exec -N -e "
 SELECT CONCAT(
     COALESCE(e.TABLE_NAME, a.TABLE_NAME), '.', COALESCE(e.COLUMN_NAME, a.COLUMN_NAME),
     '  expected=[', COALESCE(e.COLUMN_TYPE, '(없음)'), ']',
