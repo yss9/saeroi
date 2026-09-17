@@ -110,7 +110,7 @@ describe('ProductionItemQr', () => {
     await user.click(screen.getByRole('button', { name: 'QR 생성' }))
 
     // blob 응답이라 서버 문구(code·message)를 읽을 수 없다 — 상태 코드로 만든다.
-    expect(await screen.findByRole('alert')).toHaveTextContent(/배치를 연 계정으로 로그인/)
+    expect(await screen.findByRole('alert')).toHaveTextContent(/생산을 시작한 계정으로 로그인/)
     expect(screen.queryByRole('link', { name: '이미지 저장' })).not.toBeInTheDocument()
   })
 

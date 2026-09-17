@@ -33,11 +33,28 @@ const dateFormatter = new Intl.DateTimeFormat('ko-KR', {
   day: '2-digit',
 })
 
+const timeFormatter = new Intl.DateTimeFormat('ko-KR', {
+  hour: '2-digit',
+  minute: '2-digit',
+})
+
 const orderStatusMeta: Record<ConsumerOrderViewStatus, { label: string; tone: StatusTone }> = {
   PAYMENT_PENDING: { label: '결제 대기', tone: 'warning' },
   PREPARING: { label: '상품 준비', tone: 'warning' },
   SHIPPING: { label: '배송 중', tone: 'info' },
   DELIVERED: { label: '배송 완료', tone: 'success' },
+}
+
+/** 받는사람 이름 마스킹 — 개인정보 보호. 첫/끝 글자만 남기고 가운데는 `*`. */
+function maskReceiverName(name: string): string {
+  if (name.length <= 1) return name
+  if (name.length === 2) return `${name[0]}*`
+  return `${name[0]}${'*'.repeat(name.length - 2)}${name[name.length - 1]}`
+}
+
+/** 상세주소 마스킹 — 길이는 유지하되 전부 `*`로 치환해 존재 여부만 알 수 있게 한다. */
+function maskAddressDetail(addressDetail: string): string {
+  return '*'.repeat(addressDetail.length)
 }
 
 /**
@@ -114,6 +131,9 @@ export function ConsumerOrderDetailPage() {
             </time>{' '}
             주문
           </p>
+          <p className="consumer-order-detail__ordered-time">
+            <time dateTime={group.orderedAt}>{timeFormatter.format(new Date(group.orderedAt))}</time>
+          </p>
 
           <div className="consumer-order-group__items">
             {group.items.map((item) => (
@@ -127,13 +147,15 @@ export function ConsumerOrderDetailPage() {
             <dl className="consumer-order-detail__info-grid">
               <div>
                 <dt>받는사람</dt>
-                <dd>{group.items[0].receiverName}</dd>
+                <dd>{maskReceiverName(group.items[0].receiverName)}</dd>
               </div>
               <div>
                 <dt>받는주소</dt>
                 <dd>
                   [{group.items[0].zipCode}] {group.items[0].address}
-                  {group.items[0].addressDetail ? ` ${group.items[0].addressDetail}` : ''}
+                  {group.items[0].addressDetail
+                    ? ` ${maskAddressDetail(group.items[0].addressDetail)}`
+                    : ''}
                 </dd>
               </div>
             </dl>
@@ -179,7 +201,7 @@ function OrderDetailItemRow({ item }: { item: ConsumerRecentOrder }) {
   const thumbnail = useConsumerOrderThumbnail(item.thumbnailUrl)
 
   return (
-    <div className="consumer-order-item">
+    <div className="consumer-order-item consumer-order-item--detail">
       <div className="consumer-order-detail__status-row">
         <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
       </div>
@@ -210,7 +232,9 @@ function OrderDetailItemRow({ item }: { item: ConsumerRecentOrder }) {
         </div>
       )}
 
-      <OrderProgress order={item} />
+      <div className="consumer-order-detail__progress">
+        <OrderProgress order={item} />
+      </div>
       <TrackingLine order={item} />
     </div>
   )

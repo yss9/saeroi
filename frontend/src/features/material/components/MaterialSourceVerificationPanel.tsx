@@ -1,10 +1,11 @@
+import { useEffect, useState } from 'react'
 import { OnChainPanel } from '../../../components/common/index.ts'
 import { contracts } from '../../../config/contracts.ts'
 import { env } from '../../../config/env.ts'
 import { useAuth } from '../../auth/hooks/useAuth.ts'
 import { useWallet } from '../../wallet/hooks/useWallet.ts'
 import { useVerifySourceOnChain } from '../hooks/useVerifySourceOnChain.ts'
-import { evidencePlaceholder } from '../services/evidencePlaceholder.ts'
+import { getOnChainMaterialEvidenceHash } from '../services/materialContractService.ts'
 import type { MaterialDetail } from '../types/material.types.ts'
 
 /**
@@ -14,8 +15,9 @@ import type { MaterialDetail } from '../types/material.types.ts'
  * 다루고, 이 패널은 "발행됨 → 출처 검증됨" 을 다룬다. 그래서 `ready` 조건이 mint 와
  * 정반대다 — `tokenId` 가 **있어야** 서명할 수 있다.
  *
- * `evidenceHash` 는 mint 때와 같은 자리표시자를 재사용한다 — 같은 소재 코드에서
- * 파생하므로 재시도해도 같은 값이 나온다(`evidencePlaceholder` 주석 참고).
+ * 검증에 넣는 해시는 DB나 현재 증빙 목록에서 다시 추측하지 않는다. mint 때 컨트랙트의
+ * `materialInfo`에 저장된 값을 읽어 그대로 사용해야 사진 기반 발행도 hash mismatch로
+ * revert되지 않는다.
  */
 export function MaterialSourceVerificationPanel({ material }: { material: MaterialDetail }) {
   const { user } = useAuth()
@@ -25,6 +27,30 @@ export function MaterialSourceVerificationPanel({ material }: { material: Materi
   const address = wallet.address
   const chainId = wallet.chainId
   const verify = useVerifySourceOnChain()
+  const [onChainEvidence, setOnChainEvidence] = useState<{
+    tokenId: number
+    hash: string
+  } | null>(null)
+  const [failedEvidenceTokenId, setFailedEvidenceTokenId] = useState<number | null>(null)
+
+  useEffect(() => {
+    let active = true
+    const tokenId = material.tokenId
+    if (tokenId === null) return () => { active = false }
+    void getOnChainMaterialEvidenceHash(tokenId)
+      .then((hash) => {
+        if (active) setOnChainEvidence({ tokenId, hash })
+      })
+      .catch(() => {
+        if (active) setFailedEvidenceTokenId(tokenId)
+      })
+    return () => { active = false }
+  }, [material.tokenId])
+
+  const evidenceHash = onChainEvidence?.tokenId === material.tokenId
+    ? onChainEvidence.hash
+    : null
+  const evidenceReadFailed = failedEvidenceTokenId === material.tokenId
 
   const alreadyVerified = material.verification !== null
   const actionable = user?.id === material.registrantId
@@ -35,7 +61,8 @@ export function MaterialSourceVerificationPanel({ material }: { material: Materi
     material.tokenId !== null &&
     !alreadyVerified &&
     correctChain &&
-    contracts.materialToken !== null
+    contracts.materialToken !== null &&
+    evidenceHash !== null
 
   const blockedReason = (() => {
     if (material.tokenId === null) return '먼저 소재를 온체인에 발행해야 합니다.'
@@ -45,6 +72,8 @@ export function MaterialSourceVerificationPanel({ material }: { material: Materi
       return `MetaMask를 SSAFY 네트워크(${BigInt(env.besuChainIdHex).toString()})로 전환해 주세요.`
     }
     if (contracts.materialToken === null) return 'MaterialToken 컨트랙트 주소 설정이 필요합니다.'
+    if (evidenceReadFailed) return '온체인 증빙 해시를 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.'
+    if (evidenceHash === null) return '온체인 증빙 해시를 확인하는 중입니다.'
     return undefined
   })()
 
@@ -69,11 +98,11 @@ export function MaterialSourceVerificationPanel({ material }: { material: Materi
       isRejected={verify.isRejected}
       actionLabel="출처 검증 서명"
       onSign={() => {
-        if (!address || material.tokenId === null) return
+        if (!address || material.tokenId === null || evidenceHash === null) return
         void verify.verify({
           materialId: material.materialId,
           tokenId: material.tokenId,
-          evidenceHash: evidencePlaceholder(material.materialCode),
+          evidenceHash,
         })
       }}
     />

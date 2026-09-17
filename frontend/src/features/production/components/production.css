@@ -145,8 +145,9 @@
 .batch-form__fields {
   display: grid;
   gap: 0 1.25rem;
-  grid-template-columns: minmax(0, 22rem) minmax(0, 9rem);
-  justify-content: start;
+  /* 아래 투입 줄(소재 선택 + 투입 추가)과 같은 폭을 쓴다. 이름이 남는 자리를 다 갖고
+     개수만 짧게 잘라 둔다 — 개수는 세 자리면 충분하다. */
+  grid-template-columns: minmax(0, 1fr) 9rem;
 }
 
 /* 투입. 소재 고르기와 수량 셋이 들어가 한 덩어리로 둔다. */

@@ -46,6 +46,7 @@ export function BrandProcessingRequestDetail({ requestId }: Props) {
 
   const request = detail.data
   const canSelect = request.status === 'QUOTING' && !selection.data
+  const paymentJob = selection.data ?? (job?.status === 'CREATED' ? job : null)
 
   function select(quote: SubmittedProcessingQuote) {
     selection.mutate(quote.quoteId, { onSuccess: () => setConfirmingQuoteId(null) })
@@ -86,9 +87,9 @@ export function BrandProcessingRequestDetail({ requestId }: Props) {
               <CheckCircle aria-hidden="true" />
               <div><strong>견적 선택이 완료되었습니다.</strong><span>생성된 작업 <b>{selection.data.jobCode}</b> · 결제 기한 {date(selection.data.paymentExpiresAt)}</span></div>
             </div>
-            <ProcessingPaymentEntry job={selection.data} />
           </>
         )}
+        {paymentJob && <ProcessingPaymentEntry job={paymentJob} />}
         {selection.isError && <div className="br-detail__selection-error" role="alert">{message(selection.error)}</div>}
 
         {!quotes.data?.length ? (

@@ -5,7 +5,17 @@ import { afterEach, expect, test, vi } from 'vitest'
 import { apiClient } from '../../services/apiClient.ts'
 import { ProcessingPaymentCallbackPage } from './ProcessingPaymentCallbackPage.tsx'
 
-vi.mock('../../services/apiClient.ts', () => ({ apiClient: { post: vi.fn() } }))
+vi.mock('../../services/apiClient.ts', () => ({ apiClient: { get: vi.fn(), post: vi.fn() } }))
+
+const createdJob = {
+  jobId: 91, jobCode: 'JOB-091', requestId: 17, quoteId: 31, brandId: 3, processorId: 8,
+  fee: 120_000, paymentAmount: 0, status: 'CREATED', paymentExpiresAt: '2026-09-09T03:15:00',
+  createdAt: '2026-09-09T03:00:00', inputMaterialId: 5, inputQuantity: 12_500, lossQuantity: 0,
+  resultRevision: 0, carrier: null, trackingNumber: null, returnCarrier: null, returnTrackingNumber: null,
+  returnShippingEvidenceHash: null, rejectionReason: null, shippedAt: null, receivedAt: null,
+  startedAt: null, resultSubmittedAt: null, rejectedAt: null, returnShippedAt: null,
+  completedAt: null, outputs: [],
+}
 
 function renderPage(path: string) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -21,6 +31,7 @@ function renderPage(path: string) {
 afterEach(() => { cleanup(); vi.clearAllMocks() })
 
 test('PG에서 돌아오면 pg_token으로 가공비 결제를 승인한다', async () => {
+  vi.mocked(apiClient.get).mockResolvedValue({ data: createdJob })
   vi.mocked(apiClient.post).mockResolvedValue({ data: {
     jobId: 91, jobCode: 'JOB-091', requestId: 17, quoteId: 31, brandId: 3, processorId: 8,
     fee: 120_000, paymentMethod: 'KAKAO_PAY', paymentReference: 'T123', paymentAmount: 120_000,
@@ -36,10 +47,22 @@ test('PG에서 돌아오면 pg_token으로 가공비 결제를 승인한다', as
   expect(apiClient.post).toHaveBeenCalledWith('/processing-jobs/91/payment/confirm', { pgToken: 'approved-token' })
 })
 
-test('PG 토큰 없이 돌아오면 자동 만료 정책을 안내한다', async () => {
+test('PG 토큰 없이 돌아오면 요청 상세에서 결제를 다시 시도할 수 있다', async () => {
+  vi.mocked(apiClient.get).mockResolvedValue({ data: createdJob })
   renderPage('/processing/jobs/91/payment/callback')
 
   expect(await screen.findByRole('heading', { name: '결제가 완료되지 않았습니다' })).toBeInTheDocument()
-  expect(screen.getByText('결제 기한이 지나면 Job과 소재 Lock이 자동으로 만료됩니다.')).toBeInTheDocument()
+  expect(screen.getByText('결제 기한 전이라면 요청 상세에서 다시 결제할 수 있습니다.')).toBeInTheDocument()
+  expect(await screen.findByRole('link', { name: '결제 다시 시도' })).toHaveAttribute('href', '/brand/processing/requests/17')
   expect(apiClient.post).not.toHaveBeenCalled()
+})
+
+test('결제 승인 실패 후에도 요청 상세로 돌아가 재결제할 수 있다', async () => {
+  vi.mocked(apiClient.get).mockResolvedValue({ data: createdJob })
+  vi.mocked(apiClient.post).mockRejectedValue(new Error('결제 승인에 실패했습니다.'))
+
+  renderPage('/processing/jobs/91/payment/callback?pg_token=failed-token')
+
+  expect(await screen.findByRole('heading', { name: '결제 승인에 실패했습니다' })).toBeInTheDocument()
+  expect(await screen.findByRole('link', { name: '결제 다시 시도' })).toHaveAttribute('href', '/brand/processing/requests/17')
 })

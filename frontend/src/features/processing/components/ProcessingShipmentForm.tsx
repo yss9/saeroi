@@ -11,6 +11,7 @@ interface Props {
   submitLabel?: string
   evidenceOptions?: Array<{ id: number; hash: string; label: string }>
   evidenceRequired?: boolean
+  embedded?: boolean
 }
 
 const errorMessage = (error: unknown) => isAppError(error) || error instanceof Error
@@ -25,14 +26,14 @@ export function ProcessingShipmentForm({
   submitLabel = '발송 처리',
   evidenceOptions = [],
   evidenceRequired = false,
+  embedded = false,
 }: Props) {
   const [carrier, setCarrier] = useState('')
   const [trackingNumber, setTrackingNumber] = useState('')
   const [evidenceId, setEvidenceId] = useState('')
   const selectedEvidence = evidenceOptions.find(option => String(option.id) === evidenceId)
 
-  return (
-    <section className="pj-panel">
+  const content = <>
       <h2><Package aria-hidden="true" />{title}</h2>
       <div className="pj-fields">
         <label>택배사(선택)<input value={carrier} onChange={event => setCarrier(event.target.value)} /></label>
@@ -51,6 +52,9 @@ export function ProcessingShipmentForm({
         {isPending ? 'MetaMask 확인 및 처리 중…' : submitLabel}
       </button>
       {error !== undefined && error !== null && <p className="pj-error" role="alert">{errorMessage(error)}</p>}
-    </section>
-  )
+    </>
+
+  return embedded
+    ? <div className="pj-shipment-form">{content}</div>
+    : <section className="pj-panel">{content}</section>
 }

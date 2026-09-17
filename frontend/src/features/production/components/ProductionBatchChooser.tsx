@@ -25,7 +25,7 @@ export interface ProductionBatchChooserProps {
 export function ProductionBatchChooser({ onChoose, onSkip }: ProductionBatchChooserProps) {
   const batches = useMyProductionBatches()
 
-  if (batches.isPending) return <Loading variant="skeleton" rows={3} label="생산 배치를 불러오는 중" />
+  if (batches.isPending) return <Loading variant="skeleton" rows={3} label="생산 내역을 불러오는 중" />
   if (batches.isError) {
     return <ErrorMessage error={batches.error} onRetry={() => void batches.refetch()} />
   }
@@ -34,23 +34,23 @@ export function ProductionBatchChooser({ onChoose, onSkip }: ProductionBatchChoo
     <section className="batch-chooser">
       <div className="batch-chooser__head">
         <div>
-          <h2>어느 배치로 만든 제품인가요?</h2>
+          <h2>어느 생산으로 만든 제품인가요?</h2>
           <p>
-            배치를 누르면 제품을 적는 창이 열립니다. 그 배치를 확정하면 이 제품의 개체와
+            생산을 누르면 제품을 적는 창이 열립니다. 그 생산을 확정하면 이 제품의 개체와
             QR 이 만들어지고, 그만큼 판매할 수 있게 됩니다.
           </p>
         </div>
 
         {/* 배치 없이 등록하는 것도 정상 경로다. 제품을 먼저 올려 두고 나중에 이어도 된다. */}
         <Button variant="secondary" onClick={onSkip}>
-          배치 없이 등록
+          생산 연결 없이 등록
         </Button>
       </div>
 
       {batches.data.length === 0 ? (
         <p className="batch-chooser__empty">
-          생산 배치가 없습니다. <Link to="/brand/production">배치를 열고</Link> 소재를
-          투입하면 그 배치로 만들 제품을 등록할 수 있습니다.
+          생산 내역이 없습니다. <Link to="/brand/production">생산을 시작하고</Link> 소재를
+          투입하면 그 생산으로 만들 제품을 등록할 수 있습니다.
         </p>
       ) : (
         <ul className="batch-chooser__list">
@@ -80,7 +80,7 @@ export function ProductionBatchChooser({ onChoose, onSkip }: ProductionBatchChoo
                   하는데, 이 카드를 누르면 제품 등록 창이 열리므로 따로 둔다.
                 */}
                 <Link to={`/brand/production/${batch.productionBatchId}`}>
-                  {batch.batchCode} 배치 열기
+                  {batch.batchCode} 생산 상세
                 </Link>
               </li>
             )
@@ -98,8 +98,8 @@ export function ProductionBatchChooser({ onChoose, onSkip }: ProductionBatchChoo
  * 제품이 이미 붙은 배치를 고르면 그 제품의 재고를 빼앗는다.
  */
 function blockedReason(batch: ProductionBatch): string | null {
-  if (batch.productModelId !== null) return '이미 제품이 연결된 배치입니다'
-  if (batch.status !== 'DRAFT') return '작성 중인 배치에만 연결할 수 있습니다'
+  if (batch.productModelId !== null) return '이미 제품이 연결된 생산입니다'
+  if (batch.status !== 'DRAFT') return '작성 중인 생산에만 연결할 수 있습니다'
   return null
 }
 

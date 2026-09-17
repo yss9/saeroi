@@ -53,6 +53,21 @@ export const SELLER_ACTION_REQUIRED: readonly TradeStatus[] = ['PAID']
 export type PaymentMethod = 'MOCK' | 'KAKAO_PAY'
 
 /**
+ * 결제 수단 이름.
+ *
+ * `MOCK` 은 PG 연동 전 경로다. "카카오페이" 로 적으면 실제로 결제된 것처럼 읽히므로
+ * 값을 그대로 구분한다.
+ *
+ * <b>아직 `PaymentPanel` 은 이 상수를 쓰지 않는다.</b> 같은 두 값을 인라인 삼항으로
+ * 들고 있다 — 그 파일은 구매자(브랜드) 화면이라 담당이 다르다. 그쪽을 손볼 때 여기로
+ * 모으면 된다. 지금 옮기지 않는 이유는 남의 화면을 말없이 바꾸지 않기 위해서다.
+ */
+export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
+  KAKAO_PAY: '카카오페이',
+  MOCK: '테스트 결제',
+}
+
+/**
  * 거래 한 건. 목록과 상세가 같은 모양이다.
  *
  * 소재 이름과 양쪽 이름, kg 단가는 `material_trade` 에 없는 값이지만 서버가 조인해서

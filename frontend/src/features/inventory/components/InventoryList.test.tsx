@@ -7,7 +7,7 @@
 // 모킹 경계는 API 모듈 하나다. vitest 에 globals 가 없어 cleanup 을 직접 부른다.
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createAppError, ERROR_KIND } from '../../../utils/errors.ts'
@@ -164,6 +164,80 @@ describe('네 가지 상태', () => {
   })
 })
 
+/**
+ * <b>`status` 와 `available` 은 다른 질문에 답한다.</b>
+ *
+ * `status` 는 "아직 갖고 있는가" 다 — `DEPLETED` 는 가공·생산 확정으로 실제로 다 써
+ * 버렸을 때만 된다. `available` 은 "지금 쓸 수 있는가" 이고, 판매글이나 가공 요청에
+ * 걸어 두면 잠기기만 하고 보유량은 그대로라(취소하면 돌아온다) 상태는 `ACTIVE` 로 남는다.
+ *
+ * 둘을 그대로 나란히 두면 <b>"0.0 kg · 보유 중"</b> 이 된다. 데이터는 맞는데 화면이
+ * 모순으로 읽힌다 — 실제 사실은 "갖고는 있는데 전부 묶여 있다" 다.
+ */
+describe('전량 잠긴 소재', () => {
+  it('보유 중이 아니라 전량 잠김으로 말한다', async () => {
+    api.getMyMaterials.mockResolvedValue([
+      item({ quantity: 6_000, lockedQuantity: 6_000, available: 0, status: 'ACTIVE' }),
+    ])
+    renderList()
+
+    // 필터 버튼에도 "보유 중"·"소진" 이 있으므로 카드 안으로 좁혀서 본다.
+    const card = await screen.findByRole('listitem')
+    expect(within(card).getByText('전량 잠김')).toBeInTheDocument()
+    expect(within(card).queryByText('보유 중')).not.toBeInTheDocument()
+  })
+
+  it('쓸 수 있는 양이 남아 있으면 보유 중이다', async () => {
+    api.getMyMaterials.mockResolvedValue([
+      item({ quantity: 6_000, lockedQuantity: 1_000, available: 5_000 }),
+    ])
+    renderList()
+
+    const card = await screen.findByRole('listitem')
+    expect(within(card).getByText('보유 중')).toBeInTheDocument()
+  })
+
+  it('실제로 다 쓴 소재는 소진이다', async () => {
+    // 잠긴 것과 써 버린 것은 다르다. 잠긴 것은 취소하면 돌아오고, 쓴 것은 안 돌아온다.
+    api.getMyMaterials.mockResolvedValue([
+      item({ quantity: 0, lockedQuantity: 0, available: 0, status: 'DEPLETED' }),
+    ])
+    renderList()
+
+    const card = await screen.findByRole('listitem')
+    expect(within(card).getByText('소진')).toBeInTheDocument()
+  })
+})
+
+/**
+ * 예전에는 `available` 하나만 있어서 그 숫자가 왜 그런지 알 방법이 없었다 — 30kg 을
+ * 갖고 있는데 "12kg" 만 보이면 나머지 18kg 이 어디 갔는지 화면 어디에도 없다.
+ * 응답에는 보유량과 잠긴 양이 함께 오는데 쓰지 않고 있었다.
+ */
+describe('수량 내역', () => {
+  it('잠긴 양이 있으면 보유와 잠김을 함께 보여준다', async () => {
+    api.getMyMaterials.mockResolvedValue([
+      item({ quantity: 30_000, lockedQuantity: 18_000, available: 12_000 }),
+    ])
+    renderList()
+
+    expect(await screen.findByText(/보유 30 kg/)).toBeInTheDocument()
+    expect(screen.getByText(/잠김 18 kg/)).toBeInTheDocument()
+  })
+
+  it('잠긴 양이 없으면 쪼개지 않는다', async () => {
+    // 보유 = 가능이라 같은 숫자를 두 번 쓰는 셈이다. 읽을 것만 늘어난다.
+    api.getMyMaterials.mockResolvedValue([
+      item({ quantity: 30_000, lockedQuantity: 0, available: 30_000 }),
+    ])
+    renderList()
+
+    expect(await screen.findByText('폐데님 원단')).toBeInTheDocument()
+    expect(screen.queryByText(/잠김/)).not.toBeInTheDocument()
+  })
+
+})
+
 // 서버가 DEPLETED 로 넘기지 않는다(MaterialStatus 에 전환 메서드가 없다) — 0g 이 된
 // 소재도 ACTIVE 로 온다. 그 값을 그대로 적으면 0kg 짜리가 "보유 중" 으로 보인다.
 it('보유량이 0 이면 소진으로 적는다', async () => {
@@ -181,5 +255,9 @@ it('전량이 잠겨 가용량만 0 이면 소진이 아니다', async () => {
   ])
   renderList()
 
-  expect(await screen.findByText('보유 중', { selector: 'span' })).toBeInTheDocument()
+  // [머지] 이 브랜치가 세 번째 상태를 넣었다. 잠긴 것은 소진이 아니라는 이 테스트의
+  // 뜻은 그대로이고, 답만 더 정확해진다 — "보유 중" 은 쓸 수 있는 양이 0 인데도
+  // 쓸 수 있다고 말한다.
+  expect(await screen.findByText('전량 잠김', { selector: 'span' })).toBeInTheDocument()
+  expect(screen.queryByText('소진', { selector: 'span' })).not.toBeInTheDocument()
 })

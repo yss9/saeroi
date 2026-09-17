@@ -99,7 +99,7 @@ describe('ProductionChainPanel', () => {
   it('확정된 배치에서 서명할 수 있다', async () => {
     const user = renderPanel()
 
-    await user.click(screen.getByRole('button', { name: '온체인 배치 생성' }))
+    await user.click(screen.getByRole('button', { name: '온체인 생산 기록' }))
 
     expect(chain.create).toHaveBeenCalled()
   })
@@ -107,8 +107,8 @@ describe('ProductionChainPanel', () => {
   it('확정 전에는 서명시키지 않고 이유를 적는다', () => {
     renderPanel(batch({ status: 'DRAFT', confirmedAt: null, totalUsedQuantity: 0 }))
 
-    expect(screen.getByText(/배치를 확정하면 온체인에 기록할 수 있습니다/)).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '온체인 배치 생성' })).toBeDisabled()
+    expect(screen.getByText(/생산을 확정하면 온체인에 기록할 수 있습니다/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '온체인 생산 기록' })).toBeDisabled()
   })
 
   // 이 테스트가 이 파일의 존재 이유다 — 배치가 서명자 주소를 스냅샷으로 갖고 있다.
@@ -116,8 +116,8 @@ describe('ProductionChainPanel', () => {
     wallet.address = '0x9999999999999999999999999999999999999999'
     renderPanel()
 
-    expect(screen.getByText(/0x2222…2222 지갑으로 열렸습니다/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '온체인 배치 생성' })).toBeDisabled()
+    expect(screen.getByText(/0x2222…2222 지갑으로 시작했습니다/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '온체인 생산 기록' })).toBeDisabled()
   })
 
   it('지갑을 연결하지 않으면 막는다', () => {
@@ -125,7 +125,7 @@ describe('ProductionChainPanel', () => {
     renderPanel()
 
     expect(screen.getByText('지갑을 먼저 연결해 주세요.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '온체인 배치 생성' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '온체인 생산 기록' })).toBeDisabled()
   })
 
   it('컨트랙트 주소가 없으면 막고 운영자에게 알리라고 한다', () => {
@@ -133,14 +133,14 @@ describe('ProductionChainPanel', () => {
     renderPanel()
 
     expect(screen.getByText(/생산 컨트랙트 주소가 설정되지 않아/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '온체인 배치 생성' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '온체인 생산 기록' })).toBeDisabled()
   })
 
   it('이미 기록된 배치는 온체인 번호를 보여준다', () => {
     renderPanel(batch({ chainBatchId: 7 }))
 
     expect(screen.getByText(/7/)).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '온체인 배치 생성' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '온체인 생산 기록' })).not.toBeInTheDocument()
   })
 
   // 남은 단계는 ProductionChainSteps 가 그린다. 이 패널은 1단계만 책임진다.
@@ -149,12 +149,12 @@ describe('ProductionChainPanel', () => {
 
     // 1단계가 끝났으면 번호를 보여주고 서명 버튼을 거둔다.
     expect(screen.getByText(/7/)).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '온체인 배치 생성' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '온체인 생산 기록' })).not.toBeInTheDocument()
   })
 
   it('생산 개수를 문구에 넣어 무엇을 기록하는지 말한다', () => {
     renderPanel(batch({ producedQuantity: 25 }))
 
-    expect(screen.getByText(/제품 25개의 생산 배치를 체인에 만듭니다/)).toBeInTheDocument()
+    expect(screen.getByText(/제품 25개의 생산을 체인에 만듭니다/)).toBeInTheDocument()
   })
 })

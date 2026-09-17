@@ -15,7 +15,7 @@ import { formatKg } from '../../utils/quantity.ts'
 import type { Listing, ListingStatus } from '../../features/marketplace/types/marketplace.types.ts'
 import type { InventoryItem } from '../../features/inventory/types/inventory.types.ts'
 import { useAuthStore } from '../../stores/authStore.ts'
-import '../../features/supplier/components/supplier-console.css'
+import '../../components/common/console.css'
 
 /** 목록 위의 상태 탭. 서버가 기본으로 ON_SALE 만 주므로 "전체" 는 상태를 비워 보낸다. */
 const TABS: readonly { label: string; status?: ListingStatus }[] = [
@@ -85,8 +85,8 @@ export function SupplierMarketPage() {
   }
 
   return (
-    <main className="sup">
-      <header className="sup__head">
+    <main className="console">
+      <header className="console__head">
         <div>
           {/*
             <b>제목은 눈에 보이지 않는다.</b> 사이드바가 이미 "판매 관리" 를 켠 채로
@@ -97,21 +97,21 @@ export function SupplierMarketPage() {
           <h1 className="ui-visually-hidden">판매 관리</h1>
           {/* 건수는 바로 아래 지표가 이미 말한다. 여기서는 지표에 없는 것 하나만 —
               지금 팔려고 걸어 둔 양이 얼마인지. */}
-          <p className="sup__sub">
+          <p className="console__sub">
             지금 팔고 있는 수량{' '}
-            <b className="sup__num">
+            <b className="console__num">
               {summary.isPending ? '—' : formatKg(summary.availableGram)}
             </b>
           </p>
         </div>
 
-        <div className="sup__head-actions">
+        <div className="console__head-actions">
           <button
             type="button"
-            className={`sup-btn ${isRegisterOpen ? 'sup-btn--ghost' : 'sup-btn--primary'}`}
+            className={`console-btn ${isRegisterOpen ? 'console-btn--ghost' : 'console-btn--primary'}`}
             onClick={() => setRegisterOpen((open) => !open)}
             aria-expanded={isRegisterOpen}
-            aria-controls="sup-register"
+            aria-controls="console-register"
           >
             {isRegisterOpen ? (
               <>
@@ -132,7 +132,7 @@ export function SupplierMarketPage() {
         마지막 칸만 색을 쓴다 — 앞의 셋은 "지금 이런 상태다" 이고 마지막만 "네가 할 일이
         남았다" 이기 때문이다. 넷 다 색을 주면 어느 것이 급한지 사라진다.
       */}
-      <div className="sup-metrics">
+      <div className="console-metrics">
         <Metric label="판매 중" value={summary.onSale} unit="건" lead pending={summary.isPending} icon={<Storefront weight="fill" />} />
         <Metric label="품절" value={summary.soldOut} unit="건" pending={summary.isPending} icon={<CheckCircle weight="fill" />} />
         <Metric label="내림" value={summary.canceled} unit="건" pending={summary.isPending} icon={<EyeSlash weight="fill" />} />
@@ -147,10 +147,10 @@ export function SupplierMarketPage() {
       </div>
 
       {isRegisterOpen && (
-        <section id="sup-register" className="sup-panel sup-register">
-          <div className="sup__title sup-register__title">
+        <section id="console-register" className="console-panel console-register">
+          <div className="console__title console-register__title">
             <strong>새 판매글 등록</strong>
-            <span className="sup__tag">write</span>
+            <span className="console__tag">write</span>
           </div>
 
           <MaterialSelect value={selected?.materialId ?? null} onChange={setSelected} />
@@ -158,7 +158,7 @@ export function SupplierMarketPage() {
           {/* 소재를 고르기 전에는 폼을 띄우지 않는다. 수량 입력의 최대값이 고른 소재의
               가용량이라, 소재 없이 먼저 입력하게 하면 그 값을 검증할 기준이 없다. */}
           {selected === null ? (
-            <p className="sup-register__hint">소재를 고르면 수량과 가격을 입력할 수 있습니다.</p>
+            <p className="console-register__hint">소재를 고르면 수량과 가격을 입력할 수 있습니다.</p>
           ) : (
             <ListingForm
               // key 로 소재를 넣어 소재를 바꾸면 폼이 새로 마운트된다. 그러지 않으면
@@ -179,30 +179,30 @@ export function SupplierMarketPage() {
         </section>
       )}
 
-      <div className="sup-tabs" role="group" aria-label="판매글 상태">
+      <div className="console-tabs" role="group" aria-label="판매글 상태">
         <button
           type="button"
-          className="sup-tab"
+          className="console-tab"
           aria-pressed={status === undefined}
           onClick={() => changeTab(undefined)}
         >
           전체
-          <span className="sup-tab__count">{countFor(undefined, summary)}</span>
+          <span className="console-tab__count">{countFor(undefined, summary)}</span>
         </button>
         {TABS.map((tab) => (
           <button
             key={tab.label}
             type="button"
-            className={`sup-tab ${tab.status === 'ON_SALE' && summary.unrecorded > 0 ? 'sup-tab--todo' : ''}`}
+            className={`console-tab ${tab.status === 'ON_SALE' && summary.unrecorded > 0 ? 'console-tab--todo' : ''}`}
             aria-pressed={tab.status === status}
             onClick={() => changeTab(tab.status)}
           >
             {tab.label}
-            <span className="sup-tab__count">{countFor(tab.status, summary)}</span>
+            <span className="console-tab__count">{countFor(tab.status, summary)}</span>
           </button>
         ))}
         {listings.data && (
-          <span className="sup-tabs__right">
+          <span className="console-tabs__right">
             {listings.data.totalElements}건 중 {listings.data.content.length}건 표시
           </span>
         )}
@@ -213,15 +213,15 @@ export function SupplierMarketPage() {
       ) : listings.isError ? (
         <ErrorMessage error={listings.error} onRetry={() => void listings.refetch()} />
       ) : listings.data.content.length === 0 ? (
-        <div className="sup-empty">
+        <div className="console-empty">
           <h3>등록한 판매글이 없습니다</h3>
           <p>보유 소재를 판매 등록하면 여기에 표시됩니다.</p>
-          <button type="button" className="sup-btn sup-btn--primary" onClick={() => setRegisterOpen(true)}>
+          <button type="button" className="console-btn console-btn--primary" onClick={() => setRegisterOpen(true)}>
             <Plus aria-hidden="true" weight="bold" /> 판매 등록
           </button>
         </div>
       ) : (
-        <ul className="sup-grid">
+        <ul className="console-grid">
           {listings.data.content.map((listing) => (
             <SupplierListingCard
               key={listing.listingId}
@@ -239,7 +239,7 @@ export function SupplierMarketPage() {
       )}
 
       {listings.data && listings.data.totalPages > 1 && (
-        <div className="sup-foot">
+        <div className="console-foot">
           <Pagination page={listings.data} onChange={setPage} />
         </div>
       )}
@@ -292,20 +292,20 @@ function Metric({ label, value, unit, icon, lead, todo, pending }: MetricProps) 
     <div
       role="group"
       aria-label={label}
-      className={['sup-metric', lead ? 'sup-metric--lead' : '', todo ? 'sup-metric--todo' : '']
+      className={['console-metric', lead ? 'console-metric--lead' : '', todo ? 'console-metric--todo' : '']
         .filter(Boolean)
         .join(' ')}
     >
       <div>
-        <span className="sup-metric__label">{label}</span>
-        <span className="sup-metric__value">
+        <span className="console-metric__label">{label}</span>
+        <span className="console-metric__value">
           {/* 아직 모르는 값을 0 으로 그리지 않는다. 0 은 "없다" 는 <b>주장</b>이라,
               도착하면 숫자가 튀고 그 사이 사용자는 틀린 사실을 읽는다. */}
           {pending ? '—' : value}
-          <span className="sup-metric__unit">{unit}</span>
+          <span className="console-metric__unit">{unit}</span>
         </span>
       </div>
-      <span className="sup-metric__icon" aria-hidden="true">
+      <span className="console-metric__icon" aria-hidden="true">
         {icon}
       </span>
     </div>

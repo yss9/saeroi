@@ -1,56 +1,18 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, EmptyState, StatusBadge, type StatusTone } from '../../components/common/index.ts'
+import { Button, EmptyState, StatusBadge } from '../../components/common/index.ts'
 import { useAuth } from '../../features/auth/hooks/useAuth.ts'
 import { useLogout } from '../../features/auth/hooks/useLogout.ts'
 import { ConsumerAccountLayout } from '../../features/user/components/ConsumerAccountLayout.tsx'
+import type { CancellationKind } from '../../features/user/types/consumerCancellation.types.ts'
+import {
+  ACTION_LABELS,
+  KIND_LABEL,
+  MOCK_CANCELLATION_ITEMS,
+  RECEIVED_LABEL,
+  STATUS_META,
+} from '../../features/user/utils/consumerCancellationMock.ts'
 import '../../features/user/components/consumer-cancellations.css'
-
-type CancellationKind = 'CANCEL' | 'RETURN' | 'EXCHANGE' | 'REFUND'
-type CancellationStatus = 'REQUESTED' | 'PROCESSING' | 'DONE' | 'REJECTED'
-
-interface CancellationItem {
-  id: string
-  kind: CancellationKind
-  status: CancellationStatus
-  productName: string
-  orderNumber: string
-  orderedAt: string
-  requestedAt: string
-  itemCount: number
-  reason: string
-  amount: number
-}
-
-const KIND_LABEL: Record<CancellationKind, string> = {
-  CANCEL: '취소',
-  RETURN: '반품',
-  EXCHANGE: '교환',
-  REFUND: '환불',
-}
-
-const STATUS_META: Record<CancellationStatus, { label: string; tone: StatusTone }> = {
-  REQUESTED: { label: '접수', tone: 'warning' },
-  PROCESSING: { label: '처리 중', tone: 'info' },
-  DONE: { label: '완료', tone: 'success' },
-  REJECTED: { label: '거절', tone: 'danger' },
-}
-
-/** 접수일 라벨 위에 붙는 문구. kind 별로 "취소/반품/교환/환불접수일"처럼 달라진다. */
-const RECEIVED_LABEL: Record<CancellationKind, string> = {
-  CANCEL: '취소접수일',
-  RETURN: '반품접수일',
-  EXCHANGE: '교환접수일',
-  REFUND: '환불접수일',
-}
-
-/** kind 별 상세/조회 버튼 라벨. 실제 핸들러는 없다 — 통합 조회 API가 아직 없는 목데이터 화면. */
-const ACTION_LABELS: Record<CancellationKind, readonly [string, string]> = {
-  CANCEL: ['취소상세', '취소사유확인'],
-  RETURN: ['반품상세', '회수조회'],
-  EXCHANGE: ['교환상세', '회수조회'],
-  REFUND: ['환불상세', '환불계좌확인'],
-}
 
 const priceFormatter = new Intl.NumberFormat('ko-KR', {
   style: 'currency',
@@ -63,58 +25,6 @@ const dateFormatter = new Intl.DateTimeFormat('ko-KR', {
   month: '2-digit',
   day: '2-digit',
 })
-
-/** 화면 확인용 목데이터. 백엔드가 아직 없다 — 취소/반품/교환/환불 통합 조회 API는 미착수. */
-const MOCK_ITEMS: readonly CancellationItem[] = [
-  {
-    id: '1',
-    kind: 'CANCEL',
-    status: 'DONE',
-    productName: '업사이클 데님 토트백',
-    orderNumber: 'ORD-00000012',
-    orderedAt: '2026-09-07T10:00:00',
-    requestedAt: '2026-09-10T11:20:00',
-    itemCount: 1,
-    reason: '단순 변심',
-    amount: 89000,
-  },
-  {
-    id: '2',
-    kind: 'RETURN',
-    status: 'PROCESSING',
-    productName: '재생 울 니트',
-    orderNumber: 'ORD-00000015',
-    orderedAt: '2026-09-11T09:00:00',
-    requestedAt: '2026-09-13T09:05:00',
-    itemCount: 1,
-    reason: '사이즈가 맞지 않음',
-    amount: 132000,
-  },
-  {
-    id: '3',
-    kind: 'EXCHANGE',
-    status: 'REQUESTED',
-    productName: '패치워크 파우치',
-    orderNumber: 'ORD-00000017',
-    orderedAt: '2026-09-14T18:30:00',
-    requestedAt: '2026-09-15T16:40:00',
-    itemCount: 2,
-    reason: '색상 교환 요청',
-    amount: 39000,
-  },
-  {
-    id: '4',
-    kind: 'REFUND',
-    status: 'REJECTED',
-    productName: '스컬그레이몬',
-    orderNumber: 'ORD-00000009',
-    orderedAt: '2026-09-05T13:00:00',
-    requestedAt: '2026-09-08T14:00:00',
-    itemCount: 1,
-    reason: '단순 변심(교환·반품 기간 경과)',
-    amount: 5000,
-  },
-]
 
 const TABS: readonly { key: 'ALL' | CancellationKind; label: string }[] = [
   { key: 'ALL', label: '전체' },
@@ -139,7 +49,7 @@ export function ConsumerCancellationsPage() {
   const profile = user ? { name: user.name, email: user.email } : null
 
   const [tab, setTab] = useState<'ALL' | CancellationKind>('ALL')
-  const items = MOCK_ITEMS.filter((item) => tab === 'ALL' || item.kind === tab)
+  const items = MOCK_CANCELLATION_ITEMS.filter((item) => tab === 'ALL' || item.kind === tab)
 
   return (
     <ConsumerAccountLayout
@@ -220,6 +130,18 @@ export function ConsumerCancellationsPage() {
                   </header>
 
                   <div className="return-card__body">
+                    {/*
+                      유형(취소/반품/교환) + 진행 상태를 한 배지로 합쳐 카드 왼쪽에 둔다
+                      (2026-09-17) — "완료"만 보고는 취소가 끝난 건지 반품이 끝난 건지 알 수
+                      없어, 처음부터 "취소 완료"처럼 한 문구로 적는다. 상태별 색은 그대로
+                      STATUS_META의 tone을 따른다.
+                    */}
+                    <div className="return-card__kind-status">
+                      <StatusBadge tone={status.tone}>
+                        {KIND_LABEL[item.kind]} {status.label}
+                      </StatusBadge>
+                    </div>
+
                     <div className="return-card__thumbnail">
                       <span aria-hidden="true" />
                     </div>
@@ -234,14 +156,24 @@ export function ConsumerCancellationsPage() {
                       <p className="return-card__price">{priceFormatter.format(item.amount)}</p>
                     </div>
 
-                    <div className="return-card__status-actions">
-                      <StatusBadge tone="neutral">{KIND_LABEL[item.kind]}</StatusBadge>
-                      <p className="return-card__status">{status.label}</p>
+                    <div className="return-card__actions-col">
                       <div className="return-card__actions">
-                        <Button variant="secondary" size="sm" fullWidth>
+                        {/* 두 버튼 모두 같은 상세 화면으로 간다 — 그 화면 안에서 유형별로
+                            사유/회수 정보/환불 계좌 섹션을 나눠 보여준다(2026-09-17). */}
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          fullWidth
+                          onClick={() => navigate(`/mypage/cancellations/${item.id}`)}
+                        >
                           {detailLabel}
                         </Button>
-                        <Button variant="secondary" size="sm" fullWidth>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          fullWidth
+                          onClick={() => navigate(`/mypage/cancellations/${item.id}`)}
+                        >
                           {trackingLabel}
                         </Button>
                       </div>

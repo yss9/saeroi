@@ -12,6 +12,7 @@ interface RecentlyViewedItem {
   brandName: string
   price: number
   viewedAt: string
+  imageUrl: string
 }
 
 const priceFormatter = new Intl.NumberFormat('ko-KR', {
@@ -20,37 +21,56 @@ const priceFormatter = new Intl.NumberFormat('ko-KR', {
   maximumFractionDigits: 0,
 })
 
-/** 화면 확인용 목데이터. 조회 이력 저장이 아직 없다(프론트 로컬 기록도, 서버 기록도 없음). */
-const MOCK_RECENTLY_VIEWED: readonly RecentlyViewedItem[] = [
-  {
-    id: '1',
-    productName: '업사이클 데님 토트백',
-    brandName: 'ReWeave',
-    price: 89000,
-    viewedAt: '2026-09-16T10:12:00',
-  },
-  {
-    id: '2',
-    productName: '재생 울 니트',
-    brandName: 'ReWeave',
-    price: 132000,
-    viewedAt: '2026-09-15T18:40:00',
-  },
-  {
-    id: '3',
-    productName: '패치워크 파우치',
-    brandName: 'ReWeave',
-    price: 39000,
-    viewedAt: '2026-09-14T09:30:00',
-  },
-  {
-    id: '4',
-    productName: '스컬그레이몬',
-    brandName: '한동규랜드',
-    price: 5000,
-    viewedAt: '2026-09-12T21:05:00',
-  },
+/** Pixabay 무료 이미지(2026-09-17) — 카드 크기·간격 확인용. 상품과 1:1로 대응하지 않고 돌려쓴다. */
+const IMAGE_POOL: readonly string[] = [
+  'https://cdn.pixabay.com/photo/2020/10/30/15/43/woman-5698925_640.jpg',
+  'https://cdn.pixabay.com/photo/2016/03/23/08/34/woman-1274361_640.jpg',
+  'https://cdn.pixabay.com/photo/2017/08/01/11/48/woman-2564660_640.jpg',
+  'https://cdn.pixabay.com/photo/2020/04/09/09/30/nike-5020608_640.jpg',
+  'https://cdn.pixabay.com/photo/2022/05/06/18/00/woman-7178848_1280.jpg',
+  'https://cdn.pixabay.com/photo/2020/10/26/18/05/man-5688112_640.jpg',
+  'https://cdn.pixabay.com/photo/2018/10/28/23/39/shoes-3780166_640.jpg',
+  'https://cdn.pixabay.com/photo/2022/05/19/18/41/woman-7207965_640.jpg',
+  'https://cdn.pixabay.com/photo/2016/11/29/03/26/pair-1867051_640.jpg',
+  'https://cdn.pixabay.com/photo/2017/01/23/19/40/woman-2003647_640.jpg',
+  'https://cdn.pixabay.com/photo/2016/11/22/19/08/hangers-1850082_640.jpg',
+  'https://cdn.pixabay.com/photo/2017/02/26/13/22/clothing-2100208_640.jpg',
+  'https://cdn.pixabay.com/photo/2020/07/20/15/17/clothing-5423353_640.jpg',
+  'https://cdn.pixabay.com/photo/2024/05/28/03/32/clothes-8792691_640.jpg',
+  'https://cdn.pixabay.com/photo/2022/05/09/19/42/hangers-7185447_640.jpg',
 ]
+
+const PRODUCT_POOL: readonly { productName: string; brandName: string; price: number }[] = [
+  { productName: '업사이클 데님 토트백', brandName: 'ReWeave', price: 89000 },
+  { productName: '재생 울 니트', brandName: 'ReWeave', price: 132000 },
+  { productName: '패치워크 파우치', brandName: 'ReWeave', price: 39000 },
+  { productName: '스컬그레이몬', brandName: '한동규랜드', price: 5000 },
+  { productName: '리사이클 캔버스 백팩', brandName: 'ReWeave', price: 76000 },
+  { productName: '업사이클 스니커즈', brandName: '한동규랜드', price: 68000 },
+  { productName: '빈티지 데님 자켓', brandName: 'ReWeave', price: 98000 },
+  { productName: '리메이크 니트 가디건', brandName: 'ReWeave', price: 112000 },
+  { productName: '업사이클 크로스백', brandName: '한동규랜드', price: 54000 },
+  { productName: '리사이클 러너 슈즈', brandName: 'ReWeave', price: 71000 },
+]
+
+const LATEST_VIEWED_AT = new Date('2026-09-16T10:12:00').getTime()
+
+/**
+ * 화면 확인용 목데이터. 조회 이력 저장이 아직 없다(프론트 로컬 기록도, 서버 기록도 없음).
+ *
+ * 15~20개로 채운다(2026-09-17) — 예전엔 4개뿐이라 한 줄에 다 들어가, 여러 줄로 넘어갔을
+ * 때 카드 크기·간격이 어떻게 보이는지 확인할 수 없었다.
+ */
+const MOCK_RECENTLY_VIEWED: readonly RecentlyViewedItem[] = Array.from(
+  { length: 18 },
+  (_, index) => ({
+    id: String(index + 1),
+    ...PRODUCT_POOL[index % PRODUCT_POOL.length],
+    // 최근 볼수록 앞에 오도록 하나씩 20시간 전으로 밀어낸다.
+    viewedAt: new Date(LATEST_VIEWED_AT - index * 20 * 60 * 60 * 1000).toISOString(),
+    imageUrl: IMAGE_POOL[index % IMAGE_POOL.length],
+  }),
+)
 
 /**
  * 최근 본 상품.
@@ -99,7 +119,7 @@ export function ConsumerRecentlyViewedPage() {
             {MOCK_RECENTLY_VIEWED.map((item) => (
               <article className="consumer-recently-viewed-card" key={item.id}>
                 <div className="consumer-recently-viewed-card__thumbnail">
-                  <span aria-hidden="true" />
+                  <img src={item.imageUrl} alt={item.productName} />
                 </div>
                 <div className="consumer-recently-viewed-card__body">
                   <p className="consumer-recently-viewed-card__brand">{item.brandName}</p>
@@ -109,14 +129,17 @@ export function ConsumerRecentlyViewedPage() {
                       {priceFormatter.format(item.price)}
                     </p>
                     <div className="consumer-mock-cart-action">
-                      <Button variant="primary" size="sm" onClick={() => addToCart(item.id)}>
-                        장바구니 담기
-                      </Button>
                       {addedToCartIds[item.id] ? (
-                        <span className="consumer-mock-cart-message" role="status">
-                          담았습니다
-                        </span>
-                      ) : null}
+                        // 장바구니 화면이 아직 없어(카트 API 미착수) 이동은 하지 않는다 —
+                        // 버튼 자체가 "이미 담겨 있다"는 상태만 보여준다.
+                        <Button variant="secondary" size="sm">
+                          장바구니로 이동
+                        </Button>
+                      ) : (
+                        <Button variant="primary" size="sm" onClick={() => addToCart(item.id)}>
+                          장바구니 담기
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </div>

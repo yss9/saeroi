@@ -144,7 +144,7 @@ describe('ProductQrPage', () => {
     const user = renderPage()
     await waitFor(() => expect(api.getProductionItems).toHaveBeenCalledWith(8))
 
-    await user.selectOptions(await screen.findByLabelText('생산 배치'), '7')
+    await user.selectOptions(await screen.findByLabelText('생산 건'), '7')
 
     await waitFor(() => expect(api.getProductionItems).toHaveBeenCalledWith(7))
   })
@@ -155,7 +155,7 @@ describe('ProductQrPage', () => {
     renderPage()
 
     expect(await screen.findByText(/PB-000007/)).toBeInTheDocument()
-    expect(screen.queryByLabelText('생산 배치')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('생산 건')).not.toBeInTheDocument()
   })
 
   it('확정된 배치가 없으면 생산으로 보낸다', async () => {

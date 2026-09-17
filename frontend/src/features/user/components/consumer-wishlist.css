@@ -45,14 +45,6 @@
   white-space: nowrap;
 }
 
-.consumer-mock-cart-message {
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: var(--consumer-blue);
-  white-space: nowrap;
-  text-align: center;
-}
-
 /* X 삭제 버튼 (예전엔 하트 찜 해제 버튼이었다) */
 .consumer-wishlist-card__unlike {
   color: var(--consumer-muted);

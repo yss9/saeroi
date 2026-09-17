@@ -15,6 +15,16 @@ const mocks = vi.hoisted(() => ({
     isBusy: false,
     isRejected: false,
   },
+  evidenceFiles: [] as Array<{
+    evidenceFileId: number
+    storageKey: string
+    contentPath: string
+    fileHash: string
+    evidenceType: 'WEIGHT_PHOTO'
+    uploadedBy: number
+    uploadedAt: string
+    deletedAt: null
+  }>,
 }))
 
 vi.mock('../../auth/hooks/useAuth.ts', () => ({
@@ -39,6 +49,14 @@ vi.mock('../../wallet/hooks/useWallet.ts', () => ({
 
 vi.mock('../hooks/useMintMaterialOnChain.ts', () => ({
   useMintMaterialOnChain: () => ({ ...mocks.mintState, mint: mocks.mint }),
+}))
+
+vi.mock('../../evidence/hooks/useEvidence.ts', () => ({
+  useEvidence: () => ({
+    data: { visibility: 'FULL', files: mocks.evidenceFiles, summary: [] },
+    isPending: false,
+    isError: false,
+  }),
 }))
 
 vi.mock('../../../config/contracts.ts', () => ({
@@ -91,6 +109,47 @@ describe('MaterialMintPanel', () => {
     mocks.mintState.status = 'IDLE'
     mocks.mintState.hash = null
     mocks.mintState.blockNumber = null
+    mocks.evidenceFiles = []
+  })
+
+  it('새로고침 후에도 유일한 저울 사진 증빙의 실제 해시로 발행한다', async () => {
+    mocks.evidenceFiles = [{
+      evidenceFileId: 91,
+      storageKey: 'evidence/scale.jpg',
+      contentPath: '/api/evidence/91/content',
+      fileHash: `0x${'12'.repeat(32)}`,
+      evidenceType: 'WEIGHT_PHOTO',
+      uploadedBy: 3,
+      uploadedAt: '2026-09-16T00:00:00',
+      deletedAt: null,
+    }]
+    const user = userEvent.setup()
+    render(<MaterialMintPanel material={material} />)
+
+    await user.click(screen.getByRole('button', { name: '온체인 발행' }))
+
+    expect(mocks.mint).toHaveBeenCalledWith(expect.objectContaining({
+      evidenceHash: `0x${'12'.repeat(32)}`,
+    }))
+  })
+
+  it('저울 사진 증빙이 여러 개면 임의 선택하지 않고 발행을 막는다', () => {
+    mocks.evidenceFiles = [1, 2].map((id) => ({
+      evidenceFileId: id,
+      storageKey: `evidence/${id}.jpg`,
+      contentPath: `/api/evidence/${id}/content`,
+      fileHash: `0x${String(id).repeat(64)}`,
+      evidenceType: 'WEIGHT_PHOTO' as const,
+      uploadedBy: 3,
+      uploadedAt: '2026-09-16T00:00:00',
+      deletedAt: null,
+    }))
+
+    render(<MaterialMintPanel material={material} />)
+
+    expect(screen.getByRole('button', { name: '온체인 발행' })).toBeDisabled()
+    expect(screen.getByText(/저울 사진 증빙이 여러 개/)).toBeInTheDocument()
+    expect(mocks.mint).not.toHaveBeenCalled()
   })
 
   it('SSAFY 체인의 연결 지갑으로 mintMaterial 발행을 요청한다', async () => {
