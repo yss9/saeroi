@@ -27,19 +27,32 @@
 # 즉 preflight 가 목적("배포 전에 validate 실패를 미리 잡는다")을 절반만 하고 있었다.
 # 그래서 이제 **컬럼 타입도 대조한다.**
 #
+# 왜 NULL 허용 여부도 보는가 (2026-09-17 실사고)
+# ─────────────────────────────────────────────────────────────────────
+# `production_batch.product_model_id` 를 nullable 로 바꾸는 마이그레이션이 test DB 에
+# 반영되지 않은 채 배포됐다. **Hibernate `validate` 도 이 스크립트도 nullable 불일치는
+# 보지 않아서 배포·기동이 둘 다 성공했다** — 사고는 그 컬럼에 실제로 NULL 을 넣는
+# 요청이 들어온 순간에야 SQL 에러로 터졌다. 즉 nullable 불일치는 기동 시점이 아니라
+# "그 값이 NULL 인 데이터가 처음 지나갈 때" 뒤늦게 드러난다 — 스키마 사고 중 가장
+# 늦게, 가장 예측하기 어렵게 터지는 유형이다. 그래서 타입처럼 배포 전에 대조한다.
+#
+# NULL 표기 판정은 각 컬럼 정의 조각에 `NOT NULL` 문자열이 있는지만 본다 — 없으면
+# nullable 로 취급한다(MySQL 기본값과 동일). PRIMARY KEY 로 선언해 암묵적으로
+# NOT NULL 이 되는 경우는 보지 않는다 — 이 스키마는 그런 컬럼에도 관례적으로 NOT NULL
+# 을 명시하므로 실용적으로 충분하다.
+#
 # 무엇을 비교하고 무엇을 일부러 비교하지 않는가
 # ─────────────────────────────────────────────────────────────────────
-# 비교한다   : 없는 테이블 / 없는 컬럼 / 컬럼 **타입**
-# 비교 안 한다: NULL 허용 여부, DEFAULT, AUTO_INCREMENT, 인덱스·제약, 컬럼 순서,
+# 비교한다   : 없는 테이블 / 없는 컬럼 / 컬럼 **타입** / **NULL 허용 여부**
+# 비교 안 한다: DEFAULT, AUTO_INCREMENT, 인덱스·제약, 컬럼 순서,
 #              CHARACTER SET / COLLATE, 라이브에만 있는 여분 컬럼
 #
-# NULL·DEFAULT 를 뺀 것은 의도적이다. Hibernate `validate` 는 기본적으로
-# **테이블·컬럼의 존재와 타입**만 확인하고 nullable/default 는 보지 않는다.
-# 그런데 이 두 항목은 표기 방식이 워낙 다양해서(`NULL` 생략 = nullable,
-# `DEFAULT CURRENT_TIMESTAMP` vs `CURRENT_TIMESTAMP`, BOOLEAN `TRUE` vs `1`)
-# 넣는 순간 거짓 양성이 쏟아진다. **거짓 양성이 나오면 사람이 이 스크립트를
-# 무시하게 되고, 그러면 진짜 사고를 또 놓친다** — 그게 제일 큰 위험이다.
-# 그래서 "validate 를 실제로 실패시키는 것"만 좁게 본다.
+# DEFAULT 를 뺀 것은 의도적이다. Hibernate `validate` 는 기본적으로
+# **테이블·컬럼의 존재와 타입**만 확인하고 default 는 보지 않는다.
+# 그런데 이 항목은 표기 방식이 워낙 다양해서(`DEFAULT CURRENT_TIMESTAMP` vs
+# `CURRENT_TIMESTAMP`, BOOLEAN `TRUE` vs `1`) 넣는 순간 거짓 양성이 쏟아진다.
+# **거짓 양성이 나오면 사람이 이 스크립트를 무시하게 되고, 그러면 진짜 사고를
+# 또 놓친다** — 그게 제일 큰 위험이다. 그래서 "실제로 사고를 냈던 것" 만 좁게 본다.
 #
 # 사용법
 # ─────────────────────────────────────────────────────────────────────
@@ -211,8 +224,8 @@ function canon(ty) {
 schema_column_defs() {
     printf '%s\n' "$SCHEMA_SQL" \
         | awk -v t="$1" "$CANON_AWK"'
-            # item = 괄호 깊이 0 의 콤마로 쪼갠 한 조각. 컬럼이면 이름<TAB>타입을 출력한다.
-            function emit(item,  i, c, n, name, ty, inq, depth, w, rest) {
+            # item = 괄호 깊이 0 의 콤마로 쪼갠 한 조각. 컬럼이면 이름<TAB>타입<TAB>NULL허용 을 출력한다.
+            function emit(item,  i, c, n, name, ty, inq, depth, w, rest, nullable) {
                 gsub(/^[ \t]+|[ \t]+$/, "", item)
                 if (item == "") return
                 # 제약·인덱스 조각은 컬럼이 아니다
@@ -269,7 +282,11 @@ schema_column_defs() {
                         }
                     } else break
                 }
-                printf "%s\t%s\n", name, canon(ty)
+                # 5) NULL 허용 여부 — 이 조각 전체에 NOT NULL 이 있는지만 본다(2026-09-17).
+                #    없으면 MySQL 기본값과 같이 nullable 로 본다. PRIMARY KEY 로만 암묵적
+                #    NOT NULL 이 되는 경우는 다루지 않는다 — 위 주석 참고.
+                nullable = (toupper(item) ~ /NOT[ \t]+NULL/) ? "NO" : "YES"
+                printf "%s\t%s\t%s\n", name, canon(ty), nullable
             }
             $0 ~ "^CREATE TABLE `?"t"`? \\(" { inside=1; next }
             inside && /^\) *ENGINE=/ { inside=0; done=1; next }
@@ -342,7 +359,7 @@ fi
 # information_schema.COLUMNS 의 COLUMN_TYPE 은 `char(66)` `enum('A','B')` `decimal(5,2)`
 # 처럼 schema.sql 과 같은 MySQL 문법으로 나오므로 방언 변환이 필요 없다.
 LIVE_COLUMNS="$(mysql_q "
-    SELECT TABLE_NAME, COLUMN_NAME, COLUMN_TYPE
+    SELECT TABLE_NAME, COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE
       FROM information_schema.COLUMNS
      WHERE TABLE_SCHEMA = DATABASE()
      ORDER BY TABLE_NAME, ORDINAL_POSITION;")"
@@ -353,32 +370,41 @@ if [ $MYSQL_RC -ne 0 ]; then
     exit 2
 fi
 
-# 라이브 타입을 `테이블.컬럼 → 정규화된타입` 연관배열로 한 번만 만든다.
+# 라이브 타입·NULL 허용 여부를 `테이블.컬럼 → 값` 연관배열로 한 번만 만든다.
 # 컬럼마다 질의하거나 awk 를 새로 띄우면 컬럼 200여 개에 프로세스 200여 개가 된다.
 declare -A LIVE_TYPE=()
-while IFS=$'\t' read -r ltab lcol ltype; do
+declare -A LIVE_NULL=()
+while IFS=$'\t' read -r ltab lcol ltype lnull; do
     [ -n "${lcol:-}" ] || continue
     LIVE_TYPE["$ltab.$lcol"]="$ltype"
+    LIVE_NULL["$ltab.$lcol"]="$lnull"
 done < <(printf '%s\n' "$LIVE_COLUMNS" | awk -F'\t' "$CANON_AWK"'
-    NF >= 3 { printf "%s\t%s\t%s\n", $1, $2, canon($3) }')
+    NF >= 4 { printf "%s\t%s\t%s\t%s\n", $1, $2, canon($3), $4 }')
 
 MISSING_TABLES=()
 MISSING_COLUMNS=()
 TYPE_MISMATCHES=()
+NULLABILITY_MISMATCHES=()
 
 for table in $(expected_tables); do
     if ! printf '%s\n' "$LIVE_TABLES" | grep -qx "$table"; then
         MISSING_TABLES+=("$table")
         continue
     fi
-    while IFS=$'\t' read -r col want; do
+    while IFS=$'\t' read -r col want wantnull; do
         [ -n "${col:-}" ] || continue
         got="${LIVE_TYPE[$table.$col]:-}"
         if [ -z "$got" ]; then
             MISSING_COLUMNS+=("$table.$col")
-        elif [ "$got" != "$want" ]; then
+            continue
+        fi
+        if [ "$got" != "$want" ]; then
             # 표기 형식: 테이블.컬럼<TAB>기대<TAB>실제 — 보고에서 열로 맞춰 찍는다
             TYPE_MISMATCHES+=("$table.$col"$'\t'"$want"$'\t'"$got")
+        fi
+        gotnull="${LIVE_NULL[$table.$col]:-}"
+        if [ -n "$wantnull" ] && [ "$wantnull" != "$gotnull" ]; then
+            NULLABILITY_MISMATCHES+=("$table.$col"$'\t'"$wantnull"$'\t'"$gotnull")
         fi
     done < <(schema_column_defs "$table")
 done
@@ -391,21 +417,21 @@ log "라이브 테이블: $(printf '%s\n' "$LIVE_TABLES" | wc -l) 개"
 log "대조한 컬럼 : ${#LIVE_TYPE[@]} 개 (라이브 기준)"
 log ""
 
-if [ ${#MISSING_TABLES[@]} -eq 0 ] && [ ${#MISSING_COLUMNS[@]} -eq 0 ] && [ ${#TYPE_MISMATCHES[@]} -eq 0 ]; then
-    log "OK: 부족한 테이블·컬럼 없음, 컬럼 타입도 일치. 배포해도 validate 가 통과한다."
-    log "    (NULL 허용·DEFAULT·인덱스는 대조하지 않는다 — 스크립트 상단 주석 참고)"
+if [ ${#MISSING_TABLES[@]} -eq 0 ] && [ ${#MISSING_COLUMNS[@]} -eq 0 ] && [ ${#TYPE_MISMATCHES[@]} -eq 0 ] && [ ${#NULLABILITY_MISMATCHES[@]} -eq 0 ]; then
+    log "OK: 부족한 테이블·컬럼 없음, 컬럼 타입·NULL 허용 여부도 일치. 배포해도 validate 가 통과한다."
+    log "    (DEFAULT·인덱스는 대조하지 않는다 — 스크립트 상단 주석 참고)"
     exit 0
 fi
 
 # ── SAFE_MISSING_TABLES_FILE ─────────────────────────────────────────
-# 호출자(예: test-deploy.sh)가 "없는 테이블만 있고, 없는 컬럼·타입 불일치는 전혀
-# 없는" 안전한 경우를 기계적으로 판별해 자동 적용을 시도할 수 있도록, 그 조건을
-# 만족할 때만 없는 테이블 이름을 파일로 남긴다. 없는 컬럼 추가나 타입 변경은
-# 기존 행의 데이터를 건드릴 수 있어(위 2026-09-08 사고) 여기 포함하지 않는다 —
-# 새 테이블 CREATE 만 "기존 데이터에 영향 없음"이 기계적으로 보장되는 경우다.
+# 호출자(예: test-deploy.sh)가 "없는 테이블만 있고, 없는 컬럼·타입·NULL 허용 불일치는
+# 전혀 없는" 안전한 경우를 기계적으로 판별해 자동 적용을 시도할 수 있도록, 그 조건을
+# 만족할 때만 없는 테이블 이름을 파일로 남긴다. 없는 컬럼 추가나 타입·NULL 허용 변경은
+# 기존 행의 데이터를 건드릴 수 있어(위 2026-09-08, 2026-09-17 사고) 여기 포함하지
+# 않는다 — 새 테이블 CREATE 만 "기존 데이터에 영향 없음"이 기계적으로 보장되는 경우다.
 if [ -n "${SAFE_MISSING_TABLES_FILE:-}" ]; then
     rm -f "$SAFE_MISSING_TABLES_FILE"
-    if [ ${#MISSING_TABLES[@]} -gt 0 ] && [ ${#MISSING_COLUMNS[@]} -eq 0 ] && [ ${#TYPE_MISMATCHES[@]} -eq 0 ]; then
+    if [ ${#MISSING_TABLES[@]} -gt 0 ] && [ ${#MISSING_COLUMNS[@]} -eq 0 ] && [ ${#TYPE_MISMATCHES[@]} -eq 0 ] && [ ${#NULLABILITY_MISMATCHES[@]} -eq 0 ]; then
         printf '%s\n' "${MISSING_TABLES[@]}" > "$SAFE_MISSING_TABLES_FILE"
     fi
 fi
@@ -429,6 +455,17 @@ if [ ${#TYPE_MISMATCHES[@]} -gt 0 ]; then
     log "  엔티티 쪽이 틀렸을 수도 있다 — 예: @Column(length=66) 만 쓰면 Hibernate 는"
     log "  varchar 를 기대한다. CHAR 를 원하면 columnDefinition 이나 @Column(columnDefinition=\"CHAR(66)\")"
     log "  이 필요하다. **DB 를 고칠 것인지 엔티티를 고칠 것인지 먼저 결정할 것.**"
+    log ""
+fi
+if [ ${#NULLABILITY_MISMATCHES[@]} -gt 0 ]; then
+    log "NULL 허용 여부가 다른 컬럼 ${#NULLABILITY_MISMATCHES[@]} 개 (기준 → 라이브, NULL 허용=YES):"
+    printf '%s\n' "${NULLABILITY_MISMATCHES[@]}" \
+        | awk -F'\t' '{ printf "  %-48s %s  →  %s\n", $1, $2, $3 }'
+    log ""
+    log "  2026-09-17 사고가 이 유형이다 — Hibernate validate 도 이 스크립트도 예전엔"
+    log "  이 항목을 안 봐서 배포·기동은 성공했고, 실제로 NULL 값이 지나가는 요청이"
+    log "  와서야 SQL 에러로 드러났다. 라이브가 NOT NULL 인데 기존 행에 이미 NULL 이"
+    log "  있을 수 있다 — MODIFY 전에 그 행부터 확인할 것."
     log ""
 fi
 
@@ -457,12 +494,34 @@ if [ $EMIT_DDL -eq 1 ]; then
                 split($1, p, ".")
                 printf "  -- ALTER TABLE %s MODIFY COLUMN %s %s;  -- 현재: %s\n", p[1], p[2], toupper($2), $3
               }'
+        log ""
+    fi
+    if [ ${#NULLABILITY_MISMATCHES[@]} -gt 0 ]; then
+        log "-- NULL 허용 변경도 **주석으로만** 낸다. YES→NO(NOT NULL로 좁히는 쪽)는 기존 행에"
+        log "-- 이미 NULL 이 있으면 그 자체로 실패한다 — 적용 전에 그 행부터 확인/정리할 것."
+        log "-- 타입은 라이브에 있는 그대로 적었다 — 실제 실행 전 schema.sql 의 전체 정의"
+        log "-- (DEFAULT 등)와 맞는지 다시 볼 것."
+        printf '%s\n' "${NULLABILITY_MISMATCHES[@]}" \
+            | awk -F'\t' '{
+                split($1, p, ".")
+                nullclause = ($2 == "YES") ? "NULL" : "NOT NULL"
+                printf "  -- ALTER TABLE %s MODIFY COLUMN %s <타입> %s;  -- 기준 NULL 허용=%s, 라이브=%s\n", p[1], p[2], nullclause, $2, $3
+              }'
     fi
 else
     log "DDL 을 보려면: bash scripts/check-schema.sh --ddl"
 fi
 
 log ""
-log "⚠️  이 상태로 backend 를 배포하면 Hibernate validate 가 실패해 컨테이너가 죽는다."
+if [ ${#MISSING_TABLES[@]} -gt 0 ] || [ ${#MISSING_COLUMNS[@]} -gt 0 ] || [ ${#TYPE_MISMATCHES[@]} -gt 0 ]; then
+    log "⚠️  이 상태로 backend 를 배포하면 Hibernate validate 가 실패해 컨테이너가 죽는다."
+else
+    # NULLABILITY_MISMATCHES 만 있는 경우 — Hibernate validate 는 이 항목을 보지
+    # 않으므로 기동은 성공한다. 그래서 문구를 다르게 낸다 — 그렇지 않으면 "배포하면
+    # 죽는다" 는 이 스크립트를 실제로 안 죽는 경우에도 겁주는 거짓 경고가 된다.
+    log "⚠️  이 상태로 배포해도 기동은 성공한다(Hibernate validate 는 NULL 허용 여부를"
+    log "    보지 않는다) — 하지만 그 컬럼에 실제로 NULL 이 오가는 요청에서 SQL 에러로"
+    log "    뒤늦게 터진다(2026-09-17 사고와 동일한 유형)."
+fi
 log "    DDL 을 먼저 적용하고 이 스크립트를 다시 돌려 OK 를 확인한 뒤 배포할 것."
 exit 1
