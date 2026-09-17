@@ -121,6 +121,15 @@ app:
     # 생산 배치 기록용 레지스트리. 이 주소만 비어 있어도 소재·거래 기록은 계속 동작한다 —
     # 나중에 붙는 컨트랙트가 앞선 기능을 멈추게 하지 않는다.
     production-registry-address: ${PRODUCTION_REGISTRY_ADDRESS:}
+  prediction:
+    chain-id: ${PREDICTION_CHAIN_ID:31221}
+    rpc-url: ${PREDICTION_RPC_URL:${BESU_RPC_URL:}}
+    market-address: ${PREDICTION_MARKET_ADDRESS:}
+    token-address: ${PREDICTION_POINT_ADDRESS:}
+    # MARKET_CREATOR_ROLE, ORACLE_ROLE, PredictionPoint.MINTER_ROLE을 가진 운영 주소의 키.
+    operator-private-key: ${PREDICTION_OPERATOR_PRIVATE_KEY:}
+    welcome-point-amount: ${PREDICTION_WELCOME_POINT_AMOUNT:1000000000000000000000}
+    oracle-enabled: ${PREDICTION_ORACLE_ENABLED:false}
   material:
     # 소재 최초 발행을 어디가 정본으로 하는가.
     #

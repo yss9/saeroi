@@ -804,6 +804,7 @@ CREATE TABLE canceled_product_order (
     payment_reference VARCHAR(100) NULL,
     cancel_reason VARCHAR(255) NULL,
     original_created_at DATETIME NOT NULL,
+    original_paid_at DATETIME NULL,
     canceled_at DATETIME NOT NULL,
     CONSTRAINT pk_canceled_product_order PRIMARY KEY (id),
     CONSTRAINT uk_canceled_product_order_original UNIQUE (original_order_id),
@@ -830,6 +831,85 @@ CREATE TABLE canceled_product_order_item (
         REFERENCES product_model (id),
     CONSTRAINT chk_canceled_product_order_item_price CHECK (price >= 0),
     INDEX idx_canceled_product_order_item_order (canceled_product_order_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Prediction market ---------------------------------------------------------
+
+CREATE TABLE prediction_market (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    chain_market_id BIGINT NOT NULL,
+    production_batch_id BIGINT NOT NULL,
+    chain_batch_id BIGINT NOT NULL,
+    product_model_id BIGINT NOT NULL,
+    product_name VARCHAR(200) NOT NULL,
+    product_thumbnail_url VARCHAR(500) NULL,
+    brand_id BIGINT NOT NULL,
+    brand_wallet VARCHAR(42) NOT NULL,
+    unit_price BIGINT NOT NULL,
+    production_quantity INT NOT NULL,
+    betting_ends_at DATETIME NOT NULL,
+    sales_starts_at DATETIME NOT NULL,
+    sales_ends_at DATETIME NOT NULL,
+    status ENUM('OPEN', 'RESOLVING', 'RESOLVED', 'CANCELED') NOT NULL,
+    sold_quantity INT NULL,
+    winning_bucket_index INT NULL,
+    result_hash CHAR(66) NULL,
+    creation_tx_hash CHAR(66) NOT NULL,
+    resolution_tx_hash CHAR(66) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    resolved_at DATETIME NULL,
+    CONSTRAINT pk_prediction_market PRIMARY KEY (id),
+    CONSTRAINT uk_prediction_market_chain UNIQUE (chain_market_id),
+    CONSTRAINT uk_prediction_market_batch UNIQUE (production_batch_id),
+    CONSTRAINT uk_prediction_market_chain_batch UNIQUE (chain_batch_id),
+    CONSTRAINT fk_prediction_market_batch FOREIGN KEY (production_batch_id) REFERENCES production_batch (id),
+    CONSTRAINT fk_prediction_market_model FOREIGN KEY (product_model_id) REFERENCES product_model (id),
+    CONSTRAINT fk_prediction_market_brand FOREIGN KEY (brand_id) REFERENCES users (id),
+    CONSTRAINT chk_prediction_market_values CHECK (unit_price >= 0 AND production_quantity > 0),
+    INDEX idx_prediction_market_status_end (status, sales_ends_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE prediction_bucket (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    market_id BIGINT NOT NULL,
+    bucket_index INT NOT NULL,
+    lower_bound INT NOT NULL,
+    upper_bound INT NOT NULL,
+    CONSTRAINT pk_prediction_bucket PRIMARY KEY (id),
+    CONSTRAINT uk_prediction_bucket_market_index UNIQUE (market_id, bucket_index),
+    CONSTRAINT fk_prediction_bucket_market FOREIGN KEY (market_id) REFERENCES prediction_market (id),
+    CONSTRAINT chk_prediction_bucket_range CHECK (bucket_index >= 0 AND lower_bound >= 0 AND upper_bound >= lower_bound),
+    INDEX idx_prediction_bucket_market (market_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE prediction_response (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    market_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    wallet_address VARCHAR(42) NOT NULL,
+    bucket_index INT NOT NULL,
+    stake_amount VARCHAR(78) NOT NULL,
+    reason_code ENUM('DESIGN', 'PRICE', 'BRAND', 'SUSTAINABILITY', 'PRACTICALITY', 'TREND', 'OTHER') NOT NULL,
+    reason_text VARCHAR(500) NULL,
+    bet_tx_hash CHAR(66) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT pk_prediction_response PRIMARY KEY (id),
+    CONSTRAINT uk_prediction_response_market_user UNIQUE (market_id, user_id),
+    CONSTRAINT uk_prediction_response_tx UNIQUE (bet_tx_hash),
+    CONSTRAINT fk_prediction_response_market FOREIGN KEY (market_id) REFERENCES prediction_market (id),
+    CONSTRAINT fk_prediction_response_user FOREIGN KEY (user_id) REFERENCES users (id),
+    INDEX idx_prediction_response_market_bucket (market_id, bucket_index)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE prediction_point_grant (
+    user_id BIGINT NOT NULL,
+    wallet_address VARCHAR(42) NOT NULL,
+    amount VARCHAR(78) NOT NULL,
+    tx_hash CHAR(66) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT pk_prediction_point_grant PRIMARY KEY (user_id),
+    CONSTRAINT uk_prediction_point_grant_tx UNIQUE (tx_hash),
+    CONSTRAINT fk_prediction_point_grant_user FOREIGN KEY (user_id) REFERENCES users (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Marketplace / Trade -------------------------------------------------------
