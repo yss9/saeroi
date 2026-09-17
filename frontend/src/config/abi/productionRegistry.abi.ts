@@ -24,6 +24,7 @@ export const PRODUCTION_REGISTRY_ABI = [
   "function getBatch(uint256 batchId) view returns (tuple(address brand, uint256 productQuantity, bytes32 evidenceHash, uint8 status, uint64 createdAt, uint64 confirmedAt, uint16 upcycledRatioBps))",
   "function getMaterialUses(uint256 batchId) view returns (tuple(uint256 tokenId, uint256 inputAmount, uint256 productUsed, uint256 scrap, uint256 waste, uint256 lockId, uint8 rootOrigin, string scrapMetadataUri, bytes32 scrapEvidenceHash, uint256 scrapTokenId)[])",
   "function getProductItems(uint256 batchId) view returns (uint256[])",
+  "function getProductPassportProof(uint256 productItemId) view returns (tuple(uint256 productItemId, uint256 batchId, address brand, uint16 upcycledRatioBps, bytes32 evidenceHash, uint64 confirmedAt))",
   "function getRoleAdmin(bytes32 role) view returns (bytes32)",
   "function grantRole(bytes32 role, address account)",
   "function hasRole(bytes32 role, address account) view returns (bool)",
