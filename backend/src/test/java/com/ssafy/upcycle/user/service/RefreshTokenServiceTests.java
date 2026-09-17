@@ -161,6 +161,57 @@ class RefreshTokenServiceTests {
     }
 
     @Test
+    void revokingEverySessionCutsAllOfThatUsersDevices() {
+        // 비밀번호 변경이 부르는 경로다. 바꾼 기기만 정리하면 침입자의 세션은 살아 있다.
+        IssuedTokenPair phone = service.issueFor(user);
+        IssuedTokenPair laptop = service.issueFor(user);
+
+        assertThat(service.revokeAllFor(user.getId())).isEqualTo(2);
+
+        for (IssuedTokenPair session : new IssuedTokenPair[] {phone, laptop}) {
+            assertThatThrownBy(() -> service.refresh(session.refreshToken()))
+                    .isInstanceOfSatisfying(BusinessException.class, exception ->
+                            assertThat(exception.getErrorCode())
+                                    .isEqualTo(TokenRefreshErrorCode.INVALID_REFRESH_TOKEN));
+        }
+    }
+
+    @Test
+    void revokingEverySessionLeavesOtherUsersAlone() {
+        // 조건에서 user_id 가 빠지면 한 사람의 비밀번호 변경이 전원을 로그아웃시킨다.
+        IssuedTokenPair mine = service.issueFor(user);
+        User other = userRepository.save(User.register(
+                "other@example.com", "{noop}x", "이웃", "010-2222-3333", UserRole.CONSUMER));
+        IssuedTokenPair theirs = service.issueFor(other);
+
+        service.revokeAllFor(user.getId());
+
+        assertThat(refreshTokenRepository.findByTokenHash(codec.hash(mine.refreshToken())))
+                .get()
+                .satisfies(token -> assertThat(token.isRevoked()).isTrue());
+        assertThat(refreshTokenRepository.findByTokenHash(codec.hash(theirs.refreshToken())))
+                .get()
+                .satisfies(token -> assertThat(token.isRevoked()).isFalse());
+    }
+
+    @Test
+    void revokingEverySessionKeepsTheFirstRevocationTime() {
+        // 이미 폐기된 행의 revoked_at 을 덮어쓰면 처음 폐기된 시각을 잃는다.
+        IssuedTokenPair issued = service.issueFor(user);
+        service.revoke(issued.refreshToken());
+        LocalDateTime revokedAt = refreshTokenRepository
+                .findByTokenHash(codec.hash(issued.refreshToken()))
+                .orElseThrow()
+                .getRevokedAt();
+
+        assertThat(service.revokeAllFor(user.getId())).isZero();
+
+        assertThat(refreshTokenRepository.findByTokenHash(codec.hash(issued.refreshToken())))
+                .get()
+                .satisfies(token -> assertThat(token.getRevokedAt()).isEqualTo(revokedAt));
+    }
+
+    @Test
     void suspendedUsersCannotRefreshTheirSession() {
         IssuedTokenPair issued = service.issueFor(user);
         user.suspend();
