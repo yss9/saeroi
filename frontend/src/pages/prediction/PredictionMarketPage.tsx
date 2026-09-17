@@ -7,6 +7,7 @@ import { useLogout } from '../../features/auth/hooks/useLogout.ts'
 import { grantPredictionWelcomePoint, savePredictionSurvey } from '../../features/prediction/api/predictionApi.ts'
 import { usePredictionChainState } from '../../features/prediction/hooks/usePredictionChainState.ts'
 import { predictionKeys, usePredictionMarkets } from '../../features/prediction/hooks/usePredictionMarkets.ts'
+import { predictionPointBalanceKey, usePredictionPointBalance } from '../../features/prediction/hooks/usePredictionPointBalance.ts'
 import { approveAndPlacePredictionBet, claimPrediction, formatPredictionPoint } from '../../features/prediction/services/predictionContractService.ts'
 import type { PredictionMarket, PredictionReasonCode } from '../../features/prediction/types/prediction.types.ts'
 import { ConsumerAccountLayout } from '../../features/user/components/ConsumerAccountLayout.tsx'
@@ -126,10 +127,17 @@ export function PredictionMarketPage() {
   const wallet = useWallet()
   const myWallets = useMyWallets()
   const markets = usePredictionMarkets()
-  const welcome = useMutation({ mutationFn: grantPredictionWelcomePoint })
+  const queryClient = useQueryClient()
   const registeredAddress = myWallets.activeWallet?.walletAddress ?? null
   const usableWallet = wallet.status === 'connected' && !wallet.wrongChain
     && registeredAddress?.toLowerCase() === wallet.address?.toLowerCase() ? wallet.address : null
+  // 열린 시장이 하나도 없으면 시장 카드 안의 잔액 표시가 뜰 자리가 없다.
+  // 그래서 시장 유무와 무관하게 잔액만 따로 조회한다.
+  const pointBalance = usePredictionPointBalance(usableWallet)
+  const welcome = useMutation({
+    mutationFn: grantPredictionWelcomePoint,
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: predictionPointBalanceKey(usableWallet) }),
+  })
 
   return (
     <ConsumerAccountLayout current="predictions" profile={user ? { name: user.name, email: user.email } : null}
@@ -140,6 +148,11 @@ export function PredictionMarketPage() {
         <h2>판매량 예측시장</h2>
         <p>생산량은 체인에 고정되고, 실제 결제·취소에서 계산한 순판매량으로 결과를 판정합니다. 선택한 이유는 브랜드의 선호도 분석에 익명 집계됩니다.</p>
         <WalletRegistrationPanel registeredAddress={registeredAddress} />
+        {usableWallet ? (
+          <div className="prediction-card__wallet-stats">
+            <span>보유 {pointBalance.data !== undefined ? formatPredictionPoint(pointBalance.data) : '—'} PRED</span>
+          </div>
+        ) : null}
         {usableWallet ? <Button variant="secondary" onClick={() => welcome.mutate()} loading={welcome.isPending}>첫 참여 포인트 받기</Button> : null}
         {welcome.data ? <p className="prediction-success">웰컴 포인트가 지급되었습니다.</p> : null}
         {welcome.error ? <p className="prediction-error">{toErrorMessage(welcome.error)}</p> : null}

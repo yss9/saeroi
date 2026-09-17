@@ -9,6 +9,19 @@ export function formatPredictionPoint(value: bigint): string {
   return Number(formatUnits(value, DECIMALS)).toLocaleString('ko-KR', { maximumFractionDigits: 4 })
 }
 
+/**
+ * 지금 보유한 PRED 포인트만 조회한다.
+ *
+ * `loadPredictionChainState`는 특정 시장의 예치 현황까지 같이 조회하므로 시장이
+ * 하나도 없으면(예: 아직 아무도 열지 않은 초기 상태) 부를 곳이 없다. 열린 시장
+ * 유무와 무관하게 "받은 포인트가 잔액에 잡혔는지"만 보여줘야 하는 화면(웰컴 포인트
+ * 발급 직후 등)을 위해 잔액만 따로 뗐다.
+ */
+export async function loadPredictionPointBalance(walletAddress: string): Promise<bigint> {
+  const point = getReadContract('predictionPoint')
+  return point.balanceOf(walletAddress) as Promise<bigint>
+}
+
 export async function loadPredictionChainState(
   market: PredictionMarket,
   walletAddress: string,
