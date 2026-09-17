@@ -8,7 +8,7 @@ import { Footer } from '../landing/components/Footer.tsx'
 import { Header } from '../landing/components/Header.tsx'
 import '../landing/landing.css'
 import './about.css'
-import { adjacentScrollStop } from './aboutScroll.ts'
+import { adjacentScrollStop } from '../../utils/scrollStops.ts'
 
 const connectionWords = [
   { label: 'MATERIALS', color: '#216a9f' },

@@ -44,12 +44,9 @@ export function LandingPage() {
       return
     }
 
+    // 위/아래 어느 방향으로 다시 지나가도 매번 다시 재생되도록 토글한다.
     const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (!entry.isIntersecting) return
-        entry.target.classList.add('is-visible')
-        observer.unobserve(entry.target)
-      })
+      entries.forEach((entry) => entry.target.classList.toggle('is-visible', entry.isIntersecting))
     }, { rootMargin: '0px 0px -12% 0px', threshold: 0.12 })
 
     revealTargets.forEach((element) => observer.observe(element))
