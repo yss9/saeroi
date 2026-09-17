@@ -5,7 +5,7 @@
 // 확정하지 못하면 개체도 QR 도 재고도 없다.
 //
 // 순서가 뒤집혀 있다는 점이 핵심이다. 배치에 적어 넣을 제품 번호는 **등록 응답에서** 나오므로
-// 폼에서는 고르기만 하고 연결은 등록 직후에 한다.
+// 배치를 먼저 고르더라도 연결은 등록 직후에 한다.
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
@@ -98,11 +98,26 @@ afterEach(() => {
 })
 
 describe('ProductRegisterPage', () => {
-  it('고른 배치에 방금 등록한 제품을 잇는다', async () => {
+  // 배치를 누르기 전에는 폼이 없다. 목록과 폼을 한 화면에 쌓으면 어느 배치에 적는지가
+  // 위로 밀려 올라간다.
+  it('배치를 눌러야 등록 창이 열린다', async () => {
+    const user = renderPage()
+
+    const card = await screen.findByRole('button', { name: /2026 가을 1차/ })
+    // 닫힌 <dialog> 안은 접근성 트리에서 빠진다 — 아예 눌릴 수 없는 상태다.
+    expect(screen.queryByRole('button', { name: '제품 등록' })).not.toBeInTheDocument()
+
+    await user.click(card)
+    // 창 제목이 어느 배치에 적는지 말한다.
+    expect(screen.getByRole('heading', { name: /2026 가을 1차/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '제품 등록' })).toBeVisible()
+  })
+
+  it('등록을 마치면 그 배치에 잇는다', async () => {
     api.assignProductModel.mockResolvedValue(batch({ productModelId: 31 }))
     const user = renderPage()
 
-    await user.selectOptions(await screen.findByLabelText('생산 배치'), '3')
+    await user.click(await screen.findByRole('button', { name: /2026 가을 1차/ }))
     await user.click(screen.getByRole('button', { name: '제품 등록' }))
 
     await waitFor(() =>
@@ -112,26 +127,26 @@ describe('ProductRegisterPage', () => {
   })
 
   // 배치는 나중에 이어도 된다. 고르지 않았다고 등록을 막지 않는다.
-  it('배치를 고르지 않으면 연결하지 않는다', async () => {
+  it('배치 없이 등록하면 연결하지 않는다', async () => {
     const user = renderPage()
 
-    await screen.findByLabelText('생산 배치')
+    await user.click(await screen.findByRole('button', { name: '배치 없이 등록' }))
     await user.click(screen.getByRole('button', { name: '제품 등록' }))
 
     expect(await screen.findByText('토트백 등록됨')).toBeInTheDocument()
     expect(api.assignProductModel).not.toHaveBeenCalled()
   })
 
-  // 확정된 배치는 이미 개체를 만들었고, 제품이 붙은 배치를 고르면 그 제품의 재고를 빼앗는다.
-  // 그래도 칸은 남긴다 — 칸이 사라지면 "제품은 배치에 붙는다" 는 사실까지 화면에서 없어진다.
-  it('이을 배치가 없으면 칸을 잠그고 이유를 적는다', async () => {
+  // 고를 수 없는 배치도 지우지 않는다. 빼버리면 "내 배치가 사라졌다" 로 읽힌다.
+  it('이을 수 없는 배치는 잠그고 이유를 적는다', async () => {
     api.getMyProductionBatches.mockResolvedValue([
-      batch({ productionBatchId: 4, status: 'CONFIRMED' }),
-      batch({ productionBatchId: 5, productModelId: 99 }),
+      batch({ productionBatchId: 4, batchName: '확정된 배치', status: 'CONFIRMED' }),
+      batch({ productionBatchId: 5, batchName: '붙은 배치', productModelId: 99 }),
     ])
     renderPage()
 
-    expect(await screen.findByLabelText('생산 배치')).toBeDisabled()
-    expect(screen.getByText(/배치가 없습니다/)).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /확정된 배치/ })).toBeDisabled()
+    expect(screen.getByText('작성 중인 배치에만 연결할 수 있습니다')).toBeInTheDocument()
+    expect(screen.getByText('이미 제품이 연결된 배치입니다')).toBeInTheDocument()
   })
 })

@@ -43,9 +43,7 @@ export function ProductionItemList({ batchId, confirmed }: ProductionItemListPro
   // 확정 전에는 만들어진 개체가 없다. 조회하지 않고 이유를 적는다.
   if (!confirmed) {
     return (
-      <p className="item-list__note">
-        배치를 확정하면 제품 개체가 만들어지고 각 개체의 QR 주소가 여기에 표시됩니다.
-      </p>
+      <p className="item-list__note">배치를 확정하면 QR 이 만들어집니다.</p>
     )
   }
 
@@ -63,15 +61,8 @@ export function ProductionItemList({ batchId, confirmed }: ProductionItemListPro
 
   return (
     <section className="item-list">
-      <p className="item-list__summary">
-        제품 개체 {data.length}개가 만들어졌습니다. 개체마다 QR 을 생성해 제품에 인쇄하면
-        소비자가 소재 이력을 확인할 수 있습니다.
-      </p>
-
       <table className="item-list__table">
-        <caption className="item-list__caption">
-          QR 주소는 누구나 열 수 있는 공개 경로입니다. 인쇄 외의 용도로 공유하지 마세요.
-        </caption>
+        <caption className="ui-visually-hidden">제품 개체 {data.length}개의 QR 목록</caption>
         <thead>
           <tr>
             <th scope="col">번호</th>

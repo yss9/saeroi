@@ -15,8 +15,15 @@ import {
   isProductionEligible,
   PRODUCTION_INPUTS_MAX,
   type ProductionBatch,
-  type ProductionInputRequest,
 } from '../types/production.types.ts'
+import {
+  canSubmitDrafts,
+  inputQuantityOf,
+  problemOf,
+  toRequest,
+  totalDraftQuantity,
+  type DraftInput,
+} from '../utils/productionInputDraft.ts'
 import './production.css'
 
 export interface MaterialInputSelectProps {
@@ -24,16 +31,6 @@ export interface MaterialInputSelectProps {
   /** 이 배치에 이미 들어간 소재. 같은 소재를 두 번 넣을 수 없다 */
   inputMaterialIds?: readonly number[]
   onSaved?: (batch: ProductionBatch) => void
-}
-
-/** 화면이 모아 두는 투입 초안. 저장 전까지는 서버에 아무것도 보내지 않는다. */
-interface DraftInput {
-  material: InventoryItem
-  /** gram. 셋의 합이 inputQuantity 다 */
-  productUsed: number
-  reusableScrap: number
-  waste: number
-  wasteReason: string
 }
 
 /**
@@ -55,10 +52,66 @@ export function MaterialInputSelect({
   inputMaterialIds = [],
   onSaved,
 }: MaterialInputSelectProps) {
-  const materials = useMyMaterials()
   const save = useAddProductionInputs(batchId)
-
   const [drafts, setDrafts] = useState<DraftInput[]>([])
+
+  return (
+    <>
+      <MaterialInputPicker
+        drafts={drafts}
+        onChange={setDrafts}
+        inputMaterialIds={inputMaterialIds}
+      />
+
+      {save.isError && <ErrorMessage error={save.error} />}
+
+      {drafts.length > 0 && (
+        <div className="material-input__actions">
+          {/* 저장은 전부 성공하거나 전부 실패한다. 그래서 한 건이라도 값이 어긋나면
+              보내지 않는다 — 서버가 거절하면 아무것도 저장되지 않으므로 헛걸음이다. */}
+          <Button
+            onClick={() =>
+              save.mutate(drafts.map(toRequest), {
+                onSuccess: (batch) => {
+                  setDrafts([])
+                  onSaved?.(batch)
+                },
+              })
+            }
+            loading={save.isPending}
+            disabled={!canSubmitDrafts(drafts)}
+          >
+            투입 {drafts.length}건 저장
+          </Button>
+          <span className="material-input__total">
+            합계 {formatKg(totalDraftQuantity(drafts))}
+          </span>
+        </div>
+      )}
+    </>
+  )
+}
+
+export interface MaterialInputPickerProps {
+  drafts: readonly DraftInput[]
+  onChange: (drafts: DraftInput[]) => void
+  /** 이 배치에 이미 들어간 소재. 같은 소재를 두 번 넣을 수 없다 */
+  inputMaterialIds?: readonly number[]
+}
+
+/**
+ * 투입 초안을 모으는 부분만 떼어 낸 것.
+ *
+ * **저장을 모른다.** 배치 상세는 이미 있는 배치에 곧바로 저장하지만, 배치 열기 폼은 배치가
+ * 아직 없어 만들고 나서야 보낼 수 있다 — 두 화면이 같은 입력 UI 를 쓰려면 저장이 밖에
+ * 있어야 한다.
+ */
+export function MaterialInputPicker({
+  drafts,
+  onChange,
+  inputMaterialIds = [],
+}: MaterialInputPickerProps) {
+  const materials = useMyMaterials()
   const [picked, setPicked] = useState<number | null>(null)
 
   if (materials.isPending) return <Loading label="보유 소재를 불러오는 중" />
@@ -91,23 +144,22 @@ export function MaterialInputSelect({
     if (!material || full) return
     // 투입량 셋을 0 으로 시작한다. 가용량을 미리 채워 넣으면 사용자가 확인 없이 저장한다 —
     // 얼마가 제품이 되고 얼마가 자투리인지는 재단해 본 사람만 안다.
-    setDrafts((current) => [
-      ...current,
+    onChange([
+      ...drafts,
       { material, productUsed: 0, reusableScrap: 0, waste: 0, wasteReason: '' },
     ])
     setPicked(null)
   }
 
   function update(materialId: number, patch: Partial<DraftInput>) {
-    setDrafts((current) =>
-      current.map((draft) =>
+    onChange(
+      drafts.map((draft) =>
         draft.material.materialId === materialId ? { ...draft, ...patch } : draft,
       ),
     )
   }
 
   const problems = drafts.map(problemOf)
-  const canSave = drafts.length > 0 && problems.every((problem) => problem === null)
 
   return (
     <section className="material-input">
@@ -150,41 +202,16 @@ export function MaterialInputSelect({
           problem={problems[index]}
           onChange={(patch) => update(draft.material.materialId, patch)}
           onRemove={() =>
-            setDrafts((current) =>
-              current.filter((item) => item.material.materialId !== draft.material.materialId),
+            onChange(
+              drafts.filter((item) => item.material.materialId !== draft.material.materialId),
             )
           }
         />
       ))}
-
-      {save.isError && <ErrorMessage error={save.error} />}
-
-      {drafts.length > 0 && (
-        <div className="material-input__actions">
-          {/* 저장은 전부 성공하거나 전부 실패한다. 그래서 한 건이라도 값이 어긋나면
-              보내지 않는다 — 서버가 거절하면 아무것도 저장되지 않으므로 헛걸음이다. */}
-          <Button
-            onClick={() =>
-              save.mutate(drafts.map(toRequest), {
-                onSuccess: (batch) => {
-                  setDrafts([])
-                  onSaved?.(batch)
-                },
-              })
-            }
-            loading={save.isPending}
-            disabled={!canSave}
-          >
-            투입 {drafts.length}건 저장
-          </Button>
-          <span className="material-input__total">
-            합계 {formatKg(drafts.reduce((sum, draft) => sum + inputQuantityOf(draft), 0))}
-          </span>
-        </div>
-      )}
     </section>
   )
 }
+
 
 /**
  * 투입 한 줄.
@@ -222,7 +249,7 @@ function DraftRow({
           label="제품 사용 (g)"
           type="number"
           min={0}
-          value={draft.productUsed}
+          value={blankIfZero(draft.productUsed)}
           onChange={(event) => onChange({ productUsed: toGram(event.target.value) })}
         />
         <Input
@@ -230,14 +257,14 @@ function DraftRow({
           type="number"
           min={0}
           hint="새 소재로 되살아납니다"
-          value={draft.reusableScrap}
+          value={blankIfZero(draft.reusableScrap)}
           onChange={(event) => onChange({ reusableScrap: toGram(event.target.value) })}
         />
         <Input
           label="폐기 (g)"
           type="number"
           min={0}
-          value={draft.waste}
+          value={blankIfZero(draft.waste)}
           onChange={(event) => onChange({ waste: toGram(event.target.value) })}
         />
       </div>
@@ -265,41 +292,15 @@ function DraftRow({
   )
 }
 
-/** 투입량은 셋의 합이다. 사용자가 따로 입력하지 않는다 — 두 값이 어긋날 자리를 만들지 않는다. */
-function inputQuantityOf(draft: DraftInput): number {
-  return draft.productUsed + draft.reusableScrap + draft.waste
-}
-
-function toRequest(draft: DraftInput): ProductionInputRequest {
-  const reason = draft.wasteReason.trim()
-  return {
-    materialId: draft.material.materialId,
-    inputQuantity: inputQuantityOf(draft),
-    productUsedQuantity: draft.productUsed,
-    reusableScrapQuantity: draft.reusableScrap,
-    wasteQuantity: draft.waste,
-    // 폐기가 없으면 사유를 보내지 않는다. 폐기 0 에 붙은 사유는 뜻이 없다.
-    ...(draft.waste > 0 && reason ? { wasteReason: reason } : {}),
-  }
-}
 
 /**
- * 이 줄을 그대로 보낼 수 있는가. 보낼 수 없으면 그 이유.
+ * 0 은 빈 칸으로 보여준다.
  *
- * 서버도 같은 것을 검사하지만 **저장이 전부-또는-전무**라, 한 줄이 틀리면 나머지도 저장되지
- * 않는다. 그러니 보내기 전에 어느 줄이 왜 틀렸는지 화면이 말해야 한다.
+ * 초안은 0 으로 시작하는데 그 0 이 칸에 적혀 있으면 값을 넣을 때마다 지우고 쓰게 된다 —
+ * 세 칸이 나란히 있어 그 손이 세 번 간다.
  */
-function problemOf(draft: DraftInput): string | null {
-  const total = inputQuantityOf(draft)
-
-  if (total <= 0) return '투입량을 입력해 주세요. 제품·자투리·폐기 중 하나는 1g 이상이어야 합니다.'
-  if (total > draft.material.available) {
-    return `가용 수량(${formatKg(draft.material.available)})을 넘을 수 없습니다.`
-  }
-  if (draft.waste > 0 && draft.wasteReason.trim().length > 200) {
-    return '폐기 사유는 200자를 넘을 수 없습니다.'
-  }
-  return null
+function blankIfZero(value: number): string {
+  return value === 0 ? '' : String(value)
 }
 
 /** 빈 입력과 음수를 0 으로 정규화한다. gram 정수만 서버로 나간다. */

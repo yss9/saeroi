@@ -8,8 +8,11 @@
 
 /* 소재 선택과 추가 버튼을 한 줄에 둔다. 버튼이 아래로 떨어지면 "추가" 를 눌러야 하는 줄로
    보이지 않는다. */
+/* 소재 고르기 + 추가 버튼. 칸의 아래 여백을 없애야 버튼과 바닥이 맞는다 —
+   .ui-field 에 margin-bottom: 1rem 이 있어 그대로 두면 버튼만 한 칸 내려앉는다. */
 .material-input__picker { display: flex; gap: 0.6rem; align-items: flex-end; }
 .material-input__picker > :first-child { flex: 1; min-width: 0; }
+.material-input__picker .ui-field { margin-bottom: 0; }
 
 .material-input__note {
   margin: 0;
@@ -115,24 +118,62 @@
 /* ── 배치 열기 ───────────────────────────────────────── */
 
 /*
- * 배치 열기. 세 칸을 한 줄에 둔다 — 세로로 쌓으면 화면이 넓은데도 좁은 앱처럼 보이고,
- * 아래의 배치 목록까지 한참 밀려 내려간다. 좁아지면 auto-fit 이 알아서 줄을 접는다.
+ * 배치 열기 — 가공 요청 화면과 같은 모양이다. 흰 카드 한 장 안에 제목·칸·구분선·버튼을
+ * 세로로 쌓는다.
+ *
+ * 예전에는 칸 셋을 한 줄에 늘어놓아 입력은 왼쪽에 몰리고 버튼만 오른쪽 끝에 떨어져 있었다.
  */
+/* 화면 가운데에 세운다. 배치 열기 하나뿐인 화면이라 폼이 왼쪽에 붙어 있으면
+   오른쪽이 통째로 빈다. */
 .batch-form {
+  display: flex;
+  width: 100%;
+  max-width: 44rem;
+  margin: 0 auto;
+  flex-direction: column;
+  padding: 30px;
+  border: 1px solid #e2e7eb;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgb(23 75 114 / 0.06);
+}
+
+/*
+ * 이름과 개수는 짧아 나란히 둔다. 칸 폭을 못 박는다 — 1fr 로 늘이면 생산 개수가 카드
+ * 오른쪽 끝까지 끌려가 이름 칸과 따로 노는 것처럼 보인다.
+ */
+.batch-form__fields {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
-  gap: 0.35rem 1.1rem;
-  align-items: start;
+  gap: 0 1.25rem;
+  grid-template-columns: minmax(0, 22rem) minmax(0, 9rem);
+  justify-content: start;
 }
 
-/* 안내·오류·제출 버튼은 칸이 아니라 줄이다. */
-.batch-form > .batch-form__note,
-.batch-form > .ui-error,
-.batch-form > button {
-  grid-column: 1 / -1;
+/* 투입. 소재 고르기와 수량 셋이 들어가 한 덩어리로 둔다. */
+.batch-form__inputs { margin-top: 0.5rem; }
+
+/* 좁아지면 두 칸이 한 줄씩 내려온다. */
+@media (max-width: 48rem) {
+  .batch-form__fields { grid-template-columns: minmax(0, 1fr); }
 }
 
-.batch-form > button { justify-self: end; min-width: 11rem; }
+/* 아래 줄. 왼쪽에 합계, 오른쪽에 버튼 — 가공 요청의 폼 바닥과 같다. */
+.batch-form__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 30px;
+  padding-top: 22px;
+  border-top: 1px solid #edf0f3;
+}
+.batch-form__footer > span {
+  color: #687586;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+/* 합계가 없을 때도 버튼은 오른쪽이다. */
+.batch-form__footer > button { margin-left: auto; min-width: 11rem; }
 .batch-form__note {
   margin: 0.5rem 0;
   padding: 0.7rem 0.9rem;
@@ -175,7 +216,16 @@
 /* ── 배치 상세 ───────────────────────────────────────── */
 
 .batch-detail { display: flex; flex-direction: column; gap: 1.75rem; }
-.batch-detail__header { display: flex; flex-direction: column; gap: 0.75rem; }
+/* 배치 머리. 이름·상태·번호 한 줄, 그 아래 숫자 셋을 한 상자에 담는다. */
+.batch-detail__header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1.1rem 1.25rem;
+  border: 1px solid var(--ui-color-border);
+  border-radius: 10px;
+  background: var(--ui-color-surface);
+}
 .batch-detail__title { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
 .batch-detail__title h1 { margin: 0; font-size: 1.3rem; }
 
@@ -183,14 +233,35 @@
 .batch-detail__result {
   display: grid;
   gap: 0.85rem 1.5rem;
-  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   margin: 0;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--ui-color-border);
 }
 .batch-detail__meta dt,
-.batch-detail__result dt { color: #6b7280; font-size: 0.78rem; }
+.batch-detail__result dt { color: #6b7280; font-size: 0.75rem; }
 .batch-detail__meta dd,
-.batch-detail__result dd { margin: 0.2rem 0 0; font-weight: 600; font-variant-numeric: tabular-nums; }
-.batch-detail__code { font-family: ui-monospace, Menlo, monospace; font-size: 0.85rem; }
+.batch-detail__result dd {
+  margin: 0.25rem 0 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.batch-detail__meta dd small {
+  margin-left: 0.15rem;
+  color: #6b7280;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+/* 배치 번호는 이름 옆에 작게. 사람이 부르는 이름은 batchName 이다. */
+.batch-detail__code {
+  margin-left: auto;
+  color: #6b7280;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 0.78rem;
+}
 
 .batch-detail__section { display: flex; flex-direction: column; gap: 0.75rem; align-items: flex-start; }
 .batch-detail__section h2 { margin: 0; font-size: 1.05rem; }
@@ -501,4 +572,69 @@
   border-radius: 8px;
   background: var(--ui-color-bg);
   color: var(--ui-color-text);
+}
+
+/* ── 제품 등록에서 배치 고르기 ───────────────────────────
+   이름만으로는 그 배치가 무엇을 얼마나 만든 것인지 알 수 없어 수량과 투입을 함께 적는다.
+   ────────────────────────────────────────────────────── */
+.batch-chooser { display: grid; gap: 1rem; }
+.batch-chooser__head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+.batch-chooser__head h2 { margin: 0 0 0.35rem; font-size: 1.1rem; }
+.batch-chooser__head p {
+  margin: 0;
+  color: var(--ui-color-muted);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.batch-chooser__list {
+  display: grid;
+  width: 100%;
+  gap: 0.6rem;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.batch-chooser__list button {
+  display: grid;
+  width: 100%;
+  gap: 0.25rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--ui-color-border);
+  border-radius: 10px;
+  background: var(--ui-color-surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.batch-chooser__list li { display: grid; gap: 0.35rem; justify-items: start; }
+.batch-chooser__list li > a {
+  padding-left: 0.2rem;
+  color: #216a9f;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.72rem;
+}
+.batch-chooser__list button:hover:not(:disabled) { border-color: #216a9f; }
+.batch-chooser__list button:disabled { background: var(--ui-color-bg); cursor: default; }
+.batch-chooser__blocked { color: #a05a2c !important; font-family: inherit !important; }
+.batch-chooser__list strong { font-size: 0.95rem; }
+.batch-chooser__list span { color: var(--ui-color-muted); font-size: 0.8rem; }
+.batch-chooser__list small {
+  color: #9aa8b6;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.72rem;
+}
+
+.batch-chooser__empty {
+  margin: 0;
+  color: var(--ui-color-muted);
+  font-size: 0.88rem;
+  line-height: 1.6;
 }
