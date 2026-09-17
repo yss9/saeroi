@@ -18,20 +18,25 @@ import { apiClient } from '../../../services/apiClient.ts'
  * (`hooks/useObjectUrl.ts`). 인가 실패는 깨진 이미지가 아니라 **읽을 수 있는 오류**로
  * 나온다 — `apiClient` 가 봉투를 벗겨 `AppError` 로 정규화하기 때문이다.
  *
- * <h2>`baseURL` 을 비우는 이유</h2>
+ * <h2>`/api` 접두를 잘라내는 이유</h2>
  *
  * <p>`contentPath` 는 서버가 만들어 준 `/api` 를 **포함한** 경로다. `apiClient` 의
- * `baseURL` 이 `/api` 라 그냥 넘기면 `/api/api/evidence/...` 가 된다. 여기서 `/api` 를
- * 잘라내는 대신 `baseURL` 을 비운다 — 잘라내려면 baseURL 문자열을 이 파일이 다시 알아야
- * 하고, `config/env.ts` 한 곳에서만 읽는다는 규칙이 깨진다.
+ * `baseURL`(`env.apiBaseUrl`)이 이미 `/api` 라 그냥 넘기면 `/api/api/evidence/...` 가
+ * 된다. 그렇다고 `baseURL` 을 비우면(과거 구현) 환경별 `baseURL`(예: `/test` 스택의
+ * `/test/api`)을 완전히 우회해 버려, 테스트 환경에서 엉뚱한 백엔드로 요청이 나가는
+ * 문제가 있었다 (`getConsumerOrderThumbnail.ts` 와 동일한 패턴으로 접두어만 잘라낸다).
  *
  * <p>경로를 id 로 조립하지 않는 이유는 `EvidenceFile.contentPath` 주석에 있다.
  */
 export async function getEvidenceContent(contentPath: string): Promise<Blob> {
-  const { data } = await apiClient.get<Blob>(contentPath, {
-    baseURL: '',
+  const { data } = await apiClient.get<Blob>(toApiClientPath(contentPath), {
     // 기본값(JSON 파싱)으로 두면 axios 가 JPEG·PDF 바이트를 문자열로 망가뜨린다.
     responseType: 'blob',
   })
   return data
+}
+
+/** `/api`가 이미 붙은 서버 경로를 apiClient의 base URL 기준으로 정규화한다. */
+function toApiClientPath(contentPath: string): string {
+  return contentPath.startsWith('/api/') ? contentPath.slice('/api'.length) : contentPath
 }
