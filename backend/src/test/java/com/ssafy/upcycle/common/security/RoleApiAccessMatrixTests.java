@@ -379,8 +379,8 @@ class RoleApiAccessMatrixTests {
      *   <li>§3-7 {@code POST /api/v1/product-models} 는 <b>BRAND 만</b>.
      *       {@code canRegisterProduct()} 와 {@code canRegisterMaterial()} 의 목록이 다른 것을
      *       합치면 SUPPLIER 가 제품을 올릴 수 있게 조용히 넓어진다</li>
-     *   <li>§3-2 지갑 등록은 <b>{@code canOwnWallet()} 세 역할</b>. CONSUMER 는 지갑 없이
-     *       서비스를 쓰고 ADMIN 은 온체인 작업 주체가 아니다</li>
+     *   <li>§3-2 지갑 등록은 사업자 세 역할과 예측시장에 참여하는 CONSUMER. ADMIN 은
+     *       결과 통제 주체라 지갑 연결 대상이 아니다</li>
      * </ul>
      */
     @ParameterizedTest(name = "{0}")
@@ -394,10 +394,10 @@ class RoleApiAccessMatrixTests {
         List<Case> cases = new ArrayList<>();
         // §3-2 지갑 — WalletRegistrationService#requireWalletCapableUser
         cases.addAll(gate("POST", "/api/v1/wallets/nonce",
-                Set.of(UserRole.SUPPLIER, UserRole.BRAND, UserRole.PROCESSOR),
+                Set.of(UserRole.SUPPLIER, UserRole.BRAND, UserRole.PROCESSOR, UserRole.CONSUMER),
                 HttpStatus.FORBIDDEN, "WALLET_ROLE_NOT_ALLOWED"));
         cases.addAll(gate("POST", "/api/v1/wallets",
-                Set.of(UserRole.SUPPLIER, UserRole.BRAND, UserRole.PROCESSOR),
+                Set.of(UserRole.SUPPLIER, UserRole.BRAND, UserRole.PROCESSOR, UserRole.CONSUMER),
                 HttpStatus.FORBIDDEN, "WALLET_ROLE_NOT_ALLOWED"));
         // §3-3 소재 — MaterialRegistrationService#requireMaterialCapableUser
         cases.addAll(gate("POST", "/api/materials",

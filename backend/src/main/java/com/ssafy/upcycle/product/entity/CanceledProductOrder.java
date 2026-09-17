@@ -76,6 +76,9 @@ public class CanceledProductOrder {
     @Column(name = "original_created_at", nullable = false)
     private LocalDateTime originalCreatedAt;
 
+    @Column(name = "original_paid_at")
+    private LocalDateTime originalPaidAt;
+
     @Column(name = "canceled_at", nullable = false)
     private LocalDateTime canceledAt;
 
@@ -96,6 +99,7 @@ public class CanceledProductOrder {
         this.paymentReference = order.getPaymentReference();
         this.cancelReason = requireOptionalText(cancelReason, CANCEL_REASON_MAX_LENGTH);
         this.originalCreatedAt = requireTimestamp(order.getCreatedAt(), "original created at");
+        this.originalPaidAt = order.getPaidAt();
         this.canceledAt = requireTimestamp(canceledAt, "canceled at");
     }
 
