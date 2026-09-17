@@ -46,6 +46,7 @@ const NOT_IN_MENU: ReadonlyMap<string, string> = new Map([
   ['/mypage/inquiries', '마이페이지 사이드바(My활동)에서 들어간다'],
   ['/mypage/reviews', '마이페이지 사이드바(My활동)에서 들어간다'],
   ['/mypage/profile', '마이페이지 사이드바(My정보)에서 들어간다'],
+  ['/mypage/predictions', '마이페이지 사이드바(My활동)에서 들어간다'],
 ])
 
 /** 상세·콜백처럼 목록에서 눌러 들어가는 경로는 메뉴에 둘 대상이 아니다. */

@@ -5,6 +5,7 @@ import {
   ChatCircleText,
   ChatText,
   ClockCounterClockwise,
+  ChartBar,
   Heart,
   MapPin,
   Receipt,
@@ -65,6 +66,7 @@ export type ConsumerAccountSection =
   | 'inquiries'
   | 'reviews'
   | 'profile'
+  | 'predictions'
 
 export interface ConsumerAccountLayoutProps {
   children: ReactNode
@@ -88,6 +90,7 @@ const SECTIONS: Record<ConsumerAccountSection, { label: string }> = {
   inquiries: { label: '문의내역' },
   reviews: { label: '리뷰관리' },
   profile: { label: '개인정보확인/수정' },
+  predictions: { label: '판매량 예측시장' },
 }
 
 /** 사이드바 메뉴. My쇼핑·My활동·My정보 세 분류로 묶는다(2026-09-16 개편). */
@@ -130,6 +133,7 @@ const NAV_GROUPS: readonly ConsumerNavGroup[] = [
   {
     label: 'My활동',
     items: [
+      { label: '판매량 예측시장', to: '/mypage/predictions', Icon: ChartBar },
       { label: '문의하기', to: '/mypage/inquiries/new', Icon: ChatCircleText },
       { label: '문의내역', to: '/mypage/inquiries', Icon: ChatText, end: true },
       { label: '리뷰관리', to: '/mypage/reviews', Icon: Star },
