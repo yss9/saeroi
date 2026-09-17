@@ -125,14 +125,14 @@ export function ConsumerOrderDetailPage() {
             </Link>
           </div>
 
+          {/* 날짜·시간을 따로 두 줄로 쪼개지 않고 한 줄로 합친다(2026-09-17)
+              — "주문 : 2026. 09. 16. 오후 03:39" 형태. */}
           <p className="consumer-order-detail__ordered-at">
+            주문 :{' '}
             <time dateTime={group.orderedAt}>
-              {dateFormatter.format(new Date(group.orderedAt))}
-            </time>{' '}
-            주문
-          </p>
-          <p className="consumer-order-detail__ordered-time">
-            <time dateTime={group.orderedAt}>{timeFormatter.format(new Date(group.orderedAt))}</time>
+              {dateFormatter.format(new Date(group.orderedAt))}{' '}
+              {timeFormatter.format(new Date(group.orderedAt))}
+            </time>
           </p>
 
           <div className="consumer-order-group__items">
@@ -184,8 +184,22 @@ export function ConsumerOrderDetailPage() {
             결제 정보·받는 곳이 곧 영수증 내용이라, 새 화면으로 옮겨 다시 찾을 이유가 없다.
             실제 영수증 양식(사업자 정보 등)은 백엔드 연동 뒤에 정한다 — 지금은
             `window.print()` 로 브라우저 인쇄 대화상자만 연다.
+
+            제품 여정 확인도 같은 줄·같은 크기로 둔다(2026-09-17) — 둘 다 이 주문에 대한
+            "더 볼 것" 액션이라 한 자리에 모으는 편이 낫다.
           */}
           <div className="consumer-order-detail__receipt-action">
+            {group.items
+              .filter((item) => item.journeyUrl)
+              .map((item) => (
+                <a
+                  key={item.id}
+                  className="ui-button ui-button--secondary ui-button--md"
+                  href={item.journeyUrl as string}
+                >
+                  제품 여정 확인
+                </a>
+              ))}
             <Button variant="secondary" onClick={() => window.print()}>
               <Printer aria-hidden="true" /> 영수증 출력
             </Button>
@@ -223,14 +237,6 @@ function OrderDetailItemRow({ item }: { item: ConsumerRecentOrder }) {
           </p>
         </div>
       </div>
-
-      {item.journeyUrl && (
-        <div className="consumer-order-item__actions">
-          <a className="consumer-journey-link" href={item.journeyUrl}>
-            제품 여정 확인
-          </a>
-        </div>
-      )}
 
       <div className="consumer-order-detail__progress">
         <OrderProgress order={item} />
