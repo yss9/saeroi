@@ -51,6 +51,22 @@ export function ListingChainPanel({ listing }: { listing: Listing }) {
   // 사이를 가로막고 있었다.
   if (!actionable) return null
 
+  // **이미 등록된 판매 글에는 그리지 않는다.**
+  //
+  // 판매 등록(`ListingForm`)이 글을 만들면서 곧바로 `createListing` 까지 서명한다.
+  // 그래서 판매자가 자기 글을 열어 보는 대부분의 경우 이미 번호가 있고, 그때 이 패널에
+  // 남는 것은 제목·설명·번호뿐이다 — 버튼은 `!done` 이라야 그려진다. 자기 글이 어떻게
+  // 보이는지 확인하러 온 사람에게 할 일도 누를 것도 없는 상자가 맨 아래에 붙어 있었다.
+  //
+  // <b>없앨 수는 없다.</b> 등록 때 서명이 거절·실패했으면 `chainListingId` 가 비고,
+  // 이 패널이 그것을 되살리는 유일한 수단이다. 되살리지 못하면 구매자가 온체인으로
+  // 주문할 수 없고, 그 판매 글에서 생긴 거래는 발송·수령도 체인에 남지 않는다.
+  //
+  // 그래서 <b>평소에는 조용하고, 빠졌을 때만 소리를 낸다.</b> 방금 이 화면에서 서명해
+  // 해시가 떠 있는 동안은 남겨 둔다 — 결과를 확인하지 못한 채 사라지면 성공했는지 알 수
+  // 없다.
+  if (listing.chainListingId !== null && chain.hash === null) return null
+
   return (
     <OnChainPanel
       title="판매 온체인 등록"
