@@ -23,12 +23,14 @@ export const RECEIVED_LABEL: Record<CancellationKind, string> = {
   REFUND: '환불접수일',
 }
 
-/** kind 별 상세/조회 버튼 라벨. 두 버튼 모두 같은 상세 화면(/mypage/cancellations/:id)으로 간다. */
-export const ACTION_LABELS: Record<CancellationKind, readonly [string, string]> = {
-  CANCEL: ['취소상세', '취소사유확인'],
-  RETURN: ['반품상세', '회수조회'],
-  EXCHANGE: ['교환상세', '회수조회'],
-  REFUND: ['환불상세', '환불계좌확인'],
+/** kind 별 상세 버튼 라벨 — 버튼 하나가 그대로 상세 페이지(/mypage/cancellations/:id)로
+ * 간다(2026-09-17 버튼 2개 → 1개로 통합. 상세 페이지 안에 유형별 섹션이 이미 다 있어
+ * 두 번째 버튼이 같은 곳으로 가는 중복이었다). */
+export const ACTION_LABELS: Record<CancellationKind, string> = {
+  CANCEL: '취소상세',
+  RETURN: '반품상세',
+  EXCHANGE: '교환상세',
+  REFUND: '환불상세',
 }
 
 /**

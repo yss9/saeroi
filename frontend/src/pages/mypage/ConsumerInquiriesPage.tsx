@@ -131,6 +131,7 @@ export function ConsumerInquiriesPage() {
                     <div className="consumer-inquiry-item__answer">
                       {inquiry.answer ? (
                         <>
+                          <p className="consumer-inquiry-item__answer-label">답변</p>
                           {inquiry.answeredAt && (
                             <time dateTime={inquiry.answeredAt}>
                               {dateFormatter.format(new Date(inquiry.answeredAt))}

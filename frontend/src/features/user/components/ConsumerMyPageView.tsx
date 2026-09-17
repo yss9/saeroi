@@ -1,4 +1,4 @@
-import { PencilSimple, UserCircle } from '@phosphor-icons/react'
+import { PencilSimple } from '@phosphor-icons/react'
 import { Link } from 'react-router-dom'
 import { ErrorMessage, Loading } from '../../../components/common/index.ts'
 import type { ConsumerMyPageData } from '../types/consumerMyPage.types.ts'
@@ -82,7 +82,9 @@ function ProfileCard({ data }: { data: ConsumerMyPageData }) {
           <p className="consumer-section-heading__eyebrow">MY PROFILE</p>
           <h2 id="profile-title">내 프로필</h2>
         </div>
-        <UserCircle aria-hidden="true" />
+        <Link className="consumer-text-link" to="/mypage/profile">
+          <PencilSimple aria-hidden="true" /> 수정
+        </Link>
       </div>
 
       <dl className="consumer-profile-card__fields">
@@ -117,12 +119,6 @@ function ProfileCard({ data }: { data: ConsumerMyPageData }) {
           </dd>
         </div>
       </dl>
-
-      <p className="consumer-profile-card__actions">
-        <Link className="consumer-address-card__edit" to="/mypage/addresses">
-          <PencilSimple aria-hidden="true" /> {address ? '배송지 편집' : '배송지 등록'}
-        </Link>
-      </p>
     </section>
   )
 }

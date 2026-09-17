@@ -78,7 +78,7 @@ export interface ConsumerAccountLayoutProps {
 
 // breadcrumb 의 마지막 칸에 적을 이름. 나머지(경로·아이콘)는 NAV_GROUPS 가 따로 갖는다.
 const SECTIONS: Record<ConsumerAccountSection, { label: string }> = {
-  home: { label: '내 프로필' },
+  home: { label: '개인정보' },
   orders: { label: '주문 내역' },
   addresses: { label: '배송지 관리' },
   cancellations: { label: '취소/반품/교환/환불내역' },
@@ -112,6 +112,13 @@ interface ConsumerNavGroup {
 
 const NAV_GROUPS: readonly ConsumerNavGroup[] = [
   {
+    label: 'My정보',
+    items: [
+      { label: '개인정보', to: '/mypage', Icon: UserCircle, end: true },
+      { label: '배송지 관리', to: '/mypage/addresses', Icon: MapPin },
+    ],
+  },
+  {
     label: 'My쇼핑',
     items: [
       { label: '주문목록/배송조회', to: '/mypage/orders', Icon: Receipt },
@@ -126,13 +133,6 @@ const NAV_GROUPS: readonly ConsumerNavGroup[] = [
       { label: '문의하기', to: '/mypage/inquiries/new', Icon: ChatCircleText },
       { label: '문의내역', to: '/mypage/inquiries', Icon: ChatText, end: true },
       { label: '리뷰관리', to: '/mypage/reviews', Icon: Star },
-    ],
-  },
-  {
-    label: 'My정보',
-    items: [
-      { label: '개인정보확인/수정', to: '/mypage/profile', Icon: UserCircle },
-      { label: '배송지 관리', to: '/mypage/addresses', Icon: MapPin },
     ],
   },
 ]
@@ -172,7 +172,7 @@ export function ConsumerAccountLayout({
     <div className="consumer-mypage">
       <a className="consumer-skip-link" href="#consumer-main-content">본문으로 건너뛰기</a>
       <AccountHeader
-        sectionTitle={current === 'home' ? '마이페이지' : section.label}
+        sectionTitle="마이페이지"
         onSignOut={onSignOut}
         signOutPending={signOutPending}
         signOutError={signOutError}
@@ -184,15 +184,9 @@ export function ConsumerAccountLayout({
               밀려 시작점이 어긋난다. */}
           <Link to="/">홈</Link>
           <span aria-hidden="true">/</span>
-          {current === 'home' ? (
-            <span aria-current="page">마이페이지</span>
-          ) : (
-            <>
-              <Link to="/mypage">마이페이지</Link>
-              <span aria-hidden="true">/</span>
-              <span aria-current="page">{section.label}</span>
-            </>
-          )}
+          <Link to="/mypage">마이페이지</Link>
+          <span aria-hidden="true">/</span>
+          <span aria-current="page">{section.label}</span>
         </nav>
 
         <div className="consumer-mypage-layout">
