@@ -38,6 +38,7 @@ GIT_CONVENTION에 따라 develop / feat 하위 브랜치 없이 이 브랜치에
 │   ├── restore-mysql.sh       # 덤프로 복구
 │   ├── install-backup-cron.sh # 백업 cron 등록 (멱등)
 │   ├── prune-images.sh        # 떠도는 이미지·빌드 캐시 정리 (cron 04:20, 24h 보다 오래된 것만)
+│   │                          #   + 서비스별 `:test-N` 태그를 최신 5개만 남기고 untag (2026-09-18 — 73개 누적 실측)
 │   │                          #   ⚠️ 배포 경로에서 부르지 않는다 — 다른 파트의 빌드를 깨뜨렸다
 │   ├── install-prune-cron.sh  # prune cron 등록 (멱등)
 │   ├── pull-backups.sh        # 덤프를 EC2 밖(작업용 PC)으로 반출 — 로컬에서 실행
@@ -142,6 +143,9 @@ bash scripts/health-check.sh
 bash scripts/check-schema.sh          # 없는 테이블·컬럼 + 컬럼 타입·NULL 허용 불일치 보고 (읽기만 함)
 bash scripts/check-schema.sh --ddl    # 적용할 DDL 출력
 SCHEMA_REF=origin/backend/master bash scripts/check-schema.sh   # 기준 브랜치 지정
+# deploy-service.sh(운영 배포)는 기준을 origin/backend/master 로 고정해서 부른다 (2026-09-18) —
+# 배포하는 이미지가 backend/master 이므로. 손으로 돌리는 기본값은 여전히 develop 이라
+# "다음 승격 때 무엇이 부족한가" 를 미리 보는 용도로 쓰면 된다.
 # 대조 범위: 테이블 존재 / 컬럼 존재 / 컬럼 타입 / 컬럼 NULL 허용 여부(2026-09-17 추가
 # — production_batch.product_model_id 가 NOT NULL로 남아 있던 실사고로 추가함).
 # DEFAULT·인덱스는 일부러 보지 않는다 (거짓 양성이 많고 validate 도 보지 않는다).
@@ -187,7 +191,15 @@ bash scripts/test-down.sh        # 종료 (기본 볼륨 보존, TEST_DOWN_VOLUM
 여전히 사람이 보고 결정합니다.
 
 각 파트 Jenkinsfile의 `<파트>/develop` 스테이지가 이미지를 `:test` 태그로 빌드해 push하고,
-SSH로 `scripts/test-deploy.sh <service>`를 호출하는 구조입니다. `blockchain`은 이미지 빌드
+SSH로 `scripts/test-deploy.sh <service>`를 호출하는 구조입니다. 이미지는 `:test` 와 함께
+`:test-<빌드번호>` 태그를 같이 받습니다 — 다음 빌드가 `:test` 를 가져가도 직전 이미지가 태그를 잃지
+않아야 `test-deploy.sh` 가 헬스체크 실패 시 되돌릴 대상을 찾습니다(2026-09-18 실제 드릴: 깨진 이미지를
+`:test` 로 올리자 25초 만에 이전 이미지로 자동 복구). 번호 태그는 `prune-images.sh` 크론이 서비스별
+최신 5개만 남깁니다. 자동 마이그레이션 전 백업은 호스트 `~/backups/mysql/*-test-*-before-auto-migration.sql.gz`
+에 남습니다(Jenkins 컨테이너 안에서 실행돼도 호스트 경로에 쓴다).
+
+`/test/api/v1/auth/` 에도 운영 `/api/v1/auth/` 와 같은 nginx rate limit(IP 당 분당 10회, 버스트 20, 429 JSON)이
+걸려 있습니다 — 운영과 같은 조건을 재현하려는 것이므로 부하 스크립트로 test 로그인 API 를 연타하면 429 를 받습니다. `blockchain`은 이미지 빌드
 대상이 아니므로(컨트랙트는 수동 배포) test 스택에도 포함되지 않습니다.
 
 ## 주의사항

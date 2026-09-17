@@ -108,6 +108,14 @@ services:
       KAKAOPAY_CID: ${KAKAOPAY_CID:-TC0ONETIME}
       KAKAOPAY_RETURN_URL: ${KAKAOPAY_RETURN_URL:-https://j15e104.p.ssafy.io/trades/{tradeId}/payment/return}
       KAKAOPAY_PROCESSING_RETURN_URL: ${KAKAOPAY_PROCESSING_RETURN_URL:-https://j15e104.p.ssafy.io/processing/jobs/{jobId}/payment/callback}
+      # QR 이 담을 Passport 화면 주소 (application.yml 의 app.qr.base-url). backend/develop 에서
+      # 필수값이 됐다 — 비어 있으면 ProductQrConfig 가 **기동 자체를 거부**한다. 운영은 아직
+      # backend/master(2026-09-08) 라 이 값을 안 읽지만, develop → master 승격 배포가 되는 순간
+      # 이 전달 경로가 없으면 새 backend 가 뜨지 못하고 헬스체크 실패로 롤백된다 (2026-09-18 발견,
+      # test compose 에는 2026-09-11 부터 있었다). 프론트 Passport 라우트가 /qr/:qrToken 이라
+      # 끝이 /qr 이어야 한다 (.env.test.example 주석 참고). `:-` 로 빈 값을 허용하는 이유는 test
+      # compose 의 QR_BASE_URL 주석과 같다 — 값이 비면 backend 가 스스로 명확히 실패한다.
+      QR_BASE_URL: ${QR_BASE_URL:-}
       # 블록체인 연동. RPC/체인 ID 는 2026-09-01 수령해 .env 에 채워져 있고,
       # 컨테이너 안에서 scripts/check-besu.sh 로 실제 도달까지 확인했다.
       BESU_RPC_URL: ${BESU_RPC_URL:-}
@@ -135,6 +143,18 @@ services:
       MATERIAL_TOKEN_ADDRESS: ${MATERIAL_TOKEN_ADDRESS:-}
       MARKETPLACE_ADDRESS: ${MARKETPLACE_ADDRESS:-}
       PRODUCTION_REGISTRY_ADDRESS: ${PRODUCTION_REGISTRY_ADDRESS:-}
+      # 판매량 예측시장 (backend/develop 2026-09-17, application.yml 의 app.prediction.*). 주소 정본은
+      # blockchain/develop:deployments/ssafy.json 의 predictionPoint / predictionMarket. 비어 있으면
+      # 예측시장 엔드포인트만 BLOCKCHAIN_NOT_CONFIGURED 로 거절되고 나머지 기능은 영향 없다.
+      # PREDICTION_OPERATOR_PRIVATE_KEY 는 MARKET_CREATOR/ORACLE/MINTER role 을 가진 운영 계정 키 —
+      # 서버 서명 키(BLOCKCHAIN_SERVICE_PRIVATE_KEY)와 같은 계정인지는 컨트랙트 배포자가 정한다.
+      # 절대 VITE_ 로 내보내지 말 것. RPC/체인은 비우면 BESU_* 값을 그대로 따른다(yml 기본값).
+      PREDICTION_CHAIN_ID: ${PREDICTION_CHAIN_ID:-${BESU_CHAIN_ID:-31221}}
+      PREDICTION_RPC_URL: ${PREDICTION_RPC_URL:-${BESU_RPC_URL:-}}
+      PREDICTION_MARKET_ADDRESS: ${PREDICTION_MARKET_ADDRESS:-}
+      PREDICTION_POINT_ADDRESS: ${PREDICTION_POINT_ADDRESS:-}
+      PREDICTION_OPERATOR_PRIVATE_KEY: ${PREDICTION_OPERATOR_PRIVATE_KEY:-}
+      PREDICTION_ORACLE_ENABLED: ${PREDICTION_ORACLE_ENABLED:-false}
     volumes:
       - file-storage:/app/files
     depends_on:

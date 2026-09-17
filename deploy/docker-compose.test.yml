@@ -97,6 +97,18 @@ services:
       MATERIAL_TOKEN_ADDRESS: ${MATERIAL_TOKEN_ADDRESS:-}
       MARKETPLACE_ADDRESS: ${MARKETPLACE_ADDRESS:-}
       PRODUCTION_REGISTRY_ADDRESS: ${PRODUCTION_REGISTRY_ADDRESS:-}
+      # 판매량 예측시장 (backend/develop 2026-09-17, application.yml 의 app.prediction.*). 주소 정본은
+      # blockchain/develop:deployments/ssafy.json 의 predictionPoint / predictionMarket. 비어 있으면
+      # 예측시장 엔드포인트만 BLOCKCHAIN_NOT_CONFIGURED 로 거절되고 나머지 기능은 영향 없다.
+      # PREDICTION_OPERATOR_PRIVATE_KEY 는 MARKET_CREATOR/ORACLE/MINTER role 을 가진 운영 계정 키 —
+      # 서버 서명 키(BLOCKCHAIN_SERVICE_PRIVATE_KEY)와 같은 계정인지는 컨트랙트 배포자가 정한다.
+      # 절대 VITE_ 로 내보내지 말 것. RPC/체인은 비우면 BESU_* 값을 그대로 따른다(yml 기본값).
+      PREDICTION_CHAIN_ID: ${PREDICTION_CHAIN_ID:-${BESU_CHAIN_ID:-31221}}
+      PREDICTION_RPC_URL: ${PREDICTION_RPC_URL:-${BESU_RPC_URL:-}}
+      PREDICTION_MARKET_ADDRESS: ${PREDICTION_MARKET_ADDRESS:-}
+      PREDICTION_POINT_ADDRESS: ${PREDICTION_POINT_ADDRESS:-}
+      PREDICTION_OPERATOR_PRIVATE_KEY: ${PREDICTION_OPERATOR_PRIVATE_KEY:-}
+      PREDICTION_ORACLE_ENABLED: ${PREDICTION_ORACLE_ENABLED:-false}
     volumes:
       - test-file-storage:/app/files
     depends_on:
