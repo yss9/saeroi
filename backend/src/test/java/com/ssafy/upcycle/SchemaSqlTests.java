@@ -25,6 +25,7 @@ class SchemaSqlTests {
             "wallet_nonce",
             "company_profile",
             "consumer_address",
+            "consumer_wishlist",
             "refresh_token",
             "processor_profile",
             "processor_capability",
