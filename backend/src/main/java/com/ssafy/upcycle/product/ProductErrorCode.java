@@ -315,7 +315,23 @@ public enum ProductErrorCode implements ErrorCode {
     PRODUCT_ORDER_GROUP_NOT_CANCELABLE(
             HttpStatus.CONFLICT,
             "PRODUCT_ORDER_GROUP_NOT_CANCELABLE",
-            "배송이 시작된 주문이 있어 취소할 수 없습니다.");
+            "배송이 시작된 주문이 있어 취소할 수 없습니다."),
+
+    /**
+     * 묶음에 속한 주문을 단일 주문 경로로 결제·취소하려는 경우.
+     *
+     * <p><b>부분 취소가 없다는 정책을 코드로 강제하는 자리다.</b> 결제가 묶음 단위로 한 번
+     * 일어나므로 주문 한 건만 따로 결제하거나 취소하면 돈과 주문이 어긋난다 — 그 브랜드
+     * 몫만 환불되고 나머지 주문은 남거나, 묶음과 별개의 결제창이 하나 더 열린다.
+     *
+     * <p>404 로 감추지 않는다. 본인 주문이고 주문 목록에 그대로 보이는 주문이라, 감추면
+     * 화면이 왜 실패했는지 말할 수 없다. 대신 <b>어느 묶음으로 가야 하는지</b>를 응답
+     * 상세({@code ProductOrderGroupRef})에 실어 화면이 바로 그쪽으로 보낼 수 있게 한다.
+     */
+    PRODUCT_ORDER_BELONGS_TO_GROUP(
+            HttpStatus.CONFLICT,
+            "PRODUCT_ORDER_BELONGS_TO_GROUP",
+            "장바구니 주문은 묶음 단위로만 결제·취소할 수 있습니다.");
 
     private final HttpStatus status;
     private final String code;

@@ -2,15 +2,18 @@ package com.ssafy.upcycle.product.service;
 
 import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.product.ProductErrorCode;
+import com.ssafy.upcycle.product.dto.ProductOrderGroupRef;
 import com.ssafy.upcycle.product.dto.ProductOrderPaymentReadyResponse;
 import com.ssafy.upcycle.product.dto.ProductOrderResponse;
 import com.ssafy.upcycle.product.entity.ProductItem;
 import com.ssafy.upcycle.product.entity.ProductModel;
 import com.ssafy.upcycle.product.entity.ProductOrder;
+import com.ssafy.upcycle.product.entity.ProductOrderGroup;
 import com.ssafy.upcycle.product.entity.ProductOrderItem;
 import com.ssafy.upcycle.product.entity.ProductOrderStatus;
 import com.ssafy.upcycle.product.repository.ProductItemRepository;
 import com.ssafy.upcycle.product.repository.ProductModelRepository;
+import com.ssafy.upcycle.product.repository.ProductOrderGroupRepository;
 import com.ssafy.upcycle.product.repository.ProductOrderItemRepository;
 import com.ssafy.upcycle.product.repository.ProductOrderRepository;
 import com.ssafy.upcycle.trade.TradeErrorCode;
@@ -25,7 +28,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 제품 주문의 결제 준비·승인·취소.
+ * 제품 주문의 결제 준비·승인·취소. <b>묶이지 않은 단일 주문만 다룬다.</b>
+ *
+ * <p>장바구니로 만든 주문은 결제의 단위가 묶음이라 여기로 오면 안 된다
+ * ({@link #requireNotGrouped}). 그쪽은 {@code ProductOrderGroupPaymentService} 가 받는다.
  *
  * <p>소재 거래의 {@code PaymentService} 와 같은 구조다. 카카오페이가 <b>2단계</b>이기 때문이고,
  * 그 사실은 도메인과 무관하다.
@@ -56,6 +62,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ProductOrderPaymentService {
 
     private final ProductOrderRepository orders;
+    private final ProductOrderGroupRepository orderGroups;
     private final ProductOrderItemRepository orderItems;
     private final ProductItemRepository items;
     private final ProductModelRepository models;
@@ -78,6 +85,7 @@ public class ProductOrderPaymentService {
     @Transactional
     public ProductOrderPaymentReadyResponse ready(Long buyerId, Long orderId) {
         ProductOrder order = requireOwnOrder(buyerId, orderId);
+        requireNotGrouped(order);
         requireStatus(order, ProductOrderStatus.CREATED);
 
         PaymentReady ready = paymentCoordinator.ready(
@@ -112,6 +120,7 @@ public class ProductOrderPaymentService {
     @Transactional
     public ProductOrderResponse approve(Long buyerId, Long orderId, String pgToken) {
         ProductOrder order = requireOwnOrder(buyerId, orderId);
+        requireNotGrouped(order);
         requireStatus(order, ProductOrderStatus.CREATED);
 
         PaymentApproval approval = paymentCoordinator.approve(
@@ -147,6 +156,7 @@ public class ProductOrderPaymentService {
         ProductOrder order = orders.findByIdForUpdate(orderId)
                 .filter(found -> found.getBuyerId().equals(buyerId))
                 .orElseThrow(() -> new BusinessException(ProductErrorCode.PRODUCT_ORDER_NOT_FOUND));
+        requireNotGrouped(order);
         if (!order.isCancelable()) {
             throw new BusinessException(ProductErrorCode.PRODUCT_ORDER_NOT_CANCELABLE);
         }
@@ -220,6 +230,40 @@ public class ProductOrderPaymentService {
         return items.findAllById(orderItems.findAllByProductOrderId(order.getId()).stream()
                 .map(ProductOrderItem::getProductItemId)
                 .toList());
+    }
+
+    /**
+     * 묶음에 속한 주문은 이 경로로 처리하지 않는다. <b>부분 취소가 없다는 정책을 코드가
+     * 강제하는 자리다.</b>
+     *
+     * <p>막지 않으면 결제가 묶음 단위라는 전제가 세 곳에서 동시에 무너진다.
+     *
+     * <ul>
+     *   <li><b>취소</b> — 그 브랜드 몫만 환불되고 나머지 주문은 살아남는다. 묶음의 금액은
+     *       그대로라 나중에 묶음을 취소하면 이미 환불한 금액을 다시 요청한다
+     *   <li><b>준비</b> — 묶음의 결제창과 별개로 두 번째 결제창이 열린다
+     *   <li><b>승인</b> — 그 주문만 팔리고 묶음은 {@code CREATED} 로 남는다. 묶음이 마감을
+     *       넘기면 만료 배치가 <b>이미 결제된 그 주문까지</b> 지운다 — 만료는 승인 전을
+     *       전제로 환불하지 않으므로 돈은 청구된 채 주문만 사라진다
+     * </ul>
+     *
+     * <p><b>소유자 검사를 지난 뒤에 부른다.</b> 순서를 바꾸면 남의 주문이 묶음인지 아닌지가
+     * 응답으로 새어 나간다.
+     *
+     * <p>갈 곳을 함께 알려 준다 — 화면이 할 일은 묶음 경로로 옮겨 가는 것 하나뿐이다.
+     */
+    private void requireNotGrouped(ProductOrder order) {
+        Long orderGroupId = order.getOrderGroupId();
+        if (orderGroupId == null) {
+            return;
+        }
+        throw new BusinessException(
+                ProductErrorCode.PRODUCT_ORDER_BELONGS_TO_GROUP,
+                new ProductOrderGroupRef(
+                        orderGroupId,
+                        orderGroups.findById(orderGroupId)
+                                .map(ProductOrderGroup::getGroupCode)
+                                .orElse(null)));
     }
 
     /** 남의 주문을 가리키면 "없음" 으로 답한다 — 403 은 그 주문이 존재한다는 사실을 흘린다. */

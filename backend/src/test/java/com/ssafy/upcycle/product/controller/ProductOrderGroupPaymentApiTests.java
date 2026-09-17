@@ -80,6 +80,7 @@ class ProductOrderGroupPaymentApiTests {
 
     private static final String CHECKOUT = "/api/v1/consumers/me/cart/checkout";
     private static final String BASE = "/api/v1/product-order-groups";
+    private static final String SINGLE_ORDER = "/api/v1/product-orders";
     private static final long BAG_PRICE = 50_000L;
     private static final long COAT_PRICE = 300_000L;
     private static final long WALLET_PRICE = 20_000L;
@@ -457,6 +458,140 @@ class ProductOrderGroupPaymentApiTests {
                 .andExpect(jsonPath("$.data.content[0].orderGroupCode").doesNotExist())
                 .andExpect(jsonPath("$.data.content[1].orderGroupCode").value(
                         org.hamcrest.Matchers.startsWith("ORG-")));
+    }
+
+    // ── 단일 주문 경로와의 경계 ─────────────────────────────
+
+    @Test
+    void aGroupedOrderCannotBeCancelledThroughTheSingleOrderPath() throws Exception {
+        // 부분 취소가 없다는 정책이 코드로 강제되지 않으면, 그 브랜드 몫만 환불되고
+        // 나머지 주문은 살아남는다 — 돈은 나갔는데 주문은 남는 상태다.
+        Long groupId = checkout();
+        ProductOrder grouped = productOrderRepository
+                .findAllByOrderGroupIdOrderByIdAsc(groupId).get(0);
+
+        mockMvc.perform(withJwt(
+                        post(SINGLE_ORDER + "/" + grouped.getId() + "/cancel"), consumerId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("reason", "변심"))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PRODUCT_ORDER_BELONGS_TO_GROUP"))
+                // 화면이 할 일은 묶음 경로로 옮겨 가는 것 하나뿐이다.
+                .andExpect(jsonPath("$.data.orderGroupId").value(groupId))
+                .andExpect(jsonPath("$.data.orderGroupCode").value(
+                        org.hamcrest.Matchers.startsWith("ORG-")));
+
+        assertThat(productOrderRepository.count()).isEqualTo(2);
+        assertThat(productOrderGroupRepository.findById(groupId)).isPresent();
+        assertThat(canceledOrderRepository.count()).isZero();
+        assertThat(productItemRepository.countByProductModelIdAndStatus(
+                bagId, ProductItemStatus.RESERVED)).isEqualTo(1);
+    }
+
+    @Test
+    void cancellingAPaidGroupedOrderAloneDoesNotLeakMoney() throws Exception {
+        // 결제까지 끝난 주문이면 그 브랜드 몫으로 실제 환불이 나간다. PG 는 부분 취소를
+        // 받아 주므로 이 요청은 거절되지 않으면 성공해 버린다.
+        Long groupId = checkout();
+        ready(groupId);
+        mockMvc.perform(approveRequest(groupId, consumerId)).andExpect(status().isOk());
+        ProductOrder grouped = productOrderRepository
+                .findAllByOrderGroupIdOrderByIdAsc(groupId).get(0);
+
+        mockMvc.perform(withJwt(
+                        post(SINGLE_ORDER + "/" + grouped.getId() + "/cancel"), consumerId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("reason", "변심"))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PRODUCT_ORDER_BELONGS_TO_GROUP"));
+
+        verify(paymentGateway, never()).cancel(any());
+        assertThat(productOrderRepository.count()).isEqualTo(2);
+    }
+
+    @Test
+    void aGroupedOrderCannotOpenASecondCheckoutWindow() throws Exception {
+        // 묶음은 자기 tid 를 들고 있다. 여기서 또 열면 살아 있는 결제창이 둘이 된다.
+        Long groupId = checkout();
+        ProductOrder grouped = productOrderRepository
+                .findAllByOrderGroupIdOrderByIdAsc(groupId).get(0);
+
+        mockMvc.perform(withJwt(
+                        post(SINGLE_ORDER + "/" + grouped.getId() + "/payment/ready"), consumerId))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PRODUCT_ORDER_BELONGS_TO_GROUP"))
+                .andExpect(jsonPath("$.data.orderGroupId").value(groupId));
+
+        verify(paymentGateway, never()).ready(any());
+        assertThat(productOrderRepository.findById(grouped.getId()).orElseThrow()
+                .getPaymentReference()).isNull();
+    }
+
+    @Test
+    void aGroupedOrderCannotBeApprovedOnItsOwn() throws Exception {
+        // 그 주문만 PAID 가 되고 묶음은 CREATED 로 남는다. 묶음이 마감을 넘기면 만료
+        // 배치가 이미 결제된 그 주문까지 지운다 — 만료는 승인 전을 전제로 환불하지 않는다.
+        Long groupId = checkout();
+        ready(groupId);
+        ProductOrder grouped = productOrderRepository
+                .findAllByOrderGroupIdOrderByIdAsc(groupId).get(0);
+
+        mockMvc.perform(withJwt(
+                        post(SINGLE_ORDER + "/" + grouped.getId() + "/payment/approve"),
+                        consumerId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("pgToken", PG_TOKEN))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PRODUCT_ORDER_BELONGS_TO_GROUP"));
+
+        verify(paymentGateway, never()).approve(any());
+        assertThat(productOrderRepository.findById(grouped.getId()).orElseThrow().getStatus())
+                .isEqualTo(ProductOrderStatus.CREATED);
+    }
+
+    @Test
+    void anUngroupedOrderStillPaysAndCancelsThroughTheSinglePath() throws Exception {
+        // 막는 것은 묶인 주문뿐이다. 기존 "바로 구매" 는 그대로 동작해야 한다.
+        placeSingleOrder(walletId);
+        ProductOrder single = productOrderRepository.findAll().stream()
+                .filter(order -> order.getOrderGroupId() == null)
+                .findFirst()
+                .orElseThrow();
+
+        mockMvc.perform(withJwt(
+                        post(SINGLE_ORDER + "/" + single.getId() + "/payment/ready"), consumerId))
+                .andExpect(status().isOk());
+        mockMvc.perform(withJwt(
+                        post(SINGLE_ORDER + "/" + single.getId() + "/cancel"), consumerId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("reason", "변심"))))
+                .andExpect(status().isOk());
+
+        assertThat(productOrderRepository.findById(single.getId())).isEmpty();
+        assertThat(productItemRepository.countByProductModelIdAndStatus(
+                walletId, ProductItemStatus.IN_STOCK)).isEqualTo(1);
+    }
+
+    @Test
+    void aSingleOrderIdOnTheGroupPathNeverReachesThatOrder() throws Exception {
+        // 반대 방향이다. 묶음 경로는 product_order_group 만 조회하므로 단일 주문에는
+        // 닿지 못한다. 지금은 안전하지만, 묶음 경로가 주문 테이블을 보게 바뀌면 이
+        // 테스트가 먼저 깨져야 한다.
+        placeSingleOrder(walletId);
+        ProductOrder single = productOrderRepository.findAll().stream()
+                .filter(order -> order.getOrderGroupId() == null)
+                .findFirst()
+                .orElseThrow();
+
+        mockMvc.perform(withJwt(get(BASE + "/" + single.getId()), consumerId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("PRODUCT_ORDER_GROUP_NOT_FOUND"));
+        mockMvc.perform(cancelRequest(single.getId(), consumerId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("PRODUCT_ORDER_GROUP_NOT_FOUND"));
+
+        assertThat(productOrderRepository.findById(single.getId())).isPresent();
+        verify(paymentGateway, never()).cancel(any());
     }
 
     // ── 만료 ────────────────────────────────────────────────
