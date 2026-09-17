@@ -83,6 +83,17 @@ esac
 #
 # 같은 커밋에 대해 재시도·재빌드가 여러 번 나도 코멘트가 중복 쌓이지 않도록,
 # 먼저 그 MR에 이 커밋 SHA 언급이 이미 있는지 확인하고 없을 때만 단다.
+#
+# 2026-09-17 테스트 중 실사고: GitLab은 커밋이 그 MR을 참조하면 "mentioned in
+# commit <SHA>" 라는 시스템 노트를 **자동으로** 남긴다 — 특히 그 커밋이 MR을
+# 머지하는 커밋 자신일 때 100% 생긴다. 이걸 걸러내지 않고 body 에서 SHA 앞자리를
+# 문자열로만 찾으면 이 자동 시스템 노트에 매번 걸려서 "이미 있음"으로 오판하고
+# 실제로는 단 한 번도 코멘트를 달지 못한다(기능이 조용히 죽어 있는 것과 같다).
+# 그래서 `system` 필드가 false 인 노트(사람/스크립트가 직접 단 것)만 대상으로
+# SHA 앞자리를 찾는다. python3 는 Jenkins 이미지와 EC2 호스트 양쪽에 있다
+# (jenkins-multibranch-ci 메모 참고) — 혹시라도 없거나 파싱이 깨지면 "없음"으로
+# 취급해 코멘트를 단다. 중복 코멘트가 한 번씩 더 다는 것이, 이 기능 자체가
+# 계속 조용히 아무것도 안 하는 것보다 낫다.
 if [ "$STATE" = "failed" ]; then
     MR_IID="$(git log -1 --format=%B "$SHA" 2>/dev/null | grep -oE '![0-9]+' | tail -1 | tr -d '!')"
     if [ -n "$MR_IID" ]; then
@@ -90,9 +101,19 @@ if [ "$STATE" = "failed" ]; then
 
         EXISTING="$(curl -sS --max-time 15 -H "PRIVATE-TOKEN: $TOKEN" \
             "${NOTES_API}?per_page=100" 2>/dev/null)"
-        case "$EXISTING" in
-            *"${SHA:0:8}"*)
-                echo "gitlab-status: MR !$MR_IID 에 이미 이 커밋($([ -n "$SHA" ] && echo "${SHA:0:8}"))에 대한 코멘트가 있음 — 건너뜀"
+        ALREADY_NOTED="$(printf '%s' "$EXISTING" | SHA8="${SHA:0:8}" python3 -c '
+import json, os, sys
+try:
+    notes = json.load(sys.stdin)
+except Exception:
+    notes = []
+sha8 = os.environ.get("SHA8", "")
+found = any(isinstance(n, dict) and not n.get("system") and sha8 in n.get("body", "") for n in notes)
+print("yes" if found else "no")
+' 2>/dev/null)"
+        case "$ALREADY_NOTED" in
+            yes)
+                echo "gitlab-status: MR !$MR_IID 에 이미 이 커밋(${SHA:0:8})에 대한 코멘트가 있음 — 건너뜀"
                 ;;
             *)
                 BODY="⚠️ 머지 후 \`$PART/$BRANCH\` 빌드가 실패했습니다 (#$BUILD, 커밋 ${SHA:0:8}).
