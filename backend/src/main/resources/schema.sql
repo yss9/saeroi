@@ -633,6 +633,26 @@ CREATE TABLE product_image (
     CONSTRAINT chk_product_image_sort_order CHECK (sort_order >= 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+CREATE TABLE consumer_wishlist (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    product_model_id BIGINT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT pk_consumer_wishlist PRIMARY KEY (id),
+    -- 같은 상품을 두 번 담을 수 없다. 조회해 보고 넣는 것만으로는 같은 순간 들어온 두
+    -- 요청이 함께 통과한다 - 하트 버튼은 연타되고 재시도도 흔해서 실제로 겹친다.
+    -- 이 키가 "내가 찜했나" 조회와 찜 해제도 함께 받친다.
+    CONSTRAINT uk_consumer_wishlist_user_product UNIQUE (user_id, product_model_id),
+    CONSTRAINT fk_consumer_wishlist_user FOREIGN KEY (user_id) REFERENCES users (id),
+    -- 찜이 가리키는 동안에는 상품 행을 지울 수 없다. 이 저장소에 상품 삭제 경로는 없고
+    -- 단종은 status 로 처리하지만, 운영에서 손으로 지우는 것까지 여기서 막는다.
+    CONSTRAINT fk_consumer_wishlist_product FOREIGN KEY (product_model_id)
+        REFERENCES product_model (id),
+    -- 목록은 user_id 로 좁혀 담은 순서의 역순으로 읽는다. 위 유니크 키는 두 번째 열이
+    -- product_model_id 라 그 정렬을 받치지 못한다.
+    INDEX idx_consumer_wishlist_user (user_id, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 CREATE TABLE production_batch (
     id BIGINT NOT NULL AUTO_INCREMENT,
     -- ProductionRegistry.createBatch 가 채번한 번호. 이후 submitPlanAndLock ·

@@ -38,11 +38,39 @@ public record PublicProductModelResponse(
     private static final String PUBLIC_THUMBNAIL_PATH =
             "/api/v1/public/product-models/%d/thumbnail";
 
+    /** 로그인한 사용자만 보는 화면이 쓰는 주소. 판매 상태와 무관하게 열린다. */
+    private static final String MANAGEMENT_THUMBNAIL_PATH =
+            "/api/v1/product-models/%d/thumbnail";
+
     public static PublicProductModelResponse of(
             ProductModel model,
             String brandName,
             long stockQuantity,
             List<ProductImage> images) {
+        return of(model, brandName, stockQuantity, images, false);
+    }
+
+    /**
+     * 로그인한 사용자만 보는 화면이 쓸 모양. 이미지 주소가 인증 경로다.
+     *
+     * <p>공개 이미지 경로는 판매 중인 상품만 열려 있다. 찜 목록처럼 <b>공개 조건을 벗어난
+     * 상품이 남는 화면</b>은 그 주소를 쓰면 사진이 깨진다. 값은 같고 주소만 다르므로 화면은
+     * 같은 카드 컴포넌트를 쓴다.
+     */
+    public static PublicProductModelResponse ofAuthenticated(
+            ProductModel model,
+            String brandName,
+            long stockQuantity,
+            List<ProductImage> images) {
+        return of(model, brandName, stockQuantity, images, true);
+    }
+
+    private static PublicProductModelResponse of(
+            ProductModel model,
+            String brandName,
+            long stockQuantity,
+            List<ProductImage> images,
+            boolean authenticatedImages) {
         return new PublicProductModelResponse(
                 model.getId(),
                 model.getName(),
@@ -52,19 +80,30 @@ public record PublicProductModelResponse(
                 brandName,
                 model.getPrice(),
                 model.getDescription(),
-                publicThumbnailUrl(model),
+                thumbnailUrl(model, authenticatedImages),
                 model.getStatus(),
                 stockQuantity,
-                images.stream().map(ProductImageResponse::publicOf).toList(),
+                images.stream()
+                        .map(image -> authenticatedImages
+                                ? ProductImageResponse.managementOf(image)
+                                : ProductImageResponse.publicOf(image))
+                        .toList(),
                 model.getCreatedAt());
+    }
+
+    private static String thumbnailUrl(ProductModel model, boolean authenticatedImages) {
+        if (authenticatedImages) {
+            return MANAGEMENT_THUMBNAIL_PATH.formatted(model.getId());
+        }
+        return publicThumbnailUrl(model);
     }
 
     private static String publicThumbnailUrl(ProductModel model) {
         String thumbnailUrl = model.getThumbnailUrl();
-        // 시연 상품은 프론트에 이미 포함된 공개 정적 이미지를 쓴다. 브랜드가 업로드한
+        // 데모 상품은 프론트에 이미 포함된 공개 정적 이미지를 쓴다. 브랜드가 업로드한
         // 이미지는 저장 키라 이 접두어를 가질 수 없고 기존 공개 썸네일 API를 그대로 쓴다.
         //
-        // 이 분기는 시연 상품 이미지가 FileStorageService 로 옮겨지면 사라진다. 지금
+        // 이 분기는 데모 상품 이미지가 FileStorageService 로 옮겨지면 사라진다. 지금
         // 지우면 이미 시드된 상품들의 대표 이미지가 통째로 깨진다 — 그 상품들의
         // thumbnail_url 은 저장 키가 아니라 프론트 정적 경로다.
         if (thumbnailUrl.startsWith("/images/landing/")) {
