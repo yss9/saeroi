@@ -33,7 +33,7 @@ describe('SignupCompletePage', () => {
     renderPage('business')
 
     expect(screen.getByRole('heading', { name: '사업자회원 가입이 완료되었습니다' })).toBeInTheDocument()
-    expect(screen.getByText('지갑 연결은 로그인 후 마이페이지에서 진행해주세요.')).toBeInTheDocument()
+    expect(screen.getByText('로그인 후 마이페이지에서 지갑을 등록해 주세요. 관리자 승인 전에는 온체인 업무를 실행할 수 없습니다.')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '쇼핑몰 홈으로' })).toHaveAttribute('href', '/')
   })
 
