@@ -30,10 +30,13 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException exception) {
+    public ResponseEntity<ApiResponse<Object>> handleBusinessException(
+            BusinessException exception) {
         ErrorCode errorCode = exception.getErrorCode();
         log.warn("Business exception: code={}, message={}", errorCode.code(), errorCode.message());
-        return ResponseEntity.status(errorCode.status()).body(ApiResponse.error(errorCode));
+        // 상세가 없으면 지금까지와 똑같이 data 가 null 인 봉투가 나간다.
+        return ResponseEntity.status(errorCode.status())
+                .body(ApiResponse.error(errorCode, exception.getDetails()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
