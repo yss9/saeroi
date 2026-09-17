@@ -140,6 +140,21 @@
 
 /* ── 버튼 ─────────────────────────────────────────────── */
 
+/*
+ * 앵커로도 쓴다.
+ *
+ * 이 버튼은 오래 <button> 에만 붙어 있었는데 「소재 등록」처럼 <b>다른 화면으로 가는</b>
+ * 동작은 Link 여야 한다 — 새 탭으로 열기와 키보드 탐색이 거기서 나온다. 보정이 없으면
+ * 밑줄 그어진 파란 링크에 버튼 껍데기만 씌워진 모양이 된다. 공통 버튼에는 같은 보정이
+ * 이미 있다 (`a.ui-button`).
+ */
+a.console-btn { text-decoration: none; }
+
+/* 색도 함께 못박는다. 배경이 진한 버튼이라 링크 기본색이 한 번이라도 이기면 읽히지 않는다. */
+a.console-btn--primary,
+a.console-btn--primary:visited,
+a.console-btn--primary:hover { color: #ffffff; }
+
 .console-btn {
   display: inline-flex;
   align-items: center;
@@ -149,10 +164,17 @@
   padding: 0 14px;
   border: 1px solid transparent;
   border-radius: var(--console-r-ctl);
-  font-family: var(--console-mono);
-  font-size: 12px;
+  /*
+   * <b>고정폭이 아니라 본문 글꼴이다.</b> 라벨이 전부 한글인데 JetBrains Mono 에는
+   * 한글이 없다 — 대체 글꼴로 떨어지면서 공백만 고정폭 너비로 남아 「소재　등록」처럼
+   * 벌어진다. 거기에 자간까지 붙으면 더 벌어진다.
+   *
+   * 고정폭은 자리를 맞춰 읽는 값(수량·금액·코드)에만 쓴다.
+   */
+  font-family: var(--console-sans);
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
   cursor: pointer;
   transition: background-color 120ms, border-color 120ms;
 }
@@ -1129,7 +1151,7 @@
 
 /* ── 거래 상세 ────────────────────────────────────────── */
 
-.trade-detail__head { align-items: center; padding-bottom: 8px; }
+.console .trade-detail__head { align-items: center; padding-bottom: 8px; }
 
 /*
  * 거래 요약.
@@ -1146,7 +1168,7 @@
  * 상세는 표가 아니라 읽고 처리하는 화면이라 폭을 1120px 로 좁힌다 — 목록의 1600px 을
  * 그대로 쓰면 요소 네댓 개가 넓은 벌판에 흩어진다.
  */
-.trade-detail__layout {
+.console .trade-detail__layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
   align-items: start;
@@ -1154,9 +1176,9 @@
   max-width: 1000px;
 }
 
-.trade-detail__main { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.console .trade-detail__main { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 
-.trade-detail__side {
+.console .trade-detail__side {
   position: sticky;
   top: 16px;
   display: flex;
@@ -1165,7 +1187,7 @@
 }
 
 /* 머리말도 같은 폭으로 맞춘다. 본문만 좁으면 제목이 홀로 떠 보인다. */
-.trade-detail__head,
+.console .trade-detail__head,
 .console > .ui-back-link { max-width: 1000px; }
 
 @media (max-width: 1024px) {
@@ -1173,7 +1195,7 @@
   .trade-detail__side { position: static; }
 }
 
-.trade-detail__meta {
+.console .trade-detail__meta {
   display: grid;
   gap: 1px;
   margin: 0;
@@ -1183,26 +1205,26 @@
   overflow: hidden;
 }
 
-.trade-detail__meta > div {
+.console .trade-detail__meta > div {
   padding: 12px 14px;
   background: var(--console-panel);
 }
 
-.trade-detail__meta dt {
+.console .trade-detail__meta dt {
   font-family: var(--console-mono);
   font-size: 11px;
   letter-spacing: 0.03em;
   color: var(--console-ink-3);
 }
 
-.trade-detail__meta dd {
+.console .trade-detail__meta dd {
   margin: 4px 0 0;
   font-size: 14px;
   font-weight: 600;
   color: var(--console-ink);
 }
 
-.trade-detail__total dd {
+.console .trade-detail__total dd {
   font-size: 22px;
   line-height: 26px;
   font-weight: 700;
@@ -1346,9 +1368,9 @@
    거래 요약 · 진행 · 이력 기록. 셋 다 제목과 구분선을 갖는다 — 제목이 없으면
    어디까지가 한 덩어리인지 알 수 없어 값들이 한 줄로 흘러 보인다. */
 
-.trade-detail__card { padding: 14px; }
+.console .trade-detail__card { padding: 14px; }
 
-.trade-detail__card > h2 {
+.console .trade-detail__card > h2 {
   margin: 0 0 10px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--console-line);
@@ -1359,17 +1381,17 @@
 }
 
 /* 손볼 것이 있는 카드만 색을 받는다. */
-.trade-detail__card--todo { border-color: var(--console-wait-line); background: var(--console-wait-bg); }
+.console .trade-detail__card--todo { border-color: var(--console-wait-line); background: var(--console-wait-bg); }
 
 /* 요약은 카드 안이라 테두리를 걷어낸다 — 카드가 이미 경계를 만든다. */
-.trade-detail__card .trade-detail__meta {
+.console .trade-detail__card .trade-detail__meta {
   border: 0;
   border-radius: 0;
   background: transparent;
   gap: 8px;
 }
 
-.trade-detail__card .trade-detail__meta > div {
+.console .trade-detail__card .trade-detail__meta > div {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -1378,7 +1400,7 @@
   background: transparent;
 }
 
-.trade-detail__card .trade-detail__meta dt {
+.console .trade-detail__card .trade-detail__meta dt {
   margin: 0;
   flex: none;
   font-family: var(--console-sans);
@@ -1387,7 +1409,7 @@
   color: var(--console-ink-3);
 }
 
-.trade-detail__card .trade-detail__meta dd {
+.console .trade-detail__card .trade-detail__meta dd {
   margin: 0;
   font-size: 12px;
   font-weight: 500;
@@ -1396,15 +1418,15 @@
 }
 
 /* 총액. 위에 선을 둬서 "여기부터 돈" 임을 가른다. */
-.trade-detail__card .trade-detail__total {
+.console .trade-detail__card .trade-detail__total {
   margin-top: 2px;
   padding-top: 10px !important;
   border-top: 1px solid var(--console-line);
 }
 
-.trade-detail__card .trade-detail__total dt { font-weight: 600; color: var(--console-ink-2); }
+.console .trade-detail__card .trade-detail__total dt { font-weight: 600; color: var(--console-ink-2); }
 
-.trade-detail__card .trade-detail__total dd {
+.console .trade-detail__card .trade-detail__total dd {
   font-size: 18px;
   line-height: 22px;
   font-weight: 700;
@@ -1412,15 +1434,15 @@
 }
 
 /* 결제 수단은 총액에 딸린 각주다. */
-.trade-detail__card .trade-detail__paid dt,
-.trade-detail__card .trade-detail__paid dd {
+.console .trade-detail__card .trade-detail__paid dt,
+.console .trade-detail__card .trade-detail__paid dd {
   font-size: 11px;
   font-weight: 400;
   color: var(--console-ink-3);
 }
 
 /* 진행 타임라인도 카드 안에서는 여백을 줄인다. */
-.trade-detail__card .trade-timeline {
+.console .trade-detail__card .trade-timeline {
   margin: 0;
   padding: 0;
   border: 0;
@@ -1430,9 +1452,9 @@
 
 /* ── 이력 기록 ────────────────────────────────────────── */
 
-.trade-detail__ledger { display: flex; align-items: center; gap: 8px; margin: 0; }
+.console .trade-detail__ledger { display: flex; align-items: center; gap: 8px; margin: 0; }
 
-.trade-detail__ledger-note {
+.console .trade-detail__ledger-note {
   margin: 8px 0 0;
   font-size: 12px;
   line-height: 1.6;
@@ -1440,16 +1462,16 @@
 }
 
 /* 기술 정보는 접어 둔다 — 심사·문의 때 필요하지만 평소에 읽을 값이 아니다. */
-.trade-detail__ledger-more { margin-top: 8px; }
+.console .trade-detail__ledger-more { margin-top: 8px; }
 
-.trade-detail__ledger-more > summary {
+.console .trade-detail__ledger-more > summary {
   font-family: var(--console-mono);
   font-size: 11px;
   color: var(--console-ink-3);
   cursor: pointer;
 }
 
-.trade-detail__ledger-more dl {
+.console .trade-detail__ledger-more dl {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -1458,9 +1480,9 @@
   border-top: 1px solid var(--console-line);
 }
 
-.trade-detail__ledger-more dl > div { display: flex; justify-content: space-between; gap: 8px; }
-.trade-detail__ledger-more dt { font-size: 11px; color: var(--console-ink-3); }
-.trade-detail__ledger-more dd { margin: 0; font-size: 11px; color: var(--console-ink-2); }
+.console .trade-detail__ledger-more dl > div { display: flex; justify-content: space-between; gap: 8px; }
+.console .trade-detail__ledger-more dt { font-size: 11px; color: var(--console-ink-3); }
+.console .trade-detail__ledger-more dd { margin: 0; font-size: 11px; color: var(--console-ink-2); }
 
 /* ── 공통 요소를 콘솔 밀도에 맞춘다 ───────────────────────
    `.console` 안에서만 적용한다. 공통 컴포넌트(ui-*)는 앱 전체가 쓰므로 원본을 고치면
@@ -1512,3 +1534,215 @@
 .console .shipment-panel,
 .console .receipt-panel,
 .console .trade-timeline { max-width: none; }
+
+/* ── 보유 소재 표 ─────────────────────────────────────────
+   공급업체·브랜드·가공업체가 같은 표를 쓴다. 역할로 갈리는 것은 「소재 등록」뿐이다. */
+
+/*
+ * 행 안의 이름 링크.
+ *
+ * 링크로 두는 이유는 키보드와 보조 기술 때문이지, 링크처럼 <b>보이려는</b> 것이 아니다.
+ * 보정이 없으면 브라우저 기본값이 그대로 나와 이름마다 파란 글씨에 밑줄이 그어진다 —
+ * 표 한 칸에 밑줄이 네댓 줄 생기면 칸 경계선과 뒤섞여 표가 깨져 보인다.
+ */
+.inv-table .console-row__name a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.inv-table .console-row__name a:hover { text-decoration: underline; }
+
+/* 소재 코드. 이름을 고르는 기준은 이름이고 코드는 <b>구분</b>에만 쓰므로 한 겹 뒤로. */
+.inv-code {
+  display: block;
+  margin-top: 1px;
+  font-family: var(--console-mono);
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--console-ink-3);
+}
+
+/* 이 표를 보는 이유가 되는 숫자. 한 열만 크게 둔다. */
+.inv-usable {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--console-ink);
+}
+
+.inv-split > div:first-child {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 160px;
+  font-size: 12px;
+}
+
+.inv-split__lock { color: var(--console-ink-3); white-space: nowrap; }
+
+/* 표 안이라 카드보다 얇게, 위 여백도 줄인다. */
+.inv-bar { height: 4px; margin-top: 4px; }
+
+/* 잠긴 곳. 빈 칸이 절반을 넘는 것이 정상이라 「—」를 조용히 둔다. */
+.inv-lock-src {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  font-size: 12px;
+  color: var(--console-ink-3);
+  white-space: nowrap;
+}
+
+.inv-lock-src a { color: var(--console-teal); text-decoration: none; }
+.inv-lock-src a:hover { text-decoration: underline; }
+
+.inv-synced {
+  font-family: var(--console-mono);
+  font-size: 11px;
+  color: var(--console-ink-3);
+  white-space: nowrap;
+}
+
+/* 종류·등급 칩이 두 개 붙는 칸. <b>td 가 아니라 그 안의 상자를 눕힌다</b> — td 에
+   display:flex 를 걸면 칸이 표 레이아웃에서 빠져나와 열과 선이 어긋난다. */
+.inv-chips { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+
+@media (max-width: 900px) {
+  /* 좁은 화면에서는 기준 시각을 접는다. 표를 옆으로 밀지 않고 읽을 폭을 만든다 —
+     이 값은 소재 상세에도 있다. */
+  .inv-table th:nth-child(7),
+  .inv-table td:nth-child(7) { display: none; }
+}
+
+/* ── 가로로 눕힌 요약 카드 ────────────────────────────────
+   좁은 기둥에서는 라벨과 값이 양끝으로 갈라져 시선이 매번 건너뛴다. 값이 짧으므로
+   (대부분 100~160px) 가로로 늘어놓고 라벨을 값 위에 얹으면 한 덩어리로 읽힌다. */
+
+.console .trade-detail__card--wide .trade-detail__meta {
+  /*
+   * 두 줄로 나눈다.
+   *
+   *   구매자 · 수량 단가 · 소재      거래가 무엇인가
+   *   총 거래 금액 · 결제            돈이 어떻게 되었나
+   *
+   * 다섯을 한 줄에 넣으면 칸이 130px 남짓이라 소재명처럼 긴 값이 잘린다. 세 칸이면
+   * 200px 이 넘어 지금 오는 값들이 다 들어간다.
+   */
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+}
+
+.console .trade-detail__card--wide .trade-detail__meta > div {
+  position: relative;
+  display: block;
+  min-width: 0;
+  padding: 0 16px;
+}
+
+/*
+ * 칸 사이 세로선.
+ *
+ * <b>`border-left` 로 그으면 두 줄을 관통한다.</b> 둘째 줄에 위 여백을 주면 그 여백까지
+ * 선이 이어져, 줄이 나뉘어 있는데도 한 줄짜리 카드처럼 보인다. 선을 따로 얹어 각 줄
+ * 안에서만 긋는다.
+ */
+.console .trade-detail__card--wide .trade-detail__meta > div::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid var(--console-line);
+}
+
+/*
+ * 둘째 줄은 위 여백만큼 선을 내려 긋는다 — 줄 사이가 비어야 두 줄로 읽힌다.
+ *
+ * `> .trade-detail__total` 처럼 자식 결합자를 그대로 둔다. 위의 일반 규칙이
+ * `> div::before`(클래스 셋 + 태그)라, 클래스만 셋인 선택자로는 특정도에서 밀려
+ * `top` 이 먹지 않는다.
+ */
+.console .trade-detail__card--wide .trade-detail__meta > .trade-detail__total::before,
+.console .trade-detail__card--wide .trade-detail__meta > .trade-detail__paid::before {
+  top: 14px;
+}
+
+/* 각 줄의 첫 칸에는 선을 두지 않는다 — 카드 안쪽 선이 테두리처럼 보인다. */
+.console .trade-detail__card--wide .trade-detail__meta > div:nth-child(3n + 1) {
+  padding-left: 0;
+}
+
+.console .trade-detail__card--wide .trade-detail__meta > div:nth-child(3n + 1)::before {
+  content: none;
+}
+
+.console .trade-detail__card--wide .trade-detail__meta dt {
+  margin-bottom: 4px;
+  font-size: 11px;
+  color: var(--console-ink-3);
+}
+
+.console .trade-detail__card--wide .trade-detail__meta dd {
+  text-align: left;
+  font-size: 13px;
+}
+
+/* 둘째 줄은 위로 한 칸 띄운다. 붙여 두면 첫 줄의 값과 둘째 줄의 라벨이 한 덩어리로
+   읽혀 「소재 / 총 거래 금액」이 한 항목처럼 보인다. */
+.console .trade-detail__card--wide .trade-detail__total,
+.console .trade-detail__card--wide .trade-detail__paid {
+  margin-top: 0;
+  padding-top: 14px !important;
+  border-top: 0;
+}
+
+.console .trade-detail__card--wide .trade-detail__total dd {
+  font-size: 20px;
+  line-height: 24px;
+  color: var(--console-green);
+}
+
+@media (max-width: 720px) {
+  /* 좁아지면 두 칸씩 접힌다. 칸마다 왼쪽 선이 남으면 줄이 어긋나 보인다. */
+  .console .trade-detail__card--wide .trade-detail__meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  .console .trade-detail__card--wide .trade-detail__meta > div { padding: 8px 0; }
+
+  /* 두 칸으로 접히면 세로선을 걷는다 — 칸 경계가 줄마다 달라져 오히려 어지럽다. */
+  .console .trade-detail__card--wide .trade-detail__meta > div::before { content: none; }
+}
+
+/* ── 내 차례 표시 ─────────────────────────────────────────
+   진행 카드의 초록 점 중 <b>지금 내가 할 차례</b>인 것만 파동을 준다.
+
+   <b>「여기까지 왔다」와 「당신이 할 차례다」는 다른 말이다.</b> CURRENT 는 거래가 어디쯤
+   왔는지를 가리킬 뿐이라, 배송 중인 거래의 CURRENT 는 구매자의 수령 확인이다. 그것까지
+   깜빡이면 판매자에게 손댈 수 없는 일을 재촉하는 셈이고, 매번 깜빡이는 화면은 곧
+   아무 뜻도 없는 장식이 된다.
+
+   `.console` 안에서만 준다 — 같은 타임라인을 구매자 화면도 쓰는데 그쪽 표시는 그쪽이
+   정한다. */
+
+@keyframes console-turn-pulse {
+  0%   { box-shadow: 0 0 0 3px rgba(15, 76, 58, 0.22); }
+  70%  { box-shadow: 0 0 0 8px rgba(15, 76, 58, 0); }
+  100% { box-shadow: 0 0 0 3px rgba(15, 76, 58, 0); }
+}
+
+.console .trade-timeline__step--mine .trade-timeline__marker {
+  border-color: var(--console-green);
+  background: var(--console-green);
+  animation: console-turn-pulse 2s ease-out infinite;
+}
+
+/*
+ * 움직임을 줄여 달라고 한 사용자에게는 멈춘 채로 둔다. 파동이 유일한 단서가 아니어야
+ * 하므로 색과 링은 그대로 남긴다 — 애니메이션이 정보를 나르면 그 사용자만 못 읽는다.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .console .trade-timeline__step--mine .trade-timeline__marker {
+    animation: none;
+    box-shadow: 0 0 0 3px rgba(15, 76, 58, 0.22);
+  }
+}

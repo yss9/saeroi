@@ -262,3 +262,48 @@ describe('TradeTimeline', () => {
     expect(within(step('결제 완료')).getByText('-')).toBeInTheDocument()
   })
 })
+
+/**
+ * 「지금 내 차례」 표시.
+ *
+ * <b>「여기까지 왔다」와 「당신이 할 차례다」는 다른 말이다.</b> CURRENT 는 거래가 어디쯤
+ * 왔는지만 가리킨다 — 배송 중인 거래의 CURRENT 는 구매자의 수령 확인이다. 그것까지
+ * 내 차례로 표시하면 판매자에게 손댈 수 없는 일을 재촉하게 되고, 매번 표시가 붙으면
+ * 곧 아무 뜻도 없어진다.
+ *
+ * 화면(콘솔)은 이 표시에 파동을 준다. 표시를 붙이는 판단만 여기서 못박는다.
+ */
+describe('지금 내 차례', () => {
+  it('결제된 거래는 판매자 차례다', () => {
+    render(<TradeTimeline trade={trade({ status: 'PAID', paidAt: '2026-09-02T10:00:00' })} viewer="SELLER" />)
+
+    const step = document.querySelector('.trade-timeline__step--mine')
+    expect(step).not.toBeNull()
+    expect(within(step as HTMLElement).getByText('발송')).toBeInTheDocument()
+  })
+
+  it('같은 거래가 구매자에게는 내 차례가 아니다', () => {
+    render(<TradeTimeline trade={trade({ status: 'PAID', paidAt: '2026-09-02T10:00:00' })} viewer="BUYER" />)
+
+    expect(document.querySelector('.trade-timeline__step--mine')).toBeNull()
+  })
+
+  it('배송 중인 거래는 판매자 차례가 아니다', () => {
+    // CURRENT 는 구매자의 수령 확인이다. 판매자는 기다리는 것 말고 할 일이 없다.
+    render(
+      <TradeTimeline
+        trade={trade({ status: 'SHIPPED', paidAt: '2026-09-02T10:00:00', shippedAt: '2026-09-03T10:00:00' })}
+        viewer="SELLER"
+      />,
+    )
+
+    expect(document.querySelector('.trade-timeline__step--mine')).toBeNull()
+  })
+
+  it('보는 사람을 모르면 아무 표시도 하지 않는다', () => {
+    // 당사자가 아닌 사람에게는 viewer 가 없다.
+    render(<TradeTimeline trade={trade({ status: 'PAID', paidAt: '2026-09-02T10:00:00' })} />)
+
+    expect(document.querySelector('.trade-timeline__step--mine')).toBeNull()
+  })
+})
