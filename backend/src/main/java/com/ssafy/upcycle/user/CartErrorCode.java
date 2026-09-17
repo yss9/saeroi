@@ -58,7 +58,31 @@ public enum CartErrorCode implements ErrorCode {
      * 막아 주는 것이 전제다.
      */
     CART_CONCURRENT_UPDATE(
-            HttpStatus.CONFLICT, "CART_CONCURRENT_UPDATE", "장바구니가 방금 바뀌었습니다. 다시 시도해 주세요.");
+            HttpStatus.CONFLICT, "CART_CONCURRENT_UPDATE", "장바구니가 방금 바뀌었습니다. 다시 시도해 주세요."),
+
+    /**
+     * 주문하려는 항목 중 지금은 살 수 없는 것이 있는 경우.
+     *
+     * <p><b>되는 것만 주문하지 않는다.</b> 조용히 빼면 사용자가 화면에서 본 합계와 다른
+     * 금액이 결제되고 그건 분쟁이 된다 — 재고 부족을 전체 실패로 다루는 것과 같은 판단이다.
+     *
+     * <p>어떤 상품이 왜 안 되는지는 응답 상세({@code UnavailableCartLine})에 실린다.
+     */
+    CART_CHECKOUT_ITEMS_UNAVAILABLE(
+            HttpStatus.CONFLICT,
+            "CART_CHECKOUT_ITEMS_UNAVAILABLE",
+            "지금은 구매할 수 없는 상품이 있습니다."),
+
+    /**
+     * 화면이 보낸 예상 결제 금액이 서버가 계산한 금액과 다른 경우.
+     *
+     * <p><b>요청이 그 값을 보냈을 때만 나온다.</b> 담아 둔 사이에 값이 오른 것을 모르고
+     * 결제되는 경로를 막는 안전장치이고, 보내지 않으면 현재가로 그냥 진행한다.
+     */
+    CART_CHECKOUT_PRICE_CHANGED(
+            HttpStatus.CONFLICT,
+            "CART_CHECKOUT_PRICE_CHANGED",
+            "상품 가격이 변경되었습니다. 금액을 다시 확인해 주세요.");
 
     private final HttpStatus status;
     private final String code;

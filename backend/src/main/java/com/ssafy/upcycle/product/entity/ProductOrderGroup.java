@@ -153,8 +153,61 @@ public class ProductOrderGroup {
         this.groupCode = requireText(groupCode, "group code", GROUP_CODE_MAX_LENGTH);
     }
 
+    /**
+     * 결제를 준비했다. 받은 {@code tid} 를 적어 둔다.
+     *
+     * <p>사용자가 결제창에서 돌아왔을 때 서버가 이 값을 알고 있어야 승인을 요청할 수 있다.
+     * 화면이 다시 보내게 하면 남의 결제를 승인시키는 입구가 된다.
+     *
+     * <p>덮어쓰기를 허용한다 — 결제창을 닫고 다시 여는 것은 정상 행동이다. 단일 주문과
+     * 같은 규칙이다.
+     */
+    public void preparePayment(String paymentReference) {
+        requireStatus(ProductOrderGroupStatus.CREATED, "prepare payment for");
+        this.paymentReference =
+                requireText(paymentReference, "payment reference", PAYMENT_REFERENCE_MAX_LENGTH);
+    }
+
+    /**
+     * 결제가 승인되었다. <b>속한 주문도 함께 {@code PAID} 가 된다.</b>
+     *
+     * <p>{@code paymentMethod} 를 다시 적는 이유는 주문 생성 시점의 값이 <b>희망</b>일
+     * 뿐이기 때문이다. 실제로 청구한 게이트웨이를 적어야 나중에 정산에서 대조할 수 있다.
+     */
+    public void markPaid(
+            String paymentReference,
+            long paymentAmount,
+            LocalDateTime paidAt,
+            PaymentMethod paymentMethod) {
+        requireStatus(ProductOrderGroupStatus.CREATED, "pay");
+        if (paymentAmount < 0) {
+            throw new IllegalArgumentException(
+                    "Product order group payment amount must not be negative");
+        }
+        this.paymentReference = paymentReference;
+        this.paymentAmount = paymentAmount;
+        this.paidAt = requireNonNull(paidAt, "paid at");
+        this.paymentMethod = requireNonNull(paymentMethod, "payment method");
+        this.status = ProductOrderGroupStatus.PAID;
+    }
+
+    /** 결제 마감을 넘겼는지. 넘긴 묶음은 배치가 정리하고 개체를 재고로 되돌린다. */
+    public boolean isPaymentExpiredAt(LocalDateTime at) {
+        return this.status == ProductOrderGroupStatus.CREATED
+                && paymentDeadline != null
+                && !paymentDeadline.isAfter(requireNonNull(at, "expiry check time"));
+    }
+
     public boolean isOwnedBy(Long buyerId) {
         return this.buyerId.equals(buyerId);
+    }
+
+    private void requireStatus(ProductOrderGroupStatus expected, String action) {
+        if (this.status != expected) {
+            throw new IllegalStateException(
+                    "Product order group can only " + action + " while " + expected
+                            + " but was " + this.status);
+        }
     }
 
     private static <T> T requireNonNull(T value, String field) {

@@ -294,7 +294,28 @@ public enum ProductErrorCode implements ErrorCode {
     PRODUCT_ORDER_NOT_CANCELABLE(
             HttpStatus.CONFLICT,
             "PRODUCT_ORDER_NOT_CANCELABLE",
-            "배송이 시작된 주문은 취소할 수 없습니다.");
+            "배송이 시작된 주문은 취소할 수 없습니다."),
+
+    /** 없거나 남의 주문 묶음. 남의 것을 가리켜도 "없음" 으로 답한다. */
+    PRODUCT_ORDER_GROUP_NOT_FOUND(
+            HttpStatus.NOT_FOUND,
+            "PRODUCT_ORDER_GROUP_NOT_FOUND",
+            "주문을 찾을 수 없습니다."),
+
+    /**
+     * 묶음에 발송된 주문이 하나라도 있는 경우.
+     *
+     * <p><b>부분 취소가 없다.</b> 결제가 묶음 단위로 한 번 일어나 부분 환불 금액을 나눌
+     * 근거가 없기 때문이다. 그래서 브랜드 한 곳이 발송하면 아직 발송되지 않은 다른 브랜드
+     * 주문도 함께 취소할 수 없게 된다.
+     *
+     * <p>어느 주문이 이미 발송됐는지는 응답 상세에 싣는다 — 사용자는 브랜드별로 언제
+     * 보내는지 모르므로, 왜 취소가 막혔는지 말해 주지 않으면 설명할 방법이 없다.
+     */
+    PRODUCT_ORDER_GROUP_NOT_CANCELABLE(
+            HttpStatus.CONFLICT,
+            "PRODUCT_ORDER_GROUP_NOT_CANCELABLE",
+            "배송이 시작된 주문이 있어 취소할 수 없습니다.");
 
     private final HttpStatus status;
     private final String code;

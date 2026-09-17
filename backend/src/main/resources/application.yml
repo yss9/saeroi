@@ -100,6 +100,10 @@ app:
       # 동작하게 하려는 것이다 — 상수 기본값(localhost)으로 조용히 떨어지면 카카오페이가
       # approval_url 을 거부해 결제가 통째로 실패하고, 화면에는 "결제 처리 중 오류" 만 뜬다.
       product-order-return-url: ${KAKAOPAY_PRODUCT_ORDER_RETURN_URL:}
+      # 장바구니 주문(묶음)의 복귀 주소. 브랜드별 주문 여러 건을 한 화면에 보여 주므로
+      # 단일 주문과 라우트가 다르다. 비워 두면 같은 방식으로 /order-groups/{orderGroupId}/payment/return
+      # 을 만든다.
+      product-order-group-return-url: ${KAKAOPAY_PRODUCT_ORDER_GROUP_RETURN_URL:}
   qr:
     # QR 이 담을 Passport 주소. 뒤에 /{qrToken} 이 붙는다.
     #

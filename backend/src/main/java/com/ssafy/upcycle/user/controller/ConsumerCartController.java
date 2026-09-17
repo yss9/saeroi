@@ -1,7 +1,9 @@
 package com.ssafy.upcycle.user.controller;
 
 import com.ssafy.upcycle.common.response.ApiResponse;
+import com.ssafy.upcycle.product.dto.ProductOrderGroupResponse;
 import com.ssafy.upcycle.user.dto.CartAddRequest;
+import com.ssafy.upcycle.user.dto.CartCheckoutRequest;
 import com.ssafy.upcycle.user.dto.CartQuantityRequest;
 import com.ssafy.upcycle.user.dto.CartResponse;
 import com.ssafy.upcycle.user.service.ConsumerCartService;
@@ -28,8 +30,8 @@ import org.springframework.web.bind.annotation.RestController;
  * <p>항목을 <b>장바구니 행 id 가 아니라 상품 id 로</b> 가리킨다. 화면이 보고 있는 것은
  * 상품이고, 그 상품의 장바구니 행 id 를 따로 들고 있을 이유가 없다 — 찜과 같다.
  *
- * <p><b>장바구니로 주문하는 흐름은 여기 없다.</b> 이번 범위는 저장과 조회까지이고, 주문·결제
- * 확장은 로드맵의 다음 작업이다.
+ * <p><b>주문은 고른 항목만 만든다</b>({@code POST /checkout}). 결제는 그 다음 단계이고
+ * 묶음 단위로 {@code /api/v1/product-order-groups} 가 받는다.
  */
 @RestController
 @RequestMapping("/api/v1/consumers/me/cart")
@@ -92,6 +94,25 @@ public class ConsumerCartController {
     public ApiResponse<CartResponse> remove(
             @AuthenticationPrincipal Jwt jwt, @PathVariable Long productModelId) {
         return ApiResponse.success(consumerCartService.remove(userId(jwt), productModelId));
+    }
+
+    /**
+     * 고른 항목으로 주문한다. <b>결제는 아직이고 장바구니도 아직 비우지 않는다.</b>
+     *
+     * <p>담긴 전부가 아니라 <b>고른 것만</b> 주문한다. 목록이 단종·품절·감춘 분류로 바뀐
+     * 항목도 남겨 두기 때문에 전부를 주문하면 늘 실패한다.
+     *
+     * <p>브랜드가 둘 이상이면 주문은 브랜드 수만큼 생기고 응답의 묶음이 그것을 덮는다.
+     * 다음 호출은 {@code POST /api/v1/product-order-groups/\{orderGroupId\}/payment/ready}
+     * 이고, 장바구니는 승인이 끝난 뒤 <b>주문에 들어간 항목만</b> 비워진다.
+     *
+     * <p>살 수 없는 항목이 섞이면 <b>전부 거절한다</b> — 되는 것만 주문하면 화면이 보여 준
+     * 합계와 다른 금액이 결제된다. 어떤 상품이 왜 안 되는지는 응답 상세에 실린다.
+     */
+    @PostMapping("/checkout")
+    public ApiResponse<ProductOrderGroupResponse> checkout(
+            @AuthenticationPrincipal Jwt jwt, @Valid @RequestBody CartCheckoutRequest request) {
+        return ApiResponse.success(consumerCartService.checkout(userId(jwt), request));
     }
 
     /**

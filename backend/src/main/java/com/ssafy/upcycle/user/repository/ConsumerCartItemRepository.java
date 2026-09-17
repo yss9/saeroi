@@ -1,6 +1,7 @@
 package com.ssafy.upcycle.user.repository;
 
 import com.ssafy.upcycle.user.entity.ConsumerCartItem;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -38,6 +39,14 @@ public interface ConsumerCartItemRepository extends JpaRepository<ConsumerCartIt
     long countByUserId(Long userId);
 
     long deleteByUserIdAndProductModelId(Long userId, Long productModelId);
+
+    /**
+     * 결제된 항목만 비운다.
+     *
+     * <p>사지 못한 항목과 고르지 않은 항목은 남아야 한다 — 사용자가 직접 담은 목록이라
+     * 주문과 무관한 것까지 사라지면 무엇을 담았는지 다시 찾아야 한다.
+     */
+    long deleteByUserIdAndProductModelIdIn(Long userId, Collection<Long> productModelIds);
 
     long deleteByUserId(Long userId);
 }

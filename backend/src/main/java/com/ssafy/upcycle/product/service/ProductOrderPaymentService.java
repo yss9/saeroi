@@ -4,20 +4,15 @@ import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.product.ProductErrorCode;
 import com.ssafy.upcycle.product.dto.ProductOrderPaymentReadyResponse;
 import com.ssafy.upcycle.product.dto.ProductOrderResponse;
-import com.ssafy.upcycle.product.entity.CanceledProductOrder;
-import com.ssafy.upcycle.product.entity.CanceledProductOrderItem;
 import com.ssafy.upcycle.product.entity.ProductItem;
 import com.ssafy.upcycle.product.entity.ProductModel;
 import com.ssafy.upcycle.product.entity.ProductOrder;
 import com.ssafy.upcycle.product.entity.ProductOrderItem;
 import com.ssafy.upcycle.product.entity.ProductOrderStatus;
-import com.ssafy.upcycle.product.repository.CanceledProductOrderItemRepository;
-import com.ssafy.upcycle.product.repository.CanceledProductOrderRepository;
 import com.ssafy.upcycle.product.repository.ProductItemRepository;
 import com.ssafy.upcycle.product.repository.ProductModelRepository;
 import com.ssafy.upcycle.product.repository.ProductOrderItemRepository;
 import com.ssafy.upcycle.product.repository.ProductOrderRepository;
-import com.ssafy.upcycle.product.repository.ProductShippingRepository;
 import com.ssafy.upcycle.trade.TradeErrorCode;
 import com.ssafy.upcycle.trade.payment.KakaoPayProperties;
 import com.ssafy.upcycle.trade.payment.PaymentApproval;
@@ -62,11 +57,10 @@ public class ProductOrderPaymentService {
 
     private final ProductOrderRepository orders;
     private final ProductOrderItemRepository orderItems;
-    private final ProductShippingRepository shippings;
     private final ProductItemRepository items;
     private final ProductModelRepository models;
-    private final CanceledProductOrderRepository canceledOrders;
-    private final CanceledProductOrderItemRepository canceledOrderItems;
+    private final ProductOrderArchiver archiver;
+    private final ProductOrderGroupPaymentService groupPaymentService;
     private final ProductOrderQueryService queryService;
     private final ProductPaymentCoordinator paymentCoordinator;
     private final KakaoPayProperties kakaoPayProperties;
@@ -158,7 +152,7 @@ public class ProductOrderPaymentService {
         }
 
         refundIfPaid(order);
-        archiveAndDelete(order, reason);
+        archiver.archiveAndDelete(order, reason);
     }
 
     /**
@@ -172,33 +166,19 @@ public class ProductOrderPaymentService {
      */
     @Transactional
     public void expire(Long orderId) {
-        orders.findByIdForUpdate(orderId)
-                .filter(order -> order.isPaymentExpiredAt(LocalDateTime.now(clock)))
-                .ifPresent(order -> archiveAndDelete(order, null));
-    }
-
-    /**
-     * 주문을 이력으로 옮기고 원본을 지운다. 개체는 재고로 돌아간다.
-     *
-     * <p>지우는 순서가 FK 를 따른다: 배송지·항목이 주문을 참조하므로 그쪽을 먼저 지운다.
-     */
-    private void archiveAndDelete(ProductOrder order, String reason) {
-        List<ProductOrderItem> orderItemRows = orderItems.findAllByProductOrderId(order.getId());
-
-        CanceledProductOrder archived = canceledOrders.save(
-                CanceledProductOrder.from(order, reason, LocalDateTime.now(clock)));
-        orderItemRows.forEach(item ->
-                canceledOrderItems.save(CanceledProductOrderItem.from(archived.getId(), item)));
-
-        // 잡아 둔 개체를 재고로 되돌린다. 빠뜨리면 취소할 때마다 제품이 한 점씩 사라진다.
-        // 결제까지 끝난 주문이면 개체가 SOLD 라, RESERVED 만 받는 release() 로는 부족하다.
-        items.findAllById(orderItemRows.stream().map(ProductOrderItem::getProductItemId).toList())
-                .forEach(ProductItem::returnToStock);
-
-        shippings.deleteByProductOrderId(order.getId());
-        orderItems.deleteAllByProductOrderId(order.getId());
-        orders.delete(order);
-        orders.flush();
+        ProductOrder order = orders.findByIdForUpdate(orderId)
+                .filter(found -> found.isPaymentExpiredAt(LocalDateTime.now(clock)))
+                .orElse(null);
+        if (order == null) {
+            return;
+        }
+        // 묶음 주문은 주문만 지우면 안 된다. 주문이 0건인 묶음 행이 남아 조회에 잡힌다.
+        // 같은 묶음의 주문은 마감 시각이 같아 어차피 함께 만료된다.
+        if (order.getOrderGroupId() != null) {
+            groupPaymentService.expire(order.getOrderGroupId());
+            return;
+        }
+        archiver.archiveAndDelete(order, null);
     }
 
     /**
