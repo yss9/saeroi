@@ -85,11 +85,36 @@ if [ "$SERVICE" = "backend" ]; then
                 applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
             )"
 
+        # 2026-09-17 실사고: 아래 `git ls-tree`/`git show` 가 여기 checkout(~/deploy)의
+        # **로컬에 캐시된** origin/backend/develop ref 를 그대로 읽었다. check-schema.sh
+        # 는 :ro 마운트 문제(위 2026-09-16 실사고 주석) 때문에 이미 임시 bare repo 로
+        # 매번 새로 fetch 하도록 고쳐져 있었는데, 이 블록은 그 처리가 없어 최신 스키마
+        # (fresh fetch 결과)와 마이그레이션 파일 목록(stale 캐시)이 서로 다른 시점을
+        # 봤다 — 방금 머지된 마이그레이션 파일이 안 보여 "적용 안 된 파일이 없다"는
+        # 오탐 FAIL 이 났다. check-schema.sh 와 같은 임시 bare repo fetch 를 그대로 쓴다.
+        ORIGIN_URL="$(git config --get remote.origin.url)"
+        MIG_TMP_GIT="$(mktemp -d)"
+        git init -q --bare "$MIG_TMP_GIT"
+        MIG_FETCH_OK=0
+        for attempt in 1 2 3; do
+            if git --git-dir="$MIG_TMP_GIT" fetch -q "$ORIGIN_URL" backend/develop 2>/dev/null; then
+                MIG_FETCH_OK=1
+                break
+            fi
+            [ "$attempt" -lt 3 ] && sleep 2
+        done
+        if [ "$MIG_FETCH_OK" -ne 1 ]; then
+            rm -rf "$MIG_TMP_GIT"
+            echo "FAIL: origin 에서 backend/develop 를 3회 재시도해도 fetch 하지 못했다 — 네트워크/GitLab 확인 후 재시도할 것."
+            exit 1
+        fi
+        trap 'rm -rf "$MIG_TMP_GIT"' EXIT
+
         MIGRATIONS_DIR="src/main/resources/db/migrations"
         APPLIED=" $(docker exec -e MYSQL_PWD="$ROOT_PW" cft-mysql mysql -uroot -N "$DB_NAME" \
             -e 'SELECT filename FROM deploy_migrations_applied' | tr '\n' ' ') "
         NEW_FILES=()
-        for mf in $(git ls-tree -r origin/backend/develop --name-only -- "$MIGRATIONS_DIR" 2>/dev/null | sort); do
+        for mf in $(git --git-dir="$MIG_TMP_GIT" ls-tree -r FETCH_HEAD --name-only -- "$MIGRATIONS_DIR" 2>/dev/null | sort); do
             base="$(basename "$mf")"
             case "$APPLIED" in
                 *" $base "*) ;;
@@ -116,7 +141,7 @@ if [ "$SERVICE" = "backend" ]; then
         for mf in "${NEW_FILES[@]}"; do
             base="$(basename "$mf")"
             echo "INFO: 적용 중: $mf"
-            if ! git show "origin/backend/develop:$mf" \
+            if ! git --git-dir="$MIG_TMP_GIT" show "FETCH_HEAD:$mf" \
                     | docker exec -e MYSQL_PWD="$ROOT_PW" -i cft-mysql mysql -uroot "$DB_NAME"; then
                 echo "FAIL: $mf 적용 중 오류 — 백업($BACKUP_TARGET)으로 복구 후 수동 확인 필요."
                 exit 1
