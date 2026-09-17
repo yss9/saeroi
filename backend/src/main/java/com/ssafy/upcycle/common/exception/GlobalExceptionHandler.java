@@ -12,6 +12,7 @@ import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.validation.method.ParameterErrors;
 import org.springframework.validation.method.ParameterValidationResult;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -107,6 +109,38 @@ public class GlobalExceptionHandler {
             MaxUploadSizeExceededException exception) {
         log.warn("Upload exceeded the configured limit: max={}", exception.getMaxUploadSize());
         return error(FileStorageErrorCode.FILE_TOO_LARGE);
+    }
+
+    /**
+     * 경로·쿼리 파라미터의 타입 변환 실패.
+     *
+     * <p><b>번역하지 않으면 500 이 나간다.</b> {@code /brands/{id}} 의 {@code id} 가 Long 인데
+     * {@code 1e10} · {@code 99999999999999999999}(overflow) · {@code 1 OR 1=1} 처럼 숫자로
+     * 바뀌지 않는 값이 오면 Spring 이 이 예외를 던지고, 아무도 잡지 않으면 catch-all 로
+     * 떨어져 <b>ERROR 로그 + 500</b> 이 된다. 이건 클라이언트가 잘못된 값을 보낸 것이므로
+     * 400 이어야 하고, permitAll 경로(public 카탈로그·QR)에서 인증 없이도 유발되므로 —
+     * 그대로 두면 아무나 ERROR 로그를 무한히 채울 수 있다. (2026-09-17 실측)
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMethodArgumentTypeMismatchException(
+            MethodArgumentTypeMismatchException exception) {
+        log.warn("Argument type mismatch: name={}, value={}",
+                exception.getName(), exception.getValue());
+        return error(CommonErrorCode.INVALID_REQUEST);
+    }
+
+    /**
+     * 지원하지 않는 요청 Content-Type.
+     *
+     * <p><b>번역하지 않으면 500 이 나간다.</b> JSON 을 기대하는 엔드포인트에 {@code text/plain}
+     * 이나 Content-Type 없는 본문이 오면 Spring 이 이 예외를 던지는데, 잡지 않으면 catch-all
+     * 로 떨어져 500 이 된다. 클라이언트의 헤더 실수이므로 415 가 맞다. (2026-09-17 실측)
+     */
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleHttpMediaTypeNotSupportedException(
+            HttpMediaTypeNotSupportedException exception) {
+        log.warn("Unsupported media type: contentType={}", exception.getContentType());
+        return error(CommonErrorCode.UNSUPPORTED_MEDIA_TYPE);
     }
 
     @ExceptionHandler(Exception.class)
