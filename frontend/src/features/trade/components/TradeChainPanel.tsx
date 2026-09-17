@@ -40,9 +40,27 @@ export function TradeChainPanel({ trade }: { trade: Trade }) {
   // 감추지 않고 말해 주는 편이 낫다.
   const tooLate = trade.status !== 'CREATED' && trade.status !== 'PAID'
 
-  // 이 패널은 구매자에게만 렌더된다(TradeDetailPage 가 isBuyer 로 가른다).
+  // 이 패널은 구매자에게만 렌더된다(TradeDetail 이 isBuyer 로 가른다).
   const ready =
     !tooLate && address !== null && chainListingId !== null && trade.chainTradeId === null
+
+  // **이미 기록된 거래에는 아무것도 그리지 않는다.**
+  //
+  // 구매 신청(`PurchaseForm`)이 거래를 만들면서 곧바로 `createOrder` 까지 서명한다.
+  // 그래서 상세에 닿는 거래는 대부분 이미 번호를 갖고 있고, 그때 이 패널에 남는 것은
+  // 제목·설명·번호뿐이다 — 버튼은 `!done` 이라야 그려진다. 결제하러 온 사람에게는
+  // 누를 것도 할 일도 없는 칸이 결제 수단 위를 차지하고 있었다.
+  //
+  // <b>없앨 수는 없다.</b> 구매 때 서명이 거절·실패했으면 `chainTradeId` 가 비고, 이
+  // 패널이 그것을 되살리는 유일한 수단이다. 되살리지 못하면 발송·수령도 체인에 남지
+  // 않아 판매자 화면의 「이력 기록」이 영영 '미기록' 이 된다.
+  //
+  // 그래서 판매 글의 온체인 칸과 같은 규칙을 쓴다(`ListingChainPanel`) —
+  // <b>평소에는 조용하고, 빠졌을 때만 소리를 낸다.</b> 방금 이 화면에서 서명해 해시가
+  // 떠 있는 동안은 남겨 둔다. 결과를 확인하지 못한 채 칸이 사라지면 성공했는지 알 수 없다.
+  //
+  // 상세 페이지와 목록 팝업이 같은 `TradeDetail` 을 쓰므로 여기 한 곳이면 둘 다 잡힌다.
+  if (trade.chainTradeId !== null && chain.hash === null) return null
 
   return (
     <OnChainPanel
