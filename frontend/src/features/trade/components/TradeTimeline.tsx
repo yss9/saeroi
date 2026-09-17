@@ -57,7 +57,18 @@ export function TradeTimeline({ trade, viewer }: TradeTimelineProps) {
         {steps.map((step) => (
           <li
             key={step.key}
-            className={`trade-timeline__step trade-timeline__step--${step.state.toLowerCase()}`}
+            className={[
+              'trade-timeline__step',
+              `trade-timeline__step--${step.state.toLowerCase()}`,
+              // 지금 차례가 <b>보는 사람 자신</b>인가. 표시는 화면이 정하고 여기서는
+              // 사실만 붙인다 — "여기까지 왔다" 와 "당신이 할 차례다" 는 다른 말이라,
+              // 손댈 수 없는 단계까지 재촉하는 표시를 받으면 안 된다.
+              step.state === 'CURRENT' && viewer && step.actor === viewer
+                ? 'trade-timeline__step--mine'
+                : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
             // 진행 중인 단계를 보조기술에도 알린다. 색과 굵기만으로 구분하면
             // 화면을 못 보는 사용자에게는 네 항목이 똑같이 읽힌다.
             aria-current={step.state === 'CURRENT' ? 'step' : undefined}

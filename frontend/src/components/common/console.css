@@ -1712,3 +1712,37 @@ a.console-btn--primary:hover { color: #ffffff; }
   /* 두 칸으로 접히면 세로선을 걷는다 — 칸 경계가 줄마다 달라져 오히려 어지럽다. */
   .console .trade-detail__card--wide .trade-detail__meta > div::before { content: none; }
 }
+
+/* ── 내 차례 표시 ─────────────────────────────────────────
+   진행 카드의 초록 점 중 <b>지금 내가 할 차례</b>인 것만 파동을 준다.
+
+   <b>「여기까지 왔다」와 「당신이 할 차례다」는 다른 말이다.</b> CURRENT 는 거래가 어디쯤
+   왔는지를 가리킬 뿐이라, 배송 중인 거래의 CURRENT 는 구매자의 수령 확인이다. 그것까지
+   깜빡이면 판매자에게 손댈 수 없는 일을 재촉하는 셈이고, 매번 깜빡이는 화면은 곧
+   아무 뜻도 없는 장식이 된다.
+
+   `.console` 안에서만 준다 — 같은 타임라인을 구매자 화면도 쓰는데 그쪽 표시는 그쪽이
+   정한다. */
+
+@keyframes console-turn-pulse {
+  0%   { box-shadow: 0 0 0 3px rgba(15, 76, 58, 0.22); }
+  70%  { box-shadow: 0 0 0 8px rgba(15, 76, 58, 0); }
+  100% { box-shadow: 0 0 0 3px rgba(15, 76, 58, 0); }
+}
+
+.console .trade-timeline__step--mine .trade-timeline__marker {
+  border-color: var(--console-green);
+  background: var(--console-green);
+  animation: console-turn-pulse 2s ease-out infinite;
+}
+
+/*
+ * 움직임을 줄여 달라고 한 사용자에게는 멈춘 채로 둔다. 파동이 유일한 단서가 아니어야
+ * 하므로 색과 링은 그대로 남긴다 — 애니메이션이 정보를 나르면 그 사용자만 못 읽는다.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .console .trade-timeline__step--mine .trade-timeline__marker {
+    animation: none;
+    box-shadow: 0 0 0 3px rgba(15, 76, 58, 0.22);
+  }
+}
