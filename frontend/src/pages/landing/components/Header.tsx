@@ -27,6 +27,9 @@ const navigation = [
 interface HeaderProps {
   isLogoVisible: boolean
   scrollToneViewportRatio?: number
+  // 랜딩 페이지의 휠 페이지네이션처럼 실제 document 스크롤이 없는 화면에서는
+  // window.scrollY 감지 대신 호출부가 톤을 직접 넘긴다. undefined면 기존 스크롤 감지를 쓴다.
+  forceScrolled?: boolean
 }
 
 function getAccountTypeLabel(role: UserRole) {
@@ -36,23 +39,26 @@ function getAccountTypeLabel(role: UserRole) {
   return ''
 }
 
-export function Header({ isLogoVisible, scrollToneViewportRatio }: HeaderProps) {
+export function Header({ isLogoVisible, scrollToneViewportRatio, forceScrolled }: HeaderProps) {
   const { cartCount } = useShop()
   const { user, isAuthenticated } = useAuth()
   const logout = useLogout()
   const navigate = useNavigate()
   const location = useLocation()
   const [isAccountOpen, setIsAccountOpen] = useState(false)
-  const [isScrolled, setIsScrolled] = useState(false)
+  const [scrollTone, setScrollTone] = useState(false)
   const accountRef = useRef<HTMLDivElement>(null)
   const accountTriggerRef = useRef<HTMLButtonElement>(null)
+  const isScrolled = forceScrolled ?? scrollTone
 
   useEffect(() => {
+    if (forceScrolled !== undefined) return
+
     function updateHeaderTone() {
       const threshold = scrollToneViewportRatio
         ? window.innerHeight * scrollToneViewportRatio
         : 32
-      setIsScrolled(window.scrollY > threshold)
+      setScrollTone(window.scrollY > threshold)
     }
 
     updateHeaderTone()
@@ -62,7 +68,7 @@ export function Header({ isLogoVisible, scrollToneViewportRatio }: HeaderProps) 
       window.removeEventListener('scroll', updateHeaderTone)
       window.removeEventListener('resize', updateHeaderTone)
     }
-  }, [scrollToneViewportRatio])
+  }, [scrollToneViewportRatio, forceScrolled])
 
   useEffect(() => {
     if (!isAccountOpen) return
