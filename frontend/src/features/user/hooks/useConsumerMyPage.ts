@@ -90,6 +90,7 @@ export function toConsumerMyPageData(
     recentOrders: orders.content.flatMap((order) => order.items.map((item) => ({
       id: `${order.orderCode}:${item.itemCode}`,
       orderId: order.orderId,
+      orderGroupCode: order.orderGroupCode,
       orderNumber: order.orderCode,
       orderedAt: order.orderedAt,
       productName: item.productName,

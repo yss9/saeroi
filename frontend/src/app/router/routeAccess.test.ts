@@ -71,6 +71,8 @@ describe('routeAccess — routes.tsx 에서 파생한 접근 조건', () => {
   it('RoleGuard 가 걸린 경로는 allow 목록을 그대로 파생한다', () => {
     expect(getRouteAccess('/mypage/wishlist')).toEqual({ kind: 'role', allow: ['CONSUMER'] })
     expect(getRouteAccess('/cart')).toEqual({ kind: 'role', allow: ['CONSUMER'] })
+    expect(getRouteAccess('/order-groups/:orderGroupId')).toEqual({ kind: 'role', allow: ['CONSUMER'] })
+    expect(getRouteAccess('/order-groups/:orderGroupId/payment/return')).toEqual({ kind: 'role', allow: ['CONSUMER'] })
     // 구매 내역은 BRAND 전용이다 — 서버의 수령 확인이 hasRole('BRAND') 라 다른 역할은
     // 구매를 끝낼 수 없고, 목록이 언제나 비어 있었다. 상세(/trades/:tradeId)는 그대로
     // 로그인만 요구한다.

@@ -42,6 +42,7 @@ export interface ConsumerRecentOrder {
    * 된다. 그런데 수령 확인은 주문 단위라, 어느 줄에서 눌러도 그 주문 전체가 완료된다.
    */
   orderId: number
+  orderGroupCode?: string | null
   orderNumber: string
   orderedAt: string
   productName: string

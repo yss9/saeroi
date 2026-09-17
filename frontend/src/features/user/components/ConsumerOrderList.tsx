@@ -171,8 +171,9 @@ export function ConsumerOrderList({ orders }: { orders: readonly ConsumerRecentO
         onConfirm={() => {
           if (pending === null) return
           const done = { onSettled: () => setPending(null) }
-          if (pending.kind === 'cancel') cancel.mutate(pending.order.orderId, done)
-          else confirm.mutate(pending.order.orderId, done)
+          if (pending.kind === 'cancel') {
+            if (!pending.order.orderGroupCode) cancel.mutate(pending.order.orderId, done)
+          } else confirm.mutate(pending.order.orderId, done)
         }}
         onClose={() => setPending(null)}
       />
@@ -231,6 +232,8 @@ function OrderGroupCard({
         </Link>
       </header>
 
+      {group.orderGroupCode && <p>묶음 번호 {group.orderGroupCode} · 같은 번호의 주문은 한 번에 결제된 브랜드별 주문입니다. 개별 결제·취소 불가</p>}
+
       <div className="consumer-order-group__items">
         {group.items.map((item) => (
           <OrderItemCard key={item.id} item={item} onShowShipping={() => onShowShipping(item)} />
@@ -254,7 +257,7 @@ function OrderGroupCard({
                 배송 완료 확인
               </Button>
             )}
-            {(group.status === 'PAYMENT_PENDING' || group.status === 'PREPARING') && (
+            {!group.orderGroupCode && (group.status === 'PAYMENT_PENDING' || group.status === 'PREPARING') && (
               <Button variant="secondary" size="sm" fullWidth loading={busy} onClick={onCancel}>
                 주문 취소
               </Button>

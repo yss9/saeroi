@@ -203,7 +203,8 @@ function normalizeAxiosError(error: unknown): AppError {
     message: envelope?.message,
     code: envelope?.code ?? null,
     status,
-    validationErrors: Array.isArray(envelope?.data) ? envelope.data : [],
+    validationErrors: envelope?.code === 'VALIDATION_ERROR' && Array.isArray(envelope?.data) ? envelope.data : [],
+    details: envelope?.data ?? null,
     cause: error,
   })
 }

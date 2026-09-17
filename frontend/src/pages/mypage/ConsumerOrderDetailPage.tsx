@@ -126,6 +126,7 @@ export function ConsumerOrderDetailPage() {
           </div>
 
           <p className="consumer-order-detail__ordered-at">
+            {group.orderGroupCode && <span>묶음 번호 {group.orderGroupCode} · 같은 번호의 브랜드별 주문은 한 번에 결제되었습니다. 개별 결제·취소 불가</span>}
             <time dateTime={group.orderedAt}>
               {dateFormatter.format(new Date(group.orderedAt))}
             </time>{' '}

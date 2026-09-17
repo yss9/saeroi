@@ -1,5 +1,6 @@
 import { Navigate, type RouteObject } from 'react-router-dom'
 import { CartPage } from '../../pages/cart/CartPage.tsx'
+import { OrderGroupPage } from '../../pages/cart/OrderGroupPage.tsx'
 import { BrandsPage } from '../../pages/brands/BrandsPage.tsx'
 import { SearchPage } from '../../pages/search/SearchPage.tsx'
 import { PublicProductDetailPage } from '../../pages/product/PublicProductDetailPage.tsx'
@@ -149,6 +150,8 @@ export const routes: RouteObject[] = [
       // ⚠️ 경로가 서버 설정(app.payment.kakao.product-order-return-url)과 같아야 한다.
       // 어긋나면 결제를 마친 사용자가 없는 페이지에 떨어지고, 묶인 개체도 풀리지 않는다.
       { path: '/orders/:orderId/payment/return', element: <ProductOrderReturnPage /> },
+      { path: '/order-groups/:orderGroupId', element: <OrderGroupPage /> },
+      { path: '/order-groups/:orderGroupId/payment/return', element: <OrderGroupPage returning /> },
     ],
   },
 
