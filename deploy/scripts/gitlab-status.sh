@@ -67,4 +67,48 @@ case "$CODE" in
     2??) echo "gitlab-status: $STATE 보고 완료 (jenkins/$PART, ${SHA:0:8})" ;;
     *)   echo "gitlab-status: 보고 실패 (HTTP $CODE) — 빌드에는 영향 없음" ;;
 esac
+
+# ── 머지된 MR에 실패 코멘트 남기기 ───────────────────────────────────
+# 2026-09-17 실사고 계기: MR 화면의 초록불은 그 MR 소스 브랜치 커밋에 붙은 상태일
+# 뿐이다. 머지 후 <파트>/develop 에서 도는 빌드(Docker 빌드 + Test Deploy + 스키마
+# 대조까지 포함)는 **다른 커밋**에서 돌고, 그 실패는 이미 닫힌 MR 화면에 저절로
+# 나타나지 않는다 — 그래서 "MR이 초록이었으니 배포도 됐겠지" 라고 오판하기 쉬웠다.
+#
+# 커밋 상태(빨간 X)는 못 옮겨 붙이지만(그러려면 gitlab-branch-source 가 필요하고,
+# 그건 MR 을 SCM head 로 잡아 파트 필터를 깨뜨려서 일부러 안 쓴다), 실패했다는
+# 사실 자체는 그 커밋을 만든 MR에 **코멘트**로 남길 수 있다. GitLab 은 머지 커밋
+# 메시지에 `See merge request <project>!<iid>` 트레일러를 자동으로 남기므로
+# 그걸 역파싱해서 MR 번호를 찾는다 (fast-forward/squash 로 이 트레일러가 없는
+# 커밋이면 조용히 건너뛴다 — 코멘트를 못 다는 것도 빌드를 막을 이유는 아니다).
+#
+# 같은 커밋에 대해 재시도·재빌드가 여러 번 나도 코멘트가 중복 쌓이지 않도록,
+# 먼저 그 MR에 이 커밋 SHA 언급이 이미 있는지 확인하고 없을 때만 단다.
+if [ "$STATE" = "failed" ]; then
+    MR_IID="$(git log -1 --format=%B "$SHA" 2>/dev/null | grep -oE '![0-9]+' | tail -1 | tr -d '!')"
+    if [ -n "$MR_IID" ]; then
+        NOTES_API="${GITLAB_API_BASE:-https://lab.ssafy.com/api/v4}/projects/$PROJECT/merge_requests/$MR_IID/notes"
+
+        EXISTING="$(curl -sS --max-time 15 -H "PRIVATE-TOKEN: $TOKEN" \
+            "${NOTES_API}?per_page=100" 2>/dev/null)"
+        case "$EXISTING" in
+            *"${SHA:0:8}"*)
+                echo "gitlab-status: MR !$MR_IID 에 이미 이 커밋($([ -n "$SHA" ] && echo "${SHA:0:8}"))에 대한 코멘트가 있음 — 건너뜀"
+                ;;
+            *)
+                BODY="⚠️ 머지 후 \`$PART/$BRANCH\` 빌드가 실패했습니다 (#$BUILD, 커밋 ${SHA:0:8}).
+이 MR 자체의 CI는 통과했지만, 머지된 커밋에서 도는 후속 빌드(이미지 빌드/Test Deploy 등)가 실패했다는 뜻입니다.
+${URL:+로그: $URL}"
+                NOTE_CODE="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 \
+                    -X POST -H "PRIVATE-TOKEN: $TOKEN" \
+                    --data-urlencode "body=$BODY" \
+                    "$NOTES_API" 2>/dev/null || echo 000)"
+                case "$NOTE_CODE" in
+                    2??) echo "gitlab-status: MR !$MR_IID 에 실패 코멘트 등록 완료" ;;
+                    *)   echo "gitlab-status: MR 코멘트 등록 실패 (HTTP $NOTE_CODE) — 빌드에는 영향 없음" ;;
+                esac
+                ;;
+        esac
+    fi
+fi
+
 exit 0
