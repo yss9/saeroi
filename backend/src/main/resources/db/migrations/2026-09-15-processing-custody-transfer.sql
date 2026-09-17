@@ -15,9 +15,17 @@ ALTER TABLE processing_job
     ADD CONSTRAINT uk_processing_job_return_ship_tx UNIQUE (return_ship_tx_hash),
     ADD CONSTRAINT uk_processing_job_return_receive_tx UNIQUE (return_receive_tx_hash);
 
+-- MySQL 8.4는 외래키에 참여한 컬럼을 FK가 살아 있는 상태에서 이름 변경하지 못한다.
+-- 기존 FK를 먼저 해제하고, 컬럼과 인덱스 이름을 바꾼 뒤 양쪽 Lock FK를 다시 연결한다.
+ALTER TABLE processing_input
+    DROP FOREIGN KEY fk_processing_input_lock;
+
 ALTER TABLE processing_input
     CHANGE COLUMN material_lock_id brand_material_lock_id BIGINT NOT NULL,
+    RENAME INDEX fk_processing_input_lock TO fk_processing_input_brand_lock,
     ADD COLUMN processor_material_lock_id BIGINT NULL AFTER brand_material_lock_id,
+    ADD CONSTRAINT fk_processing_input_brand_lock
+        FOREIGN KEY (brand_material_lock_id) REFERENCES material_lock (id),
     ADD CONSTRAINT fk_processing_input_processor_lock
         FOREIGN KEY (processor_material_lock_id) REFERENCES material_lock (id);
 
