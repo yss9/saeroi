@@ -205,37 +205,13 @@ class ProductionBatchProductModelApiTests {
                 .andExpect(status().isUnauthorized());
     }
 
-    // ── 확정 시점의 필수 검사 ───────────────────────────────
+    // ── 확정은 제품 없이도 된다 ───────────────────
 
     @Test
-    void aBatchWithNoProductCannotBeConfirmed() throws Exception {
-        // 여기서 막지 않으면 개체를 만드는 지점에서 NPE 가 난다 — 그건 500 이고,
-        // 사용자는 무엇을 빠뜨렸는지 알 수 없다.
+    void confirmingDoesNotRequireAProduct() throws Exception {
+        // 브랜드의 실제 순서는 "생산을 끝내고 → 그 결과물에 제품을 붙인다" 다.
+        // 제품이 없다는 이유로 확정을 막지 않는다 — 다음 검사(투입 없음)로 넘어간다.
         Long batchId = openedBatchId(null);
-
-        mockMvc.perform(post(PATH + "/" + batchId + "/confirm")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
-                .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.code").value("PRODUCTION_PRODUCT_MODEL_REQUIRED"))
-                .andExpect(jsonPath("$.message").value("생산할 제품을 먼저 지정해 주세요."));
-    }
-
-    @Test
-    void theProductCheckComesBeforeTheInputCheck() throws Exception {
-        // 투입도 없고 제품도 없는 배치다. 둘 중 무엇을 먼저 말해 주느냐의 문제인데,
-        // 제품은 화면 맨 처음 단계라 그쪽을 먼저 알려 주는 편이 고치기 쉽다.
-        Long batchId = openedBatchId(null);
-
-        mockMvc.perform(post(PATH + "/" + batchId + "/confirm")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
-                .andExpect(jsonPath("$.code").value("PRODUCTION_PRODUCT_MODEL_REQUIRED"));
-    }
-
-    @Test
-    void aBatchWithAProductGetsPastThatCheck() throws Exception {
-        // 제품을 지정하면 이 검사는 통과하고 다음 검사(투입 없음)로 넘어간다.
-        Long batchId = openedBatchId(null);
-        assignProduct(token, batchId, productModelId).andExpect(status().isOk());
 
         mockMvc.perform(post(PATH + "/" + batchId + "/confirm")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))

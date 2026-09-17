@@ -1,6 +1,7 @@
 package com.ssafy.upcycle.production.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -366,9 +367,109 @@ class ProductionConfirmControllerTests {
 
     // ── helpers ─────────────────────────────────────────────
 
+    // ── 제품을 나중에 붙이는 경로 ────────────────
+
+    @Test
+    void aProductionCanBeConfirmedBeforeDecidingWhatItMade() throws Exception {
+        // 개체는 만들어지되 어느 제품인지는 아직 비어 있다.
+        Long batchId = openedBatchWithoutProduct();
+        addInput(batchId, virginMaterialId, 30_000L, 30_000L, 0L, 0L);
+
+        confirm(brandToken, batchId).andExpect(status().isOk());
+
+        assertThat(productItemRepository.findAllByProductionBatchId(batchId))
+                .hasSize(PRODUCED_QUANTITY)
+                .allSatisfy(item -> assertThat(item.getProductModelId()).isNull());
+    }
+
+    @Test
+    void attachingTheProductFillsEveryItemThatProductionMade() throws Exception {
+        // 배치만 채우고 개체를 두면, 배치는 제품을 가졌는데 그 산출물은 아닌 상태가 된다.
+        Long batchId = openedBatchWithoutProduct();
+        addInput(batchId, virginMaterialId, 30_000L, 30_000L, 0L, 0L);
+        confirm(brandToken, batchId).andExpect(status().isOk());
+
+        assignProduct(batchId, productModelId)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.productModelId").value(productModelId));
+
+        assertThat(productItemRepository.findAllByProductionBatchId(batchId))
+                .hasSize(PRODUCED_QUANTITY)
+                .allSatisfy(item ->
+                        assertThat(item.getProductModelId()).isEqualTo(productModelId));
+    }
+
+    @Test
+    void anUnattachedItemCountsTowardsNoStock() throws Exception {
+        // 프론트가 물은 지점이다 — 제품 미정 개체는 재고에 섞이지 않는다.
+        Long batchId = openedBatchWithoutProduct();
+        addInput(batchId, virginMaterialId, 30_000L, 30_000L, 0L, 0L);
+        confirm(brandToken, batchId).andExpect(status().isOk());
+
+        assertThat(productItemRepository.countByProductModelIdAndStatus(
+                productModelId, ProductItemStatus.IN_STOCK)).isZero();
+
+        assignProduct(batchId, productModelId).andExpect(status().isOk());
+
+        assertThat(productItemRepository.countByProductModelIdAndStatus(
+                productModelId, ProductItemStatus.IN_STOCK)).isEqualTo(PRODUCED_QUANTITY);
+    }
+
+    @Test
+    void theProductOfAFinishedProductionCannotBeSwapped() throws Exception {
+        // 개체가 팔린 뒤에 제품이 바뀌면 그 주문이 산 것과 재고가 어긋난다.
+        Long batchId = openedBatchWithoutProduct();
+        addInput(batchId, virginMaterialId, 30_000L, 30_000L, 0L, 0L);
+        confirm(brandToken, batchId).andExpect(status().isOk());
+        assignProduct(batchId, productModelId).andExpect(status().isOk());
+
+        assignProduct(batchId, productModelId).andExpect(status().is4xxClientError());
+
+        assertThat(productItemRepository.findAllByProductionBatchId(batchId))
+                .allSatisfy(item ->
+                        assertThat(item.getProductModelId()).isEqualTo(productModelId));
+    }
+
+    @Test
+    void aProductChosenUpFrontStillLandsOnEveryItem() throws Exception {
+        // 기존 화면은 여는 시점에 제품을 보낸다. 그 경로가 깨지면 안 된다.
+        Long batchId = batchWithInput(virginMaterialId, 30_000L, 30_000L, 0L, 0L);
+
+        confirm(brandToken, batchId).andExpect(status().isOk());
+
+        assertThat(productItemRepository.findAllByProductionBatchId(batchId))
+                .hasSize(PRODUCED_QUANTITY)
+                .allSatisfy(item ->
+                        assertThat(item.getProductModelId()).isEqualTo(productModelId));
+    }
+
     private ResultActions confirm(String token, Long batchId) throws Exception {
         return mockMvc.perform(post(PATH + "/{batchId}/confirm", batchId)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token));
+    }
+
+    /** 제품을 정하지 않은 배치. 브랜드는 생산을 끝낸 뒤에 제품을 붙이기도 한다. */
+    private Long openedBatchWithoutProduct() throws Exception {
+        Map<String, Object> request = new HashMap<>();
+        request.put("batchName", "RE:BAG 1차 생산");
+        request.put("producedQuantity", PRODUCED_QUANTITY);
+
+        String response = mockMvc.perform(post(PATH)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + brandToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(request)))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        return objectMapper.readTree(response).path("data").path("productionBatchId").asLong();
+    }
+
+    private ResultActions assignProduct(Long batchId, Long model) throws Exception {
+        return mockMvc.perform(patch(PATH + "/{batchId}", batchId)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + brandToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body(Map.of("productModelId", model))));
     }
 
     private Long openedBatch() throws Exception {
