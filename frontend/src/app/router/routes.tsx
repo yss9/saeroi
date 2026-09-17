@@ -10,10 +10,14 @@ import { AdminPage } from '../../pages/auth/AdminPage.tsx'
 import { BusinessSignupPage } from '../../pages/auth/BusinessSignupPage.tsx'
 import { ConsumerSignupPage } from '../../pages/auth/ConsumerSignupPage.tsx'
 import { ForbiddenPage } from '../../pages/auth/ForbiddenPage.tsx'
+import { FaqPage } from '../../pages/faq/FaqPage.tsx'
+import { TermsPage } from '../../pages/legal/TermsPage.tsx'
+import { PrivacyPage } from '../../pages/legal/PrivacyPage.tsx'
 import { LoginPage } from '../../pages/auth/LoginPage.tsx'
 import { NotFoundPage } from '../../pages/auth/NotFoundPage.tsx'
 import { SignupCompletePage } from '../../pages/auth/SignupCompletePage.tsx'
 import { SignupTypePage } from '../../pages/auth/SignupTypePage.tsx'
+import { SupportPage } from '../../pages/support/SupportPage.tsx'
 import { CompanyAccountPage } from '../../pages/company/CompanyAccountPage.tsx'
 import { InventoryPage } from '../../pages/inventory/InventoryPage.tsx'
 import { ListingDetailPage } from '../../pages/marketplace/ListingDetailPage.tsx'
@@ -95,6 +99,10 @@ export const routes: RouteObject[] = [
   { path: '/signup/consumer', element: <ConsumerSignupPage /> },
   { path: '/signup/business', element: <BusinessSignupPage /> },
   { path: '/signup/complete', element: <SignupCompletePage /> },
+  { path: '/terms', element: <TermsPage /> },
+  { path: '/privacy', element: <PrivacyPage /> },
+  { path: '/faq', element: <FaqPage /> },
+  { path: '/support', element: <SupportPage /> },
 
   // 권한 없음(403 성격) 안내. RoleGuard 가 여기로 보낸다.
   // Public 에 두는 이유: 이 화면 자체가 가드에 막히면 사용자가 갈 곳이 없어진다.

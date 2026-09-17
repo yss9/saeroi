@@ -93,10 +93,9 @@ export function Footer() {
       <div className="site-footer__bottom">
         <p>© 2026 SAEROI</p>
         <nav aria-label="법적 고지">
-          <a href="#terms">이용약관</a>
-          <a href="#privacy">개인정보처리방침</a>
-          <a href="#shipping">배송 및 반품</a>
-          <a href="#faq">FAQ</a>
+          <Link to="/terms">이용약관</Link>
+          <Link to="/privacy">개인정보처리방침</Link>
+          <Link to="/faq">FAQ</Link>
         </nav>
         <span>SEOUL · KR</span>
       </div>

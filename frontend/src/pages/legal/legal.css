@@ -1,0 +1,95 @@
+.legal-page { min-height: 100vh; }
+
+.legal-content {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: clamp(64px, 10vw, 120px) var(--page-gutter) clamp(96px, 10vw, 140px);
+}
+
+.legal-content__header {
+  margin-bottom: clamp(40px, 6vw, 64px);
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 28px;
+}
+
+.legal-content__eyebrow {
+  margin: 0 0 10px;
+  font-family: "Manrope", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--brand-orange);
+  text-transform: uppercase;
+}
+
+.legal-content__header h1 {
+  margin: 0;
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 600;
+  word-break: keep-all;
+}
+
+.legal-content__section {
+  margin-bottom: clamp(28px, 4vw, 40px);
+}
+
+.legal-content__section h2 {
+  margin: 0 0 10px;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.legal-content__section p {
+  margin: 0 0 8px;
+  font-size: 15px;
+  line-height: 1.8;
+  color: var(--muted);
+  word-break: keep-all;
+}
+
+.legal-faq__category {
+  margin-bottom: clamp(32px, 5vw, 48px);
+}
+
+.legal-faq__category h2 {
+  margin: 0 0 16px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--brand-blue);
+}
+
+.legal-faq__item {
+  border-bottom: 1px solid var(--line);
+  padding: 16px 0;
+}
+
+.legal-faq__item summary {
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legal-faq__item summary::-webkit-details-marker { display: none; }
+
+.legal-faq__item summary::before {
+  content: "+";
+  font-family: "Manrope", sans-serif;
+  color: var(--brand-orange);
+  font-weight: 600;
+}
+
+.legal-faq__item[open] summary::before { content: "−"; }
+
+.legal-faq__item p {
+  margin: 12px 0 0;
+  padding-left: 20px;
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--muted);
+  word-break: keep-all;
+}
