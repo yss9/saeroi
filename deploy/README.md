@@ -30,6 +30,9 @@ GIT_CONVENTION에 따라 develop / feat 하위 브랜치 없이 이 브랜치에
 │   │                          #   없는 테이블·컬럼 + 컬럼 타입 불일치(CHAR vs VARCHAR 등)를 대조한다
 │   │                          #   테이블 0개(빈 DB)와 접속 실패를 구분해 보고한다
 │   ├── gitlab-status.sh       # 빌드 결과를 GitLab 커밋 상태로 보고 (초록 체크/빨간 X)
+│   │                          #   실패 시 그 커밋을 만든 MR에도 코멘트를 남긴다 (머지 후 커밋이라
+│   │                          #   MR 화면에 상태가 저절로 안 뜨므로) — 커밋 메시지의
+│   │                          #   `See merge request ...!<iid>` 트레일러로 MR을 역추적, 중복 방지
 │   ├── shell-aliases.sh       # 서버 단축 명령 (~/.bashrc 가 source)
 │   ├── backup-mysql.sh        # MySQL 일일 덤프 (cron 03:10)
 │   ├── restore-mysql.sh       # 덤프로 복구

@@ -157,6 +157,16 @@ Jenkins 세팅은 JCasC(`jenkins/casc.yaml`)로 자동화되어 있다. 컨테�
 > `gitlab-branch-source`를 쓰지 않은 이유: MR을 발견하면 SCM head가 `MR-12` 형태가 되어
 > 파트 필터에 걸리지 않고, 필터를 넓히면 **4개 Job이 모든 파트의 MR을 발견**해
 > frontend Job이 backend MR을 빌드하는 사고가 난다.
+>
+> **⚠️ MR의 초록불은 MR 소스 브랜치 커밋까지만 검증한 결과다 (2026-09-17 실사고로 확인).**
+> 머지 후 `<파트>/develop`에서 도는 빌드(이미지 빌드 + Test Deploy + 스키마 대조 등,
+> `develop`에서만 도는 스테이지)는 **다른(머지) 커밋**에서 실행되고, 그 결과는 이미
+> 닫힌 MR 화면에 저절로 나타나지 않는다 — "MR이 초록이었으니 배포까지 됐다"는
+> 판단은 틀릴 수 있다. develop 빌드 실패 여부는 Repository → Commits에서
+> `<파트>/develop` 브랜치의 최신 커밋 상태로 직접 확인해야 한다.
+> 2026-09-17부터 `gitlab-status.sh`가 develop 빌드 실패 시 그 커밋을 만든 MR에도
+> 코멘트를 남긴다(커밋 메시지의 `See merge request ...!<iid>` 트레일러로 역추적) —
+> 다만 이건 코멘트일 뿐 MR의 초록/빨간 배지 자체를 바꾸지는 않는다.
 
 ### 남은 수동 작업 (EC2에서)
 
