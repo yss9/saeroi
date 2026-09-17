@@ -5,11 +5,11 @@ import type {
 } from '../types/consumerMyPage.types.ts'
 import './consumer-mypage.css'
 
-const orderStageMeta: Record<ConsumerOrderStage, { label: string; description: string }> = {
-  PAYMENT_PENDING: { label: '결제 대기', description: '결제를 기다리고 있어요' },
-  PREPARING: { label: '상품 준비', description: '브랜드에서 준비 중이에요' },
-  SHIPPING: { label: '배송 중', description: '새로운 쓰임이 오고 있어요' },
-  DELIVERED: { label: '배송 완료', description: '배송이 완료됐어요' },
+const orderStageMeta: Record<ConsumerOrderStage, { label: string }> = {
+  PAYMENT_PENDING: { label: '결제 대기' },
+  PREPARING: { label: '상품 준비' },
+  SHIPPING: { label: '배송 중' },
+  DELIVERED: { label: '배송 완료' },
 }
 
 /**
@@ -21,10 +21,19 @@ const orderStageMeta: Record<ConsumerOrderStage, { label: string; description: s
  * **한 건도 없으면 그리지 않는다.** 0 이 네 칸 늘어선 표는 "아직 주문이 없다" 를 말하는
  * 가장 나쁜 방법이다 — 처음 온 사람은 그 표가 무엇을 세는 것인지조차 모른다.
  *
- * 칸 강조는 **건수**를 따른다. 이 표의 질문이 "지금 몇 건이 어디까지 왔나" 이므로, 비어
- * 있는 칸은 눈이 그냥 지나가고 내 주문이 있는 칸이 바로 보여야 한다.
+ * **칸을 누르면 그 상태의 주문만 아래 목록에 남는다(2026-09-17).** 배경은 모든 칸이
+ * 같은 아이보리색이고(예전엔 건수>0인 칸만 파랗게 칠했다), 지금 클릭된 칸만 파란
+ * 테두리로 표시한다 — hover 시에는 채워진 파란색으로 "누를 수 있다"를 보여준다.
  */
-export function ConsumerOrderSummary({ stages }: { stages: readonly ConsumerOrderStageSummary[] }) {
+export function ConsumerOrderSummary({
+  stages,
+  selectedStage,
+  onSelectStage,
+}: {
+  stages: readonly ConsumerOrderStageSummary[]
+  selectedStage: ConsumerOrderStage | null
+  onSelectStage: (stage: ConsumerOrderStage | null) => void
+}) {
   const total = stages.reduce((sum, stage) => sum + stage.count, 0)
   if (total === 0) return null
 
@@ -40,13 +49,18 @@ export function ConsumerOrderSummary({ stages }: { stages: readonly ConsumerOrde
       <ol className="consumer-order-steps">
         {stages.map(({ stage, count }, index) => {
           const meta = orderStageMeta[stage]
+          const isSelected = selectedStage === stage
           return (
-            // **건수가 있는 칸만 강조한다.** 자리로 칠하면(예전 CSS 가 그랬다) 0 건인
-            // 칸이 눈에 띄고 내 주문이 있는 칸은 회색으로 남아, 표가 정확히 반대로 읽힌다.
-            <li key={stage} className={count > 0 ? 'is-active' : undefined}>
-              <span className="consumer-order-steps__number">{count}</span>
-              <strong>{meta.label}</strong>
-              <span>{meta.description}</span>
+            <li key={stage} className={isSelected ? 'is-selected' : undefined}>
+              <button
+                type="button"
+                className="consumer-order-steps__button"
+                aria-pressed={isSelected}
+                onClick={() => onSelectStage(isSelected ? null : stage)}
+              >
+                <span className="consumer-order-steps__number">{count}</span>
+                <strong>{meta.label}</strong>
+              </button>
               {index < stages.length - 1 && (
                 <ArrowRight className="consumer-order-steps__arrow" aria-hidden="true" />
               )}
