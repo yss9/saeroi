@@ -111,12 +111,6 @@ public class ProductionConfirmService {
             throw new BusinessException(ProductionErrorCode.PRODUCTION_BATCH_NOT_EDITABLE);
         }
 
-        // 배치는 제품 없이도 열 수 있지만 확정은 그럴 수 없다 — 아래에서 만드는
-        // product_item 이 이 값을 그대로 쓴다. 여기서 막지 않으면 개체 생성에서 NPE 가 난다.
-        if (batch.getProductModelId() == null) {
-            throw new BusinessException(ProductionErrorCode.PRODUCTION_PRODUCT_MODEL_REQUIRED);
-        }
-
         List<ProductionInput> inputs = inputRepository.findAllByProductionBatchId(batchId);
         if (inputs.isEmpty()) {
             throw new BusinessException(ProductionErrorCode.PRODUCTION_NO_INPUT);

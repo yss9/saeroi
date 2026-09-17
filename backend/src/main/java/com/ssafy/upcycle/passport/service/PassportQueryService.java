@@ -31,9 +31,13 @@ public class PassportQueryService {
     public PassportResponse findByQrToken(String qrToken) {
         ProductItem item = productItemRepository.findByQrToken(qrToken)
                 .orElseThrow(() -> new BusinessException(PassportErrorCode.QR_TOKEN_NOT_FOUND));
-        // 개체가 있으면 모델은 반드시 있다 — product_model_id 는 등록 시점에 검증된 FK 라
-        // 여기서 다시 없는 경우를 매핑할 필요가 없다. 없다면 데이터 정합성이 깨진 것이고
-        // 그 자체가 이 요청과 무관한 버그다.
+        // 생산 확정 직후에는 제품이 아직 붙지 않았을 수 있다. 그 구간에 스캔하면
+        // 여권이 보여줄 것이 없다 — 어느 제품인지부터가 화면의 내용이기 때문이다.
+        if (item.getProductModelId() == null) {
+            throw new BusinessException(PassportErrorCode.PASSPORT_NOT_READY);
+        }
+        // 여기까지 왔는데 모델이 없다면 데이터 정합성이 깨진 것이고, 그것은 이 요청과
+        // 무관한 버그다.
         ProductModel model = productModelRepository.findById(item.getProductModelId())
                 .orElseThrow(() -> new BusinessException(PassportErrorCode.QR_TOKEN_NOT_FOUND));
         String brandName = companyProfileRepository.findById(model.getBrandId())
@@ -52,8 +56,13 @@ public class PassportQueryService {
      */
     @Transactional(readOnly = true)
     public Long resolveProductModelId(String qrToken) {
-        return productItemRepository.findByQrToken(qrToken)
-                .map(ProductItem::getProductModelId)
+        ProductItem item = productItemRepository.findByQrToken(qrToken)
                 .orElseThrow(() -> new BusinessException(PassportErrorCode.QR_TOKEN_NOT_FOUND));
+        // 아직 제품이 없으면 보여줄 사진도 없다. null 을 그대로 넘기면 아래 조회가
+        // IllegalArgumentException 으로 터져 500 이 나간다.
+        if (item.getProductModelId() == null) {
+            throw new BusinessException(PassportErrorCode.PASSPORT_NOT_READY);
+        }
+        return item.getProductModelId();
     }
 }

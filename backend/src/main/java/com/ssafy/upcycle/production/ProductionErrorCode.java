@@ -59,6 +59,18 @@ public enum ProductionErrorCode implements ErrorCode {
      * <p>배치는 제품 없이도 열 수 있지만, 확정은 {@code product_item} 을 만들고 그것이
      * 이 값을 그대로 쓴다. 여기서 막지 않으면 개체를 만드는 지점에서 NPE 가 난다.
      */
+    /**
+     * 이미 제품이 붙은 확정 배치의 제품을 바꾸려는 경우.
+     *
+     * <p>확정된 배치는 개체가 이미 존재하고, 그중 일부는 팔렸을 수 있다. 제품을 바꾸면
+     * 그 주문이 산 것과 재고가 가리키는 제품이 달라지고, 이미 인쇄된 QR 이 가리키는
+     * 여권도 다른 제품을 말하게 된다 — 되돌릴 방법이 없다.
+     */
+    PRODUCTION_PRODUCT_MODEL_ALREADY_SET(
+            HttpStatus.CONFLICT,
+            "PRODUCTION_PRODUCT_MODEL_ALREADY_SET",
+            "이미 제품이 연결된 생산은 바꿀 수 없습니다."),
+
     PRODUCTION_PRODUCT_MODEL_REQUIRED(
             HttpStatus.UNPROCESSABLE_ENTITY,
             "PRODUCTION_PRODUCT_MODEL_REQUIRED",

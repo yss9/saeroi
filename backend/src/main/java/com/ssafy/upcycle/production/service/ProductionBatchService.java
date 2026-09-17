@@ -153,11 +153,43 @@ public class ProductionBatchService {
     public ProductionBatchResponse assignProductModel(
             Long producerId, Long batchId, ProductionBatchProductModelRequest request) {
         requireActiveBrand(producerId);
-        ProductionBatch batch = editableBatch(batchId, producerId);
+        // editableBatch 를 쓰지 않는다 — 그쪽은 SIGNING 이후를 전부 막는데,
+        // 제품은 확정된 뒤에 붙이는 것이 정상 순서다. 상태별 허용 판정은 엔티티가 한다.
+        ProductionBatch batch = batchRepository.findByIdForUpdate(batchId)
+                .orElseThrow(
+                        () -> new BusinessException(ProductionErrorCode.PRODUCTION_BATCH_NOT_FOUND));
+        requireOwner(batch, producerId);
+        requireAssignableStatus(batch);
+        // 확정된 배치의 제품은 한 번만 붙는다. 엔티티도 같은 것을 막지만 그쪽은
+        // IllegalStateException 이라 그대로 두면 500 이 나간다 — 여기가 사용자에게 답하는 자리다.
+        if (batch.isConfirmed() && batch.getProductModelId() != null) {
+            throw new BusinessException(
+                    ProductionErrorCode.PRODUCTION_PRODUCT_MODEL_ALREADY_SET);
+        }
         requireOwnProductModel(request.productModelId(), producerId);
 
         batch.assignProductModel(request.productModelId());
+        // 확정된 배치라면 개체가 이미 만들어져 있다. 같은 트랜잭션에서 함께 채워야
+        // 배치는 제품을 가졌는데 그 산출물은 아닌 상태가 생기지 않는다.
+        productItemRepository.findAllByProductionBatchId(batchId)
+                .forEach(item -> item.attachProductModel(request.productModelId()));
         return ProductionBatchResponse.of(batch, inputsOf(batchId));
+    }
+
+    /**
+     * 제품을 붙일 수 있는 상태인가.
+     *
+     * <p>{@code DRAFT} 는 언제든 된다 — 개체가 아직 없어 고쳐도 잉힐 것이 없다.
+     * {@code CONFIRMED} 도 된다 — 그것이 바로 이번에 열어 준 경로다. 다만 한 번 붙인
+     * 뒤에는 바꿀 수 없고, 그 판정은 {@code ProductionBatch} 와 {@code ProductItem} 이 한다.
+     *
+     * <p>{@code SIGNING} 을 막는 이유는 따로 있다 — 서명하는 중에 내용이 바뀌면 서명한
+     * 것과 저장된 것이 어긋난다. {@code CANCELED} 는 더 만질 대상이 아니다.
+     */
+    private void requireAssignableStatus(ProductionBatch batch) {
+        if (!batch.isEditable() && !batch.isConfirmed()) {
+            throw new BusinessException(ProductionErrorCode.PRODUCTION_BATCH_NOT_EDITABLE);
+        }
     }
 
     /**

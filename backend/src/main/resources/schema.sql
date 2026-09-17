@@ -758,7 +758,9 @@ CREATE TABLE production_output (
 CREATE TABLE product_item (
     id BIGINT NOT NULL AUTO_INCREMENT,
     production_batch_id BIGINT NOT NULL,
-    product_model_id BIGINT NOT NULL,
+    -- 확정 직후에는 비어 있을 수 있다 — 브랜드는 생산을 끝낸 뒤에 그 결과물에
+    -- 제품 정보를 붙인다. 비어 있는 동안은 어느 모델의 재고로도 세지지 않는다.
+    product_model_id BIGINT NULL,
     serial_number INT NOT NULL,
     item_code VARCHAR(50) NOT NULL,
     qr_token CHAR(32) NOT NULL,

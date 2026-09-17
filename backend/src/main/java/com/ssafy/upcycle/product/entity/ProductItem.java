@@ -58,8 +58,19 @@ public class ProductItem {
     @Column(name = "production_batch_id", nullable = false)
     private Long productionBatchId;
 
-    /** 조회 편의를 위해 함께 들고 있다. 배치를 거치지 않고 모델별 재고를 셀 수 있다. */
-    @Column(name = "product_model_id", nullable = false)
+    /**
+     * 조회 편의를 위해 함께 들고 있다. 배치를 거치지 않고 모델별 재고를 셀 수 있다.
+     *
+     * <p><b>생산 확정 직후에는 비어 있을 수 있다.</b> 브랜드의 실제 순서가 "생산을 끝내고
+     * → 그 결과물에 제품 정보를 붙인다" 라, 확정 전에 무엇을 만들었는지부터 정하라고 강제할
+     * 이유가 없다. 비어 있는 동안 이 개체는 <b>어느 모델의 재고로도 세지지 않고</b>
+     * ({@code countByProductModelIdAndStatus} 가 모델 id 로 찾는다) 팔리지도 않는다.
+     *
+     * <p>다만 <b>QR 여권은 이 값 없이 보여줄 것이 없다</b> — 여권은 "이 제품은 무엇이고
+     * 어떤 소재로 만들어졌는가" 를 말하는 화면이다. 그 구간에 스캔하면
+     * {@code PassportQueryService} 가 "아직 준비되지 않았다" 로 답한다.
+     */
+    @Column(name = "product_model_id")
     private Long productModelId;
 
     /** 배치 안에서의 순번. 1 부터 시작한다. */
@@ -96,7 +107,8 @@ public class ProductItem {
             String itemCode,
             String qrToken) {
         this.productionBatchId = requireNonNull(productionBatchId, "production batch id");
-        this.productModelId = requireNonNull(productModelId, "product model id");
+        // 확정 시점에는 없어도 된다. 나중에 attachProductModel 로 채운다.
+        this.productModelId = productModelId;
         if (serialNumber <= 0) {
             throw new IllegalArgumentException("Product item serial number must be positive");
         }
@@ -132,6 +144,21 @@ public class ProductItem {
     public void reserve() {
         requireStatus(ProductItemStatus.IN_STOCK, "reserve");
         this.status = ProductItemStatus.RESERVED;
+    }
+
+    /**
+     * 생산이 끝난 개체에 제품을 붙인다. <b>한 번만 된다.</b>
+     *
+     * <p>바꿀 수 없게 막는 것이 핵심이다 — 개체가 팔린 뒤에 제품이 바뀌면 그 주문이 산 것과
+     * 재고가 가리키는 제품이 달라지고, 이미 인쇄된 QR 이 가리키는 여권도 다른 제품을 말하게
+     * 된다. 바꾸려면 개체를 새로 만드는 수밖에 없다.
+     */
+    public void attachProductModel(Long productModelId) {
+        if (this.productModelId != null) {
+            throw new IllegalStateException(
+                    "Product item already belongs to product model " + this.productModelId);
+        }
+        this.productModelId = requireNonNull(productModelId, "product model id");
     }
 
     /** 결제 전 주문이 취소되어 다시 팔 수 있게 된다. */

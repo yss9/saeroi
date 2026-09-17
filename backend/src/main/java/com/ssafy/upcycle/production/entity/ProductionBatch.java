@@ -202,10 +202,18 @@ public class ProductionBatch {
      * 여기는 최후 방어선이다.
      */
     public void assignProductModel(Long productModelId) {
-        if (this.status != ProductionBatchStatus.DRAFT) {
+        if (this.status != ProductionBatchStatus.DRAFT
+                && this.status != ProductionBatchStatus.CONFIRMED) {
             throw new IllegalStateException(
-                    "Production batch product model can only change while DRAFT but was "
-                            + this.status);
+                    "Production batch product model can only be set while DRAFT or CONFIRMED "
+                            + "but was " + this.status);
+        }
+        // 확정된 배치는 개체가 이미 존재한다. 바꾸면 그 개체들이 가리키는 제품과
+        // 어긋난다 — 팔린 것까지 있을 수 있어 되돌릴 방법이 없다.
+        if (this.status == ProductionBatchStatus.CONFIRMED && this.productModelId != null) {
+            throw new IllegalStateException(
+                    "Confirmed production batch already belongs to product model "
+                            + this.productModelId);
         }
         this.productModelId = requireNonNull(productModelId, "product model id");
     }

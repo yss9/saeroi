@@ -501,6 +501,32 @@ class PassportControllerTests {
                 .andExpect(jsonPath("$.data.journey.edges[4].status").value("CURRENT"));
     }
 
+    @Test
+    void anItemWithoutAProductYetIsNotAPassport() throws Exception {
+        // 생산은 확정됐고 QR 도 만들어졌지만 브랜드가 아직 제품을 붙이지 않은 구간이다.
+        // 여권은 "이 제품은 무엇인가" 를 말하는 화면이라 보여줄 것이 없다.
+        // 500 이 아니라 읽힐 수 있는 답이어야 한다.
+        String qrToken = UUID.randomUUID().toString().replace("-", "");
+        ProductItem unattached = productItemRepository.save(ProductItem.produce(
+                1L, null, 1, "ITEM-" + UUID.randomUUID().toString().substring(0, 20), qrToken));
+
+        mockMvc.perform(get("/api/v1/qr/{qrToken}", unattached.getQrToken()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("PASSPORT_NOT_READY"));
+    }
+
+    @Test
+    void theThumbnailOfAnUnattachedItemFailsTheSameWay() throws Exception {
+        // 사진도 제품에서 오므로 같은 이유로 보여줄 것이 없다.
+        String qrToken = UUID.randomUUID().toString().replace("-", "");
+        ProductItem unattached = productItemRepository.save(ProductItem.produce(
+                1L, null, 2, "ITEM-" + UUID.randomUUID().toString().substring(0, 20), qrToken));
+
+        mockMvc.perform(get("/api/v1/qr/{qrToken}/thumbnail", unattached.getQrToken()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("PASSPORT_NOT_READY"));
+    }
+
     private ProductItem produceItem() {
         String qrToken = UUID.randomUUID().toString().replace("-", "");
         String itemCode = "ITEM-" + UUID.randomUUID().toString().substring(0, 20);
