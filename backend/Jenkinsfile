@@ -73,7 +73,12 @@ pipeline {
         stage('Test Deploy') {
             when { branch 'backend/develop' }
             steps {
-                sh 'docker build -f docker/Dockerfile -t $IMAGE:test .'
+                // :test 하나만 찍으면 다음 빌드가 그 태그를 새 이미지로 옮기는 순간 지금 뜬 이미지가 태그를 전부
+                // 잃어, test-deploy.sh 의 롤백 판정("circular-fashion/<svc>:" 태그가 남은 이미지)에서 빠진다 —
+                // 실제로 backend/develop #137 까지 매 test 배포가 "롤백 대상 없음" 이었다 (2026-09-18 확인).
+                // frontend Jenkinsfile 과 같은 방식으로 :test-$BUILD_NUMBER 를 함께 찍는다. 쌓이는 번호 태그는
+                // deploy/master 의 scripts/prune-images.sh 크론이 서비스별 최신 5개만 남기고 정리한다.
+                sh 'docker build -f docker/Dockerfile -t $IMAGE:test -t $IMAGE:test-$BUILD_NUMBER .'
                 sh 'flock -w 900 /var/jenkins_home/cf-deploy.lock bash $DEPLOY_DIR/scripts/test-deploy.sh backend'
             }
         }
