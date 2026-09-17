@@ -231,8 +231,7 @@ describe('LandingPage', () => {
     expect(apiClient.get).toHaveBeenCalledTimes(2)
   })
 
-  it('keeps BRANDS on its home section and connects SHOP and ABOUT discovery links', async () => {
-    const user = userEvent.setup()
+  it('connects BRANDS, SHOP and ABOUT discovery links while preserving home sections', () => {
     renderLandingPage()
 
     const primaryNavigation = screen.getByRole('navigation', { name: '주요 메뉴' })
@@ -242,13 +241,9 @@ describe('LandingPage', () => {
     ]
 
     for (const link of sectionLinks) {
-      const href = link.getAttribute('href')
-      expect(href).toMatch(/^#[a-z0-9-]+$/)
-      expect(document.querySelector(href ?? '')).toBeInTheDocument()
-
-      await user.click(link)
-      expect(window.location.hash).toBe(href)
+      expect(link).toHaveAttribute('href', '/brands')
     }
+    expect(screen.getByRole('region', { name: 'BRANDS' })).toBeInTheDocument()
 
     expect(within(primaryNavigation).getByRole('link', { name: 'ABOUT' })).toHaveAttribute('href', '/about')
     expect(within(primaryNavigation).getByRole('link', { name: 'SHOP' })).toHaveAttribute('href', '/shop')

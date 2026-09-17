@@ -1,4 +1,5 @@
 import { Navigate, type RouteObject } from 'react-router-dom'
+import { BrandsPage } from '../../pages/brands/BrandsPage.tsx'
 import { SearchPage } from '../../pages/search/SearchPage.tsx'
 import { PublicProductDetailPage } from '../../pages/product/PublicProductDetailPage.tsx'
 import { AboutPage } from '../../pages/about/AboutPage.tsx'
@@ -81,6 +82,8 @@ export const routes: RouteObject[] = [
   { path: '/about', element: aboutPageElement },
   { path: '/shop', element: shopPageElement },
   { path: '/search', element: <SearchPage /> },
+  { path: '/brands', element: <BrandsPage /> },
+  { path: '/brands/:brandId', element: <BrandsPage /> },
   { path: '/shop/:category', element: shopPageElement },
   { path: '/shop/:category/:subcategory', element: shopPageElement },
   { path: '/products/:productId', element: <PublicProductDetailPage /> },

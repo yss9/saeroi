@@ -11,12 +11,14 @@ export function CatalogCard({ product }: { product: PublicProductModel }) {
   const [failedSrc, setFailedSrc] = useState<string | null>(null)
   return (
     <article className="shop-catalog__card" aria-label={`${product.name} 상품`}>
-      <Link to={`/products/${product.productModelId}`}>
+      <Link to={`/products/${product.productModelId}`} aria-label={`${product.name} 이미지`}>
         <div className="shop-catalog__image">
           {src && failedSrc !== src ? <img src={src} alt={`${product.brandName} ${product.name}`} loading="lazy" onError={() => setFailedSrc(src)} /> : <span className="shop-catalog__image-fallback">이미지 준비 중</span>}
           {product.stockQuantity === 0 ? <span className="shop-catalog__sold-out">품절</span> : null}
         </div>
-        <p className="shop-catalog__brand">{product.brandName}</p>
+      </Link>
+      <p className="shop-catalog__brand"><Link to={`/brands/${product.brandId}`}>{product.brandName}</Link></p>
+      <Link to={`/products/${product.productModelId}`} aria-label={`${product.name} 상세 보기`}>
         <h2>{product.name}</h2>
         <p className="shop-catalog__price">₩ {price.format(product.price)}</p>
       </Link>
