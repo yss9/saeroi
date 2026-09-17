@@ -44,6 +44,10 @@ const data: ConsumerMyPageData = {
       deliveredAt: '2026-09-14T15:00:00',
       carrier: 'CJ대한통운',
       trackingNumber: '123456789012',
+      receiverName: '새로이 고객',
+      zipCode: '06236',
+      address: '서울특별시 강남구 테헤란로 123',
+      addressDetail: null,
     },
     {
       id: 'PO-002:ITEM-002',
@@ -65,6 +69,10 @@ const data: ConsumerMyPageData = {
       deliveredAt: null,
       carrier: null,
       trackingNumber: null,
+      receiverName: '새로이 고객',
+      zipCode: '06236',
+      address: '서울특별시 강남구 테헤란로 123',
+      addressDetail: null,
     },
   ],
   defaultAddress: {
@@ -97,7 +105,6 @@ describe('ConsumerMyPageView', () => {
   it('이름·이메일·연락처·기본 배송지를 프로필로 묶어 보여준다', () => {
     renderView({ status: 'ready', data })
 
-    expect(screen.getByRole('heading', { name: '새로이 고객님, 반갑습니다.' })).toBeInTheDocument()
     const profile = screen.getByRole('heading', { name: '내 프로필' }).closest('section')
     expect(profile).not.toBeNull()
 
@@ -131,17 +138,18 @@ describe('ConsumerMyPageView', () => {
     expect(screen.queryByRole('article', { name: /주문$/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: '주문 현황' })).not.toBeInTheDocument()
     // 사이드바로 간다. 홈에서 따로 안내할 자리를 만들지 않는다.
-    expect(screen.getByRole('link', { name: '주문 내역' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '주문목록/배송조회' })).toHaveAttribute(
       'href',
       '/mypage/orders',
     )
   })
 
-  // 사이드바 첫 항목이 이 화면을 가리킨다. "마이페이지 홈" 은 무엇이 있는지 말하지 않는다.
-  it('사이드바에서 이 화면을 내 프로필이라고 부른다', () => {
+  // 사이드바는 My쇼핑/My활동/My정보 세 분류다(2026-09-16 개편) — 홈(이 화면)은 목록에
+  // 없다. breadcrumb 의 "마이페이지" 링크(다른 계정 화면에서)나 로고로 돌아온다.
+  it('프로필 카드의 제목은 여전히 내 프로필이다', () => {
     renderView({ status: 'ready', data })
 
-    expect(screen.getByRole('link', { name: '내 프로필' })).toHaveAttribute('href', '/mypage')
+    expect(screen.getByRole('heading', { name: '내 프로필' })).toBeInTheDocument()
   })
 
   it('renders loading, error, and empty states separately', () => {

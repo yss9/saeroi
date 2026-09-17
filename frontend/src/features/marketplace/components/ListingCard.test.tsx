@@ -60,3 +60,35 @@ it('카드 내부 동작 버튼을 클릭하면 상세로 이동하지 않는다
   expect(action).toHaveBeenCalledOnce()
   expect(screen.getByLabelText('현재 경로')).toHaveTextContent('/supplier/listings')
 })
+
+// 가로형 카드는 세 덩어리다 — 왼쪽 이미지 자리, 가운데 소재, 오른쪽 값. 여러 장을 훑을 때
+// 단가가 언제나 같은 자리에 와야 서로 견줄 수 있다.
+it('소재와 값을 한 줄에 나눠 보여준다', () => {
+  render(
+    <MemoryRouter>
+      <ListingCard listing={listing} />
+    </MemoryRouter>,
+  )
+
+  expect(screen.getByRole('link', { name: '폐데님 원단' })).toBeInTheDocument()
+  // 소재 코드는 적지 않는다 — 사람이 읽는 값이 아니고 상세에 있다.
+  expect(screen.queryByText('MAT-000003')).not.toBeInTheDocument()
+  expect(screen.getByText('판매 중')).toBeInTheDocument()
+  expect(screen.getByText('데님')).toBeInTheDocument()
+  expect(screen.getByText(/5,000원/)).toBeInTheDocument()
+  expect(screen.getByText('8 kg')).toBeInTheDocument()
+  // 사는 쪽이 보는 카드라 "판매 가능" 이 아니라 "구매 가능" 이다.
+  expect(screen.getByText(/구매 가능 전량/)).toBeInTheDocument()
+})
+
+// 사진이 생기기 전에도 자리를 잡아 둔다 — 나중에 카드 높이와 줄 맞춤이 통째로 달라지지 않게.
+it('이미지 자리를 두고 그 위에 등급을 얹는다', () => {
+  const { container } = render(
+    <MemoryRouter>
+      <ListingCard listing={{ ...listing, grade: 'A' }} />
+    </MemoryRouter>,
+  )
+
+  expect(container.querySelector('.listing-card__thumbnail')).toBeInTheDocument()
+  expect(screen.getByText('A등급')).toBeInTheDocument()
+})

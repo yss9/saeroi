@@ -1,6 +1,7 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { queryClient } from '../../services/queryClient.ts'
+import { ShopProvider } from '../../features/shop/ShopContext.tsx'
 
 export interface AppProvidersProps {
   children: ReactNode
@@ -21,5 +22,5 @@ export interface AppProvidersProps {
  * Zustand 는 Provider 가 필요 없다(모듈 스코프 스토어). 그래서 여기에 없다.
  */
 export function AppProviders({ children }: AppProvidersProps) {
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  return <QueryClientProvider client={queryClient}><ShopProvider>{children}</ShopProvider></QueryClientProvider>
 }

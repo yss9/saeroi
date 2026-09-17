@@ -120,7 +120,7 @@ export function ProductOrderReturnPage() {
           <Link className="ui-button ui-button--primary ui-button--md" to="/mypage/orders">
             주문 내역 보기
           </Link>
-          <Link className="ui-button ui-button--secondary ui-button--md" to="/products">
+          <Link className="ui-button ui-button--secondary ui-button--md" to="/shop">
             쇼핑 계속하기
           </Link>
         </div>

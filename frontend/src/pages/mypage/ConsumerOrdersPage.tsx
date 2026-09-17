@@ -49,9 +49,13 @@ export function ConsumerOrdersPage() {
         </div>
       ) : (
         <>
-          <ConsumerOrderList orders={myPage.data.recentOrders} />
-          {/* 목록이 "무엇을 샀나" 라면 이 표는 "지금 몇 건이 어디까지 왔나" 다. */}
+          {/*
+            "지금 몇 건이 어디까지 왔나" 를 먼저 보고, 그 아래에서 "무엇을 샀나" 를 하나씩
+            훑는다(2026-09-16 순서 변경) — 목록을 다 지나야 현황이 나오면 주문이 늘수록
+            현황을 보려고 목록 전체를 지나쳐야 했다.
+          */}
           <ConsumerOrderSummary stages={myPage.data.orderStages} />
+          <ConsumerOrderList orders={myPage.data.recentOrders} />
         </>
       )}
     </ConsumerAccountLayout>

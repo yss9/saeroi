@@ -80,6 +80,7 @@ function publicProduct(
     productModelId,
     name,
     category,
+    subcategory: null,
     brandId: productModelId,
     brandName,
     price,
@@ -230,26 +231,25 @@ describe('LandingPage', () => {
     expect(apiClient.get).toHaveBeenCalledTimes(2)
   })
 
-  it('navigates header and discovery links to existing hash targets', async () => {
-    const user = userEvent.setup()
+  it('connects BRANDS, SHOP and ABOUT discovery links while preserving home sections', () => {
     renderLandingPage()
 
     const primaryNavigation = screen.getByRole('navigation', { name: '주요 메뉴' })
-    const links = [
-      ...within(primaryNavigation).getAllByRole('link'),
-      screen.getByRole('link', { name: 'VIEW ALL PRODUCTS' }),
+    const sectionLinks = [
+      within(primaryNavigation).getByRole('link', { name: 'BRANDS' }),
       screen.getByRole('link', { name: 'EXPLORE BRANDS' }),
-      screen.getByRole('link', { name: 'OUR STORY' }),
     ]
 
-    for (const link of links) {
-      const href = link.getAttribute('href')
-      expect(href).toMatch(/^#[a-z0-9-]+$/)
-      expect(document.querySelector(href ?? '')).toBeInTheDocument()
-
-      await user.click(link)
-      expect(window.location.hash).toBe(href)
+    for (const link of sectionLinks) {
+      expect(link).toHaveAttribute('href', '/brands')
     }
+    expect(screen.getByRole('region', { name: 'BRANDS' })).toBeInTheDocument()
+
+    expect(within(primaryNavigation).getByRole('link', { name: 'ABOUT' })).toHaveAttribute('href', '/about')
+    expect(within(primaryNavigation).getByRole('link', { name: 'SHOP' })).toHaveAttribute('href', '/shop')
+    expect(screen.getByRole('link', { name: 'VIEW ALL PRODUCTS' })).toHaveAttribute('href', '/shop')
+    expect(screen.getByRole('link', { name: 'OUR STORY' })).toHaveAttribute('href', '/about')
+    expect(screen.getByRole('link', { name: '우리의 이야기' })).toHaveAttribute('href', '/about')
   })
 
   it('shows login and signup links in the account menu when signed out', async () => {

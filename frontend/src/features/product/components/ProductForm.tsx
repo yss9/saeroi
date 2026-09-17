@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
 import {
   Button,
@@ -31,6 +31,14 @@ export interface ProductFormProps {
   product?: ProductModel
   onCreated?: (product: ProductModel) => void
   onUpdated?: (product: ProductModel) => void
+  /**
+   * 폼 칸들 뒤에 끼워 넣을 자리.
+   *
+   * 제품 등록 화면이 여기에 "어느 배치로 만들었나" 를 넣는다. 생산은 다른 기능이라 이
+   * 컴포넌트가 직접 알지 않고 화면이 조합한다 — 대신 자리는 폼 안이어야 한다. 폼 밖에
+   * 두면 등록 버튼을 누르기 전에 채워야 하는 값인지가 흐려진다.
+   */
+  extraFields?: ReactNode
 }
 
 /**
@@ -67,7 +75,12 @@ interface ProductFormValues {
  * ⚠️ 등록하지 않고 떠나면 올라간 파일은 아무도 가리키지 않는 채로 남는다. 서버에 삭제 API
  * 가 없어 화면이 되돌릴 수 없고, 정리는 서버 배치의 몫이다.
  */
-export function ProductForm({ product, onCreated, onUpdated }: ProductFormProps) {
+export function ProductForm({
+  product,
+  onCreated,
+  onUpdated,
+  extraFields,
+}: ProductFormProps) {
   const isEdit = product !== undefined
 
   const {
@@ -247,6 +260,8 @@ export function ProductForm({ product, onCreated, onUpdated }: ProductFormProps)
         )}
       </div>
 
+
+        {extraFields}
       </div>
 
       <ThumbnailField

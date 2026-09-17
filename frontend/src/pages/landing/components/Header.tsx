@@ -17,16 +17,16 @@ import { BUSINESS_ROLES } from '../../../features/company/types/companyAccount.t
 import { useShop } from '../../../features/shop/ShopContext.tsx'
 import type { UserRole } from '../../../types/role.types.ts'
 
-// 랜딩 섹션 앵커. 로그인·역할과 무관한 공개 정보라 필터를 걸지 않는다
-// (routes.tsx 의 Public 구역과 같은 성격이다).
+// 소비자 페이지 공통 내비게이션. 목적지 페이지와 함께 공개 링크를 활성화한다.
 const navigation = [
-  { label: 'SHOP', href: '#shop' },
-  { label: 'BRANDS', href: '#brands' },
-  { label: 'ABOUT', href: '#why-saeroi' },
+  { label: 'SHOP', homeHref: '/shop', route: '/shop' },
+  { label: 'BRANDS', homeHref: '/brands', route: '/brands' },
+  { label: 'ABOUT', homeHref: '/about', route: '/about' },
 ]
 
 interface HeaderProps {
   isLogoVisible: boolean
+  scrollToneViewportRatio?: number
 }
 
 function getAccountTypeLabel(role: UserRole) {
@@ -36,7 +36,7 @@ function getAccountTypeLabel(role: UserRole) {
   return ''
 }
 
-export function Header({ isLogoVisible }: HeaderProps) {
+export function Header({ isLogoVisible, scrollToneViewportRatio }: HeaderProps) {
   const { cartCount } = useShop()
   const { user, isAuthenticated } = useAuth()
   const logout = useLogout()
@@ -49,13 +49,20 @@ export function Header({ isLogoVisible }: HeaderProps) {
 
   useEffect(() => {
     function updateHeaderTone() {
-      setIsScrolled(window.scrollY > 32)
+      const threshold = scrollToneViewportRatio
+        ? window.innerHeight * scrollToneViewportRatio
+        : 32
+      setIsScrolled(window.scrollY > threshold)
     }
 
     updateHeaderTone()
     window.addEventListener('scroll', updateHeaderTone, { passive: true })
-    return () => window.removeEventListener('scroll', updateHeaderTone)
-  }, [])
+    window.addEventListener('resize', updateHeaderTone)
+    return () => {
+      window.removeEventListener('scroll', updateHeaderTone)
+      window.removeEventListener('resize', updateHeaderTone)
+    }
+  }, [scrollToneViewportRatio])
 
   useEffect(() => {
     if (!isAccountOpen) return
@@ -97,12 +104,12 @@ export function Header({ isLogoVisible }: HeaderProps) {
 
   function handleCartEntry() {
     if (isAuthenticated) {
-      navigate('/products')
+      navigate('/shop')
       return
     }
 
     navigate('/login', {
-      state: { from: { pathname: `${location.pathname}${location.hash || '#shop'}` } },
+      state: { from: { pathname: `${location.pathname}${location.search}${location.hash || (location.pathname === '/' ? '#shop' : '')}` } },
     })
   }
 
@@ -128,15 +135,17 @@ export function Header({ isLogoVisible }: HeaderProps) {
       </Link>
 
       <nav className="site-header__navigation" aria-label="주요 메뉴">
-        {navigation.map((item) => (
-          <a key={item.label} href={item.href}>{item.label}</a>
+        {navigation.map((item) => location.pathname === '/' && item.homeHref.startsWith('#') ? (
+          <a key={item.label} href={item.homeHref}>{item.label}</a>
+        ) : (
+          <Link key={item.label} to={item.route}>{item.label}</Link>
         ))}
       </nav>
 
       <div className="site-header__actions">
-        <button type="button" aria-label="상품 검색">
+        <Link to="/search" aria-label="상품 검색">
           <MagnifyingGlass aria-hidden="true" />
-        </button>
+        </Link>
 
         <div className="site-header__account" ref={accountRef}>
           <button

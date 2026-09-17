@@ -323,7 +323,8 @@ describe('판매 정보 (S15P21E104-438/439)', () => {
     api.getListings.mockResolvedValue(listingPage())
     renderPage()
 
-    expect(await screen.findByText('14,000원 / kg')).toBeInTheDocument()
+    // 단가와 단위를 다른 태그로 나눠 그린다(숫자를 크게, 단위를 작게).
+    expect(await screen.findByText(/14,000원/)).toBeInTheDocument()
     const link = screen.getByRole('link', { name: '수거 데님 원단' })
     expect(link).toHaveAttribute('href', '/marketplace/501')
   })

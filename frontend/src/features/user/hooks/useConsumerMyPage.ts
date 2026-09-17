@@ -108,6 +108,13 @@ export function toConsumerMyPageData(
       // 서버가 아직 안 주면 undefined 다. 화면은 값이 있을 때만 송장 줄을 그린다.
       carrier: order.shipping?.carrier ?? null,
       trackingNumber: order.shipping?.trackingNumber ?? null,
+      // 수령인·주소는 주문 시점에 항상 확정되므로(shipping 자체가 항상 있다) null 대신
+      // 빈 문자열로 떨어질 일이 없다 — 옵셔널 체이닝은 shipping 자체가 아직 undefined인
+      // 과거 응답 방어용이다.
+      receiverName: order.shipping?.receiverName ?? '',
+      zipCode: order.shipping?.zipCode ?? '',
+      address: order.shipping?.address ?? '',
+      addressDetail: order.shipping?.addressDetail ?? null,
     }))),
     // 없으면 null 이다. 주소를 받기 전에 가입한 계정은 배송지가 0건이고 그것은 정상이다.
     defaultAddress,

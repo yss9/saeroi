@@ -1,5 +1,6 @@
 import { ArrowRight } from '@phosphor-icons/react'
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { homepageBrands } from '../content.ts'
 
 export function BrandShowcase() {
@@ -13,9 +14,9 @@ export function BrandShowcase() {
           <h2 id="brands-title">BRANDS</h2>
           <p className="editorial-heading__subtitle">Meet The Makers</p>
         </div>
-        <a className="text-link" href="#brand-list">
+        <Link className="text-link" to="/brands">
           EXPLORE BRANDS <ArrowRight aria-hidden="true" />
-        </a>
+        </Link>
       </header>
 
       <div id="brand-list" className="brand-showcase__layout" data-reveal>

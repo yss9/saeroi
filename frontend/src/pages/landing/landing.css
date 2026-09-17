@@ -224,6 +224,7 @@
 }
 
 .site-header__actions > button,
+.site-header__actions > a,
 .site-header__account > button,
 .site-header__cart,
 .site-header__menu-button {
@@ -240,6 +241,7 @@
 }
 
 .site-header__actions > button::before,
+.site-header__actions > a::before,
 .site-header__account > button::before,
 .site-header__cart::before,
 .site-header__menu-button::before {
@@ -254,6 +256,7 @@
 }
 
 .site-header__actions > button:hover::before,
+.site-header__actions > a:hover::before,
 .site-header__account > button:hover::before,
 .site-header__cart:hover::before,
 .site-header__menu-button:hover::before,

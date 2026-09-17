@@ -25,7 +25,16 @@ import { routes } from './routes.tsx'
  * 있어야 하는지 먼저 따진다.
  */
 const INTENTIONALLY_BARE: ReadonlyMap<string, string> = new Map([
+  ['/brands', '공개 브랜드 목록. 자체 쇼핑몰 헤더·푸터 사용'],
+  ['/brands/:brandId', '공개 브랜드 상세. 자체 쇼핑몰 헤더·푸터 사용'],
+  ['/search', '공개 소비자 검색. 자체 쇼핑몰 헤더·푸터 사용'],
+  ['/products', '기존 목록 호환 리다이렉트. 목적지에서 인증 및 셸 적용'],
+  ['/products/:productId', '공개 소비자 상세. 자체 쇼핑몰 헤더·푸터 사용'],
   ['/', '쇼핑몰 랜딩. 자체 헤더를 갖고 있고 로그인 상태면 역할 홈 링크를 보여준다'],
+  ['/about', '공개 브랜드 소개. 쇼핑몰 공통 헤더·푸터와 계정 메뉴를 사용하므로 사업자 셸에서 제외'],
+  ['/shop', '소비자 상품 목록. 쇼핑몰 공통 헤더·푸터와 계정 메뉴 사용'],
+  ['/shop/:category', '소비자 상품 상위 분류. SHOP과 같은 레이아웃 사용'],
+  ['/shop/:category/:subcategory', '소비자 상품 하위 분류. SHOP과 같은 레이아웃 사용'],
   ['/login', '인증 흐름. AuthLayout 이 따로 있다'],
   ['/signup', '인증 흐름'],
   ['/signup/consumer', '인증 흐름'],
@@ -34,7 +43,15 @@ const INTENTIONALLY_BARE: ReadonlyMap<string, string> = new Map([
   ['/qr/:qrToken', 'QR 로 들어오는 비회원 입구. 사업자 껍데기가 어울리지 않는다'],
   ['/mypage', '소비자 계정 화면. ConsumerAccountLayout 이 자체 머리말·푸터를 갖는다'],
   ['/mypage/orders', '소비자 계정 화면. 마이페이지와 같은 껍데기를 쓴다'],
+  ['/mypage/orders/:orderId', '소비자 계정 화면. 마이페이지와 같은 껍데기를 쓴다'],
   ['/mypage/addresses', '소비자 계정 화면. 마이페이지와 같은 껍데기를 쓴다'],
+  ['/mypage/cancellations', '소비자 계정 화면. 마이페이지와 같은 껍데기를 쓴다'],
+  ['/mypage/wishlist', '소비자 계정 화면. 마이페이지와 같은 껍데기를 쓴다'],
+  ['/mypage/recently-viewed', '소비자 계정 화면. 마이페이지와 같은 껍데기를 쓴다'],
+  ['/mypage/inquiries/new', '소비자 계정 화면. 마이페이지와 같은 껍데기를 쓴다'],
+  ['/mypage/inquiries', '소비자 계정 화면. 마이페이지와 같은 껍데기를 쓴다'],
+  ['/mypage/reviews', '소비자 계정 화면. 마이페이지와 같은 껍데기를 쓴다'],
+  ['/mypage/profile', '소비자 계정 화면. 마이페이지와 같은 껍데기를 쓴다'],
   ['/orders/:orderId/payment/return', '카카오페이에서 돌아오는 자리. 소비자 구역이라 사업자 셸이 어울리지 않는다'],
 ])
 
