@@ -8,4 +8,6 @@ coverage.json
 .env
 deployments/*.local.json
 deployments/localhost.json
-roles.ssafy.json
+scripts/roles.ssafy.json
+scripts/config/roles.*.json
+!scripts/config/roles.*.example.json

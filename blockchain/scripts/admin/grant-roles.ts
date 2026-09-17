@@ -1,6 +1,7 @@
 import { ethers, network } from "hardhat";
 import fs from "node:fs";
 import path from "node:path";
+import { PROJECT_ROOT, deploymentFile } from "../lib/paths";
 
 /**
  * 배포된 컨트랙트에 사용자 지갑 역할을 부여한다.
@@ -14,7 +15,7 @@ import path from "node:path";
  * Marketplace 는 예외로 materialToken.hasRole() 을 그대로 읽으므로 따로 줄 필요가 없다.
  *
  * 사용법:
- *   scripts/roles.ssafy.json 에 지갑과 역할을 적고
+ *   scripts/config/roles.ssafy.json 에 지갑과 역할을 적고
  *     npm run roles:ssafy
  *   한 건만 급히 줄 때는
  *     GRANT_ROLES="0xabc...:SUPPLIER,0xdef...:BRAND|PROCESSOR" npm run roles:ssafy
@@ -116,7 +117,14 @@ function parseInline(value: string): Record<string, string[]> {
 }
 
 function loadFile(): Record<string, string[]> {
-  const file = path.join(__dirname, `roles.${network.name}.json`);
+  const configured = process.env.ROLE_ASSIGNMENTS_FILE;
+  const preferred = path.join(PROJECT_ROOT, "scripts", "config", `roles.${network.name}.json`);
+  const legacy = path.join(PROJECT_ROOT, "scripts", `roles.${network.name}.json`);
+  const file = configured
+    ? path.resolve(configured)
+    : fs.existsSync(preferred)
+      ? preferred
+      : legacy;
   if (!fs.existsSync(file)) {
     throw new Error(
       `${file} 이 없다. roles.ssafy.example.json 을 복사해 채우거나 GRANT_ROLES 로 넘긴다.`
@@ -126,7 +134,7 @@ function loadFile(): Record<string, string[]> {
 }
 
 function loadDeployment() {
-  const file = path.join(__dirname, "..", "deployments", `${network.name}.json`);
+  const file = deploymentFile(network.name);
   if (!fs.existsSync(file)) {
     throw new Error(`${file} 이 없다. 먼저 deploy 를 실행한다.`);
   }

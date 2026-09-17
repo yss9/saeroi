@@ -1,6 +1,6 @@
 import { ethers, network } from "hardhat";
 import fs from "node:fs";
-import path from "node:path";
+import { abiFile, deploymentFile } from "../lib/paths";
 
 /**
  * 한 주소(기본값: 브랜드)가 관여한 온체인 활동을 네 컨트랙트 로그에서 전부 긁어 시간순으로 출력한다.
@@ -8,7 +8,7 @@ import path from "node:path";
  *   set BRAND_ADDRESS=0x...        조회 대상 (없으면 .env 의 배포자 계정)
  *   set FROM_BLOCK=11000000        시작 블록 (없으면 latest - 500000)
  *   set TO_BLOCK=latest            끝 블록
- *   npx hardhat run scripts/brand-activity.ts --network ssafy
+ *   npx hardhat run scripts/inspect/brand-activity.ts --network ssafy
  *
  * Besu 는 getLogs 범위에 제한이 있어 CHUNK 단위로 끊어 요청한다.
  */
@@ -25,7 +25,7 @@ const DEFAULT_LOOKBACK = 500_000;
 async function main() {
   const provider = ethers.provider;
   const deployments = JSON.parse(
-    fs.readFileSync(path.join(__dirname, "..", "deployments", `${network.name}.json`), "utf8")
+    fs.readFileSync(deploymentFile(network.name), "utf8")
   );
 
   let target = process.env.BRAND_ADDRESS;
@@ -47,7 +47,7 @@ async function main() {
   const targets = Object.entries(DEPLOY_KEYS).map(([name, key]) => {
     const address = deployments[key];
     if (!address) throw new Error(`deployments/${network.name}.json 에 ${key} 가 없다`);
-    const abi = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "abi", `${name}.json`), "utf8"));
+    const abi = JSON.parse(fs.readFileSync(abiFile(name), "utf8"));
     return { name, address: address as string, iface: new ethers.Interface(abi) };
   });
 
