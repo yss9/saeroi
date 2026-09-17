@@ -114,21 +114,14 @@ describe('ConsumerMyPageView', () => {
     expect(card.getByText('consumer@saeroi.test')).toBeInTheDocument()
     expect(card.getByText('010-1234-5678')).toBeInTheDocument()
     expect(card.getByText('서울특별시 강남구 테헤란로 212', { exact: false })).toBeInTheDocument()
-    expect(card.getByRole('link', { name: /배송지 편집/ })).toHaveAttribute(
-      'href',
-      '/mypage/addresses',
-    )
   })
 
-  // 주소를 받기 전에 가입한 계정이다. 등록으로 데려간다.
-  it('배송지가 없으면 등록으로 데려간다', () => {
+  // 주소를 받기 전에 가입한 계정이다. 배송지 등록 안내 문구만 보여준다 — 배송지 관리는
+  // 사이드바로 간다(2026-09-17, 이 카드에서 바로 가는 링크는 없앴다).
+  it('배송지가 없으면 등록 안내 문구를 보여준다', () => {
     renderView({ status: 'ready', data: { ...data, defaultAddress: null } })
 
     expect(screen.getByText('주문한 제품을 받을 곳을 등록해 주세요.')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /배송지 등록/ })).toHaveAttribute(
-      'href',
-      '/mypage/addresses',
-    )
   })
 
   // 주문이 늘어날수록 내 정보와 배송지처럼 짧고 자주 보는 것이 목록 아래로 밀려 내려간다.

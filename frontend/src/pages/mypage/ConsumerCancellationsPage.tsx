@@ -90,9 +90,6 @@ export function ConsumerCancellationsPage() {
             <br />
             - 하단 목록에 없는 상품은 1:1문의 또는 고객센터로 문의주세요.
           </p>
-          <a className="return-toolbar__link" href="#">
-            안내 &gt;
-          </a>
         </div>
 
         {items.length === 0 ? (
@@ -104,7 +101,7 @@ export function ConsumerCancellationsPage() {
           <div className="return-list">
             {items.map((item) => {
               const status = STATUS_META[item.status]
-              const [detailLabel, trackingLabel] = ACTION_LABELS[item.kind]
+              const detailLabel = ACTION_LABELS[item.kind]
               return (
                 <article className="return-card" key={item.id}>
                   <header className="return-card__header">
@@ -158,8 +155,9 @@ export function ConsumerCancellationsPage() {
 
                     <div className="return-card__actions-col">
                       <div className="return-card__actions">
-                        {/* 두 버튼 모두 같은 상세 화면으로 간다 — 그 화면 안에서 유형별로
-                            사유/회수 정보/환불 계좌 섹션을 나눠 보여준다(2026-09-17). */}
+                        {/* 상세 화면 안에서 유형별로 사유/회수 정보/환불 계좌 섹션을 나눠
+                            보여준다 — 예전엔 버튼이 2개였는데 둘 다 같은 곳으로 가서
+                            하나로 합쳤다(2026-09-17). */}
                         <Button
                           variant="secondary"
                           size="sm"
@@ -167,14 +165,6 @@ export function ConsumerCancellationsPage() {
                           onClick={() => navigate(`/mypage/cancellations/${item.id}`)}
                         >
                           {detailLabel}
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          fullWidth
-                          onClick={() => navigate(`/mypage/cancellations/${item.id}`)}
-                        >
-                          {trackingLabel}
                         </Button>
                       </div>
                     </div>

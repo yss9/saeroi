@@ -403,7 +403,7 @@ export function TrackingLine({ order }: { order: ConsumerRecentOrder }) {
 
   return (
     <p className="consumer-order-tracking">
-      <span className="consumer-order-tracking__label">운송장</span>
+      <span className="consumer-order-tracking__label">운송장 :</span>
       {order.carrier && <span>{order.carrier}</span>}
       {order.trackingNumber && <code>{order.trackingNumber}</code>}
     </p>
