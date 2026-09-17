@@ -31,10 +31,10 @@ const STATUS_META: Record<ProductOrderStatus, { label: string; tone: StatusTone 
  * 이미 배송 완료된 주문까지 섞여 나와 할 일이 묻힌다.
  */
 const TABS: readonly { label: string; status?: ProductOrderStatus }[] = [
+  { label: '전체' },
   { label: '발송 대기', status: 'PAID' },
   { label: '배송 중', status: 'SHIPPED' },
   { label: '배송 완료', status: 'DELIVERED' },
-  { label: '전체' },
 ]
 
 const PAGE_SIZE = 20
@@ -155,12 +155,12 @@ function OrderRow({ order, onShip }: { order: BrandOrder; onShip: () => void }) 
           <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>
         </div>
 
-        {/* 개체 코드와 일련번호를 지우지 않는다. 같은 모델이라도 개체마다 다른 물건이다. */}
+        {/* 일련번호는 남긴다. 같은 모델이라도 개체마다 다른 물건이라 무엇을 담아야
+            하는지가 이 번호로 정해진다. 개체 코드(PI-…)는 그 번호와 같은 말이라 뺀다. */}
         <ul className="brand-order__items">
           {order.items.map((item) => (
             <li key={item.itemCode}>
               <strong>{item.productName}</strong>
-              <code>{item.itemCode}</code>
               <span>#{item.serialNumber}</span>
             </li>
           ))}
@@ -178,18 +178,20 @@ function OrderRow({ order, onShip }: { order: BrandOrder; onShip: () => void }) 
           [{order.shipping.zipCode}] {order.shipping.address}
           {order.shipping.addressDetail ? ` ${order.shipping.addressDetail}` : ''}
         </address>
-        <p className="brand-order__buyer">주문자 {order.buyerName}</p>
+
+        {/* 송장은 배송지 바로 아래다 — 고객 문의가 오면 이 둘을 함께 읽는다. 오른쪽
+            버튼 칸에 두면 있고 없고에 따라 그 칸의 폭이 달라져 배송지가 밀린다. */}
+        {order.shipping.trackingNumber && (
+          <p className="brand-order__tracking">
+            <span className="brand-order__label">운송장</span>
+            {order.shipping.carrier} {order.shipping.trackingNumber}
+          </p>
+        )}
       </div>
 
       <div className="brand-order__actions">
         {order.status === 'PAID' && <Button size="sm" onClick={onShip}>발송 처리</Button>}
 
-        {/* 고객 문의가 오면 이 화면에서 송장을 읽는다. */}
-        {order.shipping.trackingNumber && (
-          <p className="brand-order__tracking">
-            {order.shipping.carrier} {order.shipping.trackingNumber}
-          </p>
-        )}
         {order.status === 'SHIPPED' && (
           <p className="brand-order__hint">소비자가 수령을 확인하면 완료됩니다.</p>
         )}

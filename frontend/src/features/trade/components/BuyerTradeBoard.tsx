@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Button } from '../../../components/common/index.ts'
+import { Button, Modal } from '../../../components/common/index.ts'
+import { TradeDetail } from './TradeDetail.tsx'
 import { TradeList } from './TradeList.tsx'
 import type { TradeStatus } from '../types/trade.types.ts'
 import './trade.css'
@@ -37,6 +38,9 @@ export function BuyerTradeBoard() {
   // 이 화면 안에서만 쓰는 값이라 useState 다. 전역으로 올리면 다른 화면에서 남은 필터가
   // 되돌아온다 (판매 거래 쪽과 같은 판단이다).
   const [status, setStatus] = useState<TradeStatus | undefined>(undefined)
+  // 상세는 팝업으로 연다. 목록에서 한 건 확인하고 다음 건으로 넘어가는 화면이라,
+  // 페이지를 갈아 끼우면 볼 때마다 목록으로 돌아오는 걸음이 하나씩 더 붙는다.
+  const [opened, setOpened] = useState<number | null>(null)
 
   return (
     <>
@@ -57,7 +61,15 @@ export function BuyerTradeBoard() {
         })}
       </div>
 
-      <TradeList filters={{ status }} />
+      <TradeList filters={{ status }} onSelect={setOpened} />
+
+      <Modal
+        open={opened !== null}
+        title="거래 상세"
+        onClose={() => setOpened(null)}
+      >
+        {opened !== null && <TradeDetail tradeId={opened} />}
+      </Modal>
     </>
   )
 }

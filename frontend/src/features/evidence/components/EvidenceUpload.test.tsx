@@ -96,6 +96,16 @@ function renderUpload(referenceId: number | null = 12, readOnly = false) {
   return userEvent.setup()
 }
 
+/**
+ * 올리는 칸을 연다.
+ *
+ * 소재 화면에서는 폼이 접혀 있다 — 증빙을 보러 온 사람이 매번 폼을 지나쳐 스크롤하지
+ * 않게. 올리기를 다루는 테스트는 먼저 이 문을 연다.
+ */
+async function openUploadForm(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole('button', { name: '증빙 등록' }))
+}
+
 function jpeg(name: string, sizeBytes = 1024) {
   return new File([new Uint8Array(sizeBytes)], name, { type: 'image/jpeg' })
 }
@@ -164,28 +174,31 @@ describe('올리기 전에 확인시킨다', () => {
   it('파일을 고르면 목록과 개수를 보여준다', async () => {
     // 증빙은 되돌릴 수 없다. 무엇이 올라가는지 볼 기회가 있어야 한다.
     const user = renderUpload()
+    await openUploadForm(user)
 
     await user.upload(await screen.findByLabelText(/파일 선택/), [
       jpeg('before.jpg'),
       jpeg('slip.jpg'),
     ])
 
-    expect(screen.getByRole('list', { name: '올릴 파일' })).toBeInTheDocument()
+    expect(screen.getByRole('list', { name: '선택한 파일 미리보기' })).toBeInTheDocument()
     expect(screen.getByText('before.jpg')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '증빙 2개 올리기' })).toBeInTheDocument()
   })
 
-  it('고르기 전에는 올리기 버튼이 없다', async () => {
-    renderUpload()
+  it('고르기 전에는 올리기 버튼이 잠겨 있다', async () => {
+    const user = renderUpload()
+    await openUploadForm(user)
 
     await screen.findByLabelText(/파일 선택/)
-    expect(screen.queryByRole('button', { name: /올리기/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '증빙 올리기' })).toBeDisabled()
   })
 })
 
 describe('전송 계약', () => {
   it('고른 종류와 파일을 그대로 보낸다', async () => {
     const user = renderUpload()
+    await openUploadForm(user)
 
     await user.selectOptions(await screen.findByLabelText('증빙 종류'), 'WEIGHT_SLIP')
     await user.upload(screen.getByLabelText(/파일 선택/), [jpeg('slip.jpg')])
@@ -202,7 +215,8 @@ describe('전송 계약', () => {
 
   it('소재 화면에는 공정 사진 종류를 두지 않는다', async () => {
     // 목록에 있으면 사용자가 고르고, 그러면 소재 증빙이 공정 사진으로 분류된다.
-    renderUpload()
+    const user = renderUpload()
+    await openUploadForm(user)
 
     const select = await screen.findByLabelText('증빙 종류')
     const options = Array.from(select.querySelectorAll('option')).map((o) => o.value)
@@ -214,6 +228,7 @@ describe('전송 계약', () => {
 describe('개수 상한', () => {
   it('10개는 받는다', async () => {
     const user = renderUpload()
+    await openUploadForm(user)
 
     const ten = Array.from({ length: 10 }, (_, i) => jpeg(`photo${i}.jpg`))
     await user.upload(await screen.findByLabelText(/파일 선택/), ten)
@@ -224,12 +239,14 @@ describe('개수 상한', () => {
   it('11개면 이유를 밝히고 선택을 받지 않는다', async () => {
     // 조용히 10개만 잘라내면 사용자는 몇 개가 왜 빠졌는지 모른다.
     const user = renderUpload()
+    await openUploadForm(user)
 
     const eleven = Array.from({ length: 11 }, (_, i) => jpeg(`photo${i}.jpg`))
     await user.upload(await screen.findByLabelText(/파일 선택/), eleven)
 
     expect(screen.getByRole('alert')).toHaveTextContent(/10개까지/)
-    expect(screen.queryByRole('button', { name: /올리기/ })).not.toBeInTheDocument()
+    // 하나도 받지 않았으므로 올릴 것이 없다.
+    expect(screen.getByRole('button', { name: '증빙 올리기' })).toBeDisabled()
   })
 })
 
@@ -241,6 +258,7 @@ describe('실패했을 때', () => {
       createAppError(ERROR_KIND.API_ERROR, { message: '파일 하나는 10MB 를 넘을 수 없습니다.' }),
     )
     const user = renderUpload()
+    await openUploadForm(user)
 
     await user.upload(await screen.findByLabelText(/파일 선택/), [jpeg('before.jpg')])
     await user.click(screen.getByRole('button', { name: '증빙 1개 올리기' }))
@@ -254,13 +272,16 @@ describe('실패했을 때', () => {
 
   it('성공하면 선택을 비운다', async () => {
     const user = renderUpload()
+    await openUploadForm(user)
 
     await user.upload(await screen.findByLabelText(/파일 선택/), [jpeg('before.jpg')])
     await user.click(screen.getByRole('button', { name: '증빙 1개 올리기' }))
 
+    // 올리고 나면 창이 닫히고 결과가 목록 위에 남는다.
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: /올리기/ })).not.toBeInTheDocument(),
     )
+    expect(screen.getByRole('button', { name: '증빙 등록' })).toBeInTheDocument()
   })
 })
 
@@ -464,10 +485,11 @@ describe('올리기 전 미리보기 (a)', () => {
     // 증빙은 되돌릴 수 없다. 파일명만으로는 사진 열 장 중 어느 것을 잘못 골랐는지
     // 알 수 없으므로 눈으로 확인할 기회가 있어야 한다.
     const user = renderUpload()
+    await openUploadForm(user)
 
     await user.upload(await screen.findByLabelText(/파일 선택/), [jpeg('before.jpg')])
 
-    const selected = within(screen.getByRole('list', { name: '올릴 파일' }))
+    const selected = within(screen.getByRole('list', { name: '선택한 파일 미리보기' }))
     expect(selected.getByAltText('before.jpg 미리보기')).toBeInTheDocument()
     // 아직 서버에 없는 파일이다. 조회가 나가면 안 된다.
     expect(api.getEvidenceContent).not.toHaveBeenCalled()
@@ -477,12 +499,13 @@ describe('올리기 전 미리보기 (a)', () => {
     // 허용 목록에 .pdf 가 있다. <img> 에 넣으면 깨진 이미지가 되고, 사용자는 파일이
     // 잘못됐다고 생각한다.
     const user = renderUpload()
+    await openUploadForm(user)
 
     await user.upload(await screen.findByLabelText(/파일 선택/), [
       new File([new Uint8Array(1024)], 'slip.pdf', { type: 'application/pdf' }),
     ])
 
-    const selected = within(screen.getByRole('list', { name: '올릴 파일' }))
+    const selected = within(screen.getByRole('list', { name: '선택한 파일 미리보기' }))
     expect(selected.queryByRole('img')).not.toBeInTheDocument()
     expect(selected.getByText('PDF')).toBeInTheDocument()
   })
@@ -497,6 +520,7 @@ describe('업로드 결과 표시', () => {
       evidence({ evidenceFileId: 8, evidenceType: 'WEIGHT_SLIP' }),
     ])
     const user = renderUpload()
+    await openUploadForm(user)
 
     await user.upload(await screen.findByLabelText(/파일 선택/), [jpeg('a.jpg'), jpeg('b.jpg')])
     await user.click(screen.getByRole('button', { name: '증빙 2개 올리기' }))
@@ -514,6 +538,7 @@ describe('업로드 결과 표시', () => {
       createAppError(ERROR_KIND.API_ERROR, { message: '파일 형식이 허용되지 않습니다.' }),
     )
     const user = renderUpload()
+    await openUploadForm(user)
 
     await user.upload(await screen.findByLabelText(/파일 선택/), [jpeg('a.jpg')])
     await user.click(screen.getByRole('button', { name: '증빙 1개 올리기' }))

@@ -1,8 +1,18 @@
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Button, ErrorMessage, Input, Loading } from '../../../components/common/index.ts'
+import { formatKg } from '../../../utils/quantity.ts'
 import { useMyWallets } from '../../wallet/hooks/useMyWallets.ts'
+import { addProductionInputs } from '../api/addProductionInputs.ts'
 import { useOpenProductionBatch } from '../hooks/useOpenProductionBatch.ts'
 import type { ProductionBatch } from '../types/production.types.ts'
+import {
+  canSubmitDrafts,
+  toRequest,
+  totalDraftQuantity,
+  type DraftInput,
+} from '../utils/productionInputDraft.ts'
+import { MaterialInputPicker } from './MaterialInputSelect.tsx'
 import './production.css'
 
 export interface ProductionBatchFormProps {
@@ -35,6 +45,9 @@ export function ProductionBatchForm({ onOpened }: ProductionBatchFormProps) {
 
   const wallets = useMyWallets()
   const open = useOpenProductionBatch()
+  // 배치가 아직 없어 투입은 화면이 모아 둔다. 서버로는 배치를 만든 뒤에 보낸다.
+  const [drafts, setDrafts] = useState<DraftInput[]>([])
+  const [inputError, setInputError] = useState<unknown>(null)
 
   if (wallets.isPending) {
     return <Loading label="지갑 정보를 불러오는 중" />
@@ -44,17 +57,44 @@ export function ProductionBatchForm({ onOpened }: ProductionBatchFormProps) {
   // 조회 실패만으로 생산 자체를 못 하게 된다.
   const hasWallet = wallets.isError || wallets.activeWallet !== null
 
+  /**
+   * 배치를 열고, 고른 소재를 이어서 담는다.
+   *
+   * **서버는 두 번 부른다.** 투입은 배치에 속하는 것이라 배치 번호가 있어야 보낼 수 있다
+   * (`POST /{batchId}/inputs`). 화면에서만 한 번이다.
+   *
+   * 투입 저장이 실패해도 **배치는 이미 열려 있다.** 그 사실을 감추지 않는다 — 되돌리려고
+   * 배치를 지우면 사용자가 적은 이름과 개수까지 사라진다. 대신 이유를 적고 상세로 보낸다.
+   * 거기서 같은 소재를 다시 담으면 된다.
+   */
   const onSubmit = handleSubmit((values) => {
     if (!hasWallet) return
+    setInputError(null)
     open.mutate(
       {
         batchName: values.batchName.trim(),
         producedQuantity: values.producedQuantity,
       },
       {
-        onSuccess: (batch) => {
-          reset()
-          onOpened?.(batch)
+        onSuccess: async (batch) => {
+          if (drafts.length === 0) {
+            reset()
+            onOpened?.(batch)
+            return
+          }
+
+          try {
+            const withInputs = await addProductionInputs(
+              batch.productionBatchId,
+              drafts.map(toRequest),
+            )
+            reset()
+            setDrafts([])
+            onOpened?.(withInputs)
+          } catch (error) {
+            setInputError(error)
+            onOpened?.(batch)
+          }
         },
       },
     )
@@ -62,6 +102,7 @@ export function ProductionBatchForm({ onOpened }: ProductionBatchFormProps) {
 
   return (
     <form onSubmit={onSubmit} noValidate className="batch-form">
+      <div className="batch-form__fields">
       <Input
         label="배치 이름"
         placeholder="예: 2026 가을 토트백 1차"
@@ -85,6 +126,16 @@ export function ProductionBatchForm({ onOpened }: ProductionBatchFormProps) {
             Number.isInteger(value) ? true : '생산 개수는 정수로 입력해 주세요.',
         })}
       />
+      </div>
+
+      {/* 무엇으로 만들지도 여기서 정한다. 배치를 연 뒤 다른 화면에서 담게 하면 이름과
+          개수만 적어 둔 빈 배치가 쌓인다. */}
+      <div className="batch-form__inputs">
+        <MaterialInputPicker drafts={drafts} onChange={setDrafts} />
+      </div>
+
+      {/* 배치는 열렸는데 투입만 실패한 경우다. 배치가 사라진 것이 아니다. */}
+      {inputError !== null && <ErrorMessage error={inputError} />}
 
       {/* 지갑이 없으면 서버가 거절한다. 등록은 다른 화면이라 미리 알려주고 데려간다. */}
       {!hasWallet && (
@@ -95,9 +146,21 @@ export function ProductionBatchForm({ onOpened }: ProductionBatchFormProps) {
 
       {open.isError && <ErrorMessage error={open.error} />}
 
-      <Button type="submit" loading={open.isPending} disabled={!hasWallet}>
-        배치 열기
-      </Button>
+      <div className="batch-form__footer">
+        {drafts.length > 0 && (
+          <span>투입 {drafts.length}건 · 합계 {formatKg(totalDraftQuantity(drafts))}</span>
+        )}
+
+        {/* 소재를 하나도 고르지 않아도 열 수 있다 — 나중에 담는 것도 정상 경로다.
+            다만 한 건이라도 값이 어긋나면 막는다. 서버가 통째로 거절하기 때문이다. */}
+        <Button
+          type="submit"
+          loading={open.isPending}
+          disabled={!hasWallet || (drafts.length > 0 && !canSubmitDrafts(drafts))}
+        >
+          배치 열기
+        </Button>
+      </div>
     </form>
   )
 }

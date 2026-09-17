@@ -69,7 +69,7 @@ describe('ProductionItemList', () => {
   it('확정 전에는 조회하지 않고 무엇을 기다리는지 알린다', () => {
     renderList({ confirmed: false })
 
-    expect(screen.getByText(/배치를 확정하면 제품 개체가 만들어지고/)).toBeInTheDocument()
+    expect(screen.getByText(/배치를 확정하면 QR 이 만들어집니다/)).toBeInTheDocument()
     expect(api.getProductionItems).not.toHaveBeenCalled()
   })
 
@@ -87,8 +87,7 @@ describe('ProductionItemList', () => {
     ])
     renderList()
 
-    expect(await screen.findByText(/제품 개체 2개가 만들어졌습니다/)).toBeInTheDocument()
-    expect(screen.getByText('PI-000031-01')).toBeInTheDocument()
+    expect(await screen.findByText('PI-000031-01')).toBeInTheDocument()
     expect(screen.getByText('재고')).toBeInTheDocument()
     expect(screen.getByText('판매 완료')).toBeInTheDocument()
   })
@@ -103,12 +102,6 @@ describe('ProductionItemList', () => {
     expect(screen.queryByText(TOKEN)).not.toBeInTheDocument()
     // 링크의 href 에는 들어가지만(열어보기) 텍스트로는 노출되지 않는다.
     expect(screen.getByRole('link', { name: '열어보기' })).toHaveAttribute('href', QR_URL)
-  })
-
-  it('공개 경로라는 사실을 표에 적어 둔다', async () => {
-    renderList()
-
-    expect(await screen.findByText(/누구나 열 수 있는 공개 경로/)).toBeInTheDocument()
   })
 
   // navigator 를 통째로 바꾸지 않는다 — userEvent.setup() 이 자체 클립보드 스텁을

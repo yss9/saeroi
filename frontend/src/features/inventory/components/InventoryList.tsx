@@ -4,7 +4,7 @@ import { Button, EmptyState, ErrorMessage, Loading, StatusBadge } from '../../..
 import { MATERIAL_TYPE_LABEL } from '../../material/types/material.types.ts'
 import { formatKg } from '../../../utils/quantity.ts'
 import { useMyMaterials } from '../hooks/useMyMaterials.ts'
-import type { BalanceStatus } from '../types/inventory.types.ts'
+import type { BalanceStatus, InventoryItem } from '../types/inventory.types.ts'
 
 /**
  * 보유 상태 필터.
@@ -21,17 +21,22 @@ const FILTERS: readonly { label: string; status?: BalanceStatus }[] = [
 /**
  * 보유 상태 배지 문구.
  *
- * <b>`status` 와 `available` 은 다른 질문에 답한다.</b> `status` 는 "아직 갖고 있는가"
- * 이고(`DEPLETED` 는 가공·생산 확정으로 실제로 다 써 버렸을 때만 된다), `available` 은
- * "지금 쓸 수 있는가" 다. 판매글이나 가공 요청에 걸어 두면 잠기기만 하고 보유량은
- * 그대로라 — 취소하면 돌아온다 — 상태는 계속 `ACTIVE` 다.
+ * <b>세 가지가 서로 다른 사실이다.</b>
  *
- * 그래서 둘을 그대로 나란히 두면 <b>"0.0 kg · 보유 중"</b> 이 된다. 사용자에게는 모순으로
- * 읽힌다. 실제 사실은 "갖고는 있는데 전부 묶여 있다" 이므로 그렇게 말한다.
+ *   소진      — 실제로 다 썼다. 되찾을 수 없다 (`isDepleted`, 보유량으로 판정)
+ *   전량 잠김 — 갖고는 있는데 전부 묶여 있다. 잠금이 풀리면 돌아온다
+ *   보유 중   — 지금 쓸 수 있는 양이 남아 있다
+ *
+ * 가운데가 빠져 있었다. 판매글이나 가공 요청에 걸면 잠기기만 하고 보유량은 그대로라
+ * `status` 는 계속 `ACTIVE` 인데, 쓸 수 있는 양은 0 이다. 그대로 나란히 두면
+ * <b>"0.0 kg · 보유 중"</b> 이 되어 사용자에게는 모순으로 읽힌다.
+ *
+ * <b>순서가 중요하다.</b> 소진을 먼저 본다 — 다 쓴 소재는 `available` 도 0 이라
+ * 잠김을 먼저 물으면 되찾을 수 없는 소재를 "잠김" 이라고 적는다.
  */
-function statusLabel(status: BalanceStatus, available: number): { text: string; tone: 'success' | 'neutral' | 'warning' } {
-  if (status === 'DEPLETED') return { text: '소진', tone: 'neutral' }
-  if (available <= 0) return { text: '전량 잠김', tone: 'warning' }
+function statusLabel(item: InventoryItem): { text: string; tone: 'success' | 'neutral' | 'warning' } {
+  if (isDepleted(item)) return { text: '소진', tone: 'neutral' }
+  if (item.available <= 0) return { text: '전량 잠김', tone: 'warning' }
   return { text: '보유 중', tone: 'success' }
 }
 
@@ -63,7 +68,10 @@ export function InventoryList() {
     )
   }
 
-  const filtered = status ? data.filter((item) => item.status === status) : data
+  // 필터도 같은 잣대로 고른다. 서버 status 로 거르면 "소진" 을 눌러도 0g 짜리가 안 나온다.
+  const filtered = status
+    ? data.filter((item) => (status === 'DEPLETED' ? isDepleted(item) : !isDepleted(item)))
+    : data
 
   return (
     <>
@@ -89,13 +97,17 @@ export function InventoryList() {
       ) : (
         <ul className="inventory-grid">
           {filtered.map((item) => (
-            <li key={item.materialId} className="inventory-card">
+            <li
+              key={item.materialId}
+              // 소진된 소재는 뒤로 물린다. 목록에서 찾는 것은 지금 쓸 수 있는 소재다.
+              className={`inventory-card${isDepleted(item) ? ' inventory-card--used-up' : ''}`}
+            >
               <Link to={`/materials/${item.materialId}`} className="inventory-card__link">
                 {/* 상태는 맨 위 왼쪽. 카드 아래에 있으면 여러 장을 훑을 때마다 시선이
                     끝까지 내려갔다 올라와야 한다. */}
                 <div className="inventory-card__status">
-                  <StatusBadge tone={statusLabel(item.status, item.available).tone}>
-                    {statusLabel(item.status, item.available).text}
+                  <StatusBadge tone={statusLabel(item).tone}>
+                    {statusLabel(item).text}
                   </StatusBadge>
                 </div>
                 <strong className="inventory-card__name">{item.name}</strong>
@@ -147,4 +159,21 @@ export function InventoryList() {
       )}
     </>
   )
+}
+
+/**
+ * 다 쓴 소재인가.
+ *
+ * **보유량으로 판정한다.** 서버의 `status` 는 아직 `DEPLETED` 로 넘어가지 않는다 —
+ * 전환 메서드가 없어(`MaterialStatus` 주석) 0g 이 된 소재도 `ACTIVE` 로 온다. 그 값을
+ * 그대로 적으면 0kg 짜리 소재가 "보유 중" 으로 보인다.
+ *
+ * **`available` 이 아니라 `quantity` 를 본다.** 판매글이나 가공에 전량이 잠긴 소재는
+ * `available` 이 0 이지만 없어진 것이 아니다 — 잠금이 풀리면 돌아온다. 소진이라고 적으면
+ * 되찾을 수 있는 소재를 잃은 것으로 읽는다.
+ *
+ * 서버가 `DEPLETED` 를 보내기 시작해도 그 판정을 존중한다.
+ */
+function isDepleted(item: InventoryItem): boolean {
+  return item.status === 'DEPLETED' || item.quantity <= 0
 }

@@ -179,24 +179,19 @@ describe('거래 요약', () => {
     // 내 회사 이름은 내 화면에 적을 이유가 없다.
     expect(screen.queryByText('수거업체 A')).not.toBeInTheDocument()
   })
-
-  it('구매자에게는 판매자만 보여준다', async () => {
-    signInAs('BRAND', BUYER_ID)
-    renderDetail()
-
-    expect(await screen.findByText('수거업체 A')).toBeInTheDocument()
-    expect(screen.queryByText('브랜드 B')).not.toBeInTheDocument()
-  })
 })
 
 /**
- * 상태 칩.
+ * 어느 본문이 떴는가.
  *
- * <b>같은 상태가 보는 사람에 따라 다른 뜻이다.</b> `PAID` 는 판매자에게 "보낼 차례" 이고
- * 구매자에게는 "기다리는 중" 이다. 서버 라벨("결제 완료")을 그대로 쓰면 양쪽 다 자기가
- * 무엇을 해야 하는지 알 수 없다.
+ * <b>판매자와 구매자가 서로 다른 본문을 본다.</b> 판매자는 `SellerTradeDetail`(2단,
+ * 발송), 구매자는 `TradeDetail`(팝업에도 들어가는 한 줄)이다. 겉으로 그것을 가장 잘
+ * 드러내는 값이 "발송 필요" 칩이다 — 판매자 본문에만 있다.
+ *
+ * <b>구매자 쪽은 새어 나오지 않는지만 본다.</b> 구매자 본문의 생김새는 그 컴포넌트의
+ * 테스트가 지킨다. 여기서 단정하면 남의 화면을 이 파일이 붙잡게 된다.
  */
-describe('상태 표시', () => {
+describe('본문 갈래', () => {
   it('결제된 거래는 판매자에게 발송 필요로 보인다', async () => {
     signInAs('SUPPLIER', SELLER_ID)
     renderDetail()
@@ -206,19 +201,13 @@ describe('상태 표시', () => {
 
   it('같은 거래가 구매자에게는 할 일로 보이지 않는다', async () => {
     // 구매자는 기다리는 구간이다. "발송 필요" 가 보이면 자기가 보내야 하는 줄 안다.
+    // 두 본문이 갈린 뒤로는 이 단정이 경계를 지킨다 — 판매자 본문이 구매자에게 뜨면
+    // 발송 패널까지 함께 뜬다.
     signInAs('BRAND', BUYER_ID)
     renderDetail()
 
     // 소재 이름은 제목과 요약 카드 양쪽에 있다. 화면이 떴다는 확인은 제목으로 한다.
     expect(await screen.findByRole('heading', { name: '세척된 폐데님' })).toBeInTheDocument()
     expect(screen.queryByText('발송 필요')).not.toBeInTheDocument()
-  })
-
-  it('배송된 거래는 구매자에게 수령 확인 필요로 보인다', async () => {
-    api.getTrade.mockResolvedValue(trade({ status: 'SHIPPED', shippedAt: '2026-09-03T10:00:00' }))
-    signInAs('BRAND', BUYER_ID)
-    renderDetail()
-
-    expect(await screen.findByText('수령 확인 필요')).toBeInTheDocument()
   })
 })
