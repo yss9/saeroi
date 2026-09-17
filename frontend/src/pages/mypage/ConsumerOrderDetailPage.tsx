@@ -1,4 +1,3 @@
-import { Printer } from '@phosphor-icons/react'
 import { useMemo } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
@@ -143,28 +142,7 @@ export function ConsumerOrderDetailPage() {
             ))}
           </div>
 
-          {/* 받는 곳은 주문 단위 값이라(제품마다 다르지 않다) 목록 아래 한 번만 둔다. */}
-          <div className="consumer-order-detail__section">
-            <p className="consumer-order-detail__section-title">받는 곳</p>
-            <dl className="consumer-order-detail__info-grid">
-              <div>
-                <dt>받는사람</dt>
-                <dd>{maskReceiverName(group.items[0].receiverName)}</dd>
-              </div>
-              <div>
-                <dt>받는주소</dt>
-                <dd>
-                  [{group.items[0].zipCode}] {group.items[0].address}
-                  {group.items[0].addressDetail
-                    ? ` ${maskAddressDetail(group.items[0].addressDetail)}`
-                    : ''}
-                </dd>
-              </div>
-            </dl>
-          </div>
-
-          {/* 결제 정보. 상품가격 합계는 서버가 계산한 주문 총액(할인·배송비 반영 후 값)과
-              같다 — 화면이 따로 합산하지 않는다(할인·배송비 필드가 아직 서버에 없다). */}
+          {/* 배송지와 결제 정보를 하나의 정렬 기준으로 표시한다. */}
           <div className="consumer-order-detail__section">
             <p className="consumer-order-detail__section-title">결제 정보</p>
             <dl className="consumer-order-detail__info-grid">
@@ -176,6 +154,20 @@ export function ConsumerOrderDetailPage() {
                 <dt>총 결제금액</dt>
                 <dd className="consumer-order-detail__total">
                   {priceFormatter.format(group.items[0].totalAmount)}
+                </dd>
+              </div>
+
+              <div>
+                <dt>받는사람</dt>
+                <dd>{maskReceiverName(group.items[0].receiverName)}</dd>
+              </div>
+              <div>
+                <dt>주소</dt>
+                <dd>
+                  [{group.items[0].zipCode}] {group.items[0].address}
+                  {group.items[0].addressDetail
+                    ? ` ${maskAddressDetail(group.items[0].addressDetail)}`
+                    : ''}
                 </dd>
               </div>
             </dl>
@@ -203,7 +195,7 @@ export function ConsumerOrderDetailPage() {
                 </a>
               ))}
             <Button variant="secondary" onClick={() => window.print()}>
-              <Printer aria-hidden="true" /> 영수증 출력
+              영수증 출력
             </Button>
           </div>
         </section>

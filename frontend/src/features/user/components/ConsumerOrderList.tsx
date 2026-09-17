@@ -127,7 +127,10 @@ export function ConsumerOrderList({ orders }: { orders: readonly ConsumerRecentO
           className="consumer-sort-select"
           aria-label="정렬 기준"
           value={sort}
-          onChange={(event) => setSort(event.target.value as OrderSort)}
+          onChange={(event) => {
+            setSort(event.target.value as OrderSort)
+            event.currentTarget.blur()
+          }}
         >
           {SORT_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
@@ -298,13 +301,13 @@ function OrderItemCard({
 
         <div className="consumer-order-item__actions">
           <Button variant="secondary" size="sm" fullWidth onClick={onShowShipping}>
-            배송조회
+            배송조회 <ArrowRight aria-hidden="true" />
           </Button>
           {item.journeyUrl ? (
             // 버튼처럼 보여야 "배송조회" 와 나란히 1열로 정렬된다 — 실제로는 링크라 새
             // 탭 열기·우클릭 복사 같은 링크 동작은 그대로 유지된다.
             <a className="ui-button ui-button--secondary ui-button--sm ui-button--full" href={item.journeyUrl}>
-              제품 여정 확인
+              제품 여정 확인 <ArrowRight aria-hidden="true" />
             </a>
           ) : (
             <span className="consumer-order-item__journey-disabled">결제 완료 후 확인 가능</span>

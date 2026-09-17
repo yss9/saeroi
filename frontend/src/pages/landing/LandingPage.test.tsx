@@ -305,7 +305,11 @@ describe('LandingPage', () => {
       await user.click(screen.getByRole('button', { name: '계정 메뉴' }))
 
       expect(screen.getByText(account.name)).toBeInTheDocument()
-      expect(screen.getByText(accountType)).toBeInTheDocument()
+      if (account.role === 'CONSUMER') {
+        expect(screen.queryByText(accountType)).not.toBeInTheDocument()
+      } else {
+        expect(screen.getByText(accountType)).toBeInTheDocument()
+      }
       expect(screen.getByRole('link', { name: destinationLabel })).toHaveAttribute(
         'href',
         destinationPath,
