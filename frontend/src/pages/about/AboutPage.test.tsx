@@ -85,12 +85,12 @@ describe('AboutPage', () => {
     expect(screen.queryByText('SCROLL TO DISCOVER')).not.toBeInTheDocument()
   })
 
-  it('connects SHOP and ABOUT while keeping BRANDS on its home section', () => {
+  it('connects the header to SHOP, BRANDS and ABOUT while preserving the home discovery link', () => {
     renderAboutPage()
 
     const navigation = screen.getByRole('navigation', { name: '주요 메뉴' })
     expect(within(navigation).getByRole('link', { name: 'SHOP' })).toHaveAttribute('href', '/shop')
-    expect(within(navigation).getByRole('link', { name: 'BRANDS' })).toHaveAttribute('href', '/#brands')
+    expect(within(navigation).getByRole('link', { name: 'BRANDS' })).toHaveAttribute('href', '/brands')
     expect(within(navigation).getByRole('link', { name: 'ABOUT' })).toHaveAttribute('href', '/about')
 
     expect(screen.getAllByRole('link', { name: /^SHOP/ }).at(-1)).toHaveAttribute('href', '/shop')
