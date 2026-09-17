@@ -1613,3 +1613,102 @@ a.console-btn--primary:hover { color: #ffffff; }
   .inv-table th:nth-child(7),
   .inv-table td:nth-child(7) { display: none; }
 }
+
+/* ── 가로로 눕힌 요약 카드 ────────────────────────────────
+   좁은 기둥에서는 라벨과 값이 양끝으로 갈라져 시선이 매번 건너뛴다. 값이 짧으므로
+   (대부분 100~160px) 가로로 늘어놓고 라벨을 값 위에 얹으면 한 덩어리로 읽힌다. */
+
+.console .trade-detail__card--wide .trade-detail__meta {
+  /*
+   * 두 줄로 나눈다.
+   *
+   *   구매자 · 수량 단가 · 소재      거래가 무엇인가
+   *   총 거래 금액 · 결제            돈이 어떻게 되었나
+   *
+   * 다섯을 한 줄에 넣으면 칸이 130px 남짓이라 소재명처럼 긴 값이 잘린다. 세 칸이면
+   * 200px 이 넘어 지금 오는 값들이 다 들어간다.
+   */
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+}
+
+.console .trade-detail__card--wide .trade-detail__meta > div {
+  position: relative;
+  display: block;
+  min-width: 0;
+  padding: 0 16px;
+}
+
+/*
+ * 칸 사이 세로선.
+ *
+ * <b>`border-left` 로 그으면 두 줄을 관통한다.</b> 둘째 줄에 위 여백을 주면 그 여백까지
+ * 선이 이어져, 줄이 나뉘어 있는데도 한 줄짜리 카드처럼 보인다. 선을 따로 얹어 각 줄
+ * 안에서만 긋는다.
+ */
+.console .trade-detail__card--wide .trade-detail__meta > div::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid var(--console-line);
+}
+
+/*
+ * 둘째 줄은 위 여백만큼 선을 내려 긋는다 — 줄 사이가 비어야 두 줄로 읽힌다.
+ *
+ * `> .trade-detail__total` 처럼 자식 결합자를 그대로 둔다. 위의 일반 규칙이
+ * `> div::before`(클래스 셋 + 태그)라, 클래스만 셋인 선택자로는 특정도에서 밀려
+ * `top` 이 먹지 않는다.
+ */
+.console .trade-detail__card--wide .trade-detail__meta > .trade-detail__total::before,
+.console .trade-detail__card--wide .trade-detail__meta > .trade-detail__paid::before {
+  top: 14px;
+}
+
+/* 각 줄의 첫 칸에는 선을 두지 않는다 — 카드 안쪽 선이 테두리처럼 보인다. */
+.console .trade-detail__card--wide .trade-detail__meta > div:nth-child(3n + 1) {
+  padding-left: 0;
+}
+
+.console .trade-detail__card--wide .trade-detail__meta > div:nth-child(3n + 1)::before {
+  content: none;
+}
+
+.console .trade-detail__card--wide .trade-detail__meta dt {
+  margin-bottom: 4px;
+  font-size: 11px;
+  color: var(--console-ink-3);
+}
+
+.console .trade-detail__card--wide .trade-detail__meta dd {
+  text-align: left;
+  font-size: 13px;
+}
+
+/* 둘째 줄은 위로 한 칸 띄운다. 붙여 두면 첫 줄의 값과 둘째 줄의 라벨이 한 덩어리로
+   읽혀 「소재 / 총 거래 금액」이 한 항목처럼 보인다. */
+.console .trade-detail__card--wide .trade-detail__total,
+.console .trade-detail__card--wide .trade-detail__paid {
+  margin-top: 0;
+  padding-top: 14px !important;
+  border-top: 0;
+}
+
+.console .trade-detail__card--wide .trade-detail__total dd {
+  font-size: 20px;
+  line-height: 24px;
+  color: var(--console-green);
+}
+
+@media (max-width: 720px) {
+  /* 좁아지면 두 칸씩 접힌다. 칸마다 왼쪽 선이 남으면 줄이 어긋나 보인다. */
+  .console .trade-detail__card--wide .trade-detail__meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  .console .trade-detail__card--wide .trade-detail__meta > div { padding: 8px 0; }
+
+  /* 두 칸으로 접히면 세로선을 걷는다 — 칸 경계가 줄마다 달라져 오히려 어지럽다. */
+  .console .trade-detail__card--wide .trade-detail__meta > div::before { content: none; }
+}

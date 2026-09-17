@@ -42,53 +42,62 @@ export function SellerTradeDetail({ trade }: { trade: Trade }) {
           {/* 결제 패널을 보여주지 않는다 — 판매자가 부를 수 있는 요청이 아니고,
               "결제하기" 버튼이 보이면 자기가 결제해야 하는 것처럼 읽힌다. */}
           <ShipmentPanel trade={trade} />
+
+          {/*
+            <b>요약이 왼쪽 아래다.</b> 오른쪽 기둥(320px)에 두면 값이 전부 오른쪽 끝에
+            몰려 라벨과 값 사이가 벌어지고, 정작 왼쪽 668px 은 발송 패널 아래가 비어
+            있었다. 값이 짧아(대부분 100~160px) 가로로 늘어놓으면 한눈에 읽힌다.
+
+            오른쪽에는 <b>시간에 따라 변하는 것</b>(진행·이력)만 남긴다 — 요약은 거래가
+            만들어진 순간 정해져 더 바뀌지 않는 값이다.
+          */}
+          <section className="console-panel trade-detail__card trade-detail__card--wide">
+            <h2>거래 요약</h2>
+            <dl className="trade-detail__meta">
+              {/*
+                <b>상대방만 적는다.</b> 예전에는 판매자와 구매자를 둘 다 적었는데, 그중
+                하나는 언제나 이 화면을 보는 본인이다 — 내 화면에 내 회사 이름이 적혀 있는
+                셈이었다. 정작 필요한 것은 "누구에게 보내는가" 하나다.
+              */}
+              <div>
+                <dt>구매자</dt>
+                <dd>{trade.buyerName}</dd>
+              </div>
+              <div>
+                <dt>수량 · 단가</dt>
+                <dd className="console__num">
+                  {formatKg(trade.quantity)} × {formatWon(trade.pricePerKg)}/kg
+                </dd>
+              </div>
+              <div>
+                <dt>소재</dt>
+                <dd>
+                  {trade.materialName} <span className="console__num">({trade.materialCode})</span>
+                </dd>
+              </div>
+              {/*
+                <b>총 금액이 화면에 없었다.</b> 수량과 단가만 있어서 사용자가 곱해야 했다.
+                응답(`totalPrice`)에는 처음부터 있던 값이고, 돈 이야기에서 가장 먼저 보고
+                싶은 숫자다. 그래서 여기만 크게 둔다.
+              */}
+              <div className="trade-detail__total">
+                <dt>총 거래 금액</dt>
+                <dd className="console__num">{formatWon(trade.totalPrice)}</dd>
+              </div>
+              {/* 결제 수단과 시각. 총액 아래에 붙여 "얼마를 어떻게 받았나" 를 한 덩어리로 읽는다. */}
+              <div className="trade-detail__paid">
+                <dt>결제</dt>
+                <dd className="console__num">
+                  {PAYMENT_METHOD_LABEL[trade.paymentMethod]}
+                  {trade.paidAt ? ` · ${formatTradeDateTime(trade.paidAt)}` : ''}
+                </dd>
+              </div>
+            </dl>
+          </section>
         </div>
 
         {/* 오른쪽은 읽는 곳이다. 입력이 없고 스크롤을 따라온다. */}
         <aside className="trade-detail__side">
-          <section className="console-panel trade-detail__card">
-            <h2>거래 요약</h2>
-            <dl className="trade-detail__meta">
-              {/*
-                <b>상대방만 적는다.</b> 예전에는 판매자와 구매자를 둘 다 적었는데, 그중
-                하나는 언제나 이 화면을 보는 본인이다 — 내 화면에 내 회사 이름이 적혀 있는
-                셈이었다. 정작 필요한 것은 "누구에게 보내는가" 하나다.
-              */}
-              <div>
-                <dt>구매자</dt>
-                <dd>{trade.buyerName}</dd>
-              </div>
-              <div>
-                <dt>수량 · 단가</dt>
-                <dd className="console__num">
-                  {formatKg(trade.quantity)} × {formatWon(trade.pricePerKg)}/kg
-                </dd>
-              </div>
-              <div>
-                <dt>소재</dt>
-                <dd>
-                  {trade.materialName} <span className="console__num">({trade.materialCode})</span>
-                </dd>
-              </div>
-              {/*
-                <b>총 금액이 화면에 없었다.</b> 수량과 단가만 있어서 사용자가 곱해야 했다.
-                응답(`totalPrice`)에는 처음부터 있던 값이고, 돈 이야기에서 가장 먼저 보고
-                싶은 숫자다. 그래서 여기만 크게 둔다.
-              */}
-              <div className="trade-detail__total">
-                <dt>총 거래 금액</dt>
-                <dd className="console__num">{formatWon(trade.totalPrice)}</dd>
-              </div>
-              {/* 결제 수단과 시각. 총액 아래에 붙여 "얼마를 어떻게 받았나" 를 한 덩어리로 읽는다. */}
-              <div className="trade-detail__paid">
-                <dt>결제</dt>
-                <dd className="console__num">
-                  {PAYMENT_METHOD_LABEL[trade.paymentMethod]}
-                  {trade.paidAt ? ` · ${formatTradeDateTime(trade.paidAt)}` : ''}
-                </dd>
-              </div>
-            </dl>
-          </section>
 
           {/* 진행 상태. 무엇이 끝났고 지금 누구를 기다리는지가 버튼보다 먼저 보여야 한다. */}
           <section className="console-panel trade-detail__card">
