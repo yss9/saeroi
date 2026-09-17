@@ -1546,7 +1546,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  max-width: 480px;
+  max-width: 640px;
   margin: 0 0 8px;
   padding: 0;
   list-style: none;
@@ -1564,19 +1564,22 @@
 
 .consumer-profile-edit__field-row {
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 16px;
   padding: 12px 0;
   border-bottom: 1px solid var(--consumer-line);
 }
 
 .consumer-profile-edit__field-row dt {
+  display: flex;
   flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
   width: 96px;
-  padding-top: 6px;
   color: var(--consumer-muted);
   font-size: 0.86rem;
   font-weight: 700;
+  text-align: center;
 }
 
 .consumer-profile-edit__field-row dd {
@@ -1620,18 +1623,9 @@ dd.consumer-profile-edit__field-edit {
 /* 비밀번호 변경 행 — dd 하나에 라벨 세 줄(현재/새/새 확인)이 쌓이므로, 다른 행들과
    달리 세로로 늘어선다(2026-09-17. 배송지 행은 위 .consumer-profile-edit__field-row
    기본 스타일을 그대로 쓴다 — 따로 박스를 두지 않는다).
-   좌측 "비밀번호 변경" 라벨은 이 행 전체 높이에 맞춰 위아래 가운데로 오고, 라벨 칸과
-   입력 칸 사이는 세로선으로 나눈다. */
-.consumer-profile-edit__field-row--password {
-  align-items: stretch;
-}
-
-.consumer-profile-edit__field-row--password dt {
-  display: flex;
-  align-items: center;
-  padding-top: 0;
-}
-
+   좌측 "비밀번호 변경" 라벨은 기본 행 스타일만으로 이미 이 행 전체 높이에 맞춰
+   가운데로 온다(2026-09-17 dt 가운데 정렬을 모든 행의 기본값으로 바꿈) — dd 만
+   세로로 늘어서도록 여기서 덧씌운다. */
 .consumer-profile-edit__field-row--password dd {
   align-items: stretch;
   justify-content: flex-start;
