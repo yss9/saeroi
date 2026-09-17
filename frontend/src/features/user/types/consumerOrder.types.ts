@@ -18,13 +18,19 @@ export interface ConsumerOrderItemResponse {
 }
 
 /**
- * 주문에 붙은 송장.
+ * 주문에 붙은 배송 정보.
  *
- * 브랜드가 발송 처리하며 적은 값 그대로다(`ProductShipping.carrier` · `trackingNumber`).
- * 둘 다 선택이라 — 직접 전달·퀵처럼 송장이 없는 방식이 있다 — 발송된 주문이어도 null 일 수
- * 있다.
+ * 송장(`carrier`·`trackingNumber`)은 브랜드가 발송 처리하며 적은 값 그대로다. 둘 다 선택이라
+ * — 직접 전달·퀵처럼 송장이 없는 방식이 있다 — 발송된 주문이어도 null 일 수 있다.
+ *
+ * 수령인·주소(2026-09-16 추가)는 주문 시점에 확정되므로 배송 여부와 무관하게 항상 값이
+ * 있다 — "배송조회" 화면이 본인이 주문할 때 고른 배송지를 다시 보여줄 수 있게 한다.
  */
 export interface ConsumerOrderShipping {
+  receiverName: string
+  zipCode: string
+  address: string
+  addressDetail: string | null
   carrier: string | null
   trackingNumber: string | null
   shippedAt: string | null
@@ -50,12 +56,7 @@ export interface ConsumerOrderResponse {
   shippedAt: string | null
   deliveredAt: string | null
   items: ConsumerOrderItemResponse[]
-  /**
-   * 송장.
-   *
-   * ⚠️ **서버 응답에 아직 없다.** 값은 저장돼 있지만(브랜드 화면이 읽는다) 구매자용 DTO 에
-   * 실리지 않아, 추가를 요청해 둔 상태다. 그때까지는 undefined 이고 화면이 그 줄을 감춘다.
-   */
+  /** 배송 정보(송장 + 2026-09-16부터 수령인·주소). 주문이 있으면 항상 함께 만들어진다. */
   shipping?: ConsumerOrderShipping | null
 }
 

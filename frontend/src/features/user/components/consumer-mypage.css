@@ -44,11 +44,59 @@
 
 .consumer-account-header__inner {
   display: grid;
-  grid-template-columns: 180px 1fr 180px;
+  grid-template-columns: 180px 1fr auto;
   align-items: center;
   width: min(1180px, calc(100% - 48px));
   min-height: 76px;
   margin: 0 auto;
+}
+
+.consumer-account-header__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 20px;
+}
+
+/* 로그아웃 — 파란 소개 배너(2026-09-16 삭제)에 있던 버튼을 머리말로 옮겼다. */
+.consumer-account-header__signout {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  border: 1px solid var(--consumer-line);
+  border-radius: 999px;
+  color: var(--consumer-ink, #17203a);
+  font-size: 0.82rem;
+  font-weight: 700;
+  background: #fff;
+  cursor: pointer;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.consumer-account-header__signout:hover,
+.consumer-account-header__signout:focus-visible {
+  color: var(--consumer-blue);
+  background: var(--consumer-cream-soft);
+}
+
+.consumer-account-header__signout:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.consumer-account-header__signout svg {
+  width: 16px;
+  height: 16px;
+}
+
+.consumer-account-header__signout-error {
+  width: min(1180px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 8px 0;
+  color: var(--consumer-danger, #c0392b);
+  font-size: 0.8rem;
 }
 
 .consumer-account-header__logo {
@@ -114,100 +162,17 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 28px 0 20px;
+  padding: 16px 0;
   color: var(--consumer-muted);
   font-size: 0.82rem;
 }
 
-.consumer-breadcrumb a {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.consumer-breadcrumb svg {
-  width: 15px;
-  height: 15px;
-}
-
-.consumer-mypage-hero {
-  position: relative;
-  display: flex;
-  min-height: 238px;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 40px;
-  overflow: hidden;
-  padding: clamp(36px, 5vw, 64px);
-  border-radius: 22px;
-  color: #fff;
-  background:
-    radial-gradient(circle at 82% 35%, transparent 0 62px, rgb(255 255 255 / 0.12) 63px 65px, transparent 66px),
-    radial-gradient(circle at 82% 35%, transparent 0 101px, rgb(255 255 255 / 0.08) 102px 104px, transparent 105px),
-    linear-gradient(125deg, var(--consumer-blue-dark), var(--consumer-blue));
-  box-shadow: 0 18px 45px rgb(33 106 159 / 0.18);
-}
-
-.consumer-mypage-hero::after {
-  position: absolute;
-  right: -55px;
-  bottom: -95px;
-  width: 250px;
-  height: 250px;
-  border: 38px solid rgb(255 155 105 / 0.82);
-  border-radius: 50%;
-  content: '';
-}
-
-.consumer-mypage-hero > * {
-  position: relative;
-  z-index: 1;
-}
-
-.consumer-mypage-hero__eyebrow,
 .consumer-section-heading__eyebrow {
   margin: 0 0 9px;
   color: var(--consumer-orange);
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.15em;
-}
-
-.consumer-mypage-hero h1 {
-  margin: 0;
-  font-size: clamp(2rem, 4vw, 3.25rem);
-  line-height: 1.12;
-  letter-spacing: -0.045em;
-}
-
-.consumer-mypage-hero > div:first-child > p:last-child {
-  margin: 18px 0 0;
-  color: rgb(255 255 255 / 0.78);
-  font-size: 1rem;
-}
-
-.consumer-mypage-hero__account {
-  display: flex;
-  min-width: 220px;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 12px;
-  padding-right: 70px;
-  color: rgb(255 255 255 / 0.82);
-  font-size: 0.875rem;
-}
-
-.consumer-mypage-hero__account button {
-  display: inline-flex;
-  min-height: 40px;
-  align-items: center;
-  gap: 7px;
-  padding: 8px 13px;
-  border: 1px solid rgb(255 255 255 / 0.3);
-  border-radius: 999px;
-  color: #fff;
-  background: rgb(255 255 255 / 0.08);
-  cursor: pointer;
 }
 
 .consumer-mypage-layout {
@@ -285,6 +250,20 @@
   height: 19px;
 }
 
+.consumer-account-sidebar__group + .consumer-account-sidebar__group {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--consumer-line);
+}
+
+.consumer-account-sidebar__group-label {
+  margin: 4px 13px 6px;
+  color: var(--consumer-muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
 .consumer-mypage-content {
   display: flex;
   min-width: 0;
@@ -329,9 +308,32 @@
   height: 15px;
 }
 
+.consumer-order-detail__ordered-at {
+  margin: -14px 0 20px;
+  color: var(--consumer-muted);
+  font-size: 0.82rem;
+}
+
 .consumer-section-heading__note {
   color: var(--consumer-muted);
   font-size: 0.78rem;
+}
+
+/* 주문 내역 정렬 — "최신순" 고정 문구였던 자리에 4가지를 고를 수 있는 드롭다운을 둔다. */
+.consumer-sort-select {
+  padding: 6px 10px;
+  border: 1px solid var(--consumer-line);
+  border-radius: 8px;
+  color: var(--consumer-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: #fff;
+  cursor: pointer;
+}
+
+.consumer-sort-select:hover,
+.consumer-sort-select:focus-visible {
+  color: var(--consumer-blue);
 }
 
 .consumer-order-steps {
@@ -400,29 +402,99 @@
 .consumer-recent-orders {
   display: flex;
   flex-direction: column;
+  gap: 20px;
 }
 
-.consumer-order-item {
-  display: grid;
-  grid-template-columns: 104px minmax(0, 1fr) 132px;
-  gap: 20px;
+/*
+  큰 박스 — 주문 하나. 좌측 상단 주문 날짜 · 우측 상단 "주문 상세보기" 를 머리말에 두고,
+  그 아래 제품별 작은 박스(consumer-order-item)를 늘어세운다.
+*/
+.consumer-order-group {
+  border: 1px solid var(--consumer-line);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.consumer-order-group__header {
+  display: flex;
   align-items: center;
-  padding: 20px 0;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px;
+  background: var(--consumer-cream-soft);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.consumer-order-group__header-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.consumer-order-group__milestone {
+  color: var(--consumer-muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.consumer-order-group__detail-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--consumer-blue);
+  text-decoration: none;
+}
+
+.consumer-order-group__detail-link:hover {
+  text-decoration: underline;
+}
+
+.consumer-order-group__detail-link svg {
+  width: 14px;
+  height: 14px;
+}
+
+.consumer-order-group__items {
+  display: flex;
+  flex-direction: column;
+}
+
+.consumer-order-group__actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 20px 18px;
+}
+
+/* 위 제품 박스의 배송조회·제품여정확인 버튼 열(148px)과 같은 너비로 맞춰,
+   구분선 없이도 한 열처럼 이어져 보인다. */
+.consumer-order-group__actions-column {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 148px;
+}
+
+/* 작은 박스 — 주문에 속한 제품 하나. */
+.consumer-order-item {
+  padding: 18px 20px;
+}
+
+.consumer-order-item + .consumer-order-item {
   border-top: 1px solid var(--consumer-line);
 }
 
-.consumer-order-item:first-child {
-  padding-top: 0;
-  border-top: 0;
-}
-
-.consumer-order-item:last-child {
-  padding-bottom: 0;
+.consumer-order-item__body {
+  display: flex;
+  gap: 16px;
+  align-items: center;
 }
 
 .consumer-order-item__thumbnail {
-  width: 104px;
-  height: 104px;
+  flex-shrink: 0;
+  width: 84px;
+  height: 84px;
   border-radius: 12px;
   overflow: hidden;
   background: var(--consumer-cream-soft);
@@ -439,17 +511,9 @@
   object-fit: cover;
 }
 
-.consumer-order-item__content {
+.consumer-order-item__info {
   min-width: 0;
-}
-
-.consumer-order-item__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px 12px;
-  margin-bottom: 11px;
-  color: var(--consumer-muted);
-  font-size: 0.72rem;
+  flex: 1;
 }
 
 .consumer-order-item__brand {
@@ -465,40 +529,35 @@
   font-size: 1.02rem;
 }
 
-.consumer-order-item__code {
-  display: block;
-  margin-bottom: 8px;
-  color: var(--consumer-muted);
-  font-size: 0.7rem;
-}
-
 .consumer-order-item__price {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px 10px;
+  gap: 5px;
   margin: 0;
+  color: var(--consumer-muted);
   font-size: 0.88rem;
   font-weight: 700;
 }
 
-.consumer-order-item__price small {
+.consumer-order-item__price span {
   color: var(--consumer-muted);
-  font-size: 0.7rem;
+  font-size: 0.78rem;
   font-weight: 500;
 }
 
-.consumer-order-item__status {
+.consumer-order-item__actions {
   display: flex;
-  align-items: flex-end;
   flex-direction: column;
-  gap: 9px;
-  text-align: right;
+  align-items: stretch;
+  gap: 10px;
+  flex-shrink: 0;
+  width: 148px;
+  text-align: center;
 }
 
-.consumer-order-item__status > span:last-child {
+.consumer-order-item__journey-disabled {
   color: var(--consumer-muted);
-  font-size: 0.67rem;
-  line-height: 1.4;
+  font-size: 0.76rem;
 }
 
 .consumer-journey-link {
@@ -518,6 +577,89 @@
 .consumer-journey-link svg {
   width: 14px;
   height: 14px;
+}
+
+/* 주문 상세 페이지 — 받는 곳·결제 정보를 표(dl)로 늘어놓는다. */
+.consumer-order-detail__status-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.consumer-order-detail__section {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--consumer-line);
+}
+
+.consumer-order-detail__section-title {
+  margin: 0 0 10px;
+  color: var(--consumer-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.consumer-order-detail__info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 24px;
+  margin: 0;
+}
+
+.consumer-order-detail__info-grid dt {
+  margin: 0 0 2px;
+  color: var(--consumer-muted);
+  font-size: 0.76rem;
+}
+
+.consumer-order-detail__info-grid dd {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.consumer-order-detail__total {
+  font-weight: 800;
+}
+
+.consumer-order-detail__receipt-action {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--consumer-line);
+}
+
+.consumer-order-detail__receipt-action .ui-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* 배송조회 모달 — 배송 현황 4단계·운송장·받는 곳을 한 자리에 모은다. */
+.consumer-shipping-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.consumer-shipping-modal__address {
+  margin: 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--consumer-line);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.consumer-shipping-modal__address-title {
+  margin: 0 0 4px;
+  color: var(--consumer-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.consumer-shipping-modal__address p {
+  margin: 0;
 }
 
 .consumer-address-card .consumer-section-heading > svg {
@@ -610,17 +752,6 @@
     display: none;
   }
 
-  .consumer-mypage-hero {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .consumer-mypage-hero__account {
-    min-width: 0;
-    align-items: flex-start;
-    padding-right: 0;
-  }
-
   .consumer-mypage-layout {
     grid-template-columns: 1fr;
   }
@@ -667,18 +798,13 @@
     display: none;
   }
 
-  .consumer-mypage-hero {
-    min-height: 265px;
-    padding: 32px 26px;
-    border-radius: 16px;
+  .consumer-account-header__actions {
+    gap: 10px;
   }
 
-  .consumer-mypage-hero::after {
-    right: -95px;
-  }
-
-  .consumer-mypage-hero h1 {
-    font-size: 2rem;
+  .consumer-account-header__signout {
+    padding: 6px 10px;
+    font-size: 0.76rem;
   }
 
   .consumer-mypage-layout {
@@ -719,21 +845,27 @@
     display: none;
   }
 
-  .consumer-order-item {
-    grid-template-columns: 82px minmax(0, 1fr);
-    gap: 15px;
-  }
-
   .consumer-order-item__thumbnail {
     width: 82px;
     height: 82px;
   }
 
-  .consumer-order-item__status {
-    grid-column: 1 / -1;
-    align-items: flex-start;
-    padding-left: 97px;
-    text-align: left;
+  .consumer-order-item__body {
+    flex-wrap: wrap;
+  }
+
+  .consumer-order-item__actions {
+    width: 100%;
+    flex-direction: row;
+  }
+
+  .consumer-order-group__actions-column {
+    width: 100%;
+    flex-direction: row;
+  }
+
+  .consumer-order-detail__info-grid {
+    grid-template-columns: 1fr;
   }
 
   .consumer-address-card__content {
@@ -883,3 +1015,391 @@
 .consumer-profile-card__empty { color: #9ca3af; }
 
 .consumer-profile-card__actions { margin: 4px 0 0; }
+
+/* -- 8개 신규 화면(2026-09-16, 프론트엔드 UI만) 공통 탭 -- */
+
+.consumer-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 22px;
+}
+
+.consumer-tabs__tab {
+  padding: 9px 16px;
+  border: 1px solid var(--consumer-line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--consumer-muted);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.consumer-tabs__tab.is-active {
+  border-color: var(--consumer-blue);
+  background: var(--consumer-blue);
+  color: #fff;
+}
+
+.consumer-cancellation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.consumer-cancellation-item {
+  padding: 18px 20px;
+  border: 1px solid var(--consumer-line);
+  border-radius: 14px;
+}
+
+.consumer-cancellation-item__badges {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.consumer-cancellation-item h3 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+}
+
+.consumer-cancellation-item__meta {
+  margin: 0 0 6px;
+  color: var(--consumer-muted);
+  font-size: 0.8rem;
+}
+
+.consumer-cancellation-item__reason {
+  margin: 0 0 8px;
+  font-size: 0.86rem;
+}
+
+.consumer-cancellation-item__amount {
+  margin: 0;
+  font-weight: 800;
+}
+
+.consumer-receipt-search {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 22px;
+  padding: 16px 18px;
+  border: 1px solid var(--consumer-line);
+  border-radius: 12px;
+  background: var(--consumer-cream-soft);
+}
+
+.consumer-receipt-search label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--consumer-muted);
+}
+
+.consumer-receipt-search input[type=date] {
+  padding: 8px 10px;
+  border: 1px solid var(--consumer-line);
+  border-radius: 8px;
+  background: #fff;
+  font: inherit;
+}
+
+.consumer-receipt-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.consumer-receipt-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border: 1px solid var(--consumer-line);
+  border-radius: 14px;
+}
+
+.consumer-receipt-item__meta {
+  margin: 0 0 6px;
+  color: var(--consumer-muted);
+  font-size: 0.78rem;
+}
+
+.consumer-receipt-item__brand {
+  margin: 0 0 4px;
+  color: var(--consumer-blue);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.consumer-receipt-item h3 { margin: 0; font-size: 1rem; }
+
+.consumer-receipt-item__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.consumer-receipt-item__amount { margin: 0; font-weight: 800; }
+
+.consumer-receipt-item__actions button svg {
+  width: 15px;
+  height: 15px;
+}
+
+.consumer-wishlist-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 20px;
+}
+
+.consumer-wishlist-card__thumbnail {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  margin-bottom: 10px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--consumer-cream-soft);
+}
+
+.consumer-wishlist-card__thumbnail > span {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.consumer-wishlist-card__unlike {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.9);
+  color: #e0455f;
+}
+
+.consumer-wishlist-card__unlike svg { width: 17px; height: 17px; }
+
+.consumer-wishlist-card__brand {
+  margin: 0 0 4px;
+  color: var(--consumer-blue);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.consumer-wishlist-card h3 { margin: 0 0 4px; font-size: 0.94rem; }
+.consumer-wishlist-card__price { margin: 0; font-weight: 800; }
+
+.consumer-recently-viewed-row {
+  display: flex;
+  gap: 18px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.consumer-recently-viewed-card {
+  flex: 0 0 160px;
+}
+
+.consumer-recently-viewed-card__thumbnail {
+  width: 160px;
+  height: 160px;
+  margin-bottom: 10px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--consumer-cream-soft);
+}
+
+.consumer-recently-viewed-card__thumbnail > span {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.consumer-recently-viewed-card__brand {
+  margin: 0 0 4px;
+  color: var(--consumer-blue);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.consumer-recently-viewed-card h3 {
+  margin: 0 0 4px;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.consumer-recently-viewed-card__price { margin: 0 0 4px; font-weight: 800; font-size: 0.9rem; }
+
+.consumer-recently-viewed-card__viewed-at {
+  color: var(--consumer-muted);
+  font-size: 0.72rem;
+}
+
+.consumer-inquiry-form {
+  display: flex;
+  flex-direction: column;
+  max-width: 520px;
+}
+
+.consumer-inquiry-form__textarea { resize: vertical; }
+
+.consumer-inquiry-submitted {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 24px;
+  border: 1px solid var(--consumer-line);
+  border-radius: 12px;
+  background: var(--consumer-cream-soft);
+}
+
+.consumer-inquiry-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* 주문 내역의 큰 박스(.consumer-order-group)와 같은 테두리·radius 로 맞춘다(2026-09-16). */
+.consumer-inquiry-item {
+  border: 1px solid var(--consumer-line);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.consumer-inquiry-item__summary {
+  display: block;
+  width: 100%;
+  padding: 18px 20px;
+  text-align: left;
+  background: transparent;
+}
+
+.consumer-inquiry-item__badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: var(--consumer-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.consumer-inquiry-item__product {
+  margin: 0 0 4px;
+  color: var(--consumer-blue);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+
+.consumer-inquiry-item__content {
+  margin: 0 0 6px;
+  font-size: 0.92rem;
+}
+
+.consumer-inquiry-item__summary time {
+  color: var(--consumer-muted);
+  font-size: 0.76rem;
+}
+
+.consumer-inquiry-item__answer {
+  padding: 16px 20px;
+  border-top: 1px solid var(--consumer-line);
+  background: var(--consumer-cream-soft);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.consumer-inquiry-item__answer p { margin: 0; }
+.consumer-inquiry-item__answer-waiting { color: var(--consumer-muted); }
+
+.consumer-review-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.consumer-review-item {
+  padding: 18px 20px;
+  border: 1px solid var(--consumer-line);
+  border-radius: 14px;
+}
+
+.consumer-review-item__brand {
+  margin: 0 0 4px;
+  color: var(--consumer-blue);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.consumer-review-item h3 { margin: 0 0 6px; font-size: 1rem; }
+.consumer-review-item__order { margin: 0 0 10px; color: var(--consumer-muted); font-size: 0.78rem; }
+.consumer-review-item__content { margin: 8px 0 0; font-size: 0.9rem; line-height: 1.55; }
+.consumer-review-item time { display: block; margin-top: 8px; color: var(--consumer-muted); font-size: 0.74rem; }
+
+.consumer-review-stars {
+  display: inline-flex;
+  gap: 4px;
+  color: var(--consumer-orange);
+}
+
+.consumer-review-stars button { display: flex; }
+.consumer-review-stars svg { width: 20px; height: 20px; }
+.consumer-review-stars--display svg { width: 16px; height: 16px; }
+
+.consumer-review-draft {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.consumer-review-draft textarea { resize: vertical; }
+
+.consumer-review-draft__actions {
+  display: flex;
+  gap: 10px;
+}
+
+.consumer-profile-edit__form {
+  display: flex;
+  flex-direction: column;
+  max-width: 420px;
+  margin-bottom: 8px;
+}
+
+.consumer-profile-edit__subheading {
+  margin: 28px 0 18px;
+  padding-top: 24px;
+  border-top: 1px solid var(--consumer-line);
+  font-size: 1.05rem;
+}
+
+.consumer-profile-edit__saved {
+  margin: 0 0 18px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: #eaf6ee;
+  color: #1f7a44;
+  font-size: 0.86rem;
+  font-weight: 700;
+}

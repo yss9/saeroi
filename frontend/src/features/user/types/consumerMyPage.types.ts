@@ -71,6 +71,15 @@ export interface ConsumerRecentOrder {
    */
   carrier: string | null
   trackingNumber: string | null
+  /**
+   * 수령인·배송지. 주문 시점에 확정되므로 배송 여부와 무관하게 항상 값이 있다.
+   *
+   * "배송조회" 패널이 본인이 주문할 때 고른 배송지를 다시 보여줄 때 쓴다.
+   */
+  receiverName: string
+  zipCode: string
+  address: string
+  addressDetail: string | null
 }
 
 export interface ConsumerAddressSummary {

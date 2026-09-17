@@ -131,7 +131,7 @@ describe('consumer mypage route', () => {
 
     renderRoute('/mypage')
 
-    expect(await screen.findByRole('heading', { name: '새로이 고객님, 반갑습니다.' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '내 프로필' })).toBeInTheDocument()
     // 주문 목록도 주문 현황도 홈이 아니라 /mypage/orders 에 있다. 홈은 프로필만 본다.
     expect(screen.queryByRole('heading', { name: '데님 서클 백' })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: '주문 현황' })).not.toBeInTheDocument()
@@ -142,20 +142,22 @@ describe('consumer mypage route', () => {
     expect(get).toHaveBeenCalledWith('/v1/product-orders/me/summary')
   })
 
-  // 주문 내역은 별도 화면이다. 배송 현황을 함께 본다.
+  // 주문 내역은 별도 화면이다. 배송 현황·제품 여정은 "배송조회" 모달로 옮겼다(2026-09-16).
   it('주문 내역에서 주문과 배송 현황, 제품 여정을 보여준다', async () => {
     mockMyPageApi()
     signInAsConsumer()
+    const user = userEvent.setup()
 
     renderRoute('/mypage/orders')
 
     expect(await screen.findByRole('heading', { name: '데님 서클 백' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '제품 여정 보기' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '제품 여정 확인' })).toHaveAttribute(
       'href',
       'http://localhost:5173/qr/journey-token',
     )
     // 상태 배지만으로는 "언제" 를 알 수 없다. 지나온 단계에 날짜가 적힌다.
-    const progress = screen.getByRole('list', { name: '배송 현황' })
+    await user.click(screen.getByRole('button', { name: '배송조회' }))
+    const progress = within(screen.getByRole('dialog')).getByRole('list', { name: '배송 현황' })
     expect(within(progress).getAllByRole('listitem')).toHaveLength(4)
     // 상태별 건수는 목록 바로 아래에서 이어 본다.
     expect(screen.getByRole('heading', { name: '주문 현황' })).toBeInTheDocument()
@@ -166,11 +168,12 @@ describe('consumer mypage route', () => {
     signInAsConsumer()
 
     renderRoute('/mypage')
-    await screen.findByRole('heading', { name: '새로이 고객님, 반갑습니다.' })
+    await screen.findByRole('heading', { name: '내 프로필' })
 
+    // 사이드바는 My쇼핑/My활동/My정보 세 분류다(2026-09-16 개편) — 홈은 목록에 없고
+    // 로고·breadcrumb 로 돌아온다.
     const menu = screen.getByRole('navigation', { name: '마이페이지 메뉴' })
-    expect(within(menu).getByRole('link', { name: '내 프로필' })).toHaveAttribute('href', '/mypage')
-    expect(within(menu).getByRole('link', { name: '주문 내역' })).toHaveAttribute(
+    expect(within(menu).getByRole('link', { name: '주문목록/배송조회' })).toHaveAttribute(
       'href',
       '/mypage/orders',
     )
@@ -187,7 +190,7 @@ describe('consumer mypage route', () => {
     signInAsConsumer()
 
     renderRoute('/mypage')
-    await screen.findByRole('heading', { name: '새로이 고객님, 반갑습니다.' })
+    await screen.findByRole('heading', { name: '내 프로필' })
 
     expect(screen.queryByRole('navigation', { name: '사업자 대시보드 메뉴' })).not.toBeInTheDocument()
     // 자기 껍데기는 그대로 있다. 셸만 빠진 것이지 머리말까지 사라지면 나갈 길이 없다.
@@ -221,11 +224,9 @@ describe('consumer mypage route', () => {
     const user = userEvent.setup()
     renderRoute('/mypage')
 
-    const heroHeading = await screen.findByRole('heading', { name: '새로이 고객님, 반갑습니다.' })
-    const hero = heroHeading.closest('section')
-    expect(hero).not.toBeNull()
+    await screen.findByRole('heading', { name: '내 프로필' })
 
-    await user.click(within(hero as HTMLElement).getByRole('button', { name: '로그아웃' }))
+    await user.click(screen.getByRole('button', { name: '로그아웃' }))
 
     await waitFor(() => expect(useAuthStore.getState().isAuthenticated).toBe(false))
     expect(post).toHaveBeenCalledWith('/v1/auth/logout', undefined, {

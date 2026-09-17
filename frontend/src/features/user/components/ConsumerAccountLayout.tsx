@@ -1,6 +1,19 @@
-import type { ReactNode } from 'react'
-import { Link, NavLink } from 'react-router-dom'
-import { House, MapPin, Receipt, ShoppingBag, SignOut, User } from '@phosphor-icons/react'
+import { useEffect, type ReactNode } from 'react'
+import { Link, NavLink, useLocation } from 'react-router-dom'
+import {
+  ArrowsClockwise,
+  ChatCircleText,
+  ChatText,
+  ClockCounterClockwise,
+  Heart,
+  MapPin,
+  Receipt,
+  ShoppingBag,
+  SignOut,
+  Star,
+  User,
+  UserCircle,
+} from '@phosphor-icons/react'
 import { toErrorMessage } from '../../../utils/errors.ts'
 import './consumer-mypage.css'
 
@@ -35,8 +48,23 @@ export function ConsumerShopLayout({ children }: { children: ReactNode }) {
   )
 }
 
-/** 계정 화면 셋. 사이드바가 이 순서로 서고, 현재 위치 표시도 이 값으로 한다. */
-export type ConsumerAccountSection = 'home' | 'orders' | 'addresses'
+/**
+ * 실제 화면이 있는 계정 구역. 히어로 제목·breadcrumb 표시에 쓴다.
+ *
+ * 2026-09-16 — 사이드바에 "준비 중"으로 남아 있던 8개 화면을 프론트엔드 UI로 채웠다
+ * (백엔드는 아직 없음, 목데이터로 채운 화면). `NAV_GROUPS` 의 `to` 도 함께 채웠다.
+ */
+export type ConsumerAccountSection =
+  | 'home'
+  | 'orders'
+  | 'addresses'
+  | 'cancellations'
+  | 'wishlist'
+  | 'recentlyViewed'
+  | 'askInquiry'
+  | 'inquiries'
+  | 'reviews'
+  | 'profile'
 
 export interface ConsumerAccountLayoutProps {
   children: ReactNode
@@ -48,34 +76,66 @@ export interface ConsumerAccountLayoutProps {
   signOutError?: unknown
 }
 
-const SECTIONS: Record<
-  ConsumerAccountSection,
-  { to: string; label: string; title: (name: string) => string; lead: string; Icon: typeof User }
-> = {
-  home: {
-    to: '/mypage',
-    label: '내 프로필',
-    title: (name) => `${name}님, 반갑습니다.`,
-    lead: '당신의 선택이 소재의 다음 여정을 만듭니다.',
-    Icon: User,
-  },
-  orders: {
-    to: '/mypage/orders',
-    label: '주문 내역',
-    title: () => '주문 내역',
-    lead: '주문한 제품과 배송 현황을 확인합니다.',
-    Icon: Receipt,
-  },
-  addresses: {
-    to: '/mypage/addresses',
-    label: '배송지 관리',
-    title: () => '배송지 관리',
-    lead: '주문할 때 쓸 배송지를 등록하고 고칩니다.',
-    Icon: MapPin,
-  },
+// breadcrumb 의 마지막 칸에 적을 이름. 나머지(경로·아이콘)는 NAV_GROUPS 가 따로 갖는다.
+const SECTIONS: Record<ConsumerAccountSection, { label: string }> = {
+  home: { label: '내 프로필' },
+  orders: { label: '주문 내역' },
+  addresses: { label: '배송지 관리' },
+  cancellations: { label: '취소/반품/교환/환불내역' },
+  wishlist: { label: '찜한 상품' },
+  recentlyViewed: { label: '최근 본 상품' },
+  askInquiry: { label: '문의하기' },
+  inquiries: { label: '문의내역' },
+  reviews: { label: '리뷰관리' },
+  profile: { label: '개인정보확인/수정' },
 }
 
-const SECTION_ORDER: ConsumerAccountSection[] = ['home', 'orders', 'addresses']
+/** 사이드바 메뉴. My쇼핑·My활동·My정보 세 분류로 묶는다(2026-09-16 개편). */
+interface ConsumerNavItem {
+  label: string
+  to: string
+  Icon: typeof User
+  /**
+   * 정확히 이 경로일 때만 활성화한다.
+   *
+   * **"문의내역"(`/mypage/inquiries`)이 "문의하기"(`/mypage/inquiries/new`)의 접두사라서
+   * 필요하다.** `NavLink` 는 기본적으로 하위 경로도 활성으로 보므로, 문의하기 화면에서
+   * 문의내역까지 함께 진한 배경으로 표시되는 문제가 있었다.
+   */
+  end?: boolean
+}
+
+interface ConsumerNavGroup {
+  label: string
+  items: ConsumerNavItem[]
+}
+
+const NAV_GROUPS: readonly ConsumerNavGroup[] = [
+  {
+    label: 'My쇼핑',
+    items: [
+      { label: '주문목록/배송조회', to: '/mypage/orders', Icon: Receipt },
+      { label: '취소/반품/교환/환불내역', to: '/mypage/cancellations', Icon: ArrowsClockwise },
+      { label: '찜한 상품', to: '/mypage/wishlist', Icon: Heart },
+      { label: '최근 본 상품', to: '/mypage/recently-viewed', Icon: ClockCounterClockwise },
+    ],
+  },
+  {
+    label: 'My활동',
+    items: [
+      { label: '문의하기', to: '/mypage/inquiries/new', Icon: ChatCircleText },
+      { label: '문의내역', to: '/mypage/inquiries', Icon: ChatText, end: true },
+      { label: '리뷰관리', to: '/mypage/reviews', Icon: Star },
+    ],
+  },
+  {
+    label: 'My정보',
+    items: [
+      { label: '개인정보확인/수정', to: '/mypage/profile', Icon: UserCircle },
+      { label: '배송지 관리', to: '/mypage/addresses', Icon: MapPin },
+    ],
+  },
+]
 
 /**
  * 소비자 계정 화면의 껍데기.
@@ -97,17 +157,31 @@ export function ConsumerAccountLayout({
   signOutError,
 }: ConsumerAccountLayoutProps) {
   const section = SECTIONS[current]
+  const location = useLocation()
+
+  // 사이드바로 다른 화면으로 넘어가도 이전 화면에서 내려가 있던 스크롤 위치가 그대로
+  // 남는다 — 새 화면은 맨 위부터 보여야 한다.
+  useEffect(() => {
+    // { top: 0, left: 0 } 만 넘기면 전역 `scroll-behavior: smooth`(index.css)를 타서
+    // 애니메이션으로 서서히 올라간다 — 화면이 막 바뀐 자리에서는 그 몇 백 ms 동안
+    // 이전 화면 스크롤 위치가 그대로 남아 있는 것처럼 보인다. `instant` 로 즉시 올린다.
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+  }, [location.pathname])
 
   return (
     <div className="consumer-mypage">
       <a className="consumer-skip-link" href="#consumer-main-content">본문으로 건너뛰기</a>
-      <AccountHeader />
+      <AccountHeader
+        onSignOut={onSignOut}
+        signOutPending={signOutPending}
+        signOutError={signOutError}
+      />
 
       <main id="consumer-main-content" className="consumer-mypage-main">
         <nav className="consumer-breadcrumb" aria-label="현재 위치">
-          <Link to="/">
-            <House aria-hidden="true" /> 홈
-          </Link>
+          {/* 아이콘 없이 글자로만 시작한다 — 아이콘이 있으면 글자가 로고보다 오른쪽으로
+              밀려 시작점이 어긋난다. */}
+          <Link to="/">홈</Link>
           <span aria-hidden="true">/</span>
           {current === 'home' ? (
             <span aria-current="page">마이페이지</span>
@@ -120,26 +194,6 @@ export function ConsumerAccountLayout({
           )}
         </nav>
 
-        <section className="consumer-mypage-hero" aria-labelledby="consumer-mypage-title">
-          <div>
-            <p className="consumer-mypage-hero__eyebrow">MY SAEROI</p>
-            <h1 id="consumer-mypage-title">{section.title(profile?.name ?? '고객')}</h1>
-            <p>{section.lead}</p>
-          </div>
-          {/*
-            이메일을 여기서 뺐다. 바로 아래 프로필 카드가 같은 값을 적고 있어, 큰 글씨
-            옆에 한 번 더 두면 화면에서 가장 눈에 띄는 자리를 중복이 차지한다.
-          */}
-          <div className="consumer-mypage-hero__account">
-            {onSignOut && (
-              <button type="button" disabled={signOutPending} onClick={onSignOut}>
-                <SignOut aria-hidden="true" /> {signOutPending ? '로그아웃 중…' : '로그아웃'}
-              </button>
-            )}
-            {signOutError ? <p role="alert">{toErrorMessage(signOutError)}</p> : null}
-          </div>
-        </section>
-
         <div className="consumer-mypage-layout">
           <aside className="consumer-account-sidebar">
             <div>
@@ -151,23 +205,20 @@ export function ConsumerAccountLayout({
               앵커(#recent-orders)가 아니라 실제 경로다. 한 화면에 전부 쌓아 두고 앵커로
               건너뛰게 하면, 주문이 쌓일수록 배송지를 보려고 주문 목록을 통째로 지나쳐야 한다.
             */}
-            <nav aria-label="마이페이지 메뉴">
-              {SECTION_ORDER.map((key) => {
-                const item = SECTIONS[key]
-                return (
-                  <NavLink
-                    key={key}
-                    to={item.to}
-                    // 홈은 하위 경로에서 같이 켜지면 안 된다 — /mypage 가 모든 구역의 접두사다.
+            <nav aria-label="마이페이지 메뉴" className="consumer-account-sidebar__nav">
+              {NAV_GROUPS.map((group) => (
+                <div className="consumer-account-sidebar__group" key={group.label}>
+                  <p className="consumer-account-sidebar__group-label">{group.label}</p>
+                  {group.items.map((item) => (
                     // NavLink 가 활성일 때 aria-current="page" 를 붙인다. 사이드바 CSS 가
                     // 그 속성을 보고 있어 따로 class 를 주지 않는다.
-                    end={key === 'home'}
-                  >
-                    <item.Icon aria-hidden="true" />
-                    <span>{item.label}</span>
-                  </NavLink>
-                )
-              })}
+                    <NavLink key={item.label} to={item.to} end={item.end}>
+                      <item.Icon aria-hidden="true" />
+                      <span>{item.label}</span>
+                    </NavLink>
+                  ))}
+                </div>
+              ))}
             </nav>
           </aside>
 
@@ -180,7 +231,23 @@ export function ConsumerAccountLayout({
   )
 }
 
-function AccountHeader() {
+/**
+ * 로그아웃은 여기(머리말)에 둔다.
+ *
+ * **파란 소개 배너(2026-09-16 삭제)가 있던 자리다.** 화면마다 제목·설명을 큰 박스로
+ * 반복해 보여줬는데, 사이드바·breadcrumb 로 이미 "어디 있는지" 는 충분히 드러나 로그아웃
+ * 버튼 하나 두려고 그 박스 전체를 유지할 이유가 없었다. 로그아웃은 어느 계정 화면에서든
+ * 화면 맨 위에서 바로 눌러야 해 머리말로 옮겼다.
+ */
+function AccountHeader({
+  onSignOut,
+  signOutPending = false,
+  signOutError,
+}: {
+  onSignOut?: () => void
+  signOutPending?: boolean
+  signOutError?: unknown
+} = {}) {
   return (
     <header className="consumer-account-header">
       <div className="consumer-account-header__inner">
@@ -199,11 +266,29 @@ function AccountHeader() {
           <Link to="/#about">스토리</Link>
         </nav>
 
-        <Link className="consumer-account-header__shop-link" to="/shop">
-          <ShoppingBag aria-hidden="true" />
-          <span>쇼핑 계속하기</span>
-        </Link>
+        <div className="consumer-account-header__actions">
+          <Link className="consumer-account-header__shop-link" to="/shop">
+            <ShoppingBag aria-hidden="true" />
+            <span>쇼핑 계속하기</span>
+          </Link>
+          {onSignOut && (
+            <button
+              type="button"
+              className="consumer-account-header__signout"
+              disabled={signOutPending}
+              onClick={onSignOut}
+            >
+              <SignOut aria-hidden="true" />
+              <span>{signOutPending ? '로그아웃 중…' : '로그아웃'}</span>
+            </button>
+          )}
+        </div>
       </div>
+      {signOutError ? (
+        <p className="consumer-account-header__signout-error" role="alert">
+          {toErrorMessage(signOutError)}
+        </p>
+      ) : null}
     </header>
   )
 }
