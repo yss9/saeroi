@@ -70,6 +70,25 @@ class AdminCompanyRoleControllerTests {
     }
 
     @Test
+    void removesApplicationFromListAfterApproval() throws Exception {
+        UserWallet wallet = userWalletRepository.save(UserWallet.link(brandId, WALLET, 31221));
+        wallet.markVerified(LocalDateTime.now());
+        userWalletRepository.saveAndFlush(wallet);
+        String tx1 = "0x" + "a".repeat(64);
+        String tx2 = "0x" + "b".repeat(64);
+        String tx3 = "0x" + "c".repeat(64);
+
+        mockMvc.perform(admin(post("/api/v1/admin/company-role-applications/{id}/approve", brandId))
+                        .contentType("application/json")
+                        .content("{\"transactionHashes\":[\"" + tx1 + "\",\"" + tx2 + "\",\"" + tx3 + "\"]}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(admin(get("/api/v1/admin/company-role-applications")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(0));
+    }
+
+    @Test
     void grantsEveryRequiredOnChainRoleBeforeMarkingApproved() throws Exception {
         UserWallet wallet = userWalletRepository.save(UserWallet.link(brandId, WALLET, 31221));
         wallet.markVerified(LocalDateTime.now());
