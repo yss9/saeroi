@@ -107,7 +107,8 @@ export function ConsumerOrderDetailPage() {
           <div className="consumer-section-heading">
             <div>
               <p className="consumer-section-heading__eyebrow">ORDER DETAIL</p>
-              <h2 id="order-detail-title">{group.orderNumber}</h2>
+              <h2 id="order-detail-title">주문번호 {group.orderNumber}</h2>
+              {group.orderGroupCode && <p className="consumer-order-detail__payment-code">결제번호 {group.orderGroupCode}</p>}
             </div>
             <Link className="consumer-text-link" to="/mypage/orders">
               주문 내역으로
@@ -124,8 +125,6 @@ export function ConsumerOrderDetailPage() {
                 : `${formatDate(group.orderedAt, dateFormatter)} ${formatDate(group.orderedAt, timeFormatter)}`}
             </time>
           </p>
-
-          {group.orderGroupCode && <p>묶음 번호 {group.orderGroupCode} · 같은 번호의 브랜드별 주문은 한 번에 결제되었습니다. 개별 결제·취소 불가</p>}
 
           <div className="consumer-order-group__items">
             {group.items.map((item) => (
@@ -170,21 +169,8 @@ export function ConsumerOrderDetailPage() {
             실제 영수증 양식(사업자 정보 등)은 백엔드 연동 뒤에 정한다 — 지금은
             `window.print()` 로 브라우저 인쇄 대화상자만 연다.
 
-            제품 여정 확인도 같은 줄·같은 크기로 둔다(2026-09-17) — 둘 다 이 주문에 대한
-            "더 볼 것" 액션이라 한 자리에 모으는 편이 낫다.
           */}
           <div className="consumer-order-detail__receipt-action">
-            {group.items
-              .filter((item) => item.journeyUrl)
-              .map((item) => (
-                <a
-                  key={item.id}
-                  className="ui-button ui-button--secondary ui-button--md"
-                  href={item.journeyUrl as string}
-                >
-                  제품 여정 확인
-                </a>
-              ))}
             <Button variant="secondary" onClick={() => window.print()}>
               영수증 출력
             </Button>
@@ -220,6 +206,7 @@ function OrderDetailItemRow({ item }: { item: ConsumerRecentOrder }) {
             {priceFormatter.format(item.itemPrice)}
             <span> · {item.itemCount}개</span>
           </p>
+          {item.journeyUrl && <a className="consumer-text-link consumer-order-detail__journey" href={item.journeyUrl}>제품 여정 확인</a>}
         </div>
       </div>
 

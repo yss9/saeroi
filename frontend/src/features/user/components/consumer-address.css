@@ -42,17 +42,17 @@
   padding: 0;
   list-style: none;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 0.85rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
 }
 
 .address-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  height: 100%;
-  padding: 1rem;
-  border: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px 24px;
+  padding: 24px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
   border-radius: 0;
   background: transparent;
 }
@@ -63,16 +63,18 @@
   gap: 0.5rem;
 }
 
-.address-card__alias { font-size: 0.95rem; }
-.address-card__receiver { margin: 0; font-size: 0.85rem; color: var(--muted); }
+.address-card__alias { font-size: 15px; font-weight: 600; }
+.address-card__receiver { grid-column: 1; margin: 0; font-size: 13px; line-height: 1.7; color: var(--muted); }
 
 .address-card__address {
+  grid-column: 1;
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
   font-style: normal;
-  font-size: 0.85rem;
-  line-height: 1.5;
+  font-size: 14px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
 }
 
 /* 동작은 아래로 몰아 둔다. 카드 높이가 달라도 버튼 줄은 같은 자리에 온다. */
@@ -80,8 +82,10 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
-  margin-top: auto;
-  padding-top: 0.35rem;
+  grid-column: 2;
+  grid-row: 1 / 4;
+  align-self: center;
+  justify-content: flex-end;
 }
 
 /* ── 입력 폼 ─────────────────────────────────────────── */
@@ -103,4 +107,10 @@
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
+}
+
+@media (max-width: 680px) {
+  .address-card { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .address-card__head { flex-wrap: wrap; }
+  .address-card__actions { grid-column: 1; grid-row: auto; justify-content: flex-start; padding-top: 6px; }
 }

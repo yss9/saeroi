@@ -16,7 +16,9 @@ beforeEach(() => { vi.mocked(checkoutCart).mockResolvedValue({ orderGroupId: 3 }
 afterEach(() => { cleanup(); vi.mocked(checkoutCart).mockReset() })
 describe('cart checkout confirmation', () => {
   it('sends selected IDs, chosen address and displayed total without quantity', async () => {
+    // 배송지 선택 이후에는 첫 단계 버튼을 다시 누를 수 없다.
     show(); fireEvent.click(screen.getByRole('button', { name: '선택한 배송지로 결제 진행' }))
+    expect(screen.queryByRole('button', { name: '주문하기' })).not.toBeInTheDocument()
     await screen.findByText('/order-groups/3'); expect(checkoutCart).toHaveBeenCalledWith([1], 5, 20000)
   })
   it('locks rapid duplicate checkout clicks', async () => {

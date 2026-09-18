@@ -75,7 +75,7 @@ export function ConsumerCancellationDetailPage() {
     >
       <section className="consumer-mypage-card" aria-labelledby="cancellation-detail-title">
         <div className="consumer-section-heading">
-          <div>
+          <div className="return-detail__heading">
             <p className="consumer-section-heading__eyebrow">
               {item ? KIND_LABEL[item.kind].toUpperCase() : 'DETAIL'}
             </p>
@@ -100,7 +100,7 @@ export function ConsumerCancellationDetailPage() {
           />
         ) : (
           <>
-            <header className="return-card__header">
+            <header className="return-card__header return-detail__dates">
               {RECEIVED_LABEL[item.kind]} :{' '}
               <strong>
                 <time dateTime={item.requestedAt}>

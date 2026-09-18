@@ -10,6 +10,12 @@
   margin: 4px 0 20px;
 }
 
+.consumer-mypage .return-detail__heading { display: flex; align-items: baseline; flex-wrap: wrap; gap: 16px; }
+.consumer-mypage .return-detail__heading h2 { margin: 0; padding-left: 16px; border-left: 1px solid var(--line); }
+.consumer-mypage .return-detail__heading .consumer-section-heading__eyebrow { margin: 0; }
+.consumer-mypage .return-detail__dates { padding: 16px 0; background: transparent; line-height: 1.9; font-size: 13px; }
+.return-detail__badge { margin-top: 16px; }
+
 .return-toolbar {
   display: flex;
   flex-wrap: wrap;

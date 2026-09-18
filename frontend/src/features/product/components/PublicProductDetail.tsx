@@ -68,7 +68,6 @@ function ProductBody({ product }: { product: Product }) {
               QR Passport 예시 보기
             </a>
           )}
-          <p className="public-product__memory">찜과 장바구니는 계정에 저장됩니다.</p>
           {isAuthenticated && role === 'CONSUMER' && (
             <ProductPurchasePanel
               productModelId={product.productModelId}
@@ -76,7 +75,7 @@ function ProductBody({ product }: { product: Product }) {
               blockedReason={purchaseBlockedReason(product)}
             />
           )}
-          <section className="public-product__description" aria-labelledby="product-description-title"><h2 id="product-description-title">상품 이야기</h2><p>{product.description || '등록된 상품 설명이 없습니다.'}</p></section>
+          <section className="public-product__description" aria-labelledby="product-description-title"><h2 id="product-description-title">상품 이야기</h2><p>{product.description?.replace(/([.!?])\s+(?=\S)/g, '$1\n') || '등록된 상품 설명이 없습니다.'}</p></section>
           <Link className="public-product__back" to="/shop">전체 상품 보기 →</Link>
         </div>
       </div>

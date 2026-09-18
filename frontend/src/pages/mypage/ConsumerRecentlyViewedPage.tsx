@@ -6,17 +6,14 @@ import { ConsumerAccountLayout } from '../../features/user/components/ConsumerAc
 import { CatalogCard } from '../../features/shop/CatalogCard.tsx'
 import { usePublicProductModels } from '../../features/product/hooks/usePublicProductModels.ts'
 import '../shop/shop.css'
+import '../../features/wishlist/wishlist.css'
 
 /**
  * 최근 본 상품.
  *
  * **조회 이력 저장 기능은 아직 없다** — 프론트 로컬 기록도, 서버 기록도 없다. 그래서 "최근
- * 순"을 흉내 내지 않고 판매 중인 실제 상품을 최신순으로 보여준다(2026-09-18).
- *
- * **찜한 상품과 같은 카드(CatalogCard)를 쓴다(2026-09-18)** — 카드를 누르면 상품 상세
- * (구매 페이지)로 바로 이동한다. 장바구니 담기는 여기서 다루지 않는다 — "최근 봤다"는
- * 사실만 보여주는 자리라, 목록마다 장바구니 버튼이 있으면 둘러보는 화면인지 사려는
- * 화면인지 헷갈린다. 담고 싶으면 카드를 눌러 상세로 들어간다.
+ * 순"을 흉내 내지 않고 판매 중인 실제 상품을 최신순으로 보여준다(2026-09-18). 예전에는
+ * 상품 카드는 찜 목록과 공유하며, 별도의 장바구니 버튼 없이 상세 화면으로 연결한다.
  */
 export function ConsumerRecentlyViewedPage() {
   const navigate = useNavigate()
@@ -36,7 +33,7 @@ export function ConsumerRecentlyViewedPage() {
       signOutPending={logout.isPending}
       signOutError={logout.error}
     >
-      <section className="consumer-mypage-card" aria-labelledby="recently-viewed-title">
+      <section className="consumer-mypage-card consumer-server-wishlist" aria-labelledby="recently-viewed-title">
         <div className="consumer-section-heading">
           <div>
             <p className="consumer-section-heading__eyebrow">RECENTLY VIEWED</p>
@@ -59,9 +56,7 @@ export function ConsumerRecentlyViewedPage() {
         ) : (
           <ul className="shop-catalog__grid" aria-label="최근 본 상품 목록">
             {items.map((product) => (
-              <li key={product.productModelId}>
-                <CatalogCard product={product} hideCartButton />
-              </li>
+              <li key={product.productModelId}><CatalogCard product={product} showCart={false} /></li>
             ))}
           </ul>
         )}
