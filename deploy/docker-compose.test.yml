@@ -92,10 +92,12 @@ services:
       BESU_CHAIN_ID: ${BESU_CHAIN_ID:-}
       BLOCKCHAIN_SERVICE_PRIVATE_KEY: ${BLOCKCHAIN_SERVICE_PRIVATE_KEY:-}
       # 2026-09-11 정정: PAYMENT_TOKEN_ADDRESS/ESCROW_ADDRESS 는 backend 가 읽는 이름이
-      # 아니었다(죽은 키) — 실제는 MARKETPLACE_ADDRESS/PRODUCTION_REGISTRY_ADDRESS.
+      # 아니었다(죽은 키) — 실제는 MARKETPLACE_ADDRESS/PROCESSING_REGISTRY_ADDRESS/
+      # PRODUCTION_REGISTRY_ADDRESS.
       # docker-compose.yml 의 같은 주석 참고. 운영과 같은 값을 재사용한다.
       MATERIAL_TOKEN_ADDRESS: ${MATERIAL_TOKEN_ADDRESS:-}
       MARKETPLACE_ADDRESS: ${MARKETPLACE_ADDRESS:-}
+      PROCESSING_REGISTRY_ADDRESS: ${PROCESSING_REGISTRY_ADDRESS:-}
       PRODUCTION_REGISTRY_ADDRESS: ${PRODUCTION_REGISTRY_ADDRESS:-}
       # 판매량 예측시장 (backend/develop 2026-09-17, application.yml 의 app.prediction.*). 주소 정본은
       # blockchain/develop:deployments/ssafy.json 의 predictionPoint / predictionMarket. 비어 있으면
