@@ -11,7 +11,7 @@
 //   4) **주소는 검색으로만 채운다.** 우편번호와 주소가 서로 다른 곳을 가리키는 조합은
 //      손으로 적을 때 쉽게 만들어지고, 화면은 그것을 알 수 없다.
 
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CompanyProfile } from '../api/getCompanyProfile.ts'
@@ -65,14 +65,25 @@ describe('지금 값으로 채운다', () => {
     expect(screen.getByLabelText('우편번호')).toHaveValue('04781')
     expect(screen.getByLabelText('주소')).toHaveValue('서울 성동구 성수일로 89')
     expect(screen.getByLabelText('상세 주소')).toHaveValue('3층')
-    expect(screen.getByLabelText('업체 소개')).toHaveValue('폐데님을 주로 다룹니다.')
   })
 
   it('비어 있던 선택 값은 빈 칸이다 — null 이 글자로 새지 않는다', () => {
     renderForm({ addressDetail: null, introduction: null })
 
     expect(screen.getByLabelText('상세 주소')).toHaveValue('')
-    expect(screen.getByLabelText('업체 소개')).toHaveValue('')
+  })
+
+  // 소개는 길이도 성격도 달라 이 폼에서 다루지 않는다. 다만 서버가 전부 필수로 받으므로
+  // 지금 값을 그대로 다시 보낸다 — 빠뜨리면 있던 소개가 지워진다.
+  it('업체 소개는 칸 없이 지금 값을 그대로 보낸다', async () => {
+    const user = userEvent.setup()
+    const { onSubmit } = renderForm({ introduction: '폐데님을 주로 다룹니다.' })
+
+    expect(screen.queryByLabelText('업체 소개')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '저장' }))
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+    expect(onSubmit.mock.calls[0][0].introduction).toBe('폐데님을 주로 다룹니다.')
   })
 })
 

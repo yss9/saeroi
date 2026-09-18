@@ -119,7 +119,14 @@ export function ConsumerRecentlyViewedPage() {
             {MOCK_RECENTLY_VIEWED.map((item) => (
               <article className="consumer-recently-viewed-card" key={item.id}>
                 <div className="consumer-recently-viewed-card__thumbnail">
-                  <img src={item.imageUrl} alt={item.productName} />
+                  <img
+                    src={item.imageUrl}
+                    alt={item.productName}
+                    loading="lazy"
+                    decoding="async"
+                    // 외부 이미지를 못 받으면 깨진 아이콘 대신 썸네일 칸 배경만 남긴다.
+                    onError={(event) => { event.currentTarget.style.visibility = 'hidden' }}
+                  />
                 </div>
                 <div className="consumer-recently-viewed-card__body">
                   <p className="consumer-recently-viewed-card__brand">{item.brandName}</p>

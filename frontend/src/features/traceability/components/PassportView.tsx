@@ -1,4 +1,5 @@
 import { ShieldCheck } from '@phosphor-icons/react'
+import { Link } from 'react-router-dom'
 import { ErrorMessage, Loading } from '../../../components/common/index.ts'
 import { getPassportThumbnailUrl } from '../api/getPassport.ts'
 import { usePassport } from '../hooks/usePassport.ts'
@@ -39,9 +40,9 @@ export function PassportView({ qrToken }: PassportViewProps) {
   return (
     <article className="landing-page passport">
       <header className="passport-brandbar">
-        <a className="passport-brandbar__logo" href="/" aria-label="SAEROI 홈">
+        <Link className="passport-brandbar__logo" to="/" aria-label="SAEROI 홈">
           <img src={logoUrl} alt="SAEROI" />
-        </a>
+        </Link>
         <span className="passport-brandbar__title">PRODUCT JOURNEY</span>
       </header>
 
@@ -101,9 +102,9 @@ export function PassportView({ qrToken }: PassportViewProps) {
         )}
       </div>
       <footer className="passport-footer">
-        <a href="/" aria-label="SAEROI 홈"><img src={logoUrl} alt="SAEROI" /></a>
+        <Link to="/" aria-label="SAEROI 홈"><img src={logoUrl} alt="SAEROI" /></Link>
         <p>쓰임을 다한 소재에 새로운 가치를 더합니다.</p>
-        <a href="/about">새로이 알아보기</a>
+        <Link to="/about">새로이 알아보기</Link>
       </footer>
     </article>
   )

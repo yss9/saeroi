@@ -12,11 +12,19 @@
   --line: rgb(29 29 27 / 18%);
   --page-gutter: clamp(20px, 4vw, 72px);
   --section-space: clamp(96px, 12vw, 190px);
-  height: 100dvh;
-  overflow: hidden;
+  min-height: 100vh;
+  overflow: clip;
   color: var(--ink);
   background: var(--paper);
   font-family: "Pretendard", "Noto Sans KR", system-ui, sans-serif;
+}
+
+/* 휠 페이지네이션(홈)에서만 쓰는 셸 변형 — .landing-page 는 About·약관·Shop 등
+   일반 스크롤 페이지의 셸이기도 해서 기본값을 고정 높이로 바꾸면 그 페이지들이
+   전혀 스크롤되지 않는다. */
+.landing-page--paginated {
+  height: 100dvh;
+  overflow: hidden;
 }
 
 /* Wheel-paginated fullscreen sections ---------------------------------- */
@@ -338,6 +346,7 @@
 .site-header__account-summary strong {
   font-size: 14px;
   line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .site-header__account-summary span {
@@ -898,7 +907,14 @@
   letter-spacing: -.065em;
   line-height: 1.02;
   word-break: keep-all;
+  overflow-wrap: anywhere;
   min-height: 1.96em;
+  /* 긴 상품명은 두 줄까지만 보여주고 넘치면 자른다 — 패널이 한 화면(100dvh)에
+     고정돼 세 줄 이상이면 가격·버튼이 밀려 잘린다. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .shop-showcase__price {
@@ -1503,6 +1519,11 @@
   .site-header {
     height: 106px;
     align-content: start;
+  }
+
+  /* 헤더가 두 줄(106px)로 커지는 만큼 패널 상단 여백도 맞춘다. */
+  .landing-panel:not(:first-child) {
+    padding-top: 106px;
   }
 
   .site-header__logo {

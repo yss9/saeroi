@@ -78,12 +78,14 @@ export function AboutPage() {
       const maximum = Math.max(0, document.documentElement.scrollHeight - window.innerHeight)
       const anchors = Array.from(page!.querySelectorAll<HTMLElement>('[data-about-stop], .site-footer'))
       const stops = [0, maximum]
+      // 화면보다 긴 이미지/문구도 건너뛰지 않도록 읽을 수 있는 내부 정지점 확보.
+      // 헤더보다 낮은 아주 짧은 뷰포트에서는 0 이하가 되어 아래 for 가 끝나지 않으므로 건너뛴다.
+      const visibleHeight = window.innerHeight - header - 48
 
       anchors.forEach((element) => {
         const top = Math.max(0, documentTop(element) - header - 24)
         stops.push(top)
-        // 화면보다 긴 이미지/문구도 건너뛰지 않도록 읽을 수 있는 내부 정지점 확보.
-        const visibleHeight = window.innerHeight - header - 48
+        if (visibleHeight <= 0) return
         for (let offset = visibleHeight; offset < element.offsetHeight - visibleHeight * 0.3; offset += visibleHeight) {
           stops.push(top + offset)
         }
@@ -105,6 +107,14 @@ export function AboutPage() {
         }, [])
     }
 
+    // 정지점은 레이아웃이 바뀔 때(리사이즈·이미지 로드)만 다시 계산한다 — 휠 이벤트마다
+    // 전체 DOM 을 훑고 offsetTop 을 읽으면 그때마다 강제 레이아웃이 걸린다.
+    let stops: number[] | undefined
+    function invalidateStops() { stops = undefined }
+    const images = Array.from(page.querySelectorAll('img'))
+    window.addEventListener('resize', invalidateStops)
+    images.forEach((image) => image.addEventListener('load', invalidateStops))
+
     function onWheel(event: WheelEvent) {
       if (event.ctrlKey || event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY) || Math.abs(event.deltaY) < 2) return
       if ((event.target as Element)?.closest('input, textarea, select, [role="dialog"], .site-header__account-popover')) return
@@ -116,7 +126,8 @@ export function AboutPage() {
         event.preventDefault()
         return
       }
-      const target = adjacentScrollStop(getStops(), window.scrollY, Math.sign(event.deltaY))
+      stops ??= getStops()
+      const target = adjacentScrollStop(stops, window.scrollY, Math.sign(event.deltaY))
       if (target === undefined) return
       event.preventDefault()
       if (previousWheelAt !== 0 && now - previousWheelAt < 180) return
@@ -135,6 +146,8 @@ export function AboutPage() {
     window.addEventListener('wheel', onWheel, { passive: false })
     return () => {
       window.removeEventListener('wheel', onWheel)
+      window.removeEventListener('resize', invalidateStops)
+      images.forEach((image) => image.removeEventListener('load', invalidateStops))
       scrollTween?.kill()
       document.documentElement.style.scrollBehavior = previousScrollBehavior
     }
@@ -156,19 +169,31 @@ export function AboutPage() {
   }, [])
 
   useEffect(() => {
+    // 기준 요소·문턱값은 한 번 구해 두고 리사이즈 때만 다시 잰다 — 스크롤 이벤트마다
+    // querySelector + offsetTop 을 읽지 않는다.
+    const perspectiveSection = pageRef.current?.querySelector<HTMLElement>('.about-perspective') ?? null
+    let threshold = 0
+
+    function measureThreshold() {
+      threshold = Math.max(1, (perspectiveSection?.offsetTop ?? window.innerHeight) + 120)
+    }
+
     function updateBackToTopVisibility() {
-      const perspectiveSection = document.querySelector<HTMLElement>('.about-perspective')
-      const threshold = Math.max(1, (perspectiveSection?.offsetTop ?? window.innerHeight) + 120)
       setIsBackToTopVisible(window.scrollY >= threshold)
     }
 
-    updateBackToTopVisibility()
+    function handleResize() {
+      measureThreshold()
+      updateBackToTopVisibility()
+    }
+
+    handleResize()
     window.addEventListener('scroll', updateBackToTopVisibility, { passive: true })
-    window.addEventListener('resize', updateBackToTopVisibility)
+    window.addEventListener('resize', handleResize)
 
     return () => {
       window.removeEventListener('scroll', updateBackToTopVisibility)
-      window.removeEventListener('resize', updateBackToTopVisibility)
+      window.removeEventListener('resize', handleResize)
     }
   }, [])
 

@@ -43,7 +43,15 @@ export function BrandShowcase() {
 
         <article className="brand-showcase__feature" aria-live="polite">
           <div className="brand-showcase__image">
-            <img key={activeBrand.id} src={activeBrand.image} alt={activeBrand.imageAlt} />
+            <img
+              key={activeBrand.id}
+              src={activeBrand.image}
+              alt={activeBrand.imageAlt}
+              loading="lazy"
+              decoding="async"
+              // 이미지를 못 받으면 깨진 아이콘 대신 배경만 남긴다.
+              onError={(event) => { event.currentTarget.style.visibility = 'hidden' }}
+            />
           </div>
           <div>
             <p>{activeBrand.tagline}</p>

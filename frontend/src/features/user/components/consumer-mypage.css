@@ -102,6 +102,7 @@
 .consumer-account-sidebar > div:first-child strong {
   margin-bottom: 5px;
   font-size: 1.15rem;
+  overflow-wrap: anywhere;
 }
 
 .consumer-account-sidebar > div:first-child span {
@@ -109,6 +110,8 @@
   color: var(--muted);
   font-size: 0.8rem;
   text-overflow: ellipsis;
+  /* 긴 이메일은 줄바꿈 대신 한 줄에서 말줄임으로 자른다. */
+  white-space: nowrap;
 }
 
 .consumer-account-sidebar nav {
@@ -355,6 +358,7 @@
 .consumer-order-item h3 {
   margin: 0 0 5px;
   font-size: 1.02rem;
+  overflow-wrap: anywhere;
 }
 
 /* 가격·수량이 잘 안 보인다는 피드백으로 글자를 키웠다(2026-09-17). */
@@ -732,6 +736,28 @@
   border-top: 6px solid transparent;
   border-bottom: 6px solid transparent;
   border-left: 8px solid var(--muted);
+}
+
+/* 좁은 화면에서는 네 칸이 한 줄에 눌리므로 두 칸씩 줄바꿈하고 화살표는 숨긴다.
+   위의 공용 680px 블록이 아니라 여기 두는 이유: 같은 특이성이라 기본 규칙(위)보다
+   뒤에 와야 이긴다. */
+@media (max-width: 680px) {
+  .consumer-order-detail__progress .consumer-order-progress {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .consumer-order-detail__progress .consumer-order-progress li {
+    flex: 1 1 calc(50% - 4px);
+  }
+
+  .consumer-order-detail__progress .consumer-order-progress li:not(:last-child) {
+    margin-right: 0;
+  }
+
+  .consumer-order-detail__progress .consumer-order-progress li:not(:last-child)::after {
+    content: none;
+  }
 }
 
 /* ── 구매 패널 (제품 상세) ────────────────────────────── */

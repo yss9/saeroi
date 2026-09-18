@@ -382,8 +382,9 @@ export function EvidenceUpload({
 function SelectedFiles({ files, label }: { files: File[]; label: string }) {
   return (
     <ul className="evidence__selected" aria-label={label}>
-      {files.map((file) => (
-        <li key={`${file.name}-${file.size}`}>
+      {files.map((file, index) => (
+        // 같은 이름·크기의 파일을 두 번 고를 수 있으므로 순서까지 붙여 키를 유일하게 만든다.
+        <li key={`${file.name}-${file.size}-${index}`}>
           <LocalFilePreview file={file} />
           <span>{file.name}</span>
         </li>
