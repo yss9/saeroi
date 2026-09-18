@@ -48,6 +48,20 @@ function renderRoute() {
  * 하나의 값으로 뭉뚱그리면(과거 `{ data: [] }` 공용 mock) 업체 정보 쪽이 실제로는
  * 아무것도 검증하지 못한 채 통과해 버린다.
  */
+/**
+ * 수정 화면에 들어가는 문. 회사 정보는 거래 상대가 보고 판단하는 값이라, 로그인한 채로
+ * 자리를 비운 사이 누구나 바꿀 수 없게 비밀번호를 한 번 더 받는다.
+ *
+ * 확인은 아직 로그인 요청으로 한다(확인 전용 경로가 서버에 없다).
+ */
+async function passThroughPasswordGate(user: ReturnType<typeof userEvent.setup>) {
+  vi.spyOn(apiClient, 'post').mockResolvedValue({ data: {} } as AxiosResponse)
+
+  await user.click(await screen.findByRole('button', { name: '정보 수정' }))
+  await user.type(await screen.findByLabelText('비밀번호'), 'Pw1234!!')
+  await user.click(screen.getByRole('button', { name: '정보 수정으로' }))
+}
+
 function mockApiGet(companyProfile: unknown) {
   vi.spyOn(apiClient, 'get').mockImplementation((url: string) => {
     if (url.includes('/companies/me')) {
@@ -149,9 +163,9 @@ describe('업체 정보 수정', () => {
     signIn()
 
     renderRoute()
-    await user.click(await screen.findByRole('button', { name: '정보 수정' }))
+    await passThroughPasswordGate(user)
 
-    expect(screen.getByLabelText('대표자명')).toHaveValue('김새로')
+    expect(await screen.findByLabelText('대표자명')).toHaveValue('김새로')
   })
 
   it('업체 정보를 못 읽으면 수정 버튼을 내지 않는다', async () => {
@@ -181,8 +195,8 @@ describe('업체 정보 수정', () => {
     signIn()
 
     renderRoute()
-    await user.click(await screen.findByRole('button', { name: '정보 수정' }))
-    const name = screen.getByLabelText('대표자명')
+    await passThroughPasswordGate(user)
+    const name = await screen.findByLabelText('대표자명')
     await user.clear(name)
     await user.type(name, '박새로')
     await user.click(screen.getByRole('button', { name: '저장' }))
@@ -199,8 +213,8 @@ describe('업체 정보 수정', () => {
     signIn()
 
     renderRoute()
-    await user.click(await screen.findByRole('button', { name: '정보 수정' }))
-    const name = screen.getByLabelText('대표자명')
+    await passThroughPasswordGate(user)
+    const name = await screen.findByLabelText('대표자명')
     await user.clear(name)
     await user.type(name, '박새로')
     await user.click(screen.getByRole('button', { name: '저장' }))
