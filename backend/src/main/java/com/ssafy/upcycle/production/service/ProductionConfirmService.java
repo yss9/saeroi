@@ -15,7 +15,9 @@ import com.ssafy.upcycle.material.repository.MaterialRepository;
 import com.ssafy.upcycle.material.service.MaterialCodeGenerator;
 import com.ssafy.upcycle.material.service.MaterialIssuer;
 import com.ssafy.upcycle.material.service.MaterialLineageRegistrar;
+import com.ssafy.upcycle.material.service.MaterialProcessHistoryResolver;
 import com.ssafy.upcycle.material.service.MaterialEventRecorder;
+import com.ssafy.upcycle.processing.entity.ProcessType;
 import com.ssafy.upcycle.product.entity.ProductItem;
 import com.ssafy.upcycle.product.repository.ProductItemRepository;
 import com.ssafy.upcycle.product.service.ProductQrTokenGenerator;
@@ -33,9 +35,11 @@ import com.ssafy.upcycle.user.repository.UserRepository;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -71,6 +75,15 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ProductionConfirmService {
 
+    /**
+     * 폐소재가 제품이 되기 전에 반드시 거쳐야 하는 정제 공정.
+     *
+     * <p>세 가지를 한 자리에 모아 둔다 — 규칙이 바뀌면 여기만 고친다. 검사하는 곳과
+     * 오류 메시지 둘로 훩어지면 한쪽만 바뀔 때 안내가 거짓말이 된다.
+     */
+    private static final Set<ProcessType> REQUIRED_PROCESS_TYPES = EnumSet.of(
+            ProcessType.CLEANING, ProcessType.DISASSEMBLY, ProcessType.SORTING);
+
     private final ProductionBatchRepository batchRepository;
     private final ProductionInputRepository inputRepository;
     private final ProductionOutputRepository outputRepository;
@@ -81,6 +94,7 @@ public class ProductionConfirmService {
     private final MaterialLockRepository lockRepository;
     private final MaterialCodeGenerator materialCodeGenerator;
     private final MaterialLineageRegistrar lineageRegistrar;
+    private final MaterialProcessHistoryResolver processHistoryResolver;
     private final MaterialIssuer materialIssuer;
     private final UserRepository userRepository;
     private final Clock clock;
@@ -119,6 +133,7 @@ public class ProductionConfirmService {
         // ── 여기까지 검증. 아래에서 처음으로 무엇인가를 바꾼다 ──
 
         Consumption consumption = validateAndCollect(inputs, producerId);
+        requireRefinedWasteMaterials(consumption);
         LocalDateTime now = LocalDateTime.now(clock);
 
         consumeMaterials(consumption, batchId, producerId, now);
@@ -182,6 +197,41 @@ public class ProductionConfirmService {
             throw new BusinessException(ProductionErrorCode.PRODUCTION_NO_PRODUCT_MATERIAL);
         }
         return consumption;
+    }
+
+
+    /**
+     * 폐소재는 <b>세척·해체·선별을 모두 거친 것만</b> 제품이 된다.
+     *
+     * <p>투입 자격({@code PRODUCTION_MATERIAL_NOT_ELIGIBLE})은 "가공을 한 번이라도 거쳤는가"
+     * 만 보므로, 재단만 한 폐데님도 통과한다. 그러면 씻지 않았고 분류되지도 않은 폐기물이
+     * 업사이클 제품으로 팔린다 — 화면도 같은 규칙으로 고를 수 없게 막고, 서버가 마지막에
+     * 한 번 더 본다.
+     *
+     * <p><b>신소재는 보지 않는다.</b> 새 원단에는 해체할 것도 선별할 것도 없다. 이 규칙이
+     * 지키려는 것은 폐기물의 정제 이력이지 모든 소재의 공정 이력이 아니다.
+     *
+     * <p>판정 근거는 {@code material_lineage} 를 거슬러 올라가 모은 가공 종류다
+     * ({@link MaterialProcessHistoryResolver}). 소재에 적힌 값이 아니라 조회 시점 계산이라,
+     * 부모가 세척된 뒤 갈라져 나온 자식도 세척된 것으로 센다.
+     */
+    private void requireRefinedWasteMaterials(Consumption consumption) {
+        List<Long> wasteMaterialIds = consumption.materials.values().stream()
+                .filter(material -> material.getRootOrigin() == MaterialRootOrigin.WASTE)
+                .map(Material::getId)
+                .toList();
+        if (wasteMaterialIds.isEmpty()) {
+            return;
+        }
+        Map<Long, List<ProcessType>> completed =
+                processHistoryResolver.resolveAll(wasteMaterialIds);
+        for (Long materialId : wasteMaterialIds) {
+            if (!completed.getOrDefault(materialId, List.of())
+                    .containsAll(REQUIRED_PROCESS_TYPES)) {
+                throw new BusinessException(
+                        ProductionErrorCode.PRODUCTION_MATERIAL_NOT_PROCESSED);
+            }
+        }
     }
 
     /**
