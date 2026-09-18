@@ -1,0 +1,26 @@
+.admin-market { display: grid; gap: 26px; width: min(980px, 100%); margin: 0 auto; padding: 56px 36px; }
+.admin-market__header { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; }
+.admin-market__header h1 { margin: 6px 0 12px; font-size: clamp(32px, 4vw, 52px); color: #172033; }
+.admin-market__header p { margin: 0; color: #66706b; line-height: 1.7; }
+.admin-market__eyebrow { color: #2d7652 !important; font-size: 14px; font-weight: 800; letter-spacing: .16em; }
+.admin-market__count { flex: none; padding: 9px 14px; border-radius: 999px; background: #edf6f0; color: #276847; font-weight: 750; }
+.admin-market__form { display: grid; gap: 22px; padding: 28px; border: 1px solid #dce5df; border-radius: 20px; background: #fff; box-shadow: 0 12px 32px rgb(24 65 43 / 7%); }
+.admin-market__form label { display: grid; gap: 8px; color: #26372e; font-weight: 700; }
+.admin-market__form input { min-width: 0; padding: 12px 14px; border: 1px solid #c8d5cc; border-radius: 10px; font: inherit; }
+.admin-market__form input:focus { outline: 3px solid rgb(50 126 84 / 14%); border-color: #327e54; }
+.admin-market__form small { color: #758078; font-weight: 450; line-height: 1.5; }
+.admin-market__dates { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.admin-market__preview { display: flex; flex-wrap: wrap; gap: 8px; min-height: 32px; }
+.admin-market__preview span { padding: 7px 10px; border-radius: 8px; background: #f0f5f2; color: #315f47; font-size: 13px; font-weight: 700; }
+.admin-market__form button { justify-self: start; padding: 12px 20px; border: 0; border-radius: 10px; background: #2c704d; color: #fff; font: inherit; font-weight: 800; cursor: pointer; }
+.admin-market__form button:disabled { cursor: not-allowed; opacity: .5; }
+.admin-market__success { display: flex; flex-wrap: wrap; gap: 8px 16px; padding: 16px 18px; border-radius: 12px; background: #eaf7ef; color: #226743; }
+.admin-market__success span { margin-left: auto; color: #587164; }
+.admin-market__list { display: grid; gap: 10px; }
+.admin-market__list h2 { margin: 0 0 4px; font-size: 18px; }
+.admin-market__list article { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 15px 18px; border: 1px solid #e1e7e3; border-radius: 12px; background: #fff; }
+.admin-market__list article div { display: grid; gap: 4px; }
+.admin-market__list article div span { color: #758078; font-size: 13px; }
+.admin-market__status { padding: 6px 9px; border-radius: 999px; background: #eef1ef; font-size: 12px; font-weight: 800; }
+.admin-market__status--open { background: #e8f6ed; color: #237047; }
+@media (max-width: 760px) { .admin-market { padding: 32px 18px; } .admin-market__header { flex-direction: column; } .admin-market__dates { grid-template-columns: 1fr; } .admin-market__success span { margin-left: 0; width: 100%; } }
