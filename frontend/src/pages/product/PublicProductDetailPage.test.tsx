@@ -41,7 +41,7 @@ function ActualRoutes() { return useRoutes(routes) }
 beforeEach(() => {
   useAuthStore.getState().signOut()
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
-  vi.spyOn(apiClient, 'get').mockImplementation(async (url) => ({ data: url.endsWith('/product-ids') ? [] : url.endsWith('/cart') ? { items: [], totalQuantity: 0, totalPrice: 0 } : product }) as AxiosResponse)
+  vi.spyOn(apiClient, 'get').mockImplementation(async (url) => ({ data: url.endsWith('/product-ids') ? [] : url.endsWith('/cart') ? { items: [], totalQuantity: 0, totalPrice: 0 } : url.endsWith('/addresses') ? [] : product }) as AxiosResponse)
   vi.spyOn(apiClient, 'delete').mockResolvedValue({ data: {} } as AxiosResponse)
   let cartQuantity = 0
   vi.spyOn(apiClient, 'post').mockImplementation(async (url) => {
@@ -140,8 +140,11 @@ describe('public consumer product detail', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: '장바구니 담기' })).toBeEnabled())
     expect(screen.getByLabelText('장바구니 수')).toHaveTextContent('1')
     fireEvent.click(screen.getByRole('button', { name: '찜하기' }))
+    // 로그인한 소비자에게는 실제 구매 패널이 뜬다. 기본 배송지가 없어 주문할 수 없다는
+    // 안내와 함께 구매 버튼이 잠겨 있어야 한다 — 눌러도 주문이 나가지 않는다.
+    expect(await screen.findByText('기본 배송지가 없어 주문할 수 없습니다.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '구매하기' })).toBeDisabled()
     fireEvent.click(screen.getByRole('button', { name: '구매하기' }))
-    expect(screen.getByText(/현재 주문이나 결제는 진행되지 않습니다/)).toBeInTheDocument()
     expect(apiClient.post).toHaveBeenCalledTimes(3)
     expect(apiClient.post).toHaveBeenCalledWith('/v1/consumers/me/cart', { productModelId: 31, quantity: 1 })
     expect(apiClient.post).toHaveBeenCalledWith('/v1/consumers/me/wishlist', { productModelId: 31 })
