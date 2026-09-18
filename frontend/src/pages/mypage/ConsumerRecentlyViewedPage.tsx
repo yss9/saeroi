@@ -3,25 +3,20 @@ import { EmptyState } from '../../components/common/index.ts'
 import { useAuth } from '../../features/auth/hooks/useAuth.ts'
 import { useLogout } from '../../features/auth/hooks/useLogout.ts'
 import { ConsumerAccountLayout } from '../../features/user/components/ConsumerAccountLayout.tsx'
-import { CartButton } from '../../features/cart/CartButton.tsx'
+import { CatalogCard } from '../../features/shop/CatalogCard.tsx'
 import { usePublicProductModels } from '../../features/product/hooks/usePublicProductModels.ts'
-import { publicProductImageUrl } from '../../features/product/api/publicProductImageUrl.ts'
-import '../../features/user/components/consumer-wishlist.css'
-
-const priceFormatter = new Intl.NumberFormat('ko-KR', {
-  style: 'currency',
-  currency: 'KRW',
-  maximumFractionDigits: 0,
-})
+import '../shop/shop.css'
 
 /**
  * 최근 본 상품.
  *
  * **조회 이력 저장 기능은 아직 없다** — 프론트 로컬 기록도, 서버 기록도 없다. 그래서 "최근
- * 순"을 흉내 내지 않고 판매 중인 실제 상품을 최신순으로 보여준다(2026-09-18). 예전에는
- * 존재하지 않는 상품 이름·이미지로 30개를 채운 목데이터였는데, 장바구니 담기를 눌러도
- * 실제 상품이 아니라 API 호출이 아예 없었다 — 실제 상품 목록을 쓰면 같은 CartButton으로
- * 진짜 장바구니 연동이 된다.
+ * 순"을 흉내 내지 않고 판매 중인 실제 상품을 최신순으로 보여준다(2026-09-18).
+ *
+ * **찜한 상품과 같은 카드(CatalogCard)를 쓴다(2026-09-18)** — 카드를 누르면 상품 상세
+ * (구매 페이지)로 바로 이동한다. 장바구니 담기는 여기서 다루지 않는다 — "최근 봤다"는
+ * 사실만 보여주는 자리라, 목록마다 장바구니 버튼이 있으면 둘러보는 화면인지 사려는
+ * 화면인지 헷갈린다. 담고 싶으면 카드를 눌러 상세로 들어간다.
  */
 export function ConsumerRecentlyViewedPage() {
   const navigate = useNavigate()
@@ -62,41 +57,13 @@ export function ConsumerRecentlyViewedPage() {
             description="상품을 둘러보면 여기에 쌓입니다."
           />
         ) : (
-          <div className="consumer-recently-viewed-row">
+          <ul className="shop-catalog__grid" aria-label="최근 본 상품 목록">
             {items.map((product) => (
-              <article className="consumer-recently-viewed-card" key={product.productModelId}>
-                <div className="consumer-recently-viewed-card__thumbnail">
-                  <img
-                    src={publicProductImageUrl(product.thumbnailUrl)}
-                    alt={product.name}
-                    loading="lazy"
-                    decoding="async"
-                    // 이미지를 못 받으면 깨진 아이콘 대신 썸네일 칸 배경만 남긴다.
-                    onError={(event) => { event.currentTarget.style.visibility = 'hidden' }}
-                  />
-                </div>
-                <div className="consumer-recently-viewed-card__body">
-                  <p className="consumer-recently-viewed-card__brand">{product.brandName}</p>
-                  <h3>{product.name}</h3>
-                  <div className="consumer-recently-viewed-card__price-row">
-                    <p className="consumer-recently-viewed-card__price">
-                      {priceFormatter.format(product.price)}
-                    </p>
-                    <div className="consumer-mock-cart-action">
-                      <CartButton
-                        productId={product.productModelId}
-                        name={product.name}
-                        text="장바구니 담기"
-                        className="ui-button ui-button--primary ui-button--sm"
-                        disabled={product.status !== 'ON_SALE' || product.stockQuantity === 0}
-                        toggleOnSuccess
-                      />
-                    </div>
-                  </div>
-                </div>
-              </article>
+              <li key={product.productModelId}>
+                <CatalogCard product={product} hideCartButton />
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </section>
     </ConsumerAccountLayout>
