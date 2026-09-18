@@ -11,22 +11,24 @@ export function maskName(name: string): string {
   return `${name[0]}${'*'.repeat(name.length - 2)}${name[name.length - 1]}`
 }
 
-/** 상세주소 마스킹 — 길이는 유지하되 전부 `*`로 치환해 존재 여부만 알 수 있게 한다. */
-export function maskAddressDetail(addressDetail: string): string {
-  return '*'.repeat(addressDetail.length)
+/**
+ * 주소 마스킹. 숫자만 `*`로 치환하고 나머지 글자·띄어쓰기는 그대로 둔다 — 동·호수·번지
+ * 같은 식별 번호만 가려지고, 도로명·동/구·"동"·"호" 같은 단위 글자는 그대로 남는다.
+ *
+ * 예) `테헤란로 212` → `테헤란로 ***`, `102동 307호` → `***동 ***호`.
+ */
+function maskDigits(text: string): string {
+  return text.replace(/\d/g, '*')
 }
 
-/**
- * 도로명주소 마스킹. 시/도·시/군/구 두 어절까지는 남기고 나머지는 글자 수만 유지한 채
- * `*`로 치환한다 — 대략적인 지역만 알 수 있고 상세 도로명·번지는 가려진다.
- */
-export function maskAddressLine(addressLine: string): string {
-  const words = addressLine.split(' ')
-  if (words.length <= 2) return maskAddressDetail(addressLine)
+/** 상세주소(동/호수 등) 마스킹. */
+export function maskAddressDetail(addressDetail: string): string {
+  return maskDigits(addressDetail)
+}
 
-  const visible = words.slice(0, 2).join(' ')
-  const restLength = addressLine.length - visible.length - 1
-  return `${visible} ${'*'.repeat(Math.max(restLength, 0))}`
+/** 도로명주소(시/도·구·도로명·번지) 마스킹. */
+export function maskAddressLine(addressLine: string): string {
+  return maskDigits(addressLine)
 }
 
 /** 이메일 마스킹. `@` 앞부분만 앞 2글자를 남기고 나머지를 가린다. 도메인은 그대로 둔다. */

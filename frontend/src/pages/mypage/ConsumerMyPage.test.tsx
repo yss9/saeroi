@@ -117,7 +117,7 @@ describe('ConsumerMyPageView', () => {
     expect(card.getByText('김*령')).toBeInTheDocument()
     expect(card.getByText('co******@saeroi.test')).toBeInTheDocument()
     expect(card.getByText('010-****-5678')).toBeInTheDocument()
-    expect(card.getByText('서울특별시 강남구 ********', { exact: false })).toBeInTheDocument()
+    expect(card.getByText('서울특별시 강남구 테헤란로 ***', { exact: false })).toBeInTheDocument()
 
     // 원본 값은 화면에 그대로 노출되지 않아야 한다.
     expect(card.queryByText('새로이 고객')).not.toBeInTheDocument()
