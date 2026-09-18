@@ -14,7 +14,6 @@ import {
 } from '../../../app/navigation/useVisibleMenu.ts'
 import { useAuth } from '../../auth/hooks/useAuth.ts'
 import { useLogout } from '../../auth/hooks/useLogout.ts'
-import { getRoleHomePath } from '../../auth/utils/roleHomePath.ts'
 import { NotificationCenter } from '../../notification/components/NotificationCenter.tsx'
 import { BusinessWalletStatus } from '../../wallet/components/BusinessWalletStatus.tsx'
 import { ROLE_LABEL } from '../../../types/role.types.ts'
@@ -112,9 +111,6 @@ export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps
     })
   }
 
-  // 역할마다 대시보드 홈이 다르다. 역할을 아직 모르면(판정 보류) 회사 정보로 보낸다 —
-  // 어느 사업자 역할이든 들어갈 수 있는 화면이다.
-  const homePath = user ? getRoleHomePath(user.role) : '/company/account'
 
   return (
     <div className="company-dashboard">
@@ -122,13 +118,17 @@ export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps
 
       <header className="company-dashboard__header">
         {/*
-          로고는 <b>대시보드 안</b>으로 돌아간다. 예전에는 `/`(쇼핑몰 랜딩)로 갔는데,
-          그 화면은 사업자 셸 밖이라 누르는 순간 사이드바가 사라졌다 — 작업 중에 로고를
-          누른 사용자가 메뉴를 잃고 마케팅 페이지에 서 있게 된다.
+          **로고는 어디서든 서비스의 첫 화면으로 간다.** 웹에서 로고가 하는 일이 그것 하나라,
+          다른 곳으로 보내면 사용자는 로고를 눌러 놓고 자기가 어디로 갔는지 되짚어야 한다.
 
-          쇼핑몰로 나가는 길은 옆의 "쇼핑몰" 버튼이 따로 맡는다. 그쪽은 의도한 이탈이다.
+          대시보드 안으로 돌리던 때가 있었다 — 사이드바를 잃는 것이 걱정이었다. 그러나
+          업무 화면으로 돌아오는 길은 사이드바의 회사 정보와 머리말의 계정 버튼이 이미
+          들고 있고, 로고의 뜻을 화면마다 다르게 두는 값이 더 비싸다.
+
+          `<a href="/">` 가 아니라 Link 인 것은 basename(/test/) 때문이다 — a 는 그것을
+          무시하고 도메인 루트로 나간다.
         */}
-        <Link className="company-dashboard__logo" to={homePath} aria-label="대시보드 홈">
+        <Link className="company-dashboard__logo" to="/" aria-label="SAEROI 홈">
           {/* public/ 자산 경로라 vite base 가 자동으로 안 붙는다 — /test/ 에서 404 방지 */}
           <img src={`${import.meta.env.BASE_URL}img/logo.png`} alt="" />
         </Link>

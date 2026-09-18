@@ -1,4 +1,5 @@
 import { CheckCircle, ShieldCheck } from '@phosphor-icons/react'
+import { Link } from 'react-router-dom'
 import { ErrorMessage, Loading } from '../../../components/common/index.ts'
 import { getPassportThumbnailUrl } from '../api/getPassport.ts'
 import { usePassport } from '../hooks/usePassport.ts'
@@ -43,9 +44,10 @@ export function PassportView({ qrToken }: PassportViewProps) {
   return (
     <article className="passport">
       <header className="passport-brandbar">
-        <a className="passport-brandbar__logo" href="/" aria-label="SAEROI 홈">
+        {/* a 태그는 basename(/test/)을 무시하고 도메인 루트로 나간다 — Link 여야 한다. */}
+        <Link className="passport-brandbar__logo" to="/" aria-label="SAEROI 홈">
           SAEROI
-        </a>
+        </Link>
         <div className="passport-brandbar__message">
           <span>A KINDER TOMORROW</span>
           <span>IN STYLE</span>

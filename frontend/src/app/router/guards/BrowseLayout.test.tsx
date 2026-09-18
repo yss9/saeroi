@@ -64,23 +64,18 @@ function renderShell(role: 'SUPPLIER' | 'BRAND' | 'CONSUMER') {
 }
 
 describe('대시보드 셸의 로고', () => {
-  it('쇼핑몰 랜딩이 아니라 역할별 대시보드 홈으로 간다', () => {
-    // 로고가 `/` 로 가면 누르는 순간 사이드바가 사라진다. 작업 중에 로고를 누른
-    // 사용자가 메뉴를 잃고 마케팅 페이지에 서 있게 된다.
+  // 로고가 하는 일은 어디서든 하나다 — 서비스의 첫 화면으로 간다. 역할이나 화면에 따라
+  // 다른 곳으로 보내면 누르고 나서 자기가 어디로 갔는지 되짚어야 한다.
+  it('누구에게나 쇼핑몰 랜딩으로 간다', () => {
     renderShell('SUPPLIER')
 
-    expect(screen.getByRole('link', { name: '대시보드 홈' })).toHaveAttribute(
-      'href',
-      '/company/account',
-    )
+    expect(screen.getByRole('link', { name: 'SAEROI 홈' })).toHaveAttribute('href', '/')
   })
 
-  // 사업자 셋은 같은 곳(회사 정보)으로 간다. 소비자·관리자만 다르다 — 그쪽은 셸이
-  // 다르지만, 홈 판정이 역할을 보고 있다는 것은 여기서 고정해 둔다.
-  it('역할이 다르면 홈도 다르다', () => {
+  it('역할이 달라도 같은 곳으로 간다', () => {
     renderShell('CONSUMER')
 
-    expect(screen.getByRole('link', { name: '대시보드 홈' })).toHaveAttribute('href', '/mypage')
+    expect(screen.getByRole('link', { name: 'SAEROI 홈' })).toHaveAttribute('href', '/')
   })
 
   it('쇼핑몰로 나가는 길은 따로 남아 있다', () => {
