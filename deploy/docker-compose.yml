@@ -128,10 +128,9 @@ services:
       # backend application.yml 이 실제로 읽는 이름이 아니었다(죽은 키 — 초기 기획 문서의
       # Escrow/PaymentToken 이 이후 폐기됐는데 이름만 남아있었다). 실제 property 는
       # app.blockchain.material-token-address / marketplace-address /
-      # production-registry-address 세 개뿐이고 env 키는 MATERIAL_TOKEN_ADDRESS /
-      # MARKETPLACE_ADDRESS / PRODUCTION_REGISTRY_ADDRESS 다. 정본은
-      # blockchain/develop:deployments/ssafy.json. processingRegistry 는 backend 가
-      # 안 읽는다(프론트가 VITE_PROCESSING_CONTRACT_ADDRESS 로 직접 온체인 조회).
+      # processing-registry-address / production-registry-address 이고 env 키는
+      # MATERIAL_TOKEN_ADDRESS / MARKETPLACE_ADDRESS / PROCESSING_REGISTRY_ADDRESS /
+      # PRODUCTION_REGISTRY_ADDRESS 다. 정본은 blockchain/develop:deployments/ssafy.json.
       #
       # `:-` 기본값을 반드시 붙인다. 이게 없으면 .env 에 키가 없을 때 compose 가 경고를 내고
       # 빈 값을 넣는데, 그보다 위험한 건 application.yml 쪽이다 — OS 환경변수가 yml 보다
@@ -142,6 +141,7 @@ services:
       # frontend 는 이미지 재빌드가 필요하다(VITE_* 는 빌드 시점 인라인).
       MATERIAL_TOKEN_ADDRESS: ${MATERIAL_TOKEN_ADDRESS:-}
       MARKETPLACE_ADDRESS: ${MARKETPLACE_ADDRESS:-}
+      PROCESSING_REGISTRY_ADDRESS: ${PROCESSING_REGISTRY_ADDRESS:-}
       PRODUCTION_REGISTRY_ADDRESS: ${PRODUCTION_REGISTRY_ADDRESS:-}
       # 판매량 예측시장 (backend/develop 2026-09-17, application.yml 의 app.prediction.*). 주소 정본은
       # blockchain/develop:deployments/ssafy.json 의 predictionPoint / predictionMarket. 비어 있으면
