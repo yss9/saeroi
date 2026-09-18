@@ -12,6 +12,7 @@ import { useConfirmProductionBatch } from '../hooks/useConfirmProductionBatch.ts
 import { useProductionBatch } from '../hooks/useProductionBatch.ts'
 import type { ProductionBatch, ProductionBatchStatus } from '../types/production.types.ts'
 import { MaterialInputSelect } from './MaterialInputSelect.tsx'
+import { ProductionChainPanel } from './ProductionChainPanel.tsx'
 import { ProductionInputList } from './ProductionInputList.tsx'
 import './production.css'
 
@@ -71,6 +72,13 @@ export function ProductionBatchDetail({ batchId }: ProductionBatchDetailProps) {
       {editable && <ConfirmSection batch={data} />}
 
       {data.status === 'CONFIRMED' && <ConfirmedResult batch={data} />}
+
+      {/* 온체인 기록. 확정 전에는 못 하는 이유를 패널이 직접 적는다 — 투입이 더
+          바뀔 수 있어 확정 전에 체인에 남기면 그 내용과 어긋난다. */}
+      <section className="batch-detail__section">
+        <h2>온체인 기록</h2>
+        <ProductionChainPanel batch={data} />
+      </section>
 
       {/*
         개체와 QR 은 여기서 보여주지 않는다. 라벨을 뽑는 일은 제품 단위로 일어나고
