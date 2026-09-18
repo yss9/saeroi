@@ -20,6 +20,7 @@ import type {
 } from '../../features/user/types/consumerMyPage.types.ts'
 import { formatDate } from '../../features/user/utils/formatDate.ts'
 import { groupConsumerOrders } from '../../features/user/utils/groupConsumerOrders.ts'
+import { maskAddressDetail, maskName as maskReceiverName } from '../../utils/mask.ts'
 
 const priceFormatter = new Intl.NumberFormat('ko-KR', {
   style: 'currency',
@@ -43,18 +44,6 @@ const orderStatusMeta: Record<ConsumerOrderViewStatus, { label: string; tone: St
   PREPARING: { label: '상품 준비', tone: 'warning' },
   SHIPPING: { label: '배송 중', tone: 'info' },
   DELIVERED: { label: '배송 완료', tone: 'success' },
-}
-
-/** 받는사람 이름 마스킹 — 개인정보 보호. 첫/끝 글자만 남기고 가운데는 `*`. */
-function maskReceiverName(name: string): string {
-  if (name.length <= 1) return name
-  if (name.length === 2) return `${name[0]}*`
-  return `${name[0]}${'*'.repeat(name.length - 2)}${name[name.length - 1]}`
-}
-
-/** 상세주소 마스킹 — 길이는 유지하되 전부 `*`로 치환해 존재 여부만 알 수 있게 한다. */
-function maskAddressDetail(addressDetail: string): string {
-  return '*'.repeat(addressDetail.length)
 }
 
 /**

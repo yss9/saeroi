@@ -242,15 +242,16 @@ describe('consumer mypage route', () => {
   it('keeps the profile and real default address available without order requests', async () => {
     const get = vi.spyOn(apiClient, 'get').mockImplementation(async (url) => {
       if (url.startsWith('/v1/product-orders/')) throw new Error('order service unavailable')
-      if (url === '/v1/consumers/me/addresses') return { data: [{ addressId: 7, receiverName: '수령인', receiverPhone: '010-1234-5678', zipCode: '12345', address: '서울 주소', addressDetail: '101호', isDefault: true }] } as AxiosResponse
+      if (url === '/v1/consumers/me/addresses') return { data: [{ addressId: 7, receiverName: '수령인', receiverPhone: '010-1234-5678', zipCode: '12345', address: '서울 주소 45', addressDetail: '101호', isDefault: true }] } as AxiosResponse
       return { data: url.endsWith('/product-ids') ? [] : { items: [] } } as AxiosResponse
     })
     signInAsConsumer()
     renderRoute('/mypage')
     await screen.findByRole('heading', { name: '내 프로필' })
-    expect(screen.getByText('[12345] 서울 주소')).toBeInTheDocument()
-    expect(screen.getByText('101호')).toBeInTheDocument()
-    expect(screen.getByText('010-1234-5678')).toBeInTheDocument()
+    // 비밀번호 확인 없이 바로 보이는 화면이라 배송지·연락처는 숫자만 가려서 보여준다(2026-09-18).
+    expect(screen.getByText('[12345] 서울 주소 **')).toBeInTheDocument()
+    expect(screen.getByText('***호')).toBeInTheDocument()
+    expect(screen.getByText('010-****-5678')).toBeInTheDocument()
     expect(get.mock.calls.some(([url]) => url.startsWith('/v1/product-orders/'))).toBe(false)
   })
 
