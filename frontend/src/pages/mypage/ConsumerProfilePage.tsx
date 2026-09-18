@@ -5,6 +5,7 @@ import { useAuth } from '../../features/auth/hooks/useAuth.ts'
 import { useLogout } from '../../features/auth/hooks/useLogout.ts'
 import { ConsumerAccountLayout } from '../../features/user/components/ConsumerAccountLayout.tsx'
 import { useConsumerMyPage } from '../../features/user/hooks/useConsumerMyPage.ts'
+import { formatPhoneNumber, MOBILE_PHONE_PATTERN } from '../../utils/phone.ts'
 
 type EditableField = 'name' | 'phone'
 
@@ -36,6 +37,7 @@ export function ConsumerProfilePage() {
   const [editingField, setEditingField] = useState<EditableField | null>(null)
   const [nameDraft, setNameDraft] = useState(name)
   const [phoneDraft, setPhoneDraft] = useState(phone)
+  const [phoneError, setPhoneError] = useState<string | null>(null)
 
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -56,13 +58,23 @@ export function ConsumerProfilePage() {
 
   function startEdit(field: EditableField) {
     if (field === 'name') setNameDraft(name)
-    if (field === 'phone') setPhoneDraft(phone)
+    if (field === 'phone') {
+      setPhoneDraft(phone)
+      setPhoneError(null)
+    }
     setEditingField(field)
   }
 
   function saveField(field: EditableField) {
+    if (field === 'phone') {
+      if (phoneDraft !== '' && !MOBILE_PHONE_PATTERN.test(phoneDraft)) {
+        setPhoneError('올바른 휴대전화 번호를 입력해 주세요.')
+        return
+      }
+      setPhoneError(null)
+      setPhone(phoneDraft)
+    }
     if (field === 'name') setName(nameDraft)
-    if (field === 'phone') setPhone(phoneDraft)
     setEditingField(null)
     setSavedMessage('회원 정보가 저장되었습니다.')
   }
@@ -134,10 +146,8 @@ export function ConsumerProfilePage() {
                   <dd className="consumer-profile-edit__field-edit">
                     <Input value={nameDraft} onChange={(event) => setNameDraft(event.target.value)} />
                     <div className="consumer-profile-edit__field-edit-actions">
-                      <Button size="sm" onClick={() => saveField('name')}>
-                        저장
-                      </Button>
-                      <Button size="sm" variant="secondary" onClick={() => setEditingField(null)}>
+                      <Button onClick={() => saveField('name')}>저장</Button>
+                      <Button variant="secondary" onClick={() => setEditingField(null)}>
                         취소
                       </Button>
                     </div>
@@ -161,15 +171,18 @@ export function ConsumerProfilePage() {
                 {editingField === 'phone' ? (
                   <dd className="consumer-profile-edit__field-edit">
                     <Input
-                      placeholder="010-0000-0000"
+                      type="tel"
+                      inputMode="tel"
+                      maxLength={13}
+                      autoComplete="tel"
+                      placeholder="010-1234-5678"
+                      error={phoneError ?? undefined}
                       value={phoneDraft}
-                      onChange={(event) => setPhoneDraft(event.target.value)}
+                      onChange={(event) => setPhoneDraft(formatPhoneNumber(event.target.value))}
                     />
                     <div className="consumer-profile-edit__field-edit-actions">
-                      <Button size="sm" onClick={() => saveField('phone')}>
-                        저장
-                      </Button>
-                      <Button size="sm" variant="secondary" onClick={() => setEditingField(null)}>
+                      <Button onClick={() => saveField('phone')}>저장</Button>
+                      <Button variant="secondary" onClick={() => setEditingField(null)}>
                         취소
                       </Button>
                     </div>
