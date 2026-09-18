@@ -12,7 +12,9 @@ import com.ssafy.upcycle.material.repository.MaterialBalanceQueryRepository;
 import com.ssafy.upcycle.material.repository.MaterialCompositionRepository;
 import com.ssafy.upcycle.material.repository.MaterialBalanceRepository;
 import com.ssafy.upcycle.material.repository.MaterialRepository;
+import com.ssafy.upcycle.processing.entity.ProcessType;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,6 +36,7 @@ public class MaterialQueryService {
     private final MaterialVerificationStateResolver verificationStateResolver;
     private final BlockchainVerification blockchainVerification;
     private final MaterialCompositionRepository materialCompositionRepository;
+    private final MaterialProcessHistoryResolver processHistoryResolver;
 
     /**
      * 소재 상세.
@@ -60,6 +63,7 @@ public class MaterialQueryService {
                 materialBalanceRepository.findAllByMaterialId(materialId),
                 materialCompositionRepository
                         .findByMaterialIdOrderByPercentageDescFiberTypeAsc(materialId),
+                processHistoryResolver.resolve(materialId),
                 verificationState,
                 verificationEvidence(materialId, verificationState));
     }
@@ -105,6 +109,14 @@ public class MaterialQueryService {
      */
     @Transactional(readOnly = true)
     public List<MyMaterialResponse> findMyMaterials(Long ownerId) {
-        return materialBalanceQueryRepository.findMyMaterials(ownerId);
+        List<MyMaterialResponse> held = materialBalanceQueryRepository.findMyMaterials(ownerId);
+        // 목록 전체를 한 번에 넘긴다. 소재마다 불러 혈통을 올라가면
+        // 세대마다 쿼리가 목록 길이만큼 늘어난다.
+        Map<Long, List<ProcessType>> processTypes = processHistoryResolver.resolveAll(
+                held.stream().map(MyMaterialResponse::materialId).toList());
+        return held.stream()
+                .map(row -> row.withCompletedProcessTypes(
+                        processTypes.getOrDefault(row.materialId(), List.of())))
+                .toList();
     }
 }
