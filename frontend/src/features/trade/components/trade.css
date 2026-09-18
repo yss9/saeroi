@@ -327,3 +327,25 @@
 .ui-modal .payment-panel,
 .ui-modal .receipt-panel,
 .ui-modal .shipment-panel { max-width: none; }
+
+/* ── 온체인 예약 해제 ─────────────────────────────────────
+   서버는 취소됐는데 체인에 예약이 남은 거래에만 나온다. 평소에는 없는 칸이라 눈에
+   걸리되, 오류는 아니므로 붉은색은 쓰지 않는다 — 사용자가 잘못한 것이 아니다. */
+
+.trade-chain-release {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--ui-color-border);
+  border-radius: 8px;
+  background: var(--ui-color-surface);
+}
+
+.trade-chain-release__note {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: var(--ui-color-muted);
+}
