@@ -15,7 +15,7 @@ import type { UserRole } from '../../types/role.types.ts'
 import { CartPage } from './CartPage.tsx'
 
 const item: CartItem = { product: { productModelId: 31, name: '데님 백', brandId: 5, brandName: 'REWEAVE', price: 99000,
-  category: 'BAG', subcategory: 'TOTE', status: 'ON_SALE', stockQuantity: 4, thumbnailUrl: '/api/v1/product-models/31/thumbnail', description: '', createdAt: '2026-09-17' },
+  category: 'BAG', subcategory: 'TOTE', status: 'ON_SALE', stockQuantity: 4, thumbnailUrl: '/api/v1/product-models/31/thumbnail', description: '', createdAt: '2026-09-17', journeyUrl: null },
   quantity: 2, addedPrice: 89000, priceChanged: true, purchasable: true }
 const cart: Cart = { items: [item], totalQuantity: 2, totalPrice: 198000 }
 const empty: Cart = { items: [], totalQuantity: 0, totalPrice: 0 }

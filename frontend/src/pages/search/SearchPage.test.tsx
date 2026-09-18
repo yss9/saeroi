@@ -10,7 +10,7 @@ import { useAuthStore } from '../../stores/authStore.ts'
 import type { PageResponse } from '../../types/api.types.ts'
 import { SearchPage } from './SearchPage.tsx'
 
-const product: PublicProductModel = { productModelId: 31, name: '데님 토트백', brandId: 5, brandName: 'REWEAVE', category: 'BAG', subcategory: 'TOTE', price: 129000, description: '테스트', thumbnailUrl: '/api/v1/public/product-models/31/thumbnail', status: 'ON_SALE', stockQuantity: 0, createdAt: '2026-09-17' }
+const product: PublicProductModel = { productModelId: 31, name: '데님 토트백', brandId: 5, brandName: 'REWEAVE', category: 'BAG', subcategory: 'TOTE', price: 129000, description: '테스트', thumbnailUrl: '/api/v1/public/product-models/31/thumbnail', status: 'ON_SALE', stockQuantity: 0, createdAt: '2026-09-17', journeyUrl: null }
 const catalog: PageResponse<PublicProductModel> = { content: [product], page: 0, size: 12, totalElements: 1, totalPages: 1, hasNext: false }
 function History() {
   const location = useLocation()

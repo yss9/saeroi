@@ -3,21 +3,19 @@ import {
   CalendarBlank,
   CheckCircle,
   FileText,
-  GearSix,
   Leaf,
   MapPin,
   MapTrifold,
-  Package,
   ShareNetwork,
   ShieldCheck,
-  Storefront,
-  Truck,
 } from '@phosphor-icons/react'
-import { useEffect, useMemo, useRef, useState } from 'react'
-import type { CSSProperties } from 'react'
+import { geoMercator } from 'd3-geo'
+import type { GeoJsonObject } from 'geojson'
+import { useEffect, useMemo, useState } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
+import { ComposableMap, Geographies, Geography } from 'react-simple-maps'
 import { Modal, TransactionHash } from '../../../components/common/index.ts'
-import { resolveRegionCoordinates } from '../regionCoordinates.ts'
-import { routeLabelPosition } from '../routeLabelPosition.ts'
+import { STAGE_LABEL, STAGE_META, STAGE_ORDER, stageIndex } from '../utils/journeyStages.ts'
 import type {
   BlockchainProof,
   JourneyEdge,
@@ -30,30 +28,6 @@ import type {
 
 type ViewMode = 'MAP' | 'FLOW'
 type Point = { x: number; y: number }
-
-const STAGE_ORDER: JourneyStageType[] = [
-  'SOURCE',
-  'COLLECTION',
-  'PROCESSING',
-  'BRAND',
-  'DELIVERY',
-]
-
-const STAGE_LABEL: Record<JourneyStageType, string> = {
-  SOURCE: '원단 등록',
-  COLLECTION: '수거',
-  PROCESSING: '가공',
-  BRAND: '브랜드 제작',
-  DELIVERY: '최종 수령',
-}
-
-const STAGE_META = {
-  SOURCE: { icon: FileText, color: '#2f7d59' },
-  COLLECTION: { icon: Truck, color: 'var(--brand-blue, #1e6098)' },
-  PROCESSING: { icon: GearSix, color: '#a9855d' },
-  BRAND: { icon: Storefront, color: 'var(--brand-orange, #fb9154)' },
-  DELIVERY: { icon: Package, color: '#e95b2b' },
-} satisfies Record<JourneyStageType, { icon: typeof FileText; color: string }>
 
 const STATUS_LABEL: Record<JourneyStageStatus, string> = {
   COMPLETED: '완료',
@@ -107,10 +81,6 @@ const PROOF_STATUS_LABEL: Record<BlockchainProof['status'], string> = {
   PENDING: '확정 대기',
   SUCCESS: '확정됨',
   FAILED: '실패',
-}
-
-function stageIndex(stage: JourneyStageType): number {
-  return STAGE_ORDER.indexOf(stage)
 }
 
 function stageIcon(stage: JourneyStageType, size = 20) {
@@ -194,7 +164,7 @@ export function JourneyExplorer({ journey }: { journey: ProductJourney }) {
           </button>
           <button
             type="button"
-            className={`journey-view-toggle__flow${viewMode === 'FLOW' ? ' is-active' : ''}`}
+            className={viewMode === 'FLOW' ? 'is-active' : ''}
             aria-pressed={viewMode === 'FLOW'}
             onClick={() => setViewMode('FLOW')}
           >
@@ -367,10 +337,11 @@ function JourneyCanvas({
   onSelectNode: (nodeId: string) => void
 }) {
   const reducedMotion = useReducedMotion()
-  const svgRef = useRef<SVGSVGElement>(null)
-  const [mapScale, setMapScale] = useState(1)
+  // Journey Map은 실제 위도·경도를 이 SVG 좌표계 위에 그대로 투영해 찍는다(외부 지도
+  // 타일 서버 없이) — 타일 CDN이 API 키를 요구하거나 막히는 상황에 기록 조회 자체가
+  // 흔들리지 않도록. 좌표가 없는 노드는 찍을 위치가 없으니 지도에서 빠진다.
   const positions = useMemo(
-    () => viewMode === 'MAP' ? mapPositions(journey.nodes) : flowPositions(journey.nodes),
+    () => (viewMode === 'MAP' ? mapPositions(journey.nodes) : flowPositions(journey.nodes)),
     [journey.nodes, viewMode],
   )
   const activeIndex = stageIndex(activeStage)
@@ -417,33 +388,6 @@ function JourneyCanvas({
       || connectedIds.has(node.nodeId)
       || focusedNodeIds.has(node.nodeId),
   )
-  const mapViewport = useMemo(() => {
-    const points = Object.values(positions)
-    const left = Math.min(315, ...points.map((point) => point.x - 48))
-    const top = Math.min(0, ...points.map((point) => point.y - 48))
-    const right = Math.max(840, ...points.map((point) => point.x + 48))
-    const bottom = Math.max(620, ...points.map((point) => point.y + 48))
-    return { left, top, right, bottom }
-  }, [positions])
-  useEffect(() => {
-    const svg = svgRef.current
-    if (!svg || viewMode !== 'MAP') return
-    const measure = () => {
-      const box = svg.getBoundingClientRect()
-      if (box.width && box.height) setMapScale(Math.min(box.width / (mapViewport.right - mapViewport.left), box.height / (mapViewport.bottom - mapViewport.top)))
-    }
-    measure()
-    if (typeof ResizeObserver === 'undefined') return
-    const observer = new ResizeObserver(measure)
-    observer.observe(svg)
-    return () => observer.disconnect()
-  }, [viewMode, mapViewport])
-  // Geographic positions stay truthful; only drawing order changes for overlapping markers.
-  const markerPriority = (node: JourneyNode) =>
-    (node.stage === activeStage ? 1 : 0) + (node.nodeId === activeNodeId ? 2 : 0)
-  const renderedNodes = viewMode === 'MAP'
-    ? [...visibleNodes].sort((a, b) => markerPriority(a) - markerPriority(b))
-    : visibleNodes
 
   return (
     <div className={`journey-canvas journey-canvas--${viewMode.toLowerCase()}${compact ? ' journey-canvas--compact' : ''}`}>
@@ -451,13 +395,23 @@ function JourneyCanvas({
         <span>{viewMode === 'MAP' ? 'Journey Map' : 'Flow View'}</span>
         <strong>{STAGE_LABEL[activeStage]}</strong>
       </div>
-      <svg
-        ref={svgRef}
-        viewBox={viewMode === 'MAP' ? `${mapViewport.left} ${mapViewport.top} ${mapViewport.right - mapViewport.left} ${mapViewport.bottom - mapViewport.top}` : '0 0 1000 620'}
-        role="img"
-        aria-label={`${STAGE_LABEL[activeStage]} 업체 위치와 이동 경로`}
-      >
-        {viewMode === 'MAP' ? <KoreaMapBackdrop /> : <FlowBackdrop />}
+      {viewMode === 'MAP' && Object.keys(positions).length === 0 ? (
+        <div
+          className="journey-map-empty"
+          role="img"
+          aria-label={`${STAGE_LABEL[activeStage]} 업체 위치와 이동 경로`}
+        >
+          <p>등록된 업체 주소의 좌표를 아직 확인하지 못했습니다.</p>
+        </div>
+      ) : (
+      <JourneyCanvasSvg viewMode={viewMode} activeStage={activeStage}>
+        {viewMode === 'MAP' ? <MapBackdrop /> : <FlowBackdrop />}
+
+        <defs>
+          <marker id="journey-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" />
+          </marker>
+        </defs>
 
         <g className="journey-canvas__edges">
           {visibleEdges.map((edge, index) => {
@@ -470,10 +424,6 @@ function JourneyCanvas({
               : activeEdgeIds.has(edge.edgeId)
             const selected = focused || activeNodeId === edge.fromNodeId || activeNodeId === edge.toNodeId
             const route = curvedRoute(from, to, index)
-            const label = routeLabelPosition(route.label, visibleNodes.flatMap((node) => {
-              const point = positions[node.nodeId]
-              return point ? [point] : []
-            }), viewMode === 'MAP', mapScale, mapViewport)
             const TravelerIcon = STAGE_META[edge.stage].icon
             return (
               <g
@@ -484,14 +434,23 @@ function JourneyCanvas({
                 data-edge-stage={edge.stage}
               >
                 <path className="journey-canvas__edge-shadow" d={route.path} />
-                <path className="journey-canvas__edge-line" d={route.path} />
+                <path className="journey-canvas__edge-line" d={route.path} markerEnd="url(#journey-arrow)" />
+                {active && edge.stage === 'COLLECTION' ? (
+                  <g
+                    className="journey-canvas__route-label"
+                    transform={`translate(${route.label.x} ${route.label.y})`}
+                  >
+                    <rect x="-37" y="-12" width="74" height="24" rx="12" />
+                    <text textAnchor="middle" dy="4">
+                      {stageIndex(edge.stage) + 1}. {STAGE_LABEL[edge.stage]}
+                    </text>
+                  </g>
+                ) : null}
                 {active && !reducedMotion ? (
                   <g className="journey-canvas__traveler" data-traveler-stage={edge.stage}>
-                    <g transform={viewMode === 'MAP' ? `scale(${1 / mapScale})` : undefined}>
-                      <circle r="12" />
-                      <g transform="translate(-7 -7)">
-                        <TravelerIcon size={14} weight="fill" aria-hidden="true" />
-                      </g>
+                    <circle r="16" />
+                    <g transform="translate(-10 -10)">
+                      <TravelerIcon size={20} weight="fill" aria-hidden="true" />
                     </g>
                     <animateMotion
                       path={route.path}
@@ -501,19 +460,13 @@ function JourneyCanvas({
                     />
                   </g>
                 ) : null}
-                {activeStage === 'COLLECTION' && edge.stage === 'COLLECTION' && label ? (
-                  <g className="journey-canvas__route-label" transform={`translate(${label.x} ${label.y}) scale(${viewMode === 'MAP' ? 1 / mapScale : 1})`}>
-                    <rect x="-37" y="-12" width="74" height="24" rx="12" />
-                    <text textAnchor="middle" dy="4">{STAGE_LABEL[edge.stage]}</text>
-                  </g>
-                ) : null}
               </g>
             )
           })}
         </g>
 
         <g className="journey-canvas__nodes">
-          {renderedNodes.map((node) => {
+          {visibleNodes.map((node) => {
             const point = positions[node.nodeId]
             if (!point) return null
             const selected = node.nodeId === activeNodeId
@@ -535,11 +488,15 @@ function JourneyCanvas({
                   if (event.key === 'Enter' || event.key === ' ') onSelectNode(node.nodeId)
                 }}
               >
-                <g transform={viewMode === 'MAP' ? `scale(${1 / mapScale})` : undefined}>
-                <circle className="journey-node__halo" r={viewMode === 'MAP' ? 16 : 34} />
-                <circle className="journey-node__body" r={viewMode === 'MAP' ? 13 : 23} />
-                <g className="journey-node__icon" transform={viewMode === 'MAP' ? 'translate(-7 -7)' : 'translate(-12 -12)'}>
-                  <NodeIcon size={viewMode === 'MAP' ? 14 : 24} weight="fill" aria-hidden="true" />
+                <title>{node.companyName ?? STAGE_LABEL[node.stage]}{node.locationName ? ` · ${node.locationName}` : ''}</title>
+                <circle className="journey-node__halo" r="34" />
+                <circle className="journey-node__body" r="23" />
+                <g className="journey-node__icon" transform="translate(-12 -12)">
+                  <NodeIcon size={24} weight="fill" aria-hidden="true" />
+                </g>
+                <g className="journey-node__stage-badge" transform="translate(17 -17)">
+                  <circle r="10" />
+                  <text textAnchor="middle" dy="4">{stageIndex(node.stage) + 1}</text>
                 </g>
                 {viewMode === 'FLOW' ? (
                   <g className="journey-node__flow-label">
@@ -550,23 +507,53 @@ function JourneyCanvas({
                     </text>
                   </g>
                 ) : null}
-                </g>
               </g>
             )
           })}
         </g>
-      </svg>
-      {visibleEdges.some((edge) => edge.stage === 'COLLECTION') ? <details className="journey-route-list">
-        <summary>수거 경로 보기</summary>
-        {visibleEdges.filter((edge) => edge.stage === 'COLLECTION').map((edge) => <p key={edge.edgeId}>
-          {journey.nodes.find((node) => node.nodeId === edge.fromNodeId)?.companyName} → {journey.nodes.find((node) => node.nodeId === edge.toNodeId)?.companyName} · 수거
-        </p>)}
-      </details> : null}
+      </JourneyCanvasSvg>
+      )}
       <div className="journey-canvas__legend" aria-hidden="true">
         <span><i className="is-active" />현재 단계</span>
         <span><i />이전 경로</span>
       </div>
     </div>
+  )
+}
+
+/**
+ * Journey Map만 `<ComposableMap>`을 쓴다 — `<Geographies>`가 배경 지도를 그리려면
+ * react-simple-maps의 투영 컨텍스트(`MapProvider`) 안에 있어야 하기 때문이다. Flow
+ * View는 배경이 지리 정보가 아니라 그냥 카드라 평범한 `<svg>`로 충분하다. 자식(엣지·노드
+ * `<g>`)은 두 모드가 완전히 같은 마크업을 쓰므로 여기서 한 번만 감싼다.
+ */
+function JourneyCanvasSvg({
+  viewMode,
+  activeStage,
+  children,
+}: {
+  viewMode: ViewMode
+  activeStage: JourneyStageType
+  children: ReactNode
+}) {
+  const label = `${STAGE_LABEL[activeStage]} 업체 위치와 이동 경로`
+  if (viewMode === 'MAP') {
+    return (
+      <ComposableMap
+        projection={KOREA_PROJECTION}
+        width={MAP_VIEW_WIDTH}
+        height={MAP_VIEW_HEIGHT}
+        role="img"
+        aria-label={label}
+      >
+        {children}
+      </ComposableMap>
+    )
+  }
+  return (
+    <svg viewBox={`0 0 ${MAP_VIEW_WIDTH} ${MAP_VIEW_HEIGHT}`} role="img" aria-label={label}>
+      {children}
+    </svg>
   )
 }
 
@@ -838,20 +825,60 @@ function JourneyMetrics({ journey }: { journey: ProductJourney }) {
   )
 }
 
+const MAP_VIEW_WIDTH = 1000
+const MAP_VIEW_HEIGHT = 620
+const MAP_PADDING = 40
+
+/**
+ * `assets/skorea-provinces.json`(통계청 KOSTAT 공공누리 제1유형 시도 경계, 2018)의
+ * bbox 값을 그대로 옮겨 적었다. 그 파일은 이 지도에서만 쓰고 218KB라 다른 화면까지
+ * 번들을 키우지 않도록 `MapBackdrop`이 필요할 때만 동적 import 한다 — 그래서 투영
+ * 계산에 쓸 경계값은 파일을 기다리지 않도록 여기 상수로 따로 둔다. 데이터 파일을
+ * 바꾸면 이 값도 같이 맞춰야 한다.
+ * 출처: https://github.com/southkorea/southkorea-maps (kostat/2018, KOGL 제1유형)
+ */
+const KOREA_BBOX: [number, number, number, number] = [
+  124.60971767865396, 33.11235576032225, 131.87146666639862, 38.61370930709446,
+]
+
+/**
+ * 항상 대한민국 전역이 같은 자리에 오도록 고정한 투영이다. 활성 노드 범위에 맞춰 매번
+ * 다시 맞추면(과거 시도) 업체가 한 지역에 몰렸을 때 해안선이 캔버스 밖으로 밀려나
+ * 알아볼 수 없는 모양만 남을 수 있다 — 전역을 항상 보여주는 편이 안전하다. 노드
+ * 마커는 배경 지도 파일이 아직 로드되지 않았어도 이 값으로 바로 자리를 잡는다.
+ */
+const KOREA_PROJECTION = geoMercator().fitExtent(
+  [[MAP_PADDING, MAP_PADDING], [MAP_VIEW_WIDTH - MAP_PADDING, MAP_VIEW_HEIGHT - MAP_PADDING]],
+  {
+    type: 'Feature',
+    properties: {},
+    geometry: {
+      type: 'Polygon',
+      // 반시계 방향(서→북→동→남)이어야 한다. d3-geo는 시계 방향 고리를 "이 사각형의
+      // 바깥 전체"로 읽어 지구 전체를 경계로 잡는다 — 그러면 fitExtent가 계산하는
+      // scale이 실제 필요한 값의 1/50 수준으로 무너져 지도가 점 하나로 뭉개진다.
+      coordinates: [[
+        [KOREA_BBOX[0], KOREA_BBOX[1]],
+        [KOREA_BBOX[0], KOREA_BBOX[3]],
+        [KOREA_BBOX[2], KOREA_BBOX[3]],
+        [KOREA_BBOX[2], KOREA_BBOX[1]],
+        [KOREA_BBOX[0], KOREA_BBOX[1]],
+      ]],
+    },
+  },
+)
+
+/**
+ * 위도·경도가 있는 노드만 투영한다. 좌표가 없는 노드는 이 맵에 항목 자체가 없다 —
+ * 틀린 위치를 찍기보다 안 보여주는 편이 낫다.
+ */
 function mapPositions(nodes: JourneyNode[]): Record<string, Point> {
   const positions: Record<string, Point> = {}
   nodes.forEach((node) => {
-    let latitude = node.latitude
-    let longitude = node.longitude
-    if ((latitude === null || longitude === null) && node.locationName) {
-      const region = resolveRegionCoordinates(node.locationName)
-      latitude = region?.latitude ?? null
-      longitude = region?.longitude ?? null
-    }
-    if (latitude === null || longitude === null) {
-      return
-    }
-    positions[node.nodeId] = projectGeo(latitude, longitude)
+    if (node.latitude === null || node.longitude === null) return
+    const projected = KOREA_PROJECTION([node.longitude, node.latitude])
+    if (!projected) return
+    positions[node.nodeId] = { x: projected[0], y: projected[1] }
   })
   return positions
 }
@@ -866,8 +893,7 @@ function flowPositions(nodes: JourneyNode[]): Record<string, Point> {
       const gap = 430 / Math.max(items.length, 1)
       positions[node.nodeId] = {
         x: 90 + column * 205,
-        // Center the diagram including the labels below each node (34px above, 86px below).
-        y: 69 + gap / 2 + index * gap,
+        y: 105 + gap / 2 + index * gap,
       }
     })
   })
@@ -930,102 +956,44 @@ function compositionGradient(items: ProductJourney['materialComposition']): stri
   return `conic-gradient(${stops.join(', ')})`
 }
 
+/**
+ * Journey Map 배경 — 시도 경계가 있는 실제 대한민국 지도. `KOREA_PROJECTION`으로 그린다.
+ *
+ * <p>경계 데이터(218KB)는 이 배경을 그릴 때만 필요하다. 최상단에서 그냥 import 하면
+ * Journey Map을 한 번도 열지 않는 화면(로그인, 쇼핑, 생산 관리 등)까지 그 무게를
+ * 그대로 지고 가므로, 여기서만 동적으로 불러온다 — 노드·경로는 `KOREA_PROJECTION`
+ * 값만으로 이미 자리를 잡고 있어 이 로드를 기다리지 않는다.
+ */
+function MapBackdrop() {
+  const [geography, setGeography] = useState<GeoJsonObject | null>(null)
 
-// Natural Earth 1:50m Admin 0 공개 경계에서 대한민국 도형만 추출해 화면용으로 단순화한 좌표.
-// 좌표 순서는 GeoJSON과 동일한 [경도, 위도].
-const KOREA_SHAPES: Array<Array<[number, number]>> = [
-  [
-    [126.633887, 37.781836], [126.664551, 37.800732], [126.666797, 37.917187],
-    [127.009668, 38.240527], [127.090332, 38.283887], [127.294043, 38.313281],
-    [128.038965, 38.308545], [128.168652, 38.359326], [128.339453, 38.607861],
-    [128.374609, 38.623437], [128.618848, 38.176074], [129.051563, 37.677637],
-    [129.335156, 37.274561], [129.418262, 37.059033], [129.473438, 36.741895],
-    [129.433008, 36.636621], [129.44502, 36.470703], [129.392578, 36.322705],
-    [129.403516, 36.052148], [129.458301, 36.006445], [129.572852, 36.050537],
-    [129.561719, 35.947656], [129.419141, 35.497852], [129.21416, 35.181836],
-    [128.980078, 35.101514], [128.642578, 35.11958], [128.510938, 35.100977],
-    [128.418848, 35.015674], [128.443945, 34.870361], [128.094531, 34.933594],
-    [128.03623, 35.021973], [127.873242, 34.966309], [127.714844, 34.954687],
-    [127.639355, 34.889697], [127.742188, 34.782568], [127.71543, 34.721045],
-    [127.632422, 34.690234], [127.523633, 34.840088], [127.404297, 34.823096],
-    [127.389648, 34.743018], [127.479102, 34.625244], [127.324609, 34.463281],
-    [127.173438, 34.546143], [127.194922, 34.605029], [127.260547, 34.66167],
-    [127.24707, 34.755127], [127.030762, 34.606885], [126.897461, 34.438867],
-    [126.82627, 34.451074], [126.754785, 34.511865], [126.61084, 34.403516],
-    [126.584375, 34.317529], [126.531445, 34.314258], [126.481738, 34.493945],
-    [126.332617, 34.589648], [126.264453, 34.673242], [126.301074, 34.719971],
-    [126.524512, 34.6979], [126.472852, 34.756348], [126.593359, 34.824365],
-    [126.420703, 34.823389], [126.397852, 34.932812], [126.291113, 35.15415],
-    [126.360547, 35.216895], [126.492773, 35.50127], [126.614062, 35.570996],
-    [126.486523, 35.606348], [126.488477, 35.64707], [126.717383, 35.768848],
-    [126.753027, 35.871973], [126.647461, 35.922412], [126.693457, 36.01416],
-    [126.54043, 36.166162], [126.548242, 36.477637], [126.487695, 36.693799],
-    [126.38877, 36.651172], [126.180859, 36.691602], [126.160547, 36.771924],
-    [126.217188, 36.870947], [126.487012, 37.007471], [126.577734, 37.01958],
-    [126.686719, 36.960352], [126.784473, 36.948437], [126.87207, 36.824463],
-    [126.879102, 36.862061], [126.976855, 36.939404], [126.868945, 36.975732],
-    [126.746387, 37.193555], [126.790527, 37.294922], [126.650293, 37.447119],
-    [126.656836, 37.551172], [126.563379, 37.716504], [126.633887, 37.781836],
-  ],
-  [[128.741016, 34.798535], [128.64668, 34.736865], [128.489258, 34.865283], [128.667969, 35.008789], [128.721875, 35.013574], [128.741016, 34.798535]],
-  [[128.06582, 34.805859], [128.054688, 34.708057], [127.983984, 34.703223], [127.941797, 34.76626], [127.873438, 34.734961], [127.832227, 34.874512], [127.91543, 34.920996], [128.037988, 34.878613], [128.06582, 34.805859]],
-  [[126.233691, 34.370508], [126.169727, 34.355176], [126.108594, 34.39873], [126.122852, 34.443945], [126.247461, 34.56333], [126.343848, 34.544922], [126.379883, 34.497949], [126.335449, 34.426416], [126.233691, 34.370508]],
-  [[126.520703, 37.736816], [126.516016, 37.604687], [126.46084, 37.610352], [126.407227, 37.649414], [126.369336, 37.772021], [126.411621, 37.822656], [126.493555, 37.782568], [126.520703, 37.736816]],
-  [[126.753027, 34.343994], [126.769922, 34.296436], [126.689063, 34.30542], [126.646094, 34.351123], [126.651855, 34.390332], [126.7, 34.395898], [126.753027, 34.343994]],
-  [[127.799023, 34.615039], [127.787793, 34.584082], [127.737305, 34.630908], [127.787109, 34.682129], [127.799023, 34.615039]],
-  [[126.417578, 36.492578], [126.403809, 36.427881], [126.3375, 36.470557], [126.318555, 36.612549], [126.386621, 36.571143], [126.417578, 36.492578]],
-  [[126.171973, 34.731152], [126.158789, 34.706982], [126.115234, 34.714209], [126.052051, 34.837549], [126.00752, 34.86748], [126.078418, 34.914844], [126.168555, 34.829687], [126.171973, 34.731152]],
-  [[130.916016, 37.478467], [130.870605, 37.44873], [130.810254, 37.509912], [130.903711, 37.553711], [130.934277, 37.529736], [130.916016, 37.478467]],
-  [[126.326953, 33.223633], [126.240234, 33.214844], [126.165625, 33.312012], [126.199414, 33.368066], [126.337695, 33.4604], [126.695508, 33.549316], [126.901172, 33.515137], [126.93125, 33.443848], [126.872852, 33.341162], [126.581738, 33.23833], [126.326953, 33.223633]],
-]
+  useEffect(() => {
+    let cancelled = false
+    import('../assets/skorea-provinces.json').then((module) => {
+      if (!cancelled) setGeography(module.default as unknown as GeoJsonObject)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
-const KOREA_REGION_LINES: Array<Array<[number, number]>> = [
-  [[37.77, 126.72], [37.52, 127.02], [37.32, 127.42], [37.45, 128.02], [37.64, 128.92]],
-  [[37.18, 126.62], [36.94, 127.18], [36.82, 127.78], [36.92, 128.52], [37.08, 129.36]],
-  [[36.42, 126.49], [36.52, 127.06], [36.34, 127.54], [36.45, 128.22], [36.29, 129.50]],
-  [[35.79, 126.45], [35.94, 127.12], [35.72, 127.62], [35.89, 128.25], [35.70, 129.45]],
-  [[35.18, 126.08], [35.37, 126.82], [35.29, 127.47], [35.44, 128.10], [35.14, 129.17]],
-  [[38.44, 127.28], [37.86, 127.42], [37.28, 127.56], [36.72, 127.44], [36.22, 127.62], [35.70, 127.48], [34.65, 127.54]],
-]
-
-function projectGeo(latitude: number, longitude: number): Point {
-  return {
-    // 카드 안에서 경로와 마커가 충분한 간격을 갖도록 대한민국 영역을 확대해 투영한다.
-    x: 500 + (longitude - 127.65) * 94,
-    y: 10 + ((38.75 - latitude) / (38.75 - 33.1)) * 590,
-  }
-}
-
-function geoPath(points: Array<[number, number]>, close = false): string {
-  const commands = points.map(([latitude, longitude], index) => {
-    const point = projectGeo(latitude, longitude)
-    return `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`
-  })
-  return `${commands.join(' ')}${close ? ' Z' : ''}`
-}
-
-function geoJsonPath(points: Array<[number, number]>): string {
-  const commands = points.map(([longitude, latitude], index) => {
-    const point = projectGeo(latitude, longitude)
-    return `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`
-  })
-  return `${commands.join(' ')} Z`
-}
-
-function KoreaMapBackdrop() {
   return (
     <g className="journey-map-backdrop" aria-hidden="true">
-      <rect width="1000" height="620" rx="24" />
-      {KOREA_SHAPES.map((shape, index) => (
-        <path
-          key={index}
-          className={index === 0 ? 'journey-map-backdrop__mainland' : 'journey-map-backdrop__island'}
-          d={geoJsonPath(shape)}
-        />
-      ))}
-      <g className="journey-map-backdrop__lines">
-        {KOREA_REGION_LINES.map((line, index) => <path key={index} d={geoPath(line)} />)}
-      </g>
+      <rect width={MAP_VIEW_WIDTH} height={MAP_VIEW_HEIGHT} rx="24" />
+      {geography && (
+        <Geographies geography={geography}>
+          {({ geographies }) =>
+            geographies.map((geo) => (
+              <Geography
+                key={geo.rsmKey}
+                geography={geo}
+                tabIndex={-1}
+                className="journey-map-backdrop__geo"
+              />
+            ))
+          }
+        </Geographies>
+      )}
     </g>
   )
 }
@@ -1034,6 +1002,20 @@ function FlowBackdrop() {
   return (
     <g className="journey-flow-backdrop" aria-hidden="true">
       <rect width="1000" height="620" rx="24" />
+      {STAGE_ORDER.map((stage, index) => (
+        <g
+          key={stage}
+          className="journey-flow-backdrop__stage"
+          style={{ '--stage-color': STAGE_META[stage].color } as CSSProperties}
+          transform={`translate(${24 + index * 205} 18)`}
+        >
+          <rect width="154" height="40" rx="20" />
+          <g className="journey-flow-backdrop__icon" transform="translate(12 8)">
+            {stageIcon(stage, 24)}
+          </g>
+          <text x="88" y="26" textAnchor="middle">{index + 1}. {STAGE_LABEL[stage]}</text>
+        </g>
+      ))}
     </g>
   )
 }

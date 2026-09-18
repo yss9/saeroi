@@ -14,6 +14,7 @@ const product: PublicProductModel = {
   productModelId: 1, name: '테스트 데님 백', brandName: '테스트 브랜드', brandId: 2,
   category: 'BAG', subcategory: 'TOTE', price: 129000, description: '테스트 상품',
   thumbnailUrl: '/api/v1/public/product-models/1/thumbnail', status: 'ON_SALE', stockQuantity: 0, createdAt: '2026-09-17',
+  journeyUrl: null,
 }
 const catalog: PageResponse<PublicProductModel> = { content: [product], page: 0, size: 12, totalElements: 1, totalPages: 1, hasNext: false }
 
