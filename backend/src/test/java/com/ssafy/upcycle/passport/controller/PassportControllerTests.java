@@ -561,11 +561,11 @@ class PassportControllerTests {
                 null,
                 null,
                 firstSupplier.getId()));
-        Material lining = materialRepository.save(Material.register(
+        Material wool = materialRepository.save(Material.register(
                 "MAT-PASSPORT-B",
-                MaterialType.LINING,
+                MaterialType.WOOL,
                 MaterialRootOrigin.WASTE,
-                "재사용 안감",
+                "재사용 울",
                 null,
                 "A",
                 4_000,
@@ -596,7 +596,7 @@ class PassportControllerTests {
         Material processedDenim = processMaterial(
                 denim, firstProcessor, "JOB-PASSPORT-A", 1L, ProcessType.CLEANING);
         Material processedLining = processMaterial(
-                lining, secondProcessor, "JOB-PASSPORT-B", 2L, ProcessType.SORTING);
+                wool, secondProcessor, "JOB-PASSPORT-B", 2L, ProcessType.SORTING);
         materialCompositionRepository.save(MaterialComposition.of(
                 processedDenim.getId(), "COTTON", new BigDecimal("100.00")));
         materialCompositionRepository.save(MaterialComposition.of(
