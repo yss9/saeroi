@@ -90,6 +90,17 @@ afterEach(() => {
 })
 
 describe('ConsumerOrderList', () => {
+  it('결제 대기 주문은 목록에서 결제 확인 화면으로 연결한다', () => {
+    renderList([order({ status: 'PAYMENT_PENDING' })])
+    expect(screen.getByRole('link', { name: '결제하기' })).toHaveAttribute('href', '/orders/12/checkout')
+    expect(screen.getByRole('button', { name: '주문 취소' })).toBeInTheDocument()
+  })
+  it('결제 대기 묶음 주문도 결제와 전체 취소 진입점을 제공한다', () => {
+    renderList([order({ status: 'PAYMENT_PENDING', orderGroupCode: 'CHANGED-CODE' })])
+    expect(screen.getByRole('link', { name: '결제하기' })).toHaveAttribute('href', '/orders/12/checkout')
+    expect(screen.getByRole('link', { name: '주문 전체 취소' })).toHaveAttribute('href', '/orders/12/checkout?action=cancel')
+    expect(api.cancelProductOrder).not.toHaveBeenCalled()
+  })
   it('묶음 주문은 코드를 표시하고 개별 취소를 막는다', () => {
     renderList([order({ status: 'PREPARING', orderGroupCode: 'ORG-3' })])
     expect(screen.getByText(/주문 번호 ORG-3/)).toBeInTheDocument()
