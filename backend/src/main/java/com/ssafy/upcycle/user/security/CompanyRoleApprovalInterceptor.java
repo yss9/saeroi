@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -18,6 +19,10 @@ import org.springframework.web.servlet.HandlerInterceptor;
 /** 관리자 승인이 끝나기 전 사업자 계정의 업무 API 사용을 한 곳에서 차단한다. */
 @Component
 @RequiredArgsConstructor
+@ConditionalOnProperty(
+        name = "app.company-role-approval-guard.enabled",
+        havingValue = "true",
+        matchIfMissing = true)
 public class CompanyRoleApprovalInterceptor implements HandlerInterceptor {
 
     private static final List<String> BUSINESS_ROLES = List.of(
