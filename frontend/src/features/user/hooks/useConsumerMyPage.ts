@@ -128,7 +128,7 @@ export function toConsumerMyPageData(
  * 필드 이름이 다르다 (`receiverName` ↔ `recipientName`). 화면이 Backend DTO 를 직접 쓰지
  * 않기로 한 규칙 때문인데, 그 덕에 응답이 바뀌어도 카드 컴포넌트는 그대로다.
  */
-function toAddressSummary(address: ConsumerAddress | undefined): ConsumerAddressSummary | null {
+export function toAddressSummary(address: ConsumerAddress | undefined): ConsumerAddressSummary | null {
   if (!address) return null
   return {
     id: address.addressId,

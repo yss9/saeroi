@@ -1,19 +1,21 @@
 .consumer-mypage {
-  --consumer-cream: #e5d7bd;
-  --consumer-cream-soft: #f5efe4;
-  --consumer-blue: #216a9f;
-  --consumer-blue-dark: #194f78;
-  --consumer-orange: #ff9b69;
+  --ui-color-primary: var(--brand-blue);
+  --ui-color-primary-soft: var(--paper-warm);
+  --ui-color-text: var(--ink);
+  --ui-color-muted: var(--muted);
+  --ui-color-border: var(--line);
+  --ui-color-bg: var(--paper);
+  --ui-color-surface: var(--paper);
+  --ui-radius: 0px;
+  --ui-radius-sm: 0px;
+  --ui-shadow: none;
   --consumer-star-yellow: #ffc107;
-  --consumer-ink: #172033;
-  --consumer-muted: #667085;
-  --consumer-line: #e6dfd3;
   min-height: 100vh;
-  color: var(--consumer-ink);
-  background: #faf8f3;
+  color: var(--ink);
+  background: var(--paper);
 }
 
-.consumer-mypage a {
+.consumer-mypage-main a {
   color: inherit;
   text-decoration: none;
 }
@@ -26,7 +28,7 @@
   padding: 10px 14px;
   border-radius: 6px;
   color: #fff !important;
-  background: var(--consumer-blue-dark);
+  background: var(--deep-blue);
   transform: translateY(-150%);
 }
 
@@ -34,134 +36,7 @@
   transform: translateY(0);
 }
 
-.consumer-account-header {
-  position: sticky;
-  z-index: 20;
-  top: 0;
-  border-bottom: 1px solid rgb(23 32 51 / 0.08);
-  background: rgb(255 255 255 / 0.96);
-  backdrop-filter: blur(14px);
-}
-
-.consumer-account-header__inner {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  width: min(1180px, calc(100% - 48px));
-  min-height: 76px;
-  margin: 0 auto;
-}
-
-.consumer-account-header__brand {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.consumer-account-header__section-title {
-  padding-left: 14px;
-  border-left: 1px solid var(--consumer-line);
-  color: var(--consumer-ink);
-  font-size: 0.92rem;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.consumer-account-header__actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 20px;
-}
-
 /* 로그아웃 — 파란 소개 배너(2026-09-16 삭제)에 있던 버튼을 머리말로 옮겼다. */
-.consumer-account-header__signout {
-  display: inline-flex;
-  min-height: 38px;
-  align-items: center;
-  gap: 7px;
-  padding: 7px 14px;
-  border: 1px solid var(--consumer-line);
-  border-radius: 999px;
-  color: var(--consumer-ink, #17203a);
-  font-size: 0.82rem;
-  font-weight: 700;
-  background: #fff;
-  cursor: pointer;
-  transition: background-color 160ms ease, color 160ms ease;
-}
-
-.consumer-account-header__signout:hover,
-.consumer-account-header__signout:focus-visible {
-  color: var(--consumer-blue);
-  background: var(--consumer-cream-soft);
-}
-
-.consumer-account-header__signout:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.consumer-account-header__signout svg {
-  width: 16px;
-  height: 16px;
-}
-
-.consumer-account-header__signout-error {
-  width: min(1180px, calc(100% - 48px));
-  margin: 0 auto;
-  padding: 8px 0;
-  color: var(--consumer-danger, #c0392b);
-  font-size: 0.8rem;
-}
-
-.consumer-account-header__logo {
-  display: inline-flex;
-  width: 112px;
-  min-height: 44px;
-  align-items: center;
-}
-
-.consumer-account-header__logo img {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
-.consumer-account-header__navigation {
-  display: flex;
-  justify-content: center;
-  gap: clamp(24px, 4vw, 52px);
-  font-size: 0.9rem;
-  font-weight: 600;
-}
-
-.consumer-account-header__navigation a,
-.consumer-account-header__shop-link {
-  transition: color 160ms ease;
-}
-
-.consumer-account-header__navigation a:hover,
-.consumer-account-header__navigation a:focus-visible,
-.consumer-account-header__shop-link:hover,
-.consumer-account-header__shop-link:focus-visible {
-  color: var(--consumer-blue);
-}
-
-.consumer-account-header__shop-link {
-  display: inline-flex;
-  min-height: 44px;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  font-size: 0.875rem;
-  font-weight: 700;
-}
-
-.consumer-account-header__shop-link svg {
-  width: 21px;
-  height: 21px;
-}
 
 .consumer-mypage-main,
 .consumer-mypage-status {
@@ -179,13 +54,13 @@
   align-items: center;
   gap: 10px;
   padding: 16px 0;
-  color: var(--consumer-muted);
+  color: var(--muted);
   font-size: 0.82rem;
 }
 
 .consumer-section-heading__eyebrow {
   margin: 0 0 9px;
-  color: var(--consumer-orange);
+  color: var(--brand-orange);
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.15em;
@@ -203,8 +78,8 @@
   position: sticky;
   top: 110px;
   overflow: hidden;
-  border: 1px solid var(--consumer-line);
-  border-radius: 16px;
+  border: 1px solid var(--line);
+  border-radius: 0;
   background: #fff;
 }
 
@@ -212,13 +87,13 @@
   display: flex;
   flex-direction: column;
   padding: 27px 24px 22px;
-  border-bottom: 1px solid var(--consumer-line);
-  background: var(--consumer-cream-soft);
+  border-bottom: 1px solid var(--line);
+  background: var(--paper-warm);
 }
 
 .consumer-account-sidebar > div:first-child p {
   margin: 0 0 15px;
-  color: var(--consumer-blue);
+  color: var(--brand-blue);
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.14em;
@@ -232,7 +107,7 @@
 
 .consumer-account-sidebar > div:first-child span {
   overflow: hidden;
-  color: var(--consumer-muted);
+  color: var(--muted);
   font-size: 0.8rem;
   text-overflow: ellipsis;
   /* 긴 이메일은 줄바꿈 대신 한 줄에서 말줄임으로 자른다. */
@@ -251,8 +126,8 @@
   align-items: center;
   gap: 11px;
   padding: 10px 13px;
-  border-radius: 9px;
-  color: #4a5568;
+  border-radius: 0;
+  color: var(--ink);
   font-size: 0.9rem;
   font-weight: 600;
 }
@@ -260,8 +135,8 @@
 .consumer-account-sidebar nav a:hover,
 .consumer-account-sidebar nav a:focus-visible,
 .consumer-account-sidebar nav a[aria-current='page'] {
-  color: var(--consumer-blue-dark);
-  background: #edf5fa;
+  color: var(--deep-blue);
+  background: var(--paper-warm);
 }
 
 .consumer-account-sidebar nav svg {
@@ -272,12 +147,12 @@
 .consumer-account-sidebar__group + .consumer-account-sidebar__group {
   margin-top: 14px;
   padding-top: 14px;
-  border-top: 1px solid var(--consumer-line);
+  border-top: 1px solid var(--line);
 }
 
 .consumer-account-sidebar__group-label {
   margin: 4px 13px 6px;
-  color: var(--consumer-muted);
+  color: var(--muted);
   font-size: 0.7rem;
   font-weight: 800;
   letter-spacing: 0.1em;
@@ -292,10 +167,10 @@
 
 .consumer-mypage-card {
   padding: clamp(23px, 3vw, 34px);
-  border: 1px solid var(--consumer-line);
-  border-radius: 16px;
+  border: 1px solid var(--line);
+  border-radius: 0;
   background: #fff;
-  box-shadow: 0 10px 30px rgb(23 32 51 / 0.04);
+  box-shadow: none;
 }
 
 .consumer-section-heading {
@@ -317,7 +192,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: var(--consumer-blue) !important;
+  color: var(--brand-blue) !important;
   font-size: 0.83rem;
   font-weight: 700;
 }
@@ -329,21 +204,21 @@
 
 .consumer-order-detail__ordered-at {
   margin: -14px 0 20px;
-  color: var(--consumer-muted);
+  color: var(--muted);
   font-size: 0.82rem;
 }
 
 .consumer-section-heading__note {
-  color: var(--consumer-muted);
+  color: var(--muted);
   font-size: 0.78rem;
 }
 
 /* 주문 내역 정렬 — "최신순" 고정 문구였던 자리에 4가지를 고를 수 있는 드롭다운을 둔다. */
 .consumer-sort-select {
   padding: 6px 10px;
-  border: 1px solid var(--consumer-line);
+  border: 1px solid var(--line);
   border-radius: 8px;
-  color: var(--consumer-muted);
+  color: var(--muted);
   font-size: 0.78rem;
   font-weight: 600;
   background: #fff;
@@ -352,7 +227,7 @@
 
 .consumer-sort-select:hover,
 .consumer-sort-select:focus-visible {
-  color: var(--consumer-blue);
+  color: var(--brand-blue);
 }
 
 .consumer-recent-orders {
@@ -366,8 +241,8 @@
   그 아래 제품별 작은 박스(consumer-order-item)를 늘어세운다.
 */
 .consumer-order-group {
-  border: 1px solid var(--consumer-line);
-  border-radius: 16px;
+  border: 1px solid var(--line);
+  border-radius: 0;
   overflow: hidden;
 }
 
@@ -377,7 +252,7 @@
   justify-content: space-between;
   gap: 12px;
   padding: 14px 20px;
-  background: var(--consumer-cream-soft);
+  background: var(--paper-warm);
   font-size: 0.82rem;
   font-weight: 700;
 }
@@ -390,7 +265,7 @@
 }
 
 .consumer-order-group__milestone {
-  color: var(--consumer-muted);
+  color: var(--muted);
   font-size: 0.78rem;
   font-weight: 500;
 }
@@ -399,7 +274,7 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  color: var(--consumer-blue);
+  color: var(--brand-blue);
   text-decoration: none;
 }
 
@@ -438,7 +313,7 @@
 }
 
 .consumer-order-item + .consumer-order-item {
-  border-top: 1px solid var(--consumer-line);
+  border-top: 1px solid var(--line);
 }
 
 .consumer-order-item__body {
@@ -451,9 +326,9 @@
   flex-shrink: 0;
   width: 84px;
   height: 84px;
-  border-radius: 12px;
+  border-radius: 0;
   overflow: hidden;
-  background: var(--consumer-cream-soft);
+  background: var(--paper-warm);
 }
 
 .consumer-order-item__thumbnail img,
@@ -474,7 +349,7 @@
 
 .consumer-order-item__brand {
   margin: 0 0 5px;
-  color: var(--consumer-blue);
+  color: var(--brand-blue);
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -493,13 +368,13 @@
   align-items: baseline;
   gap: 5px;
   margin: 0;
-  color: var(--consumer-ink);
+  color: var(--ink);
   font-size: 1.05rem;
   font-weight: 800;
 }
 
 .consumer-order-item__price span {
-  color: var(--consumer-muted);
+  color: var(--muted);
   font-size: 0.9rem;
   font-weight: 600;
 }
@@ -515,7 +390,7 @@
 }
 
 .consumer-order-item__journey-disabled {
-  color: var(--consumer-muted);
+  color: var(--muted);
   font-size: 0.76rem;
 }
 
@@ -529,12 +404,12 @@
 .consumer-order-detail__section {
   margin-top: 20px;
   padding-top: 16px;
-  border-top: 1px solid var(--consumer-line);
+  border-top: 1px solid var(--line);
 }
 
 .consumer-order-detail__section-title {
   margin: 0 0 10px;
-  color: var(--consumer-muted);
+  color: var(--muted);
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.06em;
@@ -549,7 +424,7 @@
 
 .consumer-order-detail__info-grid dt {
   margin: 0 0 2px;
-  color: var(--consumer-muted);
+  color: var(--muted);
   font-size: 0.76rem;
 }
 
@@ -568,7 +443,7 @@
   gap: 12px;
   margin-top: 20px;
   padding-top: 16px;
-  border-top: 1px solid var(--consumer-line);
+  border-top: 1px solid var(--line);
 }
 
 .consumer-order-detail__receipt-action .ui-button svg {
@@ -586,14 +461,14 @@
 .consumer-shipping-modal__address {
   margin: 0;
   padding-top: 14px;
-  border-top: 1px solid var(--consumer-line);
+  border-top: 1px solid var(--line);
   font-size: 0.85rem;
   line-height: 1.6;
 }
 
 .consumer-shipping-modal__address-title {
   margin: 0 0 4px;
-  color: var(--consumer-muted);
+  color: var(--muted);
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.06em;
@@ -606,7 +481,7 @@
 .consumer-address-card .consumer-section-heading > svg {
   width: 30px;
   height: 30px;
-  color: var(--consumer-blue);
+  color: var(--brand-blue);
 }
 
 .consumer-address-card__content {
@@ -615,8 +490,8 @@
   gap: 16px 26px;
   align-items: start;
   padding: 22px;
-  border-radius: 12px;
-  background: var(--consumer-cream-soft);
+  border-radius: 0;
+  background: var(--paper-warm);
 }
 
 .consumer-address-card__content > div:first-child {
@@ -629,8 +504,8 @@
   width: fit-content;
   padding: 4px 8px;
   border-radius: 999px;
-  color: var(--consumer-blue-dark);
-  background: #dbeaf4;
+  color: var(--deep-blue);
+  background: var(--paper-warm);
   font-size: 0.68rem;
   font-weight: 800;
 }
@@ -646,52 +521,17 @@
 
 .consumer-address-card__content address span:last-child {
   margin-top: 4px;
-  color: var(--consumer-muted);
+  color: var(--muted);
 }
 
 .consumer-address-card__content > p {
   grid-column: 2;
   margin: 0;
-  color: var(--consumer-muted);
+  color: var(--muted);
   font-size: 0.72rem;
 }
 
-.consumer-account-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 30px;
-  padding: 38px max(24px, calc((100% - 1180px) / 2));
-  border-top: 1px solid var(--consumer-line);
-  color: var(--consumer-muted);
-  background: #f1eadf;
-  font-size: 0.75rem;
-}
-
-.consumer-account-footer > div {
-  display: flex;
-  align-items: center;
-  gap: 22px;
-}
-
-.consumer-account-footer img {
-  display: block;
-  width: 96px;
-  height: auto;
-}
-
-.consumer-account-footer p {
-  margin: 0;
-}
-
 @media (max-width: 900px) {
-  .consumer-account-header__inner {
-    grid-template-columns: 1fr auto;
-  }
-
-  .consumer-account-header__navigation {
-    display: none;
-  }
 
   .consumer-mypage-layout {
     grid-template-columns: 1fr;
@@ -721,37 +561,12 @@
 }
 
 @media (max-width: 680px) {
-  .consumer-account-header__inner,
   .consumer-mypage-main,
   .consumer-mypage-status {
     width: min(100% - 30px, 1180px);
   }
 
-  .consumer-account-header__inner {
-    min-height: 66px;
-  }
-
   /* 좁은 화면에서는 로고 자리도 빠듯하다 — 옆의 문구까지 끼워 넣지 않는다. */
-  .consumer-account-header__section-title {
-    display: none;
-  }
-
-  .consumer-account-header__logo {
-    width: 94px;
-  }
-
-  .consumer-account-header__shop-link span {
-    display: none;
-  }
-
-  .consumer-account-header__actions {
-    gap: 10px;
-  }
-
-  .consumer-account-header__signout {
-    padding: 6px 10px;
-    font-size: 0.76rem;
-  }
 
   .consumer-mypage-layout {
     gap: 18px;
@@ -775,7 +590,7 @@
 
   .consumer-mypage-card {
     padding: 22px 18px;
-    border-radius: 14px;
+    border-radius: 0;
   }
 
   .consumer-section-heading {
@@ -812,24 +627,9 @@
   .consumer-address-card__content > p {
     grid-column: 1;
   }
-
-  .consumer-account-footer {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .consumer-account-footer > div {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 12px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .consumer-account-header__navigation a,
-  .consumer-account-header__shop-link {
-    transition: none;
-  }
 }
 
 /* ── 배송 현황 (주문 내역) ────────────────────────────── */
@@ -853,10 +653,10 @@
   gap: 2px;
   font-size: 0.75rem;
   /* 아직 오지 않은 단계도 지우지 않는다. 안 보이면 지금이 마지막인지 알 수 없다. */
-  color: #9ca3af;
+  color: var(--muted);
 }
 
-.consumer-order-progress li.is-done { color: var(--consumer-blue-dark, #1f4d6b); }
+.consumer-order-progress li.is-done { color: var(--deep-blue); }
 
 /* 송장. 번호는 눈으로 옮겨 적는 값이라 고정폭으로 둔다. 잘 안 보인다는 피드백으로
    글자 크기를 키웠다(2026-09-17). */
@@ -871,7 +671,7 @@
 .consumer-order-tracking__label {
   font-weight: 700;
   letter-spacing: 0.04em;
-  color: #8fa3b3;
+  color: var(--muted);
 }
 .consumer-order-tracking code {
   font-family: ui-monospace, Menlo, monospace;
@@ -908,14 +708,14 @@
   text-align: center;
   gap: 2px;
   padding: 8px 6px;
-  border: 1px solid var(--consumer-line);
-  border-radius: 10px;
-  background: var(--consumer-cream-soft);
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--paper-warm);
   font-size: 0.72rem;
 }
 
 .consumer-order-detail__progress .consumer-order-progress li.is-done {
-  border-color: var(--consumer-blue-dark, #1f4d6b);
+  border-color: var(--deep-blue);
   background: #fff;
 }
 
@@ -935,7 +735,7 @@
   transform: translateY(-50%);
   border-top: 6px solid transparent;
   border-bottom: 6px solid transparent;
-  border-left: 8px solid var(--consumer-muted);
+  border-left: 8px solid var(--muted);
 }
 
 /* 좁은 화면에서는 네 칸이 한 줄에 눌리므로 두 칸씩 줄바꿈하고 화살표는 숨긴다.
@@ -969,7 +769,7 @@
   margin-top: 20px;
   padding: 20px;
   border: 1px solid #e4e9ee;
-  border-radius: 14px;
+  border-radius: 0;
   background: #fff;
 }
 
@@ -987,7 +787,7 @@
 .purchase-panel__empty { margin: 0; font-size: 0.85rem; line-height: 1.6; }
 /* 못 사는 이유. 버튼만 잠그면 사용자는 자기가 뭘 잘못했다고 생각한다. */
 .purchase-panel__blocked { margin: 0; font-size: 0.83rem; color: #8a4b0b; }
-.purchase-panel__note { margin: 0; font-size: 0.78rem; line-height: 1.6; color: #6b7280; }
+.purchase-panel__note { margin: 0; font-size: 0.78rem; line-height: 1.6; color: var(--muted); }
 .purchase-panel__done { margin: 0; font-size: 0.88rem; color: #1f6f4a; font-weight: 600; }
 
 /* ── 내 프로필 카드 ───────────────────────────────────── */
@@ -1005,7 +805,7 @@
   font-size: 0.74rem;
   font-weight: 700;
   letter-spacing: 0.04em;
-  color: #8fa3b3;
+  color: var(--muted);
 }
 
 .consumer-profile-card__fields dd { margin: 0; font-size: 0.88rem; line-height: 1.55; }
@@ -1018,7 +818,7 @@
 }
 
 /* 없는 값은 회색으로 낮춘다 — 등록된 값과 눈으로 갈려야 한다. */
-.consumer-profile-card__empty { color: #9ca3af; }
+.consumer-profile-card__empty { color: var(--muted); }
 
 /* -- 8개 신규 화면(2026-09-16, 프론트엔드 UI만) 공통 탭 -- */
 
@@ -1031,17 +831,17 @@
 
 .consumer-tabs__tab {
   padding: 9px 16px;
-  border: 1px solid var(--consumer-line);
+  border: 1px solid var(--line);
   border-radius: 999px;
   background: #fff;
-  color: var(--consumer-muted);
+  color: var(--muted);
   font-size: 0.84rem;
   font-weight: 700;
 }
 
 .consumer-tabs__tab.is-active {
-  border-color: var(--consumer-blue);
-  background: var(--consumer-blue);
+  border-color: var(--brand-blue);
+  background: var(--brand-blue);
   color: #fff;
 }
 
@@ -1053,8 +853,8 @@
 
 .consumer-cancellation-item {
   padding: 18px 20px;
-  border: 1px solid var(--consumer-line);
-  border-radius: 14px;
+  border: 1px solid var(--line);
+  border-radius: 0;
 }
 
 .consumer-cancellation-item__badges {
@@ -1070,7 +870,7 @@
 
 .consumer-cancellation-item__meta {
   margin: 0 0 6px;
-  color: var(--consumer-muted);
+  color: var(--muted);
   font-size: 0.8rem;
 }
 
@@ -1090,9 +890,9 @@
   gap: 16px;
   margin-bottom: 22px;
   padding: 16px 18px;
-  border: 1px solid var(--consumer-line);
-  border-radius: 12px;
-  background: var(--consumer-cream-soft);
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--paper-warm);
 }
 
 .consumer-receipt-search label {
@@ -1101,12 +901,12 @@
   gap: 6px;
   font-size: 0.78rem;
   font-weight: 700;
-  color: var(--consumer-muted);
+  color: var(--muted);
 }
 
 .consumer-receipt-search input[type=date] {
   padding: 8px 10px;
-  border: 1px solid var(--consumer-line);
+  border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
   font: inherit;
@@ -1124,19 +924,19 @@
   justify-content: space-between;
   gap: 16px;
   padding: 18px 20px;
-  border: 1px solid var(--consumer-line);
-  border-radius: 14px;
+  border: 1px solid var(--line);
+  border-radius: 0;
 }
 
 .consumer-receipt-item__meta {
   margin: 0 0 6px;
-  color: var(--consumer-muted);
+  color: var(--muted);
   font-size: 0.78rem;
 }
 
 .consumer-receipt-item__brand {
   margin: 0 0 4px;
-  color: var(--consumer-blue);
+  color: var(--brand-blue);
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.06em;
@@ -1169,9 +969,9 @@
   width: 100%;
   aspect-ratio: 1;
   margin-bottom: 10px;
-  border-radius: 12px;
+  border-radius: 0;
   overflow: hidden;
-  background: var(--consumer-cream-soft);
+  background: var(--paper-warm);
 }
 
 .consumer-wishlist-card__thumbnail > span,
@@ -1203,7 +1003,7 @@
 
 .consumer-wishlist-card__brand {
   margin: 0 0 4px;
-  color: var(--consumer-blue);
+  color: var(--brand-blue);
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.06em;
@@ -1227,9 +1027,9 @@
   width: 160px;
   height: 160px;
   margin-bottom: 10px;
-  border-radius: 12px;
+  border-radius: 0;
   overflow: hidden;
-  background: var(--consumer-cream-soft);
+  background: var(--paper-warm);
 }
 
 .consumer-recently-viewed-card__thumbnail > span,
@@ -1245,7 +1045,7 @@
 
 .consumer-recently-viewed-card__brand {
   margin: 0 0 4px;
-  color: var(--consumer-blue);
+  color: var(--brand-blue);
   font-size: 0.66rem;
   font-weight: 800;
   letter-spacing: 0.06em;
@@ -1262,7 +1062,7 @@
 .consumer-recently-viewed-card__price { margin: 0 0 4px; font-weight: 800; font-size: 0.9rem; }
 
 .consumer-recently-viewed-card__viewed-at {
-  color: var(--consumer-muted);
+  color: var(--muted);
   font-size: 0.72rem;
 }
 
@@ -1281,9 +1081,9 @@
   align-items: flex-start;
   gap: 14px;
   padding: 24px;
-  border: 1px solid var(--consumer-line);
-  border-radius: 12px;
-  background: var(--consumer-cream-soft);
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--paper-warm);
 }
 
 .consumer-inquiry-list {
@@ -1295,7 +1095,7 @@
 /* 네모 틀 박스 대신 밑줄로 구분한다(2026-09-17) — 마지막 항목 아래는 선을 긋지 않는다. */
 .consumer-inquiry-item:not(:last-child) {
   padding-bottom: 14px;
-  border-bottom: 1px solid var(--consumer-line);
+  border-bottom: 1px solid var(--line);
 }
 
 .consumer-inquiry-item__summary {
@@ -1320,7 +1120,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--consumer-muted);
+  color: var(--muted);
   font-size: 0.78rem;
   font-weight: 700;
 }
@@ -1330,7 +1130,7 @@
   flex-shrink: 0;
   width: 16px;
   height: 16px;
-  color: var(--consumer-blue);
+  color: var(--brand-blue);
   transition: transform 0.15s ease;
 }
 
@@ -1340,7 +1140,7 @@
 
 .consumer-inquiry-item__product {
   margin: 0 0 4px;
-  color: var(--consumer-blue);
+  color: var(--brand-blue);
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.05em;
@@ -1352,7 +1152,7 @@
 }
 
 .consumer-inquiry-item__summary time {
-  color: var(--consumer-muted);
+  color: var(--muted);
   font-size: 0.76rem;
 }
 
@@ -1360,21 +1160,21 @@
    영역과 같은 흰 배경을 쓰고, 구분선과 "답변" 라벨만으로 영역을 나눈다. */
 .consumer-inquiry-item__answer {
   padding: 16px 20px;
-  border-top: 1px solid var(--consumer-line);
+  border-top: 1px solid var(--line);
   font-size: 0.88rem;
   line-height: 1.6;
 }
 
 .consumer-inquiry-item__answer-label {
   margin: 0 0 6px;
-  color: var(--consumer-blue);
+  color: var(--brand-blue);
   font-size: 0.76rem;
   font-weight: 800;
   letter-spacing: 0.05em;
 }
 
 .consumer-inquiry-item__answer p { margin: 0; }
-.consumer-inquiry-item__answer-waiting { color: var(--consumer-muted); }
+.consumer-inquiry-item__answer-waiting { color: var(--muted); }
 
 .consumer-review-list {
   display: flex;
@@ -1384,22 +1184,22 @@
 
 .consumer-review-item {
   padding: 18px 20px;
-  border: 1px solid var(--consumer-line);
-  border-radius: 14px;
+  border: 1px solid var(--line);
+  border-radius: 0;
 }
 
 .consumer-review-item__brand {
   margin: 0 0 4px;
-  color: var(--consumer-blue);
+  color: var(--brand-blue);
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.06em;
 }
 
 .consumer-review-item h3 { margin: 0 0 6px; font-size: 1rem; }
-.consumer-review-item__order { margin: 0 0 10px; color: var(--consumer-muted); font-size: 0.78rem; }
+.consumer-review-item__order { margin: 0 0 10px; color: var(--muted); font-size: 0.78rem; }
 .consumer-review-item__content { margin: 8px 0 0; font-size: 0.9rem; line-height: 1.55; }
-.consumer-review-item time { display: block; margin-top: 8px; color: var(--consumer-muted); font-size: 0.74rem; }
+.consumer-review-item time { display: block; margin-top: 8px; color: var(--muted); font-size: 0.74rem; }
 
 .consumer-review-stars {
   display: inline-flex;
@@ -1436,7 +1236,7 @@
 .consumer-profile-edit__saved {
   margin: 0 0 18px;
   padding: 12px 16px;
-  border-radius: 10px;
+  border-radius: 0;
   background: #eaf6ee;
   color: #1f7a44;
   font-size: 0.86rem;
@@ -1453,7 +1253,7 @@
 
 .consumer-profile-edit__gate-notice {
   margin: 0;
-  color: var(--consumer-muted);
+  color: var(--muted);
   font-size: 0.86rem;
 }
 
@@ -1478,7 +1278,7 @@
   bottom: 0;
   left: 96px;
   width: 1px;
-  background: var(--consumer-line);
+  background: var(--line);
 }
 
 .consumer-profile-edit__field-row {
@@ -1486,7 +1286,7 @@
   align-items: stretch;
   gap: 16px;
   padding: 12px 0;
-  border-bottom: 1px solid var(--consumer-line);
+  border-bottom: 1px solid var(--line);
 }
 
 .consumer-profile-edit__field-row dt {
@@ -1495,7 +1295,7 @@
   align-items: center;
   justify-content: center;
   width: 96px;
-  color: var(--consumer-muted);
+  color: var(--muted);
   font-size: 0.86rem;
   font-weight: 700;
   text-align: center;
@@ -1533,7 +1333,7 @@ dd.consumer-profile-edit__field-edit {
   border: none;
   background: none;
   padding: 0;
-  color: var(--consumer-blue);
+  color: var(--brand-blue);
   font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
@@ -1561,4 +1361,337 @@ dd.consumer-profile-edit__field-edit {
    ".consumer-order-item--detail .consumer-order-item__thumbnail"와
    ".consumer-order-detail__progress ..." 블록)에 있다 — 예전에 같은 선택자가
    두 번 선언돼 있던 것을 여기서 정리했다(병합 중 중복 삽입, 서로 다른 속성이
-   섞여 화살표 모양이 깨져 있었다).
+   섞여 화살표 모양이 깨져 있었다). */
+
+/* Consumer account surfaces: shared storefront palette, compact information layout. */
+.consumer-mypage-main {
+  position: relative;
+  width: auto;
+  margin: 0 var(--page-gutter);
+  padding-top: 150px;
+}
+.consumer-mypage .site-header { color: var(--ink); background: var(--paper); border-bottom: 1px solid var(--line); }
+.consumer-mypage .ui-button--primary { color: #fff; background: var(--brand-blue); }
+.consumer-mypage .ui-button--primary:hover:not(:disabled) { background: var(--deep-blue); }
+.consumer-mypage .ui-button--secondary { color: var(--ink); }
+.consumer-profile-edit__gate { max-width: 600px; }
+.consumer-profile-edit__gate-notice { font-size: 13px; line-height: 1.7; white-space: nowrap; }
+.consumer-profile-edit__gate .ui-field { max-width: 360px; }
+.consumer-profile-edit__gate .ui-button { align-self: flex-start; min-width: 88px; }
+.consumer-mypage .consumer-sort-select {
+  width: auto;
+  min-height: 36px;
+  padding: 6px 24px 6px 4px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  background: transparent;
+  font: 500 12px/1.5 "Pretendard", sans-serif;
+  cursor: pointer;
+}
+.consumer-mypage .consumer-sort-select:hover { color: var(--ink); border-bottom-color: var(--ink); }
+.consumer-mypage .consumer-sort-select:focus { outline: none; box-shadow: none; }
+.consumer-mypage .consumer-sort-select option { color: var(--ink); background: var(--paper); }
+.consumer-mypage .consumer-order-item__actions .ui-button,
+.consumer-mypage .consumer-order-detail__receipt-action .ui-button {
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 36px;
+  padding: 6px 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+}
+.consumer-mypage .consumer-order-item__actions .ui-button:hover,
+.consumer-mypage .consumer-order-detail__receipt-action .ui-button:hover { color: var(--brand-blue); }
+.consumer-order-item__actions .ui-button svg { width: 16px; height: 16px; }
+.consumer-mypage .consumer-order-group__detail-link {
+  flex-shrink: 0;
+  justify-content: space-between;
+  width: 148px;
+  min-height: 36px;
+  gap: 12px;
+  padding: 6px 0;
+  box-sizing: border-box;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  text-align: left;
+}
+.consumer-mypage .consumer-order-group__detail-link svg { width: 16px; height: 16px; flex-shrink: 0; }
+.consumer-mypage .consumer-shipping-modal { gap: 24px; }
+.consumer-mypage .consumer-shipping-modal__address { font-size: 14px; line-height: 1.9; padding-top: 20px; }
+.consumer-mypage .consumer-shipping-modal__address-title { font-size: 12px; margin-bottom: 10px; }
+.consumer-mypage .consumer-order-progress,
+.consumer-mypage .consumer-order-detail__progress .consumer-order-progress {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin: 16px 0 12px;
+}
+.consumer-mypage .consumer-order-progress li,
+.consumer-mypage .consumer-order-detail__progress .consumer-order-progress li {
+  position: relative;
+  align-items: flex-start;
+  text-align: left;
+  gap: 8px;
+  padding: 14px 0 0;
+  border: 0;
+  border-top: 2px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.consumer-mypage .consumer-order-progress li.is-done,
+.consumer-mypage .consumer-order-detail__progress .consumer-order-progress li.is-done {
+  border-color: var(--brand-blue);
+  color: var(--ink);
+  background: transparent;
+}
+.consumer-mypage .consumer-order-progress li::after { content: none !important; }
+.consumer-mypage .consumer-order-detail__progress .consumer-order-progress li:not(:last-child) { margin-right: 0; }
+.consumer-mypage .consumer-order-progress__label { font-size: 14px; font-weight: 600; }
+.consumer-mypage .consumer-order-tracking { padding: 14px 0; border-top: 1px solid var(--line); font-size: 14px; gap: 8px; }
+@media (max-width: 680px) {
+  .consumer-profile-edit__gate-notice { white-space: normal; word-break: keep-all; }
+  .consumer-mypage .consumer-order-progress,
+  .consumer-mypage .consumer-order-detail__progress .consumer-order-progress { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+}
+.consumer-breadcrumb { position: absolute; top: 112px; margin: 0; padding: 0; flex-wrap: wrap; font-size: 12px; }
+.consumer-account-heading {
+  display: block;
+  margin: 0 0 42px;
+}
+.consumer-account-heading > p { margin: 0 0 18px; font: 500 10px "Inter", sans-serif; letter-spacing: .18em; }
+.consumer-account-heading h1 {
+  margin: 0;
+  font: 500 clamp(3.825rem, 9.18vw, 7.65rem)/.95 "Manrope", sans-serif;
+  letter-spacing: -.06em;
+}
+.consumer-account-heading > a { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; }
+.consumer-account-heading svg { width: 20px; height: 20px; }
+.consumer-mypage-layout { grid-template-columns: 230px minmax(0, 1fr); gap: clamp(28px, 4vw, 64px); padding: 0 0 80px; }
+.consumer-account-sidebar { border: 0; border-radius: 0; background: transparent; }
+.consumer-account-sidebar > div:first-child { padding: 0 0 20px; background: transparent; }
+.consumer-account-sidebar > div:first-child p { font: 600 20px/1.2 "Manrope", sans-serif; letter-spacing: -.025em; color: var(--ink); margin-bottom: 14px; }
+.consumer-account-sidebar nav { padding: 14px 0 0; }
+.consumer-account-sidebar nav a { min-height: 42px; padding: 9px 0; gap: 10px; border-radius: 0; color: var(--ink); font-size: 13px; font-weight: 500; }
+.consumer-account-sidebar nav a:hover,
+.consumer-account-sidebar nav a:focus-visible,
+.consumer-account-sidebar nav a[aria-current='page'] { color: var(--brand-blue); background: transparent; }
+.consumer-account-sidebar nav a[aria-current='page'] { font-weight: 700; }
+.consumer-account-sidebar nav svg { width: 23px; height: 23px; flex-shrink: 0; }
+.consumer-account-sidebar__group + .consumer-account-sidebar__group { margin-top: 12px; padding-top: 12px; }
+.consumer-account-sidebar__group-label { margin: 0 0 6px; font-size: 11px; }
+.consumer-mypage-card { padding: 24px 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: transparent; box-shadow: none; }
+.consumer-section-heading { margin-bottom: 24px; }
+.consumer-section-heading__eyebrow { color: var(--ink); font: 600 clamp(1.5rem, 2.8vw, 2.5rem)/1.1 "Manrope", sans-serif; letter-spacing: -.035em; margin-bottom: 10px; }
+.consumer-section-heading h2 { color: var(--muted); font-size: 14px; font-weight: 500; letter-spacing: 0; }
+.consumer-profile-card__fields { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 32px; }
+.consumer-profile-card__fields > div:last-child { grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: 20px; }
+.consumer-profile-card__fields dt { color: var(--muted); font-size: 12px; }
+.consumer-profile-card__fields dd { font-size: 16px; }
+.consumer-account-heading { margin-bottom: 56px; }
+.consumer-mypage-layout { border-top: 1px solid var(--line); padding-top: 28px; }
+.consumer-mypage-content > .consumer-mypage-card:first-child { border-top: 0; padding-top: 0; }
+.consumer-account-sidebar > div:first-child { border-bottom: 0; }
+.consumer-account-sidebar__group + .consumer-account-sidebar__group { border-top: 0; }
+.consumer-profile-card__fields dd .consumer-profile-card__empty { font-size: 13px; line-height: 1.6; }
+.consumer-mypage .address-form .ui-field__control { font-size: 13px; min-height: 40px; }
+.consumer-mypage .address-form .ui-field__hint { font-size: 11px; }
+.consumer-mypage .address-form .ui-field__label { font-size: 12px; }
+.consumer-mypage .address-form .consumer-signup__address-search > button { top: 25px; height: 30px; min-height: 30px; padding: 4px 8px; font-size: 12px; }
+.consumer-mypage .consumer-shipping-modal { gap: 12px; }
+.consumer-mypage .consumer-shipping-modal .consumer-order-tracking { margin-bottom: 0; padding: 12px 0; }
+.consumer-mypage .consumer-shipping-modal__address { padding-top: 12px; }
+.consumer-mypage .consumer-order-item--detail { padding: 0 0 12px; }
+.consumer-mypage .consumer-order-detail__section { margin-top: 12px; padding-top: 20px; }
+.consumer-mypage .consumer-order-detail__section-title { margin-bottom: 20px; font-size: 13px; color: var(--ink); }
+.consumer-mypage .consumer-order-detail__info-grid { gap: 20px 32px; }
+.consumer-mypage .consumer-order-detail__receipt-action { gap: 32px; flex-wrap: wrap; margin-top: 24px; padding-top: 16px; }
+.consumer-mypage :is(.consumer-recent-orders, .consumer-order-group, .consumer-address-card, .consumer-inquiry-card, .consumer-review-card, .consumer-review-draft, .consumer-cancellation-card, .consumer-cancellation-detail__info) { border-radius: 0; box-shadow: none; }
+.consumer-mypage .ui-button { min-height: 40px; font-size: 13px; font-weight: 500; border-radius: 0; }
+.consumer-sort-select { border-radius: 0; background: transparent; }
+
+@media (max-width: 900px) {
+  .consumer-mypage-layout { grid-template-columns: 1fr; gap: 28px; }
+  .consumer-account-sidebar { position: static; }
+  .consumer-account-sidebar nav { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; width: auto; }
+  .consumer-account-sidebar__group + .consumer-account-sidebar__group { margin: 0; padding: 0; border: 0; }
+  .consumer-account-sidebar nav a { justify-content: flex-start; white-space: normal; }
+  .consumer-account-sidebar nav svg { display: block; }
+}
+@media (max-width: 680px) {
+  .consumer-mypage-main { width: auto; padding-top: 130px; }
+  .consumer-breadcrumb { top: 96px; }
+  .consumer-account-heading { align-items: flex-start; flex-direction: column; margin: 0 0 30px; gap: 16px; }
+  .consumer-account-sidebar nav { grid-template-columns: 1fr; gap: 14px; }
+  .consumer-account-sidebar__group { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+  .consumer-account-sidebar__group-label { width: 100%; }
+  .consumer-account-sidebar nav a { min-height: 36px; padding: 4px 0; font-size: 12px; }
+  .consumer-account-sidebar nav svg { width: 20px; height: 20px; }
+  .consumer-mypage-card { padding: 20px 0; border-radius: 0; }
+  .consumer-profile-card__fields { grid-template-columns: 1fr; gap: 20px; }
+}
+
+/* Keep account forms and auxiliary screens within the storefront type system. */
+.consumer-mypage :is(p, h2, h3, dt, dd, label, input, textarea, select, button, code, time) {
+  font-family: "Pretendard", sans-serif;
+}
+.consumer-mypage .consumer-section-heading__eyebrow {
+  font-family: "Manrope", sans-serif;
+}
+.consumer-mypage :is(input, textarea, select):focus,
+.consumer-mypage :is(input, textarea, select):focus-visible {
+  outline: none;
+  box-shadow: none;
+  border-color: var(--brand-blue);
+}
+.consumer-mypage .consumer-account-sidebar__group-label {
+  margin-bottom: 10px;
+  color: #b87748;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+.consumer-mypage .consumer-profile-edit__field-list { max-width: 800px; gap: 0; }
+.consumer-mypage .consumer-profile-edit__field-list::before { content: none; }
+.consumer-mypage .consumer-profile-edit__field-row { gap: 24px; padding: 18px 0; }
+.consumer-mypage .consumer-profile-edit__field-row dt {
+  width: 104px;
+  justify-content: flex-start;
+  align-items: flex-start;
+  padding-top: 4px;
+  font-size: 12px;
+  text-align: left;
+}
+.consumer-mypage .consumer-profile-edit__field-row dd { font-size: 14px; line-height: 1.7; }
+.consumer-mypage .consumer-profile-edit__field-row dd.consumer-profile-edit__field-edit { flex-direction: column; align-items: stretch; }
+.consumer-mypage .consumer-profile-edit__change-btn { font-size: 12px; }
+.consumer-mypage .consumer-profile-edit__password-form { gap: 14px; max-width: 320px; }
+.consumer-mypage :is(.consumer-profile-edit__field-list, .consumer-profile-edit__gate) .ui-field__label { font-size: 12px; }
+.consumer-mypage :is(.consumer-profile-edit__field-list, .consumer-profile-edit__gate) .ui-field__control { font-size: 13px; min-height: 40px; }
+.consumer-mypage .consumer-order-tracking code { font-family: "Pretendard", sans-serif; letter-spacing: 0; overflow-wrap: anywhere; }
+.consumer-mypage .consumer-order-item--detail { padding-bottom: 0; }
+.consumer-mypage .consumer-order-item--detail .consumer-order-tracking {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  min-height: 64px;
+  padding: 18px 0;
+  box-sizing: border-box;
+}
+.consumer-mypage .consumer-order-detail__section { margin-top: 0; }
+.consumer-mypage .prediction-intro { gap: 12px; }
+.consumer-mypage .prediction-intro h2 { font-size: 16px; font-weight: 600; }
+.consumer-mypage .prediction-intro > p:not(.consumer-section-heading__eyebrow) {
+  max-width: 760px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.8;
+  word-break: keep-all;
+}
+.consumer-mypage .prediction-intro .company-wallet__actions {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 18px 0;
+  border-top: 1px solid var(--line);
+}
+.consumer-mypage .prediction-intro .company-wallet__actions p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.7; }
+.consumer-mypage .company-wallet__install-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 0;
+  color: var(--brand-blue) !important;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 0;
+}
+.consumer-mypage .company-wallet__install-link:hover { color: var(--deep-blue) !important; background: transparent; text-decoration: underline; }
+.consumer-mypage .prediction-grid { margin-top: 24px; }
+.consumer-mypage .prediction-grid > p { color: var(--muted); font-size: 13px; }
+.consumer-mypage .prediction-card { padding: 20px 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: transparent; box-shadow: none; font-size: 13px; }
+.consumer-mypage .consumer-review-item { padding: 20px 0; border: 0; border-top: 1px solid var(--line); }
+.consumer-mypage .consumer-review-item > .ui-button--secondary {
+  min-height: 32px;
+  margin-top: 8px;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: var(--brand-blue);
+  font-size: 12px;
+  font-weight: 600;
+}
+.consumer-mypage .consumer-review-item > .ui-button--secondary:hover { color: var(--deep-blue); text-decoration: underline; }
+.consumer-mypage .return-card__actions-col { min-width: 112px; }
+.consumer-mypage .return-card__actions .ui-button { justify-content: flex-end; padding-right: 10px; text-align: right; }
+.consumer-mypage .consumer-inquiry-item__summary { padding: 18px 0; }
+.consumer-mypage .consumer-inquiry-item__summary:focus { outline: none; }
+.consumer-mypage .consumer-inquiry-item__summary:focus-visible { outline: none; box-shadow: inset 3px 0 var(--brand-blue); padding-left: 12px; }
+.consumer-mypage .consumer-inquiry-item__answer { padding: 16px 0; font-size: 13px; line-height: 1.8; }
+.consumer-mypage .consumer-inquiry-item__answer-label { color: #b87748; font-weight: 600; }
+.consumer-mypage .consumer-inquiry-item__content { font-size: 14px; line-height: 1.7; }
+.consumer-mypage .consumer-inquiry-form { margin: 0 auto; max-width: 640px; }
+.consumer-mypage .consumer-inquiry-form .ui-field__label { font-size: 12px; }
+.consumer-mypage .consumer-inquiry-form .ui-field__control { font-size: 13px; }
+.consumer-mypage .consumer-inquiry-form .ui-field__hint { font-size: 11px; line-height: 1.7; }
+.consumer-mypage .consumer-review-draft { gap: 14px; max-width: 640px; padding: 16px 0 0; border: 0; background: transparent; }
+.consumer-mypage .consumer-review-draft textarea { min-height: 120px; padding: 12px 14px; font-size: 13px; line-height: 1.8; background: transparent; border-radius: 6px; }
+.consumer-mypage .consumer-review-draft__actions { justify-content: flex-end; gap: 12px; }
+.consumer-mypage .consumer-review-draft__actions .ui-button { min-height: 34px; padding: 6px 16px; border-radius: 6px; }
+.consumer-mypage .consumer-review-draft__actions .ui-button--secondary { border: 0; background: transparent; color: var(--muted); }
+.consumer-mypage :is(.address-form__actions, .consumer-profile-edit__field-edit-actions) { justify-content: flex-end; gap: 12px; }
+.consumer-mypage :is(.address-form__actions, .consumer-profile-edit__field-edit-actions, .consumer-profile-edit__password-form, .consumer-profile-edit__gate, .consumer-inquiry-form) .ui-button {
+  min-height: 34px;
+  padding: 6px 16px;
+  border-radius: 6px;
+}
+.consumer-mypage :is(.address-form__actions, .consumer-profile-edit__field-edit-actions) .ui-button--secondary { border: 0; background: transparent; color: var(--muted); }
+.consumer-mypage .consumer-profile-edit__field-edit-actions .ui-button--primary { order: 1; }
+.consumer-mypage .consumer-inquiry-form > .ui-button { align-self: flex-end; }
+.consumer-mypage .consumer-tabs { gap: 24px; border-bottom: 1px solid var(--line); }
+.consumer-mypage .consumer-tabs__tab {
+  padding: 10px 0;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  color: var(--muted);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+}
+.consumer-mypage .consumer-tabs__tab.is-active { border-bottom-color: var(--brand-blue); color: var(--brand-blue); background: transparent; font-weight: 600; }
+.consumer-mypage .return-card__actions .ui-button { min-height: 32px; padding: 4px 10px 4px 0; border: 0; color: var(--brand-blue); background: transparent; }
+.consumer-mypage .return-card__actions .ui-button:hover { color: var(--deep-blue); text-decoration: underline; }
+.consumer-mypage .address-form .consumer-signup__address-search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto 40px;
+  gap: .35rem;
+  margin-bottom: 1rem;
+}
+.consumer-mypage .address-form .consumer-signup__address-search .ui-field { display: contents; }
+.consumer-mypage .address-form .consumer-signup__address-search .ui-field__label { grid-area: 1 / 1; }
+.consumer-mypage .address-form .consumer-signup__address-search .ui-field__control { grid-area: 2 / 1; padding-right: 120px; }
+.consumer-mypage .address-form .consumer-signup__address-search .ui-field__error { grid-area: 3 / 1; }
+.consumer-mypage .address-form .consumer-signup__address-search > button {
+  position: static;
+  grid-area: 2 / 1;
+  align-self: center;
+  justify-self: end;
+  z-index: 1;
+  margin-right: 6px;
+  height: 30px;
+  min-height: 30px;
+  border-radius: 4px;
+}
+@media (max-width: 680px) {
+  .consumer-mypage .consumer-profile-edit__field-row { gap: 14px; }
+  .consumer-mypage .consumer-profile-edit__field-row dt { width: 76px; }
+  .consumer-mypage .consumer-profile-edit__field-row dd { flex-wrap: wrap; min-width: 0; }
+}

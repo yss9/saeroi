@@ -1,9 +1,11 @@
 import { cleanup, render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ConsumerMyPageView } from '../../features/user/components/ConsumerMyPageView.tsx'
 import type { ConsumerMyPageData } from '../../features/user/types/consumerMyPage.types.ts'
+
+vi.mock('../landing/components/Header.tsx', () => ({ Header: () => <header /> }))
+vi.mock('../landing/components/Footer.tsx', () => ({ Footer: () => <footer /> }))
 
 vi.mock('../../features/user/hooks/useConsumerOrderThumbnail.ts', () => ({
   useConsumerOrderThumbnail: () => ({ url: null }),
@@ -121,7 +123,8 @@ describe('ConsumerMyPageView', () => {
   it('배송지가 없으면 등록 안내 문구를 보여준다', () => {
     renderView({ status: 'ready', data: { ...data, defaultAddress: null } })
 
-    expect(screen.getByText('주문한 제품을 받을 곳을 등록해 주세요.')).toBeInTheDocument()
+    expect(screen.getByText('배송지를 등록해 주세요.')).toBeInTheDocument()
+    expect(screen.getByText('등록된 연락처가 없습니다')).toBeInTheDocument()
   })
 
   // 주문이 늘어날수록 내 정보와 배송지처럼 짧고 자주 보는 것이 목록 아래로 밀려 내려간다.
@@ -169,38 +172,9 @@ describe('ConsumerMyPageView', () => {
     expect(screen.getByRole('heading', { name: '내 프로필' })).toBeInTheDocument()
   })
 
-  it('calls the sign-out action from the account summary', async () => {
-    const user = userEvent.setup()
-    const onSignOut = vi.fn()
-    renderView({ status: 'ready', data }, onSignOut)
-
-    await user.click(screen.getByRole('button', { name: '로그아웃' }))
-
-    expect(onSignOut).toHaveBeenCalledOnce()
-  })
-
-  it('shows pending and failed sign-out states', () => {
-    const { rerender } = render(
-      <MemoryRouter>
-        <ConsumerMyPageView
-          state={{ status: 'ready', data }}
-          onSignOut={() => undefined}
-          signOutPending
-        />
-      </MemoryRouter>,
-    )
-
-    expect(screen.getByRole('button', { name: '로그아웃 중…' })).toBeDisabled()
-
-    rerender(
-      <MemoryRouter>
-        <ConsumerMyPageView
-          state={{ status: 'ready', data }}
-          onSignOut={() => undefined}
-          signOutError="로그아웃에 실패했습니다."
-        />
-      </MemoryRouter>,
-    )
-    expect(screen.getByRole('alert')).toHaveTextContent('로그아웃에 실패했습니다.')
+  it('uses the storefront header and footer', () => {
+    renderView({ status: 'ready', data })
+    expect(screen.getByRole('banner')).toBeInTheDocument()
+    expect(screen.getByRole('contentinfo')).toBeInTheDocument()
   })
 })

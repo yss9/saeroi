@@ -4,6 +4,7 @@ import type { AxiosResponse } from 'axios'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiClient } from '../../../services/apiClient.ts'
+import { ShopProvider } from '../../../features/shop/ShopContext.tsx'
 import { useAuthStore } from '../../../stores/authStore.ts'
 import type { UserRole } from '../../../types/role.types.ts'
 import { ProtectedRoute } from './ProtectedRoute.tsx'
@@ -32,12 +33,14 @@ function renderAt(path: string) {
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[path]}>
-        <Routes>
-          <Route element={<ProtectedRoute />}>
-            <Route path={path} element={<h1>보호된 본문</h1>} />
-          </Route>
-          <Route path="/login" element={<h1>로그인</h1>} />
-        </Routes>
+        <ShopProvider>
+          <Routes>
+            <Route element={<ProtectedRoute />}>
+              <Route path={path} element={<h1>보호된 본문</h1>} />
+            </Route>
+            <Route path="/login" element={<h1>로그인</h1>} />
+          </Routes>
+        </ShopProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   )
@@ -100,6 +103,7 @@ describe('ProtectedRoute', () => {
     expect(screen.queryByRole('link', { name: /판매 관리/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /지갑/ })).not.toBeInTheDocument()
     // 나갈 길은 남는다 — 머리말의 쇼핑 메뉴가 그 역할을 한다.
-    expect(screen.getByRole('navigation', { name: '쇼핑 메뉴' })).toBeInTheDocument()
+    const navigation = screen.getByRole('navigation', { name: '주요 메뉴' })
+    expect(within(navigation).getByRole('link', { name: 'SHOP' })).toHaveAttribute('href', '/shop')
   })
 })
