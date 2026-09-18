@@ -81,7 +81,7 @@ public class ProductOrderGroupPaymentService {
     @Transactional
     public ProductOrderGroupPaymentReadyResponse ready(Long buyerId, Long orderGroupId) {
         ProductOrderGroup group = requireOwnGroup(buyerId, orderGroupId);
-        requireCreated(group);
+        requirePayable(group);
 
         PaymentReady ready = paymentCoordinator.ready(
                 group.getGroupCode(),
@@ -115,7 +115,8 @@ public class ProductOrderGroupPaymentService {
                 .filter(found -> found.isOwnedBy(buyerId))
                 .orElseThrow(() -> new BusinessException(
                         ProductErrorCode.PRODUCT_ORDER_GROUP_NOT_FOUND));
-        requireCreated(group);
+        // 준비 시점에 유효했어도 결제창에 오래 머물면 승인 때는 지나 있을 수 있다.
+        requirePayable(group);
 
         PaymentApproval approval = paymentCoordinator.approve(
                 group.getPaymentReference(),
@@ -282,6 +283,22 @@ public class ProductOrderGroupPaymentService {
                 .filter(group -> group.isOwnedBy(buyerId))
                 .orElseThrow(() -> new BusinessException(
                         ProductErrorCode.PRODUCT_ORDER_GROUP_NOT_FOUND));
+    }
+
+    /**
+     * 지금 결제할 수 있는 묶음인지. <b>상태와 마감을 함께 본다.</b>
+     *
+     * <p>단일 주문과 같은 이유다 — 마감 검사가 없으면 만료 배치가 정리하기 전까지 결제가
+     * 통과한다. 묶음은 여러 브랜드의 개체를 한꺼번에 잡고 있어 그 시간이 더 크게 아프다.
+     *
+     * <p>속한 주문의 마감을 따로 보지 않는다. 묶음과 주문이 같은 값을 공유하고
+     * ({@code ProductOrderCheckoutService}), 결제의 단위는 묶음이다.
+     */
+    private void requirePayable(ProductOrderGroup group) {
+        requireCreated(group);
+        if (group.isPaymentExpiredAt(LocalDateTime.now(clock))) {
+            throw new BusinessException(ProductErrorCode.PRODUCT_ORDER_PAYMENT_EXPIRED);
+        }
     }
 
     private void requireCreated(ProductOrderGroup group) {

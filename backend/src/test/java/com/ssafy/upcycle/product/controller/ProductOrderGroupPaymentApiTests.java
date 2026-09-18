@@ -594,6 +594,38 @@ class ProductOrderGroupPaymentApiTests {
         verify(paymentGateway, never()).cancel(any());
     }
 
+    // ── 마감 ────────────────────────────────────────────────
+
+    @Test
+    void anExpiredGroupCannotOpenACheckoutWindow() throws Exception {
+        // 묶음은 여러 브랜드의 개체를 한꺼번에 잡고 있어 마감이 늦게 지켜질수록 더 아프다.
+        Long groupId = checkout();
+        expirePaymentDeadline(groupId);
+
+        mockMvc.perform(withJwt(post(BASE + "/" + groupId + "/payment/ready"), consumerId))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PRODUCT_ORDER_PAYMENT_EXPIRED"));
+
+        verify(paymentGateway, never()).ready(any());
+    }
+
+    @Test
+    void aGroupThatExpiredInsideTheCheckoutWindowIsNotCharged() throws Exception {
+        Long groupId = checkout();
+        ready(groupId);
+        expirePaymentDeadline(groupId);
+
+        mockMvc.perform(approveRequest(groupId, consumerId))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PRODUCT_ORDER_PAYMENT_EXPIRED"));
+
+        verify(paymentGateway, never()).approve(any());
+        assertThat(productOrderGroupRepository.findById(groupId).orElseThrow().getStatus())
+                .isEqualTo(ProductOrderGroupStatus.CREATED);
+        assertThat(productItemRepository.countByProductModelIdAndStatus(
+                bagId, ProductItemStatus.RESERVED)).isEqualTo(1);
+    }
+
     // ── 만료 ────────────────────────────────────────────────
 
     @Test
@@ -618,10 +650,12 @@ class ProductOrderGroupPaymentApiTests {
     @Test
     void theSweepLeavesPaidGroupsAlone() throws Exception {
         // 배치가 목록을 읽은 뒤 승인이 들어올 수 있다. 그때 정상 결제를 지우면 안 된다.
+        // 승인을 마감 전에 한 뒤 마감을 과거로 옮긴다 — 마감이 지난 묶음은 이제 승인 자체가
+        // 거부되므로(PRODUCT_ORDER_PAYMENT_EXPIRED), 그 순서로는 결제된 묶음을 만들 수 없다.
         Long groupId = checkout();
         ready(groupId);
-        expirePaymentDeadline(groupId);
         mockMvc.perform(approveRequest(groupId, consumerId)).andExpect(status().isOk());
+        expirePaymentDeadline(groupId);
 
         expiryWorker.expireUnpaidOrders();
 

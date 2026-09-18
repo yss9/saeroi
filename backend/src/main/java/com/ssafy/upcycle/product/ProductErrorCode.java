@@ -331,7 +331,25 @@ public enum ProductErrorCode implements ErrorCode {
     PRODUCT_ORDER_BELONGS_TO_GROUP(
             HttpStatus.CONFLICT,
             "PRODUCT_ORDER_BELONGS_TO_GROUP",
-            "장바구니 주문은 묶음 단위로만 결제·취소할 수 있습니다.");
+            "장바구니 주문은 묶음 단위로만 결제·취소할 수 있습니다."),
+
+    /**
+     * 결제 마감을 넘긴 주문·묶음으로 결제하려는 경우.
+     *
+     * <p><b>만료 배치보다 먼저 막는 자리다.</b> 배치는 60초마다 돌기 때문에, 검사가 없으면
+     * 마감이 지난 뒤에도 그 주기만큼은 결제가 통과한다. 배치가 밀리면 그만큼 더 길어진다.
+     *
+     * <p>{@code PAYMENT_STATE_INVALID} 를 쓰지 않는다. 그 문구는 "지금 상태에서는 처리할 수
+     * 없습니다" 라 <b>왜</b> 안 되는지를 말하지 않아, 화면이 무엇을 안내할지 정할 수 없다 —
+     * 다시 주문하라고 말해 줘야 하는 상황이다.
+     *
+     * <p>배치가 주문을 정리한 뒤에 같은 요청이 오면 {@code PRODUCT_ORDER_NOT_FOUND} 가 된다.
+     * 둘 다 "이 주문으로는 더 이상 결제할 수 없다" 는 같은 결론이다.
+     */
+    PRODUCT_ORDER_PAYMENT_EXPIRED(
+            HttpStatus.CONFLICT,
+            "PRODUCT_ORDER_PAYMENT_EXPIRED",
+            "결제 시간이 만료되었습니다. 주문을 다시 진행해 주세요.");
 
     private final HttpStatus status;
     private final String code;
