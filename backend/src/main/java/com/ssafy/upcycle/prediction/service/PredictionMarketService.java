@@ -9,10 +9,14 @@ import com.ssafy.upcycle.prediction.repository.*;
 import com.ssafy.upcycle.product.entity.ProductModel;
 import com.ssafy.upcycle.product.repository.ProductModelRepository;
 import com.ssafy.upcycle.production.entity.ProductionBatch;
+import com.ssafy.upcycle.production.entity.ProductionBatchStatus;
 import com.ssafy.upcycle.production.repository.ProductionBatchRepository;
+import com.ssafy.upcycle.user.entity.CompanyProfile;
+import com.ssafy.upcycle.user.entity.CompanyRoleApprovalStatus;
 import com.ssafy.upcycle.user.entity.User;
 import com.ssafy.upcycle.user.entity.UserRole;
 import com.ssafy.upcycle.user.entity.UserWallet;
+import com.ssafy.upcycle.user.repository.CompanyProfileRepository;
 import com.ssafy.upcycle.user.repository.UserRepository;
 import com.ssafy.upcycle.user.repository.UserWalletRepository;
 import java.math.BigInteger;
@@ -33,18 +37,38 @@ public class PredictionMarketService {
     private final ProductionBatchRepository productionBatches;
     private final ProductModelRepository productModels;
     private final UserRepository users;
+    private final CompanyProfileRepository companyProfiles;
     private final UserWalletRepository wallets;
     private final PredictionChainGateway chain;
     private final PredictionProperties properties;
     private final Clock clock;
+
+    @Transactional(readOnly = true)
+    public List<PredictionMarketEligibleBatchResponse> eligibleBatches() {
+        return productionBatches
+                .findAllByStatusOrderByConfirmedAtDesc(ProductionBatchStatus.CONFIRMED)
+                .stream()
+                .filter(batch -> batch.getChainBatchId() != null && batch.getProductModelId() != null)
+                .filter(batch -> !markets.existsByProductionBatchId(batch.getId()))
+                .filter(batch -> companyProfiles.findById(batch.getProducerId())
+                        .map(profile -> profile.getRoleApprovalStatus() == CompanyRoleApprovalStatus.APPROVED)
+                        .orElse(false))
+                .map(this::eligibleBatchResponse)
+                .toList();
+    }
 
     @Transactional
     public PredictionMarketResponse create(PredictionMarketCreateRequest request) {
         LocalDateTime now = LocalDateTime.now(clock);
         ProductionBatch batch = productionBatches.findById(request.productionBatchId())
                 .orElseThrow(() -> error(PredictionErrorCode.INVALID_MARKET));
+        boolean approvedBrand = companyProfiles.findById(batch.getProducerId())
+                .map(profile -> profile.getRoleApprovalStatus() == CompanyRoleApprovalStatus.APPROVED)
+                .orElse(false);
         if (!batch.isConfirmed() || batch.getChainBatchId() == null || batch.getProductModelId() == null
-                || markets.existsByProductionBatchId(batch.getId())) throw error(PredictionErrorCode.INVALID_MARKET);
+                || markets.existsByProductionBatchId(batch.getId()) || !approvedBrand) {
+            throw error(PredictionErrorCode.INVALID_MARKET);
+        }
         ProductModel model = productModels.findById(batch.getProductModelId())
                 .orElseThrow(() -> error(PredictionErrorCode.INVALID_MARKET));
         List<Integer> bounds = List.copyOf(request.bucketUpperBounds());
@@ -125,6 +149,21 @@ public class PredictionMarketService {
                 .map(value -> new PredictionBucketResponse(value.getBucketIndex(), value.getLowerBound(), value.getUpperBound()))
                 .toList();
         return PredictionMarketResponse.from(market, values);
+    }
+
+    private PredictionMarketEligibleBatchResponse eligibleBatchResponse(ProductionBatch batch) {
+        ProductModel model = productModels.findById(batch.getProductModelId())
+                .orElseThrow(() -> error(PredictionErrorCode.INVALID_MARKET));
+        CompanyProfile profile = companyProfiles.findById(batch.getProducerId())
+                .orElseThrow(() -> error(PredictionErrorCode.INVALID_MARKET));
+        return new PredictionMarketEligibleBatchResponse(
+                batch.getId(),
+                batch.getChainBatchId(),
+                batch.getBatchCode(),
+                batch.getBatchName(),
+                profile.getCompanyName(),
+                model.getName(),
+                batch.getProducedQuantity());
     }
 
     private static void validateSchedule(LocalDateTime now, PredictionMarketCreateRequest request) {
