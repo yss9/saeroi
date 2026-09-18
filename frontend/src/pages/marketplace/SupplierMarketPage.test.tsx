@@ -48,6 +48,7 @@ const DENIM: InventoryItem = {
   lockedQuantity: 0,
   available: 30_000,
   syncedAt: '2026-09-07T00:00:00.000Z',
+  completedProcessTypes: [],
 }
 
 const COTTON: InventoryItem = { ...DENIM, materialId: 2, materialCode: 'MAT-000002', name: '재생 면 원사' }

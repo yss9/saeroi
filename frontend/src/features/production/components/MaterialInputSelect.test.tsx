@@ -28,7 +28,7 @@ function material(overrides: Partial<InventoryItem> = {}): InventoryItem {
     materialId: 11,
     materialCode: 'MAT-000011',
     materialType: 'DENIM',
-    // 가공을 거친 소재라 투입 가능하다. WASTE + INITIAL 이면 막힌다.
+    // 세척·해체·선별을 다 거쳐 투입할 수 있는 소재다. 하나라도 빠지면 막힌다.
     rootOrigin: 'WASTE',
     generationType: 'PROCESSED',
     name: '세척된 폐데님',
@@ -39,6 +39,7 @@ function material(overrides: Partial<InventoryItem> = {}): InventoryItem {
     lockedQuantity: 10_000,
     available: 20_000,
     syncedAt: '2026-09-08T09:00:00',
+    completedProcessTypes: ['CLEANING', 'DISASSEMBLY', 'SORTING'],
     ...overrides,
   }
 }
@@ -71,6 +72,37 @@ afterEach(() => {
 })
 
 describe('MaterialInputSelect', () => {
+  /*
+    폐기물은 그대로 제품이 되지 않는다 — 씻고, 뜯고, 골라내야 무엇을 만들 수 있는 소재가
+    된다. 셋 중 하나라도 남았으면 투입 후보에서 빠진다.
+  */
+  it('세척·해체·선별이 남은 소재는 고를 수 없다', async () => {
+    api.getMyMaterials.mockResolvedValue([
+      material({ completedProcessTypes: ['CLEANING'] }),
+    ])
+    renderSelect()
+
+    const option = await screen.findByRole('option', { name: '세척된 폐데님' })
+    expect(option).toBeDisabled()
+    expect(option.closest('optgroup')).toHaveAttribute('label', '세척·해체·선별이 더 필요함')
+  })
+
+  it('셋을 다 거친 소재는 고를 수 있다', async () => {
+    renderSelect()
+
+    expect(await screen.findByRole('option', { name: /세척된 폐데님/ })).toBeEnabled()
+  })
+
+  // 폐기물이 아닌 소재는 정제 대상이 아니다 — 구매한 원자재까지 세척을 요구할 이유가 없다.
+  it('폐기물이 아닌 소재는 정제 이력을 묻지 않는다', async () => {
+    api.getMyMaterials.mockResolvedValue([
+      material({ rootOrigin: 'VIRGIN', completedProcessTypes: [] }),
+    ])
+    renderSelect()
+
+    expect(await screen.findByRole('option', { name: /세척된 폐데님/ })).toBeEnabled()
+  })
+
   it('보유 소재를 가용량과 함께 보여준다', async () => {
     renderSelect()
 
@@ -81,7 +113,7 @@ describe('MaterialInputSelect', () => {
   // 이 테스트가 이 파일의 존재 이유다.
   it('폐기물에서 바로 등록한 소재는 고를 수 없고 이유를 적는다', async () => {
     api.getMyMaterials.mockResolvedValue([
-      material({ rootOrigin: 'WASTE', generationType: 'INITIAL', name: '수거한 폐데님' }),
+      material({ rootOrigin: 'WASTE', completedProcessTypes: [], name: '수거한 폐데님' }),
     ])
     renderSelect()
 
@@ -89,7 +121,7 @@ describe('MaterialInputSelect', () => {
     // 이름인지 읽히지 않는다.
     const option = await screen.findByRole('option', { name: '수거한 폐데님' })
     expect(option).toBeDisabled()
-    expect(option.closest('optgroup')).toHaveAttribute('label', '가공을 거쳐야 투입 가능')
+    expect(option.closest('optgroup')).toHaveAttribute('label', '세척·해체·선별이 더 필요함')
   })
 
   it('가용 수량이 없는 소재는 고를 수 없다', async () => {
@@ -210,7 +242,7 @@ describe('MaterialInputSelect', () => {
 
   it('투입할 수 있는 소재가 하나도 없으면 이유를 알린다', async () => {
     api.getMyMaterials.mockResolvedValue([
-      material({ rootOrigin: 'WASTE', generationType: 'INITIAL' }),
+      material({ rootOrigin: 'WASTE', completedProcessTypes: [] }),
     ])
     renderSelect()
 
