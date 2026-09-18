@@ -30,11 +30,18 @@ pipeline {
             steps { sh 'bash /home/ubuntu/deploy/scripts/gitlab-status.sh running' }
         }
 
+        // backend/develop 은 push 마다 도는 CI라 "slow" 태그(RoleJourneyTests·
+        // ProductionJourneyTests 처럼 여러 도메인을 순서대로 걷는 여정 테스트)를 뺀다.
+        // 그 밖의 브랜치(특히 backend/master — 실배포 직전)는 전체를 다 돈다.
         stage('Test') {
             steps {
+                script {
+                    env.TEST_EXCLUDED_GROUPS =
+                        (env.BRANCH_NAME == 'backend/develop') ? '-DexcludedGroups=slow' : ''
+                }
                 sh '''
                     chmod +x mvnw
-                    ./mvnw $MAVEN_ARGS test
+                    ./mvnw $MAVEN_ARGS test $TEST_EXCLUDED_GROUPS
                 '''
             }
             post {
