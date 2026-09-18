@@ -58,6 +58,7 @@ class SchemaSqlTests {
             "product_shipping",
             "canceled_product_order",
             "canceled_product_order_item",
+            "consumer_inquiry",
             "prediction_market",
             "prediction_bucket",
             "prediction_response",

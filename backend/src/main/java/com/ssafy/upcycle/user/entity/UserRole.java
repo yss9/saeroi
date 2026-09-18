@@ -80,4 +80,14 @@ public enum UserRole {
     public boolean hasDeliveryAddressBook() {
         return this == CONSUMER;
     }
+
+    /**
+     * 1:1 문의를 등록할 수 있는 역할인가.
+     *
+     * <p>{@code CONSUMER} 뿐이다. 사업자는 각자의 계약·거래 채널이 따로 있고, 이 문의함은
+     * 소비자가 주문(배송·교환/반품·상품)에 대해 묻는 자리다.
+     */
+    public boolean canFileInquiry() {
+        return this == CONSUMER;
+    }
 }
