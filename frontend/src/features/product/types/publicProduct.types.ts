@@ -29,6 +29,8 @@ export interface PublicProductModel {
   status: ProductModelStatus
   stockQuantity: number
   createdAt: string
+  /** 재고 개체 하나를 골라 보여주는 QR Passport 예시 주소. 상세에서만 내려오고, 재고가 없으면 null. */
+  journeyUrl: string | null
 }
 
 /** 공개 목록은 서버에서 항상 ON_SALE로 제한되므로 status 조건을 받지 않는다. */
