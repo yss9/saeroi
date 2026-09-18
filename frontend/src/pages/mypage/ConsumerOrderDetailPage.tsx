@@ -18,6 +18,7 @@ import type {
   ConsumerOrderViewStatus,
   ConsumerRecentOrder,
 } from '../../features/user/types/consumerMyPage.types.ts'
+import { formatDate } from '../../features/user/utils/formatDate.ts'
 import { groupConsumerOrders } from '../../features/user/utils/groupConsumerOrders.ts'
 
 const priceFormatter = new Intl.NumberFormat('ko-KR', {
@@ -129,8 +130,9 @@ export function ConsumerOrderDetailPage() {
           <p className="consumer-order-detail__ordered-at">
             주문 :{' '}
             <time dateTime={group.orderedAt}>
-              {dateFormatter.format(new Date(group.orderedAt))}{' '}
-              {timeFormatter.format(new Date(group.orderedAt))}
+              {formatDate(group.orderedAt, dateFormatter) === '-'
+                ? '-'
+                : `${formatDate(group.orderedAt, dateFormatter)} ${formatDate(group.orderedAt, timeFormatter)}`}
             </time>
           </p>
 
@@ -159,7 +161,7 @@ export function ConsumerOrderDetailPage() {
 
               <div>
                 <dt>받는사람</dt>
-                <dd>{maskReceiverName(group.items[0].receiverName)}</dd>
+                <dd>{maskReceiverName(group.items[0]?.receiverName ?? '')}</dd>
               </div>
               <div>
                 <dt>주소</dt>

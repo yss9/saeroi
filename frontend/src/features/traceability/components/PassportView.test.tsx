@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createAppError, ERROR_KIND } from '../../../utils/errors.ts'
 import type { JourneyNode, ProductJourney, ProductPassport } from '../types/traceability.types.ts'
 import { PassportView } from './PassportView.tsx'
+import { MemoryRouter } from 'react-router-dom'
 
 const api = vi.hoisted(() => ({ getPassport: vi.fn() }))
 vi.mock('../api/getPassport.ts', () => ({
@@ -132,9 +133,12 @@ function passport(overrides: Partial<ProductPassport> = {}): ProductPassport {
 
 function renderView(qrToken = 'a'.repeat(32)) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  // 머리말의 로고가 Link 다 — a 는 basename(/test/)을 무시하고 도메인 루트로 나간다.
   return render(
     <QueryClientProvider client={queryClient}>
-      <PassportView qrToken={qrToken} />
+      <MemoryRouter>
+        <PassportView qrToken={qrToken} />
+      </MemoryRouter>
     </QueryClientProvider>,
   )
 }

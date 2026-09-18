@@ -97,6 +97,15 @@ describe('AboutPage', () => {
     expect(screen.getByRole('link', { name: 'EXPLORE BRANDS' })).toHaveAttribute('href', '/#brands')
   })
 
+  it('keeps the normally scrolling landing shell without the paginated modifier', () => {
+    const { container } = renderAboutPage()
+
+    // .landing-page--paginated 는 홈의 휠 페이지네이션 전용 — About 은 긴 문서라
+    // 이 변형이 붙으면 스크롤이 전혀 되지 않는다.
+    expect(container.firstElementChild).toHaveClass('landing-page', 'about-page')
+    expect(container.firstElementChild).not.toHaveClass('landing-page--paginated')
+  })
+
   it('reveals the same fixed back-to-top control used by the homepage', () => {
     const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
     renderAboutPage()

@@ -9,6 +9,10 @@ export function Story() {
         <img
           src={siteAssetUrl('/images/landing/hero-upcycled-denim.webp')}
           alt="버려진 데님 소재가 새로운 제품으로 이어지는 제작 현장"
+          loading="lazy"
+          decoding="async"
+          // 이미지를 못 받으면 깨진 아이콘 대신 배경(그라데이션)만 남긴다.
+          onError={(event) => { event.currentTarget.style.visibility = 'hidden' }}
         />
       </div>
       <div className="story__overlay">
