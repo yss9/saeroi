@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, ErrorMessage, Loading } from '../../../components/common/index.ts'
+import { AddressPicker } from './AddressPicker.tsx'
 import { useConsumerAddresses } from '../hooks/useConsumerAddresses.ts'
 import { useProductOrderPayment } from '../hooks/useProductOrderPayment.ts'
 import './consumer-mypage.css'
@@ -26,6 +28,10 @@ export interface ProductPurchasePanelProps {
  * **받을 곳을 먼저 보여준다.** 기본 배송지가 없으면 주문을 만들 수 없고(서버가 받을 곳을
  * 요구한다), 있더라도 어디로 가는지 모르고 누르게 하면 안 된다 — 주문하고 나서야 옛
  * 주소였다는 것을 알게 되는 것이 가장 나쁘다.
+ *
+ * **"배송지 변경"은 화면을 옮기지 않는다(2026-09-18).** `/mypage/addresses`로 보내면
+ * 이 상품으로 돌아오기가 어려웠다 — 대신 그 자리에서 `AddressPicker`를 펼쳐 저장된
+ * 배송지 중 하나를 바로 고르게 한다.
  */
 export function ProductPurchasePanel({
   productModelId,
@@ -34,8 +40,12 @@ export function ProductPurchasePanel({
 }: ProductPurchasePanelProps) {
   const addresses = useConsumerAddresses()
   const payment = useProductOrderPayment()
+  const [addressId, setAddressId] = useState<number | null>(null)
+  const [changingAddress, setChangingAddress] = useState(false)
 
   const defaultAddress = addresses.data?.find((address) => address.isDefault)
+  const selectedAddress =
+    addresses.data?.find((address) => address.addressId === addressId) ?? defaultAddress
 
   if (addresses.isPending) {
     return (
@@ -49,15 +59,28 @@ export function ProductPurchasePanel({
     <section className="purchase-panel" aria-labelledby="purchase-panel-title">
       <h3 id="purchase-panel-title">받을 곳</h3>
 
-      {defaultAddress ? (
+      {changingAddress ? (
+        <div className="purchase-panel__address-picker">
+          <AddressPicker
+            selected={addressId}
+            onSelect={setAddressId}
+            name="purchase-panel-address"
+          />
+          <Button variant="secondary" onClick={() => setChangingAddress(false)}>
+            선택 완료
+          </Button>
+        </div>
+      ) : selectedAddress ? (
         <div className="purchase-panel__address">
-          <strong>{defaultAddress.receiverName}</strong>
+          <strong>{selectedAddress.receiverName}</strong>
           <span>
-            [{defaultAddress.zipCode}] {defaultAddress.address}
-            {defaultAddress.addressDetail ? ` ${defaultAddress.addressDetail}` : ''}
+            [{selectedAddress.zipCode}] {selectedAddress.address}
+            {selectedAddress.addressDetail ? ` ${selectedAddress.addressDetail}` : ''}
           </span>
-          <span>{defaultAddress.receiverPhone}</span>
-          <Link to="/mypage/addresses">배송지 변경</Link>
+          <span>{selectedAddress.receiverPhone}</span>
+          <button type="button" onClick={() => setChangingAddress(true)}>
+            배송지 변경
+          </button>
         </div>
       ) : (
         <p className="purchase-panel__empty">
@@ -99,10 +122,10 @@ export function ProductPurchasePanel({
         <Button
           fullWidth
           loading={payment.isBusy}
-          disabled={!purchasable || defaultAddress === undefined}
+          disabled={!purchasable || selectedAddress === undefined}
           onClick={() => {
-            if (defaultAddress === undefined) return
-            void payment.purchase({ productModelId, addressId: defaultAddress.addressId })
+            if (selectedAddress === undefined) return
+            void payment.purchase({ productModelId, addressId: selectedAddress.addressId })
           }}
         >
           구매하기
