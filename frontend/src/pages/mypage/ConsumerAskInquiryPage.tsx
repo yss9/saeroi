@@ -1,16 +1,15 @@
+import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Select, type SelectOption } from '../../components/common/index.ts'
 import { useAuth } from '../../features/auth/hooks/useAuth.ts'
 import { useLogout } from '../../features/auth/hooks/useLogout.ts'
+import { getMyProductOrders } from '../../features/user/api/getMyProductOrders.ts'
+import { consumerOrderKeys } from '../../features/user/api/consumerOrderKeys.ts'
 import { ConsumerAccountLayout } from '../../features/user/components/ConsumerAccountLayout.tsx'
-
-/** 문의 대상 후보. 실제로는 내 주문 목록에서 골라야 하지만, 조회 API가 없어 이름만 목데이터. */
-const PRODUCT_OPTIONS: readonly SelectOption[] = [
-  { value: 'ORD-00000012', label: '업사이클 데님 토트백 (ORD-00000012)' },
-  { value: 'ORD-00000009', label: '스컬그레이몬 (ORD-00000009)' },
-  { value: 'ORD-00000005', label: '재생 울 니트 (ORD-00000005)' },
-]
+import { useCreateConsumerInquiry } from '../../features/user/hooks/useCreateConsumerInquiry.ts'
+import type { InquiryType } from '../../features/user/types/consumerInquiry.types.ts'
+import { toErrorMessage } from '../../utils/errors.ts'
 
 const TYPE_OPTIONS: readonly SelectOption[] = [
   { value: 'DELIVERY', label: '배송' },
@@ -19,17 +18,27 @@ const TYPE_OPTIONS: readonly SelectOption[] = [
   { value: 'ETC', label: '기타' },
 ]
 
+/** 최근 주문 중에서 고른다. 문의 대상 후보를 다 보여줄 필요는 없다. */
+const ORDER_OPTION_PAGE_SIZE = 50
+
 /**
  * 문의하기.
  *
- * **프론트엔드 UI만 먼저 만든 화면이다(2026-09-16).** 문의 접수 API·테이블이 아직 없어
- * 제출해도 서버로 나가지 않는다 — 폼 아래 확인 문구만 보여주고 끝난다.
+ * **2026-09-18 — 실제 API에 연결했다.** 이전에는 프론트 로컬 state만 바꾸고 끝나
+ * 제출해도 서버에 남지 않았다. 지금은 `POST /v1/consumers/me/inquiries`로 등록하고,
+ * 성공하면 문의내역 쿼리를 무효화해 바로 반영되게 한다(`useCreateConsumerInquiry`).
  */
 export function ConsumerAskInquiryPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const logout = useLogout()
   const profile = user ? { name: user.name, email: user.email } : null
+  const createInquiry = useCreateConsumerInquiry()
+
+  const orders = useQuery({
+    queryKey: consumerOrderKeys.list({ page: 0, size: ORDER_OPTION_PAGE_SIZE }),
+    queryFn: () => getMyProductOrders({ page: 0, size: ORDER_OPTION_PAGE_SIZE }),
+  })
 
   const [productCode, setProductCode] = useState('')
   const [type, setType] = useState('')
@@ -38,8 +47,34 @@ export function ConsumerAskInquiryPage() {
 
   const showProductSelect = type !== '' && type !== 'ETC'
 
+  const productOptions: SelectOption[] = (orders.data?.content ?? []).map((order) => ({
+    value: String(order.orderId),
+    label: `${order.items[0]?.productName ?? order.orderCode} (${order.orderCode})`,
+  }))
+
   const canSubmit =
-    (!showProductSelect || productCode !== '') && type !== '' && content.trim() !== ''
+    (!showProductSelect || productCode !== '') &&
+    type !== '' &&
+    content.trim() !== '' &&
+    !createInquiry.isPending
+
+  function resetForm() {
+    setSubmitted(false)
+    setProductCode('')
+    setType('')
+    setContent('')
+  }
+
+  function handleSubmit() {
+    createInquiry.mutate(
+      {
+        type: type as InquiryType,
+        productOrderId: showProductSelect ? Number(productCode) : undefined,
+        content,
+      },
+      { onSuccess: () => setSubmitted(true) },
+    )
+  }
 
   return (
     <ConsumerAccountLayout
@@ -63,14 +98,7 @@ export function ConsumerAskInquiryPage() {
           <div className="consumer-inquiry-submitted">
             <h3>문의가 접수되었습니다.</h3>
             <p>답변은 문의내역에서 확인하실 수 있습니다.</p>
-            <Button
-              onClick={() => {
-                setSubmitted(false)
-                setProductCode('')
-                setType('')
-                setContent('')
-              }}
-            >
+            <Button onClick={resetForm}>
               새 문의 작성
             </Button>
           </div>
@@ -79,7 +107,7 @@ export function ConsumerAskInquiryPage() {
             className="consumer-inquiry-form"
             onSubmit={(event) => {
               event.preventDefault()
-              if (canSubmit) setSubmitted(true)
+              if (canSubmit) handleSubmit()
             }}
           >
             <Select
@@ -96,8 +124,10 @@ export function ConsumerAskInquiryPage() {
             {showProductSelect && (
               <Select
                 label="문의 상품"
-                placeholder="상품을 선택해 주세요"
-                options={PRODUCT_OPTIONS}
+                placeholder={
+                  orders.isPending ? '주문 목록을 불러오는 중…' : '상품을 선택해 주세요'
+                }
+                options={productOptions}
                 value={productCode}
                 onChange={(event) => setProductCode(event.target.value)}
               />
@@ -115,8 +145,13 @@ export function ConsumerAskInquiryPage() {
                 onChange={(event) => setContent(event.target.value)}
               />
             </div>
+            {createInquiry.isError && (
+              <p className="ui-field__error" role="alert">
+                {toErrorMessage(createInquiry.error)}
+              </p>
+            )}
             <Button type="submit" disabled={!canSubmit}>
-              문의 등록
+              {createInquiry.isPending ? '등록 중…' : '문의 등록'}
             </Button>
           </form>
         )}
