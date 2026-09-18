@@ -1,6 +1,7 @@
 package com.ssafy.upcycle.product.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -10,7 +11,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.ssafy.upcycle.common.storage.FileReference;
 import com.ssafy.upcycle.common.storage.FileStorageService;
 import com.ssafy.upcycle.product.entity.ProductCategory;
+import com.ssafy.upcycle.product.entity.ProductItem;
 import com.ssafy.upcycle.product.entity.ProductModel;
+import com.ssafy.upcycle.product.repository.ProductItemRepository;
 import com.ssafy.upcycle.product.repository.ProductModelRepository;
 import com.ssafy.upcycle.user.entity.CompanyProfile;
 import com.ssafy.upcycle.user.entity.User;
@@ -24,6 +27,7 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -69,6 +73,9 @@ class PublicProductCatalogControllerTests {
 
     @Autowired
     private ProductModelRepository productModelRepository;
+
+    @Autowired
+    private ProductItemRepository productItemRepository;
 
     @Autowired
     private FileStorageService fileStorageService;
@@ -133,6 +140,28 @@ class PublicProductCatalogControllerTests {
         mockMvc.perform(get(PUBLIC_PATH + "/{id}", draft.getId()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("PRODUCT_MODEL_NOT_FOUND"));
+    }
+
+    @Test
+    void detailCarriesSampleJourneyUrlOnlyWhenStockExists() throws Exception {
+        ProductModel outOfStock = saveModel("재고 없는 상품", true);
+        ProductModel inStock = saveModel("재고 있는 상품", true);
+        String qrToken = UUID.randomUUID().toString().replace("-", "");
+        ProductItem item = productItemRepository.save(ProductItem.produce(
+                1L, inStock.getId(), 1, "ITEM-" + UUID.randomUUID().toString().substring(0, 20), qrToken));
+
+        mockMvc.perform(get(PUBLIC_PATH + "/{id}", inStock.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.journeyUrl").value("https://upcycle.test/qr/" + item.getQrToken()));
+
+        mockMvc.perform(get(PUBLIC_PATH + "/{id}", outOfStock.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.journeyUrl").value(nullValue()));
+
+        // 목록 카드에는 붙지 않는다 — 스크롤 한 번에 카드 수만큼 개체를 조회하지 않기 위해서다.
+        mockMvc.perform(get(PUBLIC_PATH).queryParam("keyword", "재고 있는 상품"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].journeyUrl").value(nullValue()));
     }
 
     @Test
