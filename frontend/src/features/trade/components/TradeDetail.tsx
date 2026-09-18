@@ -6,6 +6,7 @@ import { PaymentPanel } from './PaymentPanel.tsx'
 import { ReceiptPanel } from './ReceiptPanel.tsx'
 import { ShipmentPanel } from './ShipmentPanel.tsx'
 import { TradeChainPanel } from './TradeChainPanel.tsx'
+import { TradeChainReleaseButton } from './TradeChainReleaseButton.tsx'
 import { TradeTimeline } from './TradeTimeline.tsx'
 import './trade.css'
 
@@ -91,6 +92,12 @@ export function TradeDetail({ tradeId }: TradeDetailProps) {
           {data.status !== 'PAID' && (
             <>
               <TradeChainPanel trade={data} />
+              {/*
+                취소된 거래인데 체인에는 예약이 남은 경우를 정리한다. 서버 취소는 결제
+                마감 배치가 자동으로 하지만 체인은 당사자 서명이 있어야 풀린다 — 풀지
+                않으면 판매자가 그 수량을 다시 팔 수 없다. 남아 있을 때만 나온다.
+              */}
+              <TradeChainReleaseButton trade={data} />
               <ReceiptPanel trade={data} />
             </>
           )}
