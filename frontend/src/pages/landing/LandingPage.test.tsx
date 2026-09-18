@@ -91,6 +91,7 @@ function publicProduct(
     status: 'ON_SALE',
     stockQuantity: 10,
     createdAt: '2026-09-16T10:00:00',
+    journeyUrl: null,
   }
 }
 

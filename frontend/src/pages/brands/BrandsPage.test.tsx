@@ -14,7 +14,7 @@ import { BrandsPage } from './BrandsPage.tsx'
 
 const brand: PublicBrand = { brandId: 5, brandName: 'REWEAVE', introduction: null, logoUrl: null, productCount: 13 }
 const brands: PageResponse<PublicBrand> = { content: [brand], page: 0, size: 8, totalElements: 1, totalPages: 1, hasNext: false }
-const product: PublicProductModel = { productModelId: 31, name: '데님 토트백', brandId: 5, brandName: 'REWEAVE', category: 'BAG', subcategory: 'TOTE', price: 129000, description: '테스트', thumbnailUrl: '/api/v1/public/product-models/31/thumbnail', status: 'ON_SALE', stockQuantity: 0, createdAt: '2026-09-17' }
+const product: PublicProductModel = { productModelId: 31, name: '데님 토트백', brandId: 5, brandName: 'REWEAVE', category: 'BAG', subcategory: 'TOTE', price: 129000, description: '테스트', thumbnailUrl: '/api/v1/public/product-models/31/thumbnail', status: 'ON_SALE', stockQuantity: 0, createdAt: '2026-09-17', journeyUrl: null }
 const products: PageResponse<PublicProductModel> = { content: [product], page: 0, size: 12, totalElements: 13, totalPages: 2, hasNext: true }
 const response = (data: unknown) => ({ data }) as AxiosResponse
 function Location() {

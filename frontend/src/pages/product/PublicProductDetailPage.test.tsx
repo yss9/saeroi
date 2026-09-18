@@ -18,6 +18,7 @@ const product: PublicProductDetail = {
   productModelId: 31, name: '데님 토트백', brandId: 5, brandName: 'REWEAVE', category: 'BAG', subcategory: 'TOTE',
   price: 129000, description: '소재의 다음 이야기\n오래 사용할 가방', stockQuantity: 2, status: 'ON_SALE',
   thumbnailUrl: '/api/v1/public/product-models/31/thumbnail', images: [], createdAt: '2026-09-17',
+  journeyUrl: 'https://upcycle.test/qr/sample-token',
 }
 function Probe() {
   const location = useLocation()
@@ -111,6 +112,17 @@ describe('public consumer product detail', () => {
     expect(await screen.findByRole('button', { name: '품절' })).toBeDisabled()
     expect(screen.getByRole('button', { name: '장바구니 담기' })).toBeDisabled()
     expect(screen.getByRole('button', { name: '찜하기' })).toBeEnabled()
+  })
+  it('links straight to the sample QR Passport when the server provides one', async () => {
+    show()
+    const link = await screen.findByRole('link', { name: 'QR Passport 예시 보기' })
+    expect(link).toHaveAttribute('href', product.journeyUrl)
+  })
+  it('hides the QR Passport link when no stock item is available yet', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({ data: { ...product, journeyUrl: null } } as AxiosResponse)
+    show()
+    await screen.findByRole('heading', { name: product.name })
+    expect(screen.queryByRole('link', { name: 'QR Passport 예시 보기' })).not.toBeInTheDocument()
   })
   it.each(['찜하기', '장바구니 담기', '구매하기'])('returns to the same product after login from %s without automatic purchase', async (button) => {
     show()

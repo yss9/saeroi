@@ -390,28 +390,31 @@
   font-family: inherit;
 }
 
+/* ── Journey Map: 좌표가 없어 그릴 게 없을 때의 안내 ── */
+.journey-map-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 485px;
+  border-radius: 12px;
+  background: #eef3f6;
+  color: #557184;
+  font-size: 13px;
+  text-align: center;
+  padding: 24px;
+}
+
+/* ── Journey Map: 실제 대한민국 시도 경계 지도 ── */
 .journey-map-backdrop > rect {
   fill: #ddecf3;
 }
 
-.journey-map-backdrop > path:not(.journey-map-backdrop__island) {
+.journey-map-backdrop__geo {
   fill: #f6f2e9;
   stroke: #fff;
-  stroke-width: 4;
+  stroke-width: 1.5;
+  outline: none;
   filter: drop-shadow(0 5px 8px rgba(72, 91, 100, 0.12));
-}
-
-.journey-map-backdrop__island {
-  fill: #f6f2e9;
-  stroke: #fff;
-  stroke-width: 3;
-}
-
-.journey-map-backdrop__lines path {
-  fill: none;
-  stroke: #e3ded3;
-  stroke-dasharray: 3 6;
-  stroke-width: 2;
 }
 
 .journey-flow-backdrop > rect {
@@ -1243,6 +1246,13 @@
     height: auto;
     min-height: 0;
     aspect-ratio: 525 / 620;
+  }
+
+  .journey-canvas--compact .journey-map-empty {
+    width: 100%;
+    min-height: 0;
+    height: auto;
+    aspect-ratio: 0.9 / 1;
   }
 
   .journey-canvas--compact .journey-canvas__heading {
