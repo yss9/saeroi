@@ -19,6 +19,11 @@ import java.util.List;
  * <p>갤러리를 목록 응답에서도 채우는 것은 같은 응답 모양을 두 곳에서 쓰기 때문이다.
  * 상세에만 채우면 목록의 {@code images} 가 "없다" 인지 "안 실었다" 인지 구분되지 않는다.
  * 질의는 페이지당 한 번이라 제품 수와 무관하다.
+ *
+ * <p><b>{@code journeyUrl} 은 상세에서만 채워진다.</b> 재고 개체 하나를 골라 그 QR Passport
+ * 주소를 예시로 보여 주는 값이라, 목록 카드마다 채우면 스크롤 한 번에 카드 수만큼 개체를
+ * 조회하게 된다({@link com.ssafy.upcycle.product.service.PublicProductCatalogService} 참고).
+ * 재고가 없으면 {@code null} 이다 — 보여줄 개체가 없다.
  */
 public record PublicProductModelResponse(
         Long productModelId,
@@ -33,7 +38,8 @@ public record PublicProductModelResponse(
         ProductModelStatus status,
         long stockQuantity,
         List<ProductImageResponse> images,
-        LocalDateTime createdAt) {
+        LocalDateTime createdAt,
+        String journeyUrl) {
 
     private static final String PUBLIC_THUMBNAIL_PATH =
             "/api/v1/public/product-models/%d/thumbnail";
@@ -88,7 +94,27 @@ public record PublicProductModelResponse(
                                 ? ProductImageResponse.managementOf(image)
                                 : ProductImageResponse.publicOf(image))
                         .toList(),
-                model.getCreatedAt());
+                model.getCreatedAt(),
+                null);
+    }
+
+    /** 상세 조회에서만 붙인다. 목록 카드는 이 값을 채우지 않는다 — 클래스 설명 참고. */
+    public PublicProductModelResponse withJourneyUrl(String journeyUrl) {
+        return new PublicProductModelResponse(
+                productModelId(),
+                name(),
+                category(),
+                subcategory(),
+                brandId(),
+                brandName(),
+                price(),
+                description(),
+                thumbnailUrl(),
+                status(),
+                stockQuantity(),
+                images(),
+                createdAt(),
+                journeyUrl);
     }
 
     private static String thumbnailUrl(ProductModel model, boolean authenticatedImages) {

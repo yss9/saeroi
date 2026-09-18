@@ -6,8 +6,11 @@ import com.ssafy.upcycle.product.ProductErrorCode;
 import com.ssafy.upcycle.product.dto.PublicProductModelResponse;
 import com.ssafy.upcycle.product.dto.PublicProductModelSearchCondition;
 import com.ssafy.upcycle.product.entity.ProductCategory;
+import com.ssafy.upcycle.product.entity.ProductItem;
+import com.ssafy.upcycle.product.entity.ProductItemStatus;
 import com.ssafy.upcycle.product.entity.ProductModel;
 import com.ssafy.upcycle.product.entity.ProductModelStatus;
+import com.ssafy.upcycle.product.repository.ProductItemRepository;
 import com.ssafy.upcycle.product.repository.ProductModelRepository;
 import com.ssafy.upcycle.product.repository.ProductModelSearchQueryRepository;
 import com.ssafy.upcycle.trade.dto.PageResponse;
@@ -38,6 +41,8 @@ public class PublicProductCatalogService {
     private final ProductCardAssembler productCardAssembler;
     private final ProductImageService productImageService;
     private final ProductModelImageService productModelImageService;
+    private final ProductItemRepository productItemRepository;
+    private final ProductQrCodeGenerator productQrCodeGenerator;
 
     @Transactional(readOnly = true)
     public PageResponse<PublicProductModelResponse> search(
@@ -57,7 +62,27 @@ public class PublicProductCatalogService {
     @Transactional(readOnly = true)
     public PublicProductModelResponse findDetail(Long productModelId) {
         ProductModel model = findOnSaleModel(productModelId);
-        return productCardAssembler.assemblePublic(List.of(model)).get(productModelId);
+        PublicProductModelResponse card =
+                productCardAssembler.assemblePublic(List.of(model)).get(productModelId);
+        return card.withJourneyUrl(sampleJourneyUrl(productModelId));
+    }
+
+    /**
+     * 재고 개체 하나를 골라 그 QR Passport 주소를 예시로 보여 준다.
+     *
+     * <p>같은 배치의 개체는 소재 구성이 동일하므로 어느 것을 보여줘도 정보상 차이가 없다.
+     * 재고가 없으면 {@code null} — 화면은 이 경우 버튼 자체를 숨긴다.
+     *
+     * <p>{@code productItemId} 는 응답에 담지 않는다 — 완성된 주소만 내려준다
+     * ({@link PublicProductModelResponse} 클래스 설명 참고).
+     */
+    private String sampleJourneyUrl(Long productModelId) {
+        return productItemRepository
+                .findFirstByProductModelIdAndStatusOrderByIdAsc(
+                        productModelId, ProductItemStatus.IN_STOCK)
+                .map(ProductItem::getQrToken)
+                .map(productQrCodeGenerator::urlFor)
+                .orElse(null);
     }
 
     /**
