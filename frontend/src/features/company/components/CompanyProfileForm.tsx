@@ -76,6 +76,8 @@ export function CompanyProfileForm({
 
   return (
     <form className="company-profile-form" onSubmit={handleSubmit(onSubmit)} noValidate>
+      {/* 둘 다 짧은 값이라 한 줄에 둔다 — 세로로 쌓으면 폼만 길어지고 옆 칸과 키가 어긋난다. */}
+      <div className="company-profile-form__row">
       <Input
         label="대표자명"
         autoComplete="name"
@@ -103,6 +105,7 @@ export function CompanyProfileForm({
           },
         })}
       />
+      </div>
 
       <fieldset className="company-profile-form__address">
         <legend>업체 주소</legend>
@@ -151,37 +154,10 @@ export function CompanyProfileForm({
       </fieldset>
 
       {/*
-        공통 `Input` 은 한 줄 전용이라(`InputHTMLAttributes<HTMLInputElement>`) 여기서만
-        같은 `ui-field` 마크업으로 여러 줄 칸을 만든다. 2000자를 한 줄에 받으면 방금 적은
-        앞부분이 보이지 않아 사람이 무엇을 썼는지 확인할 수 없다.
+        **업체 소개 칸은 두지 않는다.** 여기서 고치는 것은 연락에 쓰는 값들이고, 소개는
+        길이도 성격도 달라 같은 폼에서 다루면 칸 하나가 화면 절반을 먹는다. 서버가 전부
+        필수로 받으므로 지금 값을 그대로 다시 보낸다 — 빠뜨리면 있던 소개가 지워진다.
       */}
-      <div className="ui-field">
-        <label className="ui-field__label" htmlFor="company-introduction">
-          업체 소개
-        </label>
-        <textarea
-          id="company-introduction"
-          rows={4}
-          placeholder="어떤 소재를 다루는지, 어떤 거래를 원하는지 (선택)"
-          aria-invalid={errors.introduction ? true : undefined}
-          aria-describedby={
-            errors.introduction ? 'company-introduction-error' : 'company-introduction-hint'
-          }
-          className={`ui-field__control${errors.introduction ? ' ui-field__control--error' : ''}`}
-          {...register('introduction', {
-            maxLength: { value: 2000, message: '업체 소개는 2000자 이하로 입력해 주세요.' },
-          })}
-        />
-        {errors.introduction ? (
-          <p className="ui-field__error" id="company-introduction-error" role="alert">
-            {errors.introduction.message}
-          </p>
-        ) : (
-          <p className="ui-field__hint" id="company-introduction-hint">
-            거래 상대가 이 글로 우리를 판단합니다.
-          </p>
-        )}
-      </div>
 
       {error ? <ErrorMessage error={error} /> : null}
 
