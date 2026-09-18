@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "eslint .",
+    "lint": "eslint . --cache --cache-location .eslintcache",
     "test": "vitest run",
     "preview": "vite preview",
     "gen:abi": "tsx scripts/generate-abi.mts"

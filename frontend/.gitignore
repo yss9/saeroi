@@ -30,6 +30,9 @@ dist-ssr
 # Vite 8 의존성 캐시 (프로젝트 루트에 생긴다)
 .vite
 
+# eslint --cache 캐시 파일
+.eslintcache
+
 # Codex 격리 작업공간
 .worktrees/
 
