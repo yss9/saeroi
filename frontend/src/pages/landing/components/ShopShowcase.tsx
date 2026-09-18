@@ -42,6 +42,8 @@ function toHomepageProduct(product: PublicProductModel): HomepageProduct {
 
 export function ShopShowcase() {
   const [activeIndex, setActiveIndex] = useState(0)
+  // 썸네일을 못 받은 상품 id — 깨진 이미지 아이콘 대신 로딩 자리표시자를 그대로 보여준다.
+  const [brokenImageIds, setBrokenImageIds] = useState<Record<string, true>>({})
   const catalog = usePublicProductModels({ page: 0, size: HOME_PRODUCT_COUNT })
   const location = useLocation()
   const products = useMemo(
@@ -75,12 +77,19 @@ export function ShopShowcase() {
         >
           {product ? (
             <>
-              <img
-                key={product.id}
-                src={product.image}
-                alt={`${product.brand} ${product.name}`}
-                style={{ objectPosition: product.imagePosition }}
-              />
+              {brokenImageIds[product.id] ? (
+                <div className="shop-showcase__media-placeholder" aria-hidden="true" />
+              ) : (
+                <img
+                  key={product.id}
+                  src={product.image}
+                  alt={`${product.brand} ${product.name}`}
+                  style={{ objectPosition: product.imagePosition }}
+                  loading="lazy"
+                  decoding="async"
+                  onError={() => setBrokenImageIds((current) => ({ ...current, [product.id]: true }))}
+                />
+              )}
               <p className="shop-showcase__material">{product.material}</p>
             </>
           ) : (

@@ -5,6 +5,7 @@ import { EmptyState, StatusBadge, type StatusTone } from '../../components/commo
 import { useAuth } from '../../features/auth/hooks/useAuth.ts'
 import { useLogout } from '../../features/auth/hooks/useLogout.ts'
 import { ConsumerAccountLayout } from '../../features/user/components/ConsumerAccountLayout.tsx'
+import { formatDate } from '../../features/user/utils/formatDate.ts'
 
 type InquiryStatus = 'WAITING' | 'ANSWERED'
 
@@ -124,7 +125,7 @@ export function ConsumerInquiriesPage() {
                     <p className="consumer-inquiry-item__product">{inquiry.productName}</p>
                     <p className="consumer-inquiry-item__content">{inquiry.content}</p>
                     <time dateTime={inquiry.createdAt}>
-                      {dateFormatter.format(new Date(inquiry.createdAt))}
+                      {formatDate(inquiry.createdAt, dateFormatter)}
                     </time>
                   </button>
                   {isOpen && (
@@ -134,7 +135,7 @@ export function ConsumerInquiriesPage() {
                           <p className="consumer-inquiry-item__answer-label">답변</p>
                           {inquiry.answeredAt && (
                             <time dateTime={inquiry.answeredAt}>
-                              {dateFormatter.format(new Date(inquiry.answeredAt))}
+                              {formatDate(inquiry.answeredAt, dateFormatter)}
                             </time>
                           )}
                           <p>{inquiry.answer}</p>
