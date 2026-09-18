@@ -106,7 +106,7 @@ class ProcessorProfileTests {
 
         mvc.perform(authenticated(put("/processors/me/capabilities"), processorId, "PROCESSOR")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"capabilities\":[{\"materialType\":\"LEATHER\",\"processType\":\"SORTING\",\"minQuantity\":1,\"maxQuantity\":100}]}"))
+                        .content("{\"capabilities\":[{\"materialType\":\"POLYESTER\",\"processType\":\"SORTING\",\"minQuantity\":1,\"maxQuantity\":100}]}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("data.length()").value(1));
         assertThat(jdbc.queryForObject("select count(*) from processor_capability where processor_profile_id=?", Long.class, processorId)).isEqualTo(1);
     }

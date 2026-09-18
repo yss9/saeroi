@@ -151,7 +151,7 @@ class MarketplaceApiTests {
     private User buyer;
     private Material material;
     private Material cotton;
-    private Material leather;
+    private Material silk;
     private String sellerToken;
     private String buyerToken;
 
@@ -196,11 +196,11 @@ class MarketplaceApiTests {
         balanceRepository.save(MaterialBalance.of(
                 cotton.getId(), seller.getId(), SELLER_WALLET, OWNED_QUANTITY));
 
-        leather = materialRepository.save(Material.register(
+        silk = materialRepository.save(Material.register(
                 "MAT-900003",
-                MaterialType.LEATHER,
+                MaterialType.SILK,
                 MaterialRootOrigin.VIRGIN,
-                "미사용 소가죽",
+                "미사용 실크",
                 "재고 소진분",
                 "A",
                 OWNED_QUANTITY,
@@ -208,7 +208,7 @@ class MarketplaceApiTests {
                 null,
                 seller.getId()));
         balanceRepository.save(MaterialBalance.of(
-                leather.getId(), seller.getId(), SELLER_WALLET, OWNED_QUANTITY));
+                silk.getId(), seller.getId(), SELLER_WALLET, OWNED_QUANTITY));
 
         sellerToken = tokenFor(seller);
         buyerToken = tokenFor(buyer);
@@ -1306,7 +1306,7 @@ class MarketplaceApiTests {
     private void registerThreeListings() throws Exception {
         registerListing(10_000L);
         createdListingId(listingRequestFor(cotton.getId(), 10_000L, 4_200L));
-        createdListingId(listingRequestFor(leather.getId(), 10_000L, 52_000L));
+        createdListingId(listingRequestFor(silk.getId(), 10_000L, 52_000L));
     }
 
     private Map<String, Object> listingRequestFor(Long materialId, long quantity, long pricePerKg) {
