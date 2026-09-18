@@ -1,6 +1,8 @@
+import type { MaterialType } from '../../material/types/material.types.ts'
 import type { ProcessType } from './processing.types.ts'
 
-export type MaterialType = 'DENIM' | 'COTTON' | 'LEATHER' | 'LINING' | 'METAL' | 'MIXED' | 'ETC'
+export type { MaterialType } from '../../material/types/material.types.ts'
+export { MATERIAL_TYPE_LABEL } from '../../material/types/material.types.ts'
 
 export interface ProcessorProfile { processorId: number; region: string }
 export interface ProcessorCapability {
@@ -14,8 +16,4 @@ export interface ProcessorLeadTime {
   processType: ProcessType
   maxQuantity: number
   leadDays: number
-}
-
-export const MATERIAL_TYPE_LABEL: Record<MaterialType, string> = {
-  DENIM: '데님', COTTON: '면', LEATHER: '가죽', LINING: '안감', METAL: '금속', MIXED: '혼합', ETC: '기타',
 }

@@ -65,15 +65,10 @@ interface MaterialFormValues {
   composition: { fiberType: MaterialFiberType | ''; percentage: number | null }[]
 }
 
-const MATERIAL_TYPE_OPTIONS: readonly { value: MaterialType; label: string }[] = [
-  { value: 'DENIM', label: '데님' },
-  { value: 'COTTON', label: '면' },
-  { value: 'LEATHER', label: '가죽' },
-  { value: 'LINING', label: '안감' },
-  { value: 'METAL', label: '금속' },
-  { value: 'MIXED', label: '혼방' },
-  { value: 'ETC', label: '기타' },
-]
+// 종류가 늘 때 이 화면만 고치는 일이 없도록 공통 라벨 표에서 파생한다.
+const MATERIAL_TYPE_OPTIONS: readonly { value: MaterialType; label: string }[] =
+  (Object.entries(MATERIAL_TYPE_LABEL) as [MaterialType, string][])
+    .map(([value, label]) => ({ value, label }))
 
 // RECOVERED 는 없다. 정책 v3에서 회수 소재 재순환이 MVP 범위에서 제외됐고
 // Backend ENUM 도 VIRGIN/WASTE 두 값뿐이다 — 보내면 400 이 된다.

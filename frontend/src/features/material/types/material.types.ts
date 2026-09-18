@@ -402,14 +402,15 @@ export const ROOT_ORIGIN_LABEL: Record<MaterialRootOrigin, string> = {
   WASTE: '폐기물',
 }
 
-/** `material.material_type` — 정책 v3 부록에서 7종으로 확정 */
+/** `material.material_type` — 실제 취급하는 섬유 7종 + 기타(분류 안 되는 소재용) */
 export type MaterialType =
-  | 'DENIM'
   | 'COTTON'
-  | 'LEATHER'
-  | 'LINING'
-  | 'METAL'
-  | 'MIXED'
+  | 'COTTON_MIXED'
+  | 'DENIM'
+  | 'POLYESTER'
+  | 'SILK'
+  | 'VISCOSE'
+  | 'WOOL'
   | 'ETC'
 
 /**
@@ -427,12 +428,13 @@ export type MaterialGrade = 'A' | 'B' | 'C'
  * 있었다. 종류가 하나 늘 때 두 곳을 고쳐야 하고, 빠뜨리면 한쪽 화면에만 나타난다.
  */
 export const MATERIAL_TYPE_LABEL: Record<MaterialType, string> = {
-  DENIM: '데님',
   COTTON: '면',
-  LEATHER: '가죽',
-  LINING: '안감',
-  METAL: '금속',
-  MIXED: '혼방',
+  COTTON_MIXED: '혼방(면)',
+  DENIM: '데님',
+  POLYESTER: '폴리에스터',
+  SILK: '실크',
+  VISCOSE: '비스코스',
+  WOOL: '울',
   ETC: '기타',
 }
 
