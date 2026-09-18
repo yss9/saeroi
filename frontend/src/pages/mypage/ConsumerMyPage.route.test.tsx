@@ -243,6 +243,9 @@ describe('consumer mypage route', () => {
     const get = vi.spyOn(apiClient, 'get').mockImplementation(async (url) => {
       if (url.startsWith('/v1/product-orders/')) throw new Error('order service unavailable')
       if (url === '/v1/consumers/me/addresses') return { data: [{ addressId: 7, receiverName: '수령인', receiverPhone: '010-1234-5678', zipCode: '12345', address: '서울 주소 45', addressDetail: '101호', isDefault: true }] } as AxiosResponse
+      // 계정 연락처(users.phone)는 배송지 수령인 연락처와 다른 값으로 둔다 — 화면이
+      // 둘을 섞어 쓰고 있지 않은지 이 테스트가 드러낸다.
+      if (url === '/v1/consumers/me') return { data: { id: 1, email: 'consumer@saeroi.test', name: '새로이 고객', phone: '010-9999-8888', role: 'CONSUMER', status: 'ACTIVE', createdAt: '2026-09-01T00:00:00' } } as AxiosResponse
       return { data: url.endsWith('/product-ids') ? [] : { items: [] } } as AxiosResponse
     })
     signInAsConsumer()
@@ -251,7 +254,8 @@ describe('consumer mypage route', () => {
     // 비밀번호 확인 없이 바로 보이는 화면이라 배송지·연락처는 숫자만 가려서 보여준다(2026-09-18).
     expect(screen.getByText('[12345] 서울 주소 **')).toBeInTheDocument()
     expect(screen.getByText('***호')).toBeInTheDocument()
-    expect(screen.getByText('010-****-5678')).toBeInTheDocument()
+    // 연락처는 배송지가 아니라 계정 연락처를 보여준다(2026-09-18).
+    expect(screen.getByText('010-****-8888')).toBeInTheDocument()
     expect(get.mock.calls.some(([url]) => url.startsWith('/v1/product-orders/'))).toBe(false)
   })
 
