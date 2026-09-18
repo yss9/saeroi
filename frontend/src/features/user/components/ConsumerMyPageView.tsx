@@ -70,9 +70,12 @@ function PageStatus({ state }: { state: Exclude<ConsumerMyPageViewState, { statu
  * 보여주는 곳인지 읽히지 않는다 — 배송지를 다루는 곳은 따로 있고(`/mypage/addresses`),
  * 여기서의 질문은 "내 계정이 지금 어떤 상태인가" 다.
  *
- * 연락처와 주소는 **기본 배송지의 값**이다. 계정에 적은 전화번호와 다를 수 있어 그렇게
- * 적는다 — 물건이 실제로 가는 곳과 받을 사람이 여기 보여야 할 값이다.
+ * **연락처는 계정 연락처다(2026-09-18 변경).** 처음엔 기본 배송지의 수령인 연락처를
+ * 보여줬는데, `/mypage/profile`에서 계정 연락처를 고쳐도 여기가 그대로라 "고쳤는데
+ * 안 바뀐다"로 보였다 — 같은 "연락처"라는 이름표를 달고 다른 값을 보여준 것이 문제였다.
+ * 배송지의 수령인 정보는 "기본 배송지" 칸이 이미 따로 보여준다.
  *
+
  * **여기서는 가려서 보여준다(2026-09-18).** 이 화면은 비밀번호 확인 없이 바로 보이는
  * 자리라, 이름·이메일·연락처·배송지를 그대로 노출하면 화면을 지나가다 본 사람에게도
  * 다 드러난다. 전체 값은 `/mypage/profile`(개인정보확인/수정)에서 비밀번호를 한 번 더
@@ -104,7 +107,7 @@ function ProfileCard({ data }: { data: ConsumerMyPageData }) {
         </div>
         <div>
           <dt>연락처</dt>
-          <dd>{address ? maskPhone(address.phone) : <span className="consumer-profile-card__empty">등록된 연락처가 없습니다</span>}</dd>
+          <dd>{data.profile.phone ? maskPhone(data.profile.phone) : <span className="consumer-profile-card__empty">등록된 연락처가 없습니다</span>}</dd>
         </div>
         <div>
           <dt>기본 배송지</dt>

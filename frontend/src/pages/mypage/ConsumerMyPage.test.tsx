@@ -15,6 +15,9 @@ const profile = {
   id: 5,
   name: '새로이 고객',
   email: 'consumer@saeroi.test',
+  // 배송지 전화번호(아래 defaultAddress.phone)와 일부러 다르게 둔다 — 계정 연락처와
+  // 배송지 수령인 연락처가 서로 다른 값임을 화면이 섞어 쓰고 있지 않은지 드러난다.
+  phone: '010-9999-8888',
 }
 
 const data: ConsumerMyPageData = {
@@ -116,13 +119,27 @@ describe('ConsumerMyPageView', () => {
     expect(card.getByText('새****객')).toBeInTheDocument()
     expect(card.getByText('김*령')).toBeInTheDocument()
     expect(card.getByText('co******@saeroi.test')).toBeInTheDocument()
-    expect(card.getByText('010-****-5678')).toBeInTheDocument()
+    expect(card.getByText('010-****-8888')).toBeInTheDocument()
     expect(card.getByText('서울특별시 강남구 테헤란로 ***', { exact: false })).toBeInTheDocument()
 
     // 원본 값은 화면에 그대로 노출되지 않아야 한다.
     expect(card.queryByText('새로이 고객')).not.toBeInTheDocument()
     expect(card.queryByText('consumer@saeroi.test')).not.toBeInTheDocument()
-    expect(card.queryByText('010-1234-5678')).not.toBeInTheDocument()
+    expect(card.queryByText('010-9999-8888')).not.toBeInTheDocument()
+  })
+
+  // 지금까지 겪던 증상 — 개인정보확인/수정에서 연락처를 고쳐도 여기 "연락처"가 배송지
+  // 수령인 연락처를 보여줘서 안 바뀐 것처럼 보였다. 계정 연락처를 봐야 한다.
+  it('연락처는 배송지가 아니라 계정 연락처를 보여준다', () => {
+    renderView({
+      status: 'ready',
+      data: { ...data, profile: { ...profile, phone: '010-7777-6666' } },
+    })
+
+    const section = screen.getByRole('heading', { name: '내 프로필' }).closest('section')
+    const card = within(section as HTMLElement)
+    expect(card.getByText('010-****-6666')).toBeInTheDocument()
+    expect(card.queryByText('010-****-8888')).not.toBeInTheDocument()
   })
 
   // 주소를 받기 전에 가입한 계정이다. 배송지 등록 안내 문구만 보여준다 — 배송지 관리는
@@ -131,6 +148,12 @@ describe('ConsumerMyPageView', () => {
     renderView({ status: 'ready', data: { ...data, defaultAddress: null } })
 
     expect(screen.getByText('배송지를 등록해 주세요.')).toBeInTheDocument()
+  })
+
+  // 계정 연락처는 배송지와 별개다 — 배송지가 있어도 계정에 연락처가 없을 수 있다.
+  it('계정에 연락처가 없으면 그 안내를 보여준다', () => {
+    renderView({ status: 'ready', data: { ...data, profile: { ...profile, phone: undefined } } })
+
     expect(screen.getByText('등록된 연락처가 없습니다')).toBeInTheDocument()
   })
 
