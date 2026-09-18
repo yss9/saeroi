@@ -4,6 +4,7 @@ import { Button, ErrorMessage, Loading } from '../../../components/common/index.
 import { AddressPicker } from './AddressPicker.tsx'
 import { useConsumerAddresses } from '../hooks/useConsumerAddresses.ts'
 import { useProductOrderPayment } from '../hooks/useProductOrderPayment.ts'
+import { maskAddressDetail, maskAddressLine, maskName, maskPhone } from '../../../utils/mask.ts'
 import './consumer-mypage.css'
 
 export interface ProductPurchasePanelProps {
@@ -32,6 +33,10 @@ export interface ProductPurchasePanelProps {
  * **"배송지 변경"은 화면을 옮기지 않는다(2026-09-18).** `/mypage/addresses`로 보내면
  * 이 상품으로 돌아오기가 어려웠다 — 대신 그 자리에서 `AddressPicker`를 펼쳐 저장된
  * 배송지 중 하나를 바로 고르게 한다.
+ *
+ * **평소엔 받는사람·주소·연락처를 가려서 보여준다** (마이페이지 홈 프로필 카드와 같은
+ * 이유) — 옆에서 화면을 봐도 다 드러나지 않는다. `AddressPicker`가 펼쳐졌을 때는 가리지
+ * 않는다 — 그때는 여러 배송지 중 하나를 실제로 구분해서 골라야 한다.
  */
 export function ProductPurchasePanel({
   productModelId,
@@ -72,12 +77,14 @@ export function ProductPurchasePanel({
         </div>
       ) : selectedAddress ? (
         <div className="purchase-panel__address">
-          <strong>{selectedAddress.receiverName}</strong>
+          <strong>{maskName(selectedAddress.receiverName)}</strong>
           <span>
-            [{selectedAddress.zipCode}] {selectedAddress.address}
-            {selectedAddress.addressDetail ? ` ${selectedAddress.addressDetail}` : ''}
+            [{selectedAddress.zipCode}] {maskAddressLine(selectedAddress.address)}
+            {selectedAddress.addressDetail
+              ? ` ${maskAddressDetail(selectedAddress.addressDetail)}`
+              : ''}
           </span>
-          <span>{selectedAddress.receiverPhone}</span>
+          <span>{maskPhone(selectedAddress.receiverPhone)}</span>
           <button type="button" onClick={() => setChangingAddress(true)}>
             배송지 변경
           </button>
