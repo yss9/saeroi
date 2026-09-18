@@ -248,9 +248,10 @@ describe('consumer mypage route', () => {
     signInAsConsumer()
     renderRoute('/mypage')
     await screen.findByRole('heading', { name: '내 프로필' })
-    expect(screen.getByText('[12345] 서울 주소')).toBeInTheDocument()
-    expect(screen.getByText('101호')).toBeInTheDocument()
-    expect(screen.getByText('010-1234-5678')).toBeInTheDocument()
+    // 비밀번호 확인 없이 바로 보이는 화면이라 배송지·연락처는 가려서 보여준다(2026-09-18).
+    expect(screen.getByText('[12345] *****')).toBeInTheDocument()
+    expect(screen.getByText('****')).toBeInTheDocument()
+    expect(screen.getByText('010-****-5678')).toBeInTheDocument()
     expect(get.mock.calls.some(([url]) => url.startsWith('/v1/product-orders/'))).toBe(false)
   })
 

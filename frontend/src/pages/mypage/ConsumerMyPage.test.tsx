@@ -104,18 +104,25 @@ afterEach(cleanup)
 
 describe('ConsumerMyPageView', () => {
   // 배송지만 덩그러니 있으면 이 화면이 무엇을 보여주는 곳인지 읽히지 않는다.
-  it('이름·이메일·연락처·기본 배송지를 프로필로 묶어 보여준다', () => {
+  // 비밀번호 확인 없이 바로 보이는 화면이라 값은 가려서 보여준다(2026-09-18) —
+  // 전체 값은 /mypage/profile 에서 비밀번호를 확인한 뒤에만 보인다.
+  it('이름·이메일·연락처·기본 배송지를 가린 채 프로필로 묶어 보여준다', () => {
     renderView({ status: 'ready', data })
 
     const profile = screen.getByRole('heading', { name: '내 프로필' }).closest('section')
     expect(profile).not.toBeNull()
 
     const card = within(profile as HTMLElement)
-    expect(card.getByText('새로이 고객')).toBeInTheDocument()
-    expect(card.getByText('김수령')).toBeInTheDocument()
-    expect(card.getByText('consumer@saeroi.test')).toBeInTheDocument()
-    expect(card.getByText('010-1234-5678')).toBeInTheDocument()
-    expect(card.getByText('서울특별시 강남구 테헤란로 212', { exact: false })).toBeInTheDocument()
+    expect(card.getByText('새****객')).toBeInTheDocument()
+    expect(card.getByText('김*령')).toBeInTheDocument()
+    expect(card.getByText('co******@saeroi.test')).toBeInTheDocument()
+    expect(card.getByText('010-****-5678')).toBeInTheDocument()
+    expect(card.getByText('서울특별시 강남구 ********', { exact: false })).toBeInTheDocument()
+
+    // 원본 값은 화면에 그대로 노출되지 않아야 한다.
+    expect(card.queryByText('새로이 고객')).not.toBeInTheDocument()
+    expect(card.queryByText('consumer@saeroi.test')).not.toBeInTheDocument()
+    expect(card.queryByText('010-1234-5678')).not.toBeInTheDocument()
   })
 
   // 주소를 받기 전에 가입한 계정이다. 배송지 등록 안내 문구만 보여준다 — 배송지 관리는
