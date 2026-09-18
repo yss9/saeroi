@@ -1,7 +1,10 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { ErrorMessage } from '../../../components/common/index.ts'
 import { usePredictionMarkets } from '../../prediction/hooks/usePredictionMarkets.ts'
-import { useCreatePredictionMarket } from '../hooks/useCreatePredictionMarket.ts'
+import {
+  useCreatePredictionMarket,
+  usePredictionMarketEligibleBatches,
+} from '../hooks/useCreatePredictionMarket.ts'
 import './prediction-market-admin.css'
 
 function toLocalInput(date: Date): string {
@@ -19,6 +22,7 @@ function asServerDate(value: string): string {
 
 export function PredictionMarketCreatePanel() {
   const create = useCreatePredictionMarket()
+  const eligibleBatches = usePredictionMarketEligibleBatches()
   const markets = usePredictionMarkets()
   const [productionBatchId, setProductionBatchId] = useState('')
   const [bettingEndsAt, setBettingEndsAt] = useState(() => afterHours(24))
@@ -29,6 +33,26 @@ export function PredictionMarketCreatePanel() {
   const bounds = useMemo(() => boundsText.split(',')
     .map((value) => Number(value.trim()))
     .filter((value) => Number.isInteger(value) && value > 0), [boundsText])
+
+  const selectedBatch = eligibleBatches.data?.find(
+    (batch) => batch.productionBatchId === Number(productionBatchId),
+  )
+
+  function selectBatch(value: string) {
+    setProductionBatchId(value)
+    const batch = eligibleBatches.data?.find(
+      (candidate) => candidate.productionBatchId === Number(value),
+    )
+    if (!batch) return
+    const quantity = batch.productionQuantity
+    if (quantity < 2) {
+      setBoundsText(String(quantity))
+      return
+    }
+    const first = Math.max(1, Math.floor(quantity / 3))
+    const second = Math.max(first + 1, Math.floor(quantity * 2 / 3))
+    setBoundsText([...new Set([first, Math.min(second, quantity - 1), quantity])].join(', '))
+  }
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -54,11 +78,27 @@ export function PredictionMarketCreatePanel() {
 
       <form className="admin-market__form" onSubmit={submit}>
         <label>
-          생산 배치 ID
-          <input required min="1" type="number" value={productionBatchId}
-            onChange={(event) => setProductionBatchId(event.target.value)} placeholder="예: 12" />
-          <small>생산 확정과 온체인 등록이 끝난 배치만 개설할 수 있습니다.</small>
+          예측 대상 생산 배치
+          <select required value={productionBatchId} onChange={(event) => selectBatch(event.target.value)}>
+            <option value="">브랜드와 제품을 선택해 주세요</option>
+            {eligibleBatches.data?.map((batch) => <option
+              key={batch.productionBatchId}
+              value={batch.productionBatchId}
+            >
+              {batch.brandName} · {batch.productName} · {batch.batchCode} · {batch.productionQuantity}개
+            </option>)}
+          </select>
+          {eligibleBatches.isPending ? <small>개설 가능한 생산 배치를 불러오는 중입니다.</small> : null}
+          {eligibleBatches.isError ? <small className="admin-market__field-error">생산 배치를 불러오지 못했습니다.</small> : null}
+          {!eligibleBatches.isPending && !eligibleBatches.isError && eligibleBatches.data?.length === 0
+            ? <small>생산 확정·온체인 등록·브랜드 승인이 모두 끝난 미개설 배치가 없습니다.</small>
+            : <small>생산 확정과 온체인 등록이 끝난 미개설 배치만 표시됩니다.</small>}
         </label>
+        {selectedBatch ? <div className="admin-market__batch-summary">
+          <strong>{selectedBatch.batchName}</strong>
+          <span>온체인 배치 #{selectedBatch.chainBatchId}</span>
+          <span>총 생산수량 {selectedBatch.productionQuantity}개</span>
+        </div> : null}
         <div className="admin-market__dates">
           <label>베팅 마감<input required type="datetime-local" value={bettingEndsAt}
             onChange={(event) => setBettingEndsAt(event.target.value)} /></label>
@@ -80,7 +120,7 @@ export function PredictionMarketCreatePanel() {
           </span>)}
         </div>
 
-        <button type="submit" disabled={create.isPending || !productionBatchId || bounds.length < 2}>
+        <button type="submit" disabled={create.isPending || !selectedBatch || bounds.length < 2}>
           {create.isPending ? '온체인 개설 중…' : '예측시장 개설'}
         </button>
       </form>
