@@ -85,6 +85,10 @@
 .order-confirmation .ui-modal__title { color: var(--ink); font-size: 20px; }
 .order-confirmation .ui-modal__body p { white-space: pre-line; margin: 0; font-size: 14px; line-height: 1.9; }
 .order-confirmation .ui-modal__footer .ui-button { border-radius: 6px; font-family: inherit; font-size: 13px; }
+.product-checkout__addresses { margin: 24px 0; }
+.product-checkout__addresses h2 { font-size: 16px; }
+.product-checkout__addresses .address-picker fieldset { border-color: var(--line); border-radius: 8px; }
+.product-checkout__addresses .address-picker__address { min-width: 0; word-break: keep-all; overflow-wrap: anywhere; }
 @media (max-width: 480px) {
   .order-confirmation__actions button { flex: 1 1 100%; }
   .order-confirmation__total { font-size: 21px; }
