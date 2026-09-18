@@ -67,7 +67,7 @@ function BrandBody({ brand }: { brand: PublicBrand }) {
   }
   return <section className="brand-detail" aria-labelledby="brand-name">
     <nav className="brand-detail__breadcrumb" aria-label="브랜드 경로"><Link to="/brands">BRANDS</Link><span>/</span><span>{brand.brandName}</span></nav>
-    <header className="brand-detail__hero"><BrandLogo brand={brand} /><div><p className="brand-detail__eyebrow">MEET THE MAKER</p><h1 id="brand-name">{brand.brandName}</h1><p className={`brand-detail__introduction${brand.introduction === null ? ' brand-introduction--fallback' : ''}`}>{brand.introduction ?? brandIntroduction.detail}</p><span className="brand-detail__total">{new Intl.NumberFormat('ko-KR').format(brand.productCount)}개 상품</span></div></header>
+    <header className="brand-detail__hero"><BrandLogo brand={brand} /><div><p className="brand-detail__eyebrow">MEET THE MAKER</p><h1 id="brand-name">{brand.brandName}</h1><p className={`brand-detail__introduction${brand.introduction === null ? ' brand-introduction--fallback' : ''}`}>{(brand.introduction ?? brandIntroduction.detail).replace(/([.!?])\s+(?=\S)/g, '$1\n')}</p><span className="brand-detail__total">{new Intl.NumberFormat('ko-KR').format(brand.productCount)}개 상품</span></div></header>
     <section className="brand-detail__products" aria-labelledby="brand-products-title"><div className="brand-detail__products-heading"><h2 id="brand-products-title">이 브랜드의 상품</h2><p aria-live="polite">{products.data && !products.isError ? `${new Intl.NumberFormat('ko-KR').format(products.data.totalElements)}개 상품` : ''}</p></div><CatalogResults catalog={products} page={page} onPageChange={changePage} /></section>
   </section>
 }

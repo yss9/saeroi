@@ -56,8 +56,7 @@ function ProductBody({ product }: { product: Product }) {
             <CartButton productId={product.productModelId} name={product.name} text="장바구니 담기" disabled={soldOut} />
           </div>
           <p className="public-product__notice" role="status">{notice}</p>
-          <p className="public-product__memory">찜과 장바구니는 계정에 저장됩니다.</p>
-          <section className="public-product__description" aria-labelledby="product-description-title"><h2 id="product-description-title">상품 이야기</h2><p>{product.description || '등록된 상품 설명이 없습니다.'}</p></section>
+          <section className="public-product__description" aria-labelledby="product-description-title"><h2 id="product-description-title">상품 이야기</h2><p>{product.description?.replace(/([.!?])\s+(?=\S)/g, '$1\n') || '등록된 상품 설명이 없습니다.'}</p></section>
           <Link className="public-product__back" to="/shop">전체 상품 보기 →</Link>
         </div>
       </div>

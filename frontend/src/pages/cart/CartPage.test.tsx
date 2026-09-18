@@ -128,7 +128,7 @@ describe('consumer cart', () => {
     expect(screen.getByRole('checkbox', { name: `${unavailable.product.name} 주문 선택` })).toBeDisabled()
     fireEvent.click(screen.getByRole('checkbox', { name: '데님 백 주문 선택' }))
     expect(within(screen.getByRole('complementary', { name: '장바구니 합계' })).getByText('198,000원')).toBeInTheDocument()
-    expect(screen.getByText(/구매 불가 상품은 제외/)).toBeInTheDocument()
+    expect(screen.getByText('선택한 구매 가능 상품의 합계입니다.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '장바구니, 상품 2개' })).toBeInTheDocument()
   })
   it.each([[89000, '가격 인상'], [109000, '가격 인하']] as const)('shows the previous %s price and %s alongside the current price', async (addedPrice, label) => {
