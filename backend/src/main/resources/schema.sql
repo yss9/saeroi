@@ -1034,6 +1034,9 @@ CREATE TABLE material_trade (
     payment_method ENUM('MOCK', 'KAKAO_PAY') NOT NULL,
     payment_reference VARCHAR(100) NULL,
     payment_amount BIGINT NOT NULL DEFAULT 0,
+    -- 결제 마감. 수량은 결제가 아니라 구매 신청 시점에 깎이므로(reduceAvailable), 결제하지
+    -- 않고 이탈한 거래를 배치가 정리하지 않으면 그 수량이 영원히 잠긴다.
+    payment_deadline DATETIME NULL,
     status ENUM(
         'CREATED',
         'PAID',

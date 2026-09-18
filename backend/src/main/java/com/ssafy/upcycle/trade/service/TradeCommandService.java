@@ -18,6 +18,9 @@ import com.ssafy.upcycle.trade.repository.MaterialListingRepository;
 import com.ssafy.upcycle.trade.repository.MaterialTradeRepository;
 import com.ssafy.upcycle.trade.repository.TradeShippingRepository;
 import com.ssafy.upcycle.user.entity.User;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import com.ssafy.upcycle.user.entity.UserRole;
 import com.ssafy.upcycle.user.repository.UserRepository;
 import com.ssafy.upcycle.user.repository.UserWalletRepository;
@@ -51,6 +54,16 @@ public class TradeCommandService {
     private final TradeResponseAssembler tradeResponseAssembler;
     private final MaterialEventRecorder eventRecorder;
     private final TradeNotificationService businessNotifications;
+    private final Clock clock;
+
+    /**
+     * 결제 마감까지의 시간.
+     *
+     * <p>제품 주문({@code ProductOrderCommandService.PAYMENT_WINDOW})과 같은 30분이다.
+     * 두 결제가 같은 카카오페이 흐름을 쓰는데 마감만 다르면 사용자가 어느 쪽이 얼마나
+     * 남았는지 알 수 없다.
+     */
+    private static final Duration PAYMENT_WINDOW = Duration.ofMinutes(30);
 
     /**
      * 구매 전 금액과 구매 가능 여부를 미리 계산한다. <b>아무것도 바꾸지 않는다.</b>
@@ -130,7 +143,10 @@ public class TradeCommandService {
                 buyerWallet,
                 quantity,
                 totalPrice,
-                request.paymentMethod()));
+                request.paymentMethod(),
+                // 결제하지 않고 이탈하면 이 시각 뒤에 배치가 거래를 취소하고 판매 글
+                // 수량을 되돌린다. 제품 주문과 같은 30분이다.
+                LocalDateTime.now(clock).plus(PAYMENT_WINDOW)));
 
         // 배송지를 거래와 같은 트랜잭션에서 만든다. 나중에 채우는 구조로 두면 그 사이의
         // 거래는 발송도 수령도 할 수 없는 상태가 된다 — 양쪽 모두 배송 행을 필수로 읽는다.

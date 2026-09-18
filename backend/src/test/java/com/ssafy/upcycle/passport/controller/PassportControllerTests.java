@@ -365,7 +365,7 @@ class PassportControllerTests {
                 "0x" + "c".repeat(40),
                 1_000,
                 20_000,
-                PaymentMethod.MOCK);
+                PaymentMethod.MOCK, LocalDateTime.now().plusMinutes(30));
         unrelatedTrade.markPaid(
                 "trade-payment-unrelated",
                 20_000,
@@ -386,7 +386,7 @@ class PassportControllerTests {
                 "0x" + "b".repeat(40),
                 5_000,
                 120_000,
-                PaymentMethod.MOCK);
+                PaymentMethod.MOCK, LocalDateTime.now().plusMinutes(30));
         trade.markPaid("trade-payment-1", 120_000, tradedAt, PaymentMethod.MOCK);
         trade.ship(tradedAt.plusDays(1));
         trade.confirmReceipt(tradedAt.plusDays(2), tradedAt.plusDays(2));

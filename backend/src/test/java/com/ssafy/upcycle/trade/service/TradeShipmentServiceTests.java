@@ -176,7 +176,7 @@ class TradeShipmentServiceTests {
     private MaterialTrade trade() {
         return MaterialTrade.create(
                 "TRD-000001", 1L, 2L, SELLER_ID, BUYER_ID,
-                SELLER_WALLET, BUYER_WALLET, 20_000L, 200_000L, PaymentMethod.MOCK);
+                SELLER_WALLET, BUYER_WALLET, 20_000L, 200_000L, PaymentMethod.MOCK, LocalDateTime.now().plusMinutes(30));
     }
 
     private TradeShipping shipping(Long tradeId) {
