@@ -236,7 +236,7 @@ function OrderGroupCard({
         </Link>
       </header>
 
-      {group.orderGroupCode && <p>묶음 번호 {group.orderGroupCode} · 같은 번호의 주문은 한 번에 결제된 브랜드별 주문입니다. 개별 결제·취소 불가</p>}
+      {group.orderGroupCode && <p className="consumer-order-group__reference">주문 번호 {group.orderGroupCode}</p>}
 
       <div className="consumer-order-group__items">
         {group.items.map((item) => (

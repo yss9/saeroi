@@ -86,7 +86,7 @@ export const saeroiValues: SaeroiValue[] = [
     id: 'transform',
     title: 'TRANSFORM',
     koreanTitle: '변화를 따라가다',
-    description: '버려진 소재가 새로운 제품으로 다시 태어나는 과정을 따라갑니다.',
+    description: '소재가 새로운 제품이 되는 과정을 따라갑니다.',
     image: siteAssetUrl('/images/landing/journey/transform-process.webp'),
     imageAlt: '폐섬유를 새로운 제품으로 제작하는 봉제 과정',
   },

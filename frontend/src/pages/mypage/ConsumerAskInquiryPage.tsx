@@ -96,8 +96,9 @@ export function ConsumerAskInquiryPage() {
 
         {submitted ? (
           <div className="consumer-inquiry-submitted">
-            <p>문의가 접수되었습니다. 답변은 문의내역에서 확인하실 수 있습니다.</p>
-            <Button variant="secondary" onClick={resetForm}>
+            <h3>문의가 접수되었습니다.</h3>
+            <p>답변은 문의내역에서 확인하실 수 있습니다.</p>
+            <Button onClick={resetForm}>
               새 문의 작성
             </Button>
           </div>
