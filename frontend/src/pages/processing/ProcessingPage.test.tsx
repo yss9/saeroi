@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { apiClient } from '../../services/apiClient.ts'
+import { companyKeys } from '../../features/company/api/companyKeys.ts'
 import { useAuthStore } from '../../stores/authStore.ts'
 import { CompanyDashboardLayout } from '../../features/company/components/CompanyDashboardLayout.tsx'
 import { ProcessingPage } from './ProcessingPage.tsx'
@@ -55,7 +56,8 @@ async function openQuoteRequests() {
 }
 
 function renderPage() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
+  queryClient.setQueryData(companyKeys.me(), { companyName: '리뉴 텍스타일', roleApprovalStatus: 'APPROVED' })
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={['/processor/jobs']}>
@@ -74,7 +76,11 @@ beforeEach(() => {
     accessToken: 'token',
     isAuthenticated: true,
   })
-  vi.mocked(apiClient.get).mockImplementation(async url => ({ data: url === '/processing-jobs' ? jobs : requests }))
+  vi.mocked(apiClient.get).mockImplementation(async url => ({
+    data: url === '/v1/companies/me'
+      ? { companyName: '리뉴 텍스타일', roleApprovalStatus: 'APPROVED' }
+      : url === '/processing-jobs' ? jobs : requests,
+  }))
   vi.mocked(apiClient.post).mockResolvedValue({ data: {} })
 })
 
@@ -94,7 +100,9 @@ test('견적 요청과 Job을 하나의 가공 업무 목록에 표시한다', a
 test('가공 작업 필터에서 Job 카드로 상세 페이지에 이동할 수 있다', async () => {
   const user = userEvent.setup()
   vi.mocked(apiClient.get).mockImplementation(async url => ({
-    data: url === '/processing-jobs'
+    data: url === '/v1/companies/me'
+      ? { companyName: '리뉴 텍스타일', roleApprovalStatus: 'APPROVED' }
+      : url === '/processing-jobs'
       ? [{ jobId: 17, jobCode: 'JOB-017', status: 'PROCESSING', inputMaterialId: 3, inputQuantity: 20_000, fee: 150_000 }]
       : requests,
   }))
@@ -190,7 +198,9 @@ test('Processor가 담당 요청을 거절한다', async () => {
 
 test('다음 페이지로 이동하면 해당 페이지를 조회한다', async () => {
   vi.mocked(apiClient.get).mockImplementation(async url => ({
-    data: url === '/processing-jobs' ? jobs : { ...requests, total: 21 },
+    data: url === '/v1/companies/me'
+      ? { companyName: '리뉴 텍스타일', roleApprovalStatus: 'APPROVED' }
+      : url === '/processing-jobs' ? jobs : { ...requests, total: 21 },
   }))
   const user = await openQuoteRequests()
   await screen.findByText('PR-007')

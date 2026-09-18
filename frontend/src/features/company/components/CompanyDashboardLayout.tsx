@@ -95,8 +95,7 @@ export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps
   const isBusinessUser = Boolean(user && isBusinessUserRole(user.role))
   const companyProfile = useCompanyProfile(isBusinessUser)
   const roleApprovalStatus = companyProfile.profile?.roleApprovalStatus
-  const roleApproved = !isBusinessUser
-    || (roleApprovalStatus !== 'PENDING' && roleApprovalStatus !== 'REJECTED')
+  const roleApproved = !isBusinessUser || roleApprovalStatus === 'APPROVED'
   // 역할→메뉴 매핑을 이 파일이 들고 있지 않다. routes.tsx 의 RoleGuard 정의에서
   // 파생된다 (app/navigation/navigationMenu.ts 머리말). 예전에는 여기에 역할별 배열이
   // 있어서 라우트를 추가해도 메뉴가 따라오지 않았다 — /supplier/trades 와
@@ -109,6 +108,7 @@ export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps
   const { groups, isResolving } = useVisibleMenuGroups(BUSINESS_MENU_GROUPS)
   const { items: accountLinks } = useVisibleMenu(ACCOUNT_LINKS)
   const { pathname } = useLocation()
+  const blocksRolePage = isBusinessUser && pathname !== '/company/account' && !roleApproved
 
   useEffect(() => {
     if (isBusinessUser && roleApprovalStatus && roleApprovalStatus !== 'APPROVED'
@@ -157,7 +157,7 @@ export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps
           </Link>
           {isBusinessUser ? (
             <>
-              <NotificationCenter enabled={isBusinessUser} />
+              {roleApproved ? <NotificationCenter enabled /> : null}
               <BusinessWalletStatus />
               <Link className="company-dashboard__account-link" to="/company/account" aria-label="마이페이지">
                 <UserCircle aria-hidden="true" />
@@ -245,7 +245,13 @@ export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps
               <span>회사 정보와 지갑 연결을 확인해 주세요. 관리자 승인 완료 후 업무 메뉴가 열립니다.</span>
             </div>
           ) : null}
-          {children}
+          {blocksRolePage ? (
+            !roleApprovalStatus ? (
+              <p className="company-dashboard__approval-loading" role="status">
+                사업자 승인 상태를 확인하고 있습니다.
+              </p>
+            ) : null
+          ) : children}
         </main>
       </div>
     </div>
