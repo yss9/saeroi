@@ -17,6 +17,7 @@ describe('product address review', () => {
   it.each([true, false])('uses the default address or first address without leaving the page (%s)', async hasDefault => {
     data.addresses[0].isDefault = false; data.addresses[1].isDefault = hasDefault
     show()
+    fireEvent.click(screen.getByRole('button', { name: '배송지 변경' }))
     expect(screen.getAllByRole('radio')[hasDefault ? 1 : 0]).toBeChecked()
     fireEvent.click(screen.getByRole('button', { name: '주문 확인' }))
     await screen.findByText('생성된 주문 확인')
@@ -24,6 +25,7 @@ describe('product address review', () => {
   })
   it('creates only after review with the selected address then opens existing-order checkout', async () => {
     show(); expect(data.create).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: '배송지 변경' }))
     fireEvent.click(screen.getAllByRole('radio')[1]); fireEvent.click(screen.getByRole('button', { name: '주문 확인' }))
     await screen.findByText('생성된 주문 확인'); expect(data.create).toHaveBeenCalledWith({ productModelId: 31, addressId: 10 })
     expect(screen.getByLabelText('현재 위치')).toHaveTextContent('/orders/12/checkout')
@@ -32,6 +34,22 @@ describe('product address review', () => {
     data.create.mockImplementation(() => new Promise(() => {})); show()
     const button = screen.getByRole('button', { name: '주문 확인' }); fireEvent.click(button); fireEvent.click(button)
     await waitFor(() => expect(data.create).toHaveBeenCalledTimes(1)); expect(button).toBeDisabled()
+  })
+  it('masks the selected address except while choosing and preserves the chosen address', async () => {
+    data.addresses[0] = { ...data.addresses[0], receiverName: '김고객', receiverPhone: '010-1234-5678', address: '서울 테헤란로 123' }
+    show()
+    expect(screen.getByText('집 · 김*객')).toBeInTheDocument()
+    expect(screen.getByText('010-****-5678')).toBeInTheDocument()
+    expect(screen.queryByText(/서울 테헤란로 123/)).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '배송지 변경' }))
+    expect(screen.getByText(/서울 테헤란로 123/)).toBeInTheDocument()
+    fireEvent.click(screen.getAllByRole('radio')[1])
+    fireEvent.click(screen.getByRole('button', { name: '선택 완료' }))
+    expect(screen.queryByRole('radio')).not.toBeInTheDocument()
+    expect(screen.getByText('회사 · 고*')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '주문 확인' }))
+    await screen.findByText('생성된 주문 확인')
+    expect(data.create).toHaveBeenCalledWith({ productModelId: 31, addressId: 10 })
   })
   it.each(['address', 'stock'])('blocks checkout with no %s', condition => {
     if (condition === 'address') data.addresses = []; else data.stock = 0
