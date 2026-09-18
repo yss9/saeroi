@@ -10,11 +10,11 @@ export function useCompanyRoleApplications() {
   return useQuery<CompanyRoleApplication[], AppError>({ queryKey: key, queryFn: getCompanyRoleApplications })
 }
 
-function updateCachedApplication(
+function removeCachedApplication(
   current: CompanyRoleApplication[] = [],
-  updated: CompanyRoleApplication,
+  userId: number,
 ) {
-  return current.map((application) => application.userId === updated.userId ? updated : application)
+  return current.filter((application) => application.userId !== userId)
 }
 
 export function useApproveCompanyRole() {
@@ -30,7 +30,7 @@ export function useApproveCompanyRole() {
       return approveCompanyRole(application.userId, hashes)
     },
     onSuccess: (updated) => {
-      client.setQueryData<CompanyRoleApplication[]>(key, (current) => updateCachedApplication(current, updated))
+      client.setQueryData<CompanyRoleApplication[]>(key, (current) => removeCachedApplication(current, updated.userId))
     },
   })
 }
@@ -40,7 +40,7 @@ export function useRejectCompanyRole() {
   return useMutation<CompanyRoleApplication, AppError, number>({
     mutationFn: rejectCompanyRole,
     onSuccess: (updated) => {
-      client.setQueryData<CompanyRoleApplication[]>(key, (current) => updateCachedApplication(current, updated))
+      client.setQueryData<CompanyRoleApplication[]>(key, (current) => removeCachedApplication(current, updated.userId))
     },
   })
 }

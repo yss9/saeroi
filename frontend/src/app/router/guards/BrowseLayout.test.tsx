@@ -4,6 +4,7 @@ import type { AxiosResponse } from 'axios'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiClient } from '../../../services/apiClient.ts'
+import { companyKeys } from '../../../features/company/api/companyKeys.ts'
 import { useAuthStore } from '../../../stores/authStore.ts'
 import { BrowseLayout } from './BrowseLayout.tsx'
 
@@ -18,7 +19,8 @@ import { BrowseLayout } from './BrowseLayout.tsx'
  * 로그인 안 한 사람에게 회사 정보 같은 항목을 보여주게 된다.
  */
 function renderBrowse() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
+  queryClient.setQueryData(companyKeys.me(), { companyName: '새로이', roleApprovalStatus: 'APPROVED' })
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={['/marketplace']}>
@@ -33,7 +35,11 @@ function renderBrowse() {
 }
 
 beforeEach(() => {
-  vi.spyOn(apiClient, 'get').mockResolvedValue({ data: [] } as AxiosResponse)
+  vi.spyOn(apiClient, 'get').mockImplementation(async (url) => ({
+    data: url === '/v1/companies/me'
+      ? { companyName: '새로이', roleApprovalStatus: 'APPROVED' }
+      : [],
+  } as AxiosResponse))
 })
 
 afterEach(() => {
@@ -49,7 +55,8 @@ function renderShell(role: 'SUPPLIER' | 'BRAND' | 'CONSUMER') {
     accessToken: 'token',
     isAuthenticated: true,
   })
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
+  queryClient.setQueryData(companyKeys.me(), { companyName: '새로이', roleApprovalStatus: 'APPROVED' })
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={['/marketplace']}>

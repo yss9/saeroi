@@ -438,6 +438,14 @@
   line-height: 1.5;
 }
 
+.company-dashboard__approval-loading {
+  width: min(100%, 1080px);
+  margin: 0 auto;
+  padding: 28px;
+  color: var(--company-muted);
+  text-align: center;
+}
+
 .company-dashboard__overlay {
   display: none;
 }
