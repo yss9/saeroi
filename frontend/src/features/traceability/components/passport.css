@@ -1,9 +1,6 @@
 .passport-page {
   min-height: 100vh;
-  background:
-    radial-gradient(circle at 8% 16%, rgba(231, 219, 197, 0.34), transparent 30%),
-    radial-gradient(circle at 92% 4%, rgba(204, 221, 230, 0.28), transparent 26%),
-    #f8f5ee;
+  background: #faf8f4;
 }
 
 .passport {
@@ -23,11 +20,16 @@
 }
 
 .passport-brandbar__logo {
-  color: #0d5790;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(28px, 2.5vw, 39px);
-  letter-spacing: 0.18em;
+  display: inline-flex;
   text-decoration: none;
+}
+
+.passport-brandbar__logo img { display: block; width: 144px; height: auto; }
+.passport .passport-brandbar { justify-content: flex-start; gap: 24px; }
+.passport-brandbar__title { padding-left: 24px; border-left: 1px solid var(--line); color: var(--brand-blue); font-family: "Manrope", sans-serif; font-size: 12px; font-weight: 600; letter-spacing: .14em; }
+@media (max-width: 600px) {
+  .passport .passport-brandbar { gap: 14px; }
+  .passport-brandbar__title { padding-left: 14px; font-size: 10px; letter-spacing: .08em; }
 }
 
 .passport-brandbar__message {
@@ -1443,4 +1445,97 @@
     animation: none !important;
     transition: none;
   }
+}
+
+/* Consumer palette only: map geometry, marker sizing and workspace stay unchanged. */
+.landing-page.passport { height: auto; min-height: 100vh; overflow: visible; color: var(--ink); background: var(--paper); }
+.passport button, .passport input, .passport select, .passport textarea { font-family: inherit; }
+.passport-brandbar { border-color: var(--line); background: var(--paper); backdrop-filter: none; }
+.passport-product, .passport .journey-canvas, .passport .journey-detail,
+.passport-empty, .passport .journey-metrics > section { border-color: var(--line); border-radius: 12px; background: var(--paper); box-shadow: none; }
+.passport-product__image { background: var(--paper-warm); }
+.passport-product__eyebrow, .passport .journey-metrics__eyebrow,
+.passport .journey-canvas__heading > span, .passport .journey-detail__header p { font-family: "Manrope", sans-serif; }
+.passport-product__eyebrow, .passport .journey-metrics__eyebrow,
+.passport-product__verified { color: var(--brand-blue); }
+.passport-product__brand, .passport-product__description, .passport-product__meta dt,
+.passport .journey-detail__company span, .passport .journey-detail__facts dt,
+.passport .journey-detail__materials li small, .passport .journey-stepper__status,
+.passport .journey-canvas__legend { color: var(--muted); }
+.passport-product__meta dd, .passport .journey-stepper__label,
+.passport .journey-canvas__heading strong, .passport .journey-detail__section h3,
+.passport .journey-detail__movements h3 { color: var(--ink); }
+.passport-product__status, .passport .journey-detail__status { color: var(--brand-blue); background: var(--paper-warm); }
+.passport .journey-detail__status.is-pending { color: var(--muted); }
+.passport .journey-detail__status.is-current { color: var(--ink); background: color-mix(in srgb, var(--brand-orange) 20%, var(--paper)); }
+.passport .journey-view-toggle { border-color: var(--line); background: var(--paper); }
+.passport .journey-view-toggle button { color: var(--muted); }
+.passport .journey-view-toggle button.is-active { color: white; background: var(--brand-blue); box-shadow: none; }
+.passport .journey-view-toggle .journey-view-toggle__flow.is-active { color: var(--ink); background: var(--brand-orange); }
+.passport .journey-stepper__icon { border-color: var(--paper); }
+.passport .journey-detail__facts div, .passport .journey-detail__chips span { background: var(--paper-warm); color: var(--ink); }
+.passport .journey-detail__selector button { background: var(--paper); }
+.passport .journey-detail__proof-row { color: var(--brand-blue); background: var(--paper-warm); }
+.passport .journey-detail__proof-row:hover { background: color-mix(in srgb, var(--brand-blue) 10%, var(--paper)); }
+.passport .journey-metrics__verification, .passport .journey-donut span { color: var(--brand-blue); }
+.passport .journey-metrics__composition li, .passport .journey-metrics__verification p:last-child { color: var(--muted); }
+.passport .journey-donut::after { background: var(--paper); }
+.passport .mobile-journey__stages, .passport .mobile-journey__summary section { border-color: var(--line); border-radius: 12px; background: var(--paper); box-shadow: none; }
+.passport .mobile-journey__intro p { color: var(--brand-blue); font-family: "Manrope", sans-serif; }
+.passport .mobile-journey__intro > span { color: var(--brand-blue); background: var(--paper-warm); }
+.passport .mobile-journey__summary section, .passport .mobile-journey__summary strong { color: var(--brand-blue); }
+.passport .mobile-journey__summary span, .passport .journey-route-list,
+.passport .journey-detail__description { color: var(--muted); }
+.passport__notice { border-color: var(--line); background: var(--paper-warm); color: var(--ink); }
+.passport .journey-map-backdrop > rect { fill: color-mix(in srgb, var(--brand-blue) 10%, var(--paper)); }
+.passport .journey-map-backdrop > path, .passport .journey-flow-backdrop > rect { fill: var(--paper-warm); }
+.passport .journey-node__flow-label text { fill: var(--ink); }
+.passport .journey-node__flow-label .journey-node__location { fill: var(--muted); }
+.passport-footer { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 28px; padding: 28px clamp(24px, 4vw, 68px); border-top: 1px solid var(--line); background: var(--paper-warm); font-size: 12px; }
+.passport-footer img { display: block; width: 120px; height: auto; }
+.passport-footer p { margin: 0; color: var(--muted); }
+.passport-footer > a:last-child { margin-left: auto; color: var(--brand-blue); text-decoration: none; }
+
+/* Product summary and shared Map/Flow detail readability. */
+.passport .passport-product > .passport-product__verified { grid-column: 3; grid-row: 1; justify-self: end; gap: 7px; font-size: 13px; }
+.passport .journey-detail__facts { gap: 0 20px; padding: 12px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.passport .journey-detail__facts div { padding: 0; border-radius: 0; background: transparent; }
+.passport .journey-detail__facts div + div { padding-left: 20px; border-left: 1px solid var(--line); }
+.passport .journey-detail__facts dd { margin-top: 6px; font-size: 14px; }
+.passport .passport-product { grid-template-columns: 112px minmax(0, 1fr) auto; gap: 16px 24px; padding: 20px; }
+.passport .passport-product__image { width: 112px; border-radius: 8px; }
+.passport .passport-product__identity h1 { font-size: clamp(23px, 2vw, 30px); line-height: 1.3; }
+.passport .passport-product__identity { align-self: center; }
+.passport .passport-product__identity .passport-product__eyebrow { margin-bottom: 14px; }
+.passport .passport-product__brand { margin: 12px 0 0; font-size: 14px; line-height: 1.5; }
+.passport .passport-product__verified { font-size: 12px; font-weight: 500; }
+.passport .passport-product__status { grid-column: 3; grid-row: 1; max-width: none; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: transparent; font-size: 12px; font-weight: 600; }
+.passport .passport-product__meta { grid-column: 1 / -1; grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr)); padding-top: 16px; border-top: 1px solid var(--line); }
+.passport .passport-product__meta div { justify-content: flex-start; gap: 6px; padding: 0 20px; border-color: var(--line); }
+.passport .passport-product__meta div:first-child { padding-left: 0; border-left: 0; }
+.passport .passport-product__meta dt { font-size: 12px; }
+.passport .passport-product__meta dd { font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.passport .journey-detail__section h3, .passport .journey-detail__movements h3 { font-size: 15px; margin-bottom: 10px; }
+.passport .journey-detail__materials li { padding: 12px 0; font-size: 14px; line-height: 1.5; }
+.passport .journey-detail__materials li small { padding-left: 23px; font-size: 12px; }
+.passport .journey-detail__materials li span > svg { flex: 0 0 17px; }
+.passport .journey-detail__proof-row { padding: 12px; border-radius: 8px; font-size: 13px; line-height: 1.5; }
+.passport .journey-detail__proof-row small { font-size: 12px; }
+.passport .journey-detail__chips span { font-size: 12px; }
+.passport .journey-detail__selector button { font-size: 13px; }
+.passport .journey-detail__selector button:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--stage-color); }
+@media (max-width: 600px) {
+  .passport .passport-product > .passport-product__verified { grid-column: 1 / -1; grid-row: auto; justify-self: start; font-size: 12px; }
+  .passport .journey-detail__facts { grid-template-columns: 1fr; gap: 10px; }
+  .passport .journey-detail__facts div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .passport .journey-detail__facts div + div { padding-left: 0; border-left: 0; }
+  .passport .journey-detail__facts dd { margin: 0; }
+  .passport .passport-product { grid-template-columns: 80px minmax(0, 1fr); gap: 14px; padding: 14px; }
+  .passport .passport-product__image { width: 80px; }
+  .passport .passport-product__identity h1 { font-size: 20px; }
+  .passport .passport-product__status { grid-column: 1 / -1; grid-row: auto; justify-self: start; }
+  .passport .passport-product__meta { grid-template-columns: minmax(0, 1.5fr) repeat(2, minmax(0, 1fr)); }
+  .passport .passport-product__meta div { padding: 0 8px; }
+  .passport .passport-product__meta dt { font-size: 10px; }
+  .passport .passport-product__meta dd { font-size: 11px; }
 }

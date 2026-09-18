@@ -179,16 +179,18 @@ describe('PassportView', () => {
     expect(screen.getByRole('button', { name: '최종 수령 상세 보기' })).toHaveClass('is-selected')
   })
 
-  it('2~5단계에서도 수거 라벨 전체를 지도 내부에 유지한다', async () => {
+  it('수거 단계에서만 숫자 없는 경로 라벨을 표시하고 다른 단계에서는 제거한다', async () => {
     const user = userEvent.setup()
     const { container } = renderView()
     await screen.findByRole('heading', { name: 'RE:BAG' })
-    for (const name of [/수거 완료/, /가공 완료/, /브랜드 제작 완료/, /최종 수령 완료/]) {
+    for (const name of [/원단 등록 완료/, /수거 완료/, /가공 완료/, /브랜드 제작 완료/, /최종 수령 완료/]) {
       await user.click(screen.getByRole('button', { name }))
       const labels = container.querySelectorAll('.journey-canvas__route-label')
       expect(labels.length).toBeLessThanOrEqual(2)
+      if (name.source === '수거 완료') expect(labels.length).toBeGreaterThan(0)
+      if (name.source !== '수거 완료') expect(labels).toHaveLength(0)
       labels.forEach((label) => {
-        expect(label).toHaveTextContent('2. 수거')
+        expect(label.textContent).toBe('수거')
         const coordinates = label.getAttribute('transform')!.match(/[\d.]+/g)!.map(Number)
         expect(coordinates[0] - 37).toBeGreaterThanOrEqual(315)
         expect(coordinates[0] + 37).toBeLessThanOrEqual(840)
@@ -270,7 +272,7 @@ describe('PassportView', () => {
 
     expect(await screen.findByRole('heading', { name: 'RE:BAG' })).toBeInTheDocument()
     expect(screen.getByText('ITEM-0001')).toBeInTheDocument()
-    expect(screen.getByText('폐데님으로 만든 가방입니다.')).toBeInTheDocument()
+    expect(screen.queryByText('폐데님으로 만든 가방입니다.')).not.toBeInTheDocument()
     expect(screen.getByText('Verified Upcycled Product')).toBeInTheDocument()
     expect(screen.getByRole('list', { name: '여정 단계' }).querySelectorAll('li')).toHaveLength(5)
     expect(screen.getByRole('button', { name: /원단 등록/ })).toHaveAttribute('aria-current', 'step')
@@ -315,7 +317,7 @@ describe('PassportView', () => {
     expect(screen.getByRole('button', { name: /가공 완료/ })).toHaveAttribute('aria-current', 'step')
     expect(container.querySelector('[data-edge-id="collect-a"]')).toHaveClass('is-active')
     expect(container.querySelector('[data-edge-id="collect-b"]')).toHaveClass('is-dimmed')
-    expect(container.querySelector('[data-edge-id="collect-a"] .journey-canvas__route-label')).toHaveTextContent('2. 수거')
+    expect(container.querySelector('[data-edge-id="collect-a"] .journey-canvas__route-label')).not.toBeInTheDocument()
     expect(container.querySelector('.journey-route-list')).toHaveTextContent('서울 원단 공급처 → 그린텍스 · 수거')
     expect(container.querySelector('[data-edge-id="collect-a"] [data-traveler-stage="COLLECTION"] svg')).toBeInTheDocument()
     expect(container.querySelector('[data-edge-id="brand-a"]')).not.toBeInTheDocument()
@@ -358,8 +360,8 @@ describe('PassportView', () => {
 
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Flow View' }))
-    expect(container.querySelectorAll('.journey-flow-backdrop__stage')).toHaveLength(5)
-    expect(container.querySelectorAll('.journey-flow-backdrop__stage .journey-flow-backdrop__icon svg')).toHaveLength(5)
+    expect(container.querySelectorAll('.journey-flow-backdrop__stage')).toHaveLength(0)
+    expect(container.querySelectorAll('.journey-node__stage-badge')).toHaveLength(0)
   })
 
   it('모바일에서는 지도와 단계별 상세만 간결하게 보여준다', async () => {
@@ -408,7 +410,9 @@ describe('PassportView', () => {
     const { container } = renderView()
     await screen.findByRole('heading', { name: 'RE:BAG' })
 
-    expect(container.querySelectorAll('img')).toHaveLength(1)
+    expect(container.querySelectorAll('.passport__content img')).toHaveLength(1)
+    expect(screen.getAllByAltText('SAEROI')).toHaveLength(2)
+    expect(screen.queryByText('A KINDER TOMORROW')).not.toBeInTheDocument()
   })
 
   it('블록체인 기록을 누르면 상세 모달에 전체 값을 보여준다', async () => {

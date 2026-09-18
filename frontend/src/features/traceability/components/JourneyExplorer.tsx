@@ -49,9 +49,9 @@ const STAGE_LABEL: Record<JourneyStageType, string> = {
 
 const STAGE_META = {
   SOURCE: { icon: FileText, color: '#2f7d59' },
-  COLLECTION: { icon: Truck, color: '#216a9f' },
+  COLLECTION: { icon: Truck, color: 'var(--brand-blue, #1e6098)' },
   PROCESSING: { icon: GearSix, color: '#a9855d' },
-  BRAND: { icon: Storefront, color: '#f07d45' },
+  BRAND: { icon: Storefront, color: 'var(--brand-orange, #fb9154)' },
   DELIVERY: { icon: Package, color: '#e95b2b' },
 } satisfies Record<JourneyStageType, { icon: typeof FileText; color: string }>
 
@@ -194,7 +194,7 @@ export function JourneyExplorer({ journey }: { journey: ProductJourney }) {
           </button>
           <button
             type="button"
-            className={viewMode === 'FLOW' ? 'is-active' : ''}
+            className={`journey-view-toggle__flow${viewMode === 'FLOW' ? ' is-active' : ''}`}
             aria-pressed={viewMode === 'FLOW'}
             onClick={() => setViewMode('FLOW')}
           >
@@ -501,10 +501,10 @@ function JourneyCanvas({
                     />
                   </g>
                 ) : null}
-                {edge.stage === 'COLLECTION' && label ? (
+                {activeStage === 'COLLECTION' && edge.stage === 'COLLECTION' && label ? (
                   <g className="journey-canvas__route-label" transform={`translate(${label.x} ${label.y}) scale(${viewMode === 'MAP' ? 1 / mapScale : 1})`}>
                     <rect x="-37" y="-12" width="74" height="24" rx="12" />
-                    <text textAnchor="middle" dy="4">2. {STAGE_LABEL[edge.stage]}</text>
+                    <text textAnchor="middle" dy="4">{STAGE_LABEL[edge.stage]}</text>
                   </g>
                 ) : null}
               </g>
@@ -540,10 +540,6 @@ function JourneyCanvas({
                 <circle className="journey-node__body" r={viewMode === 'MAP' ? 13 : 23} />
                 <g className="journey-node__icon" transform={viewMode === 'MAP' ? 'translate(-7 -7)' : 'translate(-12 -12)'}>
                   <NodeIcon size={viewMode === 'MAP' ? 14 : 24} weight="fill" aria-hidden="true" />
-                </g>
-                <g className="journey-node__stage-badge" transform={viewMode === 'MAP' ? 'translate(10 -10)' : 'translate(17 -17)'}>
-                  <circle r={viewMode === 'MAP' ? 6 : 10} />
-                  <text textAnchor="middle" dy="4">{stageIndex(node.stage) + 1}</text>
                 </g>
                 {viewMode === 'FLOW' ? (
                   <g className="journey-node__flow-label">
@@ -870,7 +866,8 @@ function flowPositions(nodes: JourneyNode[]): Record<string, Point> {
       const gap = 430 / Math.max(items.length, 1)
       positions[node.nodeId] = {
         x: 90 + column * 205,
-        y: 105 + gap / 2 + index * gap,
+        // Center the diagram including the labels below each node (34px above, 86px below).
+        y: 69 + gap / 2 + index * gap,
       }
     })
   })
@@ -1037,20 +1034,6 @@ function FlowBackdrop() {
   return (
     <g className="journey-flow-backdrop" aria-hidden="true">
       <rect width="1000" height="620" rx="24" />
-      {STAGE_ORDER.map((stage, index) => (
-        <g
-          key={stage}
-          className="journey-flow-backdrop__stage"
-          style={{ '--stage-color': STAGE_META[stage].color } as CSSProperties}
-          transform={`translate(${24 + index * 205} 18)`}
-        >
-          <rect width="154" height="40" rx="20" />
-          <g className="journey-flow-backdrop__icon" transform="translate(12 8)">
-            {stageIcon(stage, 24)}
-          </g>
-          <text x="88" y="26" textAnchor="middle">{index + 1}. {STAGE_LABEL[stage]}</text>
-        </g>
-      ))}
     </g>
   )
 }
