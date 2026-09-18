@@ -96,7 +96,9 @@ public class ProductOrderGroupPaymentService {
                 ready.tid(),
                 ready.redirectUrl(),
                 group.getTotalPrice(),
-                paymentCoordinator.isLive());
+                paymentCoordinator.isLive(),
+                ProductPaymentDeadline.at(group.getPaymentDeadline(), clock),
+                ProductPaymentDeadline.remainingSeconds(group.getPaymentDeadline(), clock));
     }
 
     /**

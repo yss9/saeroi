@@ -101,7 +101,9 @@ public class ProductOrderPaymentService {
                 ready.tid(),
                 ready.redirectUrl(),
                 order.getTotalPrice(),
-                paymentCoordinator.isLive());
+                paymentCoordinator.isLive(),
+                ProductPaymentDeadline.at(order.getPaymentDeadline(), clock),
+                ProductPaymentDeadline.remainingSeconds(order.getPaymentDeadline(), clock));
     }
 
     /**

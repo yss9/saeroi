@@ -2,6 +2,7 @@ package com.ssafy.upcycle.product.dto;
 
 import com.ssafy.upcycle.product.entity.ProductOrderStatus;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 /**
@@ -42,5 +43,19 @@ public record ProductOrderResponse(
          * <p>구매자가 "배송 중" 만 보고 어디쯤 왔는지 알 수 없어 브랜드에 연락하던 것을
          * 메운다. 값은 원래 {@code product_shipping} 에 있었고 브랜드용 응답만 사용하고 있었다.
          */
-        ProductOrderShippingResponse shipping) {
+        ProductOrderShippingResponse shipping,
+
+        /**
+         * 결제 마감 시각. <b>오프셋이 붙어 있다</b>({@code 2026-09-18T00:26:46+09:00}).
+         *
+         * <p>결제가 끝났거나 마감이 지난 주문도 값을 비우지 않는다 — 조건부로 {@code null}
+         * 이면 화면이 "왜 없는지" 를 상태에서 다시 추론해야 한다. 지금 결제할 수 있는지는
+         * {@code status} 가 말한다.
+         *
+         * <p>마감이 없는 주문은 {@code null} 이다.
+         */
+        OffsetDateTime paymentDeadline,
+
+        /** 지금부터 마감까지 남은 초. 이미 지났으면 0, 마감이 없으면 {@code null}. */
+        Long remainingSeconds) {
 }

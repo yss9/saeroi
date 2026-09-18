@@ -2,6 +2,7 @@ package com.ssafy.upcycle.product.dto;
 
 import com.ssafy.upcycle.product.entity.ProductOrderGroupStatus;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 /**
@@ -28,5 +29,11 @@ public record ProductOrderGroupResponse(
         LocalDateTime orderedAt,
         LocalDateTime paidAt,
         boolean cancelable,
+
+        /** 결제 마감 시각. 오프셋이 붙는다 — 주문 응답과 같은 형식이다. */
+        OffsetDateTime paymentDeadline,
+
+        /** 지금부터 마감까지 남은 초. 이미 지났으면 0, 마감이 없으면 {@code null}. */
+        Long remainingSeconds,
         List<ProductOrderResponse> orders) {
 }

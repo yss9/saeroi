@@ -596,6 +596,38 @@ class ProductOrderGroupPaymentApiTests {
 
     // ── 마감 ────────────────────────────────────────────────
 
+    /** 오프셋이 붙은 ISO 시각. 시간대가 없으면 브라우저가 자기 시간대로 해석한다. */
+    private static final String ISO_WITH_OFFSET =
+            "[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]+)?"
+                    + "(Z|[+-][0-9]{2}:[0-9]{2})";
+
+    @Test
+    void theGroupReadyResponseTellsTheScreenHowLongItHas() throws Exception {
+        Long groupId = checkout();
+
+        mockMvc.perform(withJwt(post(BASE + "/" + groupId + "/payment/ready"), consumerId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.paymentDeadline")
+                        .value(org.hamcrest.Matchers.matchesRegex(ISO_WITH_OFFSET)))
+                .andExpect(jsonPath("$.data.remainingSeconds")
+                        .value(org.hamcrest.Matchers.greaterThan(1700)));
+    }
+
+    @Test
+    void theGroupViewCarriesTheDeadlineForItselfAndItsOrders() throws Exception {
+        // 묶음은 결제의 단위이고 주문은 그 마감을 공유한다. 화면이 어느 쪽을 읽어도 같아야 한다.
+        Long groupId = checkout();
+
+        mockMvc.perform(withJwt(get(BASE + "/" + groupId), consumerId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.paymentDeadline")
+                        .value(org.hamcrest.Matchers.matchesRegex(ISO_WITH_OFFSET)))
+                .andExpect(jsonPath("$.data.remainingSeconds")
+                        .value(org.hamcrest.Matchers.greaterThan(1700)))
+                .andExpect(jsonPath("$.data.orders[0].paymentDeadline")
+                        .value(org.hamcrest.Matchers.matchesRegex(ISO_WITH_OFFSET)));
+    }
+
     @Test
     void anExpiredGroupCannotOpenACheckoutWindow() throws Exception {
         // 묶음은 여러 브랜드의 개체를 한꺼번에 잡고 있어 마감이 늦게 지켜질수록 더 아프다.

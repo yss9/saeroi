@@ -433,6 +433,38 @@ class ProductOrderPaymentApiTests {
 
     // ── 마감 ────────────────────────────────────────────────
 
+    /** 오프셋이 붙은 ISO 시각. 시간대가 없으면 브라우저가 자기 시간대로 해석한다. */
+    private static final String ISO_WITH_OFFSET =
+            "[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]+)?"
+                    + "(Z|[+-][0-9]{2}:[0-9]{2})";
+
+    @Test
+    void theReadyResponseTellsTheScreenHowLongItHas() throws Exception {
+        // 화면이 자기 시계로 남은 시간을 계산하면 그 시계가 틀어졌을 때 통째로 어긋난다.
+        Long orderId = placeOrder();
+
+        mockMvc.perform(withJwt(post(BASE + "/" + orderId + "/payment/ready"), consumerId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.paymentDeadline")
+                        .value(org.hamcrest.Matchers.matchesRegex(ISO_WITH_OFFSET)))
+                .andExpect(jsonPath("$.data.remainingSeconds")
+                        .value(org.hamcrest.Matchers.greaterThan(1700)));
+    }
+
+    @Test
+    void theOrderResponseCarriesTheDeadlineEvenAfterPaying() throws Exception {
+        // 결제가 끝난 주문도 값을 비우지 않는다 — 조건부로 null 이면 화면이 "왜 없는지" 를
+        // 상태에서 다시 추론해야 한다.
+        Long orderId = placeOrder();
+        ready(orderId);
+
+        mockMvc.perform(approveRequest(orderId, consumerId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.paymentDeadline")
+                        .value(org.hamcrest.Matchers.matchesRegex(ISO_WITH_OFFSET)))
+                .andExpect(jsonPath("$.data.remainingSeconds").isNumber());
+    }
+
     @Test
     void anExpiredOrderCannotOpenACheckoutWindow() throws Exception {
         // 만료 배치는 60초마다 돈다. 검사가 없으면 그 주기만큼은 마감이 지나도 결제된다.
