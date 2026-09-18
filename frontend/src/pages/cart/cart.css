@@ -58,6 +58,8 @@
 .order-confirmation dd { margin: 0; text-align: right; }
 .order-confirmation__total { color: var(--brand-blue); font-size: 30px; font-weight: 700; }
 .order-confirmation__notice { color: var(--muted); font-size: 13px; margin: 16px 0; }
+.order-confirmation__interrupted { padding: 16px; border-left: 3px solid var(--brand-orange); background: var(--paper-warm); }
+.order-confirmation .cart-checkout fieldset { min-width: 0; border-radius: 8px; }
 .order-confirmation h2 { margin: 0 0 12px; font-size: 18px; font-weight: 600; line-height: 1.5; }
 .order-confirmation__shipping { margin: 28px 0; }
 .order-confirmation__shipping p { margin: 0 0 6px; }

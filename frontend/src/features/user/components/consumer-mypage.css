@@ -1581,6 +1581,13 @@ dd.consumer-profile-edit__field-edit {
 .consumer-mypage .consumer-order-item--detail { padding: 24px 0; }
 .consumer-order-detail__payment-code { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
 .consumer-order-detail__journey { display: inline-block; margin-top: 16px; }
+.consumer-mypage .consumer-order-detail .consumer-section-heading__eyebrow { color: var(--ink); font-family: "Manrope", sans-serif; }
+.consumer-mypage .consumer-order-detail__progress .consumer-order-progress { max-width: 680px; gap: 24px; }
+.consumer-mypage .consumer-order-item__journey-disabled { text-align: left; padding-inline: 0; align-self: stretch; }
+.consumer-order-group__pay, .consumer-order-group__cancel { display: flex; justify-content: center; align-items: center; min-height: 36px; border-radius: 6px; font: inherit; font-size: 13px; font-weight: 600; }
+.consumer-mypage-main a.consumer-order-group__pay { background: var(--brand-orange); color: var(--ink); text-decoration: none; }
+.consumer-mypage-main a.consumer-order-group__pay:hover { background: #e68b50; color: var(--ink); }
+.consumer-order-group__cancel { color: var(--muted); }
 .consumer-mypage .consumer-order-item--detail .consumer-order-tracking {
   display: flex;
   align-items: center;
