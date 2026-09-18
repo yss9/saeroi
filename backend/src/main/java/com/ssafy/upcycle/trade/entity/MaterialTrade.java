@@ -94,6 +94,19 @@ public class MaterialTrade {
     @Column(name = "payment_amount", nullable = false)
     private long paymentAmount;
 
+    /**
+     * 결제 마감.
+     *
+     * <p><b>수량은 결제가 아니라 구매 신청 시점에 깎인다</b>({@code listing.reduceAvailable}).
+     * 결제하지 않고 이탈한 거래를 정리하지 않으면 그 수량이 영원히 잠긴다 — 남은 양을
+     * 전부 사려던 거래였다면 판매 글이 그대로 품절로 보인다.
+     *
+     * <p>이 마감을 넘긴 거래는 {@code MaterialTradeExpiryWorker} 가 취소하며 판매 글
+     * 수량을 되돌린다. {@code null} 인 행은 배치가 건드리지 않는다.
+     */
+    @Column(name = "payment_deadline")
+    private LocalDateTime paymentDeadline;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private TradeStatus status;
@@ -135,7 +148,8 @@ public class MaterialTrade {
             String buyerWallet,
             long quantity,
             long totalPrice,
-            PaymentMethod paymentMethod) {
+            PaymentMethod paymentMethod,
+            LocalDateTime paymentDeadline) {
         this.tradeCode = requireText(tradeCode, "trade code", TRADE_CODE_MAX_LENGTH);
         this.listingId = requireNonNull(listingId, "listing id");
         this.materialId = requireNonNull(materialId, "material id");
@@ -156,7 +170,20 @@ public class MaterialTrade {
         this.totalPrice = totalPrice;
         this.paymentMethod = requireNonNull(paymentMethod, "payment method");
         this.paymentAmount = 0L;
+        this.paymentDeadline = requireNonNull(paymentDeadline, "payment deadline");
         this.status = TradeStatus.CREATED;
+    }
+
+    /**
+     * 결제 마감을 넘겼는지.
+     *
+     * <p>넘긴 거래는 배치가 취소하며 판매 글 수량을 되돌린다. 상태를 함께 보는 이유는
+     * 결제가 끝난 거래에 마감이 남아 있어도 정리 대상이 아니기 때문이다.
+     */
+    public boolean isPaymentExpiredAt(LocalDateTime at) {
+        return this.status == TradeStatus.CREATED
+                && paymentDeadline != null
+                && !paymentDeadline.isAfter(requireNonNull(at, "at"));
     }
 
     /** 구매 요청이 만들어진다. 결제 전이므로 CREATED 로 시작한다. */
@@ -170,7 +197,8 @@ public class MaterialTrade {
             String buyerWallet,
             long quantity,
             long totalPrice,
-            PaymentMethod paymentMethod) {
+            PaymentMethod paymentMethod,
+            LocalDateTime paymentDeadline) {
         return new MaterialTrade(
                 tradeCode,
                 listingId,
@@ -181,7 +209,8 @@ public class MaterialTrade {
                 buyerWallet,
                 quantity,
                 totalPrice,
-                paymentMethod);
+                paymentMethod,
+                paymentDeadline);
     }
 
     /**

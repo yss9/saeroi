@@ -26,7 +26,7 @@ class MaterialTradeTests {
     void sellerAndBuyerMustDiffer() {
         assertThatThrownBy(() -> MaterialTrade.create(
                         "TRD-000001", 1L, 2L, 10L, 10L,
-                        SELLER_WALLET, BUYER_WALLET, 20_000L, 200_000L, PaymentMethod.MOCK))
+                        SELLER_WALLET, BUYER_WALLET, 20_000L, 200_000L, PaymentMethod.MOCK, LocalDateTime.now().plusMinutes(30)))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -34,7 +34,7 @@ class MaterialTradeTests {
     void malformedWalletAddressIsRejected() {
         assertThatThrownBy(() -> MaterialTrade.create(
                         "TRD-000001", 1L, 2L, 10L, 11L,
-                        "0xabc", BUYER_WALLET, 20_000L, 200_000L, PaymentMethod.MOCK))
+                        "0xabc", BUYER_WALLET, 20_000L, 200_000L, PaymentMethod.MOCK, LocalDateTime.now().plusMinutes(30)))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -42,7 +42,7 @@ class MaterialTradeTests {
     void nonPositiveQuantityIsRejected() {
         assertThatThrownBy(() -> MaterialTrade.create(
                         "TRD-000001", 1L, 2L, 10L, 11L,
-                        SELLER_WALLET, BUYER_WALLET, 0L, 200_000L, PaymentMethod.MOCK))
+                        SELLER_WALLET, BUYER_WALLET, 0L, 200_000L, PaymentMethod.MOCK, LocalDateTime.now().plusMinutes(30)))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -127,7 +127,7 @@ class MaterialTradeTests {
                 BUYER_WALLET,
                 20_000L,
                 200_000L,
-                PaymentMethod.MOCK);
+                PaymentMethod.MOCK, LocalDateTime.now().plusMinutes(30));
     }
 
     private MaterialTrade shippedTrade() {

@@ -92,7 +92,7 @@ class TradeReceiptServiceTests {
 
         trade = tradeRepository.save(MaterialTrade.create(
                 "TRD-000001", listing.getId(), MATERIAL_ID, SELLER_ID, BUYER_ID,
-                SELLER_WALLET, BUYER_WALLET, TRADE_QUANTITY, 200_000L, PaymentMethod.MOCK));
+                SELLER_WALLET, BUYER_WALLET, TRADE_QUANTITY, 200_000L, PaymentMethod.MOCK, LocalDateTime.now().plusMinutes(30)));
         trade.markPaid("T1234", 200_000L, LocalDateTime.now(), PaymentMethod.MOCK);
         trade.ship(LocalDateTime.now());
         shippingRepository.save(TradeShipping.of(
@@ -158,7 +158,7 @@ class TradeReceiptServiceTests {
     void consumingTheWholeLockClosesIt() {
         MaterialTrade wholeTrade = tradeRepository.save(MaterialTrade.create(
                 "TRD-000002", trade.getListingId(), MATERIAL_ID, SELLER_ID, BUYER_ID,
-                SELLER_WALLET, BUYER_WALLET, LISTING_QUANTITY, 300_000L, PaymentMethod.MOCK));
+                SELLER_WALLET, BUYER_WALLET, LISTING_QUANTITY, 300_000L, PaymentMethod.MOCK, LocalDateTime.now().plusMinutes(30)));
         wholeTrade.markPaid("T9999", 300_000L, LocalDateTime.now(), PaymentMethod.MOCK);
         wholeTrade.ship(LocalDateTime.now());
         shippingRepository.save(TradeShipping.of(
@@ -204,7 +204,7 @@ class TradeReceiptServiceTests {
     void unshippedTradeCannotBeConfirmed() {
         MaterialTrade paidOnly = tradeRepository.save(MaterialTrade.create(
                 "TRD-000003", trade.getListingId(), MATERIAL_ID, SELLER_ID, BUYER_ID,
-                SELLER_WALLET, BUYER_WALLET, 1_000L, 10_000L, PaymentMethod.MOCK));
+                SELLER_WALLET, BUYER_WALLET, 1_000L, 10_000L, PaymentMethod.MOCK, LocalDateTime.now().plusMinutes(30)));
         paidOnly.markPaid("T5555", 10_000L, LocalDateTime.now(), PaymentMethod.MOCK);
         entityManager.flush();
 
@@ -254,7 +254,7 @@ class TradeReceiptServiceTests {
                 MATERIAL_ID, SELLER_ID, 1_000L, 10_000L, smallLock.getId()));
         MaterialTrade oversized = tradeRepository.save(MaterialTrade.create(
                 "TRD-000004", smallListing.getId(), MATERIAL_ID, SELLER_ID, BUYER_ID,
-                SELLER_WALLET, BUYER_WALLET, 5_000L, 50_000L, PaymentMethod.MOCK));
+                SELLER_WALLET, BUYER_WALLET, 5_000L, 50_000L, PaymentMethod.MOCK, LocalDateTime.now().plusMinutes(30)));
         oversized.markPaid("T7777", 50_000L, LocalDateTime.now(), PaymentMethod.MOCK);
         oversized.ship(LocalDateTime.now());
         shippingRepository.save(TradeShipping.of(
