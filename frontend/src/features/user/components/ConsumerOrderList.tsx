@@ -256,6 +256,10 @@ function OrderGroupCard({
         group.status === 'PREPARING') && (
         <footer className="consumer-order-group__actions">
           <div className="consumer-order-group__actions-column">
+            {group.status === 'PAYMENT_PENDING' && <>
+              <Link className="consumer-order-group__pay" to={`/orders/${group.orderId}/checkout`}>결제하기</Link>
+              {group.orderGroupCode && <Link className="consumer-order-group__cancel" to={`/orders/${group.orderId}/checkout?action=cancel`}>주문 전체 취소</Link>}
+            </>}
             {group.status === 'SHIPPING' && (
               <Button size="sm" fullWidth loading={busy} onClick={onConfirmDelivery}>
                 배송 완료 확인

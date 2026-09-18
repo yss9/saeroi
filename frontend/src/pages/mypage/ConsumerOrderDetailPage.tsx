@@ -103,7 +103,7 @@ export function ConsumerOrderDetailPage() {
           />
         </section>
       ) : (
-        <section className="consumer-mypage-card" aria-labelledby="order-detail-title">
+        <section className="consumer-mypage-card consumer-order-detail" aria-labelledby="order-detail-title">
           <div className="consumer-section-heading">
             <div>
               <p className="consumer-section-heading__eyebrow">ORDER DETAIL</p>

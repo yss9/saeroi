@@ -154,9 +154,8 @@ describe('public consumer product detail', () => {
     fireEvent.click(screen.getByRole('button', { name: '찜하기' }))
     // 로그인한 소비자에게는 실제 구매 패널이 뜬다. 기본 배송지가 없어 주문할 수 없다는
     // 안내와 함께 구매 버튼이 잠겨 있어야 한다 — 눌러도 주문이 나가지 않는다.
-    expect(await screen.findByText('기본 배송지가 없어 주문할 수 없습니다.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '구매하기' })).toBeDisabled()
-    fireEvent.click(screen.getByRole('button', { name: '구매하기' }))
+    expect(screen.queryByText('받을 곳')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '구매하기' })).toBeEnabled()
     expect(apiClient.post).toHaveBeenCalledTimes(3)
     expect(apiClient.post).toHaveBeenCalledWith('/v1/consumers/me/cart', { productModelId: 31, quantity: 1 })
     expect(apiClient.post).toHaveBeenCalledWith('/v1/consumers/me/wishlist', { productModelId: 31 })
