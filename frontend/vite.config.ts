@@ -68,7 +68,12 @@ const config = ({ mode }: { mode: string }) => {
     },
 
     test: {
-      environment: 'jsdom',
+      // jsdom → happy-dom: 환경 준비/해제 비용이 실제 테스트 실행보다 커서(로컬 실측
+      // jsdom 297.58s vs tests 166.19s, 누적) 전체 스위트가 느렸다. happy-dom 은 더
+      // 가벼운 엔진이라 같은 스위트가 약 20% 빨라진다(118.99s → 94.49s). `isolate: false`
+      // (파일 간 환경 재사용)도 시도했지만 86개 파일이 상태 공유로 깨져 폐기했다 — 절대
+      // 다시 켜지 말 것.
+      environment: 'happy-dom',
       setupFiles: ['./src/test/setup.ts'],
     },
   } satisfies UserConfig & { test: InlineConfig }
