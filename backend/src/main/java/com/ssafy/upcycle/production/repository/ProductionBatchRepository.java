@@ -22,6 +22,8 @@ public interface ProductionBatchRepository extends JpaRepository<ProductionBatch
 
     List<ProductionBatch> findAllByProducerId(Long producerId);
 
+    List<ProductionBatch> findAllByStatusOrderByConfirmedAtDesc(ProductionBatchStatus status);
+
     /** 한 제품 모델의 생산 이력. 확정된 배치만 세면 그 모델의 총 생산량이 나온다. */
     List<ProductionBatch> findAllByProductModelId(Long productModelId);
 

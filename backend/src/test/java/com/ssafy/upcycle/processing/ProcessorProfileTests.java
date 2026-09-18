@@ -40,11 +40,18 @@ class ProcessorProfileTests {
         for (String table : List.of("processing_input", "processing_job", "processing_quote", "material_lock",
                 "processing_request_type", "processing_request_input", "processing_request",
                 "processor_capability", "processor_lead_time", "processor_profile", "material_balance",
-                "material", "user_wallet", "users")) {
+                "material", "user_wallet", "company_profile", "users")) {
             jdbc.update("delete from " + table);
         }
         processorId = users.save(User.register("processor-profile@test.com", "hash", "가공사", "010", UserRole.PROCESSOR)).getId();
         brandId = users.save(User.register("profile-brand@test.com", "hash", "브랜드", "010", UserRole.BRAND)).getId();
+        approveCompany(processorId, "가공사", "processor-business");
+        approveCompany(brandId, "브랜드", "brand-business");
+    }
+
+    private void approveCompany(Long userId, String companyName, String businessNumber) {
+        jdbc.update("insert into company_profile(user_id,company_name,business_number,zip_code,address,role_approval_status) values (?,?,?,?,?,'APPROVED')",
+                userId, companyName, businessNumber, "00000", "서울");
     }
 
     private MockHttpServletRequestBuilder authenticated(MockHttpServletRequestBuilder request, Long userId, String role) {
@@ -148,6 +155,25 @@ class ProcessorProfileTests {
 
         jdbc.update("insert into processor_lead_time(processor_profile_id,material_type,process_type,max_quantity,lead_days) values (?,?,?,?,?)",
                 processorId, "DENIM", "CLEANING", 1000, 3);
+        mvc.perform(authenticated(get("/processors/search").param("materialType", "DENIM")
+                        .param("quantity", "100").param("processTypes", "CLEANING"), brandId, "BRAND"))
+                .andExpect(status().isOk()).andExpect(jsonPath("data.total").value(1));
+    }
+
+    @Test
+    void searchHidesACompleteProcessorUntilCompanyRoleIsApproved() throws Exception {
+        jdbc.update("insert into processor_profile(user_id,region) values (?,?)", processorId, "서울");
+        jdbc.update("insert into processor_capability(processor_profile_id,material_type,process_type,min_quantity,max_quantity) values (?,?,?,?,?)",
+                processorId, "DENIM", "CLEANING", 1, 1000);
+        jdbc.update("insert into processor_lead_time(processor_profile_id,material_type,process_type,max_quantity,lead_days) values (?,?,?,?,?)",
+                processorId, "DENIM", "CLEANING", 1000, 3);
+        jdbc.update("update company_profile set role_approval_status='PENDING' where user_id=?", processorId);
+
+        mvc.perform(authenticated(get("/processors/search").param("materialType", "DENIM")
+                        .param("quantity", "100").param("processTypes", "CLEANING"), brandId, "BRAND"))
+                .andExpect(status().isOk()).andExpect(jsonPath("data.total").value(0));
+
+        jdbc.update("update company_profile set role_approval_status='APPROVED' where user_id=?", processorId);
         mvc.perform(authenticated(get("/processors/search").param("materialType", "DENIM")
                         .param("quantity", "100").param("processTypes", "CLEANING"), brandId, "BRAND"))
                 .andExpect(status().isOk()).andExpect(jsonPath("data.total").value(1));
