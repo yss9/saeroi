@@ -19,12 +19,16 @@ beforeEach(() => {
   animation.fromTo.mockReturnValue(timeline)
   animation.call.mockReturnValue(timeline)
   vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false })))
-  Object.defineProperty(SVGElement.prototype, 'getBBox', { configurable: true, value: () => ({ x: -560, y: -35, width: 375, height: 380 }) })
+  // SVGGraphicsElement.prototype에 정의한다(SVGElement가 아니라) — happy-dom은
+  // SVGGraphicsElement.prototype.getBBox를 이미 구현해 두고 있어서, jsdom과 달리
+  // 그보다 위인 SVGElement.prototype에 정의하면 프로토타입 체인에서 더 가까운
+  // 진짜 구현에 가려져 무시된다.
+  Object.defineProperty(SVGGraphicsElement.prototype, 'getBBox', { configurable: true, value: () => ({ x: -560, y: -35, width: 375, height: 380 }) })
 })
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
-  Reflect.deleteProperty(SVGElement.prototype, 'getBBox')
+  Reflect.deleteProperty(SVGGraphicsElement.prototype, 'getBBox')
 })
 
 describe('HERO logo intro', () => {
