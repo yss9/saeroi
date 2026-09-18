@@ -94,10 +94,39 @@ describe('ProductPurchasePanel', () => {
     expect(
       screen.getByText('[06236] 서울특별시 강남구 테헤란로 212 101동 1004호'),
     ).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '배송지 변경' })).toHaveAttribute(
-      'href',
-      '/mypage/addresses',
-    )
+    expect(screen.getByRole('button', { name: '배송지 변경' })).toBeInTheDocument()
+  })
+
+  // 예전에는 "배송지 변경"이 /mypage/addresses 로 보내 구매 흐름이 끊겼다. 지금은 그
+  // 자리에서 골라 이어서 구매할 수 있어야 한다.
+  it('배송지 변경을 누르면 화면을 옮기지 않고 다른 배송지를 고를 수 있다', async () => {
+    const home = address({ addressId: 9, alias: '집', isDefault: true })
+    const office = address({
+      addressId: 10,
+      alias: '회사',
+      receiverName: '박회사',
+      address: '서울특별시 서초구 서초대로 1',
+      addressDetail: null,
+      isDefault: false,
+    })
+    api.getConsumerAddresses.mockResolvedValue([home, office])
+    const user = renderPanel()
+    await screen.findByText('김수령')
+
+    await user.click(screen.getByRole('button', { name: '배송지 변경' }))
+    await user.click(screen.getByRole('radio', { name: /박회사/ }))
+    await user.click(screen.getByRole('button', { name: '선택 완료' }))
+
+    expect(screen.getByText('박회사')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '선택 완료' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '구매하기' }))
+
+    await waitFor(() => expect(api.createProductOrder).toHaveBeenCalled())
+    expect(api.createProductOrder.mock.calls[0][0]).toEqual({
+      productModelId: 31,
+      addressId: 10,
+    })
   })
 
   // 이 테스트가 이 파일의 존재 이유다 — 주문만 만들고 멈추면 개체가 묶인 채 남는다.
