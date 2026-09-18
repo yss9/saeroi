@@ -101,6 +101,7 @@ public class CompanyProfileService {
                 profile.getIntroduction(),
                 profile.getLogoUrl(),
                 user.getRole(),
-                user.getStatus());
+                user.getStatus(),
+                profile.getRoleApprovalStatus());
     }
 }

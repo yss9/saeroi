@@ -1,5 +1,6 @@
 package com.ssafy.upcycle.user.dto;
 
+import com.ssafy.upcycle.user.entity.CompanyRoleApprovalStatus;
 import com.ssafy.upcycle.user.entity.UserRole;
 import com.ssafy.upcycle.user.entity.UserStatus;
 import java.math.BigDecimal;
@@ -26,5 +27,6 @@ public record CompanyProfileResponse(
         String introduction,
         String logoUrl,
         UserRole role,
-        UserStatus status) {
+        UserStatus status,
+        CompanyRoleApprovalStatus roleApprovalStatus) {
 }

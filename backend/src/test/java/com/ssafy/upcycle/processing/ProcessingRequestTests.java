@@ -79,11 +79,15 @@ class ProcessingRequestTests {
         // Real persisted fixtures: missing reservation writes and transaction errors are observable.
         for (String table : List.of("blockchain_transaction", "user_notification", "processing_signature_challenge", "evidence_file", "material_lineage", "processing_output",
                 "material_event", "processing_input", "processing_job", "processing_quote", "material_lock", "processing_request_type", "processing_request_input",
-                "processing_request", "processor_capability", "processor_lead_time", "processor_profile", "material_balance", "material", "user_wallet", "users")) {
+                "processing_request", "processor_capability", "processor_lead_time", "processor_profile", "material_balance", "material", "user_wallet", "company_profile", "users")) {
             jdbc.update("delete from " + table);
         }
         brandId = users.save(User.register("brand@test.com", "hash", "brand", "010", UserRole.BRAND)).getId();
         processorId = users.save(User.register("processor@test.com", "hash", "processor", "010", UserRole.PROCESSOR)).getId();
+        jdbc.update("insert into company_profile(user_id,company_name,business_number,zip_code,address,role_approval_status) values (?,?,?,?,?,'APPROVED')",
+                brandId, "brand", "brand-business", "00000", "Seoul");
+        jdbc.update("insert into company_profile(user_id,company_name,business_number,zip_code,address,role_approval_status) values (?,?,?,?,?,'APPROVED')",
+                processorId, "processor", "processor-business", "00000", "Seoul");
         materialId = materials.save(Material.register("M1", MaterialType.DENIM, MaterialRootOrigin.WASTE,
                 "denim", null, "A", 1000, null, null, brandId)).getId();
         balances.save(MaterialBalance.of(materialId, brandId, "0x" + "a".repeat(40), 1000));
@@ -382,6 +386,8 @@ class ProcessingRequestTests {
     @Test
     void searchPaginationIsStableForCompletelyRegisteredProcessors() throws Exception {
         Long second=users.save(User.register("second@test.com","hash","second","010",UserRole.PROCESSOR)).getId();
+        jdbc.update("insert into company_profile(user_id,company_name,business_number,zip_code,address,role_approval_status) values (?,?,?,?,?,'APPROVED')",
+                second, "second", "second-business", "00000", "Busan");
         jdbc.update("insert into processor_profile(user_id,region) values (?,'Busan')",second);
         jdbc.update("insert into processor_capability(processor_profile_id,material_type,process_type,min_quantity,max_quantity) values (?,'DENIM','CLEANING',1,1000),(?,'DENIM','CUTTING',1,1000)",second,second);
         for (Long id : List.of(processorId, second)) {
