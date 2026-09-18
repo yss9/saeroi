@@ -501,10 +501,10 @@ function JourneyCanvas({
                     />
                   </g>
                 ) : null}
-                {edge.stage === 'COLLECTION' && label ? (
+                {activeStage === 'COLLECTION' && edge.stage === 'COLLECTION' && label ? (
                   <g className="journey-canvas__route-label" transform={`translate(${label.x} ${label.y}) scale(${viewMode === 'MAP' ? 1 / mapScale : 1})`}>
                     <rect x="-37" y="-12" width="74" height="24" rx="12" />
-                    <text textAnchor="middle" dy="4">2. {STAGE_LABEL[edge.stage]}</text>
+                    <text textAnchor="middle" dy="4">{STAGE_LABEL[edge.stage]}</text>
                   </g>
                 ) : null}
               </g>
