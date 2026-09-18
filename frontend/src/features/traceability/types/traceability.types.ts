@@ -1,18 +1,13 @@
+import type { MaterialType } from '../../material/types/material.types.ts'
+
+export type { MaterialType } from '../../material/types/material.types.ts'
+
 export type BlockchainTxStatus = 'PENDING' | 'SUCCESS' | 'FAILED'
 export type PassportItemStatus = 'IN_STOCK' | 'RESERVED' | 'SOLD'
 export type JourneyStageType = 'SOURCE' | 'COLLECTION' | 'PROCESSING' | 'BRAND' | 'DELIVERY'
 export type JourneyStageStatus = 'COMPLETED' | 'CURRENT' | 'PENDING'
 
 export type CompanyRole = 'SUPPLIER' | 'PROCESSOR' | 'BRAND' | 'CONSUMER' | 'ADMIN'
-
-export type MaterialType =
-  | 'COTTON'
-  | 'DENIM'
-  | 'ETC'
-  | 'LEATHER'
-  | 'LINING'
-  | 'METAL'
-  | 'MIXED'
 
 export interface PassportProduct {
   name: string

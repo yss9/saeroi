@@ -159,7 +159,28 @@ describe('PassportView', () => {
     expect(screen.getByText('ITEM-0001')).toBeInTheDocument()
     expect(screen.getByText('Verified Upcycled Product')).toBeInTheDocument()
     expect(screen.getByRole('list', { name: '여정 단계' }).querySelectorAll('li')).toHaveLength(5)
-    expect(screen.getByRole('button', { name: /원단 등록/ })).toHaveAttribute('aria-current', 'step')
+    expect(screen.getByRole('button', { name: /수거/ })).toHaveAttribute('aria-current', 'step')
+  })
+
+  it('수거·원단 등록 단계에서는 여정 전체 지점을 미리 보여준다', async () => {
+    const user = userEvent.setup()
+    const { container } = renderView()
+    await screen.findByRole('heading', { name: 'RE:BAG' })
+
+    // 기본 화면(수거)에서부터 이후 단계(가공·브랜드) 지점까지 이미 보인다 — 폐소재를
+    // 모아 등록하기까지가 출발점이라 전체 흐름을 먼저 보여준다.
+    expect(screen.getByRole('button', { name: /수거 완료/ })).toHaveAttribute('aria-current', 'step')
+    expect(container.querySelector('[data-node-id="process-a"]')).toBeInTheDocument()
+    expect(container.querySelector('[data-edge-id="brand-a"]')).toBeInTheDocument()
+
+    // 원단 등록으로 옮겨도 마찬가지다.
+    await user.click(screen.getByRole('button', { name: /원단 등록 완료/ }))
+    expect(container.querySelector('[data-node-id="process-a"]')).toBeInTheDocument()
+    expect(container.querySelector('[data-edge-id="brand-a"]')).toBeInTheDocument()
+
+    // 가공으로 넘어가면 그때부터는 다시 진행된 단계까지만 보인다.
+    await user.click(screen.getByRole('button', { name: /가공 완료/ }))
+    expect(container.querySelector('[data-edge-id="brand-a"]')).not.toBeInTheDocument()
   })
 
   it('qrToken으로 공개 대표 이미지를 조회한다', async () => {
@@ -188,14 +209,11 @@ describe('PassportView', () => {
     const { container } = renderView()
     await screen.findByRole('heading', { name: 'RE:BAG' })
 
-    await user.click(screen.getByRole('button', { name: '서울 원단 공급처 상세 보기' }))
-
-    expect(screen.getByRole('button', { name: /원단 등록 완료/ })).toHaveAttribute('aria-current', 'step')
-    expect(container.querySelector('[data-edge-id="collect-a"]')).not.toBeInTheDocument()
-    expect(container.querySelector('[data-node-id="process-a"]')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /가공 완료/ }))
+    // 가공부터는 수거·원단 등록처럼 전체를 미리 보여주지 않는다 — 그 이후 단계
+    // (브랜드) 지점은 진행되기 전까지 지도에도 나타나지 않는다.
     expect(container.querySelector('[data-edge-id="brand-a"]')).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: /가공 완료/ }))
     await user.click(screen.getByRole('button', { name: '그린텍스 상세 보기' }))
 
     expect(screen.getByRole('button', { name: /가공 완료/ })).toHaveAttribute('aria-current', 'step')
@@ -265,7 +283,8 @@ describe('PassportView', () => {
     expect(screen.getByRole('img', { name: /업체 위치와 이동 경로/ })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Flow View' })).not.toBeInTheDocument()
 
-    expect(screen.queryByRole('button', { name: 'ReWeave 상세 보기' })).not.toBeInTheDocument()
+    // 기본 화면(수거)은 전체 여정을 미리 보여주므로 ReWeave(브랜드)도 이미 보인다 —
+    // 다만 단계를 눌러야 그 단계가 활성 스텝(aria-current)이 된다.
     await user.click(screen.getByRole('button', { name: /브랜드 제작 완료/ }))
     await user.click(screen.getByRole('button', { name: 'ReWeave 상세 보기' }))
     expect(screen.getByRole('button', { name: /브랜드 제작 완료/ })).toHaveAttribute('aria-current', 'step')

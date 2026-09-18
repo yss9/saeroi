@@ -10,11 +10,13 @@ import {
   ShieldCheck,
 } from '@phosphor-icons/react'
 import { geoMercator } from 'd3-geo'
+import type { GeoProjection } from 'd3-geo'
 import type { GeoJsonObject } from 'geojson'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { ComposableMap, Geographies, Geography } from 'react-simple-maps'
 import { Modal, TransactionHash } from '../../../components/common/index.ts'
+import { MATERIAL_TYPE_LABEL } from '../../material/types/material.types.ts'
 import { STAGE_LABEL, STAGE_META, STAGE_ORDER, stageIndex } from '../utils/journeyStages.ts'
 import type {
   BlockchainProof,
@@ -46,15 +48,6 @@ const PROCESS_LABEL: Record<string, string> = {
   SURFACE_FINISHING: '표면 가공',
 }
 
-const MATERIAL_LABEL: Record<string, string> = {
-  COTTON: '면',
-  DENIM: '데님',
-  ETC: '기타',
-  LEATHER: '가죽',
-  LINING: '안감',
-  METAL: '금속',
-  MIXED: '혼합 소재',
-}
 
 function formatDate(value: string | null): string {
   if (!value) return '기록 없음'
@@ -109,10 +102,10 @@ function useReducedMotion() {
 }
 
 export function JourneyExplorer({ journey }: { journey: ProductJourney }) {
-  const [activeStage, setActiveStage] = useState<JourneyStageType>('SOURCE')
+  const [activeStage, setActiveStage] = useState<JourneyStageType>(STAGE_ORDER[0])
   const [activeNodeId, setActiveNodeId] = useState<string | null>(() => (
-    journey.stages.find((item) => item.stage === 'SOURCE')?.nodeIds[0]
-    ?? journey.edges.find((edge) => edge.stage === 'SOURCE')?.toNodeId
+    journey.stages.find((item) => item.stage === STAGE_ORDER[0])?.nodeIds[0]
+    ?? journey.edges.find((edge) => edge.stage === STAGE_ORDER[0])?.toNodeId
     ?? null
   ))
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null)
@@ -337,13 +330,6 @@ function JourneyCanvas({
   onSelectNode: (nodeId: string) => void
 }) {
   const reducedMotion = useReducedMotion()
-  // Journey Map은 실제 위도·경도를 이 SVG 좌표계 위에 그대로 투영해 찍는다(외부 지도
-  // 타일 서버 없이) — 타일 CDN이 API 키를 요구하거나 막히는 상황에 기록 조회 자체가
-  // 흔들리지 않도록. 좌표가 없는 노드는 찍을 위치가 없으니 지도에서 빠진다.
-  const positions = useMemo(
-    () => (viewMode === 'MAP' ? mapPositions(journey.nodes) : flowPositions(journey.nodes)),
-    [journey.nodes, viewMode],
-  )
   const activeIndex = stageIndex(activeStage)
   const focusedEdgeIds = useMemo(
     () => focusedNodeId ? traceFocusedRoute(journey.edges, focusedNodeId) : new Set<string>(),
@@ -372,8 +358,15 @@ function JourneyCanvas({
       })
       .map((edge) => edge.edgeId),
   ), [activeStage, journey.edges, journey.nodes])
+  // 수거(첫 화면)·원단 등록 두 단계는 여정 전체를 미리 보여준다 — 폐소재를 모아
+  // 공급업체에 등록하기까지가 이 서비스의 출발점이라, 그 두 단계에서는 전체 그림을
+  // 먼저 보여주는 편이 "앞으로 어떤 여정인지"를 바로 알 수 있다. 그 뒤(가공부터)는
+  // 다시 진행된 단계까지만 보여준다 — 아직 확정되지 않은 이후 기록을 미리 노출하지
+  // 않기 위해서다.
+  const showFullFlow = activeIndex <= stageIndex('SOURCE')
   const visibleEdges = journey.edges.filter((edge) =>
     viewMode === 'FLOW'
+      || showFullFlow
       || stageIndex(edge.stage) <= activeIndex
       || focusedVisibleEdgeIds.has(edge.edgeId),
   )
@@ -384,10 +377,25 @@ function JourneyCanvas({
   )
   const visibleNodes = journey.nodes.filter((node) =>
     viewMode === 'FLOW'
+      || showFullFlow
       || stageIndex(node.stage) <= activeIndex
       || connectedIds.has(node.nodeId)
       || focusedNodeIds.has(node.nodeId),
   )
+  // Journey Map은 실제 위도·경도를 이 SVG 좌표계 위에 그대로 투영해 찍는다(외부 지도
+  // 타일 서버 없이) — 타일 CDN이 API 키를 요구하거나 막히는 상황에 기록 조회 자체가
+  // 흔들리지 않도록. 좌표가 없는 노드는 찍을 위치가 없으니 지도에서 빠진다.
+  //
+  // 투영은 전국 고정이 아니라 **단계에 맞춰 확대**한다. `showFullFlow` 인 두 단계는
+  // 여정 전체 지점을 보여줘 전체 흐름을 먼저 보게 하고, 그다음부터는 `visibleNodes` —
+  // 지금까지 진행된 단계의 지점까지만 — 로 맞춘다. 그래서 가공 단계는 그 소재를 받은
+  // 모든 가공업체까지 포함한 범위로 점점 넓어진다. 두 지점이 같은 도시 안처럼 가까우면
+  // 그 범위 자체가 좁아 자연히 확대되어 보인다.
+  const mapZoomTarget = showFullFlow ? journey.nodes : visibleNodes
+  const mapProjection = viewMode === 'MAP' ? zoomedProjection(mapZoomTarget) : KOREA_PROJECTION
+  const positions = viewMode === 'MAP'
+    ? declutterPositions(mapPositions(journey.nodes, mapProjection))
+    : flowPositions(journey.nodes)
 
   return (
     <div className={`journey-canvas journey-canvas--${viewMode.toLowerCase()}${compact ? ' journey-canvas--compact' : ''}`}>
@@ -404,7 +412,7 @@ function JourneyCanvas({
           <p>등록된 업체 주소의 좌표를 아직 확인하지 못했습니다.</p>
         </div>
       ) : (
-      <JourneyCanvasSvg viewMode={viewMode} activeStage={activeStage}>
+      <JourneyCanvasSvg viewMode={viewMode} activeStage={activeStage} projection={mapProjection}>
         {viewMode === 'MAP' ? <MapBackdrop /> : <FlowBackdrop />}
 
         <defs>
@@ -530,17 +538,19 @@ function JourneyCanvas({
 function JourneyCanvasSvg({
   viewMode,
   activeStage,
+  projection,
   children,
 }: {
   viewMode: ViewMode
   activeStage: JourneyStageType
+  projection: GeoProjection
   children: ReactNode
 }) {
   const label = `${STAGE_LABEL[activeStage]} 업체 위치와 이동 경로`
   if (viewMode === 'MAP') {
     return (
       <ComposableMap
-        projection={KOREA_PROJECTION}
+        projection={projection}
         width={MAP_VIEW_WIDTH}
         height={MAP_VIEW_HEIGHT}
         role="img"
@@ -665,7 +675,7 @@ function NodeDetail({ node }: { node: JourneyNode }) {
               <li key={`${material.name}-${index}`}>
                 <span><Leaf size={17} />{material.name}</span>
                 <strong>{formatQuantity(material.batchQuantityGrams)}</strong>
-                <small>{MATERIAL_LABEL[material.materialType] ?? material.materialType}</small>
+                <small>{MATERIAL_TYPE_LABEL[material.materialType] ?? material.materialType}</small>
               </li>
             ))}
           </ul>
@@ -842,45 +852,167 @@ const KOREA_BBOX: [number, number, number, number] = [
 ]
 
 /**
- * 항상 대한민국 전역이 같은 자리에 오도록 고정한 투영이다. 활성 노드 범위에 맞춰 매번
- * 다시 맞추면(과거 시도) 업체가 한 지역에 몰렸을 때 해안선이 캔버스 밖으로 밀려나
- * 알아볼 수 없는 모양만 남을 수 있다 — 전역을 항상 보여주는 편이 안전하다. 노드
- * 마커는 배경 지도 파일이 아직 로드되지 않았어도 이 값으로 바로 자리를 잡는다.
+ * (lng, lat) 사각 범위를 d3-geo `fitExtent`용 Feature로 만든다.
+ *
+ * <p><b>반시계 방향(서→북→동→남)이어야 한다.</b> d3-geo는 시계 방향 고리를 "이
+ * 사각형의 바깥 전체"로 읽어 지구 전체를 경계로 잡는다 — 그러면 fitExtent가 계산하는
+ * scale이 실제 필요한 값의 1/50 수준으로 무너져 지도가 점 하나로 뭉개진다.
  */
-const KOREA_PROJECTION = geoMercator().fitExtent(
-  [[MAP_PADDING, MAP_PADDING], [MAP_VIEW_WIDTH - MAP_PADDING, MAP_VIEW_HEIGHT - MAP_PADDING]],
-  {
-    type: 'Feature',
+function boundsFeature(minLng: number, minLat: number, maxLng: number, maxLat: number) {
+  return {
+    type: 'Feature' as const,
     properties: {},
     geometry: {
-      type: 'Polygon',
-      // 반시계 방향(서→북→동→남)이어야 한다. d3-geo는 시계 방향 고리를 "이 사각형의
-      // 바깥 전체"로 읽어 지구 전체를 경계로 잡는다 — 그러면 fitExtent가 계산하는
-      // scale이 실제 필요한 값의 1/50 수준으로 무너져 지도가 점 하나로 뭉개진다.
+      type: 'Polygon' as const,
       coordinates: [[
-        [KOREA_BBOX[0], KOREA_BBOX[1]],
-        [KOREA_BBOX[0], KOREA_BBOX[3]],
-        [KOREA_BBOX[2], KOREA_BBOX[3]],
-        [KOREA_BBOX[2], KOREA_BBOX[1]],
-        [KOREA_BBOX[0], KOREA_BBOX[1]],
+        [minLng, minLat],
+        [minLng, maxLat],
+        [maxLng, maxLat],
+        [maxLng, minLat],
+        [minLng, minLat],
       ]],
     },
-  },
-)
+  }
+}
+
+function fitKorea(bounds: ReturnType<typeof boundsFeature>): GeoProjection {
+  return geoMercator().fitExtent(
+    [[MAP_PADDING, MAP_PADDING], [MAP_VIEW_WIDTH - MAP_PADDING, MAP_VIEW_HEIGHT - MAP_PADDING]],
+    bounds,
+  )
+}
+
+/**
+ * 좌표를 아직 확인 못했거나(빈 지도) 지금 보이는 업체가 하나도 없을 때 쓰는 대한민국
+ * 전역 투영. `zoomedProjection`이 매번 맞추지 못할 때의 기본값이다.
+ */
+const KOREA_PROJECTION = fitKorea(boundsFeature(...KOREA_BBOX))
+
+/**
+ * **카메라가 좁힐 수 있는 최소 확대 폭(도).** 마커 간격이 아니라 **배경 지도가
+ * 지도로 보이는 최소 폭**을 기준으로 정했다 — `skorea-provinces.json`은 시도 경계
+ * 해상도라 정점이 성기다. 이 zoom target 중심 반경 실측 결과 0.02도(예전 값, 약
+ * 2.2km)로 좁히면 그 폭 안에 해안선 정점이 하나도 없어 배경이 민무늬 사각형으로
+ * 뭉개진다 — "좌표가 진짜 지도 위에 있는 게 맞냐"는 인상을 준다. 0.15도(약 16.6km)
+ * 부터는 그 폭 안에 정점이 200개 안팎 잡혀 해안선 굴곡이 보인다.
+ *
+ * <p>같은 산업단지 안(직선거리 1.6km)처럼 이 폭으로도 마커 halo(반지름 34px)가 겹칠
+ * 만큼 가까운 지점은 카메라를 더 좁히는 대신 {@link declutterPositions}가 화면
+ * 좌표에서 따로 밀어낸다 — 배경 지도 해상도와 마커 간격을 별개 문제로 다룬다.
+ */
+const MAP_MIN_SPAN_DEG = 0.15
+/** 지점들이 캔버스 가장자리에 붙지 않도록 범위 양옆에 더 두는 여백 비율. */
+const MAP_ZOOM_MARGIN_RATIO = 0.35
+
+/**
+ * **주어진 노드들 범위에 맞춰 확대한 투영.** `JourneyCanvas`가 단계에 따라 다른
+ * 집합을 넘겨 호출한다 — 원단 등록(첫 화면)은 `journey.nodes`(여정 전체)를 줘서
+ * 전체 흐름을 먼저 보여주고, 그다음 단계부터는 `visibleNodes`(지금까지 진행된
+ * 단계까지)를 줘서 단계가 진행될수록 범위가 그만큼만 넓어지게 한다.
+ *
+ * 전국 고정 배율(`KOREA_PROJECTION`)로만 그리면 연결된 두 지점이 같은 도시 안처럼
+ * 가까울 때 점 두 개가 겹쳐 보여 경로를 알아볼 수 없다 — 그때는 그 지점들 주변만
+ * 확대해서 보여준다. 반대로 지점이 전국에 퍼져 있으면 자연히 전국에 가까운 범위가
+ * 나온다(별도 상한을 둘 필요가 없다).
+ *
+ * 좌표가 있는 노드가 없으면 `KOREA_PROJECTION`으로 물러난다 — 그 경우 배경 자체를
+ * 그리지 않으므로(`journey-map-empty`) 이 값은 실제로 쓰이지 않는다.
+ */
+function zoomedProjection(nodes: JourneyNode[]): GeoProjection {
+  const located = nodes.filter(
+    (node): node is JourneyNode & { latitude: number; longitude: number } =>
+      node.latitude !== null && node.longitude !== null,
+  )
+  if (located.length === 0) return KOREA_PROJECTION
+
+  const lngs = located.map((node) => node.longitude)
+  const lats = located.map((node) => node.latitude)
+  const [minLng, maxLng] = expandToMinSpan(Math.min(...lngs), Math.max(...lngs), MAP_MIN_SPAN_DEG)
+  const [minLat, maxLat] = expandToMinSpan(Math.min(...lats), Math.max(...lats), MAP_MIN_SPAN_DEG)
+  const lngMargin = (maxLng - minLng) * MAP_ZOOM_MARGIN_RATIO
+  const latMargin = (maxLat - minLat) * MAP_ZOOM_MARGIN_RATIO
+  return fitKorea(boundsFeature(
+    minLng - lngMargin, minLat - latMargin, maxLng + lngMargin, maxLat + latMargin,
+  ))
+}
+
+/** [min, max] 폭이 minSpan보다 좁으면 중심을 유지한 채 minSpan까지 양쪽으로 늘린다. */
+function expandToMinSpan(min: number, max: number, minSpan: number): [number, number] {
+  const span = max - min
+  if (span >= minSpan) return [min, max]
+  const grow = (minSpan - span) / 2
+  return [min - grow, max + grow]
+}
 
 /**
  * 위도·경도가 있는 노드만 투영한다. 좌표가 없는 노드는 이 맵에 항목 자체가 없다 —
  * 틀린 위치를 찍기보다 안 보여주는 편이 낫다.
  */
-function mapPositions(nodes: JourneyNode[]): Record<string, Point> {
+function mapPositions(nodes: JourneyNode[], projection: GeoProjection): Record<string, Point> {
   const positions: Record<string, Point> = {}
   nodes.forEach((node) => {
     if (node.latitude === null || node.longitude === null) return
-    const projected = KOREA_PROJECTION([node.longitude, node.latitude])
+    const projected = projection([node.longitude, node.latitude])
     if (!projected) return
     positions[node.nodeId] = { x: projected[0], y: projected[1] }
   })
   return positions
+}
+
+/** `.journey-node__halo`의 반지름(passport.css) — 마커가 카드 밖으로 나가지 않게 자를 때도 쓴다. */
+const MARKER_HALO_RADIUS = 34
+/** 마커 halo 두 개가 겹치지 않을 중심 간 최소 간격. */
+const MARKER_MIN_SEPARATION_PX = MARKER_HALO_RADIUS * 2 + 4
+
+/**
+ * 실제 위·경도로 투영한 화면 좌표 중 서로 너무 가까운 것들을 살짝 밀어낸다.
+ *
+ * <p>{@link MAP_MIN_SPAN_DEG}는 배경 지도가 알아볼 수 있게 보이는 최소 폭이지,
+ * 마커가 안 겹치는 폭이 아니다 — 그 폭으로도 실제 업체 두 곳이 halo 반경보다 가깝게
+ * 찍힐 수 있다(같은 산업단지 등). 그렇다고 카메라를 계속 좁히면 배경이 민무늬로
+ * 뭉개져 "가짜 좌표 같다"는 인상을 준다. 그래서 지도 확대와 별개로, 화면에 이미
+ * 투영된 좌표끼리만 비교해 겹치는 쌍을 서로 반대 방향으로 밀어낸다 — 실제 위치는
+ * 그대로 두고 화면 표시만 벌린다.
+ */
+function declutterPositions(
+  positions: Record<string, Point>,
+  minDistance: number = MARKER_MIN_SEPARATION_PX,
+): Record<string, Point> {
+  const ids = Object.keys(positions)
+  const next: Record<string, Point> = { ...positions }
+  for (let pass = 0; pass < 4; pass += 1) {
+    let moved = false
+    for (let i = 0; i < ids.length; i += 1) {
+      for (let j = i + 1; j < ids.length; j += 1) {
+        const a = next[ids[i]]
+        const b = next[ids[j]]
+        const dx = b.x - a.x
+        const dy = b.y - a.y
+        const distance = Math.hypot(dx, dy)
+        if (distance >= minDistance) continue
+        moved = true
+        // 두 지점이 완전히 같은 좌표면(distance === 0) 방향이 없으니 인덱스로 갈라 둔다.
+        const angle = distance === 0 ? (i - j) * (Math.PI / 2) : Math.atan2(dy, dx)
+        const push = (minDistance - distance) / 2 + 0.5
+        const ux = Math.cos(angle)
+        const uy = Math.sin(angle)
+        next[ids[i]] = { x: a.x - ux * push, y: a.y - uy * push }
+        next[ids[j]] = { x: b.x + ux * push, y: b.y + uy * push }
+      }
+    }
+    if (!moved) break
+  }
+  // 밀어낸 결과가 캔버스 밖으로 나가지 않게 자른다 — 클러스터가 확대 범위 가장자리에
+  // 걸쳐 있으면(전체 3곳 중 두 곳이 한쪽 끝에 몰린 경우 등) 마커를 밀어내는 방향이
+  // 카드 경계 쪽일 수 있다. halo 반지름(34px)만큼 여유를 둬 halo까지 카드 안에 있게 한다.
+  ids.forEach((id) => {
+    const point = next[id]
+    next[id] = {
+      x: Math.min(Math.max(point.x, MARKER_HALO_RADIUS), MAP_VIEW_WIDTH - MARKER_HALO_RADIUS),
+      y: Math.min(Math.max(point.y, MARKER_HALO_RADIUS), MAP_VIEW_HEIGHT - MARKER_HALO_RADIUS),
+    }
+  })
+  return next
 }
 
 function flowPositions(nodes: JourneyNode[]): Record<string, Point> {
@@ -957,15 +1089,22 @@ function compositionGradient(items: ProductJourney['materialComposition']): stri
 }
 
 /**
- * Journey Map 배경 — 시도 경계가 있는 실제 대한민국 지도. `KOREA_PROJECTION`으로 그린다.
+ * Journey Map 배경 — 시도 경계가 있는 실제 대한민국 지도. 감싸는 `<ComposableMap>`이
+ * 넘겨준 투영(`JourneyCanvas`의 `mapProjection` — 보통 `zoomedProjection`)을 컨텍스트로
+ * 그대로 받아 그린다.
  *
  * <p>경계 데이터(218KB)는 이 배경을 그릴 때만 필요하다. 최상단에서 그냥 import 하면
  * Journey Map을 한 번도 열지 않는 화면(로그인, 쇼핑, 생산 관리 등)까지 그 무게를
- * 그대로 지고 가므로, 여기서만 동적으로 불러온다 — 노드·경로는 `KOREA_PROJECTION`
+ * 그대로 지고 가므로, 여기서만 동적으로 불러온다 — 노드·경로는 `mapProjection`
  * 값만으로 이미 자리를 잡고 있어 이 로드를 기다리지 않는다.
  */
 function MapBackdrop() {
   const [geography, setGeography] = useState<GeoJsonObject | null>(null)
+  // 실제 시도 경계 데이터라 모서리가 각져 있다 — clipPath 없이 그리면 땅이 카드
+  // 모서리의 둥근 바다색 rect 밖으로(정확히는 그 rect의 각진 원본 경계까지) 그대로
+  // 삐져나와 "지도가 카드를 벗어난다"는 인상을 준다. 바다 rect와 같은 모양으로 잘라야
+  // 땅도 똑같이 둥근 모서리 안에서 끝난다.
+  const clipId = `journey-map-clip-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
 
   useEffect(() => {
     let cancelled = false
@@ -979,20 +1118,27 @@ function MapBackdrop() {
 
   return (
     <g className="journey-map-backdrop" aria-hidden="true">
+      <defs>
+        <clipPath id={clipId}>
+          <rect width={MAP_VIEW_WIDTH} height={MAP_VIEW_HEIGHT} rx="24" />
+        </clipPath>
+      </defs>
       <rect width={MAP_VIEW_WIDTH} height={MAP_VIEW_HEIGHT} rx="24" />
       {geography && (
-        <Geographies geography={geography}>
-          {({ geographies }) =>
-            geographies.map((geo) => (
-              <Geography
-                key={geo.rsmKey}
-                geography={geo}
-                tabIndex={-1}
-                className="journey-map-backdrop__geo"
-              />
-            ))
-          }
-        </Geographies>
+        <g clipPath={`url(#${clipId})`}>
+          <Geographies geography={geography}>
+            {({ geographies }) =>
+              geographies.map((geo) => (
+                <Geography
+                  key={geo.rsmKey}
+                  geography={geo}
+                  tabIndex={-1}
+                  className="journey-map-backdrop__geo"
+                />
+              ))
+            }
+          </Geographies>
+        </g>
       )}
     </g>
   )

@@ -5,10 +5,14 @@ import type { JourneyStageType } from '../types/traceability.types.ts'
  * 여정 단계 메타데이터. `JourneyExplorer`의 Flow View와 Journey Map(둘 다 SVG)이 같은
  * 라벨·색을 쓰기 위해 여기 하나에 둔다 — 컴포넌트 파일에 두면 react-refresh 가
  * "컴포넌트만 export 해야 한다"고 거부한다.
+ *
+ * <p><b>수거(COLLECTION)가 원단 등록(SOURCE)보다 먼저다.</b> 폐소재를 실제로 모아 오는
+ * 일이 먼저 일어나고, 공급업체는 그렇게 모인 원단을 등록한다 — 시스템 기록 시각과는
+ * 별개로 업무상 순서가 그렇다.
  */
 export const STAGE_ORDER: JourneyStageType[] = [
-  'SOURCE',
   'COLLECTION',
+  'SOURCE',
   'PROCESSING',
   'BRAND',
   'DELIVERY',

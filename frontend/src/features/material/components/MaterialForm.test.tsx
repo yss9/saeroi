@@ -370,7 +370,7 @@ describe('Backend 계약', () => {
     const values = Array.from(select.querySelectorAll('option'))
       .map((option) => option.value)
       .filter(Boolean)
-    expect(values).toEqual(['DENIM', 'COTTON', 'LEATHER', 'LINING', 'METAL', 'MIXED', 'ETC'])
+    expect(values).toEqual(['COTTON', 'COTTON_MIXED', 'DENIM', 'POLYESTER', 'SILK', 'VISCOSE', 'WOOL', 'ETC'])
   })
 
   it('빈 선택 항목을 빈 문자열로 보내지 않는다', async () => {

@@ -136,15 +136,15 @@ test('검색 결과의 추가 버튼으로 모달을 열고 새 조건을 적용
   render(<QueryClientProvider client={queryClient}><MemoryRouter><ProcessorProfilePage /></MemoryRouter></QueryClientProvider>)
 
   await screen.findByRole('heading', { name: '취급 조건 검색' })
-  await user.selectOptions(screen.getByLabelText('소재 필터'), 'LEATHER')
+  await user.selectOptions(screen.getByLabelText('소재 필터'), 'SILK')
   await user.click(screen.getByRole('checkbox', { name: '세척' }))
-  await user.click(screen.getByRole('button', { name: '가죽 · 세척 추가' }))
+  await user.click(screen.getByRole('button', { name: '실크 · 세척 추가' }))
 
-  expect(screen.getByRole('dialog', { name: '가죽 · 세척 조건 추가' })).toBeInTheDocument()
+  expect(screen.getByRole('dialog', { name: '실크 · 세척 조건 추가' })).toBeInTheDocument()
   expect(screen.getByText('등록된 취급 조건 2개')).toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: '조건 추가' }))
   expect(screen.getByText('등록된 취급 조건 3개')).toBeInTheDocument()
-  expect(screen.getByRole('button', { name: '가죽 · 세척 등록됨 · 수정' })).toBeEnabled()
+  expect(screen.getByRole('button', { name: '실크 · 세척 등록됨 · 수정' })).toBeEnabled()
 })
 
 test('모달에서 소요일 구간의 최대 수량을 직접 입력해 추가한다', async () => {
