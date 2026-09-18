@@ -25,7 +25,7 @@ export function CatalogCard({ product, imageMode = 'public', purchasable, wished
         <h2>{product.name}</h2>
         <p className="shop-catalog__price">₩ {price.format(product.price)}</p>
       </Link> : <><h2>{product.name}</h2><p className="shop-catalog__price">₩ {price.format(product.price)}</p></>}
-      {!wishedInList && <CartButton productId={product.productModelId} name={product.name} className="shop-catalog__cart" disabled={purchasable === false || product.stockQuantity === 0} />}
+      <CartButton productId={product.productModelId} name={product.name} className="shop-catalog__cart" disabled={purchasable === false || product.stockQuantity === 0} />
     </article>
   )
 }
