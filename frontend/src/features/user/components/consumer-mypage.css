@@ -1080,11 +1080,14 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 14px;
-  padding: 24px;
-  border: 1px solid var(--line);
-  border-radius: 0;
-  background: var(--paper-warm);
+  padding: 36px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: transparent;
 }
+.consumer-inquiry-submitted h3 { margin: 0; font-size: 20px; font-weight: 600; line-height: 1.5; }
+.consumer-inquiry-submitted p { margin: 0 0 10px; color: var(--muted); font-size: 14px; line-height: 1.7; word-break: keep-all; }
 
 .consumer-inquiry-list {
   display: flex;
@@ -1511,7 +1514,9 @@ dd.consumer-profile-edit__field-edit {
 .consumer-mypage .consumer-order-detail__info-grid { gap: 20px 32px; }
 .consumer-mypage .consumer-order-detail__receipt-action { gap: 32px; flex-wrap: wrap; margin-top: 24px; padding-top: 16px; }
 .consumer-mypage :is(.consumer-recent-orders, .consumer-order-group, .consumer-address-card, .consumer-inquiry-card, .consumer-review-card, .consumer-review-draft, .consumer-cancellation-card, .consumer-cancellation-detail__info) { border-radius: 0; box-shadow: none; }
-.consumer-mypage .ui-button { min-height: 40px; font-size: 13px; font-weight: 500; border-radius: 0; }
+.consumer-mypage .ui-button { min-height: 34px; padding: 6px 16px; font-family: inherit; font-size: 13px; font-weight: 500; line-height: 1.5; border-radius: 6px; }
+.consumer-mypage .ui-button--secondary { border: 0; background: transparent; color: var(--muted); }
+.consumer-mypage .ui-button--secondary:hover:not(:disabled) { color: var(--brand-blue); background: transparent; }
 .consumer-sort-select { border-radius: 0; background: transparent; }
 
 @media (max-width: 900px) {
@@ -1573,7 +1578,9 @@ dd.consumer-profile-edit__field-edit {
 .consumer-mypage :is(.consumer-profile-edit__field-list, .consumer-profile-edit__gate) .ui-field__label { font-size: 12px; }
 .consumer-mypage :is(.consumer-profile-edit__field-list, .consumer-profile-edit__gate) .ui-field__control { font-size: 13px; min-height: 40px; }
 .consumer-mypage .consumer-order-tracking code { font-family: "Pretendard", sans-serif; letter-spacing: 0; overflow-wrap: anywhere; }
-.consumer-mypage .consumer-order-item--detail { padding-bottom: 0; }
+.consumer-mypage .consumer-order-item--detail { padding: 24px 0; }
+.consumer-order-detail__payment-code { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
+.consumer-order-detail__journey { display: inline-block; margin-top: 16px; }
 .consumer-mypage .consumer-order-item--detail .consumer-order-tracking {
   display: flex;
   align-items: center;
@@ -1601,7 +1608,25 @@ dd.consumer-profile-edit__field-edit {
   padding: 18px 0;
   border-top: 1px solid var(--line);
 }
-.consumer-mypage .prediction-intro .company-wallet__actions p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.7; }
+.consumer-mypage .prediction-intro .company-wallet__actions p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.7; word-break: keep-all; }
+.consumer-mypage .company-wallet__connected-address { display: flex; align-items: center; gap: 12px; padding: 0 0 12px; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; }
+.consumer-mypage .company-wallet__connected-address > svg { width: 24px; height: 24px; color: var(--brand-blue); }
+.consumer-mypage .company-wallet__connected-address > div { display: grid; gap: 6px; }
+.consumer-mypage .company-wallet__connected-address span { color: var(--muted); font-size: 13px; }
+.consumer-mypage .company-wallet__connected-address code { font-family: inherit; color: var(--ink); font-size: 16px; font-weight: 600; }
+.consumer-mypage .company-wallet__verified { display: flex; align-items: center; gap: 8px; color: var(--brand-blue) !important; font-size: 13px; font-weight: 500; }
+.consumer-mypage .company-wallet__verified svg { width: 18px; height: 18px; flex-shrink: 0; }
+.consumer-mypage .prediction-intro > .prediction-card__wallet-stats { padding-top: 16px; border-top: 1px solid var(--line); }
+.consumer-mypage .prediction-card__wallet-stats span { background: var(--paper-warm); color: var(--ink); border-radius: 6px; padding: 8px 12px; font-size: 13px; }
+.consumer-mypage .prediction-intro > .ui-button { justify-self: start; width: auto; }
+.consumer-mypage .prediction-intro > .prediction-error { font-size: 13px; line-height: 1.7; }
+.consumer-mypage .consumer-profile-edit__password-form .ui-field__control { border-radius: 6px; min-height: 42px; padding: 10px 12px; font-family: inherit; font-size: 14px; }
+.consumer-mypage .ui-modal { margin: auto; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); background: var(--paper); font-family: inherit; }
+.consumer-mypage .ui-modal__panel { padding: 24px; }
+.consumer-mypage .ui-modal__title { color: var(--ink); font-size: 20px; line-height: 1.5; }
+.consumer-mypage .ui-modal__body { font-size: 14px; line-height: 1.8; word-break: keep-all; overflow-wrap: anywhere; }
+.consumer-mypage .consumer-order-group__reference { margin: 0; padding: 12px 20px; color: var(--muted); font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+.consumer-mypage :is(.consumer-order-item__actions, .consumer-order-group__header, .return-card__actions) .ui-button:hover:not(:disabled) { background: transparent; text-decoration: none; }
 .consumer-mypage .company-wallet__install-link {
   display: inline-flex;
   align-items: center;
@@ -1667,7 +1692,7 @@ dd.consumer-profile-edit__field-edit {
 }
 .consumer-mypage .consumer-tabs__tab.is-active { border-bottom-color: var(--brand-blue); color: var(--brand-blue); background: transparent; font-weight: 600; }
 .consumer-mypage .return-card__actions .ui-button { min-height: 32px; padding: 4px 10px 4px 0; border: 0; color: var(--brand-blue); background: transparent; }
-.consumer-mypage .return-card__actions .ui-button:hover { color: var(--deep-blue); text-decoration: underline; }
+.consumer-mypage .return-card__actions .ui-button:hover { color: var(--deep-blue); background: transparent; text-decoration: none; }
 .consumer-mypage .address-form .consumer-signup__address-search {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
