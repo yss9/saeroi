@@ -87,14 +87,15 @@ afterEach(() => {
 })
 
 describe('ProductPurchasePanel', () => {
-  it('받을 곳을 먼저 보여준다', async () => {
+  it('받을 곳을 먼저 보여준다 — 숫자만 가려서', async () => {
     renderPanel()
 
-    expect(await screen.findByText('김수령')).toBeInTheDocument()
+    await screen.findByRole('button', { name: '배송지 변경' })
+    expect(screen.getByText('김*령')).toBeInTheDocument()
     expect(
-      screen.getByText('[06236] 서울특별시 강남구 테헤란로 212 101동 1004호'),
+      screen.getByText('[06236] 서울특별시 강남구 테헤란로 *** ***동 ****호'),
     ).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '배송지 변경' })).toBeInTheDocument()
+    expect(screen.getByText('010-****-5678')).toBeInTheDocument()
   })
 
   // 예전에는 "배송지 변경"이 /mypage/addresses 로 보내 구매 흐름이 끊겼다. 지금은 그
@@ -111,13 +112,14 @@ describe('ProductPurchasePanel', () => {
     })
     api.getConsumerAddresses.mockResolvedValue([home, office])
     const user = renderPanel()
-    await screen.findByText('김수령')
+    await screen.findByRole('button', { name: '배송지 변경' })
 
     await user.click(screen.getByRole('button', { name: '배송지 변경' }))
     await user.click(screen.getByRole('radio', { name: /박회사/ }))
     await user.click(screen.getByRole('button', { name: '선택 완료' }))
 
-    expect(screen.getByText('박회사')).toBeInTheDocument()
+    // 선택 완료 뒤에는 평소처럼 가려서 보여준다.
+    expect(screen.getByText('박*사')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '선택 완료' })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: '구매하기' }))
@@ -132,7 +134,7 @@ describe('ProductPurchasePanel', () => {
   // 이 테스트가 이 파일의 존재 이유다 — 주문만 만들고 멈추면 개체가 묶인 채 남는다.
   it('구매하면 주문을 만들고 결제창으로 보낸다', async () => {
     const user = renderPanel()
-    await screen.findByText('김수령')
+    await screen.findByRole('button', { name: '배송지 변경' })
 
     await user.click(screen.getByRole('button', { name: '구매하기' }))
 
@@ -152,7 +154,7 @@ describe('ProductPurchasePanel', () => {
       createAppError(ERROR_KIND.API_ERROR, { message: 'PG 호출 실패', status: 502 }),
     )
     const user = renderPanel()
-    await screen.findByText('김수령')
+    await screen.findByRole('button', { name: '배송지 변경' })
 
     await user.click(screen.getByRole('button', { name: '구매하기' }))
 
@@ -172,7 +174,7 @@ describe('ProductPurchasePanel', () => {
     })
     api.approveProductOrderPayment.mockResolvedValue({ orderId: 12, orderCode: 'PO-010' })
     const user = renderPanel()
-    await screen.findByText('김수령')
+    await screen.findByRole('button', { name: '배송지 변경' })
 
     await user.click(screen.getByRole('button', { name: '구매하기' }))
 
@@ -212,7 +214,7 @@ describe('ProductPurchasePanel', () => {
       createAppError(ERROR_KIND.API_ERROR, { message: '재고가 없습니다.', status: 409 }),
     )
     const user = renderPanel()
-    await screen.findByText('김수령')
+    await screen.findByRole('button', { name: '배송지 변경' })
 
     await user.click(screen.getByRole('button', { name: '구매하기' }))
 
