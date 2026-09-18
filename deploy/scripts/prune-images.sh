@@ -31,6 +31,32 @@ echo "$(date '+%F %T') prune 시작 (until=$AGE)"
 
 before="$(docker system df --format '{{.Type}} {{.Size}}' 2>/dev/null || true)"
 
+# ── :test-N 태그 정리 (2026-09-18) ─────────────────────────────────────────
+# 각 파트 Jenkinsfile 의 Test Deploy 스테이지가 롤백 대상을 남기기 위해 `:test` 와 함께
+# `:test-$BUILD_NUMBER` 를 찍는다(frontend 는 2026-09-11 부터, backend/ai 는 2026-09-18 부터).
+# 이 태그는 "태그가 있는" 이미지라 아래 dangling prune 에 절대 걸리지 않아 develop 병합마다
+# 하나씩 영원히 쌓인다 — 2026-09-18 실측 frontend 73개(총 이미지 20.8GB 중 12.6GB 회수 가능).
+# 롤백은 "직전 1개" 만 있으면 되므로 서비스별로 번호가 큰 것 KEEP 개만 남기고 나머지는 untag 한다.
+# untag(`docker rmi repo:tag`)는 다른 태그가 남아 있으면 태그만 떼고, 마지막 태그였으면
+# 이미지를 지운다 — 컨테이너가 쓰는 이미지는 rmi 가 거절하므로(-f 를 쓰지 않는다) 안전하다.
+# 실행 중 컨테이너가 쓰는 이미지 ID 는 번호와 무관하게 건너뛴다.
+KEEP="${PRUNE_TEST_TAG_KEEP:-5}"
+RUNNING_IDS="$(docker ps -q | xargs -r docker inspect --format '{{.Image}}' 2>/dev/null || true)"
+for svc in frontend backend ai; do
+    docker images "circular-fashion/$svc" --format '{{.Tag}} {{.ID}}' \
+        | awk '$1 ~ /^test-[0-9]+$/ { n=$1; sub(/^test-/, "", n); print n, $1, $2 }' \
+        | sort -k1,1nr \
+        | tail -n +$((KEEP + 1)) \
+        | while read -r _ tag id; do
+            case "$RUNNING_IDS" in *"$id"*) echo "KEEP(running): circular-fashion/$svc:$tag"; continue ;; esac
+            if docker rmi "circular-fashion/$svc:$tag" >/dev/null 2>&1; then
+                echo "untag: circular-fashion/$svc:$tag"
+            else
+                echo "SKIP: circular-fashion/$svc:$tag (사용 중이거나 이미 없음)"
+            fi
+        done
+done
+
 # 태그 없는 이미지
 docker image prune -f --filter "until=$AGE" || true
 # 빌드 캐시는 따로 관리된다. 이게 실제로 가장 크다 (2026-09-07 기준 2.2GB).

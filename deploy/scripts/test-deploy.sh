@@ -130,12 +130,34 @@ if [ "$SERVICE" = "backend" ]; then
             exit 1
         fi
 
-        mkdir -p "$HOME/backups/mysql"
+        # 백업은 **호스트의** ~/backups/mysql 에 남겨야 한다 (backup-mysql.sh 와 같은 자리).
+        # 2026-09-18 발견: 이 스크립트는 Jenkins(cf-jenkins) 컨테이너 안에서 실행되는데, 그 안의
+        # $HOME(/root) 은 어떤 볼륨에도 물려 있지 않다 — 자동 적용 전 백업 5개가 전부 컨테이너
+        # 파일시스템(/root/backups)에만 쌓여 있었고 컨테이너를 재생성하면 통째로 사라진다.
+        # ~/deploy 는 :ro 마운트라 거기에도 쓸 수 없다. docker.sock 은 있으므로, 호스트 경로를
+        # bind 한 일회성 컨테이너로 파이프를 넘겨 호스트에 직접 쓴다 (경로는 데몬=호스트 기준으로
+        # 해석된다). 쓰는 주체는 EC2 사용자(ubuntu, uid 1000)로 맞춘다 — root 로 쓰면 사람이 여는
+        # 것도, 보관 정리도 Permission denied 가 된다(2026-09-18 probe 로 확인). 디렉터리는
+        # backup-mysql.sh 가 이미 만들어 두므로 컨테이너 경로에서는 mkdir 하지 않는다.
+        # 호스트에서 직접 돌릴 때는 그냥 파일로 쓴다.
+        BACKUP_HOST_DIR="${TEST_MYSQL_BACKUP_DIR:-/home/ubuntu/backups/mysql}"
         STAMP="$(date '+%Y%m%d-%H%M%S')"
-        BACKUP_TARGET="$HOME/backups/mysql/${DB_NAME}-test-${STAMP}-before-auto-migration.sql.gz"
-        docker exec -e MYSQL_PWD="$ROOT_PW" cft-mysql \
-            mysqldump -uroot --single-transaction --routines --triggers "$DB_NAME" \
-            | gzip > "$BACKUP_TARGET"
+        BACKUP_NAME="${DB_NAME}-test-${STAMP}-before-auto-migration.sql.gz"
+        BACKUP_TARGET="$BACKUP_HOST_DIR/$BACKUP_NAME"
+        if [ -f /.dockerenv ]; then
+            docker exec -e MYSQL_PWD="$ROOT_PW" cft-mysql \
+                mysqldump -uroot --single-transaction --routines --triggers "$DB_NAME" \
+                | gzip \
+                | docker run --rm -i --user "${TEST_MYSQL_BACKUP_OWNER:-1000:1000}" \
+                    -v "$BACKUP_HOST_DIR:/out" alpine:3.20 \
+                    sh -c "cat > /out/$BACKUP_NAME && chmod 600 /out/$BACKUP_NAME"
+        else
+            mkdir -p "$BACKUP_HOST_DIR"
+            docker exec -e MYSQL_PWD="$ROOT_PW" cft-mysql \
+                mysqldump -uroot --single-transaction --routines --triggers "$DB_NAME" \
+                | gzip > "$BACKUP_TARGET"
+            chmod 600 "$BACKUP_TARGET"
+        fi
         echo "INFO: 자동 적용 전 백업: $BACKUP_TARGET"
 
         for mf in "${NEW_FILES[@]}"; do
