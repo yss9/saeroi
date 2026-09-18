@@ -111,8 +111,20 @@ services:
       PREDICTION_POINT_ADDRESS: ${PREDICTION_POINT_ADDRESS:-}
       PREDICTION_OPERATOR_PRIVATE_KEY: ${PREDICTION_OPERATOR_PRIVATE_KEY:-}
       PREDICTION_ORACLE_ENABLED: ${PREDICTION_ORACLE_ENABLED:-false}
+      # 데모 상품 시더. 기본 false — test 스택에서만 명시적으로 켠다(운영에는 절대 넣지 않는다).
+      # 켜면 데모 브랜드 4곳·상품 48개가 생성되고, DEMO_PRODUCT_IMAGE_DIR 아래
+      # {데모 키}/01-main.{webp|png|jpg|jpeg} 사진을 붙인다(DemoProductImageDirectory 참고).
+      # 기존에 팀원들이 등록한 상품·데이터는 건드리지 않고, 재기동해도 중복 생성되지 않는다.
+      DEMO_PRODUCT_SEED_ENABLED: ${DEMO_PRODUCT_SEED_ENABLED:-false}
+      # 컨테이너 내부 경로. 아래 volumes 의 bind mount 대상과 반드시 같아야 한다.
+      DEMO_PRODUCT_IMAGE_DIR: ${DEMO_PRODUCT_IMAGE_DIR:-}
     volumes:
       - test-file-storage:/app/files
+      # 진짜 데모 상품 사진. EC2 호스트의 ${DEMO_PRODUCT_IMAGE_HOST_DIR} 아래 48개
+      # {데모 키}/01-main.png 폴더 구조를 읽기전용으로 그대로 컨테이너에 넣는다.
+      # 경로가 없으면 docker가 빈 디렉터리를 만들어 마운트한다 — DEMO_PRODUCT_SEED_ENABLED가
+      # false일 때는 어차피 안 읽히므로 무해하다.
+      - ${DEMO_PRODUCT_IMAGE_HOST_DIR:-/home/ubuntu/demo-product-images}:/app/demo-images:ro
     depends_on:
       mysql:
         condition: service_healthy
