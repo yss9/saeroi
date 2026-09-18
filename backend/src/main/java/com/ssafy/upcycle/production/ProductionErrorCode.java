@@ -52,13 +52,6 @@ public enum ProductionErrorCode implements ErrorCode {
     PRODUCTION_PRODUCT_MODEL_NOT_FOUND(
             HttpStatus.NOT_FOUND, "PRODUCTION_PRODUCT_MODEL_NOT_FOUND", "제품을 찾을 수 없습니다."),
 
-    /** 남의 제품을 생산하려는 경우. */
-    /**
-     * 제품을 지정하지 않은 배치를 확정하려는 경우.
-     *
-     * <p>배치는 제품 없이도 열 수 있지만, 확정은 {@code product_item} 을 만들고 그것이
-     * 이 값을 그대로 쓴다. 여기서 막지 않으면 개체를 만드는 지점에서 NPE 가 난다.
-     */
     /**
      * 이미 제품이 붙은 확정 배치의 제품을 바꾸려는 경우.
      *
@@ -71,11 +64,20 @@ public enum ProductionErrorCode implements ErrorCode {
             "PRODUCTION_PRODUCT_MODEL_ALREADY_SET",
             "이미 제품이 연결된 생산은 바꿀 수 없습니다."),
 
+    /**
+     * 제품을 지정하지 않은 배치를 확정하려는 경우.
+     *
+     * <p><b>지금은 쓰이지 않는다.</b> 브랜드의 실제 순서가 "생산을 끝내고 → 그
+     * 결과물에 제품을 붙인다" 라, 확정을 제품으로 막지 않기로 했다
+     * ({@code ProductItem#productModelId} 가 NULL 을 허용한다). 지우지 않은 것은 화면이
+     * 이 코드를 이미 번역해 두었고, 온체인 기록이 붙으면 다시 필요해질 수 있기 때문이다.
+     */
     PRODUCTION_PRODUCT_MODEL_REQUIRED(
             HttpStatus.UNPROCESSABLE_ENTITY,
             "PRODUCTION_PRODUCT_MODEL_REQUIRED",
             "생산할 제품을 먼저 지정해 주세요."),
 
+    /** 남의 제품을 생산하려는 경우. */
     PRODUCTION_PRODUCT_MODEL_FORBIDDEN(
             HttpStatus.FORBIDDEN,
             "PRODUCTION_PRODUCT_MODEL_FORBIDDEN",
@@ -110,6 +112,27 @@ public enum ProductionErrorCode implements ErrorCode {
             HttpStatus.UNPROCESSABLE_ENTITY,
             "PRODUCTION_MATERIAL_NOT_ELIGIBLE",
             "가공을 거치지 않은 폐소재는 생산에 투입할 수 없습니다."),
+
+    /**
+     * 정제(세척·해체·선별)를 거치지 않은 폐소재로 생산을 확정하려는 경우.
+     *
+     * <p>{@link #PRODUCTION_MATERIAL_NOT_ELIGIBLE} 과 물어보는 것이 다르다. 그쪽은
+     * <b>가공을 한 번이라도 거쳤는가</b>({@code generation_type} 한 칸)를 보고, 이쪽은
+     * <b>무슨 가공을 거쳤는가</b>를 혈통 전체에서 본다. 재단만 한 폐데님은 앞을 통과하지만
+     * 씻지 않았고 분류되지 않은 채로 제품이 된다.
+     *
+     * <p><b>투입이 아니라 확정에서 막는다.</b> 가공은 배치를 열어 둔 뒤에도 끝날 수 있고
+     * (생산 계획을 먼저 잡아 두는 것이 정상적인 순서다), 되돌릴 수 없는 것은 확정이지
+     * 투입이 아니다.
+     *
+     * <p>신소재({@code root_origin = VIRGIN})에는 걸지 않는다 — 새 원단에는 해체할 것도
+     * 선별할 것도 없다. 이 규칙이 막는 것은 <b>수거한 그대로의 폐기물이 업사이클 제품으로
+     * 팔리는 것</b>이기 때문이다.
+     */
+    PRODUCTION_MATERIAL_NOT_PROCESSED(
+            HttpStatus.UNPROCESSABLE_ENTITY,
+            "PRODUCTION_MATERIAL_NOT_PROCESSED",
+            "세척·해체·선별을 모두 거친 소재만 생산에 투입할 수 있습니다."),
 
     /**
      * 한 요청 안에 같은 소재가 두 번 들어 있는 경우.

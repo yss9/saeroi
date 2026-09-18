@@ -9,6 +9,7 @@ import com.ssafy.upcycle.material.entity.MaterialType;
 import com.ssafy.upcycle.material.entity.MaterialComposition;
 import com.ssafy.upcycle.material.entity.MaterialOriginReason;
 import com.ssafy.upcycle.material.entity.MaterialVerificationState;
+import com.ssafy.upcycle.processing.entity.ProcessType;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -41,6 +42,16 @@ import java.util.List;
  *
  * <p>{@code owners} 는 온체인 잔액 Projection 이 채워지기 전까지 빈 목록이다.
  * 각 항목의 {@code syncedAt} 이 "언제 기준 값인가" 를 말해 준다.
+ *
+ * <h2>{@code completedProcessTypes}</h2>
+ *
+ * <p>이 소재가 <b>혈통을 통틀어 지금까지 거친</b> 가공 종류다. 부모가 세척되고
+ * 자식이 선별됐으면 자식의 값은 둘 다다 — 가공은 소재에 남고, 그 소재에서 나온
+ * 소재에도 남는다.
+ *
+ * <p>손으로 적는 컬럼이 아니라 {@code MaterialProcessHistoryResolver} 가 조회 시점에
+ * {@code material_lineage} 를 거슬러 올라가며 계산한다 — {@code verificationState} 와 같은
+ * 이유다.
  */
 public record MaterialDetailResponse(
         // 기본정보
@@ -71,6 +82,11 @@ public record MaterialDetailResponse(
         // 화면이 "없음" 과 "모름" 을 두 번 분기하지 않게 한다
         List<MaterialCompositionResponse> composition,
 
+        // 혈통을 따라 누적된 가공 종류. 가공을 거치지 않았으면 **빈 배열**이고
+        // null 이 아니다 — 저장 컬럼이 아니라 조회 시점에 혈통에서 계산한다
+        // (MaterialProcessHistoryResolver)
+        List<ProcessType> completedProcessTypes,
+
         // Evidence
         String evidenceHash,
         String manifestUrl,
@@ -91,6 +107,7 @@ public record MaterialDetailResponse(
             Material material,
             List<MaterialBalance> balances,
             List<MaterialComposition> composition,
+            List<ProcessType> completedProcessTypes,
             MaterialVerificationState verificationState,
             MaterialVerificationResponse verification) {
         return new MaterialDetailResponse(
@@ -111,6 +128,7 @@ public record MaterialDetailResponse(
                 material.getOriginReason(),
                 material.getOriginReasonNote(),
                 composition.stream().map(MaterialCompositionResponse::from).toList(),
+                completedProcessTypes,
                 material.getEvidenceHash(),
                 material.getManifestUrl(),
                 verificationState,

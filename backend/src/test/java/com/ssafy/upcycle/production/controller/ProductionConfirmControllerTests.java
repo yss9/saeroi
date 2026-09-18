@@ -11,6 +11,8 @@ import com.ssafy.upcycle.common.security.jwt.JwtTokenService;
 import com.ssafy.upcycle.material.entity.Material;
 import com.ssafy.upcycle.material.entity.MaterialBalance;
 import com.ssafy.upcycle.material.entity.MaterialGenerationType;
+import com.ssafy.upcycle.material.entity.MaterialLineage;
+import com.ssafy.upcycle.material.entity.MaterialLineageRelationType;
 import com.ssafy.upcycle.material.entity.MaterialLockStatus;
 import com.ssafy.upcycle.material.entity.MaterialRootOrigin;
 import com.ssafy.upcycle.material.entity.MaterialType;
@@ -18,6 +20,11 @@ import com.ssafy.upcycle.material.repository.MaterialBalanceRepository;
 import com.ssafy.upcycle.material.repository.MaterialLineageRepository;
 import com.ssafy.upcycle.material.repository.MaterialLockRepository;
 import com.ssafy.upcycle.material.repository.MaterialRepository;
+import com.ssafy.upcycle.processing.entity.ProcessType;
+import com.ssafy.upcycle.processing.entity.ProcessingJob;
+import com.ssafy.upcycle.processing.entity.ProcessingRequestType;
+import com.ssafy.upcycle.processing.repository.ProcessingJobRepository;
+import com.ssafy.upcycle.processing.repository.ProcessingRequestTypeRepository;
 import com.ssafy.upcycle.product.entity.ProductCategory;
 import com.ssafy.upcycle.product.entity.ProductItem;
 import com.ssafy.upcycle.product.entity.ProductItemStatus;
@@ -28,11 +35,13 @@ import com.ssafy.upcycle.production.entity.ProductionBatchStatus;
 import com.ssafy.upcycle.production.repository.ProductionBatchRepository;
 import com.ssafy.upcycle.production.repository.ProductionInputRepository;
 import com.ssafy.upcycle.production.repository.ProductionOutputRepository;
+import com.ssafy.upcycle.trade.entity.PaymentMethod;
 import com.ssafy.upcycle.user.entity.User;
 import com.ssafy.upcycle.user.entity.UserRole;
 import com.ssafy.upcycle.user.entity.UserWallet;
 import com.ssafy.upcycle.user.repository.UserRepository;
 import com.ssafy.upcycle.user.repository.UserWalletRepository;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -114,10 +123,17 @@ class ProductionConfirmControllerTests {
     @Autowired
     private ProductionOutputRepository outputRepository;
 
+    @Autowired
+    private ProcessingJobRepository jobRepository;
+
+    @Autowired
+    private ProcessingRequestTypeRepository requestTypeRepository;
+
     private User brand;
     private String brandToken;
     private Long productModelId;
     private Long virginMaterialId;
+    private long processingSequence;
 
     @BeforeEach
     void setUp() {
@@ -538,9 +554,9 @@ class ProductionConfirmControllerTests {
     }
 
     /**
-     * 가공을 거친 폐소재. 투입 자격이 {@code WASTE + INITIAL} 을 막으므로 자투리로 만든다 —
-     * {@code produceScrap} 이 부모의 {@code root_origin} 을 물려주면서
-     * {@code generation_type} 만 {@code PRODUCTION_SCRAP} 으로 바꾼다.
+     * <b>정제까지 끝난</b> 폐소재. 확정은 폐소재에 세척·해체·선별을 모두 요구하므로
+     * ({@code PRODUCTION_MATERIAL_NOT_PROCESSED}), 그 셋을 마친 가공 작업 하나를 만들고
+     * 혈통으로 이어 준다 — 실제 승인 경로가 만드는 모양과 같다.
      */
     private Long processedWasteMaterial() {
         Material parent = materialRepository.save(Material.register(
@@ -554,14 +570,47 @@ class ProductionConfirmControllerTests {
                 null,
                 null,
                 brand.getId()));
-        Material processed = materialRepository.save(Material.produceScrap(
+        Material processed = materialRepository.save(Material.process(
                 "MAT-" + UUID.randomUUID().toString().substring(0, 10),
                 parent,
+                parent.getMaterialType(),
+                "정제된 데님",
+                "A",
                 HELD_QUANTITY,
                 brand.getId()));
+        lineageRepository.save(MaterialLineage.of(
+                processed.getId(),
+                parent.getId(),
+                MaterialLineageRelationType.PROCESSING,
+                refiningJob().getId()));
         balanceRepository.save(
                 MaterialBalance.of(processed.getId(), brand.getId(), WALLET, HELD_QUANTITY));
         return processed.getId();
+    }
+
+    /** 세척·해체·선별을 마치고 브랜드 승인까지 끝난 가공 작업. */
+    private ProcessingJob refiningJob() {
+        long id = ++processingSequence;
+        long requestId = 9_000L + id;
+        ProcessType[] refining = {
+            ProcessType.CLEANING, ProcessType.DISASSEMBLY, ProcessType.SORTING
+        };
+        for (int i = 0; i < refining.length; i++) {
+            requestTypeRepository.save(new ProcessingRequestType(requestId, refining[i], i + 1));
+        }
+        LocalDateTime at = LocalDateTime.of(2026, 9, 18, 9, 0).plusHours(id);
+        ProcessingJob job = jobRepository.save(ProcessingJob.create(
+                "JOB-CONFIRM-" + id, requestId, 8_000L + id, brand.getId(), brand.getId() + 1,
+                WALLET, WALLET, 0, PaymentMethod.MOCK, at));
+        job.markPaid("confirm-payment-" + id, 0, at.plusMinutes(1));
+        job.ship(at.plusMinutes(2));
+        job.receive(at.plusMinutes(3));
+        job.start(at.plusMinutes(4));
+        job.submitResult(
+                30_000, 30_000, "0x" + String.valueOf(id % 10).repeat(64),
+                "https://example.com/m/" + id, at.plusMinutes(5));
+        job.confirmResult(at.plusMinutes(6));
+        return job;
     }
 
     private String body(Map<String, Object> request) throws Exception {
