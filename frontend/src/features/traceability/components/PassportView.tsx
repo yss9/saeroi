@@ -1,9 +1,11 @@
-import { CheckCircle, ShieldCheck } from '@phosphor-icons/react'
+import { ShieldCheck } from '@phosphor-icons/react'
 import { ErrorMessage, Loading } from '../../../components/common/index.ts'
 import { getPassportThumbnailUrl } from '../api/getPassport.ts'
 import { usePassport } from '../hooks/usePassport.ts'
-import type { PassportItemStatus, ProductPassport } from '../types/traceability.types.ts'
+import type { ProductPassport } from '../types/traceability.types.ts'
 import { JourneyExplorer } from './JourneyExplorer.tsx'
+import logoUrl from '../../../assets/saeroi-logo-vector.svg'
+import '../../../pages/landing/landing.css'
 import './passport.css'
 
 export interface PassportViewProps {
@@ -17,12 +19,6 @@ const CATEGORY_LABEL: Record<ProductPassport['product']['category'], string> = {
   ACCESSORY: '액세서리',
   HOME: '홈·리빙',
   ETC: '기타',
-}
-
-const ITEM_STATUS_MESSAGE: Record<PassportItemStatus, string> = {
-  IN_STOCK: '판매 준비 중',
-  RESERVED: '구매 진행 중',
-  SOLD: '구매 및 여정 확인 완료',
 }
 
 function formatIssuedAt(value: string): string {
@@ -41,15 +37,12 @@ export function PassportView({ qrToken }: PassportViewProps) {
   if (isError) return <ErrorMessage error={error} onRetry={() => void refetch()} />
 
   return (
-    <article className="passport">
+    <article className="landing-page passport">
       <header className="passport-brandbar">
         <a className="passport-brandbar__logo" href="/" aria-label="SAEROI 홈">
-          SAEROI
+          <img src={logoUrl} alt="SAEROI" />
         </a>
-        <div className="passport-brandbar__message">
-          <span>A KINDER TOMORROW</span>
-          <span>IN STYLE</span>
-        </div>
+        <span className="passport-brandbar__title">PRODUCT JOURNEY</span>
       </header>
 
       <div className="passport__content">
@@ -61,16 +54,10 @@ export function PassportView({ qrToken }: PassportViewProps) {
           />
 
           <div className="passport-product__identity">
-            <p className="passport-product__eyebrow">PRODUCT JOURNEY</p>
             <h1 id="passport-product-title">{data.product.name}</h1>
             <p className="passport-product__brand">
               {data.product.brandName ?? CATEGORY_LABEL[data.product.category]}
             </p>
-            <p className="passport-product__description">{data.product.description}</p>
-            <span className="passport-product__verified">
-              <ShieldCheck size={18} weight="fill" aria-hidden="true" />
-              Verified Upcycled Product
-            </span>
           </div>
 
           <dl className="passport-product__meta">
@@ -88,10 +75,10 @@ export function PassportView({ qrToken }: PassportViewProps) {
             </div>
           </dl>
 
-          <div className="passport-product__status">
-            <CheckCircle size={20} weight="fill" aria-hidden="true" />
-            <span>{ITEM_STATUS_MESSAGE[data.itemStatus]}</span>
-          </div>
+          <span className="passport-product__verified">
+            <ShieldCheck size={18} weight="fill" aria-hidden="true" />
+            Verified Upcycled Product
+          </span>
         </section>
 
         {data.traceabilityAvailable && data.journey ? (
@@ -113,6 +100,11 @@ export function PassportView({ qrToken }: PassportViewProps) {
           </section>
         )}
       </div>
+      <footer className="passport-footer">
+        <a href="/" aria-label="SAEROI 홈"><img src={logoUrl} alt="SAEROI" /></a>
+        <p>쓰임을 다한 소재에 새로운 가치를 더합니다.</p>
+        <a href="/about">새로이 알아보기</a>
+      </footer>
     </article>
   )
 }
