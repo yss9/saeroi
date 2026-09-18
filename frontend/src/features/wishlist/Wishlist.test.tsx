@@ -18,7 +18,7 @@ vi.mock('../shop/ShopContext.tsx', () => ({ useShop: () => ({ cartCount: 0 }) })
 const entry: WishlistItem = {
   product: { productModelId: 31, name: '데님 백', brandId: 5, brandName: 'REWEAVE', price: 39000,
     category: 'BAG', subcategory: 'TOTE', status: 'ON_SALE', stockQuantity: 3,
-    thumbnailUrl: '/api/v1/product-models/31/thumbnail', description: '', createdAt: '2026-09-17' },
+    thumbnailUrl: '/api/v1/product-models/31/thumbnail', description: '', createdAt: '2026-09-17', journeyUrl: null },
   wishedAt: '2026-09-17T14:02:11', purchasable: true,
 }
 const result = { content: [entry], page: 0, size: 12, totalElements: 13, totalPages: 2, hasNext: true }

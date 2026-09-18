@@ -18,6 +18,7 @@ const product: PublicProductDetail = {
   productModelId: 31, name: '데님 토트백', brandId: 5, brandName: 'REWEAVE', category: 'BAG', subcategory: 'TOTE',
   price: 129000, description: '소재의 다음 이야기\n오래 사용할 가방', stockQuantity: 2, status: 'ON_SALE',
   thumbnailUrl: '/api/v1/public/product-models/31/thumbnail', images: [], createdAt: '2026-09-17',
+  journeyUrl: 'https://upcycle.test/qr/sample-token',
 }
 function Probe() {
   const location = useLocation()
@@ -41,7 +42,7 @@ function ActualRoutes() { return useRoutes(routes) }
 beforeEach(() => {
   useAuthStore.getState().signOut()
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
-  vi.spyOn(apiClient, 'get').mockImplementation(async (url) => ({ data: url.endsWith('/product-ids') ? [] : url.endsWith('/cart') ? { items: [], totalQuantity: 0, totalPrice: 0 } : product }) as AxiosResponse)
+  vi.spyOn(apiClient, 'get').mockImplementation(async (url) => ({ data: url.endsWith('/product-ids') ? [] : url.endsWith('/cart') ? { items: [], totalQuantity: 0, totalPrice: 0 } : url.endsWith('/addresses') ? [] : product }) as AxiosResponse)
   vi.spyOn(apiClient, 'delete').mockResolvedValue({ data: {} } as AxiosResponse)
   let cartQuantity = 0
   vi.spyOn(apiClient, 'post').mockImplementation(async (url) => {
@@ -112,6 +113,17 @@ describe('public consumer product detail', () => {
     expect(screen.getByRole('button', { name: '장바구니 담기' })).toBeDisabled()
     expect(screen.getByRole('button', { name: '찜하기' })).toBeEnabled()
   })
+  it('links straight to the sample QR Passport when the server provides one', async () => {
+    show()
+    const link = await screen.findByRole('link', { name: 'QR Passport 예시 보기' })
+    expect(link).toHaveAttribute('href', product.journeyUrl)
+  })
+  it('hides the QR Passport link when no stock item is available yet', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({ data: { ...product, journeyUrl: null } } as AxiosResponse)
+    show()
+    await screen.findByRole('heading', { name: product.name })
+    expect(screen.queryByRole('link', { name: 'QR Passport 예시 보기' })).not.toBeInTheDocument()
+  })
   it.each(['찜하기', '장바구니 담기', '구매하기'])('returns to the same product after login from %s without automatic purchase', async (button) => {
     show()
     await screen.findByRole('heading', { name: product.name })
@@ -140,8 +152,11 @@ describe('public consumer product detail', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: '장바구니 담기' })).toBeEnabled())
     expect(screen.getByLabelText('장바구니 수')).toHaveTextContent('1')
     fireEvent.click(screen.getByRole('button', { name: '찜하기' }))
+    // 로그인한 소비자에게는 실제 구매 패널이 뜬다. 기본 배송지가 없어 주문할 수 없다는
+    // 안내와 함께 구매 버튼이 잠겨 있어야 한다 — 눌러도 주문이 나가지 않는다.
+    expect(await screen.findByText('기본 배송지가 없어 주문할 수 없습니다.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '구매하기' })).toBeDisabled()
     fireEvent.click(screen.getByRole('button', { name: '구매하기' }))
-    expect(screen.getByText(/현재 주문이나 결제는 진행되지 않습니다/)).toBeInTheDocument()
     expect(apiClient.post).toHaveBeenCalledTimes(3)
     expect(apiClient.post).toHaveBeenCalledWith('/v1/consumers/me/cart', { productModelId: 31, quantity: 1 })
     expect(apiClient.post).toHaveBeenCalledWith('/v1/consumers/me/wishlist', { productModelId: 31 })

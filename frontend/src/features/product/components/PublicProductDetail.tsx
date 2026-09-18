@@ -9,6 +9,7 @@ import { publicProductImageUrl } from '../api/publicProductImageUrl.ts'
 import { usePublicProductModel } from '../hooks/usePublicProductModel.ts'
 import type { PublicProductDetail as Product } from '../types/publicProduct.types.ts'
 import { PRODUCT_CATEGORY_LABEL } from '../types/product.types.ts'
+import { ProductPurchasePanel } from '../../user/components/ProductPurchasePanel.tsx'
 
 export function PublicProductDetail({ productId }: { productId: number | null }) {
   const query = usePublicProductModel(productId)
@@ -51,18 +52,49 @@ function ProductBody({ product }: { product: Product }) {
           <p className="public-product__category">{PRODUCT_CATEGORY_LABEL[product.category]}{product.subcategory ? ` · ${product.subcategory}` : ''}</p>
           <p className={`public-product__stock${soldOut ? ' public-product__stock--empty' : ''}`}>{soldOut ? '품절' : `남은 수량 ${product.stockQuantity}개`}</p>
           <div className="public-product__actions">
-            <button className="public-product__buy" type="button" disabled={soldOut} onClick={() => requireLogin(() => setNotice(role === 'CONSUMER' ? '구매 기능 연결을 준비하고 있습니다. 현재 주문이나 결제는 진행되지 않습니다.' : '구매는 소비자 계정에서 이용할 수 있습니다.'))}>{soldOut ? '품절' : '구매하기'}</button>
+            {/* 로그인한 소비자만 실제 주문·결제로 이어진다 — 그 외(비회원·사업자)에게는
+                버튼을 눌러 로그인/역할을 알리는 자리표시자 버튼을 대신 보여준다. */}
+            {isAuthenticated && role === 'CONSUMER' ? null : (
+              <button className="public-product__buy" type="button" disabled={soldOut} onClick={() => requireLogin(() => setNotice('구매는 소비자 계정에서 이용할 수 있습니다.'))}>{soldOut ? '품절' : '구매하기'}</button>
+            )}
             <WishlistButton productId={product.productModelId} name={product.name} text="찜하기" />
             <CartButton productId={product.productModelId} name={product.name} text="장바구니 담기" disabled={soldOut} />
           </div>
           <p className="public-product__notice" role="status">{notice}</p>
+          {product.journeyUrl && (
+            // 재고 개체 하나를 골라 그 QR Passport 로 바로 연결한다. 재고가 없으면 서버가
+            // journeyUrl 을 내려주지 않는다 — 보여줄 개체가 없어서다.
+            <a className="ui-button ui-button--secondary ui-button--sm" href={product.journeyUrl}>
+              QR Passport 예시 보기
+            </a>
+          )}
           <p className="public-product__memory">찜과 장바구니는 계정에 저장됩니다.</p>
+          {isAuthenticated && role === 'CONSUMER' && (
+            <ProductPurchasePanel
+              productModelId={product.productModelId}
+              purchasable={isPurchasable(product)}
+              blockedReason={purchaseBlockedReason(product)}
+            />
+          )}
           <section className="public-product__description" aria-labelledby="product-description-title"><h2 id="product-description-title">상품 이야기</h2><p>{product.description || '등록된 상품 설명이 없습니다.'}</p></section>
           <Link className="public-product__back" to="/shop">전체 상품 보기 →</Link>
         </div>
       </div>
     </section>
   )
+}
+
+/** 살 수 있는 상태인가. 서버가 거절할 조건을 화면이 먼저 본다. */
+function isPurchasable(product: Product): boolean {
+  return product.status === 'ON_SALE' && product.stockQuantity > 0
+}
+
+/** 못 사는 이유. 버튼만 잠그면 사용자는 자기가 뭘 잘못했다고 생각한다. */
+function purchaseBlockedReason(product: Product): string | undefined {
+  if (product.status === 'DISCONTINUED') return '단종된 제품이라 주문할 수 없습니다.'
+  if (product.status === 'DRAFT') return '아직 판매를 시작하지 않은 제품입니다.'
+  if (product.stockQuantity === 0) return '품절되어 지금은 주문할 수 없습니다.'
+  return undefined
 }
 
 function ProductGallery({ product }: { product: Product }) {
