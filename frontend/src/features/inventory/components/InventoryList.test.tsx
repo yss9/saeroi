@@ -43,6 +43,7 @@ function item(overrides: Partial<InventoryItem> = {}): InventoryItem {
     lockedQuantity: 300,
     available: 20_200,
     syncedAt: '2026-09-07T09:00:00',
+    completedProcessTypes: [],
     ...overrides,
   }
 }

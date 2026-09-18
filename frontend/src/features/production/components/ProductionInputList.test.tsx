@@ -81,6 +81,7 @@ function material(overrides: Partial<InventoryItem> = {}): InventoryItem {
     lockedQuantity: 10_000,
     available: 20_000,
     syncedAt: '2026-09-08T09:00:00',
+    completedProcessTypes: [],
     ...overrides,
   }
 }

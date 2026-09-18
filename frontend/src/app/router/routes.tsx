@@ -47,6 +47,7 @@ import { ProcessingPage } from '../../pages/processing/ProcessingPage.tsx'
 import { ProcessorProfilePage } from '../../pages/processing/ProcessorProfilePage.tsx'
 import { ProcessingPaymentCallbackPage } from '../../pages/processing/ProcessingPaymentCallbackPage.tsx'
 import { ProcessingJobDetailPage } from '../../pages/processing/ProcessingJobDetailPage.tsx'
+import { BrandProcessingJobListPage } from '../../pages/processing/BrandProcessingJobListPage.tsx'
 import { BrandOrderPage } from '../../pages/product/BrandOrderPage.tsx'
 import { BrandProductPage } from '../../pages/product/BrandProductPage.tsx'
 import { ProductDetailPage } from '../../pages/product/ProductDetailPage.tsx'
@@ -244,6 +245,9 @@ export const routes: RouteObject[] = [
           { path: '/brand/processing', element: <BrandProcessingPage /> },
           { path: '/brand/processing/requests', element: <BrandProcessingRequestListPage /> },
           { path: '/brand/processing/requests/:requestId', element: <BrandProcessingRequestDetailPage /> },
+          // 가공 진행. 요청 내역이 "무엇을 맡겼나" 라면 이쪽은 "지금 어디까지 왔나" 다 —
+          // 온체인 등록·수락·발송 서명처럼 작업에서만 할 수 있는 일이 여기서 이어진다.
+          { path: '/brand/processing/jobs', element: <BrandProcessingJobListPage /> },
           { path: '/processing/jobs/:jobId/payment/callback', element: <ProcessingPaymentCallbackPage /> },
           { path: '/brand/production', element: <ProductionPage /> },
           // 배치 상세에서 소재를 투입하고 확정한다. 목록에서 눌러 들어가는 화면이라

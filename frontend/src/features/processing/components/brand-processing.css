@@ -69,6 +69,26 @@
 .bp-purposes label { min-height: 43px; padding: 9px 5px; border: 1px solid var(--bp-border); border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 6px; color: #596779; cursor: pointer; font-size: .72rem; white-space: nowrap; }
 .bp-purposes label:hover { border-color: #9fbdd2; background: #f7fafc; }
 .bp-purposes label.is-selected { border-color: var(--bp-primary); background: #edf5fb; color: var(--bp-primary-dark); font-weight: 750; box-shadow: inset 0 0 0 1px var(--bp-primary); }
+/*
+  제품을 만들기 전에 반드시 거쳐야 하는 가공(세척·해체·선별)은 붉은 테두리로 남긴다.
+  고른 소재가 이미 거친 것은 초록 "완료" 로 바뀌어, 남은 것만 붉게 보인다.
+*/
+.bp-purposes label.is-required { border-color: #e6a6a0; background: #fdf3f2; color: #9d2a2a; }
+.bp-purposes label.is-required.is-selected { border-color: var(--bp-primary); background: #edf5fb; color: var(--bp-primary-dark); }
+.bp-purposes label.is-done { border-color: #bcdcc6; background: #f3faf5; color: #267442; }
+/* 딱지는 글자가 아니라 표시다 — DOM 에 넣으면 체크박스의 이름이 "세척 필수" 가 된다. */
+.bp-purposes label.is-required > span::after,
+.bp-purposes label.is-done > span::after {
+  margin-left: 5px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-size: .6rem;
+  font-weight: 800;
+}
+.bp-purposes label.is-required > span::after { content: '필수'; background: #f6dedb; color: #9d2a2a; }
+.bp-purposes label.is-done > span::after { content: '완료'; background: #dcefe2; color: #267442; }
+.bp-purposes-note { margin: 10px 0 0; color: #7d8794; font-size: .68rem; line-height: 1.6; }
+
 .bp-shell input[type='checkbox'], .bp-shell input[type='radio'] { width: 15px; height: 15px; flex-shrink: 0; margin: 0; accent-color: var(--bp-primary); }
 
 .bp-form-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 30px; padding-top: 22px; border-top: 1px solid #edf0f3; }

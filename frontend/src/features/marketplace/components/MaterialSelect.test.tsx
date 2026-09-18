@@ -31,6 +31,7 @@ const DENIM: InventoryItem = {
   lockedQuantity: 20_000,
   available: 10_000,
   syncedAt: '2026-09-07T00:00:00.000Z',
+  completedProcessTypes: [],
 }
 
 /** 전량이 잠겨 팔 수 없는 소재. */

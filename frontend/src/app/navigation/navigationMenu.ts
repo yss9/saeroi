@@ -16,6 +16,7 @@ import {
   ClipboardText,
   Cube,
   Factory,
+  Gear,
   IdentificationCard,
   Package,
   PaperPlaneTilt,
@@ -44,9 +45,7 @@ export interface NavigationMenuItem {
  *
  *   SUPPLIER  회사 정보 · 보유 소재 · 소재 등록 · 판매 관리 · 판매 거래
  *   BRAND     회사 정보 · 보유 소재 · 가공 요청 · 요청 내역 · 제품 생산 · 제품 등록 · 내 제품 · 제품 발송 · 구매 내역
- *
- * 가공 진행은 없앴다. 요청 하나가 곧 작업 하나라 목록이 둘일 이유가 없었고, 브랜드는
- * "내가 보낸 요청" 으로만 그 일을 기억한다 — 진행 상황과 수령 확인은 요청 상세가 맡는다.
+
  *   PROCESSOR 회사 정보 · 보유 소재 · 업체 등록 · 가공 작업
  *
  * **공개 상품(`/shop`)은 사이드바에 없다.** 소비자가 옷을 사는 화면이라 사업자
@@ -114,6 +113,7 @@ export const BUSINESS_MENU_GROUPS: readonly NavigationMenuGroup[] = [
     items: [
       { label: '가공 요청', to: '/brand/processing', Icon: PaperPlaneTilt },
       { label: '요청 내역', to: '/brand/processing/requests', Icon: ClipboardText },
+      { label: '가공 진행', to: '/brand/processing/jobs', Icon: Gear },
       // 가공사 쪽. 맡기는 일과 받는 일이 같은 묶음이다.
       { label: '업체 등록', to: '/processor/profile', Icon: IdentificationCard },
       { label: '가공 작업', to: '/processor/jobs', Icon: Factory },
