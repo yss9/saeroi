@@ -22,6 +22,7 @@ export interface CompanyProfile {
   logoUrl: string | null
   role: BusinessUserRole
   status: UserStatus
+  roleApprovalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED'
 }
 
 /**
