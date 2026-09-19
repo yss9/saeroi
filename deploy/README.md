@@ -179,13 +179,17 @@ bash scripts/test-down.sh        # 종료 (기본 볼륨 보존, TEST_DOWN_VOLUM
 | test 백엔드 헬스 | https://j15e104.p.ssafy.io/test/api/health |
 
 **backend 배포 전 스키마 preflight (test 전용, 자동)**: `test-deploy.sh backend`는 `cft-mysql`을
-`origin/backend/develop`의 `schema.sql` 기준으로 대조(`check-schema.sh`)한 뒤 배포합니다.
-불일치가 있으면 `db/migrations/*.sql` 중 아직 적용 안 된 파일(`cft-mysql`의
-`deploy_migrations_applied` 테이블로 추적)을 mysqldump 백업 후 **`ALTER` 포함 여부와
-무관하게** 전부 자동 적용합니다 — backend Jenkinsfile의 병합 전 CI 게이트
-(`scripts/verify-migrations.sh`, backend 레포 소유)가 그 마이그레이션이 `schema.sql`
-목표 상태를 정확히 재현함을 이미 검증했기 때문입니다. 적용 안 된 마이그레이션이 없는데도
-불일치가 남으면(예: `schema.sql`을 마이그레이션 없이 손으로 고친 경우) 자동 적용하지
+`origin/backend/develop`의 `schema.sql` 기준으로 대조(`check-schema.sh`)하는 동시에,
+`db/migrations/*.sql` 중 아직 적용 안 된 파일(`cft-mysql`의 `deploy_migrations_applied`
+테이블로 추적)이 있는지도 항상 먼저 계산합니다. **스키마 불일치 또는 미적용 마이그레이션
+파일 존재, 둘 중 하나만 참이어도** mysqldump 백업 후 **`ALTER` 포함 여부와 무관하게** 전부
+자동 적용합니다 — backend Jenkinsfile의 병합 전 CI 게이트(`scripts/verify-migrations.sh`,
+backend 레포 소유)가 그 마이그레이션이 `schema.sql` 목표 상태를 정확히 재현함을 이미
+검증했기 때문입니다. (2026-09-19 이전에는 스키마 불일치일 때만 미적용 파일을 찾았는데,
+컬럼 구조는 그대로 두고 값만 옮기는 UPDATE 전용 마이그레이션은 `schema.sql` 대조에
+애초에 안 걸려 게이트가 안 열렸다 — `material_type` enum 재정렬 마이그레이션이 `cft-mysql`에
+조용히 안 걸려 조회 API가 500을 낸 실사고로 발견.) 적용 안 된 마이그레이션이 없는데도
+스키마 불일치가 남으면(예: `schema.sql`을 마이그레이션 없이 손으로 고친 경우) 자동 적용하지
 않고 배포를 막습니다 — 이 경우 위 "backend 배포 전에 반드시" 절차대로 사람이 직접
 확인해야 합니다. 운영 배포(`deploy-service.sh`)에는 이 자동 적용이 없습니다 — 운영은
 여전히 사람이 보고 결정합니다.
