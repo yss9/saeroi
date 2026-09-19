@@ -11,10 +11,8 @@ vi.mock('../../features/auth/hooks/useLogout.ts', () => ({ useLogout: () => ({ m
 vi.mock('../../features/user/components/ConsumerAccountLayout.tsx', () => ({
   ConsumerAccountLayout: ({ children }: { children: ReactNode }) => <main>{children}</main>,
 }))
-vi.mock('../../features/product/hooks/usePublicProductModels.ts', () => ({
-  usePublicProductModels: () => ({ data: { content: [{ productModelId: 31, name: '데님 백',
-    brandId: 5, brandName: 'REWEAVE', price: 99000, stockQuantity: 10, thumbnailUrl: '', status: 'ON_SALE' }] } }),
-}))
+const recentlyViewedHook = vi.hoisted(() => ({ useRecentlyViewedProducts: vi.fn() }))
+vi.mock('../../features/product/hooks/useRecentlyViewedProducts.ts', () => recentlyViewedHook)
 vi.mock('../../features/wishlist/WishlistButton.tsx', () => ({ WishlistButton: () => <button>찜하기</button> }))
 vi.mock('../../features/cart/CartButton.tsx', () => ({ CartButton: () => <button>장바구니 담기</button> }))
 
@@ -32,6 +30,16 @@ function renderWithQueryClient(ui: ReactNode) {
 afterEach(cleanup)
 
 describe('consumer UI polish', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    recentlyViewedHook.useRecentlyViewedProducts.mockReturnValue({
+      products: [{ productModelId: 31, name: '데님 백', category: 'BAG', subcategory: 'TOTE',
+        brandId: 5, brandName: 'REWEAVE', price: 99000, description: '', stockQuantity: 10,
+        thumbnailUrl: '', status: 'ON_SALE', createdAt: '2026-09-18', journeyUrl: null, images: [] }],
+      isPending: false, isError: false, error: null, refetch: vi.fn(),
+    })
+  })
+
   it('최근 본 상품은 공통 상품 카드와 상세 링크를 쓰고 장바구니 버튼은 생략한다', () => {
     renderWithQueryClient(<ConsumerRecentlyViewedPage />)
     expect(screen.getByRole('list', { name: '최근 본 상품 목록' })).toHaveClass('shop-catalog__grid')
@@ -39,9 +47,19 @@ describe('consumer UI polish', () => {
     expect(screen.queryByRole('button', { name: '장바구니 담기' })).not.toBeInTheDocument()
   })
 
-  describe('문의하기', () => {
-    beforeEach(() => vi.clearAllMocks())
+  it('이력이 비어 있으면 신상품 대신 빈 상태와 SHOP 링크를 보여준다', () => {
+    recentlyViewedHook.useRecentlyViewedProducts.mockReturnValue({
+      products: [], isPending: false, isError: false, error: null, refetch: vi.fn(),
+    })
 
+    renderWithQueryClient(<ConsumerRecentlyViewedPage />)
+
+    expect(screen.getByText('최근 본 상품이 없습니다')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'SHOP 보기' })).toHaveAttribute('href', '/shop')
+    expect(screen.queryByRole('list', { name: '최근 본 상품 목록' })).not.toBeInTheDocument()
+  })
+
+  describe('문의하기', () => {
     it('문의 완료 안내와 주요 버튼을 표시하고 새 문의 작성으로 폼을 초기화한다', async () => {
       inquiryApi.createConsumerInquiry.mockResolvedValue({
         inquiryId: 1,
