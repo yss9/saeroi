@@ -40,6 +40,24 @@ public interface AgentTool {
     boolean isWrite();
 
     /**
+     * 카드를 띄우기 <b>전에</b> 거절할 이유가 있으면 그 결과를 돌려준다.
+     *
+     * <p>쓰기 tool 은 승인 전까지 실행되지 않으므로, 실행 안에서 검사하면 담당자가 카드를
+     * 누른 뒤에야 거절된다. 담당자 입장에서는 승인했는데 오류가 나는 것이고, 무엇이 잘못됐는지
+     * 설명하는 것은 모델이 아니라 오류 화면이 된다.
+     *
+     * <p>모델이 고쳐서 다시 부를 수 있는 종류의 문제에 쓴다 — 빠진 필수 공정처럼. 권한이나
+     * 재고 같은 도메인 규칙은 여기서 미리 보지 않는다. 그건 승인 시점의 상태로 판단해야 하고,
+     * 두 곳에서 검사하면 규칙이 갈라진다.
+     *
+     * <p>여기서 무엇을 하든 <b>상태를 바꾸면 안 된다.</b> 이 메서드는 사용자 승인 없이 불린다.
+     */
+    default java.util.Optional<AgentToolResult> refuseBeforeProposal(
+            AgentToolContext context, com.fasterxml.jackson.databind.JsonNode arguments) {
+        return java.util.Optional.empty();
+    }
+
+    /**
      * 쓰기 tool 이 사용자에게 어떤 종류의 확인을 요구하는지.
      *
      * <p>읽기 tool 에서는 쓰이지 않는다.

@@ -67,6 +67,12 @@ public class AgentToolExecutor {
         }
 
         if (tool.isWrite()) {
+            // 카드를 띄우기 전에 tool 이 스스로 볼 기회를 준다. 승인 뒤에야 거절하면 담당자는
+            // 이미 누른 다음이고, 무엇이 잘못됐는지는 모델이 아니라 오류 화면이 말하게 된다.
+            Optional<AgentToolResult> refusal = refusalBeforeProposal(tool, userId, conversation, arguments);
+            if (refusal.isPresent()) {
+                return refusal.get().payloadJson();
+            }
             return propose(conversation, tool, call, arguments, toolCallMessage, actionTtl);
         }
 
@@ -96,6 +102,25 @@ public class AgentToolExecutor {
                 .orElseThrow(() -> new IllegalStateException("Approved tool disappeared: " + action.getToolName()));
 
         return tool.execute(new AgentToolContext(userId, conversation), mergedArguments);
+    }
+
+    /**
+     * 카드를 띄우기 전 거절. 비어 있으면 카드를 만든다.
+     *
+     * <p>여기서 던져진 예외는 카드를 막지 않는다 — 사전 점검이 흔들린다고 정상 흐름까지
+     * 세울 이유는 없다. 못 본 것은 승인 뒤 실행에서 다시 걸린다.
+     */
+    private Optional<AgentToolResult> refusalBeforeProposal(
+            AgentTool tool, Long userId, AgentConversation conversation, JsonNode arguments) {
+        try {
+            return tool.refuseBeforeProposal(new AgentToolContext(userId, conversation), arguments);
+        } catch (RuntimeException failure) {
+            log.warn(
+                    "Agent pre-check failed, proposing anyway: name={} reason={}",
+                    tool.name(),
+                    failure.getClass().getSimpleName());
+            return Optional.empty();
+        }
     }
 
     private String propose(
