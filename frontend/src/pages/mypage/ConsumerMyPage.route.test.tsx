@@ -1,6 +1,6 @@
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { AxiosResponse } from 'axios'
+import type { AxiosRequestConfig, AxiosResponse } from 'axios'
 import { MemoryRouter, useRoutes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppProviders } from '../../app/providers/AppProviders.tsx'
@@ -177,7 +177,7 @@ describe('consumer mypage route', () => {
         return { data: { created: 0, paid: 0, shipped: 0, delivered: 21 } } as AxiosResponse
       }
       if (url === '/v1/consumers/me/addresses') return { data: [] } as AxiosResponse
-      const requestedPage = config?.params?.page ?? 0
+      const requestedPage = (config as AxiosRequestConfig | undefined)?.params?.page ?? 0
       return {
         data: requestedPage === 0
           ? { ...orderPage, totalElements: 21, totalPages: 2, hasNext: true }
