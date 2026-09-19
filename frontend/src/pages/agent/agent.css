@@ -1,0 +1,317 @@
+/* 대화 전용 창이라 좁은 폭(400~520px)을 전제로 한다. */
+
+.agent-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #fff;
+}
+
+.agent-chat {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.agent-chat__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.agent-chat__header h1 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.agent-chat__phase {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.agent-chat__complete {
+  padding: 6px 12px;
+  font-size: 13px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
+
+/* 진행 현황 표시줄. 상대방이 움직여야 넘어가는 구간에서 상태를 눈으로 보게 한다. */
+.agent-status {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 20px;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e5e5;
+  font-size: 13px;
+}
+
+.agent-status__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.agent-status__name {
+  color: #374151;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-status__badge {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.agent-status__badge.is-paid {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.agent-status__badge.is-shipped {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+/* 대화 로그만 스크롤한다. 헤더와 입력창은 고정이라 긴 대화에서도 항상 보인다. */
+.agent-chat__log {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.agent-chat__empty,
+.agent-chat__loading,
+.agent-chat__thinking {
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.agent-chat__error {
+  color: #b91c1c;
+  font-size: 14px;
+}
+
+/* 답장 중 표시.
+   한 턴에 LLM 이 여러 번 불려 20~30초가 걸린다. 정적인 글자만 두면 멈춘 것처럼 보여서
+   점이 움직이게 한다 — 기다려도 되는 상태라는 신호다. */
+.agent-chat__thinking {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.agent-chat__dots {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.agent-chat__dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #9ca3af;
+  animation: agent-dot 1.2s infinite ease-in-out;
+}
+
+.agent-chat__dots i:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.agent-chat__dots i:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes agent-dot {
+  0%, 60%, 100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+/* 움직임에 민감한 사용자를 위해 애니메이션을 끈다. 표시 자체는 남는다. */
+@media (prefers-reduced-motion: reduce) {
+  .agent-chat__dots i {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
+.agent-message {
+  max-width: 100%;
+}
+
+.agent-message p {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.agent-message--user p {
+  background: #111827;
+  color: #fff;
+  margin-left: auto;
+  width: fit-content;
+  max-width: 85%;
+}
+
+.agent-message--assistant p {
+  background: #f3f4f6;
+  color: #111827;
+  width: fit-content;
+  max-width: 95%;
+}
+
+/* 카드는 말풍선 바로 아래에 붙는다 — 어느 말에 대한 확인인지 보이게 한다. */
+.agent-card {
+  margin-top: 8px;
+  padding: 14px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  font-size: 14px;
+}
+
+.agent-card--payment {
+  border-color: #f59e0b;
+  background: #fffbeb;
+}
+
+.agent-card--confirm {
+  border-color: #6b7280;
+  background: #f9fafb;
+}
+
+.agent-card--sign {
+  border-color: #6366f1;
+  background: #eef2ff;
+}
+
+.agent-card__title {
+  margin: 0 0 8px;
+  font-weight: 600;
+}
+
+.agent-card__detail {
+  margin: 0 0 12px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+}
+
+.agent-card__detail dt {
+  color: #6b7280;
+}
+
+.agent-card__detail dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.agent-card__steps {
+  margin: 0 0 12px;
+  padding-left: 18px;
+  color: #6b7280;
+}
+
+.agent-card__steps .is-done {
+  color: #059669;
+}
+
+.agent-card__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.agent-card__actions button {
+  flex: 1;
+  padding: 9px 12px;
+  border: none;
+  border-radius: 8px;
+  background: #111827;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.agent-card__actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.agent-card__reject {
+  flex: 0 0 auto !important;
+  background: transparent !important;
+  color: #6b7280 !important;
+  border: 1px solid #d1d5db !important;
+}
+
+.agent-card__status {
+  margin: 0;
+  color: #6b7280;
+}
+
+.agent-card__error {
+  margin: 8px 0 0;
+  color: #b91c1c;
+}
+
+.agent-card__raw {
+  margin: 0 0 12px;
+  color: #374151;
+  word-break: break-all;
+}
+
+.agent-chat__input {
+  display: flex;
+  gap: 8px;
+  padding: 12px 20px 20px;
+  border-top: 1px solid #e5e5e5;
+}
+
+.agent-chat__input input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.agent-chat__input button {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  background: #111827;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.agent-chat__input button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

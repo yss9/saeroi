@@ -30,6 +30,14 @@ interface AuthState {
     expectedAccessToken: string,
     accessToken: string,
   ) => boolean
+  /**
+   * 다른 창이 재발급해 온 Access Token 을 받아들인다.
+   *
+   * `refreshAccessToken` 과 달리 이전 토큰을 대조하지 않는다 — 다른 창이 회전시킨 뒤라
+   * 이 창이 들고 있던 값과 다른 것이 정상이기 때문이다. 대신 <b>같은 사용자</b>인지는
+   * 확인한다. 그 사이 다른 계정으로 로그인했다면 새 세션을 덮어쓰면 안 된다.
+   */
+  adoptAccessToken: (expectedUserId: number, accessToken: string) => boolean
   signOut: () => void
   /** 프로필 일부만 갱신 (예: 지갑 연결 직후 walletAddress 반영) */
   patchUser: (patch: Partial<AuthUser>) => void
@@ -52,6 +60,15 @@ export const useAuthStore = create<AuthState>()(
         // 재발급 중 사용자가 로그아웃하거나 다른 계정으로 로그인한 경우
         // 늦게 도착한 응답으로 새 세션을 덮어쓰지 않는다.
         if (current.user?.id !== expectedUserId || current.accessToken !== expectedAccessToken) {
+          return false
+        }
+        set({ accessToken, isAuthenticated: true })
+        return true
+      },
+
+      adoptAccessToken: (expectedUserId, accessToken) => {
+        const current = get()
+        if (current.user?.id !== expectedUserId) {
           return false
         }
         set({ accessToken, isAuthenticated: true })
