@@ -249,6 +249,7 @@ public class ProductOrderQueryService {
         return new ProductOrderResponse(
                 order.getId(),
                 order.getOrderCode(),
+                order.getOrderGroupId(),
                 order.getOrderGroupId() == null
                         ? null
                         : lookup.groupCodes().get(order.getOrderGroupId()),
