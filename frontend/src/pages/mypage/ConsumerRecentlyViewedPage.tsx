@@ -50,7 +50,6 @@ export function ConsumerRecentlyViewedPage() {
         ) : items.length === 0 ? (
           <EmptyState
             title="최근 본 상품이 없습니다"
-            description="상품을 둘러보면 여기에 쌓입니다."
             action={<Link className="ui-button ui-button--primary ui-button--sm" to="/shop">SHOP 보기</Link>}
           />
         ) : (
