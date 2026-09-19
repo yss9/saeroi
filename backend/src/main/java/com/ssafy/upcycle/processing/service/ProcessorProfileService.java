@@ -13,13 +13,24 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * 가공사가 자기 프로필과 <b>처리 조건</b>을 관리한다.
+ *
+ * <p>견적이 사라지면서 이 표의 무게가 달라졌다. 예전에는 "이런 일을 할 수 있다" 는 소개에
+ * 가까웠고 실제 금액은 요청이 올 때마다 견적으로 적었다. 지금은 <b>여기 적힌 단가가 곧
+ * 청구되는 금액</b>이고, 하루 처리량이 곧 약속한 일정이다.
+ *
+ * <p>소요일 표({@code processor_lead_time})는 없앴다. 수량 구간마다 며칠인지 따로 적게 하면
+ * 가공사가 채울 칸이 조합 수만큼 늘어나는데, 실제로 달라지는 것은 수량뿐이고 그건
+ * {@code ⌈수량 ÷ 하루 처리량⌉} 으로 나온다.
+ */
 @Service
 @RequiredArgsConstructor
 public class ProcessorProfileService {
+
     private final UserRepository users;
     private final ProcessorProfileRepository profiles;
     private final ProcessorCapabilityRepository capabilities;
-    private final ProcessorLeadTimeRepository leadTimes;
 
     @Transactional(readOnly = true)
     public ProcessorProfileResponse profile(Long processorId) {
@@ -43,62 +54,32 @@ public class ProcessorProfileService {
         return capabilityResponses(processorId);
     }
 
+    /**
+     * 처리 조건을 통째로 갈아 끼운다.
+     *
+     * <p>부분 수정이 아니라 전체 교체다 — 화면이 표 하나를 통으로 편집하고, 어느 줄이
+     * 지워졌는지 따로 알려 주지 않기 때문이다.
+     *
+     * <p>같은 (소재, 공정) 조합이 두 번 오면 거절한다. DB 의 UNIQUE 가 잡아 주기는 하지만
+     * 그건 {@code DataIntegrityViolationException} 이라 가공사에게 설명할 수 없다.
+     */
     @Transactional
     public List<ProcessorCapabilityResponse> updateCapabilities(Long processorId,
             ProcessorCapabilitiesUpdateRequest request) {
         requireProfile(processorId);
         var pairs = new HashSet<String>();
         for (var item : request.capabilities()) {
-            if (item.minQuantity() > item.maxQuantity()
-                    || !pairs.add(item.materialType().name() + ':' + item.processType().name())) {
+            if (!pairs.add(key(item.materialType(), item.processType()))) {
                 throw new BusinessException(PROCESSOR_CAPABILITIES_INVALID);
             }
         }
-        leadTimes.deleteAllByProcessorProfileId(processorId);
-        leadTimes.flush();
         capabilities.deleteAllByProcessorProfileId(processorId);
         capabilities.flush();
         capabilities.saveAll(request.capabilities().stream()
-                .map(item -> ProcessorCapability.of(processorId, item.materialType(), item.processType(),
-                        item.minQuantity(), item.maxQuantity()))
+                .map(item -> ProcessorCapability.of(processorId, item.materialType(),
+                        item.processType(), item.dailyCapacity(), item.pricePerKg()))
                 .toList());
         return capabilityResponses(processorId);
-    }
-
-    @Transactional(readOnly = true)
-    public List<ProcessorLeadTimeResponse> leadTimes(Long processorId) {
-        requireProcessor(processorId);
-        return leadTimeResponses(processorId);
-    }
-
-    @Transactional
-    public List<ProcessorLeadTimeResponse> updateLeadTimes(Long processorId,
-            ProcessorLeadTimesUpdateRequest request) {
-        requireProfile(processorId);
-        var capabilityMap = capabilities.findAllByProcessorProfileIdOrderByMaterialTypeAscProcessTypeAsc(processorId)
-                .stream().collect(java.util.stream.Collectors.toMap(
-                        item -> key(item.getMaterialType(), item.getProcessType()), item -> item));
-        var bounds = new HashSet<String>();
-        var largestBounds = new HashMap<String, Long>();
-        for (var item : request.leadTimes()) {
-            String key = key(item.materialType(), item.processType());
-            ProcessorCapability capability = capabilityMap.get(key);
-            if (capability == null || item.maxQuantity() < capability.getMinQuantity()
-                    || !bounds.add(key + ':' + item.maxQuantity())) {
-                throw new BusinessException(PROCESSOR_LEAD_TIMES_INVALID);
-            }
-            largestBounds.merge(key, item.maxQuantity(), Math::max);
-        }
-        boolean uncovered = capabilityMap.entrySet().stream().anyMatch(entry ->
-                largestBounds.getOrDefault(entry.getKey(), 0L) < entry.getValue().getMaxQuantity());
-        if (uncovered) throw new BusinessException(PROCESSOR_LEAD_TIMES_INVALID);
-        leadTimes.deleteAllByProcessorProfileId(processorId);
-        leadTimes.flush();
-        leadTimes.saveAll(request.leadTimes().stream()
-                .map(item -> ProcessorLeadTime.of(processorId, item.materialType(), item.processType(),
-                        item.maxQuantity(), item.leadDays()))
-                .toList());
-        return leadTimeResponses(processorId);
     }
 
     private void requireProcessor(Long processorId) {
@@ -120,14 +101,7 @@ public class ProcessorProfileService {
     private List<ProcessorCapabilityResponse> capabilityResponses(Long processorId) {
         return capabilities.findAllByProcessorProfileIdOrderByMaterialTypeAscProcessTypeAsc(processorId).stream()
                 .map(item -> new ProcessorCapabilityResponse(item.getMaterialType(), item.getProcessType(),
-                        item.getMinQuantity(), item.getMaxQuantity()))
-                .toList();
-    }
-
-    private List<ProcessorLeadTimeResponse> leadTimeResponses(Long processorId) {
-        return leadTimes.findAllByProcessorProfileIdOrderByMaterialTypeAscProcessTypeAscMaxQuantityAsc(processorId).stream()
-                .map(item -> new ProcessorLeadTimeResponse(item.getMaterialType(), item.getProcessType(),
-                        item.getMaxQuantity(), item.getLeadDays()))
+                        item.getDailyCapacity(), item.getPricePerKg()))
                 .toList();
     }
 

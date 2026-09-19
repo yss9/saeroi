@@ -26,7 +26,7 @@ class ProcessingJobDomainTests {
         LocalDateTime now = LocalDateTime.of(2026, 9, 7, 12, 0);
 
         ProcessingJob job = ProcessingJob.create(
-                "PJ0001", 1L, 2L, 10L, 20L,
+                "PJ0001", 1L, 10L, 20L,
                 "0x1111111111111111111111111111111111111111",
                 "0x2222222222222222222222222222222222222222",
                 120_000L, PaymentMethod.KAKAO_PAY, now);
@@ -42,7 +42,7 @@ class ProcessingJobDomainTests {
     void expiredJobCannotBePaid() {
         LocalDateTime now = LocalDateTime.of(2026, 9, 7, 12, 0);
         ProcessingJob job = ProcessingJob.create(
-                "PJ0001", 1L, 2L, 10L, 20L,
+                "PJ0001", 1L, 10L, 20L,
                 "0x1111111111111111111111111111111111111111",
                 "0x2222222222222222222222222222222222222222",
                 120_000L, PaymentMethod.MOCK, now);
@@ -108,22 +108,25 @@ class ProcessingJobDomainTests {
 
     private ProcessingJob paidJob(LocalDateTime now) {
         ProcessingJob job = ProcessingJob.create(
-                "PJ0001", 1L, 2L, 10L, 20L,
+                "PJ0001", 1L, 10L, 20L,
                 "0x1111111111111111111111111111111111111111",
                 "0x2222222222222222222222222222222222222222",
                 120_000L, PaymentMethod.MOCK, now);
         job.markPaid("payment-ref", 120_000L, now.plusMinutes(1));
+        // 결제만으로는 보내지 못한다. 가공사가 받겠다고 답한 뒤에야 발송이 열린다.
+        job.accept(now.plusMinutes(1));
         return job;
     }
     @Test
     void resultLifecycleCalculatesLossAndRecordsReviewTimes() {
         LocalDateTime createdAt = LocalDateTime.of(2026, 9, 11, 9, 0);
         ProcessingJob job = ProcessingJob.create(
-                "PJ0001", 1L, 2L, 10L, 20L,
+                "PJ0001", 1L, 10L, 20L,
                 "0x1111111111111111111111111111111111111111",
                 "0x2222222222222222222222222222222222222222",
                 120_000L, PaymentMethod.MOCK, createdAt);
         job.markPaid("payment-ref", 120_000L, createdAt.plusMinutes(1));
+        job.accept(createdAt.plusMinutes(2));
         job.ship(createdAt.plusHours(1));
         job.receive(createdAt.plusHours(2));
         job.startProcessing();

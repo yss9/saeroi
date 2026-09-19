@@ -16,6 +16,16 @@ public interface ProcessingJobRepository extends JpaRepository<ProcessingJob, Lo
     Optional<ProcessingJob> findForUpdate(@Param("id") Long id);
     List<ProcessingJob> findTop100ByStatusAndPaymentExpiresAtLessThanEqualOrderById(
             ProcessingJobStatus status, LocalDateTime now);
+
+    /**
+     * 요청 하나에 작업 하나다. 견적이 사라지면서 요청과 작업이 함께 만들어지므로 둘은 1:1 이고,
+     * 요청을 끝낼 때 딸린 작업을 찾는 경로가 필요하다.
+     */
+    Optional<ProcessingJob> findByProcessingRequestId(Long processingRequestId);
+
+    /** 가공사가 수락을 답하지 않은 채 기한이 지난 작업. 만료 배치가 쓴다. */
+    List<ProcessingJob> findTop100ByStatusAndAcceptExpiresAtLessThanEqualOrderById(
+            ProcessingJobStatus status, LocalDateTime now);
     @Query("select j from ProcessingJob j where j.brandId=:actorId or j.processorId=:actorId order by j.createdAt desc, j.id desc")
     List<ProcessingJob> findAllForActor(@Param("actorId") Long actorId);
 

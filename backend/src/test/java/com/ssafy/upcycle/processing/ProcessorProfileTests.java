@@ -37,9 +37,9 @@ class ProcessorProfileTests {
 
     @BeforeEach
     void fixture() {
-        for (String table : List.of("processing_input", "processing_job", "processing_quote", "material_lock",
+        for (String table : List.of("processing_input", "processing_job", "material_lock",
                 "processing_request_type", "processing_request_input", "processing_request",
-                "processor_capability", "processor_lead_time", "processor_profile", "material_balance",
+                "processor_capability", "processor_profile", "material_balance",
                 "material", "user_wallet", "company_profile", "users")) {
             jdbc.update("delete from " + table);
         }
@@ -66,53 +66,42 @@ class ProcessorProfileTests {
                 .andExpect(jsonPath("code").value("PROCESSOR_PROFILE_NOT_FOUND"));
         mvc.perform(authenticated(get("/processors/me/capabilities"), processorId, "PROCESSOR"))
                 .andExpect(status().isOk()).andExpect(jsonPath("data.length()").value(0));
-        mvc.perform(authenticated(get("/processors/me/lead-times"), processorId, "PROCESSOR"))
-                .andExpect(status().isOk()).andExpect(jsonPath("data.length()").value(0));
     }
 
     @Test
-    void registersAndFullyReplacesProfileCapabilitiesAndLeadTimes() throws Exception {
+    void registersAndFullyReplacesProfileAndCapabilities() throws Exception {
         mvc.perform(authenticated(put("/api/v1/processors/me/profile"), processorId, "PROCESSOR")
                         .contentType(MediaType.APPLICATION_JSON).content("{\"region\":\"서울 성동구\"}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("data.processorId").value(processorId))
                 .andExpect(jsonPath("data.region").value("서울 성동구"));
 
+        // 가공사가 적는 것은 이제 둘뿐이다 — 하루 처리량과 kg 당 단가.
         String capabilities = """
                 {"capabilities":[
-                  {"materialType":"DENIM","processType":"CLEANING","minQuantity":100,"maxQuantity":5000},
-                  {"materialType":"COTTON","processType":"CUTTING","minQuantity":50,"maxQuantity":2000}
+                  {"materialType":"DENIM","processType":"CLEANING","dailyCapacity":5000,"pricePerKg":1200},
+                  {"materialType":"COTTON","processType":"CUTTING","dailyCapacity":2000,"pricePerKg":900}
                 ]}
                 """;
         mvc.perform(authenticated(put("/processors/me/capabilities"), processorId, "PROCESSOR")
                         .contentType(MediaType.APPLICATION_JSON).content(capabilities))
-                .andExpect(status().isOk()).andExpect(jsonPath("data.length()").value(2));
-
-        String leadTimes = """
-                {"leadTimes":[
-                  {"materialType":"DENIM","processType":"CLEANING","maxQuantity":5000,"leadDays":7},
-                  {"materialType":"COTTON","processType":"CUTTING","maxQuantity":2000,"leadDays":3},
-                  {"materialType":"DENIM","processType":"CLEANING","maxQuantity":1000,"leadDays":2}
-                ]}
-                """;
-        mvc.perform(authenticated(put("/processors/me/lead-times"), processorId, "PROCESSOR")
-                        .contentType(MediaType.APPLICATION_JSON).content(leadTimes))
-                .andExpect(status().isOk())
+                .andExpect(status().isOk()).andExpect(jsonPath("data.length()").value(2))
                 .andExpect(jsonPath("data[0].materialType").value("COTTON"))
-                .andExpect(jsonPath("data[0].processType").value("CUTTING"))
-                .andExpect(jsonPath("data[0].maxQuantity").value(2000))
+                .andExpect(jsonPath("data[0].dailyCapacity").value(2000))
+                .andExpect(jsonPath("data[0].pricePerKg").value(900))
                 .andExpect(jsonPath("data[1].materialType").value("DENIM"))
-                .andExpect(jsonPath("data[1].maxQuantity").value(1000))
-                .andExpect(jsonPath("data[2].maxQuantity").value(5000));
+                .andExpect(jsonPath("data[1].dailyCapacity").value(5000))
+                .andExpect(jsonPath("data[1].pricePerKg").value(1200));
 
+        // 부분 수정이 아니라 전체 교체다. 남아 있던 두 줄이 사라진다.
         mvc.perform(authenticated(put("/processors/me/capabilities"), processorId, "PROCESSOR")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"capabilities\":[{\"materialType\":\"POLYESTER\",\"processType\":\"SORTING\",\"minQuantity\":1,\"maxQuantity\":100}]}"))
+                        .content("{\"capabilities\":[{\"materialType\":\"POLYESTER\",\"processType\":\"SORTING\",\"dailyCapacity\":100,\"pricePerKg\":0}]}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("data.length()").value(1));
         assertThat(jdbc.queryForObject("select count(*) from processor_capability where processor_profile_id=?", Long.class, processorId)).isEqualTo(1);
     }
 
     @Test
-    void rejectsNonProcessorInvalidRangesDuplicatesAndUncoveredCapabilities() throws Exception {
+    void rejectsNonProcessorsZeroCapacityAndDuplicateCombinations() throws Exception {
         mvc.perform(authenticated(put("/processors/me/profile"), brandId, "PROCESSOR")
                         .contentType(MediaType.APPLICATION_JSON).content("{\"region\":\"서울\"}"))
                 .andExpect(status().isForbidden()).andExpect(jsonPath("code").value("PROCESSOR_PROFILE_FORBIDDEN"));
@@ -120,41 +109,37 @@ class ProcessorProfileTests {
         mvc.perform(authenticated(put("/processors/me/profile"), processorId, "PROCESSOR")
                         .contentType(MediaType.APPLICATION_JSON).content("{\"region\":\"서울\"}"))
                 .andExpect(status().isOk());
+        // 하루 처리량 0 은 소요일의 분모가 0 이라는 뜻이다. 계산이 성립하지 않는다.
         mvc.perform(authenticated(put("/processors/me/capabilities"), processorId, "PROCESSOR")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"capabilities\":[{\"materialType\":\"DENIM\",\"processType\":\"CLEANING\",\"minQuantity\":10,\"maxQuantity\":1}]}"))
+                        .content("{\"capabilities\":[{\"materialType\":\"DENIM\",\"processType\":\"CLEANING\",\"dailyCapacity\":0,\"pricePerKg\":1000}]}"))
+                .andExpect(status().isBadRequest());
+
+        // 같은 (소재, 공정) 조합이 두 번 오면 어느 쪽이 맞는지 알 수 없다.
+        mvc.perform(authenticated(put("/processors/me/capabilities"), processorId, "PROCESSOR")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"capabilities\":[{\"materialType\":\"DENIM\",\"processType\":\"CLEANING\",\"dailyCapacity\":1000,\"pricePerKg\":1000},{\"materialType\":\"DENIM\",\"processType\":\"CLEANING\",\"dailyCapacity\":2000,\"pricePerKg\":900}]}"))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("code").value("PROCESSOR_CAPABILITIES_INVALID"));
-        mvc.perform(authenticated(put("/processors/me/lead-times"), processorId, "PROCESSOR")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"leadTimes\":[{\"materialType\":\"DENIM\",\"processType\":\"CLEANING\",\"maxQuantity\":1000,\"leadDays\":3},{\"materialType\":\"DENIM\",\"processType\":\"CLEANING\",\"maxQuantity\":1000,\"leadDays\":5}]}"))
-                .andExpect(status().isBadRequest()).andExpect(jsonPath("code").value("PROCESSOR_LEAD_TIMES_INVALID"));
 
+        // 단가 0 은 허용한다 — 무상 가공이 실수인지 의도인지 서버가 판단할 수 없다.
         mvc.perform(authenticated(put("/processors/me/capabilities"), processorId, "PROCESSOR")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"capabilities\":[{\"materialType\":\"DENIM\",\"processType\":\"CLEANING\",\"minQuantity\":1,\"maxQuantity\":5000}]}"))
+                        .content("{\"capabilities\":[{\"materialType\":\"DENIM\",\"processType\":\"CLEANING\",\"dailyCapacity\":5000,\"pricePerKg\":0}]}"))
                 .andExpect(status().isOk());
-        mvc.perform(authenticated(put("/processors/me/lead-times"), processorId, "PROCESSOR")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"leadTimes\":[{\"materialType\":\"DENIM\",\"processType\":\"CLEANING\",\"maxQuantity\":1000,\"leadDays\":3}]}"))
-                .andExpect(status().isBadRequest()).andExpect(jsonPath("code").value("PROCESSOR_LEAD_TIMES_INVALID"));
-
-        mvc.perform(authenticated(put("/processors/me/lead-times"), processorId, "PROCESSOR")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"leadTimes\":[{\"materialType\":\"COTTON\",\"processType\":\"CLEANING\",\"maxQuantity\":5000,\"leadDays\":3}]}"))
-                .andExpect(status().isBadRequest()).andExpect(jsonPath("code").value("PROCESSOR_LEAD_TIMES_INVALID"));
     }
 
     @Test
-    void searchExposesOnlyCompleteRegistrations() throws Exception {
+    void searchExposesOnlySchedulableRegistrations() throws Exception {
+        // 소요일 표가 사라져 "완전한 등록" 의 기준이 하나 줄었다. 남은 조건은 하루
+        // 처리량이 있느냐다 — 0 이면 며칠 걸리는지 답할 수 없어 목록에 올리지 않는다.
         jdbc.update("insert into processor_profile(user_id,region) values (?,?)", processorId, "서울");
-        jdbc.update("insert into processor_capability(processor_profile_id,material_type,process_type,min_quantity,max_quantity) values (?,?,?,?,?)",
-                processorId, "DENIM", "CLEANING", 1, 1000);
+        jdbc.update("insert into processor_capability(processor_profile_id,material_type,process_type,daily_capacity,price_per_kg) values (?,?,?,?,?)",
+                processorId, "DENIM", "CLEANING", 0, 1000);
         mvc.perform(authenticated(get("/processors/search").param("materialType", "DENIM")
                         .param("quantity", "100").param("processTypes", "CLEANING"), brandId, "BRAND"))
                 .andExpect(status().isOk()).andExpect(jsonPath("data.total").value(0));
 
-        jdbc.update("insert into processor_lead_time(processor_profile_id,material_type,process_type,max_quantity,lead_days) values (?,?,?,?,?)",
-                processorId, "DENIM", "CLEANING", 1000, 3);
+        jdbc.update("update processor_capability set daily_capacity=1000 where processor_profile_id=?", processorId);
         mvc.perform(authenticated(get("/processors/search").param("materialType", "DENIM")
                         .param("quantity", "100").param("processTypes", "CLEANING"), brandId, "BRAND"))
                 .andExpect(status().isOk()).andExpect(jsonPath("data.total").value(1));
@@ -163,10 +148,8 @@ class ProcessorProfileTests {
     @Test
     void searchHidesACompleteProcessorUntilCompanyRoleIsApproved() throws Exception {
         jdbc.update("insert into processor_profile(user_id,region) values (?,?)", processorId, "서울");
-        jdbc.update("insert into processor_capability(processor_profile_id,material_type,process_type,min_quantity,max_quantity) values (?,?,?,?,?)",
-                processorId, "DENIM", "CLEANING", 1, 1000);
-        jdbc.update("insert into processor_lead_time(processor_profile_id,material_type,process_type,max_quantity,lead_days) values (?,?,?,?,?)",
-                processorId, "DENIM", "CLEANING", 1000, 3);
+        jdbc.update("insert into processor_capability(processor_profile_id,material_type,process_type,daily_capacity,price_per_kg) values (?,?,?,?,?)",
+                processorId, "DENIM", "CLEANING", 1000, 1000);
         jdbc.update("update company_profile set role_approval_status='PENDING' where user_id=?", processorId);
 
         mvc.perform(authenticated(get("/processors/search").param("materialType", "DENIM")

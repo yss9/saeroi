@@ -303,7 +303,6 @@ class ProductJourneyQueryServiceTests {
         return ProcessingJob.create(
                 "JOB-JOURNEY-" + id,
                 1_000L + id,
-                2_000L + id,
                 brand.getId(),
                 processor.getId(),
                 WALLET,
@@ -317,6 +316,7 @@ class ProductJourneyQueryServiceTests {
         ProcessingJob job = processingJobRepository.save(newJob(brand, processor));
         LocalDateTime at = BASE.plusHours(sequence);
         job.markPaid("journey-payment-" + sequence, 0, at.plusMinutes(1));
+        job.accept(at.plusMinutes(2));
         job.ship(at.plusMinutes(2));
         job.receive(at.plusMinutes(3));
         job.startProcessing();

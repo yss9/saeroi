@@ -18,7 +18,6 @@ import org.springframework.web.bind.annotation.*;
 public class ProcessingRequestController {
     private final ProcessingRequestService service;
     private final ProcessingRequestQueryService queryService;
-    private final com.ssafy.upcycle.processing.service.ProcessingQuoteService quoteService;
 
     @GetMapping
     public ApiResponse<ProcessingRequestListResponse> list(
@@ -60,16 +59,4 @@ public class ProcessingRequestController {
         return ApiResponse.success(service.reject(Long.valueOf(jwt.getSubject()), requestId));
     }
 
-    @PostMapping("/{requestId}/quotes")
-    @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<ProcessingQuoteResponse> submitQuote(@AuthenticationPrincipal Jwt jwt,
-            @PathVariable Long requestId, @Valid @RequestBody SubmitProcessingQuoteRequest input) {
-        return ApiResponse.success(quoteService.submit(Long.valueOf(jwt.getSubject()), requestId, input));
-    }
-
-    @GetMapping("/{requestId}/quotes")
-    public ApiResponse<java.util.List<ProcessingQuoteResponse>> quotes(@AuthenticationPrincipal Jwt jwt,
-            @PathVariable Long requestId) {
-        return ApiResponse.success(quoteService.list(Long.valueOf(jwt.getSubject()), requestId));
-    }
 }

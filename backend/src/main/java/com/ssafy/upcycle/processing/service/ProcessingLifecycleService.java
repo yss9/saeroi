@@ -37,7 +37,8 @@ public class ProcessingLifecycleService {
 
     @Transactional
     public ProcessingJobResponse ship(Long actorId, Long jobId) {
-        return transition(actorId, jobId, UserRole.BRAND, ProcessingJobStatus.PAID,
+        // 결제가 아니라 수락된 작업만 보낸다 — 가공사가 받겠다고 답한 뒤여야 한다.
+        return transition(actorId, jobId, UserRole.BRAND, ProcessingJobStatus.ACCEPTED,
                 job -> job.ship(now()), MaterialEventType.PROCESSING_MATERIAL_SHIPPED,
                 "가공업체로 소재 발송");
     }

@@ -66,17 +66,6 @@ public class ProcessorProfileController {
         return ApiResponse.success(service.updateCapabilities(userId(jwt), request));
     }
 
-    @GetMapping("/lead-times")
-    public ApiResponse<List<ProcessorLeadTimeResponse>> leadTimes(@AuthenticationPrincipal Jwt jwt) {
-        return ApiResponse.success(service.leadTimes(userId(jwt)));
-    }
-
-    @PutMapping("/lead-times")
-    public ApiResponse<List<ProcessorLeadTimeResponse>> updateLeadTimes(@AuthenticationPrincipal Jwt jwt,
-            @Valid @RequestBody ProcessorLeadTimesUpdateRequest request) {
-        return ApiResponse.success(service.updateLeadTimes(userId(jwt), request));
-    }
-
     private Long userId(Jwt jwt) {
         return Long.valueOf(jwt.getSubject());
     }

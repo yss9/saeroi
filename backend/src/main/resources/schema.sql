@@ -145,8 +145,8 @@ CREATE TABLE processor_capability (
         'SURFACE_FINISHING',
         'REMANUFACTURING'
     ) NOT NULL,
-    min_quantity BIGINT NOT NULL,
-    max_quantity BIGINT NOT NULL,
+    daily_capacity BIGINT NOT NULL,
+    price_per_kg BIGINT NOT NULL,
     CONSTRAINT pk_processor_capability PRIMARY KEY (id),
     CONSTRAINT uk_processor_capability UNIQUE (
         processor_profile_id,
@@ -155,42 +155,8 @@ CREATE TABLE processor_capability (
     ),
     CONSTRAINT fk_processor_capability_profile FOREIGN KEY (processor_profile_id)
         REFERENCES processor_profile (user_id),
-    CONSTRAINT chk_processor_capability_quantity CHECK (
-        min_quantity > 0 AND max_quantity >= min_quantity
-    )
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-CREATE TABLE processor_lead_time (
-    id BIGINT NOT NULL AUTO_INCREMENT,
-    processor_profile_id BIGINT NOT NULL,
-    material_type VARCHAR(50) NOT NULL,
-    process_type ENUM(
-        'CLEANING',
-        'DISASSEMBLY',
-        'SORTING',
-        'CUTTING',
-        'SHREDDING',
-        'COLOR_PROCESSING',
-        'SURFACE_FINISHING',
-        'REMANUFACTURING'
-    ) NOT NULL,
-    max_quantity BIGINT NOT NULL,
-    lead_days INT NOT NULL,
-    CONSTRAINT pk_processor_lead_time PRIMARY KEY (id),
-    CONSTRAINT fk_processor_lead_time_profile FOREIGN KEY (processor_profile_id)
-        REFERENCES processor_profile (user_id),
-    CONSTRAINT uk_processor_lead_time UNIQUE (
-        processor_profile_id,
-        material_type,
-        process_type,
-        max_quantity
-    ),
-    CONSTRAINT chk_processor_lead_time_values CHECK (max_quantity > 0 AND lead_days > 0),
-    INDEX idx_processor_lead_time_lookup (
-        processor_profile_id,
-        material_type,
-        process_type,
-        max_quantity
+    CONSTRAINT chk_processor_capability_terms CHECK (
+        daily_capacity > 0 AND price_per_kg >= 0
     )
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
@@ -392,7 +358,7 @@ CREATE TABLE processing_request (
     request_code VARCHAR(30) NOT NULL,
     brand_id BIGINT NOT NULL,
     processor_id BIGINT NOT NULL,
-    status ENUM('QUOTING', 'SELECTED', 'CANCELED', 'REJECTED', 'EXPIRED') NOT NULL DEFAULT 'QUOTING',
+    status ENUM('REQUESTED', 'ACCEPTED', 'CANCELED', 'REJECTED', 'EXPIRED') NOT NULL DEFAULT 'REQUESTED',
     expires_at DATETIME NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT pk_processing_request PRIMARY KEY (id),
@@ -442,30 +408,10 @@ CREATE TABLE processing_request_type (
     CONSTRAINT chk_processing_request_type_sequence CHECK (sequence_no > 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE processing_quote (
-    id BIGINT NOT NULL AUTO_INCREMENT,
-    processing_request_id BIGINT NOT NULL,
-    processor_id BIGINT NOT NULL,
-    price BIGINT NOT NULL,
-    lead_days INT NOT NULL,
-    memo TEXT NULL,
-    status ENUM('SUBMITTED', 'SELECTED', 'REJECTED', 'EXPIRED') NOT NULL DEFAULT 'SUBMITTED',
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT pk_processing_quote PRIMARY KEY (id),
-    CONSTRAINT uk_processing_quote_request_processor UNIQUE (processing_request_id, processor_id),
-    CONSTRAINT fk_processing_quote_request FOREIGN KEY (processing_request_id)
-        REFERENCES processing_request (id),
-    CONSTRAINT fk_processing_quote_processor FOREIGN KEY (processor_id) REFERENCES users (id),
-    CONSTRAINT chk_processing_quote_values CHECK (price >= 0 AND lead_days > 0),
-    INDEX idx_processing_quote_request_status (processing_request_id, status),
-    INDEX idx_processing_quote_processor (processor_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
 CREATE TABLE processing_job (
     id BIGINT NOT NULL AUTO_INCREMENT,
     job_code VARCHAR(30) NOT NULL,
     processing_request_id BIGINT NOT NULL,
-    processing_quote_id BIGINT NOT NULL,
     brand_id BIGINT NOT NULL,
     processor_id BIGINT NOT NULL,
     brand_wallet VARCHAR(42) NOT NULL,
@@ -481,6 +427,7 @@ CREATE TABLE processing_job (
     status ENUM(
         'CREATED',
         'PAID',
+        'ACCEPTED',
         'SHIPPED',
         'RECEIVED',
         'PROCESSING',
@@ -488,10 +435,16 @@ CREATE TABLE processing_job (
         'RETURN_SHIPPED',
         'CONFIRMED',
         'REJECTED',
+        'DECLINED',
         'EXPIRED',
         'CANCELED'
     ) NOT NULL DEFAULT 'CREATED',
     payment_expires_at DATETIME NOT NULL,
+    accept_expires_at DATETIME NULL,
+    accepted_at DATETIME NULL,
+    declined_at DATETIME NULL,
+    decline_reason VARCHAR(500) NULL,
+    refunded_at DATETIME NULL,
     carrier VARCHAR(50) NULL,
     tracking_number VARCHAR(100) NULL,
     receive_tx_hash CHAR(66) NULL,
@@ -519,14 +472,12 @@ CREATE TABLE processing_job (
     completed_at DATETIME NULL,
     CONSTRAINT pk_processing_job PRIMARY KEY (id),
     CONSTRAINT uk_processing_job_code UNIQUE (job_code),
-    CONSTRAINT uk_processing_job_quote UNIQUE (processing_quote_id),
     CONSTRAINT uk_processing_job_chain UNIQUE (chain_job_id),
     CONSTRAINT uk_processing_job_receive_tx UNIQUE (receive_tx_hash),
     CONSTRAINT uk_processing_job_return_ship_tx UNIQUE (return_ship_tx_hash),
     CONSTRAINT uk_processing_job_return_receive_tx UNIQUE (return_receive_tx_hash),
     CONSTRAINT fk_processing_job_request FOREIGN KEY (processing_request_id)
         REFERENCES processing_request (id),
-    CONSTRAINT fk_processing_job_quote FOREIGN KEY (processing_quote_id) REFERENCES processing_quote (id),
     CONSTRAINT fk_processing_job_brand FOREIGN KEY (brand_id) REFERENCES users (id),
     CONSTRAINT fk_processing_job_processor FOREIGN KEY (processor_id) REFERENCES users (id),
     CONSTRAINT chk_processing_job_amounts CHECK (
@@ -535,7 +486,8 @@ CREATE TABLE processing_job (
     CONSTRAINT chk_processing_job_parties CHECK (brand_id <> processor_id),
     INDEX idx_processing_job_processor_status (processor_id, status),
     INDEX idx_processing_job_brand_status (brand_id, status),
-    INDEX idx_processing_job_status_payment_expiry (status, payment_expires_at)
+    INDEX idx_processing_job_status_payment_expiry (status, payment_expires_at),
+    INDEX idx_processing_job_status_accept_expiry (status, accept_expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE processing_input (
