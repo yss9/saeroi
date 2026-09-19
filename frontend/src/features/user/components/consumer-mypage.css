@@ -213,27 +213,21 @@
   font-size: 0.78rem;
 }
 
-/* 주문 내역 정렬 — "최신순" 고정 문구였던 자리에 4가지를 고를 수 있는 드롭다운을 둔다. */
-.consumer-sort-select {
-  padding: 6px 10px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 600;
-  background: #fff;
-  cursor: pointer;
-}
-
-.consumer-sort-select:hover,
-.consumer-sort-select:focus-visible {
-  color: var(--brand-blue);
-}
-
 .consumer-recent-orders {
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+.consumer-server-wishlist .ui-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ui-gap);
+}
+
+.consumer-server-wishlist :is(.ui-empty__title, .ui-empty__description) {
+  margin: 0;
 }
 
 /*
@@ -1393,20 +1387,6 @@ dd.consumer-profile-edit__field-edit {
 .consumer-profile-edit__gate-notice { font-size: 13px; line-height: 1.7; white-space: nowrap; }
 .consumer-profile-edit__gate .ui-field { max-width: 360px; }
 .consumer-profile-edit__gate .ui-button { align-self: flex-start; min-width: 88px; }
-.consumer-mypage .consumer-sort-select {
-  width: auto;
-  min-height: 36px;
-  padding: 6px 24px 6px 4px;
-  border: 0;
-  border-bottom: 1px solid var(--line);
-  color: var(--muted);
-  background: transparent;
-  font: 500 12px/1.5 "Pretendard", sans-serif;
-  cursor: pointer;
-}
-.consumer-mypage .consumer-sort-select:hover { color: var(--ink); border-bottom-color: var(--ink); }
-.consumer-mypage .consumer-sort-select:focus { outline: none; box-shadow: none; }
-.consumer-mypage .consumer-sort-select option { color: var(--ink); background: var(--paper); }
 .consumer-mypage .consumer-order-item__actions .ui-button,
 .consumer-mypage .consumer-order-detail__receipt-action .ui-button {
   justify-content: space-between;
@@ -1529,8 +1509,6 @@ dd.consumer-profile-edit__field-edit {
 .consumer-mypage .ui-button { min-height: 34px; padding: 6px 16px; font-family: inherit; font-size: 13px; font-weight: 500; line-height: 1.5; border-radius: 6px; }
 .consumer-mypage .ui-button--secondary { border: 0; background: transparent; color: var(--muted); }
 .consumer-mypage .ui-button--secondary:hover:not(:disabled) { color: var(--brand-blue); background: transparent; }
-.consumer-sort-select { border-radius: 0; background: transparent; }
-
 @media (max-width: 900px) {
   .consumer-mypage-layout { grid-template-columns: 1fr; gap: 28px; }
   .consumer-account-sidebar { position: static; }

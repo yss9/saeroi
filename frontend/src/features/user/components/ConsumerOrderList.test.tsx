@@ -90,6 +90,17 @@ afterEach(() => {
 })
 
 describe('ConsumerOrderList', () => {
+  it('정렬 선택 없이 서버가 준 최신순을 그대로 보여준다', () => {
+    renderList([
+      order({ id: 'PO-002:ITEM-002', orderId: 13, orderNumber: 'PO-002', productName: '최신 주문' }),
+      order({ id: 'PO-001:ITEM-001', orderId: 12, orderNumber: 'PO-001', productName: '이전 주문' }),
+    ])
+
+    expect(screen.queryByRole('combobox', { name: '정렬 기준' })).not.toBeInTheDocument()
+    expect(screen.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent))
+      .toEqual(['최신 주문', '이전 주문'])
+  })
+
   it('결제 대기 주문은 목록에서 결제 확인 화면으로 연결한다', () => {
     renderList([order({ status: 'PAYMENT_PENDING' })])
     expect(screen.getByRole('link', { name: '결제하기' })).toHaveAttribute('href', '/orders/12/checkout')

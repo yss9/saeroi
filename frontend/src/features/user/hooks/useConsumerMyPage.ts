@@ -16,7 +16,7 @@ import type {
   ConsumerOrderStatusSummaryResponse,
 } from '../types/consumerOrder.types.ts'
 
-const RECENT_ORDER_SIZE = 20
+const ORDER_PAGE_SIZE = 20
 
 /**
  * 로그인 정보와 주문·배송지 API를 마이페이지 View Model로 조립한다.
@@ -25,11 +25,11 @@ const RECENT_ORDER_SIZE = 20
  * 세우지 않는다 — 못 받으면 기본 배송지 자리가 "등록된 배송지가 없습니다"가 될 뿐이고,
  * 그 자리에 관리 화면으로 가는 링크가 있다.
  */
-export function useConsumerMyPage(profile: ConsumerProfileSummary | null) {
+export function useConsumerMyPage(profile: ConsumerProfileSummary | null, page = 0) {
   const enabled = profile !== null
   const orders = useQuery({
-    queryKey: consumerOrderKeys.list({ page: 0, size: RECENT_ORDER_SIZE }),
-    queryFn: () => getMyProductOrders({ page: 0, size: RECENT_ORDER_SIZE }),
+    queryKey: consumerOrderKeys.list({ page, size: ORDER_PAGE_SIZE }),
+    queryFn: () => getMyProductOrders({ page, size: ORDER_PAGE_SIZE }),
     enabled,
   })
   const summary = useQuery({
@@ -52,6 +52,13 @@ export function useConsumerMyPage(profile: ConsumerProfileSummary | null) {
 
   return {
     data,
+    orderPage: orders.data
+      ? {
+          page: orders.data.page,
+          totalPages: orders.data.totalPages,
+          hasNext: orders.data.hasNext,
+        }
+      : null,
     isPending: enabled && (orders.isPending || summary.isPending),
     isError: orders.isError || summary.isError,
     error: orders.error ?? summary.error,

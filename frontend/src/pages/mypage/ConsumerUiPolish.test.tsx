@@ -56,6 +56,8 @@ describe('consumer UI polish', () => {
 
     expect(screen.getByText('최근 본 상품이 없습니다')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'SHOP 보기' })).toHaveAttribute('href', '/shop')
+    expect(screen.getByText('최근 본 상품이 없습니다').closest('section'))
+      .toHaveClass('consumer-recently-viewed')
     expect(screen.queryByRole('list', { name: '최근 본 상품 목록' })).not.toBeInTheDocument()
   })
 

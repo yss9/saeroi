@@ -147,7 +147,10 @@ describe('server wishlist', () => {
     login(); vi.mocked(apiClient.get).mockResolvedValue(response({ ...result, content: [], totalElements: 0, totalPages: 0, hasNext: false }))
     show('/mypage/wishlist')
     expect(await screen.findByText('찜한 상품이 없습니다')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '상품 둘러보기' })).toHaveAttribute('href', '/shop')
+    const browse = screen.getByRole('link', { name: '상품 둘러보기' })
+    expect(browse).toHaveAttribute('href', '/shop')
+    expect(browse).toHaveClass('ui-button--primary')
+    expect(browse.closest('.ui-empty')).toBeInTheDocument()
   })
   it('shows a loading state without mock products', () => {
     login(); vi.mocked(apiClient.get).mockImplementation(() => new Promise(() => {}))
