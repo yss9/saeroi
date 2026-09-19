@@ -5,6 +5,7 @@ import { MemoryRouter, useRoutes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppProviders } from '../../app/providers/AppProviders.tsx'
 import { routes } from '../../app/router/routes.tsx'
+import type { ConsumerOrderPage } from '../../features/user/types/consumerOrder.types.ts'
 import { apiClient } from '../../services/apiClient.ts'
 import { queryClient } from '../../services/queryClient.ts'
 import { useAuthStore } from '../../stores/authStore.ts'
@@ -13,7 +14,7 @@ vi.mock('../../features/user/hooks/useConsumerOrderThumbnail.ts', () => ({
   useConsumerOrderThumbnail: () => ({ url: null }),
 }))
 
-const orderPage = {
+const orderPage: ConsumerOrderPage = {
   content: [
     {
       orderId: 1,
@@ -264,7 +265,7 @@ describe('consumer mypage route', () => {
   })
 
   it('주문 취소는 목록이 아니라 취소 가능한 주문의 상세에서 진행한다', async () => {
-    const paidOrderPage = {
+    const paidOrderPage: ConsumerOrderPage = {
       ...orderPage,
       content: [{
         ...orderPage.content[0],
