@@ -31,7 +31,6 @@
 .public-product__purchase .ui-button:hover:not(:disabled) { background: #363632; border-color: #363632; }
 .public-product__purchase .ui-button:disabled { opacity: .45; cursor: not-allowed; }
 .public-product__notice { min-height: 22px; font-size: 12px; line-height: 1.7; color: var(--landing-blue); margin: 12px 0 4px; }
-.public-product__memory { font-size: 11px; line-height: 1.6; color: var(--landing-muted); }
 .public-product__description { margin-top: 32px; padding-top: 26px; border-top: 1px solid var(--landing-line); }
 .public-product__description h2 { font-size: 15px; font-weight: 500; margin: 0 0 16px; }
 .public-product__description p { white-space: pre-line; word-break: keep-all; overflow-wrap: break-word; font-size: 14px; line-height: 1.9; color: var(--landing-muted); }

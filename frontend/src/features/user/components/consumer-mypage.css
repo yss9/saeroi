@@ -316,6 +316,18 @@
   align-items: center;
 }
 
+.consumer-order-item--with-reference .consumer-order-item__body {
+  position: relative;
+  min-height: calc(84px + 44px);
+}
+
+.consumer-order-item--with-reference .consumer-order-group__reference {
+  position: absolute;
+  top: -18px;
+  right: -20px;
+  left: -20px;
+}
+
 .consumer-order-item__thumbnail {
   flex-shrink: 0;
   width: 84px;
@@ -377,6 +389,8 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
+  align-self: stretch;
+  justify-content: center;
   gap: 10px;
   flex-shrink: 0;
   width: 148px;
@@ -1397,6 +1411,8 @@ dd.consumer-profile-edit__field-edit {
   background: transparent;
   color: var(--ink);
 }
+.consumer-mypage .consumer-order-item__actions .ui-button { white-space: nowrap; }
+.consumer-mypage .consumer-order-item__actions .consumer-order-item__passport { justify-content: flex-start; }
 .consumer-mypage .consumer-order-item__actions .ui-button:hover,
 .consumer-mypage .consumer-order-detail__receipt-action .ui-button:hover { color: var(--brand-blue); }
 .consumer-order-item__actions .ui-button svg { width: 16px; height: 16px; }
@@ -1505,6 +1521,8 @@ dd.consumer-profile-edit__field-edit {
 .consumer-mypage .consumer-order-detail__section-title { margin-bottom: 20px; font-size: 13px; color: var(--ink); }
 .consumer-mypage .consumer-order-detail__info-grid { gap: 20px 32px; }
 .consumer-mypage .consumer-order-detail__receipt-action { gap: 32px; flex-wrap: wrap; margin-top: 24px; padding-top: 16px; }
+.consumer-order-detail__cancel-link { display: inline-flex; align-items: center; min-height: 36px; color: var(--muted); font-size: 13px; font-weight: 500; }
+.consumer-order-detail__cancel-link:hover { color: var(--brand-blue); }
 .consumer-mypage :is(.consumer-recent-orders, .consumer-order-group, .consumer-address-card, .consumer-inquiry-card, .consumer-review-card, .consumer-review-draft, .consumer-cancellation-card, .consumer-cancellation-detail__info) { border-radius: 0; box-shadow: none; }
 .consumer-mypage .ui-button { min-height: 34px; padding: 6px 16px; font-family: inherit; font-size: 13px; font-weight: 500; line-height: 1.5; border-radius: 6px; }
 .consumer-mypage .ui-button--secondary { border: 0; background: transparent; color: var(--muted); }

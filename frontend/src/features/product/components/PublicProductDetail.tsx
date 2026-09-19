@@ -67,14 +67,6 @@ function ProductBody({ product }: { product: Product }) {
             <CartButton productId={product.productModelId} name={product.name} text="장바구니 담기" disabled={soldOut} />
           </div>
           <p className="public-product__notice" role="status">{notice}</p>
-          {product.journeyUrl && (
-            // 재고 개체 하나를 골라 그 QR Passport 로 바로 연결한다. 재고가 없으면 서버가
-            // journeyUrl 을 내려주지 않는다 — 보여줄 개체가 없어서다.
-            <a className="ui-button ui-button--secondary ui-button--sm" href={product.journeyUrl}>
-              QR Passport 예시 보기
-            </a>
-          )}
-          <p className="public-product__memory">찜과 장바구니는 계정에 저장됩니다.</p>
           {isAuthenticated && role === 'CONSUMER' && (
             <ProductPurchasePanel
               productModelId={product.productModelId}
