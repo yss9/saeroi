@@ -122,6 +122,19 @@ class AgentProcessingToolTests {
         assertThat(lastToolResult()).contains("AWAITING_USER_CONFIRMATION");
     }
 
+    @Test
+    void 가공_결과_승인은_서명_카드로_뜬다() {
+        // 승인하는 순간 투입 소재가 소비되고 결과물이 새 소재로 발행된다. 되돌릴 수 없어
+        // 서명을 받는다 — 확인 카드로 낮추면 실수로 누르는 것과 서명하는 것이 같아진다.
+        ConversationDetailResponse detail = callTool(
+                "approve_processing_result",
+                "{\"jobId\":1,\"summary\":\"가공 결과 승인\"}");
+
+        assertThat(detail.actions()).hasSize(1);
+        assertThat(detail.actions().getFirst().actionType()).isEqualTo(PendingActionType.WALLET_SIGN);
+        assertThat(lastToolResult()).contains("AWAITING_USER_CONFIRMATION");
+    }
+
     /** 가공 단계로 옮긴 대화에서 tool 하나를 부르게 한다. */
     private ConversationDetailResponse callTool(String toolName, String argumentsJson) {
         when(llmClient.complete(anyList(), anyList()))
