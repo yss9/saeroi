@@ -30,7 +30,6 @@ class SchemaSqlTests {
             "refresh_token",
             "processor_profile",
             "processor_capability",
-            "processor_lead_time",
             "material",
             "material_balance",
             "material_lock",
@@ -41,7 +40,6 @@ class SchemaSqlTests {
             "processing_request",
             "processing_request_input",
             "processing_request_type",
-            "processing_quote",
             "processing_job",
             "processing_input",
             "processing_output",
@@ -176,20 +174,13 @@ class SchemaSqlTests {
                     (2, 'REQ-000002', 1, 2, '2099-01-01 00:00:00')
                 """);
         statement.executeUpdate("""
-                INSERT INTO processing_quote (
-                    id, processing_request_id, processor_id, price, lead_days
-                ) VALUES
-                    (1, 1, 2, 1000, 1),
-                    (2, 2, 2, 1000, 1)
-                """);
-        statement.executeUpdate("""
                 INSERT INTO processing_job (
-                    id, job_code, processing_request_id, processing_quote_id,
+                    id, job_code, processing_request_id,
                     brand_id, processor_id, brand_wallet, processor_wallet,
                     fee, payment_method, payment_amount, payment_expires_at
                 ) VALUES
-                    (1, 'JOB-000001', 1, 1, 1, 2, '0xbrand', '0xprocessor', 1000, 'MOCK', 1000, '2099-01-01 00:15:00'),
-                    (2, 'JOB-000002', 2, 2, 1, 2, '0xbrand', '0xprocessor', 1000, 'MOCK', 1000, '2099-01-01 00:15:00')
+                    (1, 'JOB-000001', 1, 1, 2, '0xbrand', '0xprocessor', 1000, 'MOCK', 1000, '2099-01-01 00:15:00'),
+                    (2, 'JOB-000002', 2, 1, 2, '0xbrand', '0xprocessor', 1000, 'MOCK', 1000, '2099-01-01 00:15:00')
                 """);
         statement.executeUpdate("""
                 INSERT INTO material_lock (
