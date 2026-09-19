@@ -1,6 +1,10 @@
 import { useState } from 'react'
 import { useCompleteAction } from '../hooks/useAgentConversation.ts'
-import type { PendingAction, PurchasePayload } from '../types/agent.types.ts'
+import type {
+  PendingAction,
+  ProcessingFeePayload,
+  PurchasePayload,
+} from '../types/agent.types.ts'
 
 /**
  * 결제 확인 카드.
@@ -39,7 +43,13 @@ export function PaymentCard({ action }: { action: PendingAction }) {
 
   return (
     <div className="agent-card agent-card--payment">
-      <p className="agent-card__title">소재 구매 결제</p>
+      {/*
+        결제 카드는 소재 구매와 가공비 둘 다 쓴다. 제목과 항목이 같으면 담당자는 무엇에
+        돈을 내는지 카드만 보고 알 수 없다 — 두 결제는 금액대도 시점도 다르다.
+      */}
+      <p className="agent-card__title">
+        {action.toolName === 'select_quote' ? '가공비 결제' : '소재 구매 결제'}
+      </p>
 
       <dl className="agent-card__detail">
         {detail?.quantityGram != null && (
@@ -52,6 +62,12 @@ export function PaymentCard({ action }: { action: PendingAction }) {
           <>
             <dt>결제 금액</dt>
             <dd>{detail.totalPrice.toLocaleString()} 원</dd>
+          </>
+        )}
+        {detail?.fee != null && (
+          <>
+            <dt>가공비</dt>
+            <dd>{detail.fee.toLocaleString()} 원</dd>
           </>
         )}
       </dl>
@@ -118,9 +134,11 @@ export function StatusOrActions({
   )
 }
 
-function parsePayload(payloadJson: string): Partial<PurchasePayload> | null {
+function parsePayload(
+  payloadJson: string,
+): Partial<PurchasePayload & ProcessingFeePayload> | null {
   try {
-    return JSON.parse(payloadJson) as Partial<PurchasePayload>
+    return JSON.parse(payloadJson) as Partial<PurchasePayload & ProcessingFeePayload>
   } catch {
     // 모델이 만든 인자라 형태가 어긋날 수 있다. 그때는 summary 를 그대로 보여준다.
     return null

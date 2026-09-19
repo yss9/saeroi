@@ -81,6 +81,13 @@ export interface PurchasePayload {
   redirectUrl: string
 }
 
+/** 가공비 결제 카드가 담고 있는 값. 소재 구매와 같은 PaymentCard 가 쓴다. */
+export interface ProcessingFeePayload {
+  jobId: number
+  fee: number
+  redirectUrl: string
+}
+
 /** 서명 카드가 담고 있는 값. */
 export interface ChainOrderPayload {
   tradeId: number

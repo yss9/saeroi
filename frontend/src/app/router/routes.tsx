@@ -63,6 +63,7 @@ import { TradeDetailPage } from '../../pages/trade/TradeDetailPage.tsx'
 import { TradeListPage } from '../../pages/trade/TradeListPage.tsx'
 import AgentPage from '../../pages/agent/AgentPage.tsx'
 import AgentPaymentCallbackPage from '../../pages/agent/AgentPaymentCallbackPage.tsx'
+import AgentProcessingPaymentCallbackPage from '../../pages/agent/AgentProcessingPaymentCallbackPage.tsx'
 import { BrowseLayout } from './guards/BrowseLayout.tsx'
 import { ProtectedRoute } from './guards/ProtectedRoute.tsx'
 import { FORBIDDEN_PATH, RoleGuard } from './guards/RoleGuard.tsx'
@@ -138,6 +139,8 @@ export const routes: RouteObject[] = [
       // 카카오페이 복귀 지점. 대화창 안에서 승인을 끝내고 다시 /agent 로 돌아간다 —
       // 거래 상세로 보내면 대화가 다른 화면으로 바뀐다.
       { path: '/agent/payment/callback', element: <AgentPaymentCallbackPage /> },
+      // 가공비 결제 복귀. 소재와 화면이 다른 이유는 승인하는 API 가 다르기 때문이다.
+      { path: '/agent/processing/payment/callback', element: <AgentProcessingPaymentCallbackPage /> },
     ],
   },
 
