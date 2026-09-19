@@ -40,35 +40,6 @@ const orderStatusMeta: Record<ConsumerOrderViewStatus, { label: string; tone: St
   DELIVERED: { label: '배송 완료', tone: 'success' },
 }
 
-type OrderSort = 'NEWEST' | 'OLDEST' | 'PRICE_HIGH' | 'PRICE_LOW'
-
-const SORT_OPTIONS: readonly { value: OrderSort; label: string }[] = [
-  { value: 'NEWEST', label: '최신순' },
-  { value: 'OLDEST', label: '오래된순' },
-  { value: 'PRICE_HIGH', label: '가격 높은순' },
-  { value: 'PRICE_LOW', label: '가격 낮은순' },
-]
-
-/** 주문 총액은 주문 안 어느 제품이든 같은 값이다(order 단위 값이라 items[0] 으로 충분). */
-function sortGroups(groups: readonly ConsumerOrderGroup[], sort: OrderSort): ConsumerOrderGroup[] {
-  const sorted = [...groups]
-  switch (sort) {
-    case 'NEWEST':
-      sorted.sort((a, b) => Date.parse(b.orderedAt) - Date.parse(a.orderedAt))
-      break
-    case 'OLDEST':
-      sorted.sort((a, b) => Date.parse(a.orderedAt) - Date.parse(b.orderedAt))
-      break
-    case 'PRICE_HIGH':
-      sorted.sort((a, b) => b.items[0].totalAmount - a.items[0].totalAmount)
-      break
-    case 'PRICE_LOW':
-      sorted.sort((a, b) => a.items[0].totalAmount - b.items[0].totalAmount)
-      break
-  }
-  return sorted
-}
-
 /**
  * 주문 내역.
  *
@@ -90,7 +61,6 @@ export function ConsumerOrderList({ orders }: { orders: readonly ConsumerRecentO
   // 모달은 한 번에 하나만 뜬다. 셋을 따로 들고 있으면 같은 자리에 여럿이 겹칠 수 있다.
   const [pending, setPending] = useState<PendingAction | null>(null)
   const [shippingItem, setShippingItem] = useState<ConsumerRecentOrder | null>(null)
-  const [sort, setSort] = useState<OrderSort>('NEWEST')
 
   if (orders.length === 0) {
     return (
@@ -115,7 +85,9 @@ export function ConsumerOrderList({ orders }: { orders: readonly ConsumerRecentO
     )
   }
 
-  const groups = sortGroups(groupConsumerOrders(orders), sort)
+  // 서버가 주문을 최신순으로 보내므로 그 순서를 그대로 유지한다. 페이지 안에서 다시
+  // 정렬하면 전체 주문 기준 정렬처럼 보이지만 실제로는 현재 20건 안에서만 맞게 된다.
+  const groups = groupConsumerOrders(orders)
 
   return (
     <section className="consumer-mypage-card" aria-labelledby="orders-title">
@@ -124,21 +96,6 @@ export function ConsumerOrderList({ orders }: { orders: readonly ConsumerRecentO
           <p className="consumer-section-heading__eyebrow">ORDERS</p>
           <h2 id="orders-title">주문 내역</h2>
         </div>
-        <select
-          className="consumer-sort-select"
-          aria-label="정렬 기준"
-          value={sort}
-          onChange={(event) => {
-            setSort(event.target.value as OrderSort)
-            event.currentTarget.blur()
-          }}
-        >
-          {SORT_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
       </div>
 
       {/* 실패는 목록 위에 둔다. 어느 주문에서 눌렀는지는 버튼이 제자리에 남아 안다. */}

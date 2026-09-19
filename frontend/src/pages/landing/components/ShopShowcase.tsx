@@ -122,7 +122,7 @@ export function ShopShowcase() {
               <h3>{product.name}</h3>
               <p className="shop-showcase__price">₩ {priceFormatter.format(product.price)}</p>
               <div className="shop-showcase__actions">
-                <CartButton productId={Number(product.id)} name={product.name} className="shop-showcase__bag" disabled={soldOut} returnPath={`${location.pathname}#shop`} />
+                <CartButton key={product.id} productId={Number(product.id)} name={product.name} className="shop-showcase__bag" disabled={soldOut} returnPath={`${location.pathname}#shop`} />
                 <WishlistButton productId={Number(product.id)} name={product.name} className="shop-showcase__wishlist" returnPath={`${location.pathname}#shop`} />
               </div>
 

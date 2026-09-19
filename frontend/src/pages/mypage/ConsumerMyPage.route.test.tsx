@@ -1,6 +1,6 @@
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { AxiosResponse } from 'axios'
+import type { AxiosRequestConfig, AxiosResponse } from 'axios'
 import { MemoryRouter, useRoutes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppProviders } from '../../app/providers/AppProviders.tsx'
@@ -158,6 +158,44 @@ describe('consumer mypage route', () => {
     await user.click(screen.getByRole('button', { name: '배송조회' }))
     const progress = within(screen.getByRole('dialog')).getByRole('list', { name: '배송 현황' })
     expect(within(progress).getAllByRole('listitem')).toHaveLength(4)
+  })
+
+  it('주문이 20건을 넘으면 다음 페이지의 주문을 불러온다', async () => {
+    const secondOrder = {
+      ...orderPage.content[0],
+      orderId: 21,
+      orderCode: 'PO-021',
+      orderedAt: '2026-08-20T10:30:00',
+      items: [{
+        ...orderPage.content[0].items[0],
+        itemCode: 'ITEM-021',
+        productName: '21번째 주문 상품',
+      }],
+    }
+    const get = vi.spyOn(apiClient, 'get').mockImplementation(async (url, config) => {
+      if (url === '/v1/product-orders/me/summary') {
+        return { data: { created: 0, paid: 0, shipped: 0, delivered: 21 } } as AxiosResponse
+      }
+      if (url === '/v1/consumers/me/addresses') return { data: [] } as AxiosResponse
+      const requestedPage = (config as AxiosRequestConfig | undefined)?.params?.page ?? 0
+      return {
+        data: requestedPage === 0
+          ? { ...orderPage, totalElements: 21, totalPages: 2, hasNext: true }
+          : { ...orderPage, content: [secondOrder], page: 1, totalElements: 21, totalPages: 2 },
+      } as AxiosResponse
+    })
+    signInAsConsumer()
+    const user = userEvent.setup()
+
+    renderRoute('/mypage/orders')
+
+    expect(await screen.findByRole('heading', { name: '데님 서클 백' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '다음 페이지' }))
+
+    expect(await screen.findByRole('heading', { name: '21번째 주문 상품' })).toBeInTheDocument()
+    expect(get).toHaveBeenCalledWith('/v1/product-orders/me', {
+      params: { page: 1, size: 20 },
+    })
   })
 
   it('사이드바로 주문 내역과 배송지 관리를 오간다', async () => {

@@ -1,10 +1,12 @@
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ErrorMessage, Loading } from '../../components/common/index.ts'
 import { useAuth } from '../../features/auth/hooks/useAuth.ts'
 import { useLogout } from '../../features/auth/hooks/useLogout.ts'
+import { CatalogPagination } from '../../features/shop/CatalogPagination.tsx'
 import { ConsumerAccountLayout } from '../../features/user/components/ConsumerAccountLayout.tsx'
 import { ConsumerOrderList } from '../../features/user/components/ConsumerOrderList.tsx'
 import { useConsumerMyPage } from '../../features/user/hooks/useConsumerMyPage.ts'
+import '../shop/shop.css'
 
 /**
  * 주문 내역.
@@ -21,8 +23,19 @@ export function ConsumerOrdersPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const logout = useLogout()
+  const [params, setParams] = useSearchParams()
+  const rawPage = params.get('page') ?? '0'
+  const parsedPage = Number(rawPage)
+  const page = /^\d+$/.test(rawPage) && Number.isSafeInteger(parsedPage) ? parsedPage : 0
   const profile = user ? { id: user.id, name: user.name, email: user.email } : null
-  const myPage = useConsumerMyPage(profile)
+  const myPage = useConsumerMyPage(profile, page)
+
+  function changePage(next: number) {
+    const updated = new URLSearchParams(params)
+    if (next === 0) updated.delete('page')
+    else updated.set('page', String(next))
+    setParams(updated)
+  }
 
   return (
     <ConsumerAccountLayout
@@ -46,7 +59,18 @@ export function ConsumerOrdersPage() {
           />
         </div>
       ) : (
-        <ConsumerOrderList orders={myPage.data.recentOrders} />
+        <>
+          <ConsumerOrderList orders={myPage.data.recentOrders} />
+          {myPage.orderPage && page < myPage.orderPage.totalPages && (
+            <CatalogPagination
+              label="주문 목록 페이지"
+              page={myPage.orderPage.page}
+              totalPages={myPage.orderPage.totalPages}
+              hasNext={myPage.orderPage.hasNext}
+              onPageChange={changePage}
+            />
+          )}
+        </>
       )}
     </ConsumerAccountLayout>
   )

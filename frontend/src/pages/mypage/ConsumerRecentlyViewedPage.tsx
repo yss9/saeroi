@@ -32,7 +32,7 @@ export function ConsumerRecentlyViewedPage() {
       signOutPending={logout.isPending}
       signOutError={logout.error}
     >
-      <section className="consumer-mypage-card consumer-server-wishlist" aria-labelledby="recently-viewed-title">
+      <section className="consumer-mypage-card consumer-server-wishlist consumer-recently-viewed" aria-labelledby="recently-viewed-title">
         <div className="consumer-section-heading">
           <div>
             <p className="consumer-section-heading__eyebrow">RECENTLY VIEWED</p>

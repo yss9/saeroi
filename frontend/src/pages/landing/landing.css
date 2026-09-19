@@ -930,6 +930,14 @@
   margin-top: 18px;
 }
 
+.shop-showcase__actions .cart-action__notice--success {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 4px;
+}
+
 .shop-showcase__bag,
 .shop-showcase__wishlist {
   display: inline-flex;
