@@ -29,13 +29,32 @@ public class ProcessingPaymentService {
     @Value("${app.payment.kakaopay.processing-return-url:http://localhost:5173/processing/jobs/{jobId}/payment/callback}")
     private String returnUrl;
 
+    /**
+     * 대화창에서 시작한 가공비 결제의 복귀 주소.
+     *
+     * <p>작업 상세로 보내면 <b>대화창이 다른 화면으로 바뀐다.</b> 대화 안에서 결제까지 끝내는
+     * 것이 에이전트의 요점이라, 결제가 끝나면 다시 대화로 돌아와야 한다. 소재 거래가 같은
+     * 이유로 같은 구조를 쓴다({@code KakaoPayProperties#agentReturnUrlFor}).
+     */
+    @Value("${app.payment.kakaopay.processing-agent-return-url:http://localhost:5173/agent/processing/payment/callback?jobId={jobId}}")
+    private String agentReturnUrl;
+
     @Transactional
     public ProcessingPaymentReadyResponse ready(Long actorId, Long jobId) {
+        return ready(actorId, jobId, false);
+    }
+
+    /**
+     * @param fromAgent 대화창에서 시작한 결제인가. 복귀 주소만 달라지고 나머지는 같다
+     */
+    @Transactional
+    public ProcessingPaymentReadyResponse ready(Long actorId, Long jobId, boolean fromAgent) {
         ProcessingJob job=lockedOwnedJob(actorId, jobId);
         LocalDateTime now=LocalDateTime.now(clock);
         requirePayable(job, now);
         PaymentReady result=gateway.ready(new PaymentReadyCommand(job.getJobCode(), String.valueOf(job.getBrandId()),
-                "가공비 "+job.getJobCode(), job.getFee(), returnUrl.replace("{jobId}", String.valueOf(jobId))));
+                "가공비 "+job.getJobCode(), job.getFee(),
+                (fromAgent ? agentReturnUrl : returnUrl).replace("{jobId}", String.valueOf(jobId))));
         job.preparePayment(result.tid());
         return new ProcessingPaymentReadyResponse(jobId, result.tid(), result.redirectUrl(), job.getFee(),
                 gateway.isLive(), job.getPaymentExpiresAt());
