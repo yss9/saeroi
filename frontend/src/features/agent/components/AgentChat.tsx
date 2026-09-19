@@ -1,7 +1,15 @@
+import type { ContractTransactionResponse } from 'ethers'
 import { useEffect, useRef, useState } from 'react'
 import { linkTradeOnChain } from '../../../services/blockchain/chainLinkApi.ts'
 import { getListing } from '../../marketplace/api/getListing.ts'
 import { createOrder } from '../../marketplace/services/marketplaceContractService.ts'
+import { processingJobApi } from '../../processing/api/processingJobApi.ts'
+import {
+  approveProcessingResultOnChain,
+  createProcessingJob,
+  getProcessingBrandLockId,
+  readProcessingEventValues,
+} from '../../processing/services/processingContractService.ts'
 import { getTrade } from '../../trade/api/getTrade.ts'
 import {
   useActiveConversation,
@@ -180,8 +188,113 @@ function ActionCard({ action }: { action: PendingAction }) {
  * 새 서명 tool 을 백엔드에 추가하면 여기에도 한 줄을 더해야 한다. 없으면 화면이 그 사실을
  * 드러낸다 — 조용히 아무 일도 안 일어나는 것보다 낫다.
  */
-const SIGNERS: Record<string, (payload: { tradeId: number }) => Promise<string>> = {
-  request_chain_order: signTradeOrder,
+const SIGNERS: Record<string, (payload: SignPayload) => Promise<string>> = {
+  request_chain_order: (payload) => signTradeOrder(requireId(payload, 'tradeId')),
+  request_custody_transfer: (payload) =>
+    signCustodyTransfer(requireId(payload, 'jobId'), payload.carrier, payload.trackingNumber),
+  approve_processing_result: (payload) => signProcessingApproval(requireId(payload, 'jobId')),
+}
+
+/** 서명 카드가 넘겨주는 값. 모델이 만든 인자라 무엇이 들었는지 보장되지 않는다. */
+type SignPayload = {
+  tradeId?: number
+  jobId?: number
+  carrier?: string
+  trackingNumber?: string
+}
+
+/**
+ * 서명에 꼭 필요한 id 를 꺼낸다.
+ *
+ * 없으면 여기서 멈춘다. 없는 값을 0 이나 NaN 으로 흘려보내면 엉뚱한 건에 서명하거나
+ * 컨트랙트가 알 수 없는 이유로 revert 한다.
+ */
+function requireId(payload: SignPayload, field: 'tradeId' | 'jobId'): number {
+  const value = payload[field]
+  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
+    throw new Error(`서명에 필요한 ${field} 를 찾지 못했습니다. 대화에서 다시 요청해 주세요.`)
+  }
+  return value
+}
+
+/**
+ * 가공 작업을 체인에 올리고 소재를 업체로 보낸다.
+ *
+ * **발송은 온체인 등록 뒤에만 된다.** 서버가 그렇게 막고 있다 — 물건이 먼저 떠나면 체인에
+ * 아무 기록도 없는 채로 소재가 남의 손에 가 있는 구간이 생긴다. 그래서 서명 한 번에
+ * 등록과 발송이 이어 붙는다.
+ *
+ * **이미 등록된 작업이면 등록을 건너뛴다.** 등록은 됐는데 발송 보고가 실패한 상태에서 다시
+ * 누르면, 건너뛰지 않는 한 컨트랙트가 같은 작업을 두 번 만들려다 revert 한다. 다음에 할
+ * 일을 `stepDone` 이 아니라 **온체인 상태로 정한다**는 규칙이 여기 적용된다.
+ */
+async function signCustodyTransfer(
+  jobId: number,
+  carrier?: string,
+  trackingNumber?: string,
+): Promise<string> {
+  const preparation = await processingJobApi.chainPreparation(jobId)
+
+  let txHash: string
+  if (preparation.chainJobId == null) {
+    const receipt = await confirmedTransaction(
+      createProcessingJob(
+        preparation.processorWallet,
+        preparation.inputTokenId,
+        preparation.inputQuantity,
+        preparation.processTypes,
+      ),
+    )
+    const values = readProcessingEventValues(receipt, 'ProcessingJobCreated', 'jobId')
+    if (values.length !== 1) throw new Error('온체인 작업 번호를 확인하지 못했습니다.')
+    const onChainId = Number(values[0])
+    const chainLockId = await getProcessingBrandLockId(onChainId)
+    await processingJobApi.linkChain(jobId, {
+      onChainId,
+      chainLockId,
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+    })
+    txHash = receipt.hash
+  } else {
+    // 등록은 이미 끝났다. 발송만 남은 상태로 다시 들어온 것이다.
+    txHash = `linked:${preparation.chainJobId}`
+  }
+
+  await processingJobApi.ship(jobId, { carrier, trackingNumber })
+  return txHash
+}
+
+/**
+ * 가공 결과를 승인한다. **여기서 새 소재가 생긴다.**
+ *
+ * 온체인 승인에 서명하고 그 영수증을 기존 API 로 붙인다 — 화면에서 승인하는 것과 같은
+ * 경로다. 서버가 영수증을 RPC 로 확인한 뒤에야 소재를 발행한다.
+ */
+async function signProcessingApproval(jobId: number): Promise<string> {
+  const preparation = await processingJobApi.chainPreparation(jobId)
+  if (preparation.chainJobId == null) {
+    throw new Error('이 작업은 아직 온체인에 등록되지 않아 승인할 수 없습니다.')
+  }
+
+  const receipt = await confirmedTransaction(approveProcessingResultOnChain(preparation.chainJobId))
+  await processingJobApi.receiveReturn(jobId, { txHash: receipt.hash })
+  return receipt.hash
+}
+
+/**
+ * 트랜잭션이 블록에 실릴 때까지 기다린다.
+ *
+ * 기다리지 않고 다음 API 를 부르면 서버가 영수증을 못 찾아 거절한다. 담당자는 서명까지
+ * 마쳤는데 실패 메시지를 보게 된다.
+ */
+async function confirmedTransaction(response: Promise<ContractTransactionResponse>) {
+  const transaction = await response
+  const receipt = await transaction.wait()
+  if (!receipt || receipt.status !== 1) {
+    throw new Error('블록체인 트랜잭션이 확정되지 않았습니다.')
+  }
+  return receipt
 }
 
 /**
@@ -194,8 +307,8 @@ const SIGNERS: Record<string, (payload: { tradeId: number }) => Promise<string>>
  * 컨트랙트 호출과 서버 연결 모두 기존 경로를 그대로 쓴다 — 화면에서 사는 것과 대화로 사는
  * 것이 같은 코드를 지나야 결과가 갈라지지 않는다.
  */
-async function signTradeOrder(payload: { tradeId: number }): Promise<string> {
-  const trade = await getTrade(payload.tradeId)
+async function signTradeOrder(tradeId: number): Promise<string> {
+  const trade = await getTrade(tradeId)
   const listing = await getListing(trade.listingId)
 
   if (listing.chainListingId == null) {
@@ -207,7 +320,7 @@ async function signTradeOrder(payload: { tradeId: number }): Promise<string> {
   const receipt = await response.wait()
 
   // 기존 chain-link API 로 서버에 붙인다. 영수증 검증은 그쪽이 한다.
-  await linkTradeOnChain(payload.tradeId, {
+  await linkTradeOnChain(tradeId, {
     onChainId: readOrderId(receipt),
     txHash: response.hash,
   })
