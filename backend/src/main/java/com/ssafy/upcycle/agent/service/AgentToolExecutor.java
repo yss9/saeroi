@@ -1,0 +1,159 @@
+package com.ssafy.upcycle.agent.service;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ssafy.upcycle.agent.entity.AgentConversation;
+import com.ssafy.upcycle.agent.entity.AgentMessage;
+import com.ssafy.upcycle.agent.entity.AgentPendingAction;
+import com.ssafy.upcycle.agent.repository.AgentPendingActionRepository;
+import com.ssafy.upcycle.agent.service.llm.ToolCall;
+import com.ssafy.upcycle.agent.tool.AgentTool;
+import com.ssafy.upcycle.agent.tool.AgentToolArgumentException;
+import com.ssafy.upcycle.agent.tool.AgentToolContext;
+import com.ssafy.upcycle.agent.tool.AgentToolResult;
+import com.ssafy.upcycle.common.exception.BusinessException;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.Optional;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+
+/**
+ * 모델이 요청한 tool 을 실제로 돌리는 곳. <b>쓰기 경계가 여기 있다.</b>
+ *
+ * <p>읽기 tool 은 그대로 실행한다. 쓰기 tool 은 실행하지 않고
+ * {@link AgentPendingAction} 을 만들어 사용자에게 넘긴다 — 모델이 인자를 잘못 채웠거나
+ * 사용자의 말을 오해했을 때 돈이 나가는 것을 구조적으로 막는다. 개별 tool 이 이 판단을
+ * 우회할 수 없도록, 분기를 tool 밖인 여기에 둔다.
+ */
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class AgentToolExecutor {
+
+    private final AgentToolRegistry registry;
+    private final AgentPendingActionRepository pendingActions;
+    private final ObjectMapper objectMapper;
+    private final Clock clock;
+
+    /**
+     * 모델의 tool 호출 하나를 처리한다.
+     *
+     * <p>실패를 예외로 던지지 않고 결과 JSON 으로 돌려주는 경우가 많다. 모델이 인자를 잘못
+     * 넣은 것은 장애가 아니라 다음 턴에 고칠 수 있는 일이고, 예외로 끊으면 대화 전체가 죽는다.
+     */
+    public String execute(
+            AgentConversation conversation,
+            Long userId,
+            ToolCall call,
+            AgentMessage toolCallMessage,
+            Duration actionTtl) {
+
+        Optional<AgentTool> found = registry.find(call.name(), conversation.getPhase());
+        if (found.isEmpty()) {
+            log.info("Agent tool rejected: name={} phase={}", call.name(), conversation.getPhase());
+            return error("UNKNOWN_TOOL", "지금 단계에서 쓸 수 없는 기능입니다: " + call.name());
+        }
+        AgentTool tool = found.get();
+
+        JsonNode arguments;
+        try {
+            arguments = objectMapper.readTree(call.argumentsJson());
+        } catch (Exception malformed) {
+            // 모델이 만든 JSON 이라 깨질 수 있다. 다시 시도할 수 있게 사실만 알려준다.
+            return error("INVALID_ARGUMENTS", "인자를 JSON 으로 읽지 못했습니다. 형식을 확인해 다시 호출하세요.");
+        }
+
+        if (tool.isWrite()) {
+            return propose(conversation, tool, call, arguments, toolCallMessage, actionTtl);
+        }
+
+        try {
+            AgentToolResult result = tool.execute(new AgentToolContext(userId, conversation), arguments);
+            return result.payloadJson();
+        } catch (AgentToolArgumentException badArguments) {
+            // 모델이 인자를 잘못 채웠다. 무엇이 틀렸는지 알려주면 대개 다음 호출에서 고친다.
+            return error("INVALID_ARGUMENTS", badArguments.getMessage());
+        } catch (BusinessException domainRejection) {
+            // 도메인 규칙 위반(권한 없음, 재고 부족 …)은 모델이 알아야 할 사실이다.
+            // 그대로 돌려주면 모델이 사용자에게 이유를 설명하고 다른 수를 제안할 수 있다.
+            log.info("Agent tool domain rejection: name={} code={}", tool.name(), domainRejection.getErrorCode().code());
+            return error(domainRejection.getErrorCode().code(), domainRejection.getErrorCode().message());
+        } catch (RuntimeException failure) {
+            log.warn("Agent tool failed: name={} reason={}", tool.name(), failure.getClass().getSimpleName());
+            return error("TOOL_FAILED", "기능을 실행하지 못했습니다.");
+        }
+    }
+
+    /** 사용자가 승인한 액션을 실제로 실행한다. 이 경로만 쓰기 tool 을 돌릴 수 있다. */
+    public AgentToolResult runApproved(
+            AgentConversation conversation, Long userId, AgentPendingAction action, JsonNode mergedArguments) {
+
+        AgentTool tool = registry
+                .findApproved(action.getToolName())
+                .orElseThrow(() -> new IllegalStateException("Approved tool disappeared: " + action.getToolName()));
+
+        return tool.execute(new AgentToolContext(userId, conversation), mergedArguments);
+    }
+
+    private String propose(
+            AgentConversation conversation,
+            AgentTool tool,
+            ToolCall call,
+            JsonNode arguments,
+            AgentMessage toolCallMessage,
+            Duration actionTtl) {
+
+        String summary = summarize(tool, arguments);
+        AgentPendingAction action = pendingActions.save(AgentPendingAction.propose(
+                conversation.getId(),
+                toolCallMessage.getId(),
+                tool.pendingKind().actionType(),
+                tool.name(),
+                summary,
+                call.argumentsJson(),
+                tool.signatureSteps(),
+                LocalDateTime.now(clock).plus(actionTtl)));
+
+        log.info(
+                "Agent action proposed: id={} tool={} type={}",
+                action.getId(),
+                tool.name(),
+                action.getActionType());
+
+        // 모델에게 "요청을 띄웠고 아직 안 끝났다"는 사실을 분명히 돌려준다. 이 문구가 모호하면
+        // 모델이 완료로 착각하고 다음 단계를 진행해 버린다.
+        return """
+                {"status":"AWAITING_USER_CONFIRMATION","actionId":%d,"actionType":"%s",\
+                "message":"담당자에게 확인 카드를 띄웠습니다. 담당자가 승인하기 전까지 이 작업은 \
+                수행되지 않았습니다. 결과를 기다리고, 완료된 것처럼 말하지 마세요."}"""
+                .formatted(action.getId(), action.getActionType().name());
+    }
+
+    /**
+     * 카드에 보여줄 한 줄.
+     *
+     * <p>tool 이 스스로 요약을 만들게 하지 않고 인자를 그대로 쓴다. 요약을 모델이나 tool 이
+     * 만들면 카드에 적힌 내용과 실제로 실행될 인자가 어긋날 수 있고, 사용자는 카드만 보고
+     * 승인한다. 인자 자체를 보여주는 편이 안전하다.
+     */
+    private String summarize(AgentTool tool, JsonNode arguments) {
+        String rendered = arguments.toString();
+        String summary = tool.description() + " / " + rendered;
+        return summary.length() > 500 ? summary.substring(0, 500) : summary;
+    }
+
+    private String error(String code, String message) {
+        return "{\"error\":\"%s\",\"message\":%s}".formatted(code, quote(message));
+    }
+
+    private String quote(String value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (Exception impossible) {
+            return "\"\"";
+        }
+    }
+}

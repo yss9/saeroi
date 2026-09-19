@@ -65,7 +65,10 @@ class SchemaSqlTests {
             "material_listing",
             "material_trade",
             "trade_shipping",
-            "blockchain_transaction");
+            "blockchain_transaction",
+            "agent_conversation",
+            "agent_message",
+            "agent_pending_action");
 
     @Test
     void schemaCreatesEveryDesignedTableAndConfirmedShippingRelationships() throws Exception {

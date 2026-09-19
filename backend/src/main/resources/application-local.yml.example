@@ -23,6 +23,21 @@ spring:
     password: 여기에_MySQL_비밀번호
 
 app:
+  agent:
+    # BRAND 대화형 에이전트가 쓰는 LLM(SSAFY GMS).
+    #
+    # 키는 https://gms.ssafy.io/web/student/gms-key 에서 팀 단위로 발급된다.
+    # 비워 두면 기동은 되고 에이전트만 503 을 낸다 — 다른 기능 개발에는 지장이 없다.
+    #
+    # ⚠️ 크레딧이 **토큰당** 차감된다. 대화 한 턴에 LLM 이 여러 번 불리므로 테스트가 곧
+    #    비용이다. 개발 중에는 아래 haiku 를 쓰고, 시연 직전에만 claude-sonnet-4-6 으로
+    #    올린다. thinking 은 Sonnet 4.6 이상에서만 켤 수 있다 (Haiku 는 400 을 낸다).
+    api-key: 여기에_GMS_키
+    model: claude-haiku-4-5-20251001
+    thinking: false
+    # 한 발화에서 허용할 tool 왕복 횟수. 늘리면 크레딧도 그만큼 는다.
+    max-tool-iterations: 4
+
   demo-catalog:
     # 홈·SHOP 시연 상품이 필요한 로컬 환경에서만 true.
     # 운영 환경의 기본값은 false이며, 반복 기동해도 같은 상품이 중복 생성되지 않는다.
