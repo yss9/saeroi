@@ -130,6 +130,55 @@ class AgentChatServiceTests {
     }
 
     @Test
+    void 단계에_없는_쓰기_tool_은_카드조차_만들지_않는다() {
+        // 읽기 tool 의 단계 차단은 위에서 함께 확인된다. 쓰기 쪽이 더 위험하다 — 노출만
+        // 좁히고 실행을 막지 않으면, 모델이 이전 단계에서 본 이름을 기억해 부르는 것만으로
+        // 담당자에게 누를 카드가 생긴다. 카드는 눌리면 도메인이 도는 자리다.
+        when(llmClient.complete(anyList(), anyList()))
+                .thenReturn(new LlmCompletion(
+                        null,
+                        List.of(new ToolCall(
+                                "call-1",
+                                "confirm_receipt",
+                                "{\"tradeId\":1,\"summary\":\"수령 확정\"}"))))
+                .thenReturn(new LlmCompletion("아직 그 단계가 아닙니다.", List.of()));
+
+        // confirm_receipt 는 MATERIAL_SOURCING 전용인데 INTAKE 에서 부른다.
+        ConversationDetailResponse detail = conversationService.start(brandId, "수령 확정해줘");
+
+        assertThat(lastToolResult()).contains("UNKNOWN_TOOL");
+        assertThat(detail.actions()).isEmpty();
+        assertThat(pendingActions.count()).isZero();
+    }
+
+    @Test
+    void 이탈한_거래는_대화_안에서_정리할_수_있다() {
+        // 결제창을 닫고 온 거래는 CREATED 로 남아 판매 수량을 묶는다. 대화에 정리 수단이
+        // 없으면 담당자가 거래 목록 화면으로 나가야 하고, 그건 이 기능이 없애려던 이동이다.
+        answerWith("네");
+        conversationService.start(brandId, "소재 사고 싶어요");
+        Long conversationId = conversations.findAll().getFirst().getId();
+        moveToPhase(conversationId, JourneyPhase.MATERIAL_SOURCING);
+
+        when(llmClient.complete(anyList(), anyList()))
+                .thenReturn(new LlmCompletion(
+                        null,
+                        List.of(new ToolCall(
+                                "call-1",
+                                "cancel_trade",
+                                "{\"tradeId\":1,\"reason\":\"다른 소재로 결정\",\"summary\":\"거래 취소\"}"))))
+                .thenReturn(new LlmCompletion("취소할까요?", List.of()));
+
+        ConversationDetailResponse detail =
+                conversationService.send(brandId, conversationId, "아까 그 거래 취소해줘");
+
+        // 취소도 되돌릴 수 없는 작업이라 확인 카드를 거친다. 모델이 불렀다고 바로 돌면 안 된다.
+        assertThat(detail.actions()).hasSize(1);
+        assertThat(detail.actions().getFirst().actionType()).isEqualTo(PendingActionType.CONFIRM);
+        assertThat(lastToolResult()).contains("AWAITING_USER_CONFIRMATION");
+    }
+
+    @Test
     void tool_루프가_상한에_걸리면_장애가_아니라_되묻는다() {
         // 모델이 결론을 못 내고 같은 tool 을 계속 부르는 상황. 상한(test 설정 3)에 걸린다.
         when(llmClient.complete(anyList(), anyList()))
