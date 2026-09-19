@@ -3,7 +3,9 @@ package com.ssafy.upcycle.agent.tool;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ssafy.upcycle.agent.entity.JourneyPhase;
+import com.ssafy.upcycle.material.entity.MaterialType;
 import com.ssafy.upcycle.processing.dto.ProcessorSearchResponse;
+import com.ssafy.upcycle.processing.entity.ProcessType;
 import com.ssafy.upcycle.processing.service.ProcessorSearchService;
 import java.util.ArrayList;
 import java.util.List;
@@ -46,18 +48,16 @@ public class SearchProcessorsTool extends AbstractAgentTool {
                 {
                   "type": "object",
                   "properties": {
-                    "materialType": {"type": "string",
-                      "enum": ["DENIM","COTTON","LEATHER","LINING","METAL","MIXED","ETC"]},
+                    "materialType": {"type": "string", "enum": [%s]},
                     "quantityGram": {"type": "integer", "description": "가공할 양(gram)"},
                     "processTypes": {"type": "array", "minItems": 1, "maxItems": 8,
-                      "items": {"type": "string",
-                        "enum": ["CLEANING","DISASSEMBLY","SORTING","CUTTING","SHREDDING",
-                                 "COLOR_PROCESSING","SURFACE_FINISHING","REMANUFACTURING"]}},
+                      "items": {"type": "string", "enum": [%s]}},
                     "page": {"type": "integer", "minimum": 0, "default": 0}
                   },
                   "required": ["materialType", "quantityGram", "processTypes"],
                   "additionalProperties": false
-                }""";
+                }"""
+                .formatted(enumValues(MaterialType.class), enumValues(ProcessType.class));
     }
 
     @Override

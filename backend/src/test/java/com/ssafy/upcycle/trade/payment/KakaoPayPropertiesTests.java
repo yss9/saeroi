@@ -136,6 +136,6 @@ class KakaoPayPropertiesTests {
             String returnUrl, String productOrderReturnUrl, String productOrderGroupReturnUrl) {
         return new KakaoPayProperties(
                 null, null, SECRET, returnUrl, productOrderReturnUrl, productOrderGroupReturnUrl,
-                Duration.ofSeconds(10));
+                null, Duration.ofSeconds(10));
     }
 }

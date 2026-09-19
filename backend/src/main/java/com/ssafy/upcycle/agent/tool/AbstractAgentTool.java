@@ -2,6 +2,8 @@ package com.ssafy.upcycle.agent.tool;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Arrays;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -18,6 +20,22 @@ public abstract class AbstractAgentTool implements AgentTool {
             {"type":"object","properties":{},"additionalProperties":false}""";
 
     protected final ObjectMapper objectMapper;
+
+    /**
+     * JSON 스키마의 {@code "enum"} 목록을 도메인 enum 에서 만든다.
+     *
+     * <p><b>손으로 적으면 안 된다.</b> 도메인이 값을 지워도 스키마에 적힌 문자열은 그대로
+     * 남고 컴파일도 통과한다. 실제로 {@code MaterialType} 에서 네 값이 빠졌을 때 tool 세
+     * 곳의 스키마만 남아, 모델이 없는 값을 계속 제안하고 그 값이 DB 에 남으면 조회가
+     * 통째로 500 이 됐다 (2026-09-19 팀 공지).
+     *
+     * <p>여기서 만들면 값이 사라질 때 스키마도 같이 사라진다.
+     */
+    protected static String enumValues(Class<? extends Enum<?>> type) {
+        return Arrays.stream(type.getEnumConstants())
+                .map(constant -> '"' + constant.name() + '"')
+                .collect(Collectors.joining(","));
+    }
 
     protected String json(Object value) {
         try {

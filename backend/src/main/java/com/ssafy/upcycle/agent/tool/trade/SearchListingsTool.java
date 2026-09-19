@@ -69,9 +69,8 @@ public class SearchListingsTool extends AbstractAgentTool {
                 {
                   "type": "object",
                   "properties": {
-                    "materialType": {"type": "string",
-                      "enum": ["DENIM","COTTON","LEATHER","LINING","METAL","MIXED","ETC"]},
-                    "rootOrigin": {"type": "string", "enum": ["VIRGIN","WASTE"],
+                    "materialType": {"type": "string", "enum": [%s]},
+                    "rootOrigin": {"type": "string", "enum": [%s],
                       "description": "WASTE 는 폐의류·폐원단, VIRGIN 은 새 원단"},
                     "keyword": {"type": "string", "description": "소재명 검색어"},
                     "maxPricePerKg": {"type": "integer", "description": "kg당 가격 상한(원)"},
@@ -80,7 +79,8 @@ public class SearchListingsTool extends AbstractAgentTool {
                     "page": {"type": "integer", "minimum": 0, "default": 0}
                   },
                   "additionalProperties": false
-                }""";
+                }"""
+                .formatted(enumValues(MaterialType.class), enumValues(MaterialRootOrigin.class));
     }
 
     @Override

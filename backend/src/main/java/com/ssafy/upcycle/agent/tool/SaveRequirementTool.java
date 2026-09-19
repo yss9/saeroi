@@ -3,6 +3,8 @@ package com.ssafy.upcycle.agent.tool;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ssafy.upcycle.agent.entity.JourneyPhase;
+import com.ssafy.upcycle.material.entity.MaterialType;
+import com.ssafy.upcycle.processing.entity.ProcessType;
 import java.util.Map;
 import java.util.Set;
 import org.springframework.stereotype.Component;
@@ -42,19 +44,18 @@ public class SaveRequirementTool extends AbstractAgentTool {
                   "type": "object",
                   "properties": {
                     "productDescription": {"type": "string", "description": "만들려는 제품"},
-                    "materialType": {"type": "string",
-                      "enum": ["DENIM","COTTON","LEATHER","LINING","METAL","MIXED","ETC"]},
+                    "materialType": {"type": "string", "enum": [%s]},
                     "quantityGram": {"type": "integer", "description": "필요한 소재량(gram)"},
-                    "processTypes": {"type": "array", "items": {"type": "string",
-                      "enum": ["CLEANING","DISASSEMBLY","SORTING","CUTTING","SHREDDING",
-                               "COLOR_PROCESSING","SURFACE_FINISHING","REMANUFACTURING"]}},
+                    "processTypes": {"type": "array",
+                      "items": {"type": "string", "enum": [%s]}},
                     "dueDate": {"type": "string", "description": "납기 (YYYY-MM-DD)"},
                     "budgetKrw": {"type": "integer", "description": "예산(원)"},
                     "note": {"type": "string", "description": "그 밖의 조건"}
                   },
                   "required": ["productDescription"],
                   "additionalProperties": false
-                }""";
+                }"""
+                .formatted(enumValues(MaterialType.class), enumValues(ProcessType.class));
     }
 
     @Override
