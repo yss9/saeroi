@@ -32,6 +32,13 @@ public interface ProductItemRepository extends JpaRepository<ProductItem, Long> 
     List<ProductItem> findAllByProductModelIdAndStatus(
             Long productModelId, ProductItemStatus status);
 
+    /**
+     * 공개 상세가 "QR Passport 예시 보기" 에 쓸 개체 하나. 같은 배치의 개체는 소재 구성이
+     * 동일하므로 어느 것을 보여줘도 정보상 차이가 없다 — 잠글 필요가 없는 미리보기다.
+     */
+    Optional<ProductItem> findFirstByProductModelIdAndStatusOrderByIdAsc(
+            Long productModelId, ProductItemStatus status);
+
     /** 생산 배치가 만들어 낸 개체들. 배치 확정 결과를 되짚을 때 쓴다. */
     List<ProductItem> findAllByProductionBatchId(Long productionBatchId);
 

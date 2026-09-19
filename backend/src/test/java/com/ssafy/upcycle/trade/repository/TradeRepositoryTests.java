@@ -136,6 +136,6 @@ class TradeRepositoryTests {
                 BUYER_WALLET,
                 20_000L,
                 200_000L,
-                PaymentMethod.MOCK);
+                PaymentMethod.MOCK, LocalDateTime.now().plusMinutes(30));
     }
 }

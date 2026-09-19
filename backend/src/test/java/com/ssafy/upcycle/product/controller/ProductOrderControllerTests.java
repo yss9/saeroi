@@ -225,6 +225,89 @@ class ProductOrderControllerTests {
                 .andExpect(jsonPath("$.data.delivered").value(1));
     }
 
+    // ── 단건 조회 ───────────────────────────────────────────
+
+    @Test
+    void oneOrderCanBeReadByItsOwnId() throws Exception {
+        // 결제창에서 돌아온 화면이 그 주문을 다시 읽는 경로다. 이 경로가 없으면 화면은
+        // 주문 목록을 페이지마다 훑으며 같은 id 를 찾아야 한다.
+        ProductOrder order = createOrder(consumer, "ORDER-ONE", OrderState.PAID);
+
+        mockMvc.perform(get(PATH + "/" + order.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + consumerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.orderId").value(order.getId()))
+                .andExpect(jsonPath("$.data.orderCode").value("ORDER-ONE"))
+                // 목록과 같은 모양이어야 화면이 타입을 한 벌만 다룬다.
+                .andExpect(jsonPath("$.data.brandName").value("리위브"))
+                .andExpect(jsonPath("$.data.items[0].productName").value("데님 서클 백"))
+                .andExpect(jsonPath("$.data.shipping").exists())
+                .andExpect(jsonPath("$.data.buyerId").doesNotExist())
+                .andExpect(jsonPath("$.data.paymentReference").doesNotExist());
+    }
+
+    @Test
+    void someoneElsesOrderIsNotFoundRatherThanForbidden() throws Exception {
+        // 403 은 그 id 의 주문이 존재한다는 사실을 흘린다. 주문 id 는 순번이라 하나씩
+        // 올려 보며 남의 주문 유무를 셀 수 있다.
+        User otherConsumer = userRepository.save(User.register(
+                "one-order-other@example.com",
+                "{noop}x",
+                "다른 소비자",
+                "010-4444-4444",
+                UserRole.CONSUMER));
+        ProductOrder theirs = createOrder(otherConsumer, "ORDER-THEIRS", OrderState.PAID);
+
+        mockMvc.perform(get(PATH + "/" + theirs.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + consumerToken))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("PRODUCT_ORDER_NOT_FOUND"));
+    }
+
+    @Test
+    void anOrderThatDoesNotExistIsNotFoundTheSameWay() throws Exception {
+        mockMvc.perform(get(PATH + "/999999")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + consumerToken))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("PRODUCT_ORDER_NOT_FOUND"));
+    }
+
+    @Test
+    void readingOneOrderNeedsALoginAndAConsumerAccount() throws Exception {
+        ProductOrder order = createOrder(consumer, "ORDER-AUTH", OrderState.PAID);
+
+        mockMvc.perform(get(PATH + "/" + order.getId()))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get(PATH + "/" + order.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor(brand)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("PRODUCT_ORDER_ROLE_NOT_ALLOWED"));
+    }
+
+    @Test
+    void theListPathIsNotSwallowedByTheSingleOrderPath() throws Exception {
+        // `/me` 는 리터럴이라 `/{orderId}` 보다 먼저 매칭되어야 한다. 순서가 뒤집히면
+        // 주문 목록이 "me 라는 id 의 주문" 조회가 된다.
+        createOrder(consumer, "ORDER-LIST", OrderState.PAID);
+
+        mockMvc.perform(get(PATH + "/me")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + consumerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].orderCode").value("ORDER-LIST"));
+    }
+
+    @Test
+    void aSingleOrderCarriesNoGroupIdOrCode() throws Exception {
+        // 묶음에 속하지 않은 주문이다. 둘 다 없어야 화면이 묶음 경로로 보내지 않는다.
+        ProductOrder order = createOrder(consumer, "ORDER-SINGLE", OrderState.PAID);
+
+        mockMvc.perform(get(PATH + "/" + order.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + consumerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.orderGroupId").doesNotExist())
+                .andExpect(jsonPath("$.data.orderGroupCode").doesNotExist());
+    }
+
     private ProductOrder createOrder(User buyer, String orderCode, OrderState state) {
         ProductItem item = productItemRepository.save(ProductItem.produce(
                 1L,

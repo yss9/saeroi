@@ -24,6 +24,10 @@ spring:
       # 테이블이 없는 상태를 만나지 않는다. 데이터는 클래스마다 @BeforeEach 가 채운다.
       ddl-auto: create
 app:
+  company-role-approval-guard:
+    # 기존 도메인 테스트는 각 기능의 자체 권한 검사를 독립적으로 검증한다.
+    # 전역 승인 차단은 CompanyRoleApprovalGuardTests에서만 다시 켜서 검증한다.
+    enabled: false
   qr:
     # 기동 필수값이라 테스트에도 넣는다. 실제 프론트 주소일 필요는 없다 —
     # 여기서 보는 것은 조립 규칙이지 그 주소가 열리는지가 아니다.

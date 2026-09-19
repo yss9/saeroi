@@ -6,7 +6,7 @@
 
 | 파라미터 | 필수 | 설명 |
 | --- | --- | --- |
-| materialType | 예 | DENIM, COTTON, LEATHER, LINING, METAL, MIXED, ETC |
+| materialType | 예 | COTTON, COTTON_MIXED, DENIM, POLYESTER, SILK, VISCOSE, WOOL, ETC |
 | quantity | 예 | 양의 정수 g, Long 범위 |
 | processTypes | 예 | 중복 없는 공정 1~8개. 쉼표 구분 또는 반복 파라미터 |
 | page | 아니오 | 0부터 시작, 기본 0 |

@@ -5,6 +5,7 @@ users ──┬── company_profile
         ├── processor_profile ──< processor_capability
         │                     └──< processor_lead_time
         ├── consumer_address
+        ├── consumer_inquiry
         ├── user_wallet
         └──< material_balance >── material
                                      │
@@ -73,7 +74,7 @@ blockchain_transaction   evidence_file   point_account ──< point_transaction
 
 | 도메인 | 테이블 | 담당 |
 | --- | --- | --- |
-| User / Wallet | users, company_profile, consumer_address, user_wallet, wallet_nonce, refresh_token | 6번 |
+| User / Wallet | users, company_profile, consumer_address, consumer_inquiry, user_wallet, wallet_nonce, refresh_token | 6번 |
 | Material | material, material_balance, material_lock, material_lineage | 2번 |
 | Marketplace | material_listing, material_trade, trade_shipping, trade_dispute | 3번 |
 | Processing | processing_request(+input/type), processing_quote, processing_job(+input/output), processor_profile 계열 | 4번 |
@@ -185,6 +186,18 @@ MySQL 8 은 부분 UNIQUE(`... WHERE is_active = TRUE`)를 지원하지 않는�
 | id, user_id | BIGINT |
 | token_hash | VARCHAR(255) UNIQUE · 원문 미저장(SHA-256) |
 | expires_at, revoked_at, created_at | DATETIME |
+
+| consumer_inquiry (1:N, 소비자) |  |
+| --- | --- |
+| id, user_id | BIGINT |
+| type | VARCHAR(30) · DELIVERY / EXCHANGE_RETURN / PRODUCT / ETC |
+| product_order_id | BIGINT NULL · FK 없음(주문 취소 시 product_order 행이 지워지므로) |
+| target_label | VARCHAR(255) NULL · 등록 시점 상품명 스냅샷 |
+| content | VARCHAR(2000) |
+| answer, answered_at | VARCHAR(2000) NULL, DATETIME NULL · 관리자/CS 도메인이 없어 항상 NULL(답변 대기) |
+| created_at | DATETIME |
+
+`ETC` 만 `product_order_id` 없이 등록 가능. 답변 등록 API는 아직 없다(관리자 도메인 부재).
 
 ### processor_profile / processor_capability / processor_lead_time
 

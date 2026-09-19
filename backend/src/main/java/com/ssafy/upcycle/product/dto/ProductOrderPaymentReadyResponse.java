@@ -1,5 +1,7 @@
 package com.ssafy.upcycle.product.dto;
 
+import java.time.OffsetDateTime;
+
 /**
  * 제품 주문의 결제 준비 결과.
  *
@@ -22,5 +24,24 @@ package com.ssafy.upcycle.product.dto;
  * 말할 수 있어야 해서 노출한다.
  */
 public record ProductOrderPaymentReadyResponse(
-        Long orderId, String tid, String redirectUrl, long totalPrice, boolean live) {
+        Long orderId,
+        String tid,
+        String redirectUrl,
+        long totalPrice,
+        boolean live,
+
+        /**
+         * 결제 마감 시각. <b>오프셋이 붙어 있다</b>({@code 2026-09-18T00:26:46+09:00}).
+         *
+         * <p>시간대 없이 내보내면 브라우저가 자기 시간대로 해석해 마감이 어긋난다. 이 값은
+         * 결제 버튼을 누를 수 있는지를 가르므로 해석이 하나여야 한다.
+         */
+        OffsetDateTime paymentDeadline,
+
+        /**
+         * 지금부터 마감까지 남은 초. 이미 지났으면 0.
+         *
+         * <p>화면이 자기 시계로 계산하면 그 시계가 틀어졌을 때 카운트다운이 통째로 어긋난다.
+         */
+        Long remainingSeconds) {
 }

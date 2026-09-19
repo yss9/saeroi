@@ -27,6 +27,7 @@ import com.ssafy.upcycle.user.entity.User;
 import com.ssafy.upcycle.user.entity.UserRole;
 import com.ssafy.upcycle.user.repository.CompanyProfileRepository;
 import com.ssafy.upcycle.user.repository.UserRepository;
+import java.time.Clock;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -55,6 +56,7 @@ public class ProductOrderQueryService {
     private final UserRepository userRepository;
     private final CompanyProfileRepository companyProfileRepository;
     private final ProductQrCodeGenerator productQrCodeGenerator;
+    private final Clock clock;
 
     /**
      * 본인 주문 목록. 주문과 항목마다 개별 조회하지 않고 현재 페이지에 필요한 데이터를
@@ -134,6 +136,8 @@ public class ProductOrderQueryService {
                 group.getCreatedAt(),
                 group.getPaidAt(),
                 !orders.isEmpty() && orders.stream().allMatch(ProductOrder::isCancelable),
+                ProductPaymentDeadline.at(group.getPaymentDeadline(), clock),
+                ProductPaymentDeadline.remainingSeconds(group.getPaymentDeadline(), clock),
                 orders.stream().map(order -> toResponse(order, lookup)).toList());
     }
 
@@ -245,6 +249,7 @@ public class ProductOrderQueryService {
         return new ProductOrderResponse(
                 order.getId(),
                 order.getOrderCode(),
+                order.getOrderGroupId(),
                 order.getOrderGroupId() == null
                         ? null
                         : lookup.groupCodes().get(order.getOrderGroupId()),
@@ -257,7 +262,9 @@ public class ProductOrderQueryService {
                 order.getDeliveredAt(),
                 items,
                 ProductOrderShippingResponse.from(requireRelated(
-                        lookup.shippingByOrderId().get(order.getId()), "product shipping")));
+                        lookup.shippingByOrderId().get(order.getId()), "product shipping")),
+                ProductPaymentDeadline.at(order.getPaymentDeadline(), clock),
+                ProductPaymentDeadline.remainingSeconds(order.getPaymentDeadline(), clock));
     }
 
     private ProductOrderItemResponse toItemResponse(

@@ -594,6 +594,151 @@ class ProductOrderGroupPaymentApiTests {
         verify(paymentGateway, never()).cancel(any());
     }
 
+    // ── 묶음으로 가는 길 ────────────────────────────────────
+
+    /**
+     * 묶음 주문은 <b>묶음 id 와 번호를 둘 다</b> 싣는다.
+     *
+     * <p>id 가 없으면 화면은 결제창에서 이탈한 장바구니 주문을 되살릴 수 없다 — 주문
+     * 경로는 묶인 주문을 거절하고({@code PRODUCT_ORDER_BELONGS_TO_GROUP}), 묶음 경로로 갈
+     * 주소는 번호만으로 만들 수 없다. 번호로 묶음을 찾는 경로는 없다.
+     */
+    @Test
+    void aGroupedOrderCarriesTheIdThatOpensItsGroup() throws Exception {
+        Long groupId = checkout();
+
+        String response = mockMvc.perform(withJwt(get("/api/v1/product-orders/me"), consumerId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].orderGroupId").value(groupId))
+                .andExpect(jsonPath("$.data.content[0].orderGroupCode").value(
+                        org.hamcrest.Matchers.startsWith("ORG-")))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        // 그 id 로 실제로 묶음이 열려야 한다. 값만 실리고 열리지 않으면 소용이 없다.
+        long carried = objectMapper.readTree(response)
+                .path("data").path("content").get(0).path("orderGroupId").asLong();
+        mockMvc.perform(withJwt(get(BASE + "/" + carried), consumerId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.orderGroupId").value(groupId));
+    }
+
+    @Test
+    void theGroupViewAndTheSingleOrderViewAgreeOnTheGroupId() throws Exception {
+        // 같은 주문을 묶음 안에서 읽든 단건으로 읽든 같은 값이어야 한다.
+        Long groupId = checkout();
+        ProductOrder grouped = productOrderRepository
+                .findAllByOrderGroupIdOrderByIdAsc(groupId).get(0);
+
+        mockMvc.perform(withJwt(get(BASE + "/" + groupId), consumerId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.orders[0].orderGroupId").value(groupId));
+        mockMvc.perform(withJwt(
+                        get("/api/v1/product-orders/" + grouped.getId()), consumerId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.orderGroupId").value(groupId));
+    }
+
+    @Test
+    void aSingleOrderStillCarriesNeitherIdNorCode() throws Exception {
+        placeSingleOrder(walletId);
+        ProductOrder single = productOrderRepository.findAll().stream()
+                .filter(order -> order.getOrderGroupId() == null)
+                .findFirst()
+                .orElseThrow();
+
+        mockMvc.perform(withJwt(get("/api/v1/product-orders/" + single.getId()), consumerId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.orderGroupId").doesNotExist())
+                .andExpect(jsonPath("$.data.orderGroupCode").doesNotExist());
+    }
+
+    /**
+     * 거절 응답이 알려 주는 묶음 id 와 주문 응답이 싣는 값이 같아야 한다.
+     *
+     * <p>같은 값이 두 이름·두 값으로 나가면 화면이 어느 쪽을 믿을지 정해야 한다.
+     */
+    @Test
+    void theRefusalAndTheOrderResponseNameTheSameGroup() throws Exception {
+        Long groupId = checkout();
+        ProductOrder grouped = productOrderRepository
+                .findAllByOrderGroupIdOrderByIdAsc(groupId).get(0);
+
+        mockMvc.perform(withJwt(
+                        post(SINGLE_ORDER + "/" + grouped.getId() + "/payment/ready"), consumerId))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.data.orderGroupId").value(groupId));
+        mockMvc.perform(withJwt(
+                        get("/api/v1/product-orders/" + grouped.getId()), consumerId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.orderGroupId").value(groupId));
+    }
+
+    // ── 마감 ────────────────────────────────────────────────
+
+    /** 오프셋이 붙은 ISO 시각. 시간대가 없으면 브라우저가 자기 시간대로 해석한다. */
+    private static final String ISO_WITH_OFFSET =
+            "[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]+)?"
+                    + "(Z|[+-][0-9]{2}:[0-9]{2})";
+
+    @Test
+    void theGroupReadyResponseTellsTheScreenHowLongItHas() throws Exception {
+        Long groupId = checkout();
+
+        mockMvc.perform(withJwt(post(BASE + "/" + groupId + "/payment/ready"), consumerId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.paymentDeadline")
+                        .value(org.hamcrest.Matchers.matchesRegex(ISO_WITH_OFFSET)))
+                .andExpect(jsonPath("$.data.remainingSeconds")
+                        .value(org.hamcrest.Matchers.greaterThan(1700)));
+    }
+
+    @Test
+    void theGroupViewCarriesTheDeadlineForItselfAndItsOrders() throws Exception {
+        // 묶음은 결제의 단위이고 주문은 그 마감을 공유한다. 화면이 어느 쪽을 읽어도 같아야 한다.
+        Long groupId = checkout();
+
+        mockMvc.perform(withJwt(get(BASE + "/" + groupId), consumerId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.paymentDeadline")
+                        .value(org.hamcrest.Matchers.matchesRegex(ISO_WITH_OFFSET)))
+                .andExpect(jsonPath("$.data.remainingSeconds")
+                        .value(org.hamcrest.Matchers.greaterThan(1700)))
+                .andExpect(jsonPath("$.data.orders[0].paymentDeadline")
+                        .value(org.hamcrest.Matchers.matchesRegex(ISO_WITH_OFFSET)));
+    }
+
+    @Test
+    void anExpiredGroupCannotOpenACheckoutWindow() throws Exception {
+        // 묶음은 여러 브랜드의 개체를 한꺼번에 잡고 있어 마감이 늦게 지켜질수록 더 아프다.
+        Long groupId = checkout();
+        expirePaymentDeadline(groupId);
+
+        mockMvc.perform(withJwt(post(BASE + "/" + groupId + "/payment/ready"), consumerId))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PRODUCT_ORDER_PAYMENT_EXPIRED"));
+
+        verify(paymentGateway, never()).ready(any());
+    }
+
+    @Test
+    void aGroupThatExpiredInsideTheCheckoutWindowIsNotCharged() throws Exception {
+        Long groupId = checkout();
+        ready(groupId);
+        expirePaymentDeadline(groupId);
+
+        mockMvc.perform(approveRequest(groupId, consumerId))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PRODUCT_ORDER_PAYMENT_EXPIRED"));
+
+        verify(paymentGateway, never()).approve(any());
+        assertThat(productOrderGroupRepository.findById(groupId).orElseThrow().getStatus())
+                .isEqualTo(ProductOrderGroupStatus.CREATED);
+        assertThat(productItemRepository.countByProductModelIdAndStatus(
+                bagId, ProductItemStatus.RESERVED)).isEqualTo(1);
+    }
+
     // ── 만료 ────────────────────────────────────────────────
 
     @Test
@@ -618,10 +763,12 @@ class ProductOrderGroupPaymentApiTests {
     @Test
     void theSweepLeavesPaidGroupsAlone() throws Exception {
         // 배치가 목록을 읽은 뒤 승인이 들어올 수 있다. 그때 정상 결제를 지우면 안 된다.
+        // 승인을 마감 전에 한 뒤 마감을 과거로 옮긴다 — 마감이 지난 묶음은 이제 승인 자체가
+        // 거부되므로(PRODUCT_ORDER_PAYMENT_EXPIRED), 그 순서로는 결제된 묶음을 만들 수 없다.
         Long groupId = checkout();
         ready(groupId);
-        expirePaymentDeadline(groupId);
         mockMvc.perform(approveRequest(groupId, consumerId)).andExpect(status().isOk());
+        expirePaymentDeadline(groupId);
 
         expiryWorker.expireUnpaidOrders();
 

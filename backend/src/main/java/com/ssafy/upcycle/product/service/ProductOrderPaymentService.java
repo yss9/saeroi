@@ -86,7 +86,7 @@ public class ProductOrderPaymentService {
     public ProductOrderPaymentReadyResponse ready(Long buyerId, Long orderId) {
         ProductOrder order = requireOwnOrder(buyerId, orderId);
         requireNotGrouped(order);
-        requireStatus(order, ProductOrderStatus.CREATED);
+        requirePayable(order);
 
         PaymentReady ready = paymentCoordinator.ready(
                 order.getOrderCode(),
@@ -101,7 +101,9 @@ public class ProductOrderPaymentService {
                 ready.tid(),
                 ready.redirectUrl(),
                 order.getTotalPrice(),
-                paymentCoordinator.isLive());
+                paymentCoordinator.isLive(),
+                ProductPaymentDeadline.at(order.getPaymentDeadline(), clock),
+                ProductPaymentDeadline.remainingSeconds(order.getPaymentDeadline(), clock));
     }
 
     /**
@@ -121,7 +123,8 @@ public class ProductOrderPaymentService {
     public ProductOrderResponse approve(Long buyerId, Long orderId, String pgToken) {
         ProductOrder order = requireOwnOrder(buyerId, orderId);
         requireNotGrouped(order);
-        requireStatus(order, ProductOrderStatus.CREATED);
+        // 준비 시점에 유효했어도 결제창에 오래 머물면 승인 때는 지나 있을 수 있다.
+        requirePayable(order);
 
         PaymentApproval approval = paymentCoordinator.approve(
                 order.getPaymentReference(),
@@ -271,6 +274,24 @@ public class ProductOrderPaymentService {
         return orders.findById(orderId)
                 .filter(order -> order.getBuyerId().equals(buyerId))
                 .orElseThrow(() -> new BusinessException(ProductErrorCode.PRODUCT_ORDER_NOT_FOUND));
+    }
+
+    /**
+     * 지금 결제할 수 있는 주문인지. <b>상태와 마감을 함께 본다.</b>
+     *
+     * <p>마감 검사가 없으면 {@code ProductOrderExpiryWorker} 가 그 주문을 지우기 전까지는
+     * 결제가 통과한다. 배치는 60초마다 돌고 밀리면 더 길어져, 마감이 실제로 지켜지는 시각이
+     * 주문마다 달라진다. 가공비 결제({@code ProcessingPaymentService.requirePayable})가
+     * 이미 같은 모양으로 막고 있다.
+     *
+     * <p><b>배치를 대신하는 것이 아니다.</b> 잡아 둔 개체를 재고로 되돌리는 일은 검사로는
+     * 되지 않는다 — 배치는 그대로 두고, 이 검사는 그보다 먼저 막는다.
+     */
+    private void requirePayable(ProductOrder order) {
+        requireStatus(order, ProductOrderStatus.CREATED);
+        if (order.isPaymentExpiredAt(LocalDateTime.now(clock))) {
+            throw new BusinessException(ProductErrorCode.PRODUCT_ORDER_PAYMENT_EXPIRED);
+        }
     }
 
     private void requireStatus(ProductOrder order, ProductOrderStatus expected) {

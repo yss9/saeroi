@@ -2,6 +2,7 @@ package com.ssafy.upcycle.product.dto;
 
 import com.ssafy.upcycle.product.entity.ProductOrderStatus;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 /**
@@ -17,14 +18,27 @@ public record ProductOrderResponse(
         String orderCode,
 
         /**
+         * 이 주문이 속한 묶음의 id. <b>단일 주문은 {@code null} 이다.</b>
+         *
+         * <p><b>묶음 주문의 결제·취소 경로가 받는 값이다</b>
+         * ({@code /api/v1/product-order-groups/\{orderGroupId\}}). 이 값이 없으면 화면은
+         * 결제창에서 이탈한 장바구니 주문을 다시 결제할 수도, 취소할 수도 없다 — 주문
+         * 경로는 묶인 주문을 거절하고({@code PRODUCT_ORDER_BELONGS_TO_GROUP}), 묶음 경로로
+         * 갈 주소는 만들 수 없기 때문이다.
+         *
+         * <p>이름과 타입은 그 거절 응답이 싣는 {@link ProductOrderGroupRef} 와 같다 — 같은
+         * 값이 두 이름으로 나가면 화면이 두 벌을 다뤄야 한다.
+         */
+        Long orderGroupId,
+
+        /**
          * 이 주문이 속한 묶음 번호. <b>단일 주문은 {@code null} 이다.</b>
          *
-         * <p>장바구니로 주문하면 브랜드 수만큼 주문이 생기고 결제는 묶음이 한 번 받는다.
-         * 주문 목록에서 어느 주문들이 같은 결제였는지 알려면 이 값이 필요하다 — 없으면
-         * 같은 순간에 생긴 주문 여러 건이 서로 무관해 보인다.
+         * <p>사람이 읽고 문의할 때 대는 값이다. 주문 목록에서 어느 주문들이 같은 결제였는지
+         * 알려면 이 값이 필요하다 — 없으면 같은 순간에 생긴 주문 여러 건이 서로 무관해
+         * 보인다.
          *
-         * <p>결제·취소 경로가 받는 값은 아니다. 묶음의 결제와 취소는
-         * {@code orderGroupId} 를 받는 별도 경로가 처리한다.
+         * <p>경로에 넣는 값은 {@code orderGroupId} 다. 코드로 묶음을 찾는 경로는 없다.
          */
         String orderGroupCode,
         String brandName,
@@ -42,5 +56,19 @@ public record ProductOrderResponse(
          * <p>구매자가 "배송 중" 만 보고 어디쯤 왔는지 알 수 없어 브랜드에 연락하던 것을
          * 메운다. 값은 원래 {@code product_shipping} 에 있었고 브랜드용 응답만 사용하고 있었다.
          */
-        ProductOrderShippingResponse shipping) {
+        ProductOrderShippingResponse shipping,
+
+        /**
+         * 결제 마감 시각. <b>오프셋이 붙어 있다</b>({@code 2026-09-18T00:26:46+09:00}).
+         *
+         * <p>결제가 끝났거나 마감이 지난 주문도 값을 비우지 않는다 — 조건부로 {@code null}
+         * 이면 화면이 "왜 없는지" 를 상태에서 다시 추론해야 한다. 지금 결제할 수 있는지는
+         * {@code status} 가 말한다.
+         *
+         * <p>마감이 없는 주문은 {@code null} 이다.
+         */
+        OffsetDateTime paymentDeadline,
+
+        /** 지금부터 마감까지 남은 초. 이미 지났으면 0, 마감이 없으면 {@code null}. */
+        Long remainingSeconds) {
 }

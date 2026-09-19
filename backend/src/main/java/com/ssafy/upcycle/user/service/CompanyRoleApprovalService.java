@@ -6,6 +6,7 @@ import com.ssafy.upcycle.user.CompanyRoleApprovalErrorCode;
 import com.ssafy.upcycle.user.dto.CompanyRoleApplicationResponse;
 import com.ssafy.upcycle.user.dto.CompanyRoleApprovalRequest;
 import com.ssafy.upcycle.user.entity.CompanyProfile;
+import com.ssafy.upcycle.user.entity.CompanyRoleApprovalStatus;
 import com.ssafy.upcycle.user.entity.User;
 import com.ssafy.upcycle.user.entity.UserRole;
 import com.ssafy.upcycle.user.entity.UserWallet;
@@ -16,6 +17,8 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,7 +37,12 @@ public class CompanyRoleApprovalService {
 
     @Transactional(readOnly = true)
     public List<CompanyRoleApplicationResponse> findAll() {
+        Set<Long> pendingUserIds = companyProfileRepository
+                .findAllByRoleApprovalStatus(CompanyRoleApprovalStatus.PENDING).stream()
+                .map(CompanyProfile::getUserId)
+                .collect(Collectors.toSet());
         return userRepository.findAllByRoleInOrderByCreatedAtDesc(BUSINESS_ROLES).stream()
+                .filter(user -> pendingUserIds.contains(user.getId()))
                 .map(this::response)
                 .toList();
     }

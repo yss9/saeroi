@@ -54,7 +54,9 @@ public class ProcessorSearchService {
                 from processor_capability c
                 join processor_profile p on p.user_id=c.processor_profile_id
                 join users u on u.id=p.user_id
+                join company_profile company on company.user_id=p.user_id
                 where u.role='PROCESSOR' and u.status='ACTIVE'
+                  and company.role_approval_status='APPROVED'
                   and c.material_type=:materialType and c.process_type in (:purposes)
                   and c.min_quantity<=:quantity and c.max_quantity>=:quantity
                   and exists (select 1 from processor_lead_time configured
@@ -108,8 +110,10 @@ public class ProcessorSearchService {
         String registered = """
                 from processor_profile p
                 join users u on u.id=p.user_id
+                join company_profile company on company.user_id=p.user_id
                 join processor_capability c on c.processor_profile_id=p.user_id
                 where u.role='PROCESSOR' and u.status='ACTIVE'
+                  and company.role_approval_status='APPROVED'
                   and exists (select 1 from processor_lead_time configured
                               where configured.processor_profile_id=p.user_id
                                 and configured.material_type=c.material_type
