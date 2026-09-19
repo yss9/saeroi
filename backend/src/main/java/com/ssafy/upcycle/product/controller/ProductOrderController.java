@@ -200,6 +200,27 @@ public class ProductOrderController {
         return ApiResponse.success(productOrderQueryService.findMyOrders(userId(jwt), condition));
     }
 
+    /**
+     * 본인 주문 한 건.
+     *
+     * <p><b>결제창에서 돌아온 화면이 그 주문을 다시 읽는 경로다.</b> 이 경로가 없으면 화면은
+     * 주문 목록을 페이지마다 훑으며 id 가 같은 건을 찾아야 한다 — 주문이 쌓일수록 복귀 한
+     * 번에 요청이 여러 번 나간다.
+     *
+     * <p>남의 주문을 가리키면 <b>"없음" 으로 답한다.</b> 403 은 그 id 의 주문이 존재한다는
+     * 사실을 흘리고, 주문 id 는 순번이라 하나씩 올려 보며 남의 주문 유무를 셀 수 있다.
+     * 묶음 조회({@code GET /api/v1/product-order-groups/\{orderGroupId\}})와 같은 방식이다.
+     *
+     * <p>응답은 목록·생성·승인과 같은 {@link ProductOrderResponse} 다. 단건 전용 모양을
+     * 따로 만들면 같은 주문이 화면마다 다른 형태로 도착한다.
+     */
+    @GetMapping("/{orderId}")
+    public ApiResponse<ProductOrderResponse> findMyOrder(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable @Positive(message = "주문 id는 양수여야 합니다.") Long orderId) {
+        return ApiResponse.success(productOrderQueryService.findMyOrder(userId(jwt), orderId));
+    }
+
     /** 마이페이지 주문 진행 현황용 상태별 전체 건수. */
     @GetMapping("/me/summary")
     public ApiResponse<ProductOrderStatusSummaryResponse> summarizeMyOrders(
