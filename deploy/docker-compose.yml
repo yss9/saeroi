@@ -68,6 +68,13 @@ services:
       DB_USERNAME: ${MYSQL_USER}
       DB_PASSWORD: ${MYSQL_PASSWORD}
       AI_SERVER_BASE_URL: http://ai:8000
+      # BRAND 대화형 에이전트가 쓰는 LLM(GMS). env_file 금지 규칙에 따라 키를 명시한다.
+      # 비어 있으면 backend 는 뜨고 에이전트만 503 이다.
+      AGENT_LLM_BASE_URL: ${AGENT_LLM_BASE_URL:-https://gms.ssafy.io/gmsapi/api.anthropic.com}
+      AGENT_LLM_API_KEY: ${AGENT_LLM_API_KEY:-}
+      AGENT_LLM_MODEL: ${AGENT_LLM_MODEL:-claude-haiku-4-5-20251001}
+      AGENT_LLM_THINKING: ${AGENT_LLM_THINKING:-false}
+      AGENT_MAX_TOOL_ITERATIONS: ${AGENT_MAX_TOOL_ITERATIONS:-4}
       # 파일 저장소. **키가 없으면 local(파일시스템)** 이다 — application.yml 쪽
       # 기본값이 그렇다. MinIO 로 옮기려면 .env 에 STORAGE_TYPE=s3 를 넣는다.
       # 그때까지 minio 컨테이너는 떠 있지만 backend 가 쓰지 않는다.
