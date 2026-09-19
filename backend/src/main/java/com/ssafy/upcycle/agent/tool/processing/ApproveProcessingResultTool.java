@@ -4,42 +4,43 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ssafy.upcycle.agent.entity.JourneyPhase;
 import com.ssafy.upcycle.agent.tool.AbstractAgentTool;
-import com.ssafy.upcycle.agent.tool.AgentToolArgumentException;
 import com.ssafy.upcycle.agent.tool.AgentToolContext;
 import com.ssafy.upcycle.agent.tool.AgentToolResult;
 import com.ssafy.upcycle.agent.tool.PendingActionKind;
-import com.ssafy.upcycle.processing.dto.ProcessingJobResponse;
-import com.ssafy.upcycle.processing.dto.ProcessingSignedCommandRequest;
-import com.ssafy.upcycle.processing.service.ProcessingJobWorkflowService;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import org.springframework.stereotype.Component;
 
 /**
- * 업체가 올린 가공 결과를 승인한다. <b>여기서 새 소재가 생긴다.</b>
+ * 업체가 돌려보낸 가공 결과를 받아들인다. <b>여기서 새 소재가 생긴다.</b>
  *
- * <p>승인하는 순간 투입 소재가 소비되고, 결과물이 새 소재로 발행되어 담당자의 보유 목록에
- * 들어온다. 부모-자식이 {@code material_lineage} 로 이어져 제품 패스포트의 이력이 된다.
- * 되돌릴 수 없다 — 그래서 서명을 받는다.
+ * <p>승인하면 업체가 쥐고 있던 투입 소재가 소비되고, 결과물이 새 소재로 발행되어 담당자의
+ * 보유 목록에 들어온다. 부모-자식이 {@code material_lineage} 로 이어져 제품 패스포트의
+ * 이력이 된다. 되돌릴 수 없다 — 그래서 서명을 받는다.
  *
- * <p><b>결과가 마음에 들지 않으면 승인하지 않는다.</b> 거절은 별도 경로(기존 화면)이고
- * 반송 절차가 따라붙는다. 이 tool 은 승인만 한다 — 대화에서 실수로 반송까지 일어나면
- * 되돌리는 비용이 크다.
+ * <h2>서버가 체인에 쓰지 않는다</h2>
  *
- * <p>서명 흐름은 프론트가 기존 화면과 같은 경로로 한다: 챌린지 발급
- * ({@code POST /processing-jobs/{id}/signature-challenge}, action=APPROVE) → 서명 →
- * 그 결과를 이 카드의 승인 결과로 돌려준다.
+ * <p>{@code request_chain_order} 와 같다. 프론트가 온체인 승인({@code approveProcessingResult})
+ * 을 서명하고, 그 영수증을 기존 API({@code POST /processing-jobs/{id}/return/receive})로
+ * 붙인다 — <b>화면에서 승인하는 것과 같은 경로</b>다. 서버는 영수증을 RPC 로 확인한 뒤에야
+ * 소재를 발행한다({@code ProcessingChainService#receiveReturn}).
+ *
+ * <p>도메인에 서명 없이 승인하는 메서드({@code ProcessingJobWorkflowService#approve})가
+ * 따로 있지만 쓰지 않는다. 그쪽은 어떤 화면도 부르지 않는 경로이고, 체인 영수증을 확인하지
+ * 않으며 소비하는 잠금도 다르다. 대화가 그 길로 가면 화면으로 한 승인과 대화로 한 승인이
+ * 서로 다른 결과를 남긴다.
+ *
+ * <h2>업체가 결과를 돌려보낸 뒤에만 가능하다</h2>
+ *
+ * <p>{@code receiveReturn} 은 작업이 {@code RETURN_SHIPPED} 일 때만 받는다. 결과만 올라오고
+ * 아직 발송 전이면 승인할 수 없다 — 물건이 오는 중인데 소유를 옮길 수는 없다.
  */
 @Component
 public class ApproveProcessingResultTool extends AbstractAgentTool {
 
-    private final ProcessingJobWorkflowService workflow;
-
-    public ApproveProcessingResultTool(
-            ObjectMapper objectMapper, ProcessingJobWorkflowService workflow) {
+    public ApproveProcessingResultTool(ObjectMapper objectMapper) {
         super(objectMapper);
-        this.workflow = workflow;
     }
 
     @Override
@@ -49,10 +50,11 @@ public class ApproveProcessingResultTool extends AbstractAgentTool {
 
     @Override
     public String description() {
-        return "업체가 올린 가공 결과를 승인한다. 승인하면 투입 소재가 소비되고 결과물이 "
-                + "새 소재로 발행되어 보유 목록에 들어온다. 되돌릴 수 없으므로 담당자가 결과를 "
-                + "확인했는지 먼저 묻는다. 결과가 잘못됐다면 승인하지 말고 화면에서 거절해야 "
-                + "한다고 안내한다.";
+        return "업체가 돌려보낸 가공 결과를 승인하도록 담당자에게 서명 카드를 띄운다. "
+                + "승인하면 투입 소재가 소비되고 결과물이 새 소재로 발행되어 보유 목록에 들어온다. "
+                + "되돌릴 수 없으므로 담당자가 결과와 수량을 확인했는지 먼저 묻는다. "
+                + "결과가 잘못됐다면 승인하지 말고 가공 작업 화면에서 거절해야 한다고 안내한다. "
+                + "업체가 결과를 발송한 뒤에만 쓸 수 있다.";
     }
 
     @Override
@@ -88,32 +90,24 @@ public class ApproveProcessingResultTool extends AbstractAgentTool {
     /**
      * 담당자가 서명을 끝낸 뒤에만 불린다.
      *
-     * <p>서명 검증은 {@code ProcessingSignatureService} 가 한다. 여기서는 챌린지와 서명을
-     * 도메인에 그대로 넘긴다 — 검증 규칙이 두 곳에 생기면 한쪽만 바뀔 때 구멍이 난다.
+     * <p>{@code txHash} 를 검증하지 않는다. {@code receiveReturn} 이 영수증을 RPC 로 확인하며
+     * 이미 하고 있고, 여기서 또 하면 같은 규칙이 두 곳에 생긴다.
      */
     @Override
     public AgentToolResult execute(AgentToolContext context, JsonNode arguments) {
         long jobId = requiredPositiveLong(arguments, "jobId");
         JsonNode userResult = arguments.path("_userResult");
-
-        Long challengeId = userResult.path("challengeId").isNumber()
-                ? userResult.path("challengeId").asLong()
-                : null;
-        String signature = userResult.path("signature").asText(null);
-        if (challengeId == null || signature == null || signature.isBlank()) {
-            throw new AgentToolArgumentException(
-                    "서명 결과(challengeId, signature)가 없습니다. 서명을 다시 진행해야 합니다.");
-        }
-
-        ProcessingJobResponse job = workflow.approve(
-                context.userId(), jobId, new ProcessingSignedCommandRequest(challengeId, signature));
+        String txHash = userResult.path("txHash").asText(null);
 
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("jobId", jobId);
-        payload.put("job", job);
+        payload.put("signed", txHash != null);
+        payload.put("txHash", txHash);
 
-        String message = "가공 결과를 승인했습니다. 결과물이 새 소재로 발행되어 보유 목록에 들어왔습니다. "
-                + "이제 생산 단계로 넘어갈 수 있습니다.";
+        String message = txHash == null
+                ? "서명이 확인되지 않았습니다. 다시 시도해 주세요."
+                : "가공 결과를 승인했습니다. 결과물이 새 소재로 발행되어 보유 목록에 들어왔습니다. "
+                        + "이제 생산 단계로 넘어갈 수 있습니다.";
         payload.put("message", message);
         return AgentToolResult.of(json(payload), message);
     }
