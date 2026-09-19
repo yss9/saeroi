@@ -41,7 +41,14 @@ export function AgentLauncher({ label = 'AI 어시스턴트' }: { label?: string
   }
 
   return (
-    <button type="button" className="agent-launcher" onClick={open}>
+    // 앱 공용 버튼 체계를 쓴다. 이 버튼만 대화창 밖(마켓플레이스 등)에 놓이므로
+    // agent.css 의 스코프가 닿지 않는다 — 자체 스타일을 두면 같은 화면의 다른 버튼과
+    // 따로 논다.
+    <button
+      type="button"
+      className="ui-button ui-button--secondary ui-button--sm agent-launcher"
+      onClick={open}
+    >
       {label}
     </button>
   )
