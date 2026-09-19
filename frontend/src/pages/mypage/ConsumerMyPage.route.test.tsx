@@ -51,7 +51,7 @@ const orderPage = {
  * URL 로 갈라 각각 다른 모양을 돌려준다. 하나로 뭉뚱그리면 배송지 자리에 주문 페이지가
  * 실려 `addresses.find is not a function` 으로 화면이 통째로 죽는다.
  */
-function mockMyPageApi() {
+function mockMyPageApi(page = orderPage) {
   return vi.spyOn(apiClient, 'get').mockImplementation(async (url) => {
     if (url === '/v1/product-orders/me/summary') {
       return { data: { created: 0, paid: 0, shipped: 0, delivered: 1 } } as AxiosResponse
@@ -60,7 +60,7 @@ function mockMyPageApi() {
     if (url === '/v1/consumers/me/addresses') {
       return { data: [] } as AxiosResponse
     }
-    return { data: orderPage } as AxiosResponse
+    return { data: page } as AxiosResponse
   })
 }
 
@@ -150,7 +150,7 @@ describe('consumer mypage route', () => {
     renderRoute('/mypage/orders')
 
     expect(await screen.findByRole('heading', { name: '데님 서클 백' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '제품 여정 확인' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'PRODUCT PASSPORT' })).toHaveAttribute(
       'href',
       'http://localhost:5173/qr/journey-token',
     )
@@ -252,11 +252,46 @@ describe('consumer mypage route', () => {
     for (const label of ['상품 수', '총 결제금액', '받는사람', '주소']) {
       expect(details.getByText(label)).toBeInTheDocument()
     }
+    expect(screen.getByRole('link', { name: 'PRODUCT PASSPORT' })).toHaveAttribute(
+      'href',
+      'http://localhost:5173/qr/journey-token',
+    )
     expect(screen.queryByText('받는 곳')).not.toBeInTheDocument()
     const receipt = screen.getByRole('button', { name: '영수증 출력' })
     expect(receipt.querySelector('svg')).toBeNull()
     await userEvent.setup().click(receipt)
     expect(print).toHaveBeenCalledOnce()
+  })
+
+  it('주문 취소는 목록이 아니라 취소 가능한 주문의 상세에서 진행한다', async () => {
+    const paidOrderPage = {
+      ...orderPage,
+      content: [{
+        ...orderPage.content[0],
+        status: 'PAID',
+        deliveredAt: null,
+        shippedAt: null,
+      }],
+    }
+    mockMyPageApi(paidOrderPage)
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ data: null } as AxiosResponse)
+    signInAsConsumer()
+    const user = userEvent.setup()
+
+    renderRoute('/mypage/orders')
+
+    await screen.findByRole('heading', { name: '데님 서클 백' })
+    expect(screen.queryByRole('button', { name: '주문 취소' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('link', { name: /주문 상세보기/ }))
+
+    await user.click(await screen.findByRole('button', { name: '주문 취소' }))
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByText(/결제하신 금액은 환불됩니다/)).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: '주문 취소' }))
+
+    await waitFor(() => {
+      expect(post).toHaveBeenCalledWith('/v1/product-orders/1/cancel', undefined)
+    })
   })
 
   it('links the common storefront menus to their pages', async () => {
