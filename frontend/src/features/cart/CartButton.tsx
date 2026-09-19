@@ -30,6 +30,11 @@ export function CartButton({ productId, name, className, text, disabled = false,
       {text && (added ? '장바구니로 이동' : text)}
     </button>
     {(notice || action.isError) && <span className="cart-action__notice" role="alert">{notice || cartErrorMessage(action.error)}</span>}
-    {!toggleOnSuccess && action.isSuccess && <span className="cart-action__notice" role="status">장바구니에 담았습니다. <Link to="/cart">장바구니 보기</Link></span>}
+    {!toggleOnSuccess && action.isSuccess && (
+      <span className="cart-action__notice cart-action__notice--success" role="status">
+        <span>장바구니에 담았습니다.</span>
+        <Link to="/cart">장바구니 보기</Link>
+      </span>
+    )}
   </>
 }
