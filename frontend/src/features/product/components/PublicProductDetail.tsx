@@ -23,15 +23,16 @@ export function PublicProductDetail({ productId }: { productId: number | null })
 }
 
 function ProductBody({ product }: { product: Product }) {
-  const { isAuthenticated, role } = useAuth()
+  const { isAuthenticated, role, user } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [notice, setNotice] = useState('')
   const soldOut = product.stockQuantity === 0
+  const viewerId = isAuthenticated ? user?.id ?? null : null
 
   useEffect(() => {
-    recordRecentlyViewedProduct(product.productModelId)
-  }, [product.productModelId])
+    if (viewerId !== null) recordRecentlyViewedProduct(viewerId, product.productModelId)
+  }, [product.productModelId, viewerId])
 
   function requireLogin(action: () => void) {
     if (!isAuthenticated) {

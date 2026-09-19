@@ -19,7 +19,7 @@ export function ConsumerRecentlyViewedPage() {
   const { user } = useAuth()
   const logout = useLogout()
   const profile = user ? { name: user.name, email: user.email } : null
-  const recent = useRecentlyViewedProducts()
+  const recent = useRecentlyViewedProducts(user?.id ?? null)
   const items = recent.products
 
   return (

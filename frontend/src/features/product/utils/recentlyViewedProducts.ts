@@ -1,13 +1,17 @@
-export const RECENTLY_VIEWED_PRODUCTS_STORAGE_KEY = 'saeroi.recently-viewed-product-ids'
 export const RECENTLY_VIEWED_PRODUCTS_LIMIT = 8
+
+export function recentlyViewedProductsStorageKey(userId: number): string {
+  return `recently-viewed:${userId}`
+}
 
 /**
  * The history is deliberately browser-local and contains IDs only. Reading can
  * throw when storage is disabled, so callers always receive a usable array.
  */
-export function readRecentlyViewedProductIds(): number[] {
+export function readRecentlyViewedProductIds(userId: number): number[] {
+  if (!Number.isSafeInteger(userId) || userId <= 0) return []
   try {
-    const raw = window.localStorage.getItem(RECENTLY_VIEWED_PRODUCTS_STORAGE_KEY)
+    const raw = window.localStorage.getItem(recentlyViewedProductsStorageKey(userId))
     if (!raw) return []
 
     const parsed: unknown = JSON.parse(raw)
@@ -28,29 +32,29 @@ export function readRecentlyViewedProductIds(): number[] {
 }
 
 /** Adds a successfully loaded product to the front without duplicates. */
-export function recordRecentlyViewedProduct(productId: number): void {
-  if (!Number.isSafeInteger(productId) || productId <= 0) return
+export function recordRecentlyViewedProduct(userId: number, productId: number): void {
+  if (!Number.isSafeInteger(userId) || userId <= 0 || !Number.isSafeInteger(productId) || productId <= 0) return
 
   const next = [
     productId,
-    ...readRecentlyViewedProductIds().filter((id) => id !== productId),
+    ...readRecentlyViewedProductIds(userId).filter((id) => id !== productId),
   ].slice(0, RECENTLY_VIEWED_PRODUCTS_LIMIT)
 
   try {
-    window.localStorage.setItem(RECENTLY_VIEWED_PRODUCTS_STORAGE_KEY, JSON.stringify(next))
+    window.localStorage.setItem(recentlyViewedProductsStorageKey(userId), JSON.stringify(next))
   } catch {
     // Storage may be unavailable in private or restricted browsing contexts.
   }
 }
 
 /** Removes products that are no longer publicly available. */
-export function removeRecentlyViewedProductIds(productIds: readonly number[]): void {
+export function removeRecentlyViewedProductIds(userId: number, productIds: readonly number[]): void {
   if (productIds.length === 0) return
   const removed = new Set(productIds)
-  const next = readRecentlyViewedProductIds().filter((id) => !removed.has(id))
+  const next = readRecentlyViewedProductIds(userId).filter((id) => !removed.has(id))
 
   try {
-    window.localStorage.setItem(RECENTLY_VIEWED_PRODUCTS_STORAGE_KEY, JSON.stringify(next))
+    window.localStorage.setItem(recentlyViewedProductsStorageKey(userId), JSON.stringify(next))
   } catch {
     // The list still renders normally even when history cannot be persisted.
   }

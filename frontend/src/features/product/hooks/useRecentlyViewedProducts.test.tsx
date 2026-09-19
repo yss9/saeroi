@@ -6,7 +6,7 @@ import { createAppError, ERROR_KIND } from '../../../utils/errors.ts'
 import type { PublicProductDetail } from '../types/publicProduct.types.ts'
 import {
   readRecentlyViewedProductIds,
-  RECENTLY_VIEWED_PRODUCTS_STORAGE_KEY,
+  recentlyViewedProductsStorageKey,
 } from '../utils/recentlyViewedProducts.ts'
 import { useRecentlyViewedProducts } from './useRecentlyViewedProducts.ts'
 
@@ -44,30 +44,49 @@ beforeEach(() => {
 
 describe('useRecentlyViewedProducts', () => {
   it('keeps the stored order even when product requests finish out of order', async () => {
-    window.localStorage.setItem(RECENTLY_VIEWED_PRODUCTS_STORAGE_KEY, JSON.stringify([3, 1, 2]))
+    window.localStorage.setItem(recentlyViewedProductsStorageKey(10), JSON.stringify([3, 1, 2]))
     productApi.getPublicProductModel.mockImplementation((id: number) =>
       new Promise<PublicProductDetail>((resolve) => {
         window.setTimeout(() => resolve(product(id)), id === 3 ? 20 : id === 1 ? 10 : 1)
       }),
     )
 
-    const { result } = renderHook(() => useRecentlyViewedProducts(), { wrapper })
+    const { result } = renderHook(() => useRecentlyViewedProducts(10), { wrapper })
 
     await waitFor(() => expect(result.current.isPending).toBe(false))
     expect(result.current.products.map((item) => item.productModelId)).toEqual([3, 1, 2])
   })
 
   it('silently removes a product that is no longer publicly available', async () => {
-    window.localStorage.setItem(RECENTLY_VIEWED_PRODUCTS_STORAGE_KEY, JSON.stringify([3, 2]))
+    window.localStorage.setItem(recentlyViewedProductsStorageKey(10), JSON.stringify([3, 2]))
     productApi.getPublicProductModel.mockImplementation((id: number) => {
       if (id === 3) return Promise.reject(createAppError(ERROR_KIND.API_ERROR, { status: 404 }))
       return Promise.resolve(product(id))
     })
 
-    const { result } = renderHook(() => useRecentlyViewedProducts(), { wrapper })
+    const { result } = renderHook(() => useRecentlyViewedProducts(10), { wrapper })
 
     await waitFor(() => expect(result.current.products.map((item) => item.productModelId)).toEqual([2]))
     expect(result.current.isError).toBe(false)
-    expect(readRecentlyViewedProductIds()).toEqual([2])
+    expect(readRecentlyViewedProductIds(10)).toEqual([2])
+  })
+
+  it('switches histories with the signed-in account and restores the original account history', async () => {
+    window.localStorage.setItem(recentlyViewedProductsStorageKey(10), JSON.stringify([31]))
+    window.localStorage.setItem(recentlyViewedProductsStorageKey(20), JSON.stringify([42]))
+    productApi.getPublicProductModel.mockImplementation((id: number) => Promise.resolve(product(id)))
+
+    const { result, rerender } = renderHook(
+      ({ userId }: { userId: number | null }) => useRecentlyViewedProducts(userId),
+      { wrapper, initialProps: { userId: 10 as number | null } },
+    )
+
+    await waitFor(() => expect(result.current.products.map((item) => item.productModelId)).toEqual([31]))
+    rerender({ userId: 20 })
+    await waitFor(() => expect(result.current.products.map((item) => item.productModelId)).toEqual([42]))
+    rerender({ userId: null })
+    expect(result.current.products).toEqual([])
+    rerender({ userId: 10 })
+    await waitFor(() => expect(result.current.products.map((item) => item.productModelId)).toEqual([31]))
   })
 })

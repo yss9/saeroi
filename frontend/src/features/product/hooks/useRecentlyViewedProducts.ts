@@ -1,5 +1,5 @@
 import { useQueries } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { getPublicProductModel } from '../api/getPublicProductModel.ts'
 import { publicProductKeys } from '../api/publicProductKeys.ts'
 import {
@@ -9,8 +9,8 @@ import {
 import { isAppError } from '../../../utils/errors.ts'
 
 /** Loads browser history through the same detail cache used by product pages. */
-export function useRecentlyViewedProducts() {
-  const [productIds] = useState(readRecentlyViewedProductIds)
+export function useRecentlyViewedProducts(userId: number | null) {
+  const productIds = userId === null ? [] : readRecentlyViewedProductIds(userId)
   const queries = useQueries({
     queries: productIds.map((productId) => ({
       queryKey: [...publicProductKeys.all, 'detail', productId],
@@ -33,10 +33,10 @@ export function useRecentlyViewedProducts() {
   const missingIdKey = missingIds.join(',')
 
   useEffect(() => {
-    if (!missingIdKey) return
+    if (userId === null || !missingIdKey) return
     const ids = missingIdKey.split(',').map(Number)
-    removeRecentlyViewedProductIds(ids)
-  }, [missingIdKey])
+    removeRecentlyViewedProductIds(userId, ids)
+  }, [missingIdKey, userId])
 
   // useQueries follows input order, but map by the saved IDs explicitly so this
   // remains true even when requests finish in a different order.
