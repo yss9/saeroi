@@ -13,6 +13,7 @@ import { useAuthStore } from '../../stores/authStore.ts'
 import { createAppError, ERROR_KIND } from '../../utils/errors.ts'
 import { LoginPage } from '../auth/LoginPage.tsx'
 import { PublicProductDetailPage } from './PublicProductDetailPage.tsx'
+import { readRecentlyViewedProductIds } from '../../features/product/utils/recentlyViewedProducts.ts'
 
 const product: PublicProductDetail = {
   productModelId: 31, name: '데님 토트백', brandId: 5, brandName: 'REWEAVE', category: 'BAG', subcategory: 'TOTE',
@@ -40,6 +41,7 @@ function show(path = '/products/31') {
 function signIn() { useAuthStore.getState().signIn({ id: 5, email: 'c@test.com', name: '고객', role: 'CONSUMER', walletAddress: null }, 'test-token') }
 function ActualRoutes() { return useRoutes(routes) }
 beforeEach(() => {
+  window.localStorage.clear()
   useAuthStore.getState().signOut()
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
   vi.spyOn(apiClient, 'get').mockImplementation(async (url) => ({ data: url.endsWith('/product-ids') ? [] : url.endsWith('/cart') ? { items: [], totalQuantity: 0, totalPrice: 0 } : url.endsWith('/addresses') ? [] : product }) as AxiosResponse)
@@ -74,6 +76,14 @@ describe('public consumer product detail', () => {
     expect(screen.getByRole('link', { name: product.brandName })).toHaveAttribute('href', `/brands/${product.brandId}`)
     expect(screen.getByText(/소재의 다음 이야기/)).toHaveTextContent('오래 사용할 가방')
     expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, left: 0, behavior: 'instant' })
+    expect(readRecentlyViewedProductIds(5)).toEqual([])
+  })
+  it('records a successfully loaded product only for the signed-in account', async () => {
+    signIn()
+    show()
+
+    expect(await screen.findByRole('heading', { name: product.name })).toBeInTheDocument()
+    await waitFor(() => expect(readRecentlyViewedProductIds(5)).toEqual([31]))
   })
   it('renders no-image state without dummy assets', async () => {
     vi.mocked(apiClient.get).mockResolvedValue({ data: { ...product, thumbnailUrl: '' } } as AxiosResponse)
@@ -171,6 +181,7 @@ describe('public consumer product detail', () => {
     expect(await screen.findByRole('heading', { name: '상품을 찾을 수 없습니다' })).toBeInTheDocument()
     expect(apiClient.get).toHaveBeenCalledTimes(1)
     expect(screen.queryByRole('button', { name: '다시 시도' })).not.toBeInTheDocument()
+    expect(readRecentlyViewedProductIds(5)).toEqual([])
   })
   it.each(['abc', '0', '-1', '1e2'])('rejects invalid product ID %s without an API request', (id) => {
     show(`/products/${id}`)

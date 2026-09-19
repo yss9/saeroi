@@ -1,6 +1,6 @@
 import { CartButton } from '../../cart/CartButton.tsx'
 import { WishlistButton } from '../../wishlist/WishlistButton.tsx'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../auth/hooks/useAuth.ts'
 import { shopPath } from '../../shop/catalog.ts'
@@ -10,6 +10,7 @@ import { usePublicProductModel } from '../hooks/usePublicProductModel.ts'
 import type { PublicProductDetail as Product } from '../types/publicProduct.types.ts'
 import { PRODUCT_CATEGORY_LABEL } from '../types/product.types.ts'
 import { ProductPurchasePanel } from '../../user/components/ProductPurchasePanel.tsx'
+import { recordRecentlyViewedProduct } from '../utils/recentlyViewedProducts.ts'
 
 export function PublicProductDetail({ productId }: { productId: number | null }) {
   const query = usePublicProductModel(productId)
@@ -22,11 +23,16 @@ export function PublicProductDetail({ productId }: { productId: number | null })
 }
 
 function ProductBody({ product }: { product: Product }) {
-  const { isAuthenticated, role } = useAuth()
+  const { isAuthenticated, role, user } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [notice, setNotice] = useState('')
   const soldOut = product.stockQuantity === 0
+  const viewerId = isAuthenticated ? user?.id ?? null : null
+
+  useEffect(() => {
+    if (viewerId !== null) recordRecentlyViewedProduct(viewerId, product.productModelId)
+  }, [product.productModelId, viewerId])
 
   function requireLogin(action: () => void) {
     if (!isAuthenticated) {
