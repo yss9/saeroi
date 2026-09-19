@@ -22,7 +22,7 @@ describe('LoginPage', () => {
   it('renders the standard account login entry', () => {
     renderPage()
 
-    expect(screen.getByRole('heading', { name: '다시 만나 반가워요' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'WELCOME BACK' })).toBeInTheDocument()
     expect(screen.getByLabelText('이메일')).toHaveAttribute('type', 'email')
     expect(screen.getByLabelText('비밀번호')).toHaveAttribute('type', 'password')
     expect(screen.getByRole('link', { name: '회원가입' })).toHaveAttribute('href', '/signup')
