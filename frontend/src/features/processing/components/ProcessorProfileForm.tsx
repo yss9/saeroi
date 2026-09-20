@@ -52,7 +52,6 @@ export function ProcessorProfileForm() {
   // 적으려고 같은 일을 두 번 해야 한다.
   const [materialFilters, setMaterialFilters] = useState<MaterialType[]>([])
   const [processFilters, setProcessFilters] = useState<ProcessType[]>([])
-  const [registrationFilter, setRegistrationFilter] = useState<'ALL' | 'REGISTERED' | 'UNREGISTERED'>('ALL')
   const [editor, setEditor] = useState<ConditionEditor | null>(null)
   const [editorError, setEditorError] = useState('')
   const [saveNotice, setSaveNotice] = useState('')
@@ -188,11 +187,6 @@ export function ProcessorProfileForm() {
   const searchResults = materialTypes.flatMap(materialType => processTypes.map(processType => emptyCapability(materialType, processType)))
     .filter(capability => !materialFilters.length || materialFilters.includes(capability.materialType))
     .filter(capability => !processFilters.length || processFilters.includes(capability.processType))
-    .filter(capability => {
-      if (registrationFilter === 'ALL') return true
-      const registered = capabilities.some(row => capabilityKey(row) === capabilityKey(capability))
-      return registrationFilter === 'REGISTERED' ? registered : !registered
-    })
 
   return <div className="processor-profile-form">
     <section className="processor-profile-card processor-profile-region-card">
@@ -219,20 +213,23 @@ export function ProcessorProfileForm() {
         {/* 소재도 공정과 같은 방식으로 고른다 — 한 번에 여러 소재를 훑어야 조건을 한 벌로 적는다. */}
         <fieldset><legend>소재</legend><div className="processor-profile-filter-checks">{materialTypes.map(type => <label key={type}><input type="checkbox" checked={materialFilters.includes(type)} onChange={() => toggleMaterialFilter(type)} /><span>{MATERIAL_TYPE_LABEL[type]}</span></label>)}</div></fieldset>
         <fieldset><legend>공정 방식</legend><div className="processor-profile-filter-checks">{processTypes.map(type => <label key={type}><input type="checkbox" checked={processFilters.includes(type)} onChange={() => toggleProcessFilter(type)} /><span>{PROCESS_TYPE_LABEL[type]}</span></label>)}</div></fieldset>
-        <label><span>등록 상태</span><select aria-label="등록 상태 필터" value={registrationFilter} onChange={event => setRegistrationFilter(event.target.value as typeof registrationFilter)}><option value="ALL">전체</option><option value="REGISTERED">등록됨</option><option value="UNREGISTERED">미등록</option></select></label>
         <strong>검색 결과 {searchResults.length}개</strong>
       </div>
       <div className="processor-profile-search-results">{searchResults.length ? searchResults.map(candidate => {
         const key = capabilityKey(candidate)
         const existing = capabilities.find(row => capabilityKey(row) === key)
         const label = capabilityLabel(candidate)
-        return <div className={`processor-profile-search-result${existing ? ' is-registered' : ''}`} key={key}><div><strong>{label}</strong><span>{existing ? `하루 ${toKg(existing.dailyCapacity).toLocaleString()} kg · kg당 ${existing.pricePerKg.toLocaleString()}원` : '하루 처리량과 단가를 등록할 수 있어요.'}</span></div><button type="button" className={existing ? 'is-edit' : ''} aria-label={`${label} ${existing ? '등록됨 · 수정' : '추가'}`} onClick={() => openEditor(existing ?? candidate)}>{existing ? <><CheckCircle weight="fill" />등록됨 · 수정</> : <><Plus />추가</>}</button></div>
+        return <div className={`processor-profile-search-result${existing ? ' is-registered' : ''}`} key={key}><div><strong>{label}</strong><span>{existing ? `하루 ${toKg(existing.dailyCapacity).toLocaleString()} kg · kg당 ${existing.pricePerKg.toLocaleString()}원` : '하루 처리량과 단가를 등록할 수 있어요.'}</span></div><button type="button" className={existing ? 'is-edit' : ''} aria-label={`${label} ${existing ? '등록됨' : '추가'}`} onClick={() => openEditor(existing ?? candidate)}>{existing ? <><CheckCircle weight="fill" />등록됨</> : <><Plus />추가</>}</button></div>
       }) : <p className="processor-profile-no-results">조건에 맞는 공정이 없어요. 필터를 변경해 주세요.</p>}</div>
     </section>
 
     <section className="processor-profile-card processor-profile-preview">
       <div className="processor-profile-title"><CheckCircle size={23} /><div><h2>Brand 검색 노출 미리보기</h2></div></div>
-      <div className="processor-profile-preview-body"><strong>{region || '업체 주소 미등록'}</strong><div>{capabilities.map(capability => <span key={capabilityKey(capability)}>{capabilityLabel(capability)} · 하루 {toKg(capability.dailyCapacity).toLocaleString()} kg · kg당 {capability.pricePerKg.toLocaleString()}원</span>)}</div></div>
+      {/*
+        등록한 조건을 고치러 검색 칸으로 되돌아가지 않는다 — 이미 눈앞에 있는 줄을 누르면
+        그 조건의 편집 모달이 열린다. 검색은 "없는 조건을 새로 만드는" 자리로 남는다.
+      */}
+      <div className="processor-profile-preview-body"><strong>{region || '업체 주소 미등록'}</strong><div>{capabilities.map(capability => <button type="button" key={capabilityKey(capability)} aria-label={`${capabilityLabel(capability)} 조건 수정`} onClick={() => openEditor(capability)}>{capabilityLabel(capability)} · 하루 {toKg(capability.dailyCapacity).toLocaleString()} kg · kg당 {capability.pricePerKg.toLocaleString()}원</button>)}</div>{capabilities.length > 0 && <small>클릭하면 수정할 수 있어요.</small>}</div>
     </section>
 
     {(data.saveProfile.isError || data.saveConditions.isError) && <p className="processor-profile-message processor-profile-error" role="alert">{toErrorMessage(data.saveProfile.error ?? data.saveConditions.error)}</p>}
