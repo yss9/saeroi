@@ -76,10 +76,23 @@ export function PassportView({ qrToken }: PassportViewProps) {
             </div>
           </dl>
 
-          <span className="passport-product__verified">
-            <ShieldCheck size={18} weight="fill" aria-hidden="true" />
-            Verified Upcycled Product
-          </span>
+          {/*
+            검증 여부를 그대로 따른다. 예전에는 이 배지가 무조건 "Verified" 였는데, 같은
+            화면 아래 JourneyExplorer 는 blockchainVerified=false 일 때 "기록 확인 중" 을
+            띄운다 — 한 페이지가 검증됐다고도 아니라고도 말하고 있었다 (2026-09-21 확인).
+            검증된 출처가 이 제품의 값어치 자체라서 여기서 앞서 말하면 안 된다.
+          */}
+          {data.journey?.blockchainVerified ? (
+            <span className="passport-product__verified">
+              <ShieldCheck size={18} weight="fill" aria-hidden="true" />
+              Verified Upcycled Product
+            </span>
+          ) : (
+            <span className="passport-product__verified is-pending">
+              <ShieldCheck size={18} weight="duotone" aria-hidden="true" />
+              블록체인 기록 확인 중
+            </span>
+          )}
         </section>
 
         {data.traceabilityAvailable && data.journey ? (

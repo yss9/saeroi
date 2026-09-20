@@ -114,6 +114,13 @@
   font-weight: 600;
 }
 
+/* 아직 검증되지 않은 제품. 파란 "확인됨" 색을 그대로 쓰면 글자만 바뀌고 화면은
+   여전히 검증된 것처럼 읽힌다 — 색까지 눌러야 한눈에 구분된다. */
+.passport-product__verified.is-pending {
+  color: #8a8578;
+  font-weight: 500;
+}
+
 .passport-product__meta {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1468,6 +1475,8 @@
 .passport .journey-canvas__heading > span, .passport .journey-detail__header p { font-family: "Manrope", sans-serif; }
 .passport-product__eyebrow, .passport .journey-metrics__eyebrow,
 .passport-product__verified { color: var(--brand-blue); }
+/* 검증 전에는 "확인됨" 파랑을 쓰지 않는다 — 위 규칙보다 뒤에 와야 이긴다. */
+.passport .passport-product__verified.is-pending { color: var(--muted); }
 .passport-product__brand, .passport-product__description, .passport-product__meta dt,
 .passport .journey-detail__company span, .passport .journey-detail__facts dt,
 .passport .journey-detail__materials li small, .passport .journey-stepper__status,
