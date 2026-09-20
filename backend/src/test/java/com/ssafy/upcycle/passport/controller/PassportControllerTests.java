@@ -650,7 +650,6 @@ class PassportControllerTests {
         ProcessingJob job = processingJobRepository.save(ProcessingJob.create(
                 jobCode,
                 100L + sequence,
-                200L + sequence,
                 model.getBrandId(),
                 processor.getId(),
                 "0x1234567890123456789012345678901234567890",
@@ -663,6 +662,7 @@ class PassportControllerTests {
         processingRequestTypeRepository.save(new ProcessingRequestType(
                 job.getProcessingRequestId(), processType, 1));
         job.markPaid("payment-" + sequence, 0, now.plusMinutes(1));
+        job.accept(now.plusMinutes(2));
         job.ship(now.plusMinutes(2));
         job.receive(now.plusMinutes(3));
         job.startProcessing();

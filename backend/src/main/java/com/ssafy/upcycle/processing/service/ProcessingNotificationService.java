@@ -54,25 +54,25 @@ public class ProcessingNotificationService {
         }
     }
 
-    public void quoteSubmitted(ProcessingRequest request) {
-        send(
-                request.getBrandId(),
-                NotificationType.PROCESSING_QUOTE_RECEIVED,
-                "새 견적이 도착했어요",
-                "가공업체가 제출한 견적을 확인해 주세요.",
-                "/brand/processing/requests/" + request.getId(),
-                NotificationReferenceType.PROCESSING_REQUEST,
-                request.getId(),
+    /** 가공사가 일을 받았다. 브랜드가 이제 소재를 보내면 된다. */
+    public void jobAccepted(ProcessingJob job) {
+        jobNotification(
+                job,
+                job.getBrandId(),
+                NotificationType.PROCESSING_JOB_ACCEPTED,
+                "가공 요청이 수락됐어요",
+                "소재를 발송해 주세요.",
                 null);
     }
 
-    public void quoteSelected(ProcessingJob job) {
+    /** 가공사가 일을 거절했거나 기한 안에 답하지 않았다. 결제분은 환불된다. */
+    public void jobDeclined(ProcessingJob job) {
         jobNotification(
                 job,
-                job.getProcessorId(),
-                NotificationType.PROCESSING_QUOTE_SELECTED,
-                "견적이 선택됐어요",
-                "가공 작업과 결제 상태를 확인해 주세요.",
+                job.getBrandId(),
+                NotificationType.PROCESSING_JOB_DECLINED,
+                "가공 요청이 거절됐어요",
+                "결제하신 가공비는 환불됩니다.",
                 null);
     }
 

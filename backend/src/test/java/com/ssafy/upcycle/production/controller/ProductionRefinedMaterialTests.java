@@ -344,6 +344,7 @@ class ProductionRefinedMaterialTests {
         ProcessingJob job = jobRepository.save(newJob(processTypes));
         LocalDateTime at = BASE.plusHours(sequence);
         job.markPaid("refined-payment-" + sequence, 0, at.plusMinutes(1));
+        job.accept(at.plusMinutes(2));
         job.ship(at.plusMinutes(2));
         job.receive(at.plusMinutes(3));
         job.start(at.plusMinutes(4));
@@ -365,7 +366,7 @@ class ProductionRefinedMaterialTests {
                     new ProcessingRequestType(requestId, processTypes[i], i + 1));
         }
         return ProcessingJob.create(
-                "JOB-REFINED-" + id, requestId, 8_000L + id, brand.getId(), processor.getId(),
+                "JOB-REFINED-" + id, requestId, brand.getId(), processor.getId(),
                 WALLET, WALLET, 0, PaymentMethod.MOCK, BASE.plusHours(id));
     }
 

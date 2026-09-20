@@ -26,6 +26,7 @@ public class ProcessingPaymentService {
     private final Clock clock;
     private final MaterialEventRecorder eventRecorder;
     private final ProcessingNotificationService businessNotifications;
+    private final ProcessingRequestService requests;
     @Value("${app.payment.kakaopay.processing-return-url:http://localhost:5173/processing/jobs/{jobId}/payment/callback}")
     private String returnUrl;
 
@@ -69,8 +70,12 @@ public class ProcessingPaymentService {
         PaymentApproval approval=gateway.approve(new PaymentApproveCommand(job.getPaymentReference(), job.getJobCode(),
                 String.valueOf(job.getBrandId()), pgToken, job.getFee()));
         if (approval.approvedAmount()!=job.getFee()) throw new BusinessException(PROCESSING_PAYMENT_AMOUNT_MISMATCH);
-        try { job.markPaid(approval.tid(), approval.approvedAmount(), approval.approvedAt()); }
+        // 결제와 동시에 가공사의 수락 기한이 걸린다. 여기서 안 걸면 배치가 찾지 못해
+        // 가공사가 영영 답하지 않아도 브랜드의 돈과 소재가 묶인 채로 남는다.
+        LocalDateTime acceptDeadline = approval.approvedAt().plus(ProcessingJob.ACCEPTANCE_WINDOW);
+        try { job.markPaid(approval.tid(), approval.approvedAmount(), approval.approvedAt(), acceptDeadline); }
         catch (IllegalStateException e) { throw new BusinessException(PROCESSING_PAYMENT_EXPIRED); }
+        requests.markAwaitingAcceptance(job.getProcessingRequestId(), acceptDeadline);
         for (MaterialLock lock:locks.findByReferenceForUpdate(MaterialLockReferenceType.PROCESSING_JOB, jobId)) {
             if (lock.getStatus()==MaterialLockStatus.ACTIVE) lock.clearExpiryForPaidProcessingJob(jobId);
             eventRecorder.record(

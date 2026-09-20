@@ -339,10 +339,8 @@ class RoleApiAccessMatrixTests {
                 args("GET", "/api/v1/processing-requests/" + ABSENT_ID),
                 args("POST", "/api/v1/processing-requests/" + ABSENT_ID + "/cancel"),
                 args("POST", "/api/v1/processing-requests/" + ABSENT_ID + "/reject"),
-                args("POST", "/api/v1/processing-requests/" + ABSENT_ID + "/quotes"),
-                args("GET", "/api/v1/processing-requests/" + ABSENT_ID + "/quotes"),
-                args("POST", "/api/v1/quotes/" + ABSENT_ID + "/select"),
-                args("POST", "/quotes/" + ABSENT_ID + "/select"),
+                args("PATCH", "/api/v1/processing-jobs/" + ABSENT_ID + "/accept"),
+                args("PATCH", "/api/v1/processing-jobs/" + ABSENT_ID + "/reject"),
                 args("GET", "/api/v1/processing-jobs/" + ABSENT_ID),
                 args("GET", "/processing-jobs/" + ABSENT_ID),
                 args("POST", "/api/v1/processing-jobs/" + ABSENT_ID + "/payment"),
@@ -485,9 +483,8 @@ class RoleApiAccessMatrixTests {
                 new Row("POST", "/processing-requests/" + ABSENT_ID + "/cancel", brand),
                 new Row("PATCH", "/processing-requests/" + ABSENT_ID + "/cancel", brand),
                 new Row("POST", "/processing-requests/" + ABSENT_ID + "/reject", processor),
-                new Row("POST", "/processing-requests/" + ABSENT_ID + "/quotes", processor),
-                new Row("GET", "/processing-requests/" + ABSENT_ID + "/quotes", brand),
-                new Row("POST", "/quotes/" + ABSENT_ID + "/select", brand),
+                new Row("PATCH", "/processing-jobs/" + ABSENT_ID + "/accept", processor),
+                new Row("PATCH", "/processing-jobs/" + ABSENT_ID + "/reject", processor),
                 new Row("POST", "/processing-jobs/" + ABSENT_ID + "/payment", brand),
                 new Row("POST", "/processing-jobs/" + ABSENT_ID + "/payment/confirm", brand),
                 new Row("GET", "/processors/search", brand),
@@ -702,7 +699,7 @@ class RoleApiAccessMatrixTests {
                 new String[] {"PATCH", "/api/v1/trades/" + ABSENT_ID + "/ship"},
                 new String[] {"POST", "/api/v1/trades/" + ABSENT_ID + "/receive/confirm"},
                 new String[] {"POST", "/api/v1/processing-requests"},
-                new String[] {"POST", "/api/v1/quotes/" + ABSENT_ID + "/select"},
+                new String[] {"PATCH", "/api/v1/processing-jobs/" + ABSENT_ID + "/accept"},
                 new String[] {"POST", "/api/v1/processing-jobs/" + ABSENT_ID + "/payment"});
 
         for (String[] write : writes) {
@@ -882,11 +879,8 @@ class RoleApiAccessMatrixTests {
             return json(Map.of("materialId", ABSENT_ID, "processorId", ABSENT_ID,
                     "quantity", 1_000, "processTypes", List.of("CLEANING")));
         }
-        if (bare.endsWith("/quotes") && method.equals("POST")) {
-            return json(Map.of("price", 1_000, "leadDays", 3));
-        }
-        if (bare.endsWith("/select")) {
-            return json(Map.of("paymentMethod", "KAKAO_PAY"));
+        if (bare.endsWith("/processing-jobs/" + ABSENT_ID + "/reject") && method.equals("PATCH")) {
+            return json(Map.of("reason", "설비 점검 중입니다"));
         }
         if (bare.endsWith("/payment/confirm")) {
             return json(Map.of("pgToken", "matrix-pg-token"));

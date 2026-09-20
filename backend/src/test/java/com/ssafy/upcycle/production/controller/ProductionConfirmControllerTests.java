@@ -600,9 +600,10 @@ class ProductionConfirmControllerTests {
         }
         LocalDateTime at = LocalDateTime.of(2026, 9, 18, 9, 0).plusHours(id);
         ProcessingJob job = jobRepository.save(ProcessingJob.create(
-                "JOB-CONFIRM-" + id, requestId, 8_000L + id, brand.getId(), brand.getId() + 1,
+                "JOB-CONFIRM-" + id, requestId, brand.getId(), brand.getId() + 1,
                 WALLET, WALLET, 0, PaymentMethod.MOCK, at));
         job.markPaid("confirm-payment-" + id, 0, at.plusMinutes(1));
+        job.accept(at.plusMinutes(2));
         job.ship(at.plusMinutes(2));
         job.receive(at.plusMinutes(3));
         job.start(at.plusMinutes(4));

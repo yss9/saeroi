@@ -37,7 +37,7 @@ class ProcessingRequestQueryServiceTests {
         row.put("brand_name", "brand");
         row.put("processor_id", 1L);
         row.put("processor_name", "processor");
-        row.put("status", "QUOTING");
+        row.put("status", "REQUESTED");
         row.put("created_at", createdAt);
         row.put("expires_at", expiresAt);
         row.put("material_id", 3L);
