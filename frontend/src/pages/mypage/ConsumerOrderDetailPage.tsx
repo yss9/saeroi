@@ -1,7 +1,8 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   Button,
+  ConfirmModal,
   EmptyState,
   ErrorMessage,
   Loading,
@@ -12,8 +13,10 @@ import { useAuth } from '../../features/auth/hooks/useAuth.ts'
 import { useLogout } from '../../features/auth/hooks/useLogout.ts'
 import { ConsumerAccountLayout } from '../../features/user/components/ConsumerAccountLayout.tsx'
 import { OrderProgress, TrackingLine } from '../../features/user/components/ConsumerOrderList.tsx'
+import { useCancelProductOrder } from '../../features/user/hooks/useCancelProductOrder.ts'
 import { useConsumerOrderThumbnail } from '../../features/user/hooks/useConsumerOrderThumbnail.ts'
 import { useConsumerMyPage } from '../../features/user/hooks/useConsumerMyPage.ts'
+import { usePaymentCountdown } from '../../features/user/hooks/usePaymentCountdown.ts'
 import type {
   ConsumerOrderViewStatus,
   ConsumerRecentOrder,
@@ -59,6 +62,8 @@ export function ConsumerOrderDetailPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const logout = useLogout()
+  const cancel = useCancelProductOrder()
+  const [cancelOpen, setCancelOpen] = useState(false)
   const profile = user ? { id: user.id, name: user.name, email: user.email } : null
   const myPage = useConsumerMyPage(profile)
 
@@ -68,6 +73,7 @@ export function ConsumerOrderDetailPage() {
       (candidate) => String(candidate.orderId) === orderId,
     )
   }, [myPage.data, orderId])
+  const paymentCountdown = usePaymentCountdown(group?.remainingSeconds, group?.paymentDeadline)
 
   return (
     <ConsumerAccountLayout
@@ -163,6 +169,19 @@ export function ConsumerOrderDetailPage() {
             </dl>
           </div>
 
+          {group.status === 'PAYMENT_PENDING' && (
+            <div className="consumer-order-detail__payment-action">
+              {paymentCountdown.label && <p role="timer">{paymentCountdown.label}</p>}
+              {paymentCountdown.expired ? (
+                <Button disabled>결제하기</Button>
+              ) : (
+                <Link className="consumer-order-detail__pay-link" to={`/orders/${group.orderId}/checkout`}>
+                  결제하기
+                </Link>
+              )}
+            </div>
+          )}
+
           {/*
             영수증은 별도 메뉴 없이 여기서 바로 출력한다(2026-09-16 개편) — 방금 위에서 본
             결제 정보·받는 곳이 곧 영수증 내용이라, 새 화면으로 옮겨 다시 찾을 이유가 없다.
@@ -171,10 +190,45 @@ export function ConsumerOrderDetailPage() {
 
           */}
           <div className="consumer-order-detail__receipt-action">
+            {!group.orderGroupCode &&
+              (group.status === 'PAYMENT_PENDING' || group.status === 'PREPARING') && (
+                <Button
+                  variant="secondary"
+                  loading={cancel.isPending}
+                  onClick={() => setCancelOpen(true)}
+                >
+                  주문 취소
+                </Button>
+              )}
+            {group.orderGroupCode && group.status === 'PAYMENT_PENDING' && (
+              <Link
+                className="consumer-order-detail__cancel-link"
+                to={`/orders/${group.orderId}/checkout?action=cancel`}
+              >
+                주문 전체 취소
+              </Link>
+            )}
             <Button variant="secondary" onClick={() => window.print()}>
               영수증 출력
             </Button>
           </div>
+
+          {cancel.isError && <ErrorMessage error={cancel.error} />}
+          <ConfirmModal
+            open={cancelOpen}
+            title="주문을 취소할까요?"
+            message={`${group.orderNumber} 주문을 취소합니다.${group.status === 'PREPARING' ? ' 결제하신 금액은 환불됩니다.' : ''} 취소한 주문은 목록에서 사라지고 되돌릴 수 없습니다.`}
+            confirmLabel="주문 취소"
+            destructive
+            loading={cancel.isPending}
+            onConfirm={() =>
+              cancel.mutate(group.orderId, {
+                onSuccess: () => navigate('/mypage/orders', { replace: true }),
+                onSettled: () => setCancelOpen(false),
+              })
+            }
+            onClose={() => setCancelOpen(false)}
+          />
         </section>
       )}
     </ConsumerAccountLayout>
@@ -206,7 +260,7 @@ function OrderDetailItemRow({ item }: { item: ConsumerRecentOrder }) {
             {priceFormatter.format(item.itemPrice)}
             <span> · {item.itemCount}개</span>
           </p>
-          {item.journeyUrl && <a className="consumer-text-link consumer-order-detail__journey" href={item.journeyUrl}>제품 여정 확인</a>}
+          {item.journeyUrl && <a className="consumer-text-link consumer-order-detail__journey" href={item.journeyUrl}>PRODUCT PASSPORT</a>}
         </div>
       </div>
 

@@ -21,17 +21,15 @@
 .public-product__stock { font-size: 13px; margin: 20px 0 30px; color: var(--landing-blue); }
 .public-product__stock--empty { color: var(--landing-muted); }
 .public-product__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.public-product__actions button { min-height: 52px; border: 1px solid var(--landing-line); background: transparent; color: var(--landing-ink); font: inherit; font-size: 13px; display: flex; gap: 8px; justify-content: center; align-items: center; cursor: pointer; padding: 10px; }
-.public-product__actions .public-product__buy { grid-column: 1 / -1; background: var(--landing-ink); color: var(--landing-paper); border-color: var(--landing-ink); }
+.public-product__actions button { min-height: 52px; border: 1px solid var(--landing-line); border-radius: 6px; background: transparent; color: var(--landing-ink); font: inherit; font-size: 13px; display: flex; gap: 8px; justify-content: center; align-items: center; cursor: pointer; padding: 10px; }
 .public-product__actions button:disabled { opacity: .45; cursor: not-allowed; }
 .public-product__actions button[aria-pressed] svg { color: var(--brand-orange); }
 .public-product__actions button[aria-pressed="true"] { color: var(--brand-orange); }
-.public-product__purchase { margin-top: 18px; }
+.public-product__purchase { margin-top: 10px; }
 .public-product__purchase .ui-button { min-height: 52px; padding: 12px 20px; border: 1px solid var(--landing-ink); border-radius: 6px; background: var(--landing-ink); color: var(--landing-paper); font: inherit; font-size: 14px; font-weight: 600; }
 .public-product__purchase .ui-button:hover:not(:disabled) { background: #363632; border-color: #363632; }
 .public-product__purchase .ui-button:disabled { opacity: .45; cursor: not-allowed; }
 .public-product__notice { min-height: 22px; font-size: 12px; line-height: 1.7; color: var(--landing-blue); margin: 12px 0 4px; }
-.public-product__memory { font-size: 11px; line-height: 1.6; color: var(--landing-muted); }
 .public-product__description { margin-top: 32px; padding-top: 26px; border-top: 1px solid var(--landing-line); }
 .public-product__description h2 { font-size: 15px; font-weight: 500; margin: 0 0 16px; }
 .public-product__description p { white-space: pre-line; word-break: keep-all; overflow-wrap: break-word; font-size: 14px; line-height: 1.9; color: var(--landing-muted); }

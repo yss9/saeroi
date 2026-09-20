@@ -1,4 +1,4 @@
-import { ArrowLeft, CalendarBlank, Clock, Factory, Package } from '@phosphor-icons/react'
+import { ArrowLeft, CalendarBlank, Clock, Factory, Package, Receipt } from '@phosphor-icons/react'
 import { Link } from 'react-router-dom'
 import { isAppError } from '../../../utils/errors.ts'
 import { useBrandProcessingRequestDetail } from '../hooks/useBrandProcessingRequestDetail.ts'
@@ -40,14 +40,15 @@ export function BrandProcessingRequestDetail({ requestId }: Props) {
     return (
       <div className="br-detail__state br-detail__state--error" role="alert">
         <strong>상세 정보를 불러오지 못했어요</strong><p>{message(detail.error)}</p>
-        <button type="button" onClick={() => void detail.refetch()}>다시 시도</button>
+        <button type="button" onClick={() => { void detail.refetch() }}>다시 시도</button>
       </div>
     )
   }
   if (!detail.data) return null
 
   const request = detail.data
-  // 결제는 작업이 만들어진 직후(CREATED)에만 남은 일이다. 결제하면 가공사 차례로 넘어간다.
+  // 결제는 작업에 걸려 있다. 요청이 만들어질 때 함께 생긴 작업이 아직 CREATED(결제 전)면
+  // 여기서 결제한다 — 결제하면 가공사가 수락할 차례로 넘어간다.
   const paymentJob = job?.status === 'CREATED' ? job : null
 
   return (
@@ -79,9 +80,19 @@ export function BrandProcessingRequestDetail({ requestId }: Props) {
         <div className="br-detail__processes"><span>요청 가공</span><div>{request.processTypes.map(type => <strong key={type}>{PROCESS_TYPE_LABEL[type]}</strong>)}</div></div>
       </section>
 
-      {/* 결제가 남았으면 그것부터. 맡긴 업체를 금액 위에 한 번 더 적는다. */}
-      {paymentJob && (
-        <section className="br-detail__quotes" aria-label="가공비 결제">
+      {/*
+        **견적서 자리에 "무엇을 얼마에 맡겼는가" 를 둔다.**
+
+        견적 단계가 사라져 받을 견적서가 없다. 금액은 브랜드가 검색 결과에서 고른 순간
+        서버가 확정해 작업에 적어 두므로, 결제 버튼 앞에서 "이 금액이 어느 업체의
+        것인가" 를 확인할 근거는 요청(업체·공정·수량)과 작업(금액)에 모두 있다.
+      */}
+      {job && (
+        <section className="br-detail__quotes" aria-labelledby="processing-terms-title">
+          <div className="br-detail__section-title">
+            <div><Receipt aria-hidden="true" /><h2 id="processing-terms-title">가공 조건</h2></div>
+          </div>
+
           <section className="br-detail__chosen" aria-label="맡긴 가공업체">
             <div className="br-detail__chosen-head">
               <Factory aria-hidden="true" />
@@ -91,13 +102,28 @@ export function BrandProcessingRequestDetail({ requestId }: Props) {
               </div>
             </div>
             <dl>
-              <div><dt>가공비</dt><dd>{won(paymentJob.fee)}</dd></div>
+              {/* 결제 전에는 바로 아래 결제 칸이 같은 금액을 이미 말한다 — 두 줄에 적지 않는다.
+                  결제가 끝나 그 칸이 사라진 뒤에는 여기가 유일하게 금액을 남기는 자리다. */}
+              {!paymentJob && <div><dt>가공 비용</dt><dd>{won(job.fee)}</dd></div>}
               <div><dt>요청 수량</dt><dd>{grams(request.quantity)}</dd></div>
             </dl>
           </section>
 
-          <ProcessingPaymentEntry job={paymentJob} />
+          {paymentJob && <ProcessingPaymentEntry job={paymentJob} />}
         </section>
+      )}
+
+      {job?.status === 'ACCEPTED' && (
+        <div className="br-detail__job-link">
+          {/* 소재 발송은 온체인 작업 등록 → 발송 서명까지 여러 단계를 거친다. 그 단계는 작업
+              상세(useProcessingJobs)에만 있다 — 여기서 다시 만들면 온체인 등록 없이 상태만
+              SHIPPED 로 바뀌는 두 번째 발송 경로가 생긴다.
+
+              결제 직후(PAID)가 아니라 가공사가 수락한 뒤에 둔다. 수락 전에 보낸 소재는
+              가공사가 거절하면 갈 곳이 없다. */}
+          <span>가공사가 요청을 수락했습니다. 소재 발송은 작업 상세에서 온체인으로 진행합니다.</span>
+          <Link to={`/processing/jobs/${job.jobId}`}>소재 발송하기</Link>
+        </div>
       )}
 
       {/*
@@ -115,7 +141,7 @@ export function BrandProcessingRequestDetail({ requestId }: Props) {
         이미 결제한 요청에서는 지난 일을 다시 알리는 칸이 되고, 만료된 화면에서는 아직
         유효한 것처럼 읽히기까지 한다.
       */}
-      {request.status === 'REQUESTED' && paymentJob && (
+      {paymentJob && (
         <aside className="br-detail__notice"><CalendarBlank aria-hidden="true" /><p>{date(paymentJob.paymentExpiresAt)}까지 결제하지 않으면 요청이 만료되고 잠긴 소재 수량이 풀립니다.</p></aside>
       )}
     </section>

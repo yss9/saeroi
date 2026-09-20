@@ -113,6 +113,8 @@ export function toConsumerMyPageData(
       paidAt: order.paidAt,
       shippedAt: order.shippedAt,
       deliveredAt: order.deliveredAt,
+      paymentDeadline: order.paymentDeadline,
+      remainingSeconds: order.remainingSeconds,
       // 서버가 아직 안 주면 undefined 다. 화면은 값이 있을 때만 송장 줄을 그린다.
       carrier: order.shipping?.carrier ?? null,
       trackingNumber: order.shipping?.trackingNumber ?? null,

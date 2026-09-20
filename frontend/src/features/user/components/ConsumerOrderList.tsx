@@ -10,9 +10,9 @@ import {
   StatusBadge,
   type StatusTone,
 } from '../../../components/common/index.ts'
-import { useCancelProductOrder } from '../hooks/useCancelProductOrder.ts'
 import { useConfirmProductOrderDelivery } from '../hooks/useConfirmProductOrderDelivery.ts'
 import { useConsumerOrderThumbnail } from '../hooks/useConsumerOrderThumbnail.ts'
+import { usePaymentCountdown } from '../hooks/usePaymentCountdown.ts'
 import type {
   ConsumerOrderViewStatus,
   ConsumerRecentOrder,
@@ -52,14 +52,10 @@ const orderStatusMeta: Record<ConsumerOrderViewStatus, { label: string; tone: St
  * 카드 하나에 다 넣으면 제품이 여럿인 주문에서 같은 정보(택배사·주소)가 제품 수만큼
  * 반복된다.
  */
-type PendingAction = { kind: 'confirm' | 'cancel'; order: ConsumerOrderGroup }
-
 export function ConsumerOrderList({ orders }: { orders: readonly ConsumerRecentOrder[] }) {
   const confirm = useConfirmProductOrderDelivery()
-  const cancel = useCancelProductOrder()
 
-  // 모달은 한 번에 하나만 뜬다. 셋을 따로 들고 있으면 같은 자리에 여럿이 겹칠 수 있다.
-  const [pending, setPending] = useState<PendingAction | null>(null)
+  const [pending, setPending] = useState<ConsumerOrderGroup | null>(null)
   const [shippingItem, setShippingItem] = useState<ConsumerRecentOrder | null>(null)
 
   if (orders.length === 0) {
@@ -100,41 +96,28 @@ export function ConsumerOrderList({ orders }: { orders: readonly ConsumerRecentO
 
       {/* 실패는 목록 위에 둔다. 어느 주문에서 눌렀는지는 버튼이 제자리에 남아 안다. */}
       {confirm.isError && <ErrorMessage error={confirm.error} />}
-      {cancel.isError && <ErrorMessage error={cancel.error} />}
 
       <div className="consumer-recent-orders">
         {groups.map((group) => (
           <OrderGroupCard
             key={group.orderId}
             group={group}
-            busy={
-              (confirm.isPending && confirm.variables === group.orderId) ||
-              (cancel.isPending && cancel.variables === group.orderId)
-            }
-            onConfirmDelivery={() => setPending({ kind: 'confirm', order: group })}
-            onCancel={() => setPending({ kind: 'cancel', order: group })}
+            busy={confirm.isPending && confirm.variables === group.orderId}
+            onConfirmDelivery={() => setPending(group)}
             onShowShipping={setShippingItem}
           />
         ))}
       </div>
 
-      {/*
-        둘 다 되돌릴 수 없다. 어느 주문인지 문장에 넣는다 — 주문에 제품이 여럿이면 큰 박스
-        어디를 눌러도 그 주문이 통째로 처리된다.
-      */}
       <ConfirmModal
         open={pending !== null}
-        title={pending?.kind === 'cancel' ? '주문을 취소할까요?' : '배송을 받으셨나요?'}
-        message={pending === null ? '' : actionMessage(pending)}
-        confirmLabel={pending?.kind === 'cancel' ? '주문 취소' : '수령 확인'}
-        destructive={pending?.kind === 'cancel'}
-        loading={confirm.isPending || cancel.isPending}
+        title="배송을 받으셨나요?"
+        message={pending === null ? '' : `${pending.orderNumber} 주문을 수령 완료로 표시합니다. 되돌릴 수 없습니다.`}
+        confirmLabel="수령 확인"
+        loading={confirm.isPending}
         onConfirm={() => {
           if (pending === null) return
-          const done = { onSettled: () => setPending(null) }
-          if (pending.kind === 'cancel') {
-            if (!pending.order.orderGroupCode) cancel.mutate(pending.order.orderId, done)
-          } else confirm.mutate(pending.order.orderId, done)
+          confirm.mutate(pending.orderId, { onSettled: () => setPending(null) })
         }}
         onClose={() => setPending(null)}
       />
@@ -142,20 +125,6 @@ export function ConsumerOrderList({ orders }: { orders: readonly ConsumerRecentO
       <ShippingInfoModal item={shippingItem} onClose={() => setShippingItem(null)} />
     </section>
   )
-}
-
-/**
- * 확인 문구.
- *
- * 취소는 **결과를 미리 말해야 한다** — 목록에서 사라지고(서버가 행을 지운다), 결제했다면
- * 환불이 함께 나간다. "되돌릴 수 없습니다" 만으로는 무엇이 없어지는지 알 수 없다.
- */
-function actionMessage({ kind, order }: PendingAction): string {
-  if (kind === 'confirm') {
-    return `${order.orderNumber} 주문을 수령 완료로 표시합니다. 되돌릴 수 없습니다.`
-  }
-  const refund = order.status === 'PREPARING' ? ' 결제하신 금액은 환불됩니다.' : ''
-  return `${order.orderNumber} 주문을 취소합니다.${refund} 취소한 주문은 목록에서 사라지고 되돌릴 수 없습니다.`
 }
 
 /**
@@ -170,16 +139,15 @@ function OrderGroupCard({
   group,
   busy,
   onConfirmDelivery,
-  onCancel,
   onShowShipping,
 }: {
   group: ConsumerOrderGroup
   busy: boolean
   onConfirmDelivery: () => void
-  onCancel: () => void
   onShowShipping: (item: ConsumerRecentOrder) => void
 }) {
   const status = orderStatusMeta[group.status]
+  const paymentCountdown = usePaymentCountdown(group.remainingSeconds, group.paymentDeadline)
 
   return (
     <article className="consumer-order-group" aria-label={`${group.orderNumber} 주문`}>
@@ -193,38 +161,42 @@ function OrderGroupCard({
         </Link>
       </header>
 
-      {group.orderGroupCode && <p className="consumer-order-group__reference">주문 번호 {group.orderGroupCode}</p>}
-
       <div className="consumer-order-group__items">
-        {group.items.map((item) => (
-          <OrderItemCard key={item.id} item={item} onShowShipping={() => onShowShipping(item)} />
+        {group.items.map((item, index) => (
+          <OrderItemCard
+            key={item.id}
+            item={item}
+            orderReference={index === 0 ? (group.orderGroupCode ?? group.orderNumber) : undefined}
+            onShowShipping={() => onShowShipping(item)}
+          />
         ))}
       </div>
 
-      {/*
-        **배송 중일 때만 나온다.** 받았다고 말하는 쪽은 구매자다 — 브랜드가 발송을
-        처리해도 주문은 배송 중에서 멈추고, 여기서 눌러야 완료가 된다.
-
-        **발송 전까지만 취소할 수 있다.** 물건이 나갔는데 주문만 없애면 그 개체가 어디에도
-        속하지 않게 된다 — 서버도 그 뒤로는 거절한다.
-      */}
-      {(group.status === 'SHIPPING' ||
-        group.status === 'PAYMENT_PENDING' ||
-        group.status === 'PREPARING') && (
+      {/* 주문 취소처럼 파괴적인 동작은 목록에서 빼고 주문 상세에서만 제공한다. */}
+      {(group.status === 'SHIPPING' || group.status === 'PAYMENT_PENDING') && (
         <footer className="consumer-order-group__actions">
           <div className="consumer-order-group__actions-column">
-            {group.status === 'PAYMENT_PENDING' && <>
-              <Link className="consumer-order-group__pay" to={`/orders/${group.orderId}/checkout`}>결제하기</Link>
-              {group.orderGroupCode && <Link className="consumer-order-group__cancel" to={`/orders/${group.orderId}/checkout?action=cancel`}>주문 전체 취소</Link>}
-            </>}
+            {group.status === 'PAYMENT_PENDING' && (
+              <>
+                {paymentCountdown.label && (
+                  <p className="consumer-order-group__deadline" role="timer">
+                    {paymentCountdown.label}
+                  </p>
+                )}
+                {paymentCountdown.expired ? (
+                  <button className="consumer-order-group__pay" type="button" disabled>
+                    결제하기
+                  </button>
+                ) : (
+                  <Link className="consumer-order-group__pay" to={`/orders/${group.orderId}/checkout`}>
+                    결제하기
+                  </Link>
+                )}
+              </>
+            )}
             {group.status === 'SHIPPING' && (
               <Button size="sm" fullWidth loading={busy} onClick={onConfirmDelivery}>
                 배송 완료 확인
-              </Button>
-            )}
-            {!group.orderGroupCode && (group.status === 'PAYMENT_PENDING' || group.status === 'PREPARING') && (
-              <Button variant="secondary" size="sm" fullWidth loading={busy} onClick={onCancel}>
-                주문 취소
               </Button>
             )}
           </div>
@@ -243,14 +215,19 @@ function OrderGroupCard({
  */
 function OrderItemCard({
   item,
+  orderReference,
   onShowShipping,
 }: {
   item: ConsumerRecentOrder
+  orderReference?: string
   onShowShipping: () => void
 }) {
   return (
-    <div className="consumer-order-item">
+    <div className={`consumer-order-item${orderReference ? ' consumer-order-item--with-reference' : ''}`}>
       <div className="consumer-order-item__body">
+        {orderReference && (
+          <p className="consumer-order-group__reference">주문 번호 {orderReference}</p>
+        )}
         <OrderThumbnail item={item} />
         <div className="consumer-order-item__info">
           <p className="consumer-order-item__brand">{item.brandName}</p>
@@ -268,8 +245,11 @@ function OrderItemCard({
           {item.journeyUrl ? (
             // 버튼처럼 보여야 "배송조회" 와 나란히 1열로 정렬된다 — 실제로는 링크라 새
             // 탭 열기·우클릭 복사 같은 링크 동작은 그대로 유지된다.
-            <a className="ui-button ui-button--secondary ui-button--sm ui-button--full" href={item.journeyUrl}>
-              제품 여정 확인 <ArrowRight aria-hidden="true" />
+            <a
+              className="ui-button ui-button--secondary ui-button--sm ui-button--full consumer-order-item__passport"
+              href={item.journeyUrl}
+            >
+              PRODUCT PASSPORT
             </a>
           ) : (
             <span className="consumer-order-item__journey-disabled">결제 완료 후 확인 가능</span>

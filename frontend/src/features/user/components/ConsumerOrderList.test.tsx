@@ -23,13 +23,9 @@ import { ConsumerOrderList } from './ConsumerOrderList.tsx'
 
 const api = vi.hoisted(() => ({
   confirmProductOrderDelivery: vi.fn(),
-  cancelProductOrder: vi.fn(),
 }))
 vi.mock('../api/confirmProductOrderDelivery.ts', () => ({
   confirmProductOrderDelivery: api.confirmProductOrderDelivery,
-}))
-vi.mock('../api/productOrderPaymentApi.ts', () => ({
-  cancelProductOrder: api.cancelProductOrder,
 }))
 
 vi.mock('../hooks/useConsumerOrderThumbnail.ts', () => ({
@@ -55,6 +51,8 @@ function order(overrides: Partial<ConsumerRecentOrder> = {}): ConsumerRecentOrde
     paidAt: '2026-09-12T10:35:00',
     shippedAt: '2026-09-13T09:00:00',
     deliveredAt: null,
+    paymentDeadline: '2026-09-20T00:30:00+09:00',
+    remainingSeconds: 1800,
     carrier: 'CJ대한통운',
     trackingNumber: '123456789012',
     receiverName: '김소비',
@@ -81,7 +79,6 @@ function renderList(orders: ConsumerRecentOrder[] = [order()]) {
 
 beforeEach(() => {
   api.confirmProductOrderDelivery.mockResolvedValue({ orderId: 12, orderCode: 'PO-001' })
-  api.cancelProductOrder.mockResolvedValue(undefined)
 })
 afterEach(() => {
   cleanup()
@@ -103,20 +100,28 @@ describe('ConsumerOrderList', () => {
 
   it('결제 대기 주문은 목록에서 결제 확인 화면으로 연결한다', () => {
     renderList([order({ status: 'PAYMENT_PENDING' })])
+    expect(screen.getByText('주문 번호 PO-001')).toBeInTheDocument()
+    expect(screen.getByRole('timer')).toHaveTextContent('30분 0초 남음')
     expect(screen.getByRole('link', { name: '결제하기' })).toHaveAttribute('href', '/orders/12/checkout')
-    expect(screen.getByRole('button', { name: '주문 취소' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '주문 취소' })).not.toBeInTheDocument()
   })
-  it('결제 대기 묶음 주문도 결제와 전체 취소 진입점을 제공한다', () => {
+  it('결제 대기 묶음 주문도 목록에는 취소 진입점을 두지 않는다', () => {
     renderList([order({ status: 'PAYMENT_PENDING', orderGroupCode: 'CHANGED-CODE' })])
     expect(screen.getByRole('link', { name: '결제하기' })).toHaveAttribute('href', '/orders/12/checkout')
-    expect(screen.getByRole('link', { name: '주문 전체 취소' })).toHaveAttribute('href', '/orders/12/checkout?action=cancel')
-    expect(api.cancelProductOrder).not.toHaveBeenCalled()
+    expect(screen.queryByRole('link', { name: '주문 전체 취소' })).not.toBeInTheDocument()
   })
   it('묶음 주문은 코드를 표시하고 개별 취소를 막는다', () => {
     renderList([order({ status: 'PREPARING', orderGroupCode: 'ORG-3' })])
     expect(screen.getByText(/주문 번호 ORG-3/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '주문 취소' })).not.toBeInTheDocument()
-    expect(api.cancelProductOrder).not.toHaveBeenCalled()
+  })
+
+  it('PRODUCT PASSPORT는 화살표 없이 여정 주소로 연결한다', () => {
+    renderList()
+
+    const passport = screen.getByRole('link', { name: 'PRODUCT PASSPORT' })
+    expect(passport).toHaveAttribute('href', 'http://localhost:5173/qr/journey-token')
+    expect(passport.querySelector('svg')).toBeNull()
   })
   // 이 테스트가 이 파일의 존재 이유다.
   it('배송 중인 주문을 수령 확인한다', async () => {
@@ -259,66 +264,6 @@ describe('ConsumerOrderList', () => {
         'href',
         '/mypage/orders/12',
       )
-    })
-  })
-
-  describe('주문 취소', () => {
-    // 이 테스트가 이 블록의 존재 이유다 — 무엇이 없어지는지 미리 말해야 한다.
-    it('결제한 주문을 취소하면 환불과 목록에서 사라짐을 미리 알린다', async () => {
-      const user = renderList([order({ status: 'PREPARING', shippedAt: null })])
-
-      await user.click(screen.getByRole('button', { name: '주문 취소' }))
-
-      const dialog = screen.getByRole('dialog')
-      expect(within(dialog).getByText(/결제하신 금액은 환불됩니다/)).toBeInTheDocument()
-      expect(within(dialog).getByText(/목록에서 사라지고/)).toBeInTheDocument()
-      expect(api.cancelProductOrder).not.toHaveBeenCalled()
-
-      await user.click(within(dialog).getByRole('button', { name: '주문 취소' }))
-
-      await waitFor(() => expect(api.cancelProductOrder).toHaveBeenCalled())
-      expect(api.cancelProductOrder.mock.calls[0][0]).toBe(12)
-    })
-
-    // 아직 결제 전이라 돌려줄 돈이 없다. 없는 환불을 말하면 사용자가 기다린다.
-    it('결제 전 주문에는 환불을 말하지 않는다', async () => {
-      const user = renderList([order({ status: 'PAYMENT_PENDING', paidAt: null, shippedAt: null })])
-
-      await user.click(screen.getByRole('button', { name: '주문 취소' }))
-
-      const dialog = screen.getByRole('dialog')
-      expect(within(dialog).queryByText(/환불/)).not.toBeInTheDocument()
-    })
-
-    // 물건이 나갔는데 주문만 없애면 그 개체가 어디에도 속하지 않게 된다.
-    it('발송된 뒤에는 취소를 두지 않는다', () => {
-      renderList([order({ status: 'SHIPPING' })])
-
-      expect(screen.queryByRole('button', { name: '주문 취소' })).not.toBeInTheDocument()
-      expect(screen.getByRole('button', { name: '배송 완료 확인' })).toBeInTheDocument()
-    })
-
-    it('배송 완료된 주문에도 두지 않는다', () => {
-      renderList([order({ status: 'DELIVERED', deliveredAt: '2026-09-14T15:00:00' })])
-
-      expect(screen.queryByRole('button', { name: '주문 취소' })).not.toBeInTheDocument()
-    })
-
-    it('취소가 실패하면 이유를 보여준다', async () => {
-      api.cancelProductOrder.mockRejectedValue(
-        createAppError(ERROR_KIND.API_ERROR, {
-          message: '발송된 주문은 취소할 수 없습니다.',
-          status: 409,
-        }),
-      )
-      const user = renderList([order({ status: 'PREPARING', shippedAt: null })])
-
-      await user.click(screen.getByRole('button', { name: '주문 취소' }))
-      await user.click(
-        within(screen.getByRole('dialog')).getByRole('button', { name: '주문 취소' }),
-      )
-
-      expect(await screen.findByRole('alert')).toHaveTextContent('발송된 주문은 취소할 수 없습니다')
     })
   })
 

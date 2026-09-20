@@ -58,30 +58,29 @@ function ProductBody({ product }: { product: Product }) {
           <p className="public-product__category">{PRODUCT_CATEGORY_LABEL[product.category]}{product.subcategory ? ` · ${product.subcategory}` : ''}</p>
           <p className={`public-product__stock${soldOut ? ' public-product__stock--empty' : ''}`}>{soldOut ? '품절' : `남은 수량 ${product.stockQuantity}개`}</p>
           <div className="public-product__actions">
-            {/* 로그인한 소비자만 실제 주문·결제로 이어진다 — 그 외(비회원·사업자)에게는
-                버튼을 눌러 로그인/역할을 알리는 자리표시자 버튼을 대신 보여준다. */}
-            {isAuthenticated && role === 'CONSUMER' ? null : (
-              <button className="public-product__buy" type="button" disabled={soldOut} onClick={() => requireLogin(() => setNotice('구매는 소비자 계정에서 이용할 수 있습니다.'))}>{soldOut ? '품절' : '구매하기'}</button>
-            )}
             <WishlistButton productId={product.productModelId} name={product.name} text="찜하기" />
             <CartButton productId={product.productModelId} name={product.name} text="장바구니 담기" disabled={soldOut} />
           </div>
-          <p className="public-product__notice" role="status">{notice}</p>
-          {product.journeyUrl && (
-            // 재고 개체 하나를 골라 그 QR Passport 로 바로 연결한다. 재고가 없으면 서버가
-            // journeyUrl 을 내려주지 않는다 — 보여줄 개체가 없어서다.
-            <a className="ui-button ui-button--secondary ui-button--sm" href={product.journeyUrl}>
-              QR Passport 예시 보기
-            </a>
-          )}
-          <p className="public-product__memory">찜과 장바구니는 계정에 저장됩니다.</p>
-          {isAuthenticated && role === 'CONSUMER' && (
+          {isAuthenticated && role === 'CONSUMER' ? (
             <ProductPurchasePanel
               productModelId={product.productModelId}
               purchasable={isPurchasable(product)}
               blockedReason={purchaseBlockedReason(product)}
             />
+          ) : (
+            // 실제 구매 버튼과 같은 자리에 둔다. 동작만 로그인·역할 안내로 제한한다.
+            <div className="public-product__purchase">
+              <button
+                className="ui-button ui-button--primary ui-button--md ui-button--full public-product__buy"
+                type="button"
+                disabled={soldOut}
+                onClick={() => requireLogin(() => setNotice('구매는 소비자 계정에서 이용할 수 있습니다.'))}
+              >
+                {soldOut ? '품절' : '구매하기'}
+              </button>
+            </div>
           )}
+          {notice && <p className="public-product__notice" role="status">{notice}</p>}
           <section className="public-product__description" aria-labelledby="product-description-title"><h2 id="product-description-title">상품 이야기</h2><p>{product.description?.replace(/([.!?])\s+(?=\S)/g, '$1\n') || '등록된 상품 설명이 없습니다.'}</p></section>
           <Link className="public-product__back" to="/shop">전체 상품 보기 →</Link>
         </div>

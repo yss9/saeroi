@@ -123,16 +123,24 @@ describe('public consumer product detail', () => {
     expect(screen.getByRole('button', { name: '장바구니 담기' })).toBeDisabled()
     expect(screen.getByRole('button', { name: '찜하기' })).toBeEnabled()
   })
-  it('links straight to the sample QR Passport when the server provides one', async () => {
-    show()
-    const link = await screen.findByRole('link', { name: 'QR Passport 예시 보기' })
-    expect(link).toHaveAttribute('href', product.journeyUrl)
-  })
-  it('hides the QR Passport link when no stock item is available yet', async () => {
-    vi.mocked(apiClient.get).mockResolvedValue({ data: { ...product, journeyUrl: null } } as AxiosResponse)
+  it('does not expose account storage copy or a QR Passport entry from product browsing', async () => {
     show()
     await screen.findByRole('heading', { name: product.name })
+    expect(screen.queryByText('찜과 장바구니는 계정에 저장됩니다.')).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'QR Passport 예시 보기' })).not.toBeInTheDocument()
+  })
+  it.each([false, true])('keeps the purchase button below wishlist and cart when authenticated is %s', async authenticated => {
+    if (authenticated) signIn()
+    show()
+    await screen.findByRole('heading', { name: product.name })
+
+    const actions = document.querySelector('.public-product__actions')
+    const purchase = screen.getByRole('button', { name: '구매하기' }).closest('.public-product__purchase')
+    expect(actions).not.toBeNull()
+    expect(purchase).not.toBeNull()
+    expect(actions?.nextElementSibling).toBe(purchase)
+    expect(within(actions as HTMLElement).getByRole('button', { name: '찜하기' })).toBeInTheDocument()
+    expect(within(actions as HTMLElement).getByRole('button', { name: '장바구니 담기' })).toBeInTheDocument()
   })
   it.each(['찜하기', '장바구니 담기', '구매하기'])('returns to the same product after login from %s without automatic purchase', async (button) => {
     show()
