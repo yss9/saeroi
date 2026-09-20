@@ -33,6 +33,7 @@ public record AgentProperties(
         String model,
         int maxOutputTokens,
         boolean thinking,
+        String reasoningEffort,
         boolean promptCache,
         int maxToolIterations,
         Duration connectTimeout,
@@ -41,6 +42,17 @@ public record AgentProperties(
 
     public AgentProperties {
         model = model == null || model.isBlank() ? "claude-haiku-4-5-20251001" : model;
+
+        // gpt-5 계열은 추론 모델이다. 기본값으로 두면 추론이 출력 예산을 전부 먹고
+        // content 가 빈 채로 finish_reason=length 가 돌아온다 — 실측으로 확인했다
+        // (max_completion_tokens 300, reasoning_effort=low → reasoning 300, 답변 0).
+        //
+        // minimal 이면 추론 토큰이 0 이 되어 예전 모델처럼 동작한다. 추론을 켜려면 이 값과
+        // max-output-tokens 를 함께 올려야 한다 — 추론 토큰은 출력으로 과금되고,
+        // gpt-5-mini 는 출력이 입력의 8배다(0.02 vs 0.0025).
+        reasoningEffort = reasoningEffort == null || reasoningEffort.isBlank()
+                ? "minimal"
+                : reasoningEffort.trim();
 
         // 모델 이름으로 규격을 추론한다. 둘을 따로 설정하게 하면 어긋난 채로 배포되고,
         // 그때 나는 오류(400)는 원인이 드러나지 않는다.

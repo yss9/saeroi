@@ -76,6 +76,11 @@ app:
     # 시연에는 claude-sonnet-4-6 으로 올린다.
     model: ${AGENT_LLM_MODEL:claude-haiku-4-5-20251001}
     max-output-tokens: ${AGENT_MAX_OUTPUT_TOKENS:2048}
+    # gpt-5 계열(추론 모델)에서만 쓰인다. minimal 이 아니면 추론이 위 출력 예산을 전부
+    # 먹고 답변이 빈 채로 돌아온다 — 실측으로 확인했다. 추론을 켜려면 이 값과
+    # max-output-tokens 를 함께 올린다. 추론 토큰은 출력으로 과금되고 gpt-5-mini 는
+    # 출력이 입력의 8배다(0.02 vs 0.0025).
+    reasoning-effort: ${AGENT_REASONING_EFFORT:minimal}
     # Sonnet 4.6 은 adaptive thinking 을 지원하지만 Haiku 4.5 는 거부한다(400).
     # 모델을 올릴 때 함께 켠다. thinking 토큰은 출력 토큰이라 5배 비싸다.
     thinking: ${AGENT_LLM_THINKING:false}

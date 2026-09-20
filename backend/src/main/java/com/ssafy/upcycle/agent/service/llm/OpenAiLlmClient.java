@@ -92,7 +92,11 @@ public class OpenAiLlmClient implements LlmClient {
     private ObjectNode toRequest(List<LlmMessage> messages, List<ToolSpec> tools) {
         ObjectNode request = objectMapper.createObjectNode();
         request.put("model", properties.model());
-        request.put("max_tokens", properties.maxOutputTokens());
+        request.put(outputLimitField(), properties.maxOutputTokens());
+        if (isReasoningModel()) {
+            // 이 값을 빼면 추론이 출력 예산을 다 써 답변이 빈 채로 돌아온다.
+            request.put("reasoning_effort", properties.reasoningEffort());
+        }
 
         ArrayNode messageArray = request.putArray("messages");
         for (LlmMessage message : messages) {
@@ -114,6 +118,25 @@ public class OpenAiLlmClient implements LlmClient {
             request.put("tool_choice", "auto");
         }
         return request;
+    }
+
+    /**
+     * 출력 길이를 제한하는 필드 이름. 모델 세대에 따라 다르다.
+     *
+     * <p>{@code gpt-5} 계열은 {@code max_tokens} 를 <b>거부하고</b>
+     * {@code max_completion_tokens} 만 받는다. 이름만 다르고 뜻은 같은데, 틀리면 400 이
+     * 떨어져 대화가 통째로 죽는다 — 모델만 바꿔 보려다 원인을 못 찾기 쉬운 자리다.
+     *
+     * <p>이전 세대({@code gpt-4.1} 등)는 {@code max_tokens} 를 쓰므로 둘을 갈라 둔다.
+     * 새 이름을 옛 모델에 보내도 거부되기 때문에 한쪽으로 통일할 수 없다.
+     */
+    private String outputLimitField() {
+        return isReasoningModel() ? "max_completion_tokens" : "max_tokens";
+    }
+
+    /** gpt-5 계열은 추론 모델이라 요청 규격이 다르다. */
+    private boolean isReasoningModel() {
+        return properties.model().startsWith("gpt-5");
     }
 
     private ObjectNode toRequestMessage(LlmMessage message) {

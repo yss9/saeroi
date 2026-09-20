@@ -3,6 +3,7 @@ package com.ssafy.upcycle.agent.service;
 import com.ssafy.upcycle.trade.dto.TradeResponse;
 import com.ssafy.upcycle.trade.dto.TradeSearchCondition;
 import com.ssafy.upcycle.trade.entity.TradeStatus;
+import com.ssafy.upcycle.blockchain.service.ChainOrderStatusReader;
 import com.ssafy.upcycle.trade.service.TradeQueryService;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,6 +36,7 @@ public class AgentPendingWork {
     private static final int SIZE = 10;
 
     private final TradeQueryService tradeQuery;
+    private final ChainOrderStatusReader chainOrders;
 
     /**
      * 사건 보고에 덧붙일 문장. 할 일이 없으면 빈 문자열이다.
@@ -88,6 +90,14 @@ public class AgentPendingWork {
         }
         if (trade.status() == TradeStatus.SHIPPED) {
             return "판매자가 발송했다. 물건을 받았는지 확인하고 confirm_receipt 를 부른다";
+        }
+        // 수령은 끝났는데 체인에 안 남은 경우. DB 로는 알 수 없어 체인에 물어본다 —
+        // buyer_signed_at 이 서명 없이 채워지기 때문이다.
+        if (trade.chainTradeId() != null
+                && trade.receivedAt() != null
+                && chainOrders.needsReceiptSignature(trade.chainTradeId()).orElse(false)) {
+            return "수령은 확정됐지만 체인에 남지 않았다. 체인에서는 소재가 아직 판매자 잠금에 "
+                    + "있다. request_chain_receipt 로 서명 카드를 띄운다";
         }
         if (trade.status() == TradeStatus.CREATED) {
             return "결제가 아직이다. 담당자가 결제창을 닫았다면 cancel_trade 로 정리한다";
