@@ -8,7 +8,7 @@ import { useAuthStore } from '../../../stores/authStore.ts'
 import { BrandProcessingPage } from '../../../pages/processing/BrandProcessingPage.tsx'
 vi.mock('../../../services/apiClient.ts', () => ({ apiClient: { get: vi.fn(), post: vi.fn() } }))
 // 가공사 검색 응답은 백엔드가 견적 단계를 들어내면서 계약이 바뀌었다. 수량 구간이 사라지고
-// 하루 처리량·단가가 들어왔으며, 금액과 소요일은 서버가 계산해 내려준다.
+// 하루 처리량·단가가 들어왔으며, 금액과 소요일은 서버가 계산해 내려준다(화면은 단가만 적는다).
 //   - 조건 검색: estimatedPrice·estimatedDays 가 채워진다
 //   - 필터 없이 둘러보기: 수량을 모르므로 둘 다 null 이고 estimatedLeadTimes 는 빈 배열이다
 const MATCHED_PROCESSOR = { processorId: 2, name: '새로 가공소', region: '서울', dailyCapacity: 8000, pricePerKg: 3000, estimatedPrice: 1500, estimatedDays: 2, estimatedLeadTimes: [{ processType: 'CLEANING', leadDays: 1 }, { processType: 'CUTTING', leadDays: 1 }] }
@@ -159,7 +159,8 @@ it('예상 금액이 없는 둘러보기 응답에서도 업체 목록을 그린
   mockProcessors(BROWSED_PROCESSOR)
   setup()
   expect(await screen.findByRole('radio', { name: /새로 가공소/ })).toBeInTheDocument()
-  expect(screen.getByText(/하루 처리량/)).toHaveTextContent('10,000 g')
+  // 하루 처리량은 적지 않는다 — 브랜드가 고를 때 쓰는 값은 금액과 소요일이다.
+  expect(screen.queryByText(/하루 처리량/)).not.toBeInTheDocument()
   expect(screen.getByText(/kg당 단가/)).toHaveTextContent('1,200원')
   expect(screen.getByText('수량과 가공 목적을 정하면 금액과 소요일을 계산해요')).toBeInTheDocument()
 })

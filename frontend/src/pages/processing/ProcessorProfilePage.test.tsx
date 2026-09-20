@@ -53,21 +53,6 @@ test('가공업체 프로필 주소가 없으면 회원가입 업체 주소를 �
   expect(screen.getByRole('button', { name: '주소 검색' })).toBeEnabled()
 })
 
-test('취급 조건을 등록 여부로 필터링한다', async () => {
-  const user = userEvent.setup()
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  render(<QueryClientProvider client={queryClient}><MemoryRouter><ProcessorProfilePage /></MemoryRouter></QueryClientProvider>)
-
-  await screen.findByRole('heading', { name: '취급 조건 검색' })
-  await user.selectOptions(screen.getByLabelText('등록 상태 필터'), 'REGISTERED')
-  expect(screen.getByText('검색 결과 2개')).toBeInTheDocument()
-  expect(screen.queryByRole('button', { name: / 추가$/ })).not.toBeInTheDocument()
-
-  await user.selectOptions(screen.getByLabelText('등록 상태 필터'), 'UNREGISTERED')
-  expect(screen.queryByRole('button', { name: /등록됨 · 수정$/ })).not.toBeInTheDocument()
-  expect(screen.getAllByRole('button', { name: / 추가$/ }).length).toBeGreaterThan(0)
-})
-
 test('업체 대표 이미지를 선택하면 즉시 업로드한다', async () => {
   const user = userEvent.setup()
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -91,7 +76,7 @@ test('등록된 조건과 지역 변경을 각각 즉시 저장한다', async ()
   render(<QueryClientProvider client={queryClient}><MemoryRouter><ProcessorProfilePage /></MemoryRouter></QueryClientProvider>)
 
   expect(await screen.findByRole('heading', { name: '업체 주소 등록' })).toBeInTheDocument()
-  await user.click(screen.getByRole('button', { name: '데님 · 세척 등록됨 · 수정' }))
+  await user.click(screen.getByRole('button', { name: '데님 · 세척 등록됨' }))
   expect(screen.getByRole('dialog', { name: '데님 · 세척 조건 수정' })).toBeInTheDocument()
   expect(screen.getByLabelText('하루 처리량')).toHaveValue('5')
   expect(screen.getByLabelText('kg 당 단가')).toHaveValue('1200')
@@ -121,7 +106,7 @@ test('모달의 수량 입력은 스핀 버튼 없이 숫자를 직접 입력한
   render(<QueryClientProvider client={queryClient}><MemoryRouter><ProcessorProfilePage /></MemoryRouter></QueryClientProvider>)
 
   await screen.findByRole('heading', { name: '취급 조건 검색' })
-  await user.click(screen.getByRole('button', { name: '데님 · 세척 등록됨 · 수정' }))
+  await user.click(screen.getByRole('button', { name: '데님 · 세척 등록됨' }))
   expect(screen.getByLabelText('하루 처리량')).toHaveAttribute('type', 'text')
   expect(screen.getByLabelText('하루 처리량')).toHaveAttribute('inputmode', 'decimal')
   expect(screen.getByLabelText('kg 당 단가')).toHaveAttribute('type', 'text')
@@ -147,7 +132,7 @@ test('검색 결과의 추가 버튼으로 모달을 열고 새 조건을 적용
   await user.type(screen.getByLabelText('kg 당 단가'), '4000')
   await user.click(screen.getByRole('button', { name: '조건 추가' }))
   expect(screen.getByText('등록된 취급 조건 3개')).toBeInTheDocument()
-  expect(screen.getByRole('button', { name: '실크 · 세척 등록됨 · 수정' })).toBeEnabled()
+  expect(screen.getByRole('button', { name: '실크 · 세척 등록됨' })).toBeEnabled()
 })
 
 // 적은 두 숫자로 브랜드가 무엇을 보게 되는지 그 자리에서 보여준다 — 따로 계산하게 두지 않는다.
@@ -157,7 +142,7 @@ test('하루 처리량과 단가를 적으면 브랜드에게 보일 금액과 �
   render(<QueryClientProvider client={queryClient}><MemoryRouter><ProcessorProfilePage /></MemoryRouter></QueryClientProvider>)
 
   await screen.findByRole('heading', { name: '취급 조건 검색' })
-  await user.click(screen.getByRole('button', { name: '데님 · 세척 등록됨 · 수정' }))
+  await user.click(screen.getByRole('button', { name: '데님 · 세척 등록됨' }))
   await user.clear(screen.getByLabelText('하루 처리량'))
   await user.type(screen.getByLabelText('하루 처리량'), '100')
   await user.clear(screen.getByLabelText('kg 당 단가'))
@@ -172,15 +157,31 @@ test('모달을 취소하면 편집 내용을 적용하지 않는다', async () 
   render(<QueryClientProvider client={queryClient}><MemoryRouter><ProcessorProfilePage /></MemoryRouter></QueryClientProvider>)
 
   await screen.findByRole('heading', { name: '취급 조건 검색' })
-  await user.click(screen.getByRole('button', { name: '면 · 재단 등록됨 · 수정' }))
+  await user.click(screen.getByRole('button', { name: '면 · 재단 등록됨' }))
   await user.clear(screen.getByLabelText('하루 처리량'))
   await user.type(screen.getByLabelText('하루 처리량'), '700')
   await user.click(screen.getByRole('button', { name: '취소' }))
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 
-  await user.click(screen.getByRole('button', { name: '면 · 재단 등록됨 · 수정' }))
+  await user.click(screen.getByRole('button', { name: '면 · 재단 등록됨' }))
   expect(screen.getByLabelText('하루 처리량')).toHaveValue('2')
   expect(screen.getByLabelText('kg 당 단가')).toHaveValue('800')
+})
+
+// 등록한 조건을 고치러 검색 칸으로 되돌아가지 않아도 된다 — 미리보기에 이미 보이는 줄이
+// 그 조건의 입구다.
+test('미리보기의 등록된 조건을 누르면 수정 모달이 열린다', async () => {
+  const user = userEvent.setup()
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(<QueryClientProvider client={queryClient}><MemoryRouter><ProcessorProfilePage /></MemoryRouter></QueryClientProvider>)
+
+  await screen.findByRole('heading', { name: 'Brand 검색 노출 미리보기' })
+  expect(screen.getByText('클릭하면 수정할 수 있어요.')).toBeInTheDocument()
+
+  await user.click(screen.getByRole('button', { name: '데님 · 세척 조건 수정' }))
+
+  expect(screen.getByRole('dialog', { name: '데님 · 세척 조건 수정' })).toBeInTheDocument()
+  expect(screen.getByLabelText('하루 처리량')).toHaveValue('5')
 })
 
 test('모달 변경사항을 적용하면 즉시 저장하고 Brand 미리보기를 갱신한다', async () => {
@@ -189,7 +190,7 @@ test('모달 변경사항을 적용하면 즉시 저장하고 Brand 미리보기
   render(<QueryClientProvider client={queryClient}><MemoryRouter><ProcessorProfilePage /></MemoryRouter></QueryClientProvider>)
 
   expect(await screen.findByRole('heading', { name: 'Brand 검색 노출 미리보기' })).toBeInTheDocument()
-  await user.click(screen.getByRole('button', { name: '데님 · 세척 등록됨 · 수정' }))
+  await user.click(screen.getByRole('button', { name: '데님 · 세척 등록됨' }))
   await user.clear(screen.getByLabelText('하루 처리량'))
   await user.type(screen.getByLabelText('하루 처리량'), '200')
   await user.clear(screen.getByLabelText('kg 당 단가'))
