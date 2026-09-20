@@ -82,8 +82,7 @@ public class MaterialSourceVerificationService {
                 VERIFY_SOURCE,
                 BlockchainReferenceType.MATERIAL,
                 materialId,
-                request.txHash(),
-                request.blockNumber());
+                request.txHash());
         eventRecorder.record(
                 materialId,
                 MaterialEventType.SOURCE_VERIFIED,

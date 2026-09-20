@@ -434,33 +434,57 @@ public class ProductJourneyQueryService {
         List<String> processingNodes = nodeIds(nodes, JourneyStageType.PROCESSING);
         List<String> brandNodes = nodeIds(nodes, JourneyStageType.BRAND);
         List<String> deliveryNodes = nodeIds(nodes, JourneyStageType.DELIVERY);
+        List<String> collectionEdges = edgeIds(edges, JourneyStageType.COLLECTION);
+        List<String> processingEdges = edgeIds(edges, JourneyStageType.PROCESSING);
+        List<String> brandEdges = edgeIds(edges, JourneyStageType.BRAND);
         return List.of(
                 new ProductJourneyResponse.Stage(
-                        JourneyStageType.SOURCE, 1, JourneyStageStatus.COMPLETED, sourceNodes, List.of()),
+                        JourneyStageType.SOURCE,
+                        1,
+                        recorded(sourceNodes, List.of()),
+                        sourceNodes,
+                        List.of()),
                 new ProductJourneyResponse.Stage(
                         JourneyStageType.COLLECTION,
                         2,
-                        JourneyStageStatus.COMPLETED,
+                        recorded(List.of(), collectionEdges),
                         List.of(),
-                        edgeIds(edges, JourneyStageType.COLLECTION)),
+                        collectionEdges),
                 new ProductJourneyResponse.Stage(
                         JourneyStageType.PROCESSING,
                         3,
-                        JourneyStageStatus.COMPLETED,
+                        recorded(processingNodes, processingEdges),
                         processingNodes,
-                        edgeIds(edges, JourneyStageType.PROCESSING)),
+                        processingEdges),
                 new ProductJourneyResponse.Stage(
                         JourneyStageType.BRAND,
                         4,
-                        JourneyStageStatus.COMPLETED,
+                        recorded(brandNodes, brandEdges),
                         brandNodes,
-                        edgeIds(edges, JourneyStageType.BRAND)),
+                        brandEdges),
                 new ProductJourneyResponse.Stage(
                         JourneyStageType.DELIVERY,
                         5,
                         deliveryStatus,
                         deliveryNodes,
                         edgeIds(edges, JourneyStageType.DELIVERY)));
+    }
+
+    /**
+     * 기록이 있는 단계만 "완료" 라고 말한다.
+     *
+     * <p>예전에는 앞의 네 단계를 <b>무조건</b> {@code COMPLETED} 로 채웠다. 가공을 거치지
+     * 않고 소재에서 바로 만든 제품도 여권이 "가공: 완료" 라고 단언했고, 그 단계에는 지점도
+     * 이동도 하나 없었다 (2026-09-21 확인 — 실제로 가공 없이 만든 제품의 PROCESSING 이
+     * 노드 0개·엣지 0개인 채 COMPLETED 였다).
+     *
+     * <p>여권은 소비자가 출처를 믿으려고 보는 화면이라 없는 단계를 있었다고 하면 안 된다.
+     * 기록이 없으면 {@code PENDING} 으로 두어 화면이 "대기" 로 그리게 한다.
+     */
+    private JourneyStageStatus recorded(List<String> nodeIds, List<String> edgeIds) {
+        return nodeIds.isEmpty() && edgeIds.isEmpty()
+                ? JourneyStageStatus.PENDING
+                : JourneyStageStatus.COMPLETED;
     }
 
     private List<String> nodeIds(

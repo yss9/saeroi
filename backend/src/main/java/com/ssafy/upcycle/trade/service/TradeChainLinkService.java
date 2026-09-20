@@ -69,8 +69,7 @@ public class TradeChainLinkService {
                 // 앞단이므로 TRADE 로 묶는다. reference_id 로 어느 판매 글인지는 남는다.
                 BlockchainReferenceType.TRADE,
                 listingId,
-                request.txHash(),
-                request.blockNumber());
+                request.txHash());
         eventRecorder.record(
                 listing.getMaterialId(),
                 MaterialEventType.MARKETPLACE_LISTING_LINKED_ON_CHAIN,
@@ -107,8 +106,7 @@ public class TradeChainLinkService {
                 "createOrder",
                 BlockchainReferenceType.TRADE,
                 tradeId,
-                request.txHash(),
-                request.blockNumber());
+                request.txHash());
         eventRecorder.record(
                 trade.getMaterialId(), MaterialEventType.TRADE_LINKED_ON_CHAIN, buyerId,
                 MaterialEventReferenceType.MATERIAL_TRADE, tradeId, null, trade.getQuantity(),

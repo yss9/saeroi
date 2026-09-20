@@ -103,8 +103,7 @@ public class ProductionChainLinkService {
                 CREATE_BATCH,
                 BlockchainReferenceType.PRODUCTION,
                 batchId,
-                request.txHash(),
-                request.blockNumber());
+                request.txHash());
         batch.linkChainBatch(request.chainBatchId());
     }
 
@@ -141,8 +140,7 @@ public class ProductionChainLinkService {
                 FUNCTION_NAME,
                 BlockchainReferenceType.PRODUCTION,
                 batchId,
-                request.txHash(),
-                request.blockNumber());
+                request.txHash());
 
         for (int i = 0; i < locks.size(); i++) {
             locks.get(i).linkChainLock(request.lockedMaterials().get(i).chainLockId());
@@ -205,8 +203,7 @@ public class ProductionChainLinkService {
                 LINK_PRODUCT_ITEMS,
                 BlockchainReferenceType.PRODUCTION,
                 batchId,
-                request.txHash(),
-                request.blockNumber());
+                request.txHash());
     }
 
     /**

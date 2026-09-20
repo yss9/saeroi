@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.ssafy.upcycle.blockchain.ScriptedReceiptClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ssafy.upcycle.blockchain.repository.BlockchainTransactionRepository;
 import com.ssafy.upcycle.common.security.jwt.JwtTokenService;
@@ -62,6 +63,8 @@ class MaterialSourceVerificationApiTests {
     private static final String OTHER_VERIFY_TX = "0x" + "ef".repeat(32);
     private static final String SUPPLIER_WALLET = "0xaaaa000000000000000000000000000000000011";
     private static final String OTHER_WALLET = "0xbbbb000000000000000000000000000000000022";
+    private static final String MATERIAL_TOKEN = "0xbe98f5a9aa8d0480b09c689e38806accd41a0f66";
+    @Autowired private ScriptedReceiptClient chain;
 
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
@@ -82,6 +85,7 @@ class MaterialSourceVerificationApiTests {
 
     @BeforeEach
     void setUp() {
+        chain.expect("0xbe98f5a9aa8d0480b09c689e38806accd41a0f66", "0xaaaa000000000000000000000000000000000011");
         clean();
         User supplierUser = userRepository.save(User.register(
                 "source-verify-supplier@test", "{noop}x", "공급자", "010-0000-0001", UserRole.SUPPLIER));
@@ -102,6 +106,8 @@ class MaterialSourceVerificationApiTests {
 
     @Test
     void confirmsSourceVerificationForTheMintedMaterial() throws Exception {
+        // 요청이 보낸 999 와 다른 값을 체인이 답하게 해서, 기록이 어느 쪽을 따르는지 본다.
+        chain.expect(MATERIAL_TOKEN, SUPPLIER_WALLET, 8_800_002L);
         long materialId = registerAndMintMaterial();
 
         mockMvc.perform(post("/api/materials/{id}/source-verification", materialId)
@@ -114,7 +120,9 @@ class MaterialSourceVerificationApiTests {
         assertThat(recorded).hasSize(1);
         assertThat(recorded.get(0).getFromWallet()).isEqualTo(SUPPLIER_WALLET);
         assertThat(recorded.get(0).getTxHash()).isEqualTo(VERIFY_TX);
-        assertThat(recorded.get(0).getBlockNumber()).isEqualTo(999L);
+        assertThat(recorded.get(0).getBlockNumber())
+                .as("블록번호는 요청(999)이 아니라 영수증에서 온다")
+                .isEqualTo(8_800_002L);
     }
 
     @Test

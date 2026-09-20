@@ -3,6 +3,7 @@ package com.ssafy.upcycle.processing;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.processing.entity.ProcessingJob;
 import com.ssafy.upcycle.processing.entity.ProcessingJobStatus;
 import com.ssafy.upcycle.trade.entity.PaymentMethod;
@@ -50,6 +51,9 @@ class ProcessingJobDomainTests {
         job.expire(now.plusMinutes(15));
 
         assertThat(job.getStatus()).isEqualTo(ProcessingJobStatus.EXPIRED);
+        // markPaid 는 requireState 를 쓰지 않는다 — 상태·결제참조·금액·기한을 한 번에 보는
+        // 별도 가드라 이번 변경(순서 위반 → 409) 범위 밖이다. 결제 승인은 서비스 층이 먼저
+        // 상태를 확인하므로 사용자 요청이 여기까지 오지 않는다.
         assertThatThrownBy(() -> job.markPaid("payment-ref", 120_000L, now.plusMinutes(15)))
                 .isInstanceOf(IllegalStateException.class);
     }
@@ -103,7 +107,8 @@ class ProcessingJobDomainTests {
 
         assertThat(job.getStatus()).isEqualTo(ProcessingJobStatus.CONFIRMED);
         assertThatThrownBy(() -> job.reject("다시", "0xsig", now.plusMinutes(7)))
-                .isInstanceOf(IllegalStateException.class);
+                .as("순서가 어긋난 전이는 500 이 아니라 409 다 — 클라이언트가 지난 단계를 다시 누른 것이다")
+                .isInstanceOf(BusinessException.class);
     }
 
     private ProcessingJob paidJob(LocalDateTime now) {
