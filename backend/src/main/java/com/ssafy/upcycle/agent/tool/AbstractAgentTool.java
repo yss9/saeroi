@@ -46,6 +46,33 @@ public abstract class AbstractAgentTool implements AgentTool {
         }
     }
 
+    /**
+     * 모델이 넘긴 문자열을 enum 으로 읽는다. 없으면 {@code null}(필터 안 걸기).
+     *
+     * <p><b>거절할 때 다음 수를 함께 준다.</b> JSON Schema 의 {@code enum} 은 강제가 아니라
+     * 지시여서 모델이 없는 값을 낼 수 있다 — 실제로 소재 종류에서 {@code LEATHER} 를 냈다
+     * (지금 분류에는 없고 {@code ETC} 로 옮겨진 값이다). 그때 "알 수 없는 값" 만 돌려주면
+     * 모델이 또 다른 없는 값을 지어내 왕복이 늘고, 왕복은 그대로 크레딧이다.
+     *
+     * <p>가능한 값 목록과 "애매하면 이 필터를 비우고 keyword 로 찾으라" 를 함께 주면 대개
+     * 다음 호출에서 고쳐 온다. 경량 모델에서 차이가 특히 크다.
+     */
+    protected <E extends Enum<E>> E enumValue(
+            JsonNode arguments, String field, Class<E> type) {
+        String raw = optionalText(arguments, field);
+        if (raw == null) {
+            return null;
+        }
+        try {
+            return Enum.valueOf(type, raw.trim().toUpperCase(java.util.Locale.ROOT));
+        } catch (IllegalArgumentException unknown) {
+            throw new AgentToolArgumentException(
+                    "알 수 없는 " + field + " 값입니다: " + raw
+                            + ". 가능한 값은 [" + enumValues(type) + "] 입니다. "
+                            + "여기에 없는 개념이라면 이 필터를 비우고 keyword 로 찾으세요.");
+        }
+    }
+
     /** 없거나 비면 {@code null}. 빈 문자열을 값으로 취급하지 않는다. */
     protected String optionalText(JsonNode arguments, String field) {
         JsonNode node = arguments.path(field);

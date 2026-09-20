@@ -44,7 +44,8 @@ public class SaveRequirementTool extends AbstractAgentTool {
                   "type": "object",
                   "properties": {
                     "productDescription": {"type": "string", "description": "만들려는 제품"},
-                    "materialType": {"type": "string", "enum": [%s]},
+                    "materialType": {"type": "string", "enum": [%s],
+                      "description": "실제 취급 섬유 7종 + 기타. 가죽·금속·부자재처럼 7종에 없는 소재는 모두 ETC 다. 담당자가 말한 소재가 7종에 없으면 ETC 로 적고, 원래 표현은 note 에 남긴다"},
                     "quantityGram": {"type": "integer", "description": "필요한 소재량(gram)"},
                     "processTypes": {"type": "array",
                       "items": {"type": "string", "enum": [%s]}},

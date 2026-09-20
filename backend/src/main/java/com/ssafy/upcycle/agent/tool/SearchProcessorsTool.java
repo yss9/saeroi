@@ -48,7 +48,8 @@ public class SearchProcessorsTool extends AbstractAgentTool {
                 {
                   "type": "object",
                   "properties": {
-                    "materialType": {"type": "string", "enum": [%s]},
+                    "materialType": {"type": "string", "enum": [%s],
+                      "description": "실제 취급 섬유 7종 + 기타. 가죽·금속·부자재처럼 7종에 없는 소재는 모두 ETC 다"},
                     "quantityGram": {"type": "integer", "description": "가공할 양(gram)"},
                     "processTypes": {"type": "array", "minItems": 1, "maxItems": 8,
                       "items": {"type": "string", "enum": [%s]}},

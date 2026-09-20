@@ -69,7 +69,8 @@ public class SearchListingsTool extends AbstractAgentTool {
                 {
                   "type": "object",
                   "properties": {
-                    "materialType": {"type": "string", "enum": [%s]},
+                    "materialType": {"type": "string", "enum": [%s],
+                      "description": "실제 취급 섬유 7종 + 기타. 가죽·금속·부자재처럼 7종에 없는 소재는 모두 ETC 다. 종류가 애매하면 이 필터를 비우고 keyword 로 찾는다"},
                     "rootOrigin": {"type": "string", "enum": [%s],
                       "description": "WASTE 는 폐의류·폐원단, VIRGIN 은 새 원단"},
                     "keyword": {"type": "string", "description": "소재명 검색어"},
@@ -119,7 +120,7 @@ public class SearchListingsTool extends AbstractAgentTool {
             return AgentToolResult.of(json(Map.of(
                     "listings", List.of(),
                     "total", 0,
-                    "hint", "조건에 맞는 판매 글이 없습니다. 가격 상한을 올리거나 소재 종류를 넓혀보세요.")));
+                    "hint", hintForEmpty(arguments))));
         }
 
         List<Candidate> candidates = result.content().stream().map(Candidate::from).toList();
@@ -135,16 +136,31 @@ public class SearchListingsTool extends AbstractAgentTool {
                                 + "담당자에게 이 차이를 알려주세요.")));
     }
 
-    private <E extends Enum<E>> E enumValue(JsonNode arguments, String field, Class<E> type) {
-        String raw = optionalText(arguments, field);
-        if (raw == null) {
-            return null;
+    /**
+     * 0건일 때 <b>다음에 할 일을 구체적으로</b> 알려준다.
+     *
+     * <p>"소재 종류를 넓혀보세요" 같은 모호한 안내로는 모델이 무엇을 바꿔야 할지 모른다.
+     * 어떤 필터가 걸려 있는지 보고 그것을 빼라고 말해 주면, 경량 모델도 다음 호출에서
+     * 고쳐 온다 — 왕복이 줄면 크레딧도 준다.
+     *
+     * <p>소재 종류를 먼저 지목하는 이유는 그게 가장 자주 빗나가기 때문이다. 분류가 7종뿐이라
+     * 담당자가 말한 소재(가죽·부자재 등)가 어디에도 맞지 않는 일이 흔하다.
+     */
+    private String hintForEmpty(JsonNode arguments) {
+        if (optionalText(arguments, "materialType") != null) {
+            return "조건에 맞는 판매 글이 없습니다. materialType 을 비우고 keyword 로 소재명을 "
+                    + "검색해 보세요 — 분류가 7종뿐이라 담당자가 말한 소재가 다른 종류로 "
+                    + "등록돼 있을 수 있습니다(가죽·부자재는 ETC).";
         }
-        try {
-            return Enum.valueOf(type, raw);
-        } catch (IllegalArgumentException unknown) {
-            throw new AgentToolArgumentException("알 수 없는 " + field + " 값입니다: " + raw);
+        if (optionalLong(arguments, "maxPricePerKg") != null) {
+            return "조건에 맞는 판매 글이 없습니다. 가격 상한을 올리거나 없애고 다시 찾아보세요.";
         }
+        if (optionalLong(arguments, "minAvailableQuantity") != null) {
+            return "조건에 맞는 판매 글이 없습니다. 필요 수량을 줄이거나, 여러 판매 글을 "
+                    + "나눠 사는 방법을 담당자에게 제안해 보세요.";
+        }
+        return "조건에 맞는 판매 글이 없습니다. 지금 마켓플레이스에 이 조건의 소재가 없다는 "
+                + "사실을 담당자에게 알리고, 다른 소재를 쓸지 물어보세요.";
     }
 
     /**
