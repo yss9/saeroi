@@ -1,13 +1,10 @@
 import { ArrowLeft, ArrowRight, CaretRight, Package, Plus, Storefront } from '@phosphor-icons/react'
-import { useQueries } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { isAppError } from '../../../utils/errors.ts'
 import { useClickNavigation } from '../../../utils/useClickNavigation.ts'
 import { useBrandProcessingRequests } from '../hooks/useBrandProcessingRequests.ts'
 import { useProcessingJobs } from '../hooks/useProcessingJobs.ts'
-import { processingKeys } from '../api/processingKeys.ts'
-import { processingRequestApi } from '../api/processingRequestApi.ts'
 import {
   PROCESS_TYPE_LABEL,
   type ProcessingRequestStatus,
@@ -56,36 +53,16 @@ export function BrandProcessingRequestList() {
   const [filterKey, setFilterKey] = useState<'ALL' | ProcessingPhase>('ALL')
   const filter = FILTERS.find((option) => option.key === filterKey) ?? FILTERS[0]
   /*
-    **작업 상태를 함께 읽는다.** 견적을 수락한 뒤로 요청은 `SELECTED` 에서 움직이지 않고
-    결제·발송·가공·반환은 전부 작업에 적힌다 — 요청 상태만 보여주면 가공이 끝났는데도
-    목록은 "견적 수락" 이라고 말한다. 목록 화면이 둘을 합쳐 한 칸으로 보여준다.
+    **작업 상태를 함께 읽는다.** 요청은 만들어진 뒤 움직이지 않고 결제·수락·발송·가공·반환은
+    전부 작업에 적힌다 — 요청 상태만 보여주면 가공이 끝났는데도 목록은 그대로다. 목록
+    화면이 둘을 합쳐 한 칸으로 보여준다.
   */
   const jobs = useProcessingJobs()
   const jobOf = (requestId: number) =>
     jobs.data?.find(job => job.requestId === requestId)?.status
 
-  /*
-    **견적이 도착한 요청을 목록에서 알아볼 수 있어야 한다.** 견적을 기다리는 동안 상태는
-    계속 "견적 대기" 라, 가공사가 견적을 보냈는지 알려면 요청을 하나씩 열어 봐야 했다.
-
-    목록 응답에 견적 수가 없어(`ProcessingRequestListResponse.Item`) 지금 쪽의 대기 건만
-    따로 물어본다 — 상세 화면과 같은 키를 쓰므로 들어가서 또 받지 않는다.
-    서버가 이 숫자를 함께 내려주면 이 조회는 사라진다.
-  */
-  const waiting = (requests.data?.items ?? []).filter(item => item.status === 'QUOTING')
-  const quoteCounts = useQueries({
-    queries: waiting.map(item => ({
-      queryKey: processingKeys.list({ requestId: item.requestId, resource: 'quotes' }),
-      queryFn: ({ signal }: { signal: AbortSignal }) =>
-        processingRequestApi.quotes(item.requestId, signal),
-    })),
-    combine: (results: { data?: unknown[] }[]) =>
-      new Map(waiting.map((item, index) => [item.requestId, results[index]?.data?.length ?? 0])),
-  })
-
-  const quotedOf = (requestId: number) => quoteCounts.get(requestId) ?? 0
   const phaseFor = (item: { requestId: number; status: ProcessingRequestStatus }) =>
-    phaseOf(item.status, jobOf(item.requestId), quotedOf(item.requestId))
+    phaseOf(item.status, jobOf(item.requestId))
 
   const items = requests.data?.items ?? []
   const countOf = (key: 'ALL' | ProcessingPhase) =>
@@ -175,17 +152,11 @@ export function BrandProcessingRequestList() {
                 <strong className="br-list__date">{localDate(item.expiresAt)}</strong>
                 {/* 견적이 왔으면 상태 자리에서 그 사실을 먼저 말한다 — "견적 대기" 는
                     기다리라는 말이라 눌러 볼 이유가 없는 줄로 읽힌다. */}
-                {item.status === 'QUOTING' && quotedOf(item.requestId) > 0 ? (
-                  <span className="br-list__status is-quoted">
-                    견적 {quotedOf(item.requestId)}건 도착
-                  </span>
-                ) : (
-                  <span
-                    className={`br-list__status is-${progressTone(item.status, jobOf(item.requestId))}`}
-                  >
-                    {progressLabel(item.status, jobOf(item.requestId))}
-                  </span>
-                )}
+                <span
+                  className={`br-list__status is-${progressTone(item.status, jobOf(item.requestId))}`}
+                >
+                  {progressLabel(item.status, jobOf(item.requestId))}
+                </span>
                 <Link
                   className="br-list__quote"
                   to={`/brand/processing/requests/${item.requestId}`}

@@ -15,7 +15,7 @@ export function ProcessingPaymentEntry({ job }: { job: PayableProcessingJob }) {
   const payment = useProcessingPayment()
 
   if (payment.phase === 'SUCCEEDED' && payment.paidJob) {
-    return <div className="br-payment br-payment--success" role="status"><CheckCircle aria-hidden="true" /><div><strong>가공비 결제가 완료되었습니다.</strong><span>{won(payment.paidJob.paymentAmount)} · 소재를 발송해 주세요.</span><Link to={`/processing/jobs/${payment.paidJob.jobId}`}>소재 발송하기</Link></div></div>
+    return <div className="br-payment br-payment--success" role="status"><CheckCircle aria-hidden="true" /><div><strong>가공비 결제가 완료되었습니다.</strong><span>{won(payment.paidJob.paymentAmount)} · 가공사가 수락하면 소재를 보낼 수 있어요.</span><Link to={`/processing/jobs/${payment.paidJob.jobId}`}>가공 작업 보기</Link></div></div>
   }
 
   return (

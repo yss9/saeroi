@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import { isAppError } from '../../../utils/errors.ts'
 import { MATERIAL_TYPE_LABEL } from '../../material/types/material.types.ts'
 import { PROCESS_TYPE_LABEL, type ProcessType } from '../types/processing.types.ts'
-import { useMyMaterials } from '../../inventory/hooks/useMyMaterials.ts'
 import {
   REFINING_PROCESS_TYPES,
   missingRefiningTypes,
@@ -15,26 +14,17 @@ import './brand-processing.css'
 
 const requestDate = (value: string) => parseServerTime(value).toLocaleString('ko-KR')
 const gram = (value: number) => `${value.toLocaleString('ko-KR')} g`
+/*
+  금액은 서버가 준 값을 그대로 적는다(formatWon). 단가 × 수량을 화면이 곱하면 올림이
+  어긋나는 순간 목록 금액과 결제창 금액이 달라진다 — 요청 생성이 같은 식으로 fee 를 정한다.
+*/
 const errorMessage = (error: unknown) => isAppError(error) || error instanceof Error ? error.message : '요청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요.'
 
 export function BrandProcessingRequest() {
   const flow = useBrandProcessingRequest()
-  /*
-    가공 신청 화면의 소재 목록(`/processing-requests/materials`)에는 누적 가공 이력이 없다.
-    보유 소재 목록에는 있으므로(`completedProcessTypes`) 고른 소재만 거기서 찾아 본다 —
-    다른 화면이 이미 쓰는 조회라 대개 새 요청이 나가지 않는다.
-  */
-  const inventory = useMyMaterials()
   const selectedLabels = flow.processTypes.map(type => PROCESS_TYPE_LABEL[type]).join(' · ')
-  /*
-    고른 소재가 이미 거친 가공. 서버가 소재에 이력을 실어 주지 않아 내 가공 작업·요청을
-    이어 붙여 만든다 (`buildMaterialProcessHistory`) — 남에게서 산 소재는 알 수 없으므로
-    "아직 안 했다" 가 아니라 "확인되지 않았다" 로 읽어야 한다.
-  */
-  const completedTypes: string[] = flow.material
-    ? (inventory.data?.find(item => item.materialId === flow.material?.materialId)
-        ?.completedProcessTypes ?? [])
-    : []
+  // 고른 소재가 이미 거친 가공. 소재 목록이 혈통을 따라 누적해 실어 준다.
+  const completedTypes: string[] = flow.material?.completedProcessTypes ?? []
   const missingAfterThis = missingRefiningTypes([...completedTypes, ...flow.processTypes])
   const canceled = flow.created?.status === 'CANCELED'
   const summary = <dl className="bp-summary-list">
@@ -54,7 +44,7 @@ export function BrandProcessingRequest() {
           <div className="bp-success-detail"><span>신청 번호 <strong>{flow.created.requestCode}</strong></span><span>상태 <strong>{canceled ? '취소 완료' : '견적 대기'}</strong></span>{summary}</div>
           {!canceled && <div className="bp-info"><Clock size={21} /><span>신청 후 7일간 유효해요.<br /><strong>만료 일시: {requestDate(flow.created.expiresAt)}</strong></span></div>}
           {flow.cancel.isError && <p role="alert" className="bp-error">{errorMessage(flow.cancel.error)}</p>}
-          <div className="bp-actions"><button className="bp-button bp-primary" onClick={flow.restart}>새 가공 신청</button>{!canceled && flow.created.status === 'QUOTING' && <button className="bp-button" disabled={flow.cancel.isPending} onClick={flow.cancelRequest}>{flow.cancel.isPending ? '취소 중…' : '신청 취소'}</button>}</div>
+          <div className="bp-actions"><button className="bp-button bp-primary" onClick={flow.restart}>새 가공 신청</button>{!canceled && flow.created.status === 'REQUESTED' && <button className="bp-button" disabled={flow.cancel.isPending} onClick={flow.cancelRequest}>{flow.cancel.isPending ? '취소 중…' : '신청 취소'}</button>}</div>
         </section> : <div className="bp-grid"><section className="bp-card bp-form">
           {flow.step === 1 && <>
             <div className="bp-section-title"><span className="bp-section-icon"><Package size={24} /></span><div><h2>어떤 소재를 가공할까요?</h2></div></div>

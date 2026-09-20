@@ -220,6 +220,18 @@ export function useProcessingJob(jobId: number) {
     },
     onSuccess: refresh,
   })
+  /*
+    수락·거절은 온체인 서명이 없다. 브랜드가 결제한 일을 맡을지 말지를 서버에 적는 것이고,
+    온체인 작업 등록·수락은 그 뒤 발송 단계에서 따로 일어난다.
+  */
+  const acceptJob = useMutation({
+    mutationFn: () => processingJobApi.accept(jobId),
+    onSuccess: refresh,
+  })
+  const declineJob = useMutation({
+    mutationFn: (reason: string) => processingJobApi.decline(jobId, reason),
+    onSuccess: refresh,
+  })
   const returnRejected = useMutation({
     mutationFn: async (input: { carrier?: string; trackingNumber?: string; evidenceFileId: number; evidenceHash: string }) => {
       const receipt = await confirmed(returnRejectedProcessingInput(requireChainJob(), input.evidenceHash))
@@ -235,7 +247,7 @@ export function useProcessingJob(jobId: number) {
 
   return {
     detail, request, evidence, chainPreparation, chainStatus,
-    initializeChain, accept, ship, receive, start, saveResult, submit, shipReturn, approve, reject, returnRejected,
+    initializeChain, accept, acceptJob, declineJob, ship, receive, start, saveResult, submit, shipReturn, approve, reject, returnRejected,
     chainStatusCode: chainStatus.data ?? PROCESSING_CHAIN_STATUS.NONE,
   }
 }

@@ -59,9 +59,17 @@ const jobBase = {
   rejectedAt: null,
   returnShippedAt: null,
   completedAt: null,
+  acceptExpiresAt: null,
+  acceptedAt: null,
+  declinedAt: null,
+  declineReason: null,
+  refundedAt: null,
   outputs: [],
 }
 const createdJob = { ...jobBase, status: 'CREATED' }
+/** 결제까지 끝난 작업. 이제 가공사가 수락하거나 거절할 차례다. */
+const paidJob = { ...jobBase, status: 'PAID', paymentAmount: 120_000, acceptExpiresAt: '2026-09-12T01:00:00' }
+const acceptedJob = { ...paidJob, status: 'ACCEPTED', acceptedAt: '2026-09-09T02:00:00' }
 
 /**
  * 견적 엔드포인트는 **거절한다**. 화면이 그것을 아직 부르고 있다면 테스트가 바로 드러낸다
@@ -71,6 +79,8 @@ function mockBackend(jobs: unknown[] = []) {
   vi.mocked(apiClient.get).mockImplementation((url: string) => {
     if (url === '/processing-jobs') return Promise.resolve({ data: jobs })
     if (url.endsWith('/quotes')) return Promise.reject(new Error('요청한 리소스를 찾을 수 없습니다.'))
+    // 진행 칸이 작업 하나를 따로 읽는다.
+    if (url.startsWith('/processing-jobs/')) return Promise.resolve({ data: jobs[0] })
     return Promise.resolve({ data: detail })
   })
 }
@@ -164,7 +174,6 @@ test('생성된 Job에서 결제를 준비하고 Mock 승인까지 진행한다'
 
   expect(apiClient.post).toHaveBeenCalledWith('/processing-jobs/91/payment/confirm', { pgToken: 'MOCK-PG-TOKEN' })
   expect(await screen.findByText('가공비 결제가 완료되었습니다.')).toBeInTheDocument()
-  expect(screen.getByRole('link', { name: '소재 발송하기' })).toHaveAttribute('href', '/processing/jobs/91')
 })
 
 test('결제 실패 후 다시 들어와도 기존 미결제 Job에서 결제를 재시도한다', async () => {
@@ -183,18 +192,29 @@ test('결제 실패 후 다시 들어와도 기존 미결제 Job에서 결제를
   expect(await screen.findByText('테스트 결제 환경입니다. 실제 금액은 청구되지 않습니다.')).toBeInTheDocument()
 })
 
-test('결제 완료 Job을 찾으면 요청 상세는 발송을 가공 진행 화면으로 안내한다', async () => {
-  mockBackend([{ ...jobBase, status: 'PAID', paymentAmount: 120_000 }])
+// 결제했다고 바로 보낼 수 있는 것이 아니다 — 가공사가 거절하면 갈 곳이 없는 소재가 된다.
+test('결제한 뒤에는 가공사의 수락을 기다린다', async () => {
+  mockBackend([paidJob])
 
   renderPage()
 
-  // 소재 발송은 온체인 작업 등록 · 수락 · 발송 서명을 거치는 여러 단계라 요청 상세에서
-  // 바로 처리할 수 없다 — 그 단계가 있는 작업 상세로 보낸다.
+  expect(await screen.findByText('수락 대기')).toBeInTheDocument()
+  expect(screen.queryByRole('link', { name: '소재 발송하기' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: '결제 진행' })).not.toBeInTheDocument()
+  // 결제 칸이 사라진 뒤에는 가공 조건이 금액을 남기는 유일한 자리다.
+  expect(screen.getByText('가공 비용').parentElement).toHaveTextContent('120,000원')
+})
+
+test('가공사가 수락하면 발송을 가공 작업 상세로 안내한다', async () => {
+  mockBackend([acceptedJob])
+
+  renderPage()
+
+  // 소재 발송은 온체인 작업 등록 · 발송 서명을 거치는 여러 단계라 요청 상세에서 바로
+  // 처리할 수 없다 — 그 단계가 있는 작업 상세로 보낸다.
   expect(await screen.findByRole('link', { name: '소재 발송하기' })).toHaveAttribute('href', '/processing/jobs/91')
   expect(screen.queryByRole('heading', { name: '소재 발송' })).not.toBeInTheDocument()
   expect(apiClient.patch).not.toHaveBeenCalled()
-  // 결제 칸이 사라진 뒤에는 가공 조건이 금액을 남기는 유일한 자리다.
-  expect(screen.getByText('가공 비용').parentElement).toHaveTextContent('120,000원')
 })
 
 test('결제 기한 안내는 결제 전에만 둔다', async () => {

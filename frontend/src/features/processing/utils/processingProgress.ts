@@ -3,15 +3,15 @@ import type { ProcessingJobStatus, ProcessingRequestStatus } from '../types/proc
 /**
  * 브랜드가 읽는 "이 가공은 지금 어디까지 왔는가".
  *
- * **요청 상태와 작업 상태는 하나로 읽혀야 한다.** 견적을 수락하면 요청은 `SELECTED` 에서
- * 더 움직이지 않고, 그 뒤의 일(결제·발송·가공·반환)은 전부 작업(`processing_job`)에 적힌다.
- * 둘을 따로 보여주면 브랜드는 "견적 수락" 에 멈춘 목록을 보며 가공이 끝난 줄 모른다.
+ * **요청 상태와 작업 상태는 하나로 읽혀야 한다.** 요청은 만들어진 뒤 `REQUESTED` 에서
+ * 더 움직이지 않고, 그 뒤의 일(결제·수락·발송·가공·반환)은 전부 작업(`processing_job`)에
+ * 적힌다. 둘을 따로 보여주면 브랜드는 멈춘 목록을 보며 가공이 끝난 줄 모른다.
  *
  * 그래서 **작업이 있으면 작업이 말하고, 없으면 요청이 말한다.**
  */
 const REQUEST_LABEL: Record<ProcessingRequestStatus, string> = {
-  QUOTING: '견적 대기',
-  SELECTED: '견적 수락',
+  REQUESTED: '결제 대기',
+  ACCEPTED: '가공사 수락',
   CANCELED: '취소',
   REJECTED: '거절',
   EXPIRED: '만료',
@@ -26,7 +26,9 @@ const REQUEST_LABEL: Record<ProcessingRequestStatus, string> = {
  */
 const JOB_LABEL: Record<ProcessingJobStatus, string> = {
   CREATED: '결제 대기',
-  PAID: '발송 대기',
+  PAID: '수락 대기',
+  ACCEPTED: '발송 대기',
+  DECLINED: '가공사 거절',
   SHIPPED: '배송 중',
   RECEIVED: '가공 대기',
   PROCESSING: '가공 중',
@@ -75,23 +77,21 @@ export type ProcessingPhase = 'MY_TURN' | 'IN_PROGRESS' | 'DONE' | 'CLOSED'
 /** 브랜드가 직접 눌러야 다음으로 넘어가는 작업 상태. */
 const MY_TURN_JOB: readonly ProcessingJobStatus[] = [
   'CREATED', // 결제 대기
-  'PAID', // 발송 대기
+  'ACCEPTED', // 가공사가 수락했다 — 이제 소재를 보낸다
   'RETURN_SHIPPED', // 수령 확인 대기 — 확인해야 산출 소재가 발행된다
 ]
 
 /** 더 손댈 것이 없는 작업 상태. */
-const CLOSED_JOB: readonly ProcessingJobStatus[] = ['REJECTED', 'EXPIRED', 'CANCELED']
+const CLOSED_JOB: readonly ProcessingJobStatus[] = ['REJECTED', 'DECLINED', 'EXPIRED', 'CANCELED']
 
 export function phaseOf(
   requestStatus: ProcessingRequestStatus,
   jobStatus: ProcessingJobStatus | undefined,
-  quoteCount: number,
 ): ProcessingPhase {
   if (jobStatus === undefined) {
-    // 견적이 왔다는 것은 "고르라" 는 뜻이다. 오지 않았으면 기다리는 중이다.
-    if (requestStatus === 'QUOTING') return quoteCount > 0 ? 'MY_TURN' : 'IN_PROGRESS'
-    // 수락 직후의 짧은 구간. 곧 작업이 생겨 그쪽이 말한다.
-    if (requestStatus === 'SELECTED') return 'IN_PROGRESS'
+    // 요청이 만들어지면 곧바로 작업이 생기므로 여기 오는 일은 드물다 — 결제가 남아 있다.
+    if (requestStatus === 'REQUESTED') return 'MY_TURN'
+    if (requestStatus === 'ACCEPTED') return 'IN_PROGRESS'
     return 'CLOSED'
   }
   if (MY_TURN_JOB.includes(jobStatus)) return 'MY_TURN'

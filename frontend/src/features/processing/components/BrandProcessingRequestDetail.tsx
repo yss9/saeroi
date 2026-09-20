@@ -19,6 +19,17 @@ const message = (error: unknown) => isAppError(error) || error instanceof Error
 
 interface Props { requestId: number }
 
+/**
+ * 가공 요청 상세.
+ *
+ * **견적 단계가 없어졌다.** 브랜드가 검색 결과에서 가격과 소요일을 보고 바로 고르므로,
+ * 요청이 만들어지는 순간 작업과 금액이 함께 정해진다 — 이 화면이 하던 "견적을 받아 고르는"
+ * 일은 사라지고 남은 것은 셋이다.
+ *
+ *   1) 무엇을 누구에게 맡겼는가 (요청 정보)
+ *   2) 결제 — 아직 안 했으면 여기서 한다
+ *   3) 그 뒤의 진행과 수령 확인 (가공 진행 칸)
+ */
 export function BrandProcessingRequestDetail({ requestId }: Props) {
   const { detail, job } = useBrandProcessingRequestDetail(requestId)
 
@@ -36,8 +47,8 @@ export function BrandProcessingRequestDetail({ requestId }: Props) {
   if (!detail.data) return null
 
   const request = detail.data
-  // 결제는 견적이 아니라 작업에 걸려 있다. 요청이 만들어질 때 함께 생긴 작업이
-  // 아직 CREATED(결제 전)면 여기서 결제한다.
+  // 결제는 작업에 걸려 있다. 요청이 만들어질 때 함께 생긴 작업이 아직 CREATED(결제 전)면
+  // 여기서 결제한다 — 결제하면 가공사가 수락할 차례로 넘어간다.
   const paymentJob = job?.status === 'CREATED' ? job : null
 
   return (
@@ -47,7 +58,7 @@ export function BrandProcessingRequestDetail({ requestId }: Props) {
         {/* 요청 번호(`PR` + UUID 28자리)는 제목이 될 수 없다 — 읽어서 얻을 것이 없다.
             어느 요청인지는 소재 이름이 말한다. */}
         <div><span>PROCESSING REQUEST DETAIL</span><h1>{request.materialName}</h1></div>
-        {/* 견적을 수락한 뒤로 요청 상태는 움직이지 않는다 — 그 뒤의 일은 작업이 말한다. */}
+        {/* 요청은 만들어진 뒤 움직이지 않는다 — 그 뒤의 일은 작업이 말한다. */}
         <span className={`br-detail__request-status is-${progressTone(request.status, job?.status)}`}>
           {progressLabel(request.status, job?.status)}
         </span>
@@ -64,7 +75,7 @@ export function BrandProcessingRequestDetail({ requestId }: Props) {
           <div><dt>소재</dt><dd><strong>{MATERIAL_TYPE_LABEL[request.materialType]}</strong><span>{request.materialCode}</span></dd></div>
           <div><dt>가공업체</dt><dd><strong>{request.processorName}</strong></dd></div>
           <div><dt>요청 수량</dt><dd><strong>{grams(request.quantity)}</strong></dd></div>
-          <div><dt>요청 만료</dt><dd><strong>{date(request.expiresAt)}</strong></dd></div>
+          <div><dt>가공비</dt><dd><strong>{job ? won(job.fee) : '확인 중'}</strong></dd></div>
         </dl>
         <div className="br-detail__processes"><span>요청 가공</span><div>{request.processTypes.map(type => <strong key={type}>{PROCESS_TYPE_LABEL[type]}</strong>)}</div></div>
       </section>
@@ -102,32 +113,36 @@ export function BrandProcessingRequestDetail({ requestId }: Props) {
         </section>
       )}
 
-      {job?.status === 'PAID' && (
+      {job?.status === 'ACCEPTED' && (
         <div className="br-detail__job-link">
-          {/* 소재 발송은 온체인 작업 등록 → Processor 수락 → 발송 서명까지 여러 단계를 거친다.
-              그 단계는 작업 상세(useProcessingJobs)에만 있다 — 여기서 다시 만들면
-              온체인 등록 없이 상태만 SHIPPED로 바뀌는 두 번째 발송 경로가 생긴다. */}
-          <span>결제가 완료되었습니다. 소재 발송은 작업 상세에서 온체인으로 진행합니다.</span>
+          {/* 소재 발송은 온체인 작업 등록 → 발송 서명까지 여러 단계를 거친다. 그 단계는 작업
+              상세(useProcessingJobs)에만 있다 — 여기서 다시 만들면 온체인 등록 없이 상태만
+              SHIPPED 로 바뀌는 두 번째 발송 경로가 생긴다.
+
+              결제 직후(PAID)가 아니라 가공사가 수락한 뒤에 둔다. 수락 전에 보낸 소재는
+              가공사가 거절하면 갈 곳이 없다. */}
+          <span>가공사가 요청을 수락했습니다. 소재 발송은 작업 상세에서 온체인으로 진행합니다.</span>
           <Link to={`/processing/jobs/${job.jobId}`}>소재 발송하기</Link>
         </div>
       )}
-      {/*
-        진행 상황과 수령 확인은 이 화면 안에서 끝난다 (가공 진행 화면은 없앴다).
 
-        **만료된 작업에는 두지 않는다.** 결제 기한이 지나 소재 Lock 까지 풀린 건이라 진행할
-        것도, 받을 것도 없다 — 빈 진행 칸은 아직 무언가 남아 있다는 오해만 만든다.
+      {/*
+        진행 상황과 수령 확인은 이 화면 안에서 끝난다.
+
+        **결제 전과 만료된 작업에는 두지 않는다.** 앞은 아직 시작하지 않은 일이고, 뒤는
+        기한이 지나 소재 잠금까지 풀린 건이라 진행할 것도 받을 것도 없다.
       */}
-      {job && !['CREATED', 'PAID', 'EXPIRED'].includes(job.status) && (
+      {job && !['CREATED', 'EXPIRED'].includes(job.status) && (
         <BrandProcessingJobPanel jobId={job.jobId} />
       )}
 
       {/*
-        **견적을 기다리는 동안만 둔다.** "언제까지 유효한가" 는 견적을 받는 창이 열려 있을
-        때의 이야기다 — 이미 고른 요청이나 만료·취소된 요청에서는 지난 일을 다시 알리는
-        칸이 되고, 만료된 화면에서는 아직 유효한 것처럼 읽히기까지 한다.
+        **결제를 기다리는 동안만 둔다.** 기한이 지나면 요청이 만료되고 잠긴 소재가 풀린다 —
+        이미 결제한 요청에서는 지난 일을 다시 알리는 칸이 되고, 만료된 화면에서는 아직
+        유효한 것처럼 읽히기까지 한다.
       */}
       {paymentJob && (
-        <aside className="br-detail__notice"><CalendarBlank aria-hidden="true" /><p>{date(paymentJob.paymentExpiresAt)}까지 결제하지 않으면 요청과 예약된 소재가 함께 해제됩니다.</p></aside>
+        <aside className="br-detail__notice"><CalendarBlank aria-hidden="true" /><p>{date(paymentJob.paymentExpiresAt)}까지 결제하지 않으면 요청이 만료되고 잠긴 소재 수량이 풀립니다.</p></aside>
       )}
     </section>
   )

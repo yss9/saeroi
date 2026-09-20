@@ -13,8 +13,10 @@ vi.mock('../../../services/apiClient.ts', () => ({ apiClient: { get: vi.fn(), po
 //   - 필터 없이 둘러보기: 수량을 모르므로 둘 다 null 이고 estimatedLeadTimes 는 빈 배열이다
 const MATCHED_PROCESSOR = { processorId: 2, name: '새로 가공소', region: '서울', dailyCapacity: 8000, pricePerKg: 3000, estimatedPrice: 1500, estimatedDays: 2, estimatedLeadTimes: [{ processType: 'CLEANING', leadDays: 1 }, { processType: 'CUTTING', leadDays: 1 }] }
 const BROWSED_PROCESSOR = { processorId: 2, name: '새로 가공소', region: '서울', dailyCapacity: 10000, pricePerKg: 1200, estimatedPrice: null, estimatedDays: null, estimatedLeadTimes: [] }
+/** 소재는 혈통을 따라 누적된 가공 이력을 함께 싣는다 — 가공 전이면 빈 배열이다. */
+const MATERIAL = { materialId: 1, materialCode: 'MAT-1', name: '폐데님', materialType: 'DENIM', quantity: 1000, lockedQuantity: 200, availableQuantity: 800, completedProcessTypes: [] }
 function mockProcessors(item: unknown) {
-  vi.mocked(apiClient.get).mockImplementation(async (url) => ({ data: url.includes('materials') ? [{ materialId: 1, materialCode: 'MAT-1', name: '폐데님', materialType: 'DENIM', quantity: 1000, lockedQuantity: 200, availableQuantity: 800 }] : { items: [item], total: 1, page: 0, size: 12 } }))
+  vi.mocked(apiClient.get).mockImplementation(async (url) => ({ data: url.includes('materials') ? [MATERIAL] : { items: [item], total: 1, page: 0, size: 12 } }))
 }
 
 beforeEach(() => {
@@ -23,8 +25,9 @@ beforeEach(() => {
     accessToken: 'test-token',
     isAuthenticated: true,
   })
-  vi.mocked(apiClient.get).mockImplementation(async (url) => ({ data: url.includes('materials') ? [{ materialId: 1, materialCode: 'MAT-1', name: '폐데님', materialType: 'DENIM', quantity: 1000, lockedQuantity: 200, availableQuantity: 800 }] : { items: [MATCHED_PROCESSOR], total: 1, page: 0, size: 12 } }))
-  vi.mocked(apiClient.post).mockResolvedValue({ data: { requestId: 7, requestCode: 'PR-7', status: 'QUOTING', quantity: 500, processTypes: ['CLEANING'], expiresAt: '2026-09-14T10:00:00', createdAt: '2026-09-07T10:00:00' } })
+  vi.mocked(apiClient.get).mockImplementation(async (url) => ({ data: url.includes('materials') ? [MATERIAL] : { items: [MATCHED_PROCESSOR], total: 1, page: 0, size: 12 } }))
+  // 요청이 곧 작업을 만든다 — 응답에 jobId 와 확정된 가공비가 함께 온다.
+  vi.mocked(apiClient.post).mockResolvedValue({ data: { requestId: 7, requestCode: 'PR-7', status: 'REQUESTED', quantity: 500, processTypes: ['CLEANING'], expiresAt: '2026-09-14T10:00:00', createdAt: '2026-09-07T10:00:00', jobId: 44, fee: 1500, paymentMethod: 'MOCK', paymentExpiresAt: '2026-09-07T10:15:00' } })
 })
 afterEach(() => {
   cleanup()
@@ -143,7 +146,7 @@ it('신청 후 가용 재고가 감소해도 완료 요약의 신청 수량을 �
   await user.click(await screen.findByRole('radio', { name: /새로 가공소/ }))
   await user.click(screen.getByRole('button', { name: /신청 내용 확인/ }))
   const originalGet = vi.mocked(apiClient.get).getMockImplementation()!
-  vi.mocked(apiClient.get).mockImplementation(async (url, config) => url.includes('materials') ? { data: [{ materialId: 1, materialCode: 'MAT-1', name: '폐데님 (재고 갱신)', materialType: 'DENIM', quantity: 1000, lockedQuantity: 700, availableQuantity: 300 }] } : originalGet(url, config))
+  vi.mocked(apiClient.get).mockImplementation(async (url, config) => url.includes('materials') ? { data: [{ ...MATERIAL, name: '폐데님 (재고 갱신)', lockedQuantity: 700, availableQuantity: 300 }] } : originalGet(url, config))
   await user.click(screen.getByRole('button', { name: '가공 신청하기' }))
   await screen.findByText('폐데님 (재고 갱신)')
   expect(screen.getByText('500 g')).toBeInTheDocument()

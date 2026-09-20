@@ -1,10 +1,9 @@
 import { apiClient } from '../../../services/apiClient.ts'
 import { isAppError } from '../../../utils/errors.ts'
-import type { MaterialType, ProcessorCapability, ProcessorLeadTime, ProcessorProfile } from '../types/processorProfile.types.ts'
+import type { MaterialType, ProcessorCapability, ProcessorProfile } from '../types/processorProfile.types.ts'
 
 export interface ProcessorProfileInput { region: string }
 export interface ProcessorCapabilitiesInput { capabilities: ProcessorCapability[] }
-export interface ProcessorLeadTimesInput { leadTimes: ProcessorLeadTime[] }
 export interface ProcessorProfileImage { imageUrl: string }
 
 export const processorProfileApi = {
@@ -17,7 +16,6 @@ export const processorProfileApi = {
     }
   },
   getCapabilities: async () => (await apiClient.get<ProcessorCapability[]>('/v1/processors/me/capabilities')).data,
-  getLeadTimes: async () => (await apiClient.get<ProcessorLeadTime[]>('/v1/processors/me/lead-times')).data,
   async getImage(): Promise<Blob | null> {
     try {
       return (await apiClient.get<Blob>('/v1/processors/me/profile/image', { responseType: 'blob' })).data
@@ -37,7 +35,6 @@ export const processorProfileApi = {
   },
   updateProfile: async (input: ProcessorProfileInput) => (await apiClient.put<ProcessorProfile>('/v1/processors/me/profile', input)).data,
   updateCapabilities: async (input: ProcessorCapabilitiesInput) => (await apiClient.put<ProcessorCapability[]>('/v1/processors/me/capabilities', input)).data,
-  updateLeadTimes: async (input: ProcessorLeadTimesInput) => (await apiClient.put<ProcessorLeadTime[]>('/v1/processors/me/lead-times', input)).data,
 }
 
 export type { MaterialType }
