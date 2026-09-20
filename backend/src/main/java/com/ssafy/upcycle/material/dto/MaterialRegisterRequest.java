@@ -41,6 +41,10 @@ public record MaterialRegisterRequest(
         @Size(max = 200, message = "소재 이름은 200자를 넘을 수 없습니다.")
         String name,
 
+        // 컬럼이 TEXT(65535 **바이트**)라 상한이 없으면 한글 21,846자쯤에서 DB 가 거절한다 —
+        // 사용자에게는 400 이 아니라 500 으로 보인다. 바이트가 아니라 글자로 세는 @Size 를
+        // 넉넉하되 안전한 값(5000자 × 최대 4바이트 = 20,000바이트)으로 둔다.
+        @Size(max = 5000, message = "소재 설명은 5000자를 넘을 수 없습니다.")
         String description,
 
         @Size(max = 50, message = "등급은 50자를 넘을 수 없습니다.")

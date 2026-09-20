@@ -94,6 +94,39 @@ public interface FileStorageService {
      */
     boolean delete(String storageKey);
 
-    /** 저장된 파일이 있는지. */
+    /**
+     * 저장된 파일이 있는지.
+     *
+     * <p><b>키가 저장소가 만들 수 없는 모양이면 "없다" 로 답한다</b>
+     * ({@link #isWellFormedStorageKey}). 예외를 던지지 않는 이유는 이 물음이
+     * 클라이언트 입력으로도 불린다는 데 있다 — 상품 등록이 썸네일 키를 받아 저장 여부를
+     * 확인하는 자리가 그렇다. 거기서 잘못된 키에 저장소 오류(500)를 내면 "입력이 틀렸다"
+     * 를 "서버가 고장났다" 로 답하는 것이 된다.
+     */
     boolean exists(String storageKey);
+
+    /**
+     * 이 키가 {@code store} 가 만들어 낼 수 있는 모양인가.
+     *
+     * <p>두 구현이 같은 답을 내야 해서 여기 둔다. 저장 키는 언제나
+     * {@code {type}/{id}/{yyyy}/{MM}/{uuid}.{ext}} 처럼 <b>루트 아래 상대 경로</b>라
+     * 절대 경로·상위 참조·역슬래시·제어문자는 우리가 만든 키일 수 없다.
+     *
+     * <p>모양만 본다. 실제로 있는지는 저장소가 답한다 — 여기서 "있음직한 키" 까지
+     * 판정하려 들면 과거에 다른 규칙으로 저장된 키를 못 읽게 된다.
+     */
+    static boolean isWellFormedStorageKey(String storageKey) {
+        if (storageKey == null || storageKey.isBlank()) {
+            return false;
+        }
+        if (storageKey.startsWith("/") || storageKey.contains("\\")) {
+            return false;
+        }
+        for (String segment : storageKey.split("/", -1)) {
+            if (segment.equals("..")) {
+                return false;
+            }
+        }
+        return storageKey.chars().noneMatch(Character::isISOControl);
+    }
 }

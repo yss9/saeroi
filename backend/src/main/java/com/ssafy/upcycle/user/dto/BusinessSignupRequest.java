@@ -1,5 +1,6 @@
 package com.ssafy.upcycle.user.dto;
 
+import com.ssafy.upcycle.common.validation.SingleLine;
 import com.ssafy.upcycle.user.entity.UserRole;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -13,6 +14,7 @@ public record BusinessSignupRequest(
         UserRole role,
 
         @NotBlank(message = "업체명은 필수입니다.")
+        @SingleLine
         @Size(min = 2, max = 200, message = "업체명은 2자 이상 200자 이하여야 합니다.")
         String companyName,
 
@@ -23,6 +25,7 @@ public record BusinessSignupRequest(
         String businessNumber,
 
         @NotBlank(message = "대표자명은 필수입니다.")
+        @SingleLine
         @Size(min = 2, max = 100, message = "대표자명은 2자 이상 100자 이하여야 합니다.")
         String representativeName,
 
@@ -37,9 +40,11 @@ public record BusinessSignupRequest(
         String zipCode,
 
         @NotBlank(message = "업체 주소는 필수입니다.")
+        @SingleLine
         @Size(max = 255, message = "업체 주소는 255자를 초과할 수 없습니다.")
         String address,
 
+        @SingleLine
         @Size(max = 255, message = "상세 주소는 255자를 초과할 수 없습니다.")
         String addressDetail,
 

@@ -48,7 +48,10 @@ public record ProductModelRegisterRequest(
         @JsonDeserialize(using = IntegralLongDeserializer.class)
         Long price,
 
+        // 컬럼이 TEXT(65535 **바이트**)라 상한이 없으면 한글 21,846자쯤에서 DB 가 거절하고
+        // 사용자에게는 400 이 아니라 500 으로 보인다. 글자 수로 세는 @Size 로 앞에서 막는다.
         @NotBlank(message = "제품 설명은 필수입니다.")
+        @Size(max = 5000, message = "제품 설명은 5000자를 넘을 수 없습니다.")
         String description,
 
         @NotBlank(message = "대표 이미지는 필수입니다.")

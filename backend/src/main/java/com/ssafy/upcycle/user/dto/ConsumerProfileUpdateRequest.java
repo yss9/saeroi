@@ -1,5 +1,6 @@
 package com.ssafy.upcycle.user.dto;
 
+import com.ssafy.upcycle.common.validation.SingleLine;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -21,6 +22,7 @@ import jakarta.validation.constraints.Size;
 public record ConsumerProfileUpdateRequest(
 
         @NotBlank(message = "이름은 필수입니다.")
+        @SingleLine
         @Size(min = 2, max = 100, message = "이름은 2자 이상 100자 이하여야 합니다.")
         String name,
 

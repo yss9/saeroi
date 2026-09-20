@@ -291,9 +291,26 @@ class LocalFileStorageServiceTests {
     @Test
     void refusesToResolveAKeyThatEscapesTheRoot() {
         // DB 에 저장된 키가 오염됐을 때. 되찾는 쪽에 구멍이 있으면 파생 경로의 노력이 무의미하다.
-        assertThatThrownBy(() -> storage().exists("../../etc/passwd"))
+        // read() 는 "그 바이트를 달라" 는 요청이고 오염된 키로는 답할 수 없으므로 던진다.
+        assertThatThrownBy(() -> storage().read("../../etc/passwd"))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(FileStorageErrorCode.FILE_STORAGE_FAILED);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "../../etc/passwd",
+        "/leading-slash.jpg",
+        "/api/v1/public/product-models/54/thumbnail",
+        "back\\slash.jpg",
+        "line\nbreak.jpg"
+    })
+    void existsAnswersFalseForKeysThisStoreCouldNeverHaveMade(String key) {
+        // exists() 는 클라이언트 입력으로도 불린다 — 상품 등록이 썸네일 키를 받아 저장 여부를
+        // 확인하는 자리가 그렇다. 거기서 던지면 "입력이 틀렸다" 가 500 으로 나간다. 실제로
+        // /api/... 형태(우리 GET 이 돌려주는 바로 그 모양)를 그대로 되돌려 보낸 클라이언트가
+        // 500 을 받았다 (2026-09-21 확인). 이탈을 막는 것은 그대로 두고 답만 고친다.
+        assertThat(storage().exists(key)).isFalse();
     }
 }
