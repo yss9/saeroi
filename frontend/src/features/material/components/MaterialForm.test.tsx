@@ -42,6 +42,7 @@ vi.mock('../../inventory/hooks/useMyMaterials.ts', () => myMaterials)
  */
 const wallet = vi.hoisted(() => ({ address: '0xabc' as string | null, connect: vi.fn() }))
 vi.mock('../../wallet/hooks/useWallet.ts', () => ({
+  useSwitchChainNotice: () => ({ message: null, report: () => {} }),
   useWallet: () => wallet,
 }))
 

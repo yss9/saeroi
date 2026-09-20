@@ -19,7 +19,10 @@ import { TradeChainPanel } from './TradeChainPanel.tsx'
 // 지갑·판매글·체인 훅을 직접 자른다. 이 테스트가 보는 것은 "칸을 그리는가" 하나이고,
 // 실제 훅을 끌고 오면 MetaMask 와 조회 캐시까지 준비해야 해 무엇을 검증하는지 흐려진다.
 const wallet = vi.hoisted(() => ({ address: '0xabc' as string | null }))
-vi.mock('../../wallet/hooks/useWallet.ts', () => ({ useWallet: () => wallet }))
+vi.mock('../../wallet/hooks/useWallet.ts', () => ({
+  useWallet: () => wallet,
+  useSwitchChainNotice: () => ({ message: null, report: () => {} }),
+}))
 
 const listing = vi.hoisted(() => ({
   data: { chainListingId: 4 } as { chainListingId: number | null } | undefined,

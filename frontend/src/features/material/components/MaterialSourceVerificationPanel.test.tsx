@@ -24,6 +24,7 @@ vi.mock('../../auth/hooks/useAuth.ts', () => ({
 
 // MaterialMintPanel 과 같은 이유로 walletStore 가 아니라 useWallet() 을 모킹한다.
 vi.mock('../../wallet/hooks/useWallet.ts', () => ({
+  useSwitchChainNotice: () => ({ message: null, report: () => {} }),
   useWallet: () => ({
     address: '0x053E6Ed40F29f21577472d99bF9Fa4AdECD4a63e',
     chainId: mocks.chainId,
