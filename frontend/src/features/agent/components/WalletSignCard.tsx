@@ -82,6 +82,12 @@ export function WalletSignCard({
         await complete.mutateAsync({ actionId: action.id, resultJson: '{"alreadyLinked":true}' })
         return
       }
+      // 체인이 이미 그 상태인 경우. 서버에 붙일 것이 없는 서명(수령 확인 등)은
+      // chain-link API 를 지나지 않아 위 코드로 오지 않으므로, 서명자가 직접 알린다.
+      if (isChainAlreadyDone(signError)) {
+        await complete.mutateAsync({ actionId: action.id, resultJson: '{"alreadyReceived":true}' })
+        return
+      }
       console.error('[agent] 서명 실패', signError)
       setError(messageOf(signError))
     }
@@ -161,6 +167,22 @@ function isAlreadyLinked(error: unknown): boolean {
     error !== null &&
     'code' in error &&
     (error as { code: unknown }).code === 'BLOCKCHAIN_ALREADY_LINKED'
+  )
+}
+
+/**
+ * 체인이 이미 그 상태인가.
+ *
+ * 서명자가 미리 체인을 읽어 판단한 경우다. 다시 서명하면 컨트랙트가 revert 하는데, 그건
+ * 실패가 아니라 <b>앞선 시도가 성공했다는 뜻</b>이다. 오류로 보여주면 성공한 작업이
+ * 실패한 것처럼 남는다.
+ */
+function isChainAlreadyDone(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code: unknown }).code === 'CHAIN_ALREADY_DONE'
   )
 }
 

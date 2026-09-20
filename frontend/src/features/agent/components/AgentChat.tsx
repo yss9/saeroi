@@ -2,7 +2,11 @@ import type { ContractTransactionResponse } from 'ethers'
 import { useEffect, useRef, useState } from 'react'
 import { linkTradeOnChain } from '../../../services/blockchain/chainLinkApi.ts'
 import { getListing } from '../../marketplace/api/getListing.ts'
-import { createOrder } from '../../marketplace/services/marketplaceContractService.ts'
+import {
+  confirmReceipt,
+  createOrder,
+  getOrder,
+} from '../../marketplace/services/marketplaceContractService.ts'
 import { processingJobApi } from '../../processing/api/processingJobApi.ts'
 import {
   approveProcessingResultOnChain,
@@ -226,6 +230,7 @@ const SIGNERS: Record<string, (payload: SignPayload) => Promise<string>> = {
   request_custody_transfer: (payload) =>
     signCustodyTransfer(requireId(payload, 'jobId'), payload.carrier, payload.trackingNumber),
   approve_processing_result: (payload) => signProcessingApproval(requireId(payload, 'jobId')),
+  request_chain_receipt: (payload) => signTradeReceipt(requireId(payload, 'tradeId')),
 }
 
 /** 서명 카드가 넘겨주는 값. 모델이 만든 인자라 무엇이 들었는지 보장되지 않는다. */
@@ -312,6 +317,43 @@ async function signProcessingApproval(jobId: number): Promise<string> {
 
   const receipt = await confirmedTransaction(approveProcessingResultOnChain(preparation.chainJobId))
   await processingJobApi.receiveReturn(jobId, { txHash: receipt.hash })
+  return receipt.hash
+}
+
+/**
+ * 수령을 체인에 기록한다. **소유권이 실제로 옮겨가는 자리다.**
+ *
+ * 컨트랙트가 순서를 강제한다 — 주문이 체인에서 `SHIPPED` 여야 받는다. 판매자가 발송
+ * 서명을 하지 않았으면 revert 하는데, 그 메시지만으로는 담당자가 무엇을 기다려야 하는지
+ * 알 수 없다. 그래서 서명 전에 체인 상태를 읽어 이유를 말해 준다.
+ *
+ * 이미 수령이 기록된 주문이면 실패가 아니라 **앞선 시도가 성공한 것**이다. 다시 서명하면
+ * revert 하므로 그 사실만 돌려주고 카드를 닫는다.
+ */
+async function signTradeReceipt(tradeId: number): Promise<string> {
+  const trade = await getTrade(tradeId)
+  if (trade.chainTradeId == null) {
+    throw new Error('이 거래는 블록체인에 기록되지 않아 체인에 남길 수령 기록이 없습니다.')
+  }
+
+  // `getOrder` 가 숫자를 문자열로 디코딩해 준다. 직접 비교하면 컨트랙트 enum 의 0번이
+  // NONE 인 것을 잊고 한 칸 밀린 판정을 하게 된다 — 실제로 그렇게 헷갈렸다.
+  const order = await getOrder(trade.chainTradeId)
+  if (order.status === 'RECEIVED' || order.status === 'COMPLETED') {
+    // 이미 옮겨졌다. 다시 서명하면 revert 하므로 실패가 아니라 "이미 됐다" 로 닫는다.
+    // 카드가 이 코드를 보고 완료 처리한다 — BLOCKCHAIN_ALREADY_LINKED 와 같은 관용구다.
+    throw Object.assign(new Error('이 거래의 수령은 이미 블록체인에 기록돼 있습니다.'), {
+      code: 'CHAIN_ALREADY_DONE',
+    })
+  }
+  if (order.status !== 'SHIPPED') {
+    throw new Error(
+      '판매자가 아직 발송을 블록체인에 기록하지 않아 수령을 서명할 수 없습니다. ' +
+        '컨트랙트가 발송 뒤에만 수령을 받습니다 — 판매자의 발송 서명이 끝난 뒤 다시 시도해 주세요.',
+    )
+  }
+
+  const receipt = await confirmedTransaction(confirmReceipt(trade.chainTradeId))
   return receipt.hash
 }
 
