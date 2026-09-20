@@ -173,6 +173,13 @@ public class AgentPendingAction extends BaseEntity {
         this.status = PendingActionStatus.REJECTED;
     }
 
+    /** 다른 경로로 이미 처리됐다. 대기 중인 카드만 닫는다 — 끝난 카드를 다시 건드리지 않는다. */
+    public void markStale() {
+        if (status == PendingActionStatus.PENDING) {
+            this.status = PendingActionStatus.STALE;
+        }
+    }
+
     public void expire() {
         if (status == PendingActionStatus.PENDING) {
             this.status = PendingActionStatus.EXPIRED;

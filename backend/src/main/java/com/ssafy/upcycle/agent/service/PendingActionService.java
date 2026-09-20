@@ -13,6 +13,7 @@ import com.ssafy.upcycle.agent.tool.AgentToolResult;
 import com.ssafy.upcycle.common.exception.BusinessException;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -60,6 +61,17 @@ public class PendingActionService {
         }
 
         JsonNode arguments = mergeArguments(action, resultJson);
+
+        // 카드를 만든 뒤에 담당자가 화면에서 먼저 처리했을 수 있다. 그대로 실행하면 도메인이
+        // 거절하고, 담당자는 자기가 승인한 작업이 오류로 끝나는 것을 본다. 이미 끝난 일이면
+        // 실패가 아니라 "이미 됐다" 로 닫는다.
+        Optional<String> stale = executor.stalenessReason(conversation, userId, action, arguments);
+        if (stale.isPresent()) {
+            action.markStale();
+            store.appendAssistant(conversation, stale.get());
+            log.info("Agent action stale on approval: id={} tool={}", actionId, action.getToolName());
+            return conversationService.detail(userId, conversation.getId());
+        }
 
         AgentToolResult result;
         try {

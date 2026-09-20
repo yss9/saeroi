@@ -8,6 +8,9 @@ import com.ssafy.upcycle.agent.tool.AgentToolContext;
 import com.ssafy.upcycle.agent.tool.AgentToolResult;
 import com.ssafy.upcycle.agent.tool.PendingActionKind;
 import com.ssafy.upcycle.trade.dto.TradeResponse;
+import com.ssafy.upcycle.trade.entity.MaterialTrade;
+import com.ssafy.upcycle.trade.entity.TradeStatus;
+import com.ssafy.upcycle.trade.repository.MaterialTradeRepository;
 import com.ssafy.upcycle.trade.service.PaymentService;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -33,10 +36,14 @@ import org.springframework.stereotype.Component;
 public class CancelTradeTool extends AbstractAgentTool {
 
     private final PaymentService paymentService;
+    // 카드가 아직 유효한지 보려고 거래를 읽는다.
+    private final MaterialTradeRepository trades;
 
-    public CancelTradeTool(ObjectMapper objectMapper, PaymentService paymentService) {
+    public CancelTradeTool(
+            ObjectMapper objectMapper, PaymentService paymentService, MaterialTradeRepository trades) {
         super(objectMapper);
         this.paymentService = paymentService;
+        this.trades = trades;
     }
 
     @Override
@@ -81,6 +88,34 @@ public class CancelTradeTool extends AbstractAgentTool {
     @Override
     public PendingActionKind pendingKind() {
         return PendingActionKind.CONFIRM;
+    }
+
+    /** 이미 취소됐거나, 발송돼 취소할 수 없는 거래인가. */
+    /**
+     * <b>리포지토리로 직접 읽는다.</b> {@code TradeQueryService} 같은 {@code @Transactional}
+     * 서비스를 부르면, 거기서 던진 예외를 여기서 잡아도 Spring 이 바깥 트랜잭션을
+     * rollback-only 로 표시해 승인 전체가 커밋되지 않는다 — 없는 거래 id 로 카드가 떠 있을
+     * 때 실제로 그렇게 깨졌다. 이 검사는 실패해도 정상 흐름을 막지 않아야 한다.
+     */
+    @Override
+    public java.util.Optional<String> stalenessReason(
+            AgentToolContext context, JsonNode arguments) {
+        MaterialTrade trade = trades
+                .findById(requiredPositiveLong(arguments, "tradeId"))
+                .filter(candidate -> candidate.getBuyerId().equals(context.userId()))
+                .orElse(null);
+        // 없거나 남의 거래면 판정하지 않는다. 그건 승인 시점에 도메인이 거절할 일이다.
+        if (trade == null) {
+            return java.util.Optional.empty();
+        }
+        if (trade.getStatus() == TradeStatus.CANCELED) {
+            return java.util.Optional.of("이 거래는 이미 취소돼 판매 글의 수량이 복구된 상태입니다.");
+        }
+        if (trade.getStatus() != TradeStatus.CREATED && trade.getStatus() != TradeStatus.PAID) {
+            return java.util.Optional.of(
+                    "판매자가 이미 발송해 취소할 수 없습니다. 수령 후 반품 절차로 처리해야 합니다.");
+        }
+        return java.util.Optional.empty();
     }
 
     @Override

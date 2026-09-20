@@ -8,6 +8,9 @@ import com.ssafy.upcycle.agent.tool.AgentToolContext;
 import com.ssafy.upcycle.agent.tool.AgentToolResult;
 import com.ssafy.upcycle.agent.tool.PendingActionKind;
 import com.ssafy.upcycle.trade.dto.TradeReceiptResponse;
+import com.ssafy.upcycle.trade.entity.MaterialTrade;
+import com.ssafy.upcycle.trade.entity.TradeStatus;
+import com.ssafy.upcycle.trade.repository.MaterialTradeRepository;
 import com.ssafy.upcycle.trade.service.TradeReceiptService;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -31,10 +34,16 @@ import org.springframework.stereotype.Component;
 public class ConfirmReceiptTool extends AbstractAgentTool {
 
     private final TradeReceiptService receiptService;
+    // 카드가 아직 유효한지 보려고 거래를 읽는다.
+    private final MaterialTradeRepository trades;
 
-    public ConfirmReceiptTool(ObjectMapper objectMapper, TradeReceiptService receiptService) {
+    public ConfirmReceiptTool(
+            ObjectMapper objectMapper,
+            TradeReceiptService receiptService,
+            MaterialTradeRepository trades) {
         super(objectMapper);
         this.receiptService = receiptService;
+        this.trades = trades;
     }
 
     @Override
@@ -75,6 +84,38 @@ public class ConfirmReceiptTool extends AbstractAgentTool {
     @Override
     public PendingActionKind pendingKind() {
         return PendingActionKind.CONFIRM;
+    }
+
+    /**
+     * 이미 수령이 확정된 거래인가.
+     *
+     * <p>담당자가 거래 상세 화면에서 먼저 확정하면 이 카드는 할 일이 없어진다. 그대로
+     * 실행하면 도메인이 거절하고, 담당자는 자기가 승인한 작업이 오류로 끝나는 것을 본다.
+     */
+    /**
+     * <b>리포지토리로 직접 읽는다.</b> {@code TradeQueryService} 같은 {@code @Transactional}
+     * 서비스를 부르면, 거기서 던진 예외를 여기서 잡아도 Spring 이 바깥 트랜잭션을
+     * rollback-only 로 표시해 승인 전체가 커밋되지 않는다 — 없는 거래 id 로 카드가 떠 있을
+     * 때 실제로 그렇게 깨졌다. 이 검사는 실패해도 정상 흐름을 막지 않아야 한다.
+     */
+    @Override
+    public java.util.Optional<String> stalenessReason(
+            AgentToolContext context, JsonNode arguments) {
+        MaterialTrade trade = trades
+                .findById(requiredPositiveLong(arguments, "tradeId"))
+                .filter(candidate -> candidate.getBuyerId().equals(context.userId()))
+                .orElse(null);
+        // 없거나 남의 거래면 판정하지 않는다. 그건 승인 시점에 도메인이 거절할 일이다.
+        if (trade == null) {
+            return java.util.Optional.empty();
+        }
+        if (trade.getReceivedAt() != null) {
+            return java.util.Optional.of("이 거래는 이미 수령이 확정돼 소재가 보유 목록에 들어와 있습니다.");
+        }
+        if (trade.getStatus() != TradeStatus.SHIPPED) {
+            return java.util.Optional.of("아직 판매자가 발송하지 않아 수령을 확정할 수 없습니다.");
+        }
+        return java.util.Optional.empty();
     }
 
     @Override

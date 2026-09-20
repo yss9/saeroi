@@ -73,6 +73,13 @@ public class AgentToolExecutor {
             if (refusal.isPresent()) {
                 return refusal.get().payloadJson();
             }
+            // 이미 끝난 일이면 카드를 만들지 않는다. 담당자가 화면에서 먼저 처리한 건에
+            // 대해 모델이 카드를 띄우는 것이 실제로 있었다 (완료된 거래에 온체인 기록 카드).
+            Optional<String> stale = stalenessReason(tool, userId, conversation, arguments);
+            if (stale.isPresent()) {
+                log.info("Agent tool skipped as stale: name={} reason={}", tool.name(), stale.get());
+                return error("ALREADY_DONE", stale.get());
+            }
             return propose(conversation, tool, call, arguments, toolCallMessage, actionTtl);
         }
 
@@ -102,6 +109,39 @@ public class AgentToolExecutor {
                 .orElseThrow(() -> new IllegalStateException("Approved tool disappeared: " + action.getToolName()));
 
         return tool.execute(new AgentToolContext(userId, conversation), mergedArguments);
+    }
+
+    /**
+     * 승인된 카드가 이미 지난 일인지.
+     *
+     * <p>카드를 만들 때와 <b>같은 검사</b>를 쓴다. 두 시점에 서로 다른 판정을 두면 한쪽만
+     * 고쳐질 때 구멍이 난다.
+     *
+     * <p>여기서 예외가 나면 비어 있는 것으로 본다 — 사전 점검이 흔들린다고 담당자가 승인한
+     * 작업을 막을 이유는 없다. 못 본 것은 도메인이 거절한다.
+     */
+    public Optional<String> stalenessReason(
+            AgentConversation conversation,
+            Long userId,
+            AgentPendingAction action,
+            JsonNode arguments) {
+        return registry
+                .findApproved(action.getToolName())
+                .flatMap(tool -> stalenessReason(tool, userId, conversation, arguments));
+    }
+
+    /** 이미 지난 일인지. 사전 점검이 흔들려도 정상 흐름을 세우지 않는다 — 승인 때 다시 본다. */
+    private Optional<String> stalenessReason(
+            AgentTool tool, Long userId, AgentConversation conversation, JsonNode arguments) {
+        try {
+            return tool.stalenessReason(new AgentToolContext(userId, conversation), arguments);
+        } catch (RuntimeException failure) {
+            log.warn(
+                    "Agent staleness check failed, proposing anyway: name={} reason={}",
+                    tool.name(),
+                    failure.getClass().getSimpleName());
+            return Optional.empty();
+        }
     }
 
     /**

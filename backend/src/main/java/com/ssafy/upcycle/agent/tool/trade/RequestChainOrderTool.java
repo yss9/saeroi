@@ -7,6 +7,9 @@ import com.ssafy.upcycle.agent.tool.AbstractAgentTool;
 import com.ssafy.upcycle.agent.tool.AgentToolContext;
 import com.ssafy.upcycle.agent.tool.AgentToolResult;
 import com.ssafy.upcycle.agent.tool.PendingActionKind;
+import com.ssafy.upcycle.trade.entity.MaterialTrade;
+import com.ssafy.upcycle.trade.entity.TradeStatus;
+import com.ssafy.upcycle.trade.repository.MaterialTradeRepository;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -35,8 +38,12 @@ import org.springframework.stereotype.Component;
 @Component
 public class RequestChainOrderTool extends AbstractAgentTool {
 
-    public RequestChainOrderTool(ObjectMapper objectMapper) {
+    // 서버가 체인에 쓰지는 않지만, 카드가 아직 유효한지는 봐야 한다.
+    private final MaterialTradeRepository trades;
+
+    public RequestChainOrderTool(ObjectMapper objectMapper, MaterialTradeRepository trades) {
         super(objectMapper);
+        this.trades = trades;
     }
 
     @Override
@@ -79,6 +86,40 @@ public class RequestChainOrderTool extends AbstractAgentTool {
     @Override
     public PendingActionKind pendingKind() {
         return PendingActionKind.WALLET_SIGN;
+    }
+
+    /**
+     * 이미 체인에 올라간 거래인가.
+     *
+     * <p>같은 거래를 두 번 기록할 수 없다. 담당자가 거래 상세 화면에서 먼저 기록했거나,
+     * 모델이 완료된 거래에 다시 카드를 띄운 경우가 여기 걸린다 — 후자가 실제로 있었다.
+     */
+    /**
+     * <b>리포지토리로 직접 읽는다.</b> {@code TradeQueryService} 같은 {@code @Transactional}
+     * 서비스를 부르면, 거기서 던진 예외를 여기서 잡아도 Spring 이 바깥 트랜잭션을
+     * rollback-only 로 표시해 승인 전체가 커밋되지 않는다 — 없는 거래 id 로 카드가 떠 있을
+     * 때 실제로 그렇게 깨졌다. 이 검사는 실패해도 정상 흐름을 막지 않아야 한다.
+     */
+    @Override
+    public java.util.Optional<String> stalenessReason(
+            AgentToolContext context, JsonNode arguments) {
+        MaterialTrade trade = trades
+                .findById(requiredPositiveLong(arguments, "tradeId"))
+                .filter(candidate -> candidate.getBuyerId().equals(context.userId()))
+                .orElse(null);
+        // 없거나 남의 거래면 판정하지 않는다. 그건 승인 시점에 도메인이 거절할 일이다.
+        if (trade == null) {
+            return java.util.Optional.empty();
+        }
+        if (trade.getChainTradeId() != null) {
+            return java.util.Optional.of(
+                    "이 거래는 이미 블록체인에 기록돼 있어 다시 서명할 필요가 없습니다.");
+        }
+        if (trade.getStatus() != TradeStatus.PAID) {
+            return java.util.Optional.of(
+                    "이 거래는 온체인 기록을 남길 수 있는 상태가 아닙니다. 결제가 끝난 거래만 기록합니다.");
+        }
+        return java.util.Optional.empty();
     }
 
     /**
