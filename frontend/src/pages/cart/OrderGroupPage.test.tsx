@@ -9,9 +9,9 @@ import { OrderGroupPage } from './OrderGroupPage.tsx'
 import { apiClient } from '../../services/apiClient.ts'
 import { createAppError, ERROR_KIND } from '../../utils/errors.ts'
 vi.mock('../../features/cart/checkout.ts', async importOriginal => ({ ...await importOriginal<object>(), getGroup: vi.fn(), approveGroup: vi.fn(), cancelGroup: vi.fn(), readyGroup: vi.fn() }))
-const group: OrderGroup = { orderGroupId: 3, orderGroupCode: 'ORG-3', totalPrice: 20000, status: 'CREATED', paidAt: null, orderedAt: '2026-09-17', cancelable: true,
-  orders: [{ orderId: 1, orderCode: 'ORD-1', orderGroupCode: 'ORG-3', brandName: '브랜드 A', totalPrice: 10000, status: 'CREATED', orderedAt: '2026-09-17', paidAt: null, shippedAt: null, deliveredAt: null, items: [] },
-    { orderId: 2, orderCode: 'ORD-2', orderGroupCode: 'ORG-3', brandName: '브랜드 B', totalPrice: 10000, status: 'CREATED', orderedAt: '2026-09-17', paidAt: null, shippedAt: null, deliveredAt: null, items: [] }] }
+const group: OrderGroup = { orderGroupId: 3, orderGroupCode: 'ORG-3', totalPrice: 20000, status: 'CREATED', paidAt: null, orderedAt: '2026-09-17', cancelable: true, paymentDeadline: '2026-09-20T00:30:00+09:00', remainingSeconds: 1800,
+  orders: [{ orderId: 1, orderCode: 'ORD-1', orderGroupCode: 'ORG-3', brandName: '브랜드 A', totalPrice: 10000, status: 'CREATED', orderedAt: '2026-09-17', paidAt: null, shippedAt: null, deliveredAt: null, paymentDeadline: '2026-09-20T00:30:00+09:00', remainingSeconds: 1800, items: [] },
+    { orderId: 2, orderCode: 'ORD-2', orderGroupCode: 'ORG-3', brandName: '브랜드 B', totalPrice: 10000, status: 'CREATED', orderedAt: '2026-09-17', paidAt: null, shippedAt: null, deliveredAt: null, paymentDeadline: '2026-09-20T00:30:00+09:00', remainingSeconds: 1800, items: [] }] }
 function show(returning = false, suffix = '') { render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><ShopProvider><MemoryRouter initialEntries={[`/order-groups/3${returning ? '/payment/return' : ''}${suffix}`]}><Routes><Route path={returning ? '/order-groups/:orderGroupId/payment/return' : '/order-groups/:orderGroupId'} element={<OrderGroupPage returning={returning} />} /></Routes></MemoryRouter></ShopProvider></QueryClientProvider>) }
 function Position() { const location = useLocation(); return <output aria-label="현재 위치">{location.pathname}{location.search}</output> }
 function showSingle(returning = false, suffix = '') {
@@ -49,6 +49,20 @@ describe('order group checkout', () => {
     expect(screen.getByRole('button', { name: '결제하기' })).toBeEnabled()
     expect(screen.getByRole('button', { name: '주문 전체 취소' })).toBeEnabled()
   })
+  it('disables payment when the server says the deadline has passed', async () => {
+    vi.mocked(getGroup).mockResolvedValue({ ...group, remainingSeconds: 0 })
+    show()
+    await screen.findByText('결제 마감')
+    expect(screen.getByRole('button', { name: '결제하기' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: '결제하기' }))
+    expect(readyGroup).not.toHaveBeenCalled()
+  })
+  it('explains the payment deadline when payment preparation returns the expiry code', async () => {
+    vi.mocked(readyGroup).mockRejectedValue(createAppError(ERROR_KIND.API_ERROR, { code: 'PRODUCT_ORDER_PAYMENT_EXPIRED', status: 409 }))
+    show(); await screen.findByText('30분 0초 남음')
+    fireEvent.click(screen.getByRole('button', { name: '결제하기' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('결제 마감 시간이 지났습니다')
+  })
   it('removes payment actions when the latest read says the order disappeared', async () => {
     vi.mocked(getGroup).mockResolvedValueOnce(group).mockRejectedValue(createAppError(ERROR_KIND.API_ERROR, { status: 404 }))
     show(); await screen.findByText('ORG-3'); fireEvent.click(screen.getByRole('button', { name: '결제하기' }))
@@ -75,7 +89,7 @@ describe('order group checkout', () => {
     vi.mocked(getGroup).mockResolvedValue({ ...group, cancelable: false }); show(); await screen.findByText(/ORG-3/); expect(screen.getByRole('button', { name: '주문 전체 취소' })).toBeDisabled()
   })
   it('supports explicit mock payment without a real redirect', async () => {
-    vi.mocked(readyGroup).mockResolvedValue({ orderGroupId: 3, tid: 'mock', redirectUrl: '', totalPrice: 20000, live: false }); show(); await screen.findByText(/ORG-3/)
+    vi.mocked(readyGroup).mockResolvedValue({ orderGroupId: 3, tid: 'mock', redirectUrl: '', totalPrice: 20000, live: false, paymentDeadline: group.paymentDeadline, remainingSeconds: group.remainingSeconds }); show(); await screen.findByText(/ORG-3/)
     fireEvent.click(screen.getByRole('button', { name: '결제하기' })); const approve = await screen.findByRole('button', { name: '결제 승인 (시연)' }); await waitFor(() => expect(approve).toBeEnabled()); expect(screen.getByRole('dialog')).toHaveTextContent('실제 금액은 청구되지 않습니다.'); fireEvent.click(approve)
     await screen.findByRole('heading', { name: '주문·결제 완료' }); expect(approveGroup).toHaveBeenCalledWith(3, 'MOCK-PG-TOKEN')
   })

@@ -1523,6 +1523,10 @@ dd.consumer-profile-edit__field-edit {
 .consumer-mypage .consumer-order-detail__receipt-action { gap: 32px; flex-wrap: wrap; margin-top: 24px; padding-top: 16px; }
 .consumer-order-detail__cancel-link { display: inline-flex; align-items: center; min-height: 36px; color: var(--muted); font-size: 13px; font-weight: 500; }
 .consumer-order-detail__cancel-link:hover { color: var(--brand-blue); }
+.consumer-order-detail__payment-action { display: flex; align-items: center; justify-content: flex-end; gap: 20px; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--line); }
+.consumer-order-detail__payment-action p { margin: 0; color: var(--muted); font-size: 13px; }
+.consumer-order-detail__payment-action .ui-button, .consumer-order-detail__pay-link { display: inline-flex; align-items: center; justify-content: center; min-height: 36px; padding: 6px 16px; border: 0; border-radius: 6px; background: var(--brand-orange); color: var(--ink); font-size: 13px; font-weight: 600; text-decoration: none; }
+.consumer-order-detail__payment-action .ui-button:disabled { opacity: .45; cursor: not-allowed; }
 .consumer-mypage :is(.consumer-recent-orders, .consumer-order-group, .consumer-address-card, .consumer-inquiry-card, .consumer-review-card, .consumer-review-draft, .consumer-cancellation-card, .consumer-cancellation-detail__info) { border-radius: 0; box-shadow: none; }
 .consumer-mypage .ui-button { min-height: 34px; padding: 6px 16px; font-family: inherit; font-size: 13px; font-weight: 500; line-height: 1.5; border-radius: 6px; }
 .consumer-mypage .ui-button--secondary { border: 0; background: transparent; color: var(--muted); }
@@ -1593,8 +1597,10 @@ dd.consumer-profile-edit__field-edit {
 .consumer-mypage .consumer-order-detail__progress .consumer-order-progress { max-width: 680px; gap: 24px; }
 .consumer-mypage .consumer-order-item__journey-disabled { text-align: left; padding-inline: 0; align-self: stretch; }
 .consumer-order-group__pay, .consumer-order-group__cancel { display: flex; justify-content: center; align-items: center; min-height: 36px; border-radius: 6px; font: inherit; font-size: 13px; font-weight: 600; }
-.consumer-mypage-main a.consumer-order-group__pay { background: var(--brand-orange); color: var(--ink); text-decoration: none; }
-.consumer-mypage-main a.consumer-order-group__pay:hover { background: #e68b50; color: var(--ink); }
+.consumer-mypage-main .consumer-order-group__pay { width: 100%; border: 0; background: var(--brand-orange); color: var(--ink); text-decoration: none; }
+.consumer-mypage-main .consumer-order-group__pay:hover:not(:disabled) { background: #e68b50; color: var(--ink); }
+.consumer-mypage-main .consumer-order-group__pay:disabled { opacity: .45; cursor: not-allowed; }
+.consumer-order-group__deadline { margin: 0; color: var(--muted); font-size: 12px; text-align: center; }
 .consumer-order-group__cancel { color: var(--muted); }
 .consumer-mypage .consumer-order-item--detail .consumer-order-tracking {
   display: flex;

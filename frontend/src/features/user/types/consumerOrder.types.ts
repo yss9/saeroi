@@ -56,6 +56,8 @@ export interface ConsumerOrderResponse {
   paidAt: string | null
   shippedAt: string | null
   deliveredAt: string | null
+  paymentDeadline: string | null
+  remainingSeconds: number | null
   items: ConsumerOrderItemResponse[]
   /** 배송 정보(송장 + 2026-09-16부터 수령인·주소). 주문이 있으면 항상 함께 만들어진다. */
   shipping?: ConsumerOrderShipping | null
@@ -101,6 +103,8 @@ export interface ProductOrderPaymentReady {
   totalPrice: number
   /** 실제 PG 가 붙어 있는가. false 면 청구가 일어나지 않는다 */
   live: boolean
+  paymentDeadline: string | null
+  remainingSeconds: number | null
 }
 
 /**

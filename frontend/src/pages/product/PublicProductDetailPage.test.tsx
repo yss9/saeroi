@@ -129,6 +129,19 @@ describe('public consumer product detail', () => {
     expect(screen.queryByText('찜과 장바구니는 계정에 저장됩니다.')).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'QR Passport 예시 보기' })).not.toBeInTheDocument()
   })
+  it.each([false, true])('keeps the purchase button below wishlist and cart when authenticated is %s', async authenticated => {
+    if (authenticated) signIn()
+    show()
+    await screen.findByRole('heading', { name: product.name })
+
+    const actions = document.querySelector('.public-product__actions')
+    const purchase = screen.getByRole('button', { name: '구매하기' }).closest('.public-product__purchase')
+    expect(actions).not.toBeNull()
+    expect(purchase).not.toBeNull()
+    expect(actions?.nextElementSibling).toBe(purchase)
+    expect(within(actions as HTMLElement).getByRole('button', { name: '찜하기' })).toBeInTheDocument()
+    expect(within(actions as HTMLElement).getByRole('button', { name: '장바구니 담기' })).toBeInTheDocument()
+  })
   it.each(['찜하기', '장바구니 담기', '구매하기'])('returns to the same product after login from %s without automatic purchase', async (button) => {
     show()
     await screen.findByRole('heading', { name: product.name })

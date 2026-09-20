@@ -7,7 +7,8 @@ import { approveGroup, cancelGroup, getGroup, readyGroup, type OrderGroup } from
 function asCheckout(order: ConsumerOrderResponse): OrderGroup {
   return { orderGroupId: order.orderId, orderGroupCode: order.orderCode, totalPrice: order.totalPrice,
     status: order.status === 'CREATED' ? 'CREATED' : 'PAID', orderedAt: order.orderedAt, paidAt: order.paidAt,
-    cancelable: order.status === 'CREATED' || order.status === 'PAID', orders: [order] }
+    cancelable: order.status === 'CREATED' || order.status === 'PAID', paymentDeadline: order.paymentDeadline,
+    remainingSeconds: order.remainingSeconds, orders: [order] }
 }
 
 /** Existing orders only: resuming checkout must never create another order. */

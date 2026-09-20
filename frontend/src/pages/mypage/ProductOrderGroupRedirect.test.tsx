@@ -17,7 +17,7 @@ vi.mock('../landing/components/Footer.tsx', () => ({ Footer: () => null }))
 const hint = createAppError(ERROR_KIND.API_ERROR, { code: 'PRODUCT_ORDER_BELONGS_TO_GROUP', status: 409, details: { orderGroupId: 3, orderGroupCode: 'CHANGED-CODE' } })
 
 beforeEach(() => {
-  vi.mocked(getMyProductOrders).mockResolvedValue({ content: [{ orderId: 1, orderCode: 'ORD-1', orderGroupCode: 'CHANGED-CODE', brandName: '브랜드', totalPrice: 10000, status: 'CREATED', orderedAt: '2026-09-18', paidAt: null, shippedAt: null, deliveredAt: null, items: [] }], page: 0, size: 100, totalElements: 1, totalPages: 1, hasNext: false })
+  vi.mocked(getMyProductOrders).mockResolvedValue({ content: [{ orderId: 1, orderCode: 'ORD-1', orderGroupCode: 'CHANGED-CODE', brandName: '브랜드', totalPrice: 10000, status: 'CREATED', orderedAt: '2026-09-18', paidAt: null, shippedAt: null, deliveredAt: null, paymentDeadline: '2026-09-18T00:30:00+09:00', remainingSeconds: 1800, items: [] }], page: 0, size: 100, totalElements: 1, totalPages: 1, hasNext: false })
 })
 afterEach(() => { cleanup(); vi.resetAllMocks() })
 
