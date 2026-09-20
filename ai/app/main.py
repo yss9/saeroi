@@ -18,6 +18,8 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 
 from app import ocr, weight
 from app.schemas import OcrResponse, Verdict, WeightCheckResponse
+from app.vision.schemas import WeightRecognitionResponse
+from app.vision.service import WeightRecognitionService
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -27,6 +29,10 @@ app = FastAPI(title="circular-fashion ai", version="0.1.0")
 # 계근표 사진이 이보다 크면 대개 원본 무보정이다. 읽기 전에 거른다.
 MAX_UPLOAD_BYTES = 15 * 1024 * 1024
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
+
+# 저울 사진 인식 계약은 기존 계근표 OCR보다 좁다. 기존 상수와 합치지 않는다.
+VISION_MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+VISION_ALLOWED_TYPES = {"image/jpeg", "image/png"}
 
 
 @app.get("/health")
@@ -48,6 +54,25 @@ async def _read_upload(file: UploadFile) -> bytes:
     if len(data) > MAX_UPLOAD_BYTES:
         raise HTTPException(413, f"파일이 너무 큽니다. 최대 {MAX_UPLOAD_BYTES // 1024 // 1024}MB")
     return data
+
+
+async def _read_vision_upload(image: UploadFile) -> bytes:
+    if image.content_type not in VISION_ALLOWED_TYPES:
+        raise HTTPException(415, f"지원하지 않는 형식입니다: {image.content_type}")
+    data = await image.read()
+    if not data:
+        raise HTTPException(400, "빈 파일입니다.")
+    if len(data) > VISION_MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            413,
+            f"파일이 너무 큽니다. 최대 {VISION_MAX_UPLOAD_BYTES // 1024 // 1024}MB",
+        )
+    return data
+
+
+def get_weight_recognition_service() -> WeightRecognitionService:
+    """Build the light orchestrator; the OCR model itself remains lazy and cached."""
+    return WeightRecognitionService()
 
 
 @app.post("/v1/ocr", response_model=OcrResponse)
@@ -96,3 +121,18 @@ async def check_weight(
         # FLAG 를 검토하는 사람이 사진을 다시 열지 않아도 된다.
         lines=lines,
     )
+
+
+@app.post("/v1/vision/weight", response_model=WeightRecognitionResponse)
+async def recognize_weight(image: UploadFile = File(...)) -> WeightRecognitionResponse:
+    """Suggest a gram weight from a digital scale photo."""
+    data = await _read_vision_upload(image)
+    try:
+        return get_weight_recognition_service().recognize(data)
+    except Exception as error:
+        # Exception values may contain OCR text. Record only the type to avoid leaking it.
+        logger.error(
+            "vision-weight recognition failed error_type=%s",
+            type(error).__name__,
+        )
+        raise HTTPException(status_code=500, detail="Internal server error") from None
