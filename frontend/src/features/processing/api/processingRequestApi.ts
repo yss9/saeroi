@@ -10,12 +10,26 @@ export interface OwnedProcessingMaterial {
   lockedQuantity: number
   availableQuantity: number
 }
+/**
+ * 검색 결과에 실리는 가공사 한 곳.
+ *
+ * 견적 단계가 사라지면서 **금액과 기간이 이 목록에 이미 적혀 있다.** 단가와 수량만 받아
+ * 화면이 곱하면 올림이 어긋나는 순간 목록 금액과 결제창 금액이 달라지므로, 청구될 값은
+ * 서버가 계산한 estimatedPrice·estimatedDays 를 그대로 쓴다.
+ */
 export interface ProcessorMatch {
   processorId: number
   name: string
   region: string
-  minQuantity: number
-  maxQuantity: number
+  /** 요청한 공정 중 가장 느린 것의 하루 처리량(g/일). 둘러볼 때는 등록된 조합 중 가장 큰 값. */
+  dailyCapacity: number
+  /** 요청한 공정 전부를 합한 kg 당 단가(원). 둘러볼 때는 등록된 조합 중 가장 싼 값. */
+  pricePerKg: number
+  /** 실제로 청구될 금액. **수량 없이 둘러보면 null** — 0 으로 채우면 "공짜" 가 된다. */
+  estimatedPrice: number | null
+  /** 총 소요일. 공정이 여럿이면 차례로 하므로 합이다. 수량이 없으면 null. */
+  estimatedDays: number | null
+  /** 공정별 소요일. 수량이 없으면 빈 목록. */
   estimatedLeadTimes: Array<{ processType: ProcessType; leadDays: number }>
 }
 export interface ProcessorSearch {
