@@ -35,6 +35,7 @@ export function AgentChat() {
   const complete = useCompleteConversation()
   const [draft, setDraft] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   // 새 메시지·카드가 생기거나 "답장 중" 이 켜질 때마다 아래로 붙인다.
   //
@@ -44,6 +45,22 @@ export function AgentChat() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [conversation?.messages.length, conversation?.actions.length, send.isPending])
+
+  /**
+   * 답장이 오면 입력창에 커서를 되돌린다.
+   *
+   * <b>전송 중에는 입력창을 disabled 로 두는데, 비활성화되는 순간 브라우저가 포커스를
+   * 거둬 가고 다시 활성화될 때 돌려주지 않는다.</b> 그래서 한 마디 할 때마다 입력창을
+   * 다시 클릭해야 했다. 한 턴이 20~30초라 그동안 담당자는 다른 창을 보고 있다가
+   * 돌아오는데, 그때 바로 이어 칠 수 있어야 한다.
+   *
+   * 대화가 끝난 뒤에는 되돌리지 않는다 — 입력창이 계속 disabled 라 의미가 없고,
+   * 닫힌 대화에 커서가 깜빡이면 아직 쓸 수 있다는 뜻으로 읽힌다.
+   */
+  useEffect(() => {
+    if (send.isPending || conversation?.status === 'COMPLETED') return
+    inputRef.current?.focus()
+  }, [send.isPending, conversation?.status])
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -150,6 +167,7 @@ export function AgentChat() {
 
       <form className="agent-chat__input" onSubmit={handleSubmit}>
         <input
+          ref={inputRef}
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           placeholder="무엇을 만들고 싶으신가요?"
