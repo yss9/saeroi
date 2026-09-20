@@ -33,6 +33,7 @@ vi.mock('../../../config/contracts.ts', () => ({
 // 지갑 연결 상태.
 const wallet = vi.hoisted(() => ({ address: null as string | null }))
 vi.mock('../../wallet/hooks/useWallet.ts', () => ({
+  useSwitchChainNotice: () => ({ message: null, report: () => {} }),
   useWallet: () => ({ address: wallet.address }),
 }))
 

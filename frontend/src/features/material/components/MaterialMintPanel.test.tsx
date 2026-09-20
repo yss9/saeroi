@@ -35,6 +35,7 @@ vi.mock('../../auth/hooks/useAuth.ts', () => ({
 // 컴포넌트가 떠 있을 때만 채워지는데 이 화면에는 그런 컴포넌트가 없어서, 스토어를 읽으면
 // 지갑이 연결돼 있어도 주소가 null 이 된다.
 vi.mock('../../wallet/hooks/useWallet.ts', () => ({
+  useSwitchChainNotice: () => ({ message: null, report: () => {} }),
   useWallet: () => ({
     address: '0x053E6Ed40F29f21577472d99bF9Fa4AdECD4a63e',
     chainId: mocks.chainId,
