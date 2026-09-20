@@ -43,6 +43,9 @@ services:
       KAKAOPAY_PROCESSING_RETURN_URL: ${KAKAOPAY_PROCESSING_RETURN_URL:-http://localhost:5173/processing/jobs/{jobId}/payment/callback}
       KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:-}
       COMPANY_GEOLOCATION_BACKFILL_ENABLED: ${COMPANY_GEOLOCATION_BACKFILL_ENABLED:-false}
+      # 저울 사진 무게 인식. 기본값은 http://localhost:8000 인데 그건 backend 컨테이너
+      # 자기 자신이라 아무것도 없다 — compose 안에서는 서비스 이름으로 불러야 한다.
+      AI_SERVER_BASE_URL: ${AI_SERVER_BASE_URL:-http://ai:8000}
       QR_BASE_URL: ${QR_BASE_URL:-http://localhost:5173/qr}
       BESU_CHAIN_ID: ${BESU_CHAIN_ID:-31221}
       BESU_RPC_URL: ${BESU_RPC_URL:-http://host.docker.internal:8545}
@@ -64,6 +67,22 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+      ai:
+        condition: service_started
+    restart: unless-stopped
+
+  # 저울 사진에서 무게를 읽는 OCR 서버(FastAPI + rapidocr).
+  #
+  # 포트를 바꾸지 않는다 — backend 가 http://ai:8000 으로 부르고 Dockerfile 도 8000 을
+  # 전제한다. 호스트 8000 에도 열어 두어 컨테이너를 거치지 않고 직접 찔러볼 수 있게 한다.
+  ai:
+    build:
+      context: ../S15P21E104_ai
+      dockerfile: docker/Dockerfile
+    environment:
+      TZ: Asia/Seoul
+    ports:
+      - "8000:8000"
     restart: unless-stopped
 
   frontend:
