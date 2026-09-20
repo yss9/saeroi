@@ -25,7 +25,7 @@ const WINDOW_NAME = 'saeroi-agent'
  * 그래서 {@code WalletSignCard} 가 서명 전에 잠금 여부를 미리 확인해 안내한다 — 이쪽이
  * 실질적인 방어선이다.
  */
-const WINDOW_FEATURES = 'width=480,height=860'
+const WINDOW_FEATURES = 'width=980,height=880'
 
 export function AgentLauncher({ label = 'AI 어시스턴트' }: { label?: string }) {
   function open() {

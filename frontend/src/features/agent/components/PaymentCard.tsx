@@ -119,6 +119,10 @@ export function StatusOrActions({
   if (action.status === 'EXPIRED') {
     return <p className="agent-card__status">기한이 지났습니다. 대화에서 다시 요청해 주세요.</p>
   }
+  // 기한이 지난 것과 구분해서 말해야 한다. 이쪽은 다시 요청할 일이 아니라 이미 끝난 일이다.
+  if (action.status === 'STALE') {
+    return <p className="agent-card__status">이미 처리되어 더 할 일이 없습니다.</p>
+  }
 
   return (
     <div className="agent-card__actions">

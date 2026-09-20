@@ -19,7 +19,8 @@ import {
 import { PHASE_LABEL, type PendingAction } from '../types/agent.types.ts'
 import { ConfirmCard } from './ConfirmCard.tsx'
 import { PaymentCard } from './PaymentCard.tsx'
-import { TradeStatusStrip } from './TradeStatusStrip.tsx'
+import { AgentTaskPanel } from './AgentTaskPanel.tsx'
+import { TradeProgressBar } from './TradeProgressBar.tsx'
 import { WalletSignCard } from './WalletSignCard.tsx'
 
 /**
@@ -56,6 +57,10 @@ export function AgentChat() {
     return <p className="agent-chat__loading">대화를 불러오는 중…</p>
   }
 
+  // 이번 대화가 언제 시작됐는지. 진행 막대와 절차 패널이 이 시점 이후의 거래만 센다.
+  // 대화는 항상 담당자의 첫 발화로 시작하므로 그 시각이 곧 여정의 시작이다.
+  const startedAt = conversation?.messages[0]?.createdAt ?? null
+
   return (
     <section className="agent-chat">
       <header className="agent-chat__header">
@@ -79,8 +84,14 @@ export function AgentChat() {
 
       {/* 상대방이 움직여야 넘어가는 구간에서, 대화를 걸지 않아도 상태가 보이게 한다.
           도메인 API 만 읽으므로 크레딧이 들지 않는다. */}
-      <TradeStatusStrip />
+      <TradeProgressBar startedAt={startedAt} />
 
+      {/*
+        왼쪽은 대화, 오른쪽은 절차. 절차를 대화 위에 쌓으면 매번 지나쳐야 하고, 대화가
+        길어질수록 담당자는 스크롤을 올려 상태를 찾게 된다 — 그 이동을 없애려고 옆에 둔다.
+      */}
+      <div className="agent-chat__body">
+        <div className="agent-chat__main">
       <div className="agent-chat__log">
         {!conversation && (
           <p className="agent-chat__empty">
@@ -149,6 +160,10 @@ export function AgentChat() {
           보내기
         </button>
       </form>
+        </div>
+
+        <AgentTaskPanel conversation={conversation ?? null} />
+      </div>
     </section>
   )
 }

@@ -22,7 +22,13 @@ export type AgentMessageRole = 'USER' | 'ASSISTANT' | 'TOOL'
  */
 export type PendingActionType = 'WALLET_SIGN' | 'PAYMENT' | 'CONFIRM'
 
-export type PendingActionStatus = 'PENDING' | 'COMPLETED' | 'REJECTED' | 'EXPIRED'
+export type PendingActionStatus =
+  | 'PENDING'
+  | 'COMPLETED'
+  | 'REJECTED'
+  | 'EXPIRED'
+  /** 담당자가 화면에서 먼저 처리해 이 카드가 할 일이 없어졌다. */
+  | 'STALE'
 
 export interface AgentMessage {
   id: number
