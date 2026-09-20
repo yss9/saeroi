@@ -48,7 +48,7 @@ export function PaymentCard({ action }: { action: PendingAction }) {
         돈을 내는지 카드만 보고 알 수 없다 — 두 결제는 금액대도 시점도 다르다.
       */}
       <p className="agent-card__title">
-        {action.toolName === 'select_quote' ? '가공비 결제' : '소재 구매 결제'}
+        {action.toolName === 'pay_processing_fee' ? '가공비 결제' : '소재 구매 결제'}
       </p>
 
       <dl className="agent-card__detail">
