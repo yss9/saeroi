@@ -44,6 +44,7 @@ public class AgentChatService {
 
     private final AgentConversationRepository conversations;
     private final AgentTurnStore turnStore;
+    private final AgentPendingWork pendingWork;
     private final LlmClient llmClient;
     private final AgentProperties properties;
 
@@ -88,7 +89,10 @@ public class AgentChatService {
      */
     public void reportEvent(Long userId, Long conversationId, String note) {
         requireActiveConversation(userId, conversationId);
-        turnStore.appendAssistant(conversationId, note);
+        // 사건만 알리면 모델이 이력에 남은 낡은 조회 결과를 근거로 말한다. 결제 전에 받은
+        // needsChainOrder:false 를 믿고 "온체인 기록이 남지 않는 거래" 라고 설명한 일이
+        // 실제로 있었다. 서버가 지금 상태를 함께 넣어 기억에 의존하지 않게 한다.
+        turnStore.appendAssistant(conversationId, note + pendingWork.describe(userId));
         runTurn(conversationId, userId);
     }
 
