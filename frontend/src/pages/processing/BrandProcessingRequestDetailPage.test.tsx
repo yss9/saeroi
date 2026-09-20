@@ -1,3 +1,12 @@
+// 가공 요청 상세 (Brand).
+//
+// **견적 단계가 없어졌다.** 브랜드가 검색 결과에서 가격과 소요일을 보고 바로 고르므로,
+// 요청이 만들어지는 순간 작업과 금액이 함께 정해진다. 그래서 이 화면이 하는 일은 셋이다.
+//
+//   1) 무엇을 누구에게 맡겼고 얼마인가
+//   2) 아직 결제하지 않았으면 여기서 결제한다
+//   3) 결제한 뒤의 진행과 수령 확인은 가공 진행 칸이 맡는다
+
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -22,21 +31,28 @@ const detail = {
   materialType: 'DENIM',
   quantity: 12_500,
   processTypes: ['CLEANING', 'CUTTING'],
-  status: 'QUOTING',
+  status: 'REQUESTED',
   createdAt: '2026-09-09T01:00:00',
-  expiresAt: '2026-09-16T01:00:00',
+  expiresAt: '2026-09-09T01:15:00',
 }
 
-const quote = {
-  quoteId: 31,
-  requestId: 17,
-  processorId: 8,
-  processorName: '리뉴 가공소',
-  price: 120_000,
-  leadDays: 5,
-  memo: '세척 비용이 포함된 견적입니다.',
-  status: 'SUBMITTED',
-  createdAt: '2026-09-09T03:00:00',
+/** 요청과 함께 만들어진 작업. 결제 전에는 `CREATED` 다. */
+const job = {
+  jobId: 91, jobCode: 'JOB-091', requestId: 17, brandId: 3, processorId: 8,
+  fee: 120_000, paymentMethod: 'MOCK', paymentReference: null, paymentAmount: 0,
+  status: 'CREATED', paymentExpiresAt: '2026-09-09T01:15:00', createdAt: '2026-09-09T01:00:00',
+  inputMaterialId: 5, inputQuantity: 12_500, lossQuantity: 0, resultRevision: 0,
+  carrier: null, trackingNumber: null, returnCarrier: null, returnTrackingNumber: null,
+  returnShippingEvidenceHash: null, rejectionReason: null, shippedAt: null, receivedAt: null,
+  startedAt: null, resultSubmittedAt: null, rejectedAt: null, returnShippedAt: null,
+  completedAt: null, acceptExpiresAt: null, acceptedAt: null, declinedAt: null,
+  declineReason: null, refundedAt: null, outputs: [],
+}
+
+function mockGet(jobs: unknown[]) {
+  vi.mocked(apiClient.get).mockImplementation((url: string) =>
+    Promise.resolve({ data: url === '/processing-jobs' ? jobs : detail }),
+  )
 }
 
 function renderPage(path = '/brand/processing/requests/17') {
@@ -59,9 +75,7 @@ beforeEach(() => {
     accessToken: 'token',
     isAuthenticated: true,
   })
-  vi.mocked(apiClient.get).mockImplementation((url: string) => Promise.resolve({
-    data: url === '/processing-jobs' ? [] : url.endsWith('/quotes') ? [quote] : detail,
-  }))
+  mockGet([job])
 })
 
 afterEach(() => {
@@ -69,154 +83,60 @@ afterEach(() => {
   useAuthStore.setState({ user: null, accessToken: null, isAuthenticated: false })
 })
 
-test('Brand가 요청 상세와 접수된 견적을 함께 확인한다', async () => {
+test('무엇을 누구에게 맡겼고 얼마인지 보여준다', async () => {
   renderPage()
 
   // 제목이 어느 요청인지 말한다 — 요청 번호는 UUID 라 제목이 될 수 없다.
   expect(await screen.findByRole('heading', { name: '폐데님 원단' })).toBeInTheDocument()
   expect(screen.getByText('MAT-005')).toBeInTheDocument()
   expect(screen.getByText('데님')).toBeInTheDocument()
-  expect(screen.getByText('12,500 g')).toBeInTheDocument()
-  expect(screen.getByText('세척')).toBeInTheDocument()
-  expect(screen.getByText('재단')).toBeInTheDocument()
+  expect(screen.getAllByText('12,500 g').length).toBeGreaterThan(0)
+  expect(screen.getAllByText('세척').length).toBeGreaterThan(0)
   expect(screen.getAllByText('리뉴 가공소').length).toBeGreaterThan(0)
+  // 금액은 서버가 확정한 값이다. 화면이 단가를 곱하지 않는다.
   expect(screen.getAllByText('120,000원').length).toBeGreaterThan(0)
-  expect(screen.getByText('예상 5일')).toBeInTheDocument()
-  expect(screen.getByText('세척 비용이 포함된 견적입니다.')).toBeInTheDocument()
   expect(screen.getByRole('link', { name: '요청 내역' })).toHaveAttribute('href', '/brand/processing/requests')
   expect(apiClient.get).toHaveBeenCalledWith('/v1/processing-requests/17', { signal: expect.any(AbortSignal) })
-  expect(apiClient.get).toHaveBeenCalledWith('/v1/processing-requests/17/quotes', { signal: expect.any(AbortSignal) })
+  // 견적 조회는 사라졌다.
+  expect(vi.mocked(apiClient.get).mock.calls.some(([url]) => String(url).endsWith('/quotes'))).toBe(false)
 })
 
-test('견적 선택은 확인 단계를 거친 뒤 Job을 생성한다', async () => {
+test('결제 전이면 여기서 결제하고, 끝나면 발송으로 안내한다', async () => {
   const user = userEvent.setup()
-  vi.mocked(apiClient.post).mockResolvedValue({ data: {
-    jobId: 91,
-    jobCode: 'JOB-091',
-    requestId: 17,
-    quoteId: 31,
-    brandId: 3,
-    processorId: 8,
-    fee: 120_000,
-    paymentMethod: 'MOCK',
-    paymentReference: null,
-    paymentAmount: 0,
-    status: 'CREATED',
-    paymentExpiresAt: '2026-09-09T03:15:00',
-    createdAt: '2026-09-09T03:00:00',
-  } })
-  renderPage()
-  await screen.findByText('120,000원')
-
-  await user.click(screen.getByRole('button', { name: '이 견적 선택' }))
-  expect(apiClient.post).not.toHaveBeenCalled()
-  expect(screen.getByText('견적을 확정하면 15분 안에 결제를 완료해야 합니다.')).toBeInTheDocument()
-
-  await user.click(screen.getByRole('button', { name: '견적 선택 확정' }))
-
-  expect(apiClient.post).toHaveBeenCalledWith('/v1/quotes/31/select', { paymentMethod: 'MOCK' })
-  // 작업 번호는 화면에 적지 않는다 — 읽어서 얻을 것이 없다. 선택이 끝난 신호로 본다.
-  expect(await screen.findByText('견적 선택이 완료되었습니다.')).toBeInTheDocument()
-  expect(screen.getByText('결제 금액').parentElement).toHaveTextContent('120,000원')
-})
-
-test('생성된 Job에서 결제를 준비하고 Mock 승인까지 진행한다', async () => {
-  const user = userEvent.setup()
-  const job = {
-    jobId: 91, jobCode: 'JOB-091', requestId: 17, quoteId: 31, brandId: 3, processorId: 8,
-    fee: 120_000, paymentMethod: 'MOCK', paymentReference: null, paymentAmount: 0,
-    status: 'CREATED', paymentExpiresAt: '2026-09-09T03:15:00', createdAt: '2026-09-09T03:00:00',
-  }
   vi.mocked(apiClient.post).mockImplementation((url: string) => {
-    if (url.endsWith('/select')) return Promise.resolve({ data: job })
     if (url.endsWith('/payment')) return Promise.resolve({ data: {
       jobId: 91, tid: 'MOCK-TID-91', redirectUrl: '', amount: 120_000, live: false,
-      paymentExpiresAt: '2026-09-09T03:15:00',
+      paymentExpiresAt: '2026-09-09T01:15:00',
     } })
     return Promise.resolve({ data: { ...job, status: 'PAID', paymentReference: 'MOCK-TID-91' } })
   })
-  renderPage()
-  await screen.findByText('120,000원')
-  await user.click(screen.getByRole('button', { name: '이 견적 선택' }))
-  await user.click(screen.getByRole('button', { name: '견적 선택 확정' }))
-  await screen.findByText('견적 선택이 완료되었습니다.')
-
-  await user.click(screen.getByRole('button', { name: '결제 진행' }))
-
-  expect(apiClient.post).toHaveBeenCalledWith('/processing-jobs/91/payment')
-  expect(await screen.findByText('테스트 결제 환경입니다. 실제 금액은 청구되지 않습니다.')).toBeInTheDocument()
-  expect(screen.getAllByText('120,000원').length).toBeGreaterThan(0)
-
-  await user.click(screen.getByRole('button', { name: '결제 완료로 처리 (시연)' }))
-
-  expect(apiClient.post).toHaveBeenCalledWith('/processing-jobs/91/payment/confirm', { pgToken: 'MOCK-PG-TOKEN' })
-  expect(await screen.findByText('가공비 결제가 완료되었습니다.')).toBeInTheDocument()
-  expect(screen.getByRole('link', { name: '소재 발송하기' })).toHaveAttribute('href', '/processing/jobs/91')
-})
-
-test('결제 실패 후 다시 들어와도 기존 미결제 Job에서 결제를 재시도한다', async () => {
-  const user = userEvent.setup()
-  const createdJob = {
-    jobId: 91, jobCode: 'JOB-091', requestId: 17, quoteId: 31, brandId: 3, processorId: 8,
-    fee: 120_000, paymentAmount: 0, status: 'CREATED', paymentExpiresAt: '2026-09-09T03:15:00',
-    createdAt: '2026-09-09T03:00:00', inputMaterialId: 5, inputQuantity: 12_500, lossQuantity: 0,
-    resultRevision: 0, carrier: null, trackingNumber: null, returnCarrier: null, returnTrackingNumber: null,
-    returnShippingEvidenceHash: null, rejectionReason: null, shippedAt: null, receivedAt: null,
-    startedAt: null, resultSubmittedAt: null, rejectedAt: null, returnShippedAt: null,
-    completedAt: null, outputs: [],
-  }
-  vi.mocked(apiClient.get).mockImplementation((url: string) => Promise.resolve({
-    data: url === '/processing-jobs' ? [createdJob] : url.endsWith('/quotes')
-      ? [{ ...quote, status: 'SELECTED' }]
-      : { ...detail, status: 'SELECTED' },
-  }))
-  vi.mocked(apiClient.post).mockResolvedValue({ data: {
-    jobId: 91, tid: 'MOCK-TID-RETRY', redirectUrl: '', amount: 120_000, live: false,
-    paymentExpiresAt: '2026-09-09T03:15:00',
-  } })
-
   renderPage()
 
   await user.click(await screen.findByRole('button', { name: '결제 진행' }))
 
   expect(apiClient.post).toHaveBeenCalledWith('/processing-jobs/91/payment')
   expect(await screen.findByText('테스트 결제 환경입니다. 실제 금액은 청구되지 않습니다.')).toBeInTheDocument()
+
+  await user.click(screen.getByRole('button', { name: '결제 완료로 처리 (시연)' }))
+
+  expect(apiClient.post).toHaveBeenCalledWith('/processing-jobs/91/payment/confirm', { pgToken: 'MOCK-PG-TOKEN' })
+  expect(await screen.findByText('가공비 결제가 완료되었습니다.')).toBeInTheDocument()
+  // 발송은 온체인 등록·서명을 거치는 여러 단계라 작업 상세가 맡는다.
+  expect(screen.getByRole('link', { name: '소재 발송하기' })).toHaveAttribute('href', '/processing/jobs/91')
 })
 
-test('결제 완료 Job을 찾으면 요청 상세는 발송을 가공 진행 화면으로 안내한다', async () => {
-  const paidJob = {
-    jobId: 91, jobCode: 'JOB-091', requestId: 17, quoteId: 31, brandId: 3, processorId: 8,
-    fee: 120_000, paymentAmount: 120_000, status: 'PAID', paymentExpiresAt: '2026-09-09T03:15:00',
-    createdAt: '2026-09-09T03:00:00', inputMaterialId: 5, inputQuantity: 12_500, lossQuantity: 0,
-    resultRevision: 0, carrier: null, trackingNumber: null, rejectionReason: null, shippedAt: null,
-    receivedAt: null, startedAt: null, resultSubmittedAt: null, rejectedAt: null, completedAt: null, outputs: [],
-  }
-  vi.mocked(apiClient.get).mockImplementation((url: string) => Promise.resolve({
-    data: url === '/processing-jobs' ? [paidJob] : url.endsWith('/quotes') ? [{ ...quote, status: 'SELECTED' }] : { ...detail, status: 'SELECTED' },
-  }))
-
+// 기한이 지나면 요청이 만료되고 잠긴 소재가 풀린다 — 결제를 기다리는 동안에만 적는다.
+test('결제 기한을 결제 전에만 알린다', async () => {
   renderPage()
 
-  // 소재 발송은 온체인 작업 등록 · 수락 · 발송 서명을 거치는 여러 단계라 요청 상세에서
-  // 바로 처리할 수 없다 — 그 단계가 있는 작업 상세로 보낸다.
-  expect(await screen.findByRole('link', { name: '소재 발송하기' })).toHaveAttribute('href', '/processing/jobs/91')
-  expect(screen.queryByRole('heading', { name: '소재 발송' })).not.toBeInTheDocument()
-  expect(apiClient.patch).not.toHaveBeenCalled()
+  expect(await screen.findByText(/까지 결제하지 않으면 요청이 만료되고/)).toBeInTheDocument()
 })
 
-test('접수된 견적이 없으면 대기 상태를 안내한다', async () => {
-  vi.mocked(apiClient.get).mockImplementation((url: string) => Promise.resolve({
-    data: url === '/processing-jobs' ? [] : url.endsWith('/quotes') ? [] : detail,
-  }))
+test('결제한 뒤에는 결제 칸을 두지 않는다', async () => {
+  mockGet([{ ...job, status: 'PAID', paymentAmount: 120_000, acceptExpiresAt: '2026-09-12T01:00:00' }])
   renderPage()
 
-  expect(await screen.findByText('아직 접수된 견적이 없어요')).toBeInTheDocument()
-  expect(screen.getByText('지정한 가공사가 견적을 제출하면 이곳에서 확인할 수 있습니다.')).toBeInTheDocument()
-})
-
-test('올바르지 않은 요청 번호는 API를 호출하지 않고 안내한다', () => {
-  renderPage('/brand/processing/requests/not-a-number')
-
-  expect(screen.getByRole('alert')).toHaveTextContent('올바르지 않은 요청 번호입니다.')
-  expect(apiClient.get).not.toHaveBeenCalled()
+  await screen.findByRole('heading', { name: '폐데님 원단' })
+  expect(screen.queryByRole('button', { name: '결제 진행' })).not.toBeInTheDocument()
+  expect(screen.queryByText(/까지 결제하지 않으면/)).not.toBeInTheDocument()
 })

@@ -41,3 +41,8 @@
   다른 글씨(.78rem)에 맞춘다 — .68rem 짜리 진한 글씨는 작고 검어 덩어리로 보였다.
 */
 .pj-fields label { font-size: 0.78rem; font-weight: 400; color: #4b5563; }
+
+/* 수락과 거절은 한 줄의 오른쪽 끝에 나란히 선다. 거절이 왼쪽 — 실수로 먼저 눌리지 않게. */
+.pj-decision { display: flex; align-items: center; gap: 8px; }
+.pj-decision button { margin: 0; }
+.pj-action > div:first-child { display: grid; gap: 4px; }

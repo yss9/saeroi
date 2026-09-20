@@ -13,8 +13,10 @@ beforeEach(() => {
     accessToken: 'test-token',
     isAuthenticated: true,
   })
-  vi.mocked(apiClient.get).mockImplementation(async (url) => ({ data: url.includes('materials') ? [{ materialId: 1, materialCode: 'MAT-1', name: '폐데님', materialType: 'DENIM', quantity: 1000, lockedQuantity: 200, availableQuantity: 800 }] : { items: [{ processorId: 2, name: '새로 가공소', region: '서울', minQuantity: 1, maxQuantity: 1000, estimatedLeadTimes: [{ processType: 'CLEANING', leadDays: 3 }, { processType: 'CUTTING', leadDays: 5 }] }], total: 1, page: 0, size: 12 } }))
-  vi.mocked(apiClient.post).mockResolvedValue({ data: { requestId: 7, requestCode: 'PR-7', status: 'QUOTING', quantity: 500, processTypes: ['CLEANING'], expiresAt: '2026-09-14T10:00:00', createdAt: '2026-09-07T10:00:00' } })
+  // 검색 결과는 수량 상한 대신 금액과 소요일을 준다. 수량 없이 둘러볼 때는 둘 다 null 이다.
+  vi.mocked(apiClient.get).mockImplementation(async (url) => ({ data: url.includes('materials') ? [{ materialId: 1, materialCode: 'MAT-1', name: '폐데님', materialType: 'DENIM', quantity: 1000, lockedQuantity: 200, availableQuantity: 800, completedProcessTypes: [] }] : { items: [{ processorId: 2, name: '새로 가공소', region: '서울', dailyCapacity: 100_000, pricePerKg: 1200, estimatedPrice: 600, estimatedDays: 8, estimatedLeadTimes: [{ processType: 'CLEANING', leadDays: 3 }, { processType: 'CUTTING', leadDays: 5 }] }], total: 1, page: 0, size: 12 } }))
+  // 요청이 곧 작업을 만든다 — 응답에 jobId 와 확정된 가공비가 함께 온다.
+  vi.mocked(apiClient.post).mockResolvedValue({ data: { requestId: 7, requestCode: 'PR-7', status: 'REQUESTED', quantity: 500, processTypes: ['CLEANING'], expiresAt: '2026-09-14T10:00:00', createdAt: '2026-09-07T10:00:00', jobId: 44, fee: 600, paymentMethod: 'MOCK', paymentExpiresAt: '2026-09-07T10:15:00' } })
 })
 afterEach(() => {
   cleanup()

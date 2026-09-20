@@ -7,7 +7,6 @@ import type { ProcessingRequestListItem } from '../api/processingRequestApi.ts'
 import { useProcessingJobs } from '../hooks/useProcessingJobs.ts'
 import { useProcessorRequests } from '../hooks/useProcessorRequests.ts'
 import { PROCESS_TYPE_LABEL, type ProcessingJobStatus, type ProcessingRequestStatus } from '../types/processing.types.ts'
-import { ProcessorQuoteForm } from './ProcessorQuoteForm.tsx'
 import { parseServerTime } from '../utils/processingTime.ts'
 import './processor-work-list.css'
 
@@ -22,10 +21,10 @@ const filters: Array<{ value: WorkView; label: string }> = [
   { value: 'jobs', label: '가공 작업' },
 ]
 const requestStatusLabel: Record<ProcessingRequestStatus, string> = {
-  QUOTING: '견적 대기', SELECTED: '견적 수락', CANCELED: '취소', REJECTED: '거절', EXPIRED: '만료',
+  REQUESTED: '결제 대기', ACCEPTED: '수락', CANCELED: '취소', REJECTED: '거절', EXPIRED: '만료',
 }
 const jobStatusLabel: Record<ProcessingJobStatus, string> = {
-  CREATED: '결제 대기', PAID: '발송 대기', SHIPPED: '수령 대기', RECEIVED: '가공 시작 대기',
+  CREATED: '결제 대기', PAID: '수락 대기', ACCEPTED: '발송 대기', DECLINED: '거절', SHIPPED: '수령 대기', RECEIVED: '가공 시작 대기',
   PROCESSING: '가공 중', RESULT_SUBMITTED: '검토 대기', RETURN_SHIPPED: '결과물 반환 중', CONFIRMED: '완료', REJECTED: '보완 요청', EXPIRED: '만료', CANCELED: '반환 종료',
 }
 const grams = (value: number) => `${value.toLocaleString('ko-KR')} g`
@@ -108,9 +107,8 @@ function RequestRow({ request, expanded, onToggle }: { request: ProcessingReques
       <div><span>소재 유형</span><strong>{request.materialType}</strong></div>
       <div><span>요청 수량</span><strong>{grams(request.quantity)}</strong></div>
       <div><span>만료 일시</span><strong>{formatDate(request.expiresAt)}</strong></div>
-      {request.status === 'QUOTING'
-        ? <ProcessorQuoteForm requestId={request.requestId} requestCode={request.requestCode} />
-        : <p>현재 상태에서는 견적을 작성할 수 없습니다.</p>}
+      {/* 견적을 쓰는 일은 없어졌다 — 결제된 작업을 수락하거나 거절하는 것이 남은 일이다. */}
+      <p>결제가 끝나면 가공 작업에서 수락하거나 거절할 수 있습니다.</p>
     </div>}
   </div>
 }

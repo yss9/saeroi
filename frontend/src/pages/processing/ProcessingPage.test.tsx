@@ -146,7 +146,9 @@ test('견적 요청 필터를 선택하면 요청만 표시한다', async () => 
   expect(list.queryByText('JOB-017')).not.toBeInTheDocument()
 })
 
-test('요청 행을 펼치면 만료 정보와 상세 조건을 확인할 수 있다', async () => {
+// 견적을 쓰는 일이 없어졌다 — 브랜드가 등록된 단가로 바로 요청하고 결제한다. 가공사가
+// 맡을지 말지 정하는 자리는 결제된 작업(가공 작업 상세)이다.
+test('요청 행을 펼치면 만료 정보와 다음 할 일을 알려준다', async () => {
   const user = await openQuoteRequests()
   await screen.findByText('PR-007')
 
@@ -156,44 +158,8 @@ test('요청 행을 펼치면 만료 정보와 상세 조건을 확인할 수 �
   expect(detailButton).toHaveAttribute('aria-expanded', 'true')
   expect(screen.getByText('만료 일시')).toBeInTheDocument()
   expect(screen.getByText('DENIM')).toBeInTheDocument()
-  expect(screen.getByText('견적 작성')).toBeInTheDocument()
-  expect(screen.getByText('요청 PR-007')).toBeInTheDocument()
-  expect(screen.getByRole('button', { name: '견적 제출' }).closest('form')).toHaveClass('pq-form')
-})
-
-test('Processor가 금액과 기간을 입력해 견적을 제출한다', async () => {
-  const user = await openQuoteRequests()
-  await screen.findByText('PR-007')
-
-  await user.click(screen.getByRole('button', { name: 'PR-007 요청 상세 보기' }))
-  await user.type(screen.getByRole('textbox', { name: '견적 금액' }), '150000')
-  await user.type(screen.getByRole('textbox', { name: '예상 처리 기간' }), '5')
-  await user.type(screen.getByRole('textbox', { name: '견적 메모' }), '세척 및 해체 비용 포함')
-  await user.click(screen.getByRole('button', { name: '견적 제출' }))
-
-  expect(apiClient.post).toHaveBeenCalledWith('/v1/processing-requests/7/quotes', {
-    price: 150000,
-    leadDays: 5,
-    memo: '세척 및 해체 비용 포함',
-  })
-  expect(await screen.findByText('견적을 제출했어요')).toBeInTheDocument()
-})
-
-test('유효하지 않은 견적은 API를 호출하지 않는다', async () => {
-  const user = await openQuoteRequests()
-  await screen.findByText('PR-007')
-  await user.click(screen.getByRole('button', { name: 'PR-007 요청 상세 보기' }))
-  await user.click(screen.getByRole('button', { name: '견적 제출' }))
-  expect(screen.getByRole('alert')).toHaveTextContent('견적 금액과 예상 처리 기간을 입력해 주세요.')
-  expect(apiClient.post).not.toHaveBeenCalled()
-})
-
-test('Processor가 담당 요청을 거절한다', async () => {
-  const user = await openQuoteRequests()
-  await screen.findByText('PR-007')
-  await user.click(screen.getByRole('button', { name: 'PR-007 요청 상세 보기' }))
-  await user.click(screen.getByRole('button', { name: '요청 거절' }))
-  expect(apiClient.post).toHaveBeenCalledWith('/v1/processing-requests/7/reject')
+  expect(screen.getByText('결제가 끝나면 가공 작업에서 수락하거나 거절할 수 있습니다.')).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: '견적 제출' })).not.toBeInTheDocument()
 })
 
 test('다음 페이지로 이동하면 해당 페이지를 조회한다', async () => {
