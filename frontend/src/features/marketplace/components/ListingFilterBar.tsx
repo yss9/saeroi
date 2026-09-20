@@ -1,5 +1,6 @@
 import { ArrowCounterClockwise, MagnifyingGlass } from '@phosphor-icons/react'
 import { Select } from '../../../components/common/index.ts'
+import { MATERIAL_TYPE_LABEL } from '../../material/types/material.types.ts'
 import type { MaterialGrade, MaterialRootOrigin, MaterialType,
   MaterialGenerationType,
 } from '../../material/types/material.types.ts'
@@ -11,15 +12,9 @@ export interface ListingFilterBarProps {
   onReset: () => void
 }
 
-const MATERIAL_TYPE_OPTIONS = [
-  { value: 'DENIM', label: '데님' },
-  { value: 'COTTON', label: '면' },
-  { value: 'LEATHER', label: '가죽' },
-  { value: 'LINING', label: '안감' },
-  { value: 'METAL', label: '금속' },
-  { value: 'MIXED', label: '혼방' },
-  { value: 'ETC', label: '기타' },
-] as const
+// 종류가 늘 때 이 화면만 고치는 일이 없도록 공통 라벨 표에서 파생한다.
+const MATERIAL_TYPE_OPTIONS = Object.entries(MATERIAL_TYPE_LABEL)
+  .map(([value, label]) => ({ value, label }))
 
 const ORIGIN_OPTIONS = [
   { value: 'WASTE', label: '폐기물' },

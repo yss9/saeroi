@@ -2,12 +2,30 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { AxiosResponse } from 'axios'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiClient } from '../../../services/apiClient.ts'
 import { useAuthStore } from '../../../stores/authStore.ts'
 import type { UserRole } from '../../../types/role.types.ts'
+import { companyKeys } from '../api/companyKeys.ts'
+import type { CompanyProfile } from '../api/getCompanyProfile.ts'
 import { CompanyDashboardLayout } from './CompanyDashboardLayout.tsx'
+
+const approvedProfile: CompanyProfile = {
+  userId: 7,
+  companyName: '새로이 기업',
+  businessNumber: '123-45-67890',
+  representativeName: '김대표',
+  companyPhone: '010-1234-5678',
+  zipCode: '06236',
+  address: '서울시 강남구',
+  addressDetail: null,
+  introduction: null,
+  logoUrl: null,
+  role: 'BRAND',
+  status: 'ACTIVE',
+  roleApprovalStatus: 'APPROVED',
+}
 
 function setBusinessUser(role: UserRole) {
   useAuthStore.setState({
@@ -23,11 +41,12 @@ function setBusinessUser(role: UserRole) {
   })
 }
 
-function renderLayout() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+function renderLayout(path = '/company/account', profile: CompanyProfile = approvedProfile) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
+  queryClient.setQueryData(companyKeys.me(), profile)
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/company/account']}>
+      <MemoryRouter initialEntries={[path]}>
         <CompanyDashboardLayout><h1>회사 정보 본문</h1></CompanyDashboardLayout>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -55,6 +74,28 @@ afterEach(() => {
 })
 
 describe('CompanyDashboardLayout', () => {
+  it('승인 대기 사업자의 업무 화면을 먼저 렌더링하지 않고 회사 정보로 보낸다', async () => {
+    setBusinessUser('BRAND')
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
+    queryClient.setQueryData(companyKeys.me(), { ...approvedProfile, roleApprovalStatus: 'PENDING' })
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/brand/processing']}>
+          <Routes>
+            <Route path="/brand/processing" element={<CompanyDashboardLayout><h1>제한된 업무 화면</h1></CompanyDashboardLayout>} />
+            <Route path="/company/account" element={<CompanyDashboardLayout><h1>회사 정보 본문</h1></CompanyDashboardLayout>} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+
+    expect(screen.queryByRole('heading', { name: '제한된 업무 화면' })).not.toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '회사 정보 본문' })).toBeInTheDocument()
+    expect(screen.getByText('사업자 역할 승인 대기 중입니다.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /알림/ })).not.toBeInTheDocument()
+  })
+
   // 소비자에게 이 사이드바는 거의 계정 메뉴다. 마이페이지가 목록 끝에 붙어 있으면
   // 자기 계정으로 돌아가는 길이 숨는다.
   it('계정 메뉴를 사이드바 맨 위에 둔다', () => {

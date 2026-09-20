@@ -138,6 +138,7 @@ export function PredictionMarketPage() {
     mutationFn: grantPredictionWelcomePoint,
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: predictionPointBalanceKey(usableWallet) }),
   })
+  const welcomeAlreadyReceived = Boolean(welcome.data) || Boolean(welcome.error && toErrorMessage(welcome.error).includes('이미 지급'))
 
   return (
     <ConsumerAccountLayout current="predictions" profile={user ? { name: user.name, email: user.email } : null}
@@ -153,9 +154,9 @@ export function PredictionMarketPage() {
             <span>보유 {pointBalance.data !== undefined ? formatPredictionPoint(pointBalance.data) : '—'} PRED</span>
           </div>
         ) : null}
-        {usableWallet ? <Button variant="secondary" onClick={() => welcome.mutate()} loading={welcome.isPending}>첫 참여 포인트 받기</Button> : null}
+        {usableWallet ? <Button variant="secondary" onClick={() => welcome.mutate()} loading={welcome.isPending} disabled={welcomeAlreadyReceived}>{welcomeAlreadyReceived ? '참여 포인트 지급 완료' : '첫 참여 포인트 받기'}</Button> : null}
         {welcome.data ? <p className="prediction-success">웰컴 포인트가 지급되었습니다.</p> : null}
-        {welcome.error ? <p className="prediction-error">{toErrorMessage(welcome.error)}</p> : null}
+        {welcome.error ? <p className={welcomeAlreadyReceived ? 'prediction-notice' : 'prediction-error'}>{welcomeAlreadyReceived ? '참여 포인트를 이미 받았습니다.' : toErrorMessage(welcome.error)}</p> : null}
       </section>
 
       {markets.isPending ? <Loading /> : markets.isError ? <ErrorMessage error={markets.error} /> : (

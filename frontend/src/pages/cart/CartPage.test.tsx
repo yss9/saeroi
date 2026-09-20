@@ -15,7 +15,7 @@ import type { UserRole } from '../../types/role.types.ts'
 import { CartPage } from './CartPage.tsx'
 
 const item: CartItem = { product: { productModelId: 31, name: '데님 백', brandId: 5, brandName: 'REWEAVE', price: 99000,
-  category: 'BAG', subcategory: 'TOTE', status: 'ON_SALE', stockQuantity: 4, thumbnailUrl: '/api/v1/product-models/31/thumbnail', description: '', createdAt: '2026-09-17' },
+  category: 'BAG', subcategory: 'TOTE', status: 'ON_SALE', stockQuantity: 4, thumbnailUrl: '/api/v1/product-models/31/thumbnail', description: '', createdAt: '2026-09-17', journeyUrl: null },
   quantity: 2, addedPrice: 89000, priceChanged: true, purchasable: true }
 const cart: Cart = { items: [item], totalQuantity: 2, totalPrice: 198000 }
 const empty: Cart = { items: [], totalQuantity: 0, totalPrice: 0 }
@@ -128,7 +128,7 @@ describe('consumer cart', () => {
     expect(screen.getByRole('checkbox', { name: `${unavailable.product.name} 주문 선택` })).toBeDisabled()
     fireEvent.click(screen.getByRole('checkbox', { name: '데님 백 주문 선택' }))
     expect(within(screen.getByRole('complementary', { name: '장바구니 합계' })).getByText('198,000원')).toBeInTheDocument()
-    expect(screen.getByText(/구매 불가 상품은 제외/)).toBeInTheDocument()
+    expect(screen.getByText('선택한 구매 가능 상품의 합계입니다.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '장바구니, 상품 2개' })).toBeInTheDocument()
   })
   it.each([[89000, '가격 인상'], [109000, '가격 인하']] as const)('shows the previous %s price and %s alongside the current price', async (addedPrice, label) => {

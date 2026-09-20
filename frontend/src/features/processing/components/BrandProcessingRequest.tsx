@@ -1,7 +1,13 @@
 import { ArrowLeft, ArrowRight, Check, CheckCircle, Clock, Factory, Info, MapPin, Package } from '@phosphor-icons/react'
 import { Link } from 'react-router-dom'
 import { isAppError } from '../../../utils/errors.ts'
+import { MATERIAL_TYPE_LABEL } from '../../material/types/material.types.ts'
 import { PROCESS_TYPE_LABEL, type ProcessType } from '../types/processing.types.ts'
+import { useMyMaterials } from '../../inventory/hooks/useMyMaterials.ts'
+import {
+  REFINING_PROCESS_TYPES,
+  missingRefiningTypes,
+} from '../../production/types/production.types.ts'
 import { useBrandProcessingRequest } from '../hooks/useBrandProcessingRequest.ts'
 import { parseServerTime } from '../utils/processingTime.ts'
 import './brand-processing.css'
@@ -9,11 +15,26 @@ import './brand-processing.css'
 const requestDate = (value: string) => parseServerTime(value).toLocaleString('ko-KR')
 const gram = (value: number) => `${value.toLocaleString('ko-KR')} g`
 const errorMessage = (error: unknown) => isAppError(error) || error instanceof Error ? error.message : '요청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요.'
-const materialLabel: Record<string, string> = { DENIM: '데님', COTTON: '면', LEATHER: '가죽', LINING: '안감', METAL: '금속', MIXED: '혼합', ETC: '기타' }
 
 export function BrandProcessingRequest() {
   const flow = useBrandProcessingRequest()
+  /*
+    가공 신청 화면의 소재 목록(`/processing-requests/materials`)에는 누적 가공 이력이 없다.
+    보유 소재 목록에는 있으므로(`completedProcessTypes`) 고른 소재만 거기서 찾아 본다 —
+    다른 화면이 이미 쓰는 조회라 대개 새 요청이 나가지 않는다.
+  */
+  const inventory = useMyMaterials()
   const selectedLabels = flow.processTypes.map(type => PROCESS_TYPE_LABEL[type]).join(' · ')
+  /*
+    고른 소재가 이미 거친 가공. 서버가 소재에 이력을 실어 주지 않아 내 가공 작업·요청을
+    이어 붙여 만든다 (`buildMaterialProcessHistory`) — 남에게서 산 소재는 알 수 없으므로
+    "아직 안 했다" 가 아니라 "확인되지 않았다" 로 읽어야 한다.
+  */
+  const completedTypes: string[] = flow.material
+    ? (inventory.data?.find(item => item.materialId === flow.material?.materialId)
+        ?.completedProcessTypes ?? [])
+    : []
+  const missingAfterThis = missingRefiningTypes([...completedTypes, ...flow.processTypes])
   const canceled = flow.created?.status === 'CANCELED'
   const summary = <dl className="bp-summary-list">
     <div><dt>선택 소재</dt><dd>{flow.material?.name ?? '소재를 선택해 주세요'}</dd></div>
@@ -38,13 +59,52 @@ export function BrandProcessingRequest() {
             <div className="bp-section-title"><span className="bp-section-icon"><Package size={24} /></span><div><h2>어떤 소재를 가공할까요?</h2></div></div>
             {flow.materials.isPending ? <p role="status" className="bp-state">보유 소재를 불러오는 중이에요…</p> : flow.materials.isError ? <div role="alert" className="bp-state bp-error">{errorMessage(flow.materials.error)}<button className="bp-button" onClick={() => void flow.materials.refetch()}>다시 불러오기</button></div> : !flow.materials.data?.length ? <div className="bp-state"><Package size={36} /><h3>아직 보유한 소재가 없어요</h3><p>마켓플레이스에서 소재를 확보한 뒤 가공을 신청해 주세요.</p><Link className="bp-button" to="/marketplace">소재 둘러보기</Link></div> : <>
               <label className="bp-field-label" htmlFor="processing-material">보유 소재</label><select id="processing-material" value={flow.materialId} onChange={event => flow.changeMaterial(event.target.value)}><option value="">가공할 소재를 선택하세요</option>{flow.materials.data.map(material => <option key={material.materialId} value={material.materialId} disabled={material.availableQuantity <= 0}>{material.name} · {material.materialCode} · 가용 {gram(material.availableQuantity)}</option>)}</select>
-              {flow.material && <div className="bp-material"><span className="bp-material-icon"><Package size={25} weight="duotone" /></span><div><strong>{flow.material.name}</strong><small>{flow.material.materialCode} · {materialLabel[flow.material.materialType] ?? flow.material.materialType}</small></div><div className="bp-material-amount"><small>가용 수량</small><strong>{gram(flow.material.availableQuantity)}</strong><small>예약 {gram(flow.material.lockedQuantity)}</small></div></div>}
+              {flow.material && <div className="bp-material"><span className="bp-material-icon"><Package size={25} weight="duotone" /></span><div><strong>{flow.material.name}</strong><small>{flow.material.materialCode} · {MATERIAL_TYPE_LABEL[flow.material.materialType] ?? flow.material.materialType}</small></div><div className="bp-material-amount"><small>가용 수량</small><strong>{gram(flow.material.availableQuantity)}</strong><small>예약 {gram(flow.material.lockedQuantity)}</small></div></div>}
               <label className="bp-field-label" htmlFor="processing-quantity">가공 수량 (g)</label><div className="bp-input-unit"><input id="processing-quantity" type="text" inputMode="numeric" placeholder="가공할 수량을 입력하세요" value={flow.quantityText} aria-invalid={Boolean(flow.quantityError)} aria-describedby="processing-quantity-help" onChange={event => flow.changeQuantity(event.target.value)} /><span>g</span></div><p id="processing-quantity-help" className={flow.quantityError ? 'bp-error' : 'bp-helper'} role={flow.quantityError ? 'alert' : undefined}>{flow.quantityError || '예약된 수량을 제외한 가용 수량 안에서, 1 g 단위로 입력해 주세요.'}</p>
-              <fieldset className="bp-purposes"><legend>가공 목적 <span>복수 선택 가능</span></legend><div>{(Object.entries(PROCESS_TYPE_LABEL) as [ProcessType, string][]).map(([type, label]) => <label key={type} className={flow.processTypes.includes(type) ? 'is-selected' : ''}><input type="checkbox" checked={flow.processTypes.includes(type)} onChange={() => flow.toggleType(type)} /><span>{label}</span></label>)}</div></fieldset>
+              {/*
+                **세척·해체·선별은 제품을 만들기 전에 반드시 거쳐야 한다.** 그 사실을 고르는
+                자리에서 말한다 — 다 만들고 나서 "이 소재로는 생산할 수 없습니다" 를 보면
+                가공을 한 번 더 맡기는 동안 시간이 통째로 날아간다.
+
+                고른 소재가 이미 거친 것은 표시를 지운다. 남은 것만 붉게 남아, 이번에 무엇을
+                맡겨야 하는지가 목록 자체로 드러난다.
+              */}
+              <fieldset className="bp-purposes">
+                <legend>가공 목적 <span>복수 선택 가능</span></legend>
+                <div>
+                  {(Object.entries(PROCESS_TYPE_LABEL) as [ProcessType, string][]).map(([type, label]) => {
+                    const done = completedTypes.includes(type)
+                    const needed = REFINING_PROCESS_TYPES.includes(type) && !done
+                    return (
+                      <label
+                        key={type}
+                        className={[
+                          flow.processTypes.includes(type) ? 'is-selected' : '',
+                          needed ? 'is-required' : '',
+                          done ? 'is-done' : '',
+                        ].filter(Boolean).join(' ')}
+                      >
+                        <input type="checkbox" checked={flow.processTypes.includes(type)} onChange={() => flow.toggleType(type)} />
+                        {/*
+                          "필수"·"완료" 딱지는 CSS 가 그린다 (`.is-required` · `.is-done`).
+                          글자를 넣으면 이 칸의 이름이 "세척 필수" 가 되어 무엇을 고르는
+                          칸인지 흐려진다 — 뜻은 아래 문장이 말로 적는다.
+                        */}
+                        <span>{label}</span>
+                      </label>
+                    )
+                  })}
+                </div>
+                <p className="bp-purposes-note">
+                  {missingAfterThis.length === 0
+                    ? '제품 생산에 필요한 가공(세척·해체·선별)이 이번 요청으로 모두 채워집니다.'
+                    : `제품을 생산하려면 ${missingAfterThis.map(type => PROCESS_TYPE_LABEL[type as ProcessType]).join(' · ')} 이(가) 더 필요합니다.`}
+                </p>
+              </fieldset>
               <div className="bp-form-footer bp-form-footer--end"><button className="bp-button bp-primary" disabled={!flow.valid || flow.search.isFetching} onClick={flow.findProcessors}>검색 <ArrowRight size={18} /></button></div>
               <section className="bp-processor-directory" aria-labelledby="processor-directory-title">
                 <div className="bp-directory-heading"><div className="bp-section-title"><span className="bp-section-icon"><Factory size={24} /></span><div><h2 id="processor-directory-title">가공업체 목록</h2></div></div>{flow.search.data && <strong>{flow.search.data.total}곳</strong>}</div>
-                {flow.filters.materialType && flow.filters.quantity && flow.filters.processTypes && <div className="bp-active-filters" aria-label="적용된 필터"><span>{materialLabel[flow.filters.materialType] ?? flow.filters.materialType}</span><span>{gram(flow.filters.quantity)}</span>{flow.filters.processTypes.map(type => <span key={type}>{PROCESS_TYPE_LABEL[type]}</span>)}<button type="button" onClick={flow.resetFilters}>전체 보기</button></div>}
+                {flow.filters.materialType && flow.filters.quantity && flow.filters.processTypes && <div className="bp-active-filters" aria-label="적용된 필터"><span>{MATERIAL_TYPE_LABEL[flow.filters.materialType] ?? flow.filters.materialType}</span><span>{gram(flow.filters.quantity)}</span>{flow.filters.processTypes.map(type => <span key={type}>{PROCESS_TYPE_LABEL[type]}</span>)}<button type="button" onClick={flow.resetFilters}>전체 보기</button></div>}
                 {flow.search.isFetching ? <p className="bp-state" role="status">조건에 맞는 가공업체를 찾고 있어요…</p> : flow.search.isError ? <div role="alert" className="bp-state bp-error">{errorMessage(flow.search.error)}<button className="bp-button" onClick={() => void flow.search.refetch()}>다시 검색</button></div> : !flow.search.data?.items.length ? <div className="bp-state"><Factory size={40} /><h3>조건에 맞는 가공업체가 없어요</h3><p>위 필터에서 수량이나 가공 목적을 조정해 주세요.</p><button className="bp-button" onClick={flow.edit}>조건 다시 선택</button></div> : <>
                   <p className="bp-results-count">{flow.filters.materialType ? '필터 결과' : '전체 업체'} <strong>{flow.search.data.total}개</strong></p><div className="bp-processor-list" role="radiogroup" aria-label="가공사 선택">{flow.search.data.items.map(processor => <label key={processor.processorId} className={`bp-processor ${flow.processor?.processorId === processor.processorId ? 'is-selected' : ''}`}><input type="radio" name="processor" checked={flow.processor?.processorId === processor.processorId} onChange={() => flow.selectProcessor(processor)} /><div className="bp-processor-body"><strong>{processor.name}</strong><span><MapPin size={16} />{processor.region || '주소 미등록'}</span><div><span>처리 수량 <b>{gram(processor.minQuantity)} ~ {gram(processor.maxQuantity)}</b></span><span className="bp-lead-times">공정별 예상 소요일 <b>{processor.estimatedLeadTimes.length === 0 ? '가공사 협의' : processor.estimatedLeadTimes.map(estimate => <em key={estimate.processType}>{PROCESS_TYPE_LABEL[estimate.processType]} {estimate.leadDays}일</em>)}</b></span></div></div><span className="bp-match-tag">{flow.filters.materialType ? '조건 일치' : '등록 업체'}</span></label>)}</div>
                   {flow.search.data.total > flow.search.data.size && <div className="bp-pagination"><button className="bp-button" disabled={flow.search.data.page === 0} onClick={() => flow.changePage(flow.search.data!.page - 1)}>이전 페이지</button><span>{flow.search.data.page + 1} / {Math.ceil(flow.search.data.total / flow.search.data.size)}</span><button className="bp-button" disabled={(flow.search.data.page + 1) * flow.search.data.size >= flow.search.data.total} onClick={() => flow.changePage(flow.search.data!.page + 1)}>다음 페이지</button></div>}

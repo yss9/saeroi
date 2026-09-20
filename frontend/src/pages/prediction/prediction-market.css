@@ -17,4 +17,5 @@
 .prediction-buckets label { display: flex; align-items: center; gap: 5px; padding: 7px 9px; border-radius: 8px; background: #f6f9f7; }
 .prediction-card__result, .prediction-success { color: #167044 !important; font-weight: 750; }
 .prediction-error { color: #b3261e !important; }
+.consumer-mypage .prediction-notice { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.7; }
 @media (max-width: 680px) { .prediction-grid { grid-template-columns: 1fr; } .prediction-card__heading { flex-direction: column; } }

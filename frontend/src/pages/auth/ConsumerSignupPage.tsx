@@ -24,7 +24,7 @@ export function ConsumerSignupPage() {
     <AuthLayout
       eyebrow="PERSONAL ACCOUNT"
       title="개인회원 가입"
-      description="업사이클 제품을 만나고 나의 주문과 배송을 관리할 계정을 만들어 보세요."
+      description="SAEROI를 시작할 기본 정보를 입력해 주세요."
       wide
     >
       <div className="consumer-signup__form-wrap">

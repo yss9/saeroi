@@ -9,6 +9,7 @@ interface AuthLayoutProps {
   description: string
   children: ReactNode
   wide?: boolean
+  compact?: boolean
 }
 
 export function AuthLayout({
@@ -17,6 +18,7 @@ export function AuthLayout({
   description,
   children,
   wide = false,
+  compact = false,
 }: AuthLayoutProps) {
   return (
     <div className="auth-entry">
@@ -27,12 +29,12 @@ export function AuthLayout({
         </Link>
         <Link className="auth-entry__home-link" to="/">
           <ArrowLeft aria-hidden="true" />
-          쇼핑몰로 돌아가기
+          SAEROI HOME
         </Link>
       </header>
 
       <main className="auth-entry__main">
-        <section className={`auth-entry__panel${wide ? ' auth-entry__panel--wide' : ''}`}>
+        <section className={`auth-entry__panel${wide ? ' auth-entry__panel--wide' : ''}${compact ? ' auth-entry__panel--compact' : ''}`}>
           <div className="auth-entry__intro">
             {eyebrow ? <p className="auth-entry__eyebrow">{eyebrow}</p> : null}
             <h1>{title}</h1>

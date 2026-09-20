@@ -49,9 +49,9 @@ export function LoginPage() {
 
   return (
     <AuthLayout
-      eyebrow="WELCOME BACK"
-      title="다시 만나 반가워요"
-      description="SAEROI 계정으로 로그인하고 나의 순환 소비를 이어가세요."
+      eyebrow="LOGIN SAEROI"
+      title="WELCOME BACK"
+      description="로그인하고 이어서 둘러보세요."
     >
       <form className="auth-entry-form" onSubmit={onSubmit} noValidate>
         <Input

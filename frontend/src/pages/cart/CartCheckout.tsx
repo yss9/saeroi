@@ -37,10 +37,10 @@ export function CartCheckout({ items, total, blocked, refresh, onIssues, onBusy 
     } finally { running.current = false; setBusy(false); onBusy(false) }
   }
   return <section className="cart-checkout">
-    <button type="button" disabled={blocked || busy || !items.length} onClick={() => setOpen(true)}>주문하기</button>
+    {!open && <button type="button" disabled={blocked || busy || !items.length} onClick={() => setOpen(true)}>주문하기</button>}
     {open && <>
       <h3>배송지 선택</h3>
-      <p>선택한 상품은 같은 배송지로 배송되며, 브랜드별 주문이 한 번에 결제됩니다.</p>
+      <p>배송지를 선택한 뒤 주문 내용을 확인해 주세요.</p>
       <AddressPicker selected={addressId} onSelect={setAddressId} disabled={busy || blocked} onSubmit={submit} review={review} />
       {review && <button type="button" disabled={busy || blocked} onClick={() => { setReview(false); setMessage(null); onIssues({}) }}>변경된 항목과 합계 확인</button>}
     </>}
@@ -55,7 +55,12 @@ function AddressPicker({ selected, onSelect, disabled, onSubmit, review }: { sel
   return <>
     <fieldset disabled={disabled}><legend>모든 주문의 배송지</legend>{addresses.data?.map(address => <label key={address.addressId}>
       <input type="radio" name="checkout-address" checked={address.addressId === current} onChange={() => onSelect(address.addressId)} />
-      {address.alias} · {address.receiverName} · [{address.zipCode}] {address.address} {address.addressDetail} · {address.receiverPhone}
+      <span className="cart-checkout__address">
+        <strong>{address.alias}</strong>
+        <span>{address.receiverName} · {address.receiverPhone}</span>
+        <span>[{address.zipCode}] {address.address}</span>
+        {address.addressDetail && <span>{address.addressDetail}</span>}
+      </span>
     </label>)}</fieldset>
     <Link to="/mypage/addresses">배송지 등록·관리</Link>
     <button type="button" disabled={disabled || review || !addresses.data?.some(address => address.addressId === current)} onClick={() => { if (current !== undefined) onSubmit(current) }}>선택한 배송지로 결제 진행</button>

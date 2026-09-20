@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { apiClient } from '../../services/apiClient.ts'
+import { companyKeys } from '../../features/company/api/companyKeys.ts'
 import { useAuthStore } from '../../stores/authStore.ts'
 import { CompanyDashboardLayout } from '../../features/company/components/CompanyDashboardLayout.tsx'
 import { BrandProcessingRequestListPage } from './BrandProcessingRequestListPage.tsx'
@@ -46,6 +47,9 @@ function mockApi(
 ) {
   vi.mocked(apiClient.get).mockImplementation((url, config) => {
     const path = String(url)
+    if (path === '/v1/companies/me') {
+      return Promise.resolve({ data: { companyName: '새로이 브랜드', roleApprovalStatus: 'APPROVED' } })
+    }
     if (path.includes('/processing-jobs')) return Promise.resolve({ data: jobs })
     // 견적 대기 줄마다 "견적이 왔는가" 를 따로 묻는다(목록 응답에 견적 수가 없다).
     if (path.includes('/quotes')) return Promise.resolve({ data: quotes })
@@ -64,7 +68,8 @@ function lastRequestListCall() {
 }
 
 function renderPage() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
+  queryClient.setQueryData(companyKeys.me(), { companyName: '새로이 브랜드', roleApprovalStatus: 'APPROVED' })
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={['/brand/processing/requests']}>

@@ -1,7 +1,9 @@
 import { cleanup, render, screen } from '@testing-library/react'
+import type { AxiosResponse } from 'axios'
 import { createMemoryRouter, MemoryRouter, RouterProvider, useRoutes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAuthStore } from '../../stores/authStore.ts'
+import { apiClient } from '../../services/apiClient.ts'
 import type { UserRole } from '../../types/role.types.ts'
 import { AppProviders } from '../providers/AppProviders.tsx'
 import { routes } from './routes.tsx'
@@ -39,6 +41,11 @@ function signInAs(role: UserRole) {
 beforeEach(() => {
   localStorage.clear()
   useAuthStore.setState({ user: null, accessToken: null, isAuthenticated: false })
+  vi.spyOn(apiClient, 'get').mockImplementation(async (url) => ({
+    data: url === '/v1/companies/me'
+      ? { companyName: '테스트 브랜드', roleApprovalStatus: 'APPROVED' }
+      : [],
+  } as AxiosResponse))
 })
 
 afterEach(() => {
@@ -93,11 +100,11 @@ describe('application router', () => {
     expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeInTheDocument()
   })
 
-  it('Brand가 자신의 가공 요청 내역 경로에 접근한다', () => {
+  it('Brand가 자신의 가공 요청 내역 경로에 접근한다', async () => {
     signInAs('BRAND')
     renderRoute('/brand/processing/requests')
 
-    expect(screen.getByRole('heading', { name: '가공 요청 내역' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '가공 요청 내역' })).toBeInTheDocument()
   })
 
   it.each(['/brand/processing', '/brand/processing/requests', '/brand/production'])(

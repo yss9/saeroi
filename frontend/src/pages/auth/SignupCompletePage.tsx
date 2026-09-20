@@ -18,17 +18,12 @@ function readAccountType(state: unknown): SignupAccountType | undefined {
 export function SignupCompletePage() {
   const location = useLocation()
   const accountType = readAccountType(location.state)
-  const accountLabel = accountType === 'consumer'
-    ? '개인회원'
-    : accountType === 'business'
-      ? '사업자회원'
-      : '회원'
-
   return (
     <AuthLayout
-      eyebrow="WELCOME TO SAEROI"
-      title={`${accountLabel} 가입이 완료되었습니다`}
-      description="새로운 순환의 시작을 SAEROI와 함께해 주셔서 감사합니다."
+      eyebrow="THANK YOU FOR JOINING US"
+      title="가입이 완료되었습니다"
+      description="이제 SAEROI를 시작할 준비가 되었어요."
+      compact
     >
       <SignupCompleteContent accountType={accountType} />
     </AuthLayout>

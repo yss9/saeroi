@@ -4,6 +4,7 @@ import type { AxiosResponse } from 'axios'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiClient } from '../../../services/apiClient.ts'
+import { companyKeys } from '../../../features/company/api/companyKeys.ts'
 import { ShopProvider } from '../../../features/shop/ShopContext.tsx'
 import { useAuthStore } from '../../../stores/authStore.ts'
 import type { UserRole } from '../../../types/role.types.ts'
@@ -29,7 +30,8 @@ function setUser(role: UserRole) {
 }
 
 function renderAt(path: string) {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
+  queryClient.setQueryData(companyKeys.me(), { companyName: '새로이 기업', roleApprovalStatus: 'APPROVED' })
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[path]}>
@@ -47,7 +49,11 @@ function renderAt(path: string) {
 }
 
 beforeEach(() => {
-  vi.spyOn(apiClient, 'get').mockResolvedValue({ data: [] } as AxiosResponse)
+  vi.spyOn(apiClient, 'get').mockImplementation(async (url) => ({
+    data: url === '/v1/companies/me'
+      ? { companyName: '새로이 기업', roleApprovalStatus: 'APPROVED' }
+      : [],
+  } as AxiosResponse))
 })
 
 afterEach(() => {

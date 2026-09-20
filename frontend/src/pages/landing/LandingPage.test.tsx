@@ -91,6 +91,7 @@ function publicProduct(
     status: 'ON_SALE',
     stockQuantity: 10,
     createdAt: '2026-09-16T10:00:00',
+    journeyUrl: null,
   }
 }
 
@@ -205,6 +206,16 @@ describe('LandingPage', () => {
     fireEvent.click(await screen.findByRole('button', { name: '데님 서클 백 장바구니 담기' }))
     await screen.findByRole('button', { name: '장바구니, 상품 1개' })
     expect(apiClient.post).toHaveBeenCalledWith('/v1/consumers/me/cart', { productModelId: 1, quantity: 1 })
+    const shop = screen.getByRole('region', { name: 'SHOP' })
+    const notice = within(shop).getByRole('status')
+    expect(notice).toHaveClass('cart-action__notice--success')
+    expect(within(notice).getByText('장바구니에 담았습니다.')).toBeInTheDocument()
+    expect(within(notice).getByRole('link', { name: '장바구니 보기' })).toHaveAttribute('href', '/cart')
+
+    fireEvent.click(within(shop).getByRole('button', { name: '다음 상품' }))
+    expect(await within(shop).findByRole('article', { name: '패치워크 워크 자켓 상품' })).toBeInTheDocument()
+    expect(within(shop).queryByText('장바구니에 담았습니다.')).not.toBeInTheDocument()
+
     fireEvent.click(screen.getByRole('button', { name: '장바구니, 상품 1개' }))
     expect(screen.getByLabelText('현재 위치')).toHaveTextContent('/cart')
   })

@@ -1,5 +1,5 @@
 import { CaretDown, House, List, SignOut, UserCircle, X } from '@phosphor-icons/react'
-import { useCallback, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
   ACCOUNT_MENU_ITEMS,
@@ -18,6 +18,7 @@ import { NotificationCenter } from '../../notification/components/NotificationCe
 import { BusinessWalletStatus } from '../../wallet/components/BusinessWalletStatus.tsx'
 import { ROLE_LABEL } from '../../../types/role.types.ts'
 import { BUSINESS_ROLE_LABEL, isBusinessUserRole } from '../types/companyAccount.types.ts'
+import { useCompanyProfile } from '../hooks/useCompanyProfile.ts'
 import './company-dashboard.css'
 
 /**
@@ -92,6 +93,9 @@ export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps
   const { user } = useAuth()
   const logout = useLogout()
   const isBusinessUser = Boolean(user && isBusinessUserRole(user.role))
+  const companyProfile = useCompanyProfile(isBusinessUser)
+  const roleApprovalStatus = companyProfile.profile?.roleApprovalStatus
+  const roleApproved = !isBusinessUser || roleApprovalStatus === 'APPROVED'
   // 역할→메뉴 매핑을 이 파일이 들고 있지 않다. routes.tsx 의 RoleGuard 정의에서
   // 파생된다 (app/navigation/navigationMenu.ts 머리말). 예전에는 여기에 역할별 배열이
   // 있어서 라우트를 추가해도 메뉴가 따라오지 않았다 — /supplier/trades 와
@@ -104,6 +108,14 @@ export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps
   const { groups, isResolving } = useVisibleMenuGroups(BUSINESS_MENU_GROUPS)
   const { items: accountLinks } = useVisibleMenu(ACCOUNT_LINKS)
   const { pathname } = useLocation()
+  const blocksRolePage = isBusinessUser && pathname !== '/company/account' && !roleApproved
+
+  useEffect(() => {
+    if (isBusinessUser && roleApprovalStatus && roleApprovalStatus !== 'APPROVED'
+      && pathname !== '/company/account') {
+      navigate('/company/account', { replace: true })
+    }
+  }, [isBusinessUser, navigate, pathname, roleApprovalStatus])
 
   function handleSignOut() {
     logout.mutate(undefined, {
@@ -145,7 +157,7 @@ export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps
           </Link>
           {isBusinessUser ? (
             <>
-              <NotificationCenter enabled={isBusinessUser} />
+              {roleApproved ? <NotificationCenter enabled /> : null}
               <BusinessWalletStatus />
               <Link className="company-dashboard__account-link" to="/company/account" aria-label="마이페이지">
                 <UserCircle aria-hidden="true" />
@@ -205,7 +217,7 @@ export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps
               </NavLink>
             ))}
 
-            {groups.map((group) => (
+            {roleApproved ? groups.map((group) => (
               <MenuGroup
                 key={group.label}
                 group={group}
@@ -213,7 +225,7 @@ export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps
                 onToggle={() => toggleGroup(group.label)}
                 onNavigate={() => setIsMenuOpen(false)}
               />
-            ))}
+            )) : null}
           </nav>
         </aside>
 
@@ -227,7 +239,19 @@ export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps
         ) : null}
 
         <main id="company-dashboard-content" className="company-dashboard__content">
-          {children}
+          {isBusinessUser && roleApprovalStatus && roleApprovalStatus !== 'APPROVED' ? (
+            <div className="company-dashboard__approval-notice" role="status">
+              <strong>{roleApprovalStatus === 'REJECTED' ? '사업자 역할 승인이 반려되었습니다.' : '사업자 역할 승인 대기 중입니다.'}</strong>
+              <span>회사 정보와 지갑 연결을 확인해 주세요. 관리자 승인 완료 후 업무 메뉴가 열립니다.</span>
+            </div>
+          ) : null}
+          {blocksRolePage ? (
+            !roleApprovalStatus ? (
+              <p className="company-dashboard__approval-loading" role="status">
+                사업자 승인 상태를 확인하고 있습니다.
+              </p>
+            ) : null
+          ) : children}
         </main>
       </div>
     </div>

@@ -143,11 +143,7 @@ export function MaterialInputPicker({
 
   const draftIds = drafts.map((draft) => draft.material.materialId)
   const usable = materials.data.filter(
-    (item) =>
-      isProductionEligible(item) &&
-      item.available > 0 &&
-      !draftIds.includes(item.materialId) &&
-      !inputMaterialIds.includes(item.materialId),
+    (item) => groupOf(item, draftIds, inputMaterialIds) === GROUPS.usable,
   )
 
   const full = drafts.length >= PRODUCTION_INPUTS_MAX
@@ -367,7 +363,7 @@ const GROUPS = {
   usable: '투입 가능',
   inBatch: '이미 투입한 소재',
   inDraft: '아래에 추가한 소재',
-  needsProcessing: '가공을 거쳐야 투입 가능',
+  missingRequired: '세척·해체·선별이 더 필요함',
   empty: '가용 수량 없음',
 } as const
 
@@ -375,7 +371,7 @@ const GROUP_ORDER: readonly string[] = [
   GROUPS.usable,
   GROUPS.inDraft,
   GROUPS.inBatch,
-  GROUPS.needsProcessing,
+  GROUPS.missingRequired,
   GROUPS.empty,
 ]
 
@@ -386,7 +382,9 @@ function groupOf(
 ): string {
   if (inputMaterialIds.includes(item.materialId)) return GROUPS.inBatch
   if (draftIds.includes(item.materialId)) return GROUPS.inDraft
-  if (!isProductionEligible(item)) return GROUPS.needsProcessing
+  // 폐기물은 세척·해체·선별을 다 거쳐야 제품이 될 수 있다. 서버가 소재마다 누적 이력을
+  // 실어 주므로(`completedProcessTypes`) 화면이 따로 이어 붙이지 않는다.
+  if (!isProductionEligible(item)) return GROUPS.missingRequired
   if (item.available <= 0) return GROUPS.empty
   return GROUPS.usable
 }

@@ -26,7 +26,7 @@
 .brand-detail__hero > .brand-logo { width: 100%; }
 .brand-detail__eyebrow { margin: 0 0 20px; font: 500 10px "Inter", sans-serif; letter-spacing: .18em; }
 .brand-detail__hero h1 { margin: 0; font: 500 clamp(2.5rem, 5vw, 5rem)/1.1 "Manrope", "Pretendard", sans-serif; letter-spacing: -.04em; overflow-wrap: anywhere; }
-.brand-detail__introduction { max-width: 650px; margin: 24px 0; font-size: 15px; line-height: 1.9; white-space: pre-wrap; overflow-wrap: anywhere; }
+.brand-detail__introduction { max-width: 650px; margin: 24px 0; font-size: 15px; line-height: 1.9; white-space: pre-line; word-break: keep-all; overflow-wrap: break-word; }
 .brand-detail__total { color: var(--muted); font-size: 12px; }
 .brand-detail__products { padding-top: 60px; }
 .brand-detail__products-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 20px; margin-bottom: 30px; }

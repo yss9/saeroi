@@ -18,7 +18,7 @@ vi.mock('../shop/ShopContext.tsx', () => ({ useShop: () => ({ cartCount: 0 }) })
 const entry: WishlistItem = {
   product: { productModelId: 31, name: '데님 백', brandId: 5, brandName: 'REWEAVE', price: 39000,
     category: 'BAG', subcategory: 'TOTE', status: 'ON_SALE', stockQuantity: 3,
-    thumbnailUrl: '/api/v1/product-models/31/thumbnail', description: '', createdAt: '2026-09-17' },
+    thumbnailUrl: '/api/v1/product-models/31/thumbnail', description: '', createdAt: '2026-09-17', journeyUrl: null },
   wishedAt: '2026-09-17T14:02:11', purchasable: true,
 }
 const result = { content: [entry], page: 0, size: 12, totalElements: 13, totalPages: 2, hasNext: true }
@@ -147,7 +147,10 @@ describe('server wishlist', () => {
     login(); vi.mocked(apiClient.get).mockResolvedValue(response({ ...result, content: [], totalElements: 0, totalPages: 0, hasNext: false }))
     show('/mypage/wishlist')
     expect(await screen.findByText('찜한 상품이 없습니다')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '상품 둘러보기' })).toHaveAttribute('href', '/shop')
+    const browse = screen.getByRole('link', { name: '상품 둘러보기' })
+    expect(browse).toHaveAttribute('href', '/shop')
+    expect(browse).toHaveClass('ui-button--primary')
+    expect(browse.closest('.ui-empty')).toBeInTheDocument()
   })
   it('shows a loading state without mock products', () => {
     login(); vi.mocked(apiClient.get).mockImplementation(() => new Promise(() => {}))

@@ -249,20 +249,44 @@ export interface AssignProductModelRequest {
 export const PRODUCTION_INPUTS_MAX = 20
 
 /**
+ * 제품을 만들기 전에 폐기물이 반드시 거쳐야 하는 정제 가공.
+ *
+ * **씻고(세척), 뜯고(해체), 골라내야(선별)** 무엇을 만들 수 있는 소재가 된다. 셋을 건너뛴
+ * 소재로 만든 제품은 업사이클이라 부를 근거가 없다.
+ *
+ * 순서는 강제하지 않는다. 소재에 따라 뜯고 씻는 편이 맞기도 하고 한 번의 요청에 셋을 함께
+ * 맡기기도 한다 — 필요한 것은 "다 거쳤는가" 하나다.
+ */
+export const REFINING_PROCESS_TYPES: readonly string[] = ['CLEANING', 'DISASSEMBLY', 'SORTING']
+
+/** 아직 남은 정제 가공. 비면 생산에 넣을 수 있다. */
+export function missingRefiningTypes(completed: readonly string[]): string[] {
+  return REFINING_PROCESS_TYPES.filter((type) => !completed.includes(type))
+}
+
+/**
  * 이 소재를 생산에 투입할 수 있는가.
  *
- * **폐기물에서 바로 온 소재(WASTE + INITIAL)는 투입할 수 없다.** 가공을 최소 한 번 거쳐야
- * 한다 — 막지 않으면 가공 이력이 없는 제품이 업사이클로 팔린다. 서버도 같은 규칙으로
- * 거절한다 (`PRODUCTION_MATERIAL_NOT_ELIGIBLE`).
+ * **폐기물에서 온 소재는 세척·해체·선별을 다 거쳐야 한다.** 하나라도 빠지면 투입할 수 없다 —
+ * 막지 않으면 정제되지 않은 폐기물이 그대로 제품이 되고, 그 제품이 업사이클로 팔린다.
+ * 서버도 같은 규칙으로 거절한다 (`PRODUCTION_MATERIAL_NOT_ELIGIBLE`).
+ *
+ * `generationType` 은 보지 않는다. 정제 이력이 있다는 것이 곧 가공을 거쳤다는 뜻이라,
+ * "폐기물에서 바로 온 소재인가" 를 따로 물을 이유가 없다.
+ *
+ * 폐기물이 아닌 소재(구매한 원자재 등)는 정제 대상이 아니다.
  *
  * 화면이 같은 판단을 하는 이유는, 고를 수 없는 소재를 왜 못 고르는지 그 자리에서 말해야
  * 하기 때문이다. 서버에만 맡기면 사용자는 수량까지 입력하고 저장을 눌러야 이유를 안다.
  */
 export function isProductionEligible(material: {
   rootOrigin: string
-  generationType: string
+  completedProcessTypes: readonly string[]
 }): boolean {
-  return !(material.rootOrigin === 'WASTE' && material.generationType === 'INITIAL')
+  return (
+    material.rootOrigin !== 'WASTE' ||
+    missingRefiningTypes(material.completedProcessTypes).length === 0
+  )
 }
 
 // TODO(5번/Production 담당): 산출물(production_output) 타입을 추가한다.

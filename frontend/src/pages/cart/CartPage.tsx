@@ -30,7 +30,7 @@ export function CartPage() {
         <div className="cart-toolbar"><p>담긴 상품 {cart.items.length}개</p><button type="button" disabled={locked} onClick={() => setSelection(cart.items.filter(item => item.purchasable).map(item => item.product.productModelId))}>구매 가능 상품 전체 선택</button><button type="button" disabled={locked} onClick={() => setSelection([])}>선택 해제</button><button type="button" disabled={locked} onClick={() => { if (window.confirm('장바구니의 모든 상품을 삭제할까요?')) action.changeCart({ kind: 'clear' }) }}>전체 비우기</button></div>
         <div className="cart-layout"><ul className="cart-items" aria-label="장바구니 상품 목록">{cart.items.map((item) => <CartRow key={item.product.productModelId} item={item} locked={checkoutBusy} selected={chosen.selected.some(row => row.product.productModelId === item.product.productModelId)} issue={issues[item.product.productModelId]} onSelect={() => setSelection(ids => ids.includes(item.product.productModelId) ? ids.filter(id => id !== item.product.productModelId) : [...ids, item.product.productModelId])} />)}</ul>
           <aside className="cart-summary" aria-label="장바구니 합계"><h2>선택 항목 합계</h2><dl><div><dt>선택한 수량</dt><dd>{chosen.quantity}개</dd></div><div><dt>상품 금액</dt><dd>{money(chosen.price)}</dd></div></dl>
-            <p>선택한 구매 가능 상품만 합계에 포함됩니다. 구매 불가 상품은 제외됩니다.</p>
+            <p>선택한 구매 가능 상품의 합계입니다.</p>
             <CartCheckout items={chosen.selected} total={chosen.price} blocked={locked || query.isFetching} refresh={async () => { const result = await query.refetch(); if (result.isError) throw result.error; setSelection(ids => ids.filter(id => result.data?.items.some(item => item.product.productModelId === id && item.purchasable))) }} onIssues={setIssues} onBusy={setCheckoutBusy} /><Link to="/shop">쇼핑 계속하기</Link>
           </aside></div>
       </>}
@@ -49,7 +49,7 @@ function CartRow({ item, selected, onSelect, issue, locked }: { item: CartItem; 
       {issue && <p role="alert">{issue}</p>}
       {priceChanged && <p className="cart-row__price-change"><span>{addedPrice < product.price ? '가격 인상' : addedPrice > product.price ? '가격 인하' : '가격 변경'}</span> <del>{money(addedPrice)}</del> → <strong>{money(product.price)}</strong><small>주문 시 현재 가격 기준</small></p>}
       {!purchasable && <p className="cart-row__unavailable">{state}</p>}
-      {purchasable && <p className="cart-row__stock">{product.stockQuantity}개 남음 · 항목당 최대 99개 · 주문 시 재고 재확인</p>}
+      {purchasable && <p className="cart-row__stock">{product.stockQuantity}개 남음</p>}
       <div className="cart-row__controls"><div className="cart-quantity" role="group" aria-label={`${product.name} 수량`}>
         <button type="button" aria-label={`${product.name} 수량 줄이기`} disabled={!purchasable || locked || action.pending || quantity <= 1} onClick={() => action.changeCart({ kind: 'quantity', productModelId: product.productModelId, quantity: Math.min(quantity - 1, Math.max(1, max)) })}>−</button>
         <output aria-label={`${product.name} 수량 값`}>{quantity}</output>

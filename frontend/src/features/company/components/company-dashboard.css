@@ -421,6 +421,31 @@
   padding: 44px clamp(24px, 5vw, 72px) 72px;
 }
 
+.company-dashboard__approval-notice {
+  display: grid;
+  gap: 5px;
+  width: min(100%, 1080px);
+  margin: 0 auto 22px;
+  padding: 16px 18px;
+  border: 1px solid #e6c98d;
+  border-radius: 12px;
+  background: #fff8e8;
+  color: #72551c;
+}
+
+.company-dashboard__approval-notice span {
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.company-dashboard__approval-loading {
+  width: min(100%, 1080px);
+  margin: 0 auto;
+  padding: 28px;
+  color: var(--company-muted);
+  text-align: center;
+}
+
 .company-dashboard__overlay {
   display: none;
 }

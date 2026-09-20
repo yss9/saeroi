@@ -15,6 +15,8 @@ export interface ConsumerOrderGroup {
   orderNumber: string
   orderedAt: string
   status: ConsumerOrderViewStatus
+  paymentDeadline: string | null
+  remainingSeconds: number | null
   items: ConsumerRecentOrder[]
 }
 
@@ -29,6 +31,8 @@ export function groupConsumerOrders(orders: readonly ConsumerRecentOrder[]): Con
         orderNumber: item.orderNumber,
         orderedAt: item.orderedAt,
         status: item.status,
+        paymentDeadline: item.paymentDeadline,
+        remainingSeconds: item.remainingSeconds,
         items: [],
       }
       groups.set(item.orderId, group)

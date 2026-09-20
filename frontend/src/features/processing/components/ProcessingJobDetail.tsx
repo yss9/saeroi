@@ -18,6 +18,23 @@ import './processing-jobs.css'
 const materialTypes = Object.keys(MATERIAL_TYPE_LABEL) as MaterialType[]
 const materialGrades = Object.keys(GRADE_LABEL) as MaterialGrade[]
 const statusLabel = { CREATED:'결제 대기', PAID:'발송 대기', SHIPPED:'배송 중', RECEIVED:'가공 시작 대기', PROCESSING:'가공 중', RESULT_SUBMITTED:'결과 반환 대기', RETURN_SHIPPED:'반환 배송 중', CONFIRMED:'가공 완료', REJECTED:'결과 보완', EXPIRED:'만료', CANCELED:'반환 종료' } as const
+/**
+ * 진행 막대의 칸. **순서가 곧 상태의 순서다** — 지금 상태가 몇 번째인지로 어디까지 칠할지
+ * 정한다.
+ *
+ * 이름은 과정을 적는다(누가 하는지가 아니라). 같은 막대를 브랜드와 가공사가 함께 보고,
+ * 무엇을 기다리는 중인지는 아래 칸들이 각자 말한다.
+ */
+const PROGRESS_STEPS = [
+  { status: 'PAID', label: '결제' },
+  { status: 'SHIPPED', label: '소재 발송' },
+  { status: 'RECEIVED', label: '수령' },
+  { status: 'PROCESSING', label: '가공' },
+  { status: 'RESULT_SUBMITTED', label: '결과 제출' },
+  { status: 'RETURN_SHIPPED', label: '반환 배송' },
+  { status: 'CONFIRMED', label: '수령 확인' },
+] as const
+
 type Row = { materialType: MaterialType; grade: MaterialGrade; gradeReason: string; name: string; quantity: string }
 const emptyRow = (): Row => ({ materialType:'DENIM', grade:'A', gradeReason:'', name:'', quantity:'' })
 
@@ -58,7 +75,20 @@ function ProcessingJobDetailContent({ jobId, job, request, role, flow }: {
   return <section className="pj-detail">
     <Link to={role==='PROCESSOR'?'/processor/jobs':'/brand/processing/jobs'}><ArrowLeft/>목록으로</Link>
     <header><div><h1>{request ? `${request.materialName} 가공` : '가공 작업 상세'}</h1>{request&&<><p><strong>{counterparty}</strong> · {request.quantity.toLocaleString()} g</p><div className="pj-request-processes">{request.processTypes.map(type=><b key={type}>{PROCESS_TYPE_LABEL[type]}</b>)}</div></>}</div><b className={`pj-status is-${job.status.toLowerCase()}`}>{statusLabel[job.status]}</b></header>
-    <div className="pj-progress">{['PAID','SHIPPED','RECEIVED','PROCESSING','RESULT_SUBMITTED','CONFIRMED'].map((value,index)=><span className={['PAID','SHIPPED','RECEIVED','PROCESSING','RESULT_SUBMITTED','CONFIRMED'].indexOf(job.status)>=index?'is-done':''} key={value}>{index+1}</span>)}</div>
+    {/*
+      **숫자만 두면 무슨 과정인지 알 수 없다.** 브랜드는 이 화면에 "지금 어디까지 왔나" 를
+      보러 오는데, 동그라미 여섯 개로는 3번이 수령인지 가공인지 알 길이 없었다.
+
+      반환 배송을 칸으로 넣은 이유 — 그 상태는 단계 목록에 없어서 `indexOf` 가 -1 이 되고,
+      다 차 있던 표시가 통째로 회색으로 풀렸다. 정작 브랜드가 수령 확인을 해야 하는 구간이다.
+    */}
+    <ol className="pj-progress">{PROGRESS_STEPS.map((step,index)=>{
+      const current=PROGRESS_STEPS.findIndex(s=>s.status===job.status)
+      return <li key={step.status} className={current>=index?'is-done':''} aria-current={current===index?'step':undefined}>
+        <span className="pj-progress__mark">{index+1}</span>
+        <span className="pj-progress__label">{step.label}</span>
+      </li>
+    })}</ol>
     <section className="pj-panel"><h2><Package/>투입 정보</h2><dl><div><dt>소재</dt><dd>{request?<><strong>{request.materialName}</strong><small>{request.materialCode}</small></>:'소재 정보 확인 중'}</dd></div><div><dt>투입 수량</dt><dd>{job.inputQuantity.toLocaleString()} g</dd></div><div><dt>가공비</dt><dd>{job.fee.toLocaleString()}원</dd></div><div><dt>Loss</dt><dd>{job.lossQuantity.toLocaleString()} g</dd></div></dl></section>
 
     {role==='BRAND'&&job.status==='PAID'&&!job.chainJobId&&<section className="pj-panel pj-action"><p>발송 전에 입력 소재를 온체인 가공 작업에 잠급니다.</p><button disabled={pending} onClick={()=>flow.initializeChain.mutate()}>MetaMask로 온체인 작업 등록</button></section>}

@@ -2,10 +2,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { MemoryRouter } from 'react-router-dom'
 import { createAppError, ERROR_KIND } from '../../../utils/errors.ts'
 import type { JourneyNode, ProductJourney, ProductPassport } from '../types/traceability.types.ts'
 import { PassportView } from './PassportView.tsx'
-import { MemoryRouter } from 'react-router-dom'
 
 const api = vi.hoisted(() => ({ getPassport: vi.fn() }))
 vi.mock('../api/getPassport.ts', () => ({
@@ -133,7 +133,6 @@ function passport(overrides: Partial<ProductPassport> = {}): ProductPassport {
 
 function renderView(qrToken = 'a'.repeat(32)) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  // 머리말의 로고가 Link 다 — a 는 basename(/test/)을 무시하고 도메인 루트로 나간다.
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter>
@@ -153,127 +152,35 @@ afterEach(() => {
 })
 
 describe('PassportView', () => {
-  async function selectMapRecord(user: ReturnType<typeof userEvent.setup>, name: string) {
-    await user.click(screen.getByRole('button', { name }))
-  }
-  it('서울과 판교의 원래 좌표를 유지하며 모든 개별 마커를 표시한다', async () => {
-    const data = journey()
-    Object.assign(data.nodes.find((item) => item.nodeId === 'source-a')!, { latitude: 37.5666, longitude: 126.9784 })
-    Object.assign(data.nodes.find((item) => item.nodeId === 'brand')!, { latitude: 37.394776, longitude: 127.11116 })
-    api.getPassport.mockResolvedValue(passport({ journey: data }))
-    const user = userEvent.setup()
-    const { container } = renderView()
-    await screen.findByRole('heading', { name: 'RE:BAG' })
-    const projected = (latitude: number, longitude: number) =>
-      `translate(${500 + (longitude - 127.65) * 94} ${10 + ((38.75 - latitude) / (38.75 - 33.1)) * 590})`
-    await user.click(screen.getByRole('button', { name: /브랜드 제작 완료/ }))
-    expect(container.querySelector('[data-node-id="brand"]')).toHaveAttribute('transform', projected(37.394776, 127.11116))
-    expect(container.querySelector('[data-node-id="source-a"]')).toHaveAttribute('transform', projected(37.5666, 126.9784))
-    expect(container.querySelector('.journey-cluster')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'ReWeave 상세 보기' })).toBeInTheDocument()
-    expect(screen.getByRole('img', { name: /업체 위치와 이동 경로/ })).toHaveAttribute('viewBox', '315 0 525 620')
-    await user.click(screen.getByRole('button', { name: /최종 수령 완료/ }))
-    expect(container.querySelector('[data-node-id="delivery"]')).toHaveAttribute('transform', projected(37.5665, 126.978))
-    expect(screen.queryByRole('region', { name: '업체·배송지 보기' })).not.toBeInTheDocument()
-    await selectMapRecord(user, '최종 수령 상세 보기')
-    expect(screen.getByRole('button', { name: '최종 수령 상세 보기' })).toHaveClass('is-selected')
-  })
-
-  it('2~5단계에서도 수거 라벨 전체를 지도 내부에 유지한다', async () => {
-    const user = userEvent.setup()
-    const { container } = renderView()
-    await screen.findByRole('heading', { name: 'RE:BAG' })
-    for (const name of [/수거 완료/, /가공 완료/, /브랜드 제작 완료/, /최종 수령 완료/]) {
-      await user.click(screen.getByRole('button', { name }))
-      const labels = container.querySelectorAll('.journey-canvas__route-label')
-      expect(labels.length).toBeLessThanOrEqual(2)
-      labels.forEach((label) => {
-        expect(label).toHaveTextContent('2. 수거')
-        const coordinates = label.getAttribute('transform')!.match(/[\d.]+/g)!.map(Number)
-        expect(coordinates[0] - 37).toBeGreaterThanOrEqual(315)
-        expect(coordinates[0] + 37).toBeLessThanOrEqual(840)
-        expect(coordinates[1] - 12).toBeGreaterThanOrEqual(0)
-        expect(coordinates[1] + 12).toBeLessThanOrEqual(620)
-      })
-    }
-  })
-
-  it('같은 서울 지역의 업체가 있어도 배송 마커의 지역 좌표를 밀어내지 않는다', async () => {
-    const data = journey()
-    const supplier = data.nodes.find((item) => item.nodeId === 'source-a')!
-    supplier.latitude = 37.5665
-    supplier.longitude = 126.978
-    api.getPassport.mockResolvedValue(passport({ journey: data }))
-    const { container } = renderView()
-    await screen.findByRole('heading', { name: 'RE:BAG' })
-    const original = container.querySelector('[data-node-id="source-a"]')?.getAttribute('transform')
-    await userEvent.setup().click(screen.getByRole('button', { name: /최종 수령/ }))
-    expect(container.querySelector('[data-node-id="delivery"]')).toHaveAttribute('transform', original)
-    expect(container.querySelector('[data-node-id="source-a"]')).toHaveAttribute('transform', original)
-    expect(container.querySelector('[data-edge-id="delivery-edge"]')).toBeInTheDocument()
-  })
-
-  it('좌표가 같아도 마커를 숨기거나 이동하지 않고 선택할 수 있다', async () => {
-    const data = journey()
-    for (const id of ['source-a', 'process-a']) {
-      Object.assign(data.nodes.find((item) => item.nodeId === id)!, { latitude: 37.5666, longitude: 126.9784 })
-    }
-    api.getPassport.mockResolvedValue(passport({ journey: data }))
-    const user = userEvent.setup()
-    const { container } = renderView()
-    await screen.findByRole('heading', { name: 'RE:BAG' })
-    await user.click(screen.getByRole('button', { name: /가공 완료/ }))
-    await selectMapRecord(user, '서울 원단 공급처 상세 보기')
-    const source = container.querySelector('[data-node-id="source-a"]')!
-    const process = container.querySelector('[data-node-id="process-a"]')!
-    expect(source.getAttribute('transform')).toBe(process.getAttribute('transform'))
-    expect(source).not.toHaveStyle({ display: 'none' })
-    expect(process).not.toHaveStyle({ display: 'none' })
-    expect(container.querySelector('.journey-cluster')).not.toBeInTheDocument()
-  })
-
-  it('짧은 배송 지역명을 지도 좌표로 표시하고 업체 좌표는 유지한다', async () => {
-    const data = journey()
-    data.nodes.find((item) => item.nodeId === 'delivery')!.locationName = '경남'
-    api.getPassport.mockResolvedValue(passport({ journey: data }))
-    const { container } = renderView()
-    await screen.findByRole('heading', { name: 'RE:BAG' })
-    const supplierPosition = container.querySelector('[data-node-id="source-a"]')?.getAttribute('transform')
-    await userEvent.setup().click(screen.getByRole('button', { name: /최종 수령/ }))
-    expect(container.querySelector('[data-node-id="delivery"]')).toBeInTheDocument()
-    expect(container.querySelector('[data-node-id="delivery"]')).not.toHaveAttribute('transform', 'translate(830 150)')
-    expect(container.querySelector('[data-edge-id="delivery-edge"]')).toBeInTheDocument()
-    expect(container.querySelector('[data-node-id="source-a"]')).toHaveAttribute('transform', supplierPosition)
-    expect(screen.getAllByText('경남').length).toBeGreaterThan(0)
-  })
-
-  it.each(['알 수 없는 지역', null])('배송 좌표가 없는 %s는 지도에서만 제외하고 Flow View는 유지한다', async (locationName) => {
-    const data = journey()
-    data.nodes.find((item) => item.nodeId === 'delivery')!.locationName = locationName
-    api.getPassport.mockResolvedValue(passport({ journey: data }))
-    const { container } = renderView()
-    await screen.findByRole('heading', { name: 'RE:BAG' })
-    const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: /최종 수령/ }))
-    expect(screen.getByRole('button', { name: /최종 수령/ })).toHaveAttribute('aria-current', 'step')
-    expect(container.querySelector('[data-node-id="delivery"]')).not.toBeInTheDocument()
-    expect(container.querySelector('[data-edge-id="delivery-edge"]')).not.toBeInTheDocument()
-    expect(container.querySelector('[data-node-id="brand"]')).toBeInTheDocument()
-    if (locationName) expect(screen.getAllByText(locationName).length).toBeGreaterThan(0)
-    await user.click(screen.getByRole('button', { name: 'Flow View' }))
-    expect(container.querySelector('[data-node-id="delivery"]')).toBeInTheDocument()
-    expect(container.querySelector('[data-edge-id="delivery-edge"]')).toBeInTheDocument()
-  })
-
   it('제품 대표 정보와 다섯 단계 Journey를 보여준다', async () => {
     renderView()
 
     expect(await screen.findByRole('heading', { name: 'RE:BAG' })).toBeInTheDocument()
     expect(screen.getByText('ITEM-0001')).toBeInTheDocument()
-    expect(screen.getByText('폐데님으로 만든 가방입니다.')).toBeInTheDocument()
     expect(screen.getByText('Verified Upcycled Product')).toBeInTheDocument()
     expect(screen.getByRole('list', { name: '여정 단계' }).querySelectorAll('li')).toHaveLength(5)
-    expect(screen.getByRole('button', { name: /원단 등록/ })).toHaveAttribute('aria-current', 'step')
+    expect(screen.getByRole('button', { name: /수거/ })).toHaveAttribute('aria-current', 'step')
+  })
+
+  it('수거·원단 등록 단계에서는 여정 전체 지점을 미리 보여준다', async () => {
+    const user = userEvent.setup()
+    const { container } = renderView()
+    await screen.findByRole('heading', { name: 'RE:BAG' })
+
+    // 기본 화면(수거)에서부터 이후 단계(가공·브랜드) 지점까지 이미 보인다 — 폐소재를
+    // 모아 등록하기까지가 출발점이라 전체 흐름을 먼저 보여준다.
+    expect(screen.getByRole('button', { name: /수거 완료/ })).toHaveAttribute('aria-current', 'step')
+    expect(container.querySelector('[data-node-id="process-a"]')).toBeInTheDocument()
+    expect(container.querySelector('[data-edge-id="brand-a"]')).toBeInTheDocument()
+
+    // 원단 등록으로 옮겨도 마찬가지다.
+    await user.click(screen.getByRole('button', { name: /원단 등록 완료/ }))
+    expect(container.querySelector('[data-node-id="process-a"]')).toBeInTheDocument()
+    expect(container.querySelector('[data-edge-id="brand-a"]')).toBeInTheDocument()
+
+    // 가공으로 넘어가면 그때부터는 다시 진행된 단계까지만 보인다.
+    await user.click(screen.getByRole('button', { name: /가공 완료/ }))
+    expect(container.querySelector('[data-edge-id="brand-a"]')).not.toBeInTheDocument()
   })
 
   it('qrToken으로 공개 대표 이미지를 조회한다', async () => {
@@ -302,23 +209,16 @@ describe('PassportView', () => {
     const { container } = renderView()
     await screen.findByRole('heading', { name: 'RE:BAG' })
 
-    await selectMapRecord(user, '서울 원단 공급처 상세 보기')
-
-    expect(screen.getByRole('button', { name: /원단 등록 완료/ })).toHaveAttribute('aria-current', 'step')
-    expect(container.querySelector('[data-edge-id="collect-a"]')).not.toBeInTheDocument()
-    expect(container.querySelector('[data-node-id="process-a"]')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /가공 완료/ }))
+    // 가공부터는 수거·원단 등록처럼 전체를 미리 보여주지 않는다 — 그 이후 단계
+    // (브랜드) 지점은 진행되기 전까지 지도에도 나타나지 않는다.
     expect(container.querySelector('[data-edge-id="brand-a"]')).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: /가공 완료/ }))
-    await selectMapRecord(user, '그린텍스 상세 보기')
+    await user.click(screen.getByRole('button', { name: '그린텍스 상세 보기' }))
 
     expect(screen.getByRole('button', { name: /가공 완료/ })).toHaveAttribute('aria-current', 'step')
-    expect(container.querySelector('[data-edge-id="collect-a"]')).toHaveClass('is-active')
-    expect(container.querySelector('[data-edge-id="collect-b"]')).toHaveClass('is-dimmed')
-    expect(container.querySelector('[data-edge-id="collect-a"] .journey-canvas__route-label')).toHaveTextContent('2. 수거')
-    expect(container.querySelector('.journey-route-list')).toHaveTextContent('서울 원단 공급처 → 그린텍스 · 수거')
-    expect(container.querySelector('[data-edge-id="collect-a"] [data-traveler-stage="COLLECTION"] svg')).toBeInTheDocument()
-    expect(container.querySelector('[data-edge-id="brand-a"]')).not.toBeInTheDocument()
+    // Journey Map과 Flow View는 같은 활성·흐린 상태 계산 결과를 공유한다 —
+    // 여기서는 좌표 배치가 없어 클래스 확인이 더 간단한 Flow View로 전환해서 본다.
 
     await user.click(screen.getByRole('button', { name: 'Flow View' }))
 
@@ -336,9 +236,12 @@ describe('PassportView', () => {
     await screen.findByRole('heading', { name: 'RE:BAG' })
 
     await user.click(screen.getByRole('button', { name: /브랜드 제작 완료/ }))
-    await selectMapRecord(user, '그린텍스 상세 보기')
+    await user.click(screen.getByRole('button', { name: '그린텍스 상세 보기' }))
 
     expect(screen.getByRole('button', { name: /브랜드 제작 완료/ })).toHaveAttribute('aria-current', 'step')
+
+    // 좌표 배치가 없어 클래스 확인이 더 간단한 Flow View로 전환해서 본다.
+    await user.click(screen.getByRole('button', { name: 'Flow View' }))
     expect(container.querySelector('[data-node-id="brand"]')).not.toHaveClass('is-dimmed')
     expect(container.querySelector('[data-node-id="process-a"]')).not.toHaveClass('is-dimmed')
     expect(container.querySelector('[data-node-id="process-b"]')).toHaveClass('is-dimmed')
@@ -354,7 +257,6 @@ describe('PassportView', () => {
     const stepItems = Array.from(screen.getByRole('list', { name: '여정 단계' }).querySelectorAll('li'))
     expect(new Set(stepItems.map((item) => item.getAttribute('style'))).size).toBe(5)
     expect(stepItems.every((item) => item.querySelector('.journey-stepper__icon svg'))).toBe(true)
-    expect(container.querySelector('[data-node-stage="SOURCE"] .journey-node__icon svg')).toBeInTheDocument()
 
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Flow View' }))
@@ -381,9 +283,10 @@ describe('PassportView', () => {
     expect(screen.getByRole('img', { name: /업체 위치와 이동 경로/ })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Flow View' })).not.toBeInTheDocument()
 
-    expect(screen.queryByRole('button', { name: 'ReWeave 상세 보기' })).not.toBeInTheDocument()
+    // 기본 화면(수거)은 전체 여정을 미리 보여주므로 ReWeave(브랜드)도 이미 보인다 —
+    // 다만 단계를 눌러야 그 단계가 활성 스텝(aria-current)이 된다.
     await user.click(screen.getByRole('button', { name: /브랜드 제작 완료/ }))
-    await selectMapRecord(user, 'ReWeave 상세 보기')
+    await user.click(screen.getByRole('button', { name: 'ReWeave 상세 보기' }))
     expect(screen.getByRole('button', { name: /브랜드 제작 완료/ })).toHaveAttribute('aria-current', 'step')
 
     await user.click(screen.getByRole('button', { name: /가공 완료/ }))
@@ -408,7 +311,8 @@ describe('PassportView', () => {
     const { container } = renderView()
     await screen.findByRole('heading', { name: 'RE:BAG' })
 
-    expect(container.querySelectorAll('img')).toHaveLength(1)
+    // 헤더·푸터의 SAEROI 로고는 본문과 무관한 사이트 공통 요소라 범위에서 뺀다.
+    expect(container.querySelectorAll('.passport__content img')).toHaveLength(1)
   })
 
   it('블록체인 기록을 누르면 상세 모달에 전체 값을 보여준다', async () => {

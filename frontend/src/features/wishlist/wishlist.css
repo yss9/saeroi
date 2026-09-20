@@ -1,4 +1,2 @@
-.consumer-server-wishlist .shop-catalog__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+/* 열 수는 shop.css 의 .shop-catalog__grid 기본값(최근 본 상품과 같은 4열)을 그대로 쓴다. */
 .consumer-server-wishlist .shop-catalog__card h2 { font-size: 16px; }
-@media (max-width: 1000px) { .consumer-server-wishlist .shop-catalog__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 420px) { .consumer-server-wishlist .shop-catalog__grid { grid-template-columns: 1fr; } }

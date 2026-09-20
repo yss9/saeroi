@@ -33,7 +33,21 @@ pipeline {
         }
 
         stage('Lint') {
-            steps { sh 'npm run lint' }
+            // post.cleanup 이 빌드 끝에 deleteDir() 로 워크스페이스를 통째로 지우기 때문에,
+            // .eslintcache 를 워크스페이스 안에만 두면 매 빌드마다 사라져 캐시 효과가 없다.
+            // 워크스페이스 밖 고정 경로에 캐시를 두고 시작 전에 복사해 오고 끝나면 복사해 간다.
+            // 브랜치가 섞여도 무방하지만(캐시는 파일 내용 해시 기반), 브랜치별로 나눠 둔다.
+            environment {
+                ESLINT_CACHE_DIR = "/var/jenkins_home/caches/frontend-eslint/${env.BRANCH_NAME}"
+            }
+            steps {
+                sh '''
+                    mkdir -p "$ESLINT_CACHE_DIR"
+                    [ -f "$ESLINT_CACHE_DIR/.eslintcache" ] && cp "$ESLINT_CACHE_DIR/.eslintcache" .eslintcache || true
+                '''
+                sh 'npm run lint'
+                sh 'cp .eslintcache "$ESLINT_CACHE_DIR/.eslintcache"'
+            }
         }
 
         stage('Test') {

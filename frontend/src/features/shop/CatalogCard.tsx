@@ -9,7 +9,7 @@ import { CartButton } from '../cart/CartButton.tsx'
 const price = new Intl.NumberFormat('ko-KR')
 
 /** 소비자 카탈로그와 찜 목록이 공유하는 상품 카드. 인증 이미지 모드는 기존 주문 로더를 쓴다. */
-export function CatalogCard({ product, imageMode = 'public', purchasable, wishedInList = false }: { product: PublicProductModel; imageMode?: 'public' | 'authenticated'; purchasable?: boolean; wishedInList?: boolean }) {
+export function CatalogCard({ product, imageMode = 'public', purchasable, wishedInList = false, showCart = true }: { product: PublicProductModel; imageMode?: 'public' | 'authenticated'; purchasable?: boolean; wishedInList?: boolean; showCart?: boolean }) {
   const canOpen = purchasable !== false
   const state = purchasable === false ? (product.status === 'DISCONTINUED' || product.status === 'DRAFT' ? '판매 종료' : product.status === 'SOLD_OUT' || product.stockQuantity === 0 ? '품절' : '구매 불가') : product.stockQuantity === 0 ? '품절' : null
   const image = <div className="shop-catalog__image">
@@ -25,7 +25,7 @@ export function CatalogCard({ product, imageMode = 'public', purchasable, wished
         <h2>{product.name}</h2>
         <p className="shop-catalog__price">₩ {price.format(product.price)}</p>
       </Link> : <><h2>{product.name}</h2><p className="shop-catalog__price">₩ {price.format(product.price)}</p></>}
-      {!wishedInList && <CartButton productId={product.productModelId} name={product.name} className="shop-catalog__cart" disabled={purchasable === false || product.stockQuantity === 0} />}
+      {showCart && <CartButton productId={product.productModelId} name={product.name} className="shop-catalog__cart" disabled={purchasable === false || product.stockQuantity === 0} />}
     </article>
   )
 }

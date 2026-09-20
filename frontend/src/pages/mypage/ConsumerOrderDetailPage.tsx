@@ -1,7 +1,8 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   Button,
+  ConfirmModal,
   EmptyState,
   ErrorMessage,
   Loading,
@@ -12,14 +13,17 @@ import { useAuth } from '../../features/auth/hooks/useAuth.ts'
 import { useLogout } from '../../features/auth/hooks/useLogout.ts'
 import { ConsumerAccountLayout } from '../../features/user/components/ConsumerAccountLayout.tsx'
 import { OrderProgress, TrackingLine } from '../../features/user/components/ConsumerOrderList.tsx'
+import { useCancelProductOrder } from '../../features/user/hooks/useCancelProductOrder.ts'
 import { useConsumerOrderThumbnail } from '../../features/user/hooks/useConsumerOrderThumbnail.ts'
 import { useConsumerMyPage } from '../../features/user/hooks/useConsumerMyPage.ts'
+import { usePaymentCountdown } from '../../features/user/hooks/usePaymentCountdown.ts'
 import type {
   ConsumerOrderViewStatus,
   ConsumerRecentOrder,
 } from '../../features/user/types/consumerMyPage.types.ts'
 import { formatDate } from '../../features/user/utils/formatDate.ts'
 import { groupConsumerOrders } from '../../features/user/utils/groupConsumerOrders.ts'
+import { maskAddressDetail, maskName as maskReceiverName } from '../../utils/mask.ts'
 
 const priceFormatter = new Intl.NumberFormat('ko-KR', {
   style: 'currency',
@@ -45,18 +49,6 @@ const orderStatusMeta: Record<ConsumerOrderViewStatus, { label: string; tone: St
   DELIVERED: { label: '배송 완료', tone: 'success' },
 }
 
-/** 받는사람 이름 마스킹 — 개인정보 보호. 첫/끝 글자만 남기고 가운데는 `*`. */
-function maskReceiverName(name: string): string {
-  if (name.length <= 1) return name
-  if (name.length === 2) return `${name[0]}*`
-  return `${name[0]}${'*'.repeat(name.length - 2)}${name[name.length - 1]}`
-}
-
-/** 상세주소 마스킹 — 길이는 유지하되 전부 `*`로 치환해 존재 여부만 알 수 있게 한다. */
-function maskAddressDetail(addressDetail: string): string {
-  return '*'.repeat(addressDetail.length)
-}
-
 /**
  * 주문 상세보기.
  *
@@ -70,6 +62,8 @@ export function ConsumerOrderDetailPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const logout = useLogout()
+  const cancel = useCancelProductOrder()
+  const [cancelOpen, setCancelOpen] = useState(false)
   const profile = user ? { id: user.id, name: user.name, email: user.email } : null
   const myPage = useConsumerMyPage(profile)
 
@@ -79,6 +73,7 @@ export function ConsumerOrderDetailPage() {
       (candidate) => String(candidate.orderId) === orderId,
     )
   }, [myPage.data, orderId])
+  const paymentCountdown = usePaymentCountdown(group?.remainingSeconds, group?.paymentDeadline)
 
   return (
     <ConsumerAccountLayout
@@ -114,11 +109,12 @@ export function ConsumerOrderDetailPage() {
           />
         </section>
       ) : (
-        <section className="consumer-mypage-card" aria-labelledby="order-detail-title">
+        <section className="consumer-mypage-card consumer-order-detail" aria-labelledby="order-detail-title">
           <div className="consumer-section-heading">
             <div>
               <p className="consumer-section-heading__eyebrow">ORDER DETAIL</p>
-              <h2 id="order-detail-title">{group.orderNumber}</h2>
+              <h2 id="order-detail-title">주문번호 {group.orderNumber}</h2>
+              {group.orderGroupCode && <p className="consumer-order-detail__payment-code">결제번호 {group.orderGroupCode}</p>}
             </div>
             <Link className="consumer-text-link" to="/mypage/orders">
               주문 내역으로
@@ -135,8 +131,6 @@ export function ConsumerOrderDetailPage() {
                 : `${formatDate(group.orderedAt, dateFormatter)} ${formatDate(group.orderedAt, timeFormatter)}`}
             </time>
           </p>
-
-          {group.orderGroupCode && <p>묶음 번호 {group.orderGroupCode} · 같은 번호의 브랜드별 주문은 한 번에 결제되었습니다. 개별 결제·취소 불가</p>}
 
           <div className="consumer-order-group__items">
             {group.items.map((item) => (
@@ -175,31 +169,66 @@ export function ConsumerOrderDetailPage() {
             </dl>
           </div>
 
+          {group.status === 'PAYMENT_PENDING' && (
+            <div className="consumer-order-detail__payment-action">
+              {paymentCountdown.label && <p role="timer">{paymentCountdown.label}</p>}
+              {paymentCountdown.expired ? (
+                <Button disabled>결제하기</Button>
+              ) : (
+                <Link className="consumer-order-detail__pay-link" to={`/orders/${group.orderId}/checkout`}>
+                  결제하기
+                </Link>
+              )}
+            </div>
+          )}
+
           {/*
             영수증은 별도 메뉴 없이 여기서 바로 출력한다(2026-09-16 개편) — 방금 위에서 본
             결제 정보·받는 곳이 곧 영수증 내용이라, 새 화면으로 옮겨 다시 찾을 이유가 없다.
             실제 영수증 양식(사업자 정보 등)은 백엔드 연동 뒤에 정한다 — 지금은
             `window.print()` 로 브라우저 인쇄 대화상자만 연다.
 
-            제품 여정 확인도 같은 줄·같은 크기로 둔다(2026-09-17) — 둘 다 이 주문에 대한
-            "더 볼 것" 액션이라 한 자리에 모으는 편이 낫다.
           */}
           <div className="consumer-order-detail__receipt-action">
-            {group.items
-              .filter((item) => item.journeyUrl)
-              .map((item) => (
-                <a
-                  key={item.id}
-                  className="ui-button ui-button--secondary ui-button--md"
-                  href={item.journeyUrl as string}
+            {!group.orderGroupCode &&
+              (group.status === 'PAYMENT_PENDING' || group.status === 'PREPARING') && (
+                <Button
+                  variant="secondary"
+                  loading={cancel.isPending}
+                  onClick={() => setCancelOpen(true)}
                 >
-                  제품 여정 확인
-                </a>
-              ))}
+                  주문 취소
+                </Button>
+              )}
+            {group.orderGroupCode && group.status === 'PAYMENT_PENDING' && (
+              <Link
+                className="consumer-order-detail__cancel-link"
+                to={`/orders/${group.orderId}/checkout?action=cancel`}
+              >
+                주문 전체 취소
+              </Link>
+            )}
             <Button variant="secondary" onClick={() => window.print()}>
               영수증 출력
             </Button>
           </div>
+
+          {cancel.isError && <ErrorMessage error={cancel.error} />}
+          <ConfirmModal
+            open={cancelOpen}
+            title="주문을 취소할까요?"
+            message={`${group.orderNumber} 주문을 취소합니다.${group.status === 'PREPARING' ? ' 결제하신 금액은 환불됩니다.' : ''} 취소한 주문은 목록에서 사라지고 되돌릴 수 없습니다.`}
+            confirmLabel="주문 취소"
+            destructive
+            loading={cancel.isPending}
+            onConfirm={() =>
+              cancel.mutate(group.orderId, {
+                onSuccess: () => navigate('/mypage/orders', { replace: true }),
+                onSettled: () => setCancelOpen(false),
+              })
+            }
+            onClose={() => setCancelOpen(false)}
+          />
         </section>
       )}
     </ConsumerAccountLayout>
@@ -231,6 +260,7 @@ function OrderDetailItemRow({ item }: { item: ConsumerRecentOrder }) {
             {priceFormatter.format(item.itemPrice)}
             <span> · {item.itemCount}개</span>
           </p>
+          {item.journeyUrl && <a className="consumer-text-link consumer-order-detail__journey" href={item.journeyUrl}>PRODUCT PASSPORT</a>}
         </div>
       </div>
 

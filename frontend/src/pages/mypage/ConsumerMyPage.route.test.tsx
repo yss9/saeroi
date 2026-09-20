@@ -1,10 +1,11 @@
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { AxiosResponse } from 'axios'
+import type { AxiosRequestConfig, AxiosResponse } from 'axios'
 import { MemoryRouter, useRoutes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppProviders } from '../../app/providers/AppProviders.tsx'
 import { routes } from '../../app/router/routes.tsx'
+import type { ConsumerOrderPage } from '../../features/user/types/consumerOrder.types.ts'
 import { apiClient } from '../../services/apiClient.ts'
 import { queryClient } from '../../services/queryClient.ts'
 import { useAuthStore } from '../../stores/authStore.ts'
@@ -13,7 +14,7 @@ vi.mock('../../features/user/hooks/useConsumerOrderThumbnail.ts', () => ({
   useConsumerOrderThumbnail: () => ({ url: null }),
 }))
 
-const orderPage = {
+const orderPage: ConsumerOrderPage = {
   content: [
     {
       orderId: 1,
@@ -25,6 +26,8 @@ const orderPage = {
       paidAt: '2026-09-12T10:35:00',
       shippedAt: '2026-09-13T09:00:00',
       deliveredAt: '2026-09-14T15:00:00',
+      paymentDeadline: '2026-09-12T11:00:00+09:00',
+      remainingSeconds: 0,
       items: [
         {
           itemCode: 'ITEM-001',
@@ -51,7 +54,7 @@ const orderPage = {
  * URL 로 갈라 각각 다른 모양을 돌려준다. 하나로 뭉뚱그리면 배송지 자리에 주문 페이지가
  * 실려 `addresses.find is not a function` 으로 화면이 통째로 죽는다.
  */
-function mockMyPageApi() {
+function mockMyPageApi(page = orderPage) {
   return vi.spyOn(apiClient, 'get').mockImplementation(async (url) => {
     if (url === '/v1/product-orders/me/summary') {
       return { data: { created: 0, paid: 0, shipped: 0, delivered: 1 } } as AxiosResponse
@@ -60,7 +63,7 @@ function mockMyPageApi() {
     if (url === '/v1/consumers/me/addresses') {
       return { data: [] } as AxiosResponse
     }
-    return { data: orderPage } as AxiosResponse
+    return { data: page } as AxiosResponse
   })
 }
 
@@ -150,7 +153,7 @@ describe('consumer mypage route', () => {
     renderRoute('/mypage/orders')
 
     expect(await screen.findByRole('heading', { name: '데님 서클 백' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '제품 여정 확인' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'PRODUCT PASSPORT' })).toHaveAttribute(
       'href',
       'http://localhost:5173/qr/journey-token',
     )
@@ -158,6 +161,44 @@ describe('consumer mypage route', () => {
     await user.click(screen.getByRole('button', { name: '배송조회' }))
     const progress = within(screen.getByRole('dialog')).getByRole('list', { name: '배송 현황' })
     expect(within(progress).getAllByRole('listitem')).toHaveLength(4)
+  })
+
+  it('주문이 20건을 넘으면 다음 페이지의 주문을 불러온다', async () => {
+    const secondOrder = {
+      ...orderPage.content[0],
+      orderId: 21,
+      orderCode: 'PO-021',
+      orderedAt: '2026-08-20T10:30:00',
+      items: [{
+        ...orderPage.content[0].items[0],
+        itemCode: 'ITEM-021',
+        productName: '21번째 주문 상품',
+      }],
+    }
+    const get = vi.spyOn(apiClient, 'get').mockImplementation(async (url, config) => {
+      if (url === '/v1/product-orders/me/summary') {
+        return { data: { created: 0, paid: 0, shipped: 0, delivered: 21 } } as AxiosResponse
+      }
+      if (url === '/v1/consumers/me/addresses') return { data: [] } as AxiosResponse
+      const requestedPage = (config as AxiosRequestConfig | undefined)?.params?.page ?? 0
+      return {
+        data: requestedPage === 0
+          ? { ...orderPage, totalElements: 21, totalPages: 2, hasNext: true }
+          : { ...orderPage, content: [secondOrder], page: 1, totalElements: 21, totalPages: 2 },
+      } as AxiosResponse
+    })
+    signInAsConsumer()
+    const user = userEvent.setup()
+
+    renderRoute('/mypage/orders')
+
+    expect(await screen.findByRole('heading', { name: '데님 서클 백' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '다음 페이지' }))
+
+    expect(await screen.findByRole('heading', { name: '21번째 주문 상품' })).toBeInTheDocument()
+    expect(get).toHaveBeenCalledWith('/v1/product-orders/me', {
+      params: { page: 1, size: 20 },
+    })
   })
 
   it('사이드바로 주문 내역과 배송지 관리를 오간다', async () => {
@@ -214,11 +255,67 @@ describe('consumer mypage route', () => {
     for (const label of ['상품 수', '총 결제금액', '받는사람', '주소']) {
       expect(details.getByText(label)).toBeInTheDocument()
     }
+    expect(screen.getByRole('link', { name: 'PRODUCT PASSPORT' })).toHaveAttribute(
+      'href',
+      'http://localhost:5173/qr/journey-token',
+    )
     expect(screen.queryByText('받는 곳')).not.toBeInTheDocument()
     const receipt = screen.getByRole('button', { name: '영수증 출력' })
     expect(receipt.querySelector('svg')).toBeNull()
     await userEvent.setup().click(receipt)
     expect(print).toHaveBeenCalledOnce()
+  })
+
+  it('주문 취소는 목록이 아니라 취소 가능한 주문의 상세에서 진행한다', async () => {
+    const paidOrderPage: ConsumerOrderPage = {
+      ...orderPage,
+      content: [{
+        ...orderPage.content[0],
+        status: 'PAID',
+        deliveredAt: null,
+        shippedAt: null,
+      }],
+    }
+    mockMyPageApi(paidOrderPage)
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ data: null } as AxiosResponse)
+    signInAsConsumer()
+    const user = userEvent.setup()
+
+    renderRoute('/mypage/orders')
+
+    await screen.findByRole('heading', { name: '데님 서클 백' })
+    expect(screen.queryByRole('button', { name: '주문 취소' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('link', { name: /주문 상세보기/ }))
+
+    await user.click(await screen.findByRole('button', { name: '주문 취소' }))
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByText(/결제하신 금액은 환불됩니다/)).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: '주문 취소' }))
+
+    await waitFor(() => {
+      expect(post).toHaveBeenCalledWith('/v1/product-orders/1/cancel', undefined)
+    })
+  })
+
+  it('마감된 결제 대기 주문의 상세에서 결제 버튼을 막는다', async () => {
+    const expiredOrderPage: ConsumerOrderPage = {
+      ...orderPage,
+      content: [{
+        ...orderPage.content[0],
+        status: 'CREATED',
+        paidAt: null,
+        shippedAt: null,
+        deliveredAt: null,
+        remainingSeconds: 0,
+      }],
+    }
+    mockMyPageApi(expiredOrderPage)
+    signInAsConsumer()
+
+    renderRoute('/mypage/orders/1')
+
+    expect(await screen.findByRole('timer')).toHaveTextContent('결제 마감')
+    expect(screen.getByRole('button', { name: '결제하기' })).toBeDisabled()
   })
 
   it('links the common storefront menus to their pages', async () => {
@@ -242,15 +339,20 @@ describe('consumer mypage route', () => {
   it('keeps the profile and real default address available without order requests', async () => {
     const get = vi.spyOn(apiClient, 'get').mockImplementation(async (url) => {
       if (url.startsWith('/v1/product-orders/')) throw new Error('order service unavailable')
-      if (url === '/v1/consumers/me/addresses') return { data: [{ addressId: 7, receiverName: '수령인', receiverPhone: '010-1234-5678', zipCode: '12345', address: '서울 주소', addressDetail: '101호', isDefault: true }] } as AxiosResponse
+      if (url === '/v1/consumers/me/addresses') return { data: [{ addressId: 7, receiverName: '수령인', receiverPhone: '010-1234-5678', zipCode: '12345', address: '서울 주소 45', addressDetail: '101호', isDefault: true }] } as AxiosResponse
+      // 계정 연락처(users.phone)는 배송지 수령인 연락처와 다른 값으로 둔다 — 화면이
+      // 둘을 섞어 쓰고 있지 않은지 이 테스트가 드러낸다.
+      if (url === '/v1/consumers/me') return { data: { id: 1, email: 'consumer@saeroi.test', name: '새로이 고객', phone: '010-9999-8888', role: 'CONSUMER', status: 'ACTIVE', createdAt: '2026-09-01T00:00:00' } } as AxiosResponse
       return { data: url.endsWith('/product-ids') ? [] : { items: [] } } as AxiosResponse
     })
     signInAsConsumer()
     renderRoute('/mypage')
     await screen.findByRole('heading', { name: '내 프로필' })
-    expect(screen.getByText('[12345] 서울 주소')).toBeInTheDocument()
-    expect(screen.getByText('101호')).toBeInTheDocument()
-    expect(screen.getByText('010-1234-5678')).toBeInTheDocument()
+    // 비밀번호 확인 없이 바로 보이는 화면이라 배송지·연락처는 숫자만 가려서 보여준다(2026-09-18).
+    expect(screen.getByText('[12345] 서울 주소 **')).toBeInTheDocument()
+    expect(screen.getByText('***호')).toBeInTheDocument()
+    // 연락처는 배송지가 아니라 계정 연락처를 보여준다(2026-09-18).
+    expect(screen.getByText('010-****-8888')).toBeInTheDocument()
     expect(get.mock.calls.some(([url]) => url.startsWith('/v1/product-orders/'))).toBe(false)
   })
 

@@ -184,7 +184,7 @@ export function ConsumerSignupForm({
           label="비밀번호"
           type={showPassword ? 'text' : 'password'}
           autoComplete="new-password"
-          placeholder="영문, 숫자, 특수문자를 포함해 8자 이상"
+          placeholder="비밀번호를 입력해 주세요."
           hint="영문, 숫자, 특수문자를 조합해 8자 이상 입력해 주세요."
           error={errors.password?.message}
           {...register('password', {

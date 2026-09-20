@@ -1,6 +1,6 @@
 import { CartButton } from '../../cart/CartButton.tsx'
 import { WishlistButton } from '../../wishlist/WishlistButton.tsx'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../auth/hooks/useAuth.ts'
 import { shopPath } from '../../shop/catalog.ts'
@@ -9,6 +9,8 @@ import { publicProductImageUrl } from '../api/publicProductImageUrl.ts'
 import { usePublicProductModel } from '../hooks/usePublicProductModel.ts'
 import type { PublicProductDetail as Product } from '../types/publicProduct.types.ts'
 import { PRODUCT_CATEGORY_LABEL } from '../types/product.types.ts'
+import { ProductPurchasePanel } from '../../user/components/ProductPurchasePanel.tsx'
+import { recordRecentlyViewedProduct } from '../utils/recentlyViewedProducts.ts'
 
 export function PublicProductDetail({ productId }: { productId: number | null }) {
   const query = usePublicProductModel(productId)
@@ -21,11 +23,16 @@ export function PublicProductDetail({ productId }: { productId: number | null })
 }
 
 function ProductBody({ product }: { product: Product }) {
-  const { isAuthenticated, role } = useAuth()
+  const { isAuthenticated, role, user } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [notice, setNotice] = useState('')
   const soldOut = product.stockQuantity === 0
+  const viewerId = isAuthenticated ? user?.id ?? null : null
+
+  useEffect(() => {
+    if (viewerId !== null) recordRecentlyViewedProduct(viewerId, product.productModelId)
+  }, [product.productModelId, viewerId])
 
   function requireLogin(action: () => void) {
     if (!isAuthenticated) {
@@ -51,18 +58,48 @@ function ProductBody({ product }: { product: Product }) {
           <p className="public-product__category">{PRODUCT_CATEGORY_LABEL[product.category]}{product.subcategory ? ` · ${product.subcategory}` : ''}</p>
           <p className={`public-product__stock${soldOut ? ' public-product__stock--empty' : ''}`}>{soldOut ? '품절' : `남은 수량 ${product.stockQuantity}개`}</p>
           <div className="public-product__actions">
-            <button className="public-product__buy" type="button" disabled={soldOut} onClick={() => requireLogin(() => setNotice(role === 'CONSUMER' ? '구매 기능 연결을 준비하고 있습니다. 현재 주문이나 결제는 진행되지 않습니다.' : '구매는 소비자 계정에서 이용할 수 있습니다.'))}>{soldOut ? '품절' : '구매하기'}</button>
             <WishlistButton productId={product.productModelId} name={product.name} text="찜하기" />
             <CartButton productId={product.productModelId} name={product.name} text="장바구니 담기" disabled={soldOut} />
           </div>
-          <p className="public-product__notice" role="status">{notice}</p>
-          <p className="public-product__memory">찜과 장바구니는 계정에 저장됩니다.</p>
-          <section className="public-product__description" aria-labelledby="product-description-title"><h2 id="product-description-title">상품 이야기</h2><p>{product.description || '등록된 상품 설명이 없습니다.'}</p></section>
+          {isAuthenticated && role === 'CONSUMER' ? (
+            <ProductPurchasePanel
+              productModelId={product.productModelId}
+              purchasable={isPurchasable(product)}
+              blockedReason={purchaseBlockedReason(product)}
+            />
+          ) : (
+            // 실제 구매 버튼과 같은 자리에 둔다. 동작만 로그인·역할 안내로 제한한다.
+            <div className="public-product__purchase">
+              <button
+                className="ui-button ui-button--primary ui-button--md ui-button--full public-product__buy"
+                type="button"
+                disabled={soldOut}
+                onClick={() => requireLogin(() => setNotice('구매는 소비자 계정에서 이용할 수 있습니다.'))}
+              >
+                {soldOut ? '품절' : '구매하기'}
+              </button>
+            </div>
+          )}
+          {notice && <p className="public-product__notice" role="status">{notice}</p>}
+          <section className="public-product__description" aria-labelledby="product-description-title"><h2 id="product-description-title">상품 이야기</h2><p>{product.description?.replace(/([.!?])\s+(?=\S)/g, '$1\n') || '등록된 상품 설명이 없습니다.'}</p></section>
           <Link className="public-product__back" to="/shop">전체 상품 보기 →</Link>
         </div>
       </div>
     </section>
   )
+}
+
+/** 살 수 있는 상태인가. 서버가 거절할 조건을 화면이 먼저 본다. */
+function isPurchasable(product: Product): boolean {
+  return product.status === 'ON_SALE' && product.stockQuantity > 0
+}
+
+/** 못 사는 이유. 버튼만 잠그면 사용자는 자기가 뭘 잘못했다고 생각한다. */
+function purchaseBlockedReason(product: Product): string | undefined {
+  if (product.status === 'DISCONTINUED') return '단종된 제품이라 주문할 수 없습니다.'
+  if (product.status === 'DRAFT') return '아직 판매를 시작하지 않은 제품입니다.'
+  if (product.stockQuantity === 0) return '품절되어 지금은 주문할 수 없습니다.'
+  return undefined
 }
 
 function ProductGallery({ product }: { product: Product }) {

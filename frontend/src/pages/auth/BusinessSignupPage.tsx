@@ -24,7 +24,7 @@ export function BusinessSignupPage() {
     <AuthLayout
       eyebrow="BUSINESS ACCOUNT"
       title="사업자회원 가입"
-      description="업체 유형과 회사 정보를 등록하고 SAEROI의 순환 소재 생태계에 참여해 보세요."
+      description="기업 정보와 이용할 업무 유형을 입력해 주세요."
       wide
     >
       <div className="consumer-signup__form-wrap">

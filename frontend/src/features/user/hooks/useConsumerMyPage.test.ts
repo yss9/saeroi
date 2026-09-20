@@ -17,6 +17,8 @@ const orders: ConsumerOrderPage = {
       paidAt: '2026-09-12T10:35:00',
       shippedAt: null,
       deliveredAt: null,
+      paymentDeadline: '2026-09-12T11:00:00+09:00',
+      remainingSeconds: 1470,
       items: [
         {
           itemCode: 'ITEM-001',
@@ -73,6 +75,8 @@ describe('toConsumerMyPageData', () => {
       status: 'PREPARING',
       itemCount: 2,
       journeyUrl: 'http://localhost:5173/qr/first-token',
+      paymentDeadline: '2026-09-12T11:00:00+09:00',
+      remainingSeconds: 1470,
     })
     expect(data.recentOrders[1]).toMatchObject({
       id: 'PO-001:ITEM-002',

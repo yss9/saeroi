@@ -8,6 +8,12 @@ export interface ConsumerProfileSummary {
   id: number
   name: string
   email: string
+  /**
+   * 계정 연락처(`users.phone`). 배송지의 수령인 연락처와는 다른 값이라 선택이다 —
+   * `useConsumerProfile`(마이페이지 홈)만 채우고, 주문·배송지 화면이 쓰는
+   * `useConsumerMyPage`는 이 값이 필요 없어 비워 둔다.
+   */
+  phone?: string
 }
 
 export const CONSUMER_ORDER_STAGES = [
@@ -64,6 +70,8 @@ export interface ConsumerRecentOrder {
   paidAt: string | null
   shippedAt: string | null
   deliveredAt: string | null
+  paymentDeadline: string | null
+  remainingSeconds: number | null
   /**
    * 송장. 브랜드가 발송 처리하며 적은 값이다.
    *

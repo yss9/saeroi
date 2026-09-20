@@ -39,7 +39,8 @@
 .shop-catalog__card h2 { margin: 0; font-size: 16px; line-height: 1.5; font-weight: 500; overflow-wrap: anywhere; }
 .shop-catalog__card > a { display: block; }
 .shop-catalog__card { position: relative; }
-.shop-catalog__heart { position: absolute; top: 12px; right: 12px; display: grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 50%; background: var(--paper, #faf9f5); color: var(--brand-blue, #466c9c); cursor: pointer; }
+.shop-catalog__heart { position: absolute; top: 12px; right: 12px; display: grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 50%; background: var(--paper, #faf9f5); color: var(--ink); cursor: pointer; }
+.shop-catalog__heart[aria-pressed="true"], .shop-catalog__heart:hover { color: var(--brand-orange); }
 .shop-catalog__heart:disabled { opacity: .55; cursor: wait; }
 .shop-catalog__cart { position: absolute; top: 60px; right: 12px; display: grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 50%; background: var(--paper, #faf9f5); color: var(--brand-blue, #466c9c); cursor: pointer; }
 .shop-catalog__cart:disabled { opacity: .4; cursor: default; }
