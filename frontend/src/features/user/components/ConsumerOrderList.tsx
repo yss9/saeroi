@@ -12,6 +12,7 @@ import {
 } from '../../../components/common/index.ts'
 import { useConfirmProductOrderDelivery } from '../hooks/useConfirmProductOrderDelivery.ts'
 import { useConsumerOrderThumbnail } from '../hooks/useConsumerOrderThumbnail.ts'
+import { usePaymentCountdown } from '../hooks/usePaymentCountdown.ts'
 import type {
   ConsumerOrderViewStatus,
   ConsumerRecentOrder,
@@ -146,6 +147,7 @@ function OrderGroupCard({
   onShowShipping: (item: ConsumerRecentOrder) => void
 }) {
   const status = orderStatusMeta[group.status]
+  const paymentCountdown = usePaymentCountdown(group.remainingSeconds, group.paymentDeadline)
 
   return (
     <article className="consumer-order-group" aria-label={`${group.orderNumber} 주문`}>
@@ -175,7 +177,22 @@ function OrderGroupCard({
         <footer className="consumer-order-group__actions">
           <div className="consumer-order-group__actions-column">
             {group.status === 'PAYMENT_PENDING' && (
-              <Link className="consumer-order-group__pay" to={`/orders/${group.orderId}/checkout`}>결제하기</Link>
+              <>
+                {paymentCountdown.label && (
+                  <p className="consumer-order-group__deadline" role="timer">
+                    {paymentCountdown.label}
+                  </p>
+                )}
+                {paymentCountdown.expired ? (
+                  <button className="consumer-order-group__pay" type="button" disabled>
+                    결제하기
+                  </button>
+                ) : (
+                  <Link className="consumer-order-group__pay" to={`/orders/${group.orderId}/checkout`}>
+                    결제하기
+                  </Link>
+                )}
+              </>
             )}
             {group.status === 'SHIPPING' && (
               <Button size="sm" fullWidth loading={busy} onClick={onConfirmDelivery}>

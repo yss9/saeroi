@@ -16,6 +16,7 @@ import { OrderProgress, TrackingLine } from '../../features/user/components/Cons
 import { useCancelProductOrder } from '../../features/user/hooks/useCancelProductOrder.ts'
 import { useConsumerOrderThumbnail } from '../../features/user/hooks/useConsumerOrderThumbnail.ts'
 import { useConsumerMyPage } from '../../features/user/hooks/useConsumerMyPage.ts'
+import { usePaymentCountdown } from '../../features/user/hooks/usePaymentCountdown.ts'
 import type {
   ConsumerOrderViewStatus,
   ConsumerRecentOrder,
@@ -72,6 +73,7 @@ export function ConsumerOrderDetailPage() {
       (candidate) => String(candidate.orderId) === orderId,
     )
   }, [myPage.data, orderId])
+  const paymentCountdown = usePaymentCountdown(group?.remainingSeconds, group?.paymentDeadline)
 
   return (
     <ConsumerAccountLayout
@@ -166,6 +168,19 @@ export function ConsumerOrderDetailPage() {
               </div>
             </dl>
           </div>
+
+          {group.status === 'PAYMENT_PENDING' && (
+            <div className="consumer-order-detail__payment-action">
+              {paymentCountdown.label && <p role="timer">{paymentCountdown.label}</p>}
+              {paymentCountdown.expired ? (
+                <Button disabled>결제하기</Button>
+              ) : (
+                <Link className="consumer-order-detail__pay-link" to={`/orders/${group.orderId}/checkout`}>
+                  결제하기
+                </Link>
+              )}
+            </div>
+          )}
 
           {/*
             영수증은 별도 메뉴 없이 여기서 바로 출력한다(2026-09-16 개편) — 방금 위에서 본

@@ -11,9 +11,11 @@ export interface OrderGroup {
   orderedAt: string
   paidAt: string | null
   cancelable: boolean
+  paymentDeadline: string | null
+  remainingSeconds: number | null
   orders: ConsumerOrderResponse[]
 }
-export interface GroupReady { orderGroupId: number; tid: string; redirectUrl: string; totalPrice: number; live: boolean }
+export interface GroupReady { orderGroupId: number; tid: string; redirectUrl: string; totalPrice: number; live: boolean; paymentDeadline: string | null; remainingSeconds: number | null }
 const path = '/v1/product-order-groups'
 export const getGroup = async (id: number): Promise<OrderGroup> => (await apiClient.get<OrderGroup>(`${path}/${id}`)).data
 export const readyGroup = async (id: number): Promise<GroupReady> => (await apiClient.post<GroupReady>(`${path}/${id}/payment/ready`)).data

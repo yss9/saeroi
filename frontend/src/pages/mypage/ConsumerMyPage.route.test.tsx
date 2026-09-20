@@ -26,6 +26,8 @@ const orderPage: ConsumerOrderPage = {
       paidAt: '2026-09-12T10:35:00',
       shippedAt: '2026-09-13T09:00:00',
       deliveredAt: '2026-09-14T15:00:00',
+      paymentDeadline: '2026-09-12T11:00:00+09:00',
+      remainingSeconds: 0,
       items: [
         {
           itemCode: 'ITEM-001',
@@ -293,6 +295,27 @@ describe('consumer mypage route', () => {
     await waitFor(() => {
       expect(post).toHaveBeenCalledWith('/v1/product-orders/1/cancel', undefined)
     })
+  })
+
+  it('마감된 결제 대기 주문의 상세에서 결제 버튼을 막는다', async () => {
+    const expiredOrderPage: ConsumerOrderPage = {
+      ...orderPage,
+      content: [{
+        ...orderPage.content[0],
+        status: 'CREATED',
+        paidAt: null,
+        shippedAt: null,
+        deliveredAt: null,
+        remainingSeconds: 0,
+      }],
+    }
+    mockMyPageApi(expiredOrderPage)
+    signInAsConsumer()
+
+    renderRoute('/mypage/orders/1')
+
+    expect(await screen.findByRole('timer')).toHaveTextContent('결제 마감')
+    expect(screen.getByRole('button', { name: '결제하기' })).toBeDisabled()
   })
 
   it('links the common storefront menus to their pages', async () => {

@@ -51,6 +51,8 @@ function order(overrides: Partial<ConsumerRecentOrder> = {}): ConsumerRecentOrde
     paidAt: '2026-09-12T10:35:00',
     shippedAt: '2026-09-13T09:00:00',
     deliveredAt: null,
+    paymentDeadline: '2026-09-20T00:30:00+09:00',
+    remainingSeconds: 1800,
     carrier: 'CJ대한통운',
     trackingNumber: '123456789012',
     receiverName: '김소비',
@@ -99,6 +101,7 @@ describe('ConsumerOrderList', () => {
   it('결제 대기 주문은 목록에서 결제 확인 화면으로 연결한다', () => {
     renderList([order({ status: 'PAYMENT_PENDING' })])
     expect(screen.getByText('주문 번호 PO-001')).toBeInTheDocument()
+    expect(screen.getByRole('timer')).toHaveTextContent('30분 0초 남음')
     expect(screen.getByRole('link', { name: '결제하기' })).toHaveAttribute('href', '/orders/12/checkout')
     expect(screen.queryByRole('button', { name: '주문 취소' })).not.toBeInTheDocument()
   })

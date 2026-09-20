@@ -70,6 +70,8 @@ export interface ConsumerRecentOrder {
   paidAt: string | null
   shippedAt: string | null
   deliveredAt: string | null
+  paymentDeadline: string | null
+  remainingSeconds: number | null
   /**
    * 송장. 브랜드가 발송 처리하며 적은 값이다.
    *
