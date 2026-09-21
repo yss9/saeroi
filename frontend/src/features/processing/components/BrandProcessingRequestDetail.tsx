@@ -113,14 +113,26 @@ export function BrandProcessingRequestDetail({ requestId }: Props) {
         </section>
       )}
 
+      {/*
+        **결제 다음 차례는 브랜드다.** 가공사의 수락이 곧 온체인 서명이므로, 서명할
+        대상(job)이 체인에 먼저 있어야 한다 — 그 등록은 브랜드 지갑만 할 수 있다.
+        여기서 "수락을 기다리세요" 로 끝내면 양쪽이 서로를 기다리다 `acceptExpiresAt`
+        이 지나 자동 거절되고 환불된다.
+
+        발송은 그 뒤다. 수락 전에 보낸 소재는 가공사가 거절하면 갈 곳이 없다.
+      */}
+      {job?.status === 'PAID' && (
+        <div className="br-detail__job-link">
+          <span>결제가 끝났습니다. 소재를 온체인 가공 작업에 잠가야 가공사가 수락할 수 있습니다.</span>
+          <Link to={`/processing/jobs/${job.jobId}`}>온체인 작업 등록하기</Link>
+        </div>
+      )}
+
       {job?.status === 'ACCEPTED' && (
         <div className="br-detail__job-link">
-          {/* 소재 발송은 온체인 작업 등록 → 발송 서명까지 여러 단계를 거친다. 그 단계는 작업
-              상세(useProcessingJobs)에만 있다 — 여기서 다시 만들면 온체인 등록 없이 상태만
-              SHIPPED 로 바뀌는 두 번째 발송 경로가 생긴다.
-
-              결제 직후(PAID)가 아니라 가공사가 수락한 뒤에 둔다. 수락 전에 보낸 소재는
-              가공사가 거절하면 갈 곳이 없다. */}
+          {/* 소재 발송은 발송 서명까지 거친다. 그 단계는 작업 상세(useProcessingJobs)에만
+              있다 — 여기서 다시 만들면 온체인 서명 없이 상태만 SHIPPED 로 바뀌는 두 번째
+              발송 경로가 생긴다. */}
           <span>가공사가 요청을 수락했습니다. 소재 발송은 작업 상세에서 온체인으로 진행합니다.</span>
           <Link to={`/processing/jobs/${job.jobId}`}>소재 발송하기</Link>
         </div>

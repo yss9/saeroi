@@ -59,10 +59,17 @@ export function BrandProcessingRequestList() {
   */
   const jobs = useProcessingJobs()
   const jobOf = (requestId: number) =>
-    jobs.data?.find(job => job.requestId === requestId)?.status
+    jobs.data?.find(job => job.requestId === requestId)
 
-  const phaseFor = (item: { requestId: number; status: ProcessingRequestStatus }) =>
-    phaseOf(item.status, jobOf(item.requestId))
+  /*
+    **끝난 줄에도 내 차례가 남아 있을 수 있다.** 거절·만료·취소는 서버가 DB 와 환불만
+    정리하고, 체인의 소재 잠금은 브랜드 지갑이 직접 풀어야 한다 — 그래서 묶음을 정할 때
+    상태만이 아니라 `chainReleaseRequired` 까지 본다.
+  */
+  const phaseFor = (item: { requestId: number; status: ProcessingRequestStatus }) => {
+    const job = jobOf(item.requestId)
+    return phaseOf(item.status, job?.status, job?.chainReleaseRequired ?? false)
+  }
 
   const items = requests.data?.items ?? []
   const countOf = (key: 'ALL' | ProcessingPhase) =>
@@ -153,9 +160,9 @@ export function BrandProcessingRequestList() {
                 {/* 견적이 왔으면 상태 자리에서 그 사실을 먼저 말한다 — "견적 대기" 는
                     기다리라는 말이라 눌러 볼 이유가 없는 줄로 읽힌다. */}
                 <span
-                  className={`br-list__status is-${progressTone(item.status, jobOf(item.requestId))}`}
+                  className={`br-list__status is-${progressTone(item.status, jobOf(item.requestId)?.status)}`}
                 >
-                  {progressLabel(item.status, jobOf(item.requestId))}
+                  {progressLabel(item.status, jobOf(item.requestId)?.status)}
                 </span>
                 <Link
                   className="br-list__quote"

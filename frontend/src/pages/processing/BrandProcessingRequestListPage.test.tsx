@@ -162,17 +162,33 @@ test('내 차례를 누르면 결제가 남은 요청이 남는다', async () =>
   expect(within(table).getByText('결제 대기')).toBeInTheDocument()
 })
 
-// 결제한 뒤에는 가공사가 답할 차례다 — 브랜드가 할 일이 없다.
-test('가공사 수락을 기다리는 요청은 진행 중에 있다', async () => {
+// 결제한 뒤에는 **브랜드가** 온체인 등록을 할 차례다 — 가공사의 수락이 곧 온체인
+// 서명이므로 서명할 대상이 체인에 먼저 있어야 한다. 여기서 "진행 중" 으로 묶으면
+// 브랜드는 기다리면 되는 줄 알고, 기한이 지나 자동 거절된다.
+test('결제가 끝난 요청은 온체인 등록이 남아 내 차례에 있다', async () => {
   const user = userEvent.setup()
   mockApi(() => response, [{ jobId: 40, requestId: 17, status: 'PAID' }])
   renderPage()
   await screen.findByText('폐데님 원단')
 
-  await user.click(screen.getByRole('button', { name: /진행 중/ }))
+  await user.click(screen.getByRole('button', { name: /내 차례/ }))
 
   const table = await screen.findByRole('table', { name: '내 가공 요청 목록' })
-  expect(within(table).getByText('수락 대기')).toBeInTheDocument()
+  expect(within(table).getByText('온체인 등록 대기')).toBeInTheDocument()
+})
+
+// 거절·만료로 끝나도 온체인 잠금이 남아 있으면 브랜드 지갑의 서명이 한 번 더 남는다 —
+// "종료" 로 접으면 그 수량은 목록에서 사라진 채 온체인 가용 잔량에서만 빠져 있다.
+test('끝난 요청이라도 온체인 잠금이 남으면 내 차례에 있다', async () => {
+  const user = userEvent.setup()
+  mockApi(() => response, [{ jobId: 40, requestId: 17, status: 'DECLINED', chainReleaseRequired: true }])
+  renderPage()
+  await screen.findByText('폐데님 원단')
+
+  await user.click(screen.getByRole('button', { name: /내 차례/ }))
+
+  const table = await screen.findByRole('table', { name: '내 가공 요청 목록' })
+  expect(within(table).getByText('가공사 거절')).toBeInTheDocument()
 })
 
 test('요청이 없으면 새 신청으로 이동할 수 있는 빈 상태를 표시한다', async () => {

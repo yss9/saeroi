@@ -192,13 +192,19 @@ test('결제 실패 후 다시 들어와도 기존 미결제 Job에서 결제를
   expect(await screen.findByText('테스트 결제 환경입니다. 실제 금액은 청구되지 않습니다.')).toBeInTheDocument()
 })
 
-// 결제했다고 바로 보낼 수 있는 것이 아니다 — 가공사가 거절하면 갈 곳이 없는 소재가 된다.
-test('결제한 뒤에는 가공사의 수락을 기다린다', async () => {
+// 결제 다음 차례는 **브랜드**다. 가공사의 수락이 곧 온체인 서명이므로, 서명할 대상(job)이
+// 체인에 먼저 있어야 한다 — 그 등록은 브랜드 지갑만 할 수 있다. 여기서 "수락 대기" 라고만
+// 말하면 양쪽이 서로를 기다리다 기한이 지나 자동 거절되고 환불된다.
+test('결제한 뒤에는 브랜드를 온체인 등록으로 안내한다', async () => {
   mockBackend([paidJob])
 
   renderPage()
 
-  expect(await screen.findByText('수락 대기')).toBeInTheDocument()
+  expect(await screen.findByRole('link', { name: '온체인 작업 등록하기' }))
+    .toHaveAttribute('href', '/processing/jobs/91')
+  expect(screen.getByText('온체인 등록 대기')).toBeInTheDocument()
+  expect(screen.queryByText('수락 대기')).not.toBeInTheDocument()
+  // 발송은 아직 열리지 않는다 — 가공사가 수락한 뒤의 일이다.
   expect(screen.queryByRole('link', { name: '소재 발송하기' })).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: '결제 진행' })).not.toBeInTheDocument()
   // 결제 칸이 사라진 뒤에는 가공 조건이 금액을 남기는 유일한 자리다.
