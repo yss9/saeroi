@@ -141,6 +141,22 @@ export interface EvidenceListResponse {
 }
 
 /**
+ * `GET /api/evidence/thumbnails` 의 항목 하나 — 대상 하나의 대표 사진.
+ *
+ * 사진류 증빙만 나온다 (`BEFORE_PHOTO`/`AFTER_PHOTO`/`WEIGHT_PHOTO`/`PROCESS_PHOTO`).
+ * 계근표·거래명세서는 대표 사진 후보에 들지 않는다 — 관계 없는 마켓플레이스 구매자도
+ * 이 사진은 볼 수 있지만(`EvidenceAccessPolicy` 의 사진류 예외), 문서는 여전히 못 본다.
+ *
+ * 대상에 사진이 없으면 응답 맵에 그 id가 **없다** — `EvidenceListResponse` 와 같은
+ * 원칙으로, "사진 없음" 과 "조회 실패" 를 구분한다.
+ */
+export interface EvidenceThumbnail {
+  referenceId: number
+  evidenceFileId: number
+  contentPath: string
+}
+
+/**
  * 서버가 받는 파일 형식. `svg` 는 **의도적으로 없다** — 사용자에게는 이미지지만
  * 브라우저에는 스크립트 컨테이너라, 우리 오리진에서 서빙하면 저장형 XSS 가 된다.
  *

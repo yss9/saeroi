@@ -1,7 +1,8 @@
-import { ImageSquare } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { BackLink, ErrorMessage, Loading, Modal, StatusBadge } from '../../components/common/index.ts'
+import { EvidenceThumbnailImage } from '../../features/evidence/components/EvidenceThumbnailImage.tsx'
+import { useEvidenceThumbnails } from '../../features/evidence/hooks/useEvidenceThumbnails.ts'
 import { useListing } from '../../features/marketplace/hooks/useListing.ts'
 import { LISTING_STATUS_LABEL } from '../../features/marketplace/types/marketplace.types.ts'
 import {
@@ -23,6 +24,8 @@ export function ListingDetailPage() {
   const id = Number.isInteger(parsed) && parsed > 0 ? parsed : null
 
   const { data, isPending, isError, error, refetch } = useListing(id)
+  // 목록 카드와 같은 방식 — 조회가 끝나기 전에는 훅에 빈 배열을 준다(요청하지 않음).
+  const thumbnails = useEvidenceThumbnails('MATERIAL', data ? [data.materialId] : [])
   // 목록에서 "구매하기" 로 들어오면 곧바로 연다 — 한 번 더 누르게 하지 않는다.
   const [buying, setBuying] = useState(useLocation().hash === '#purchase')
 
@@ -67,10 +70,12 @@ export function ListingDetailPage() {
         누르기 직전에 마지막으로 확인하는 숫자다.
       */}
       <section className="listing-detail__box">
-        {/* 목록 카드와 같은 자리. 아직 채울 사진이 없어 자리만 잡는다 — 소재에는 이미지
-            컬럼이 서버에 없다. */}
+        {/* 목록 카드와 같은 자리·같은 사진 소스 — 소재 등록 시 첨부한 증빙 사진 중 대표 한 장. */}
         <div className="listing-detail__photo">
-          <ImageSquare aria-hidden="true" />
+          <EvidenceThumbnailImage
+            thumbnail={thumbnails.data?.[data.materialId]}
+            alt={`${data.materialName} 사진`}
+          />
           {data.grade && <span>{data.grade}등급</span>}
         </div>
 

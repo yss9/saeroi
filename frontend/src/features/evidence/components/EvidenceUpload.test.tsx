@@ -549,25 +549,25 @@ describe('업로드 결과 표시', () => {
 })
 
 describe('올린 뒤 미리보기 (b)', () => {
-  it('목록을 그리는 것만으로 파일을 내려받지 않는다', async () => {
-    // 한 소재에 증빙이 10개까지 붙고 파일당 10MB 다. 목록 렌더가 곧 100MB 다운로드가
-    // 되면 안 된다.
-    api.getEvidence.mockResolvedValue(fullList([evidence()]))
+  it('문서는 목록을 그리는 것만으로 받지 않는다', async () => {
+    // 한 소재에 증빙이 10개까지 붙고 파일당 10MB 다. pdf 목록 렌더가 곧 100MB
+    // 다운로드가 되면 안 된다. (사진은 아래 별도 테스트 — 바로 받는 것이 맞다.)
+    api.getEvidence.mockResolvedValue(
+      fullList([evidence({ storageKey: 'MATERIAL/12/2026/09/uuid.pdf', evidenceType: 'WEIGHT_SLIP' })]),
+    )
     renderUpload()
 
     const list = within(await screen.findByRole('list', { name: '등록된 증빙' }))
-    expect(list.getByRole('button', { name: '미리보기' })).toBeInTheDocument()
+    expect(list.getByRole('button', { name: '문서 열기' })).toBeInTheDocument()
     expect(api.getEvidenceContent).not.toHaveBeenCalled()
   })
 
-  it('누르면 서버가 준 contentPath 로 받아 그린다', async () => {
+  it('사진은 누르지 않아도 서버가 준 contentPath 로 바로 받아 그린다', async () => {
     // 경로를 id 로 조립하지 않는다 — 조립 규칙이 두 곳에 생기고, 서버가 경로를 고칠 때
-    // 한쪽이 남는다.
+    // 한쪽이 남는다. 마켓플레이스에서도 관계 없는 구매자에게 공개하는 종류라
+    // (사진류) 등록자 본인이 보는 이 화면에서 한 번 더 누르게 하지 않는다.
     api.getEvidence.mockResolvedValue(fullList([evidence({ evidenceFileId: 5 })]))
-    const user = renderUpload()
-
-    const list = within(await screen.findByRole('list', { name: '등록된 증빙' }))
-    await user.click(list.getByRole('button', { name: '미리보기' }))
+    renderUpload()
 
     expect(await screen.findByAltText('증빙 5 미리보기')).toBeInTheDocument()
     expect(api.getEvidenceContent).toHaveBeenCalledWith('/api/evidence/1/content')
@@ -599,10 +599,7 @@ describe('올린 뒤 미리보기 (b)', () => {
         status: 403,
       }),
     )
-    const user = renderUpload()
-
-    const list = within(await screen.findByRole('list', { name: '등록된 증빙' }))
-    await user.click(list.getByRole('button', { name: '미리보기' }))
+    renderUpload()
 
     expect(await screen.findByText('이 증빙을 볼 권한이 없습니다.')).toBeInTheDocument()
     expect(screen.queryByRole('img')).not.toBeInTheDocument()

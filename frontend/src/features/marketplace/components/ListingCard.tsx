@@ -1,6 +1,7 @@
-import { ImageSquare } from '@phosphor-icons/react'
 import { Link } from 'react-router-dom'
 import { StatusBadge } from '../../../components/common/index.ts'
+import { EvidenceThumbnailImage } from '../../evidence/components/EvidenceThumbnailImage.tsx'
+import type { EvidenceThumbnail } from '../../evidence/types/evidence.types.ts'
 import { formatKg, formatWon } from '../../../utils/quantity.ts'
 import { useClickNavigation } from '../../../utils/useClickNavigation.ts'
 import {
@@ -26,6 +27,8 @@ export interface ListingCardProps {
    * (이미 내린 글)이 있고, 그때 이름만 조용히 바뀐다.
    */
   viewer?: 'buyer' | 'seller'
+  /** 이 판매글의 소재 대표 사진. 없으면(아직 조회 중이거나 사진이 없음) 자리표시 아이콘. */
+  thumbnail?: EvidenceThumbnail
 }
 
 const STATUS_TONE: Record<ListingStatus, 'success' | 'neutral' | 'danger'> = {
@@ -40,7 +43,7 @@ const STATUS_TONE: Record<ListingStatus, 'success' | 'neutral' | 'danger'> = {
  * 남은 수량과 총 수량을 **함께** 보여준다. 남은 양만 보여주면 30kg 짜리 판매글이
  * 12kg 만 남았을 때 "원래 작은 물량" 처럼 보인다. 얼마나 팔렸는지가 구매 판단에 들어간다.
  */
-export function ListingCard({ listing, actions, viewer = 'buyer' }: ListingCardProps) {
+export function ListingCard({ listing, actions, viewer = 'buyer', thumbnail }: ListingCardProps) {
   const availableLabel = viewer === 'seller' ? '판매 가능' : '구매 가능'
   const followClick = useClickNavigation()
   // **남은 양을 채운다.** 막대 옆의 숫자가 남은 양이라 팔린 양을 채우면 8/10 이 남은
@@ -56,7 +59,7 @@ export function ListingCard({ listing, actions, viewer = 'buyer' }: ListingCardP
       className="listing-card"
       onClick={(event) => followClick(event, `/marketplace/${listing.listingId}`)}
     >
-      <ThumbnailSlot listing={listing} />
+      <ThumbnailSlot listing={listing} thumbnail={thumbnail} />
 
       <div className="listing-card__body">
         {/*
@@ -131,17 +134,23 @@ export function ListingCard({ listing, actions, viewer = 'buyer' }: ListingCardP
 /**
  * 왼쪽 이미지 자리.
  *
- * **아직 채울 사진이 없다.** 소재에는 이미지 컬럼이 서버에 없다. 그래도 자리를 크게 잡아
- * 두는 이유는, 나중에 사진이 생겼을 때 카드 높이와 줄 맞춤이 통째로 달라지지 않게 하기
- * 위해서다 — 작게 잡아 두면 사진이 들어오는 날 목록 전체를 다시 짜야 한다.
+ * 소재에는 이미지 컬럼이 서버에 없다 — 등록 시 첨부한 사진은 증빙(evidence_file)으로
+ * 저장된다. 그 중 대표 사진 하나를 `thumbnail` 로 받아 그린다. 사진이 없는 소재도
+ * 있으므로(증빙 없이 등록 가능) 자리는 항상 같은 크기로 잡아 둔다 — 사진 유무로
+ * 카드 높이와 줄 맞춤이 달라지지 않게 하기 위해서다.
  *
- * 등급은 이 자리에 얹는다. 사진이 들어와도 같은 자리에 겹쳐 두면 되고, 가운데 칸에서
- * 한 줄을 뺄 수 있다.
+ * 등급은 이 자리에 얹는다. 사진 위에 겹쳐 두면 가운데 칸에서 한 줄을 뺄 수 있다.
  */
-function ThumbnailSlot({ listing }: { listing: Listing }) {
+function ThumbnailSlot({
+  listing,
+  thumbnail,
+}: {
+  listing: Listing
+  thumbnail?: EvidenceThumbnail
+}) {
   return (
     <div className="listing-card__thumbnail">
-      <ImageSquare aria-hidden="true" />
+      <EvidenceThumbnailImage thumbnail={thumbnail} alt={`${listing.materialName} 사진`} />
       {listing.grade && <span className="listing-card__grade">{listing.grade}등급</span>}
     </div>
   )
