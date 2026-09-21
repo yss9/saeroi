@@ -26,7 +26,8 @@ export interface ProcessingChainPreparation {
   inputTokenId:number; inputQuantity:number; processTypes:ProcessType[]
 }
 export interface ResultDraftInput {
-  outputs:Array<{ materialType:MaterialType; grade:MaterialGrade; gradeReason:string; name:string; quantity:number }>
+  /** 소재 종류는 보내지 않는다 — 서버가 투입 소재에서 파생한다. */
+  outputs:Array<{ grade:MaterialGrade; gradeReason:string; name:string; quantity:number }>
 }
 export interface SignatureChallenge {
   challengeId:number; action:ProcessingSignatureAction; walletAddress:string; nonce:string; message:string; expiresAt:string
