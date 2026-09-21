@@ -32,7 +32,15 @@ public record ProcessingJobResponse(Long jobId, String jobCode, Long requestId,
         LocalDateTime resultSubmittedAt, LocalDateTime rejectedAt, LocalDateTime returnShippedAt,
         LocalDateTime completedAt,
         LocalDateTime processorSubmittedAt, LocalDateTime brandReviewedAt,
-        List<ProcessingOutputResponse> outputs) {
+        List<ProcessingOutputResponse> outputs,
+        /**
+         * 온체인 잠금이 남아 있어 브랜드가 풀어 줘야 하는가.
+         *
+         * <p>거절·만료는 서버가 DB 와 환불만 정리한다. 체인의 Lock 은 브랜드 지갑이
+         * {@code cancelJob} 을 서명해야 풀린다 — 서버에 개인키를 두지 않기 때문이다.
+         * 이 값이 참인 동안 그 수량은 온체인 가용 잔량에서 빠져 있다.
+         */
+        boolean chainReleaseRequired) {
 
     public static ProcessingJobResponse of(ProcessingJob j) {
         return new ProcessingJobResponse(j.getId(), j.getJobCode(), j.getProcessingRequestId(),
@@ -44,7 +52,7 @@ public record ProcessingJobResponse(Long jobId, String jobCode, Long requestId,
                 j.getReturnTrackingNumber(), j.getReturnShippingEvidenceHash(), j.getRejectionReason(),
                 j.getShippedAt(), j.getReceivedAt(), j.getStartedAt(), j.getResultSubmittedAt(),
                 j.getRejectedAt(), j.getReturnShippedAt(), j.getCompletedAt(),
-                j.getProcessorSubmittedAt(), j.getBrandReviewedAt(), List.of());
+                j.getProcessorSubmittedAt(), j.getBrandReviewedAt(), List.of(), chainReleaseRequired(j));
     }
 
     public static ProcessingJobResponse of(
@@ -61,6 +69,13 @@ public record ProcessingJobResponse(Long jobId, String jobCode, Long requestId,
                 j.getReceivedAt(), j.getStartedAt(), j.getResultSubmittedAt(), j.getRejectedAt(),
                 j.getReturnShippedAt(), j.getCompletedAt(),
                 j.getProcessorSubmittedAt(), j.getBrandReviewedAt(),
-                outputs.stream().map(ProcessingOutputResponse::of).toList());
+                outputs.stream().map(ProcessingOutputResponse::of).toList(), base.chainReleaseRequired());
+    }
+
+    private static boolean chainReleaseRequired(ProcessingJob j) {
+        if (j.getChainJobId() == null) return false;
+        return j.getStatus() == ProcessingJobStatus.DECLINED
+                || j.getStatus() == ProcessingJobStatus.EXPIRED
+                || j.getStatus() == ProcessingJobStatus.CANCELED;
     }
 }

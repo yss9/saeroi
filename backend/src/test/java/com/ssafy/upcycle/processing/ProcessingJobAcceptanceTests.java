@@ -139,6 +139,29 @@ class ProcessingJobAcceptanceTests {
                 .andExpect(jsonPath("data.status").value("ACCEPTED"));
     }
 
+    @Test
+    @DisplayName("거절된 작업에 온체인 잠금이 남아 있으면 해제가 필요하다고 알린다")
+    void marksChainReleaseRequiredAfterDecline() throws Exception {
+        long jobId = paidJob();
+        mvc.perform(chainLink(jobId, 11, 22)).andExpect(status().isOk());
+
+        mvc.perform(declineJob(jobId, "설비 점검 중"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("data.status").value("DECLINED"))
+                .andExpect(jsonPath("data.chainReleaseRequired").value(true));
+    }
+
+    @Test
+    @DisplayName("온체인에 올리지 않은 작업은 해제할 것도 없다")
+    void noChainReleaseWithoutChainJob() throws Exception {
+        long jobId = paidJob();
+
+        mvc.perform(declineJob(jobId, "설비 점검 중"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("data.status").value("DECLINED"))
+                .andExpect(jsonPath("data.chainReleaseRequired").value(false));
+    }
+
     /** 요청이 곧 작업을 만든다 — 결제 전(CREATED) 작업의 jobId 를 응답에서 바로 받는다. */
     private long createdJob() throws Exception {
         String body = "{\"materialId\":" + materialId + ",\"processorId\":" + processorId
@@ -175,5 +198,13 @@ class ProcessingJobAcceptanceTests {
     private MockHttpServletRequestBuilder acceptJob(long jobId) {
         return patch("/api/v1/processing-jobs/{id}/accept", jobId)
                 .with(jwt().jwt(j -> j.subject(processorId.toString())));
+    }
+
+    /** 가공사가 일을 거절한다 ({@code PATCH /{jobId}/reject} → {@code ProcessingJobService.decline}). */
+    private MockHttpServletRequestBuilder declineJob(long jobId, String reason) {
+        return patch("/api/v1/processing-jobs/{id}/reject", jobId)
+                .with(jwt().jwt(j -> j.subject(processorId.toString())))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"reason\":\"" + reason + "\"}");
     }
 }
