@@ -5,9 +5,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.exc.MismatchedInputException;
+import com.ssafy.upcycle.common.config.JacksonConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.autoconfigure.json.JsonTest;
+import org.springframework.context.annotation.Import;
 
 /**
  * 정수 필드에 소수가 오면 <b>조용히 버리지 않고 거절한다.</b>
@@ -19,10 +21,12 @@ import org.springframework.boot.test.context.SpringBootTest;
  * 엔드포인트를 따라가지 못했다 — 장바구니 수량·찜 상품id·문의 주문id 가 전부 뚫려 있었다
  * (2026-09-21 확인). 그래서 매퍼 기본값 자체를 껐고, 이 테스트가 그것을 고정한다.
  *
- * <p><b>애플리케이션 컨텍스트의 매퍼를 그대로 쓴다.</b> 새 {@code ObjectMapper} 를 만들어
- * 검사하면 설정이 실제로 적용됐는지가 아니라 테스트가 만든 매퍼를 검사하게 된다.
+ * <p><b>JSON 슬라이스가 만든 매퍼에 실제 애플리케이션 설정을 적용한다.</b> 새
+ * {@code ObjectMapper} 를 직접 만들면 설정이 실제로 적용됐는지가 아니라 테스트가 만든
+ * 매퍼를 검사하게 된다. 전체 애플리케이션은 이 정책을 확인하는 데 필요하지 않다.
  */
-@SpringBootTest
+@JsonTest
+@Import(JacksonConfig.class)
 class JacksonNumberPolicyTests {
 
     private record LongHolder(Long value) {}
