@@ -1,5 +1,5 @@
-import { useEffect, type ReactNode } from 'react'
-import { Link, NavLink, useLocation } from 'react-router-dom'
+import type { ReactNode } from 'react'
+import { Link, NavLink } from 'react-router-dom'
 import {
   ArrowsClockwise,
   ChatCircleText,
@@ -158,17 +158,6 @@ export function ConsumerAccountLayout({
   profile,
 }: ConsumerAccountLayoutProps) {
   const section = SECTIONS[current]
-  const location = useLocation()
-
-  // 사이드바로 다른 화면으로 넘어가도 이전 화면에서 내려가 있던 스크롤 위치가 그대로
-  // 남는다 — 새 화면은 맨 위부터 보여야 한다.
-  useEffect(() => {
-    // { top: 0, left: 0 } 만 넘기면 전역 `scroll-behavior: smooth`(index.css)를 타서
-    // 애니메이션으로 서서히 올라간다 — 화면이 막 바뀐 자리에서는 그 몇 백 ms 동안
-    // 이전 화면 스크롤 위치가 그대로 남아 있는 것처럼 보인다. `instant` 로 즉시 올린다.
-    window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
-  }, [location.pathname])
-
   return (
     <div className="landing-page consumer-mypage">
       <a className="consumer-skip-link" href="#consumer-main-content">본문으로 건너뛰기</a>

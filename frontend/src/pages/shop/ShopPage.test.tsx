@@ -1,13 +1,14 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import type { AxiosResponse } from 'axios'
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PublicProductModel } from '../../features/product/types/publicProduct.types.ts'
 import { ShopProvider } from '../../features/shop/ShopContext.tsx'
 import { apiClient } from '../../services/apiClient.ts'
 import { useAuthStore } from '../../stores/authStore.ts'
 import type { PageResponse } from '../../types/api.types.ts'
+import { ScrollOnNavigate } from '../../app/router/ScrollOnNavigate.tsx'
 import { ShopPage } from './ShopPage.tsx'
 
 const product: PublicProductModel = {
@@ -24,7 +25,10 @@ function show(path = '/shop') {
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <MemoryRouter initialEntries={[path]}>
         <ShopProvider><Routes>
-          {['/shop', '/shop/:category', '/shop/:category/:subcategory'].map((route) => <Route key={route} path={route} element={<ShopPage />} />)}
+          <Route element={<ScrollOnNavigate />}>
+            <Route path="/start" element={<Link to="/shop">SHOP으로</Link>} />
+            {['/shop', '/shop/:category', '/shop/:category/:subcategory'].map((route) => <Route key={route} path={route} element={<ShopPage />} />)}
+          </Route>
         </Routes><Location /></ShopProvider>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -38,6 +42,17 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
 describe('consumer SHOP', () => {
+  it('pathname 이동은 전역 처리만 실행해 맨 위로 한 번 이동한다', async () => {
+    show('/start')
+    vi.mocked(window.scrollTo).mockClear()
+
+    fireEvent.click(screen.getByRole('link', { name: 'SHOP으로' }))
+
+    expect(await screen.findByRole('article', { name: '테스트 데님 백 상품' })).toBeInTheDocument()
+    expect(window.scrollTo).toHaveBeenCalledOnce()
+    expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, left: 0, behavior: 'instant' })
+  })
+
   it('loads ALL without auth, renders stock-based sold-out cards and hides one-page pagination', async () => {
     show()
     const card = await screen.findByRole('article', { name: '테스트 데님 백 상품' })
@@ -76,11 +91,13 @@ describe('consumer SHOP', () => {
     })
     show()
     const pagination = await screen.findByRole('navigation', { name: '상품 페이지' })
+    vi.mocked(window.scrollTo).mockClear()
     expect(within(pagination).getByRole('button', { name: '이전 페이지' })).toBeDisabled()
     fireEvent.click(within(pagination).getByRole('button', { name: '4페이지' }))
     await waitFor(() => expect(screen.getByLabelText('현재 위치')).toHaveTextContent('page=3'))
     await waitFor(() => expect(screen.getByRole('button', { name: '다음 페이지' })).toBeDisabled())
     expect(apiClient.get).toHaveBeenLastCalledWith('/v1/public/product-models', expect.objectContaining({ params: expect.objectContaining({ page: 3, size: 12 }) }))
+    expect(window.scrollTo).toHaveBeenCalledOnce()
   })
 
   it('shows loading, error and successful retry states', async () => {

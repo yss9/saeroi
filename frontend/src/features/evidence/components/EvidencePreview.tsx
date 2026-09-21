@@ -23,10 +23,13 @@ export interface EvidencePreviewProps {
  * 감추는 것보다 낫다. 실제로는 `visibility: 'FULL'` 이 아니면 서버가 `evidenceFileId` 와
  * `contentPath` 를 아예 주지 않으므로 이 컴포넌트가 렌더될 일도 없다. 두 번째 방어다.
  *
- * <h2>누르기 전에는 받지 않는다</h2>
+ * <h2>사진은 바로 받고, 문서는 누르기 전에는 받지 않는다</h2>
  *
- * <p>한 소재에 증빙이 10개까지 붙고 파일당 10MB 다. 목록을 그리는 것만으로 전부
- * 내려받으면 최악의 경우 100MB 가 조용히 흐른다.
+ * <p>한 소재에 증빙이 10개까지 붙고 파일당 10MB 다. <b>문서(pdf)</b>까지 목록을 그리는
+ * 것만으로 전부 내려받으면 최악의 경우 100MB 가 조용히 흐르므로, 문서는 여전히 사용자가
+ * 누른 뒤에 받는다. <b>사진</b>은 바로 보여준다 — 사진은 마켓플레이스에서도 관계 없는
+ * 구매자에게 공개하는 종류라(`EvidenceAccessPolicy` 의 사진류 예외), 소재 등록자 본인이
+ * 보는 이 화면에서 한 번 더 눌러야 하는 것이 오히려 어색하다.
  *
  * <h2>pdf 는 `<img>` 가 아니다</h2>
  *
@@ -35,8 +38,8 @@ export interface EvidencePreviewProps {
  * 안에 심으면 브라우저 뷰어를 iframe 안에 가두게 되고, 화면이 좁으면 읽을 수 없다.
  */
 export function EvidencePreview({ file }: EvidencePreviewProps) {
-  const [requested, setRequested] = useState(false)
   const kind = evidenceContentKind(file.storageKey)
+  const [requested, setRequested] = useState(kind === 'IMAGE')
   const content = useEvidenceContent(file.evidenceFileId, file.contentPath, requested)
   const url = useObjectUrl(content.data)
 
@@ -60,8 +63,7 @@ export function EvidencePreview({ file }: EvidencePreviewProps) {
     return <ErrorMessage error={content.error} onRetry={() => void content.refetch()} />
   }
 
-  // blob URL 은 렌더 한 프레임 뒤가 아니라 같은 렌더에 나오지만(useObjectUrl 주석),
-  // 타입상 null 이 가능하므로 그때는 아직 그리지 않는다.
+  // blob URL은 effect가 만든다. 준비 전에는 <img src="">를 그리지 않고 기다린다.
   if (url === null) return null
 
   if (kind === 'PDF') {

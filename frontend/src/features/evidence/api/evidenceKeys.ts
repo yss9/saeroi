@@ -21,4 +21,11 @@ export const evidenceKeys = {
    * 무효화 대상이 아니다.
    */
   content: (evidenceFileId: number) => [...keys.all, 'content', evidenceFileId] as const,
+  /**
+   * 대표 사진 맵 캐시. 정렬한 id 배열을 키에 그대로 넣는다 — 같은 집합이라도 순서가
+   * 다르면 다른 요청으로 캐시가 갈리는 것을 막는다 (마켓플레이스 페이지 이동마다
+   * `materialId` 나열 순서가 바뀔 수 있다).
+   */
+  thumbnails: (referenceType: string, referenceIds: readonly number[]) =>
+    [...keys.all, 'thumbnails', referenceType, [...referenceIds].sort((a, b) => a - b)] as const,
 }

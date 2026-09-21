@@ -1,5 +1,4 @@
-import { useLayoutEffect, useState, type FormEvent } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useState, type FormEvent } from 'react'
 import { Button, Input, Select, type SelectOption } from '../../components/common/index.ts'
 import { Footer } from '../landing/components/Footer.tsx'
 import { Header } from '../landing/components/Header.tsx'
@@ -28,9 +27,6 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
  * API가 없어 제출해도 서버로 나가지 않고, 로컬 상태만 바꿔 접수 완료 화면을 보여준다.
  */
 export function SupportPage() {
-  const { pathname } = useLocation()
-  useLayoutEffect(() => { window.scrollTo({ top: 0, left: 0, behavior: 'instant' }) }, [pathname])
-
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [type, setType] = useState('')

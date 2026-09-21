@@ -82,6 +82,7 @@ describe('public product search', () => {
     })
     show('/search?q=REWEAVE&category=bag')
     const pagination = await screen.findByRole('navigation', { name: '상품 페이지' })
+    vi.mocked(window.scrollTo).mockClear()
     expect(screen.getByText('48개 상품')).toBeInTheDocument()
     fireEvent.click(within(pagination).getByRole('button', { name: '4페이지' }))
     await waitFor(() => expect(url().searchParams.get('page')).toBe('3'))
@@ -89,6 +90,7 @@ describe('public product search', () => {
     expect(url().searchParams.has('category')).toBe(false)
     await waitFor(() => expect(screen.getByRole('button', { name: '다음 페이지' })).toBeDisabled())
     expect(apiClient.get).toHaveBeenLastCalledWith('/v1/public/product-models', expect.objectContaining({ params: { keyword: 'REWEAVE', sort: 'LATEST', page: 3, size: 12 } }))
+    expect(window.scrollTo).toHaveBeenCalledOnce()
   })
   it('keeps input, results and URL in sync when navigating back and forward', async () => {
     show('/search?q=first')

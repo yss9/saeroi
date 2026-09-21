@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { Link, MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ShopProvider } from '../../features/shop/ShopContext.tsx'
+import { ScrollOnNavigate } from '../../app/router/ScrollOnNavigate.tsx'
 import { AboutPage } from './AboutPage.tsx'
 
 function renderAboutPage() {
@@ -43,19 +44,23 @@ describe('AboutPage', () => {
         <MemoryRouter initialEntries={['/']}>
           <ShopProvider>
             <Routes>
-              <Route path="/" element={<Link to="/about">OUR STORY</Link>} />
-              <Route path="/about" element={<AboutPage />} />
+              <Route element={<ScrollOnNavigate />}>
+                <Route path="/" element={<Link to="/about">OUR STORY</Link>} />
+                <Route path="/about" element={<AboutPage />} />
+              </Route>
             </Routes>
           </ShopProvider>
         </MemoryRouter>
       </QueryClientProvider>,
     )
+    scrollTo.mockClear()
     Object.defineProperty(window, 'scrollY', { configurable: true, value: 2800 })
     expect(scrollTo).not.toHaveBeenCalled()
 
     fireEvent.click(screen.getByRole('link', { name: 'OUR STORY' }))
 
     expect(scrollTo).toHaveBeenCalledWith({ top: 0, left: 0, behavior: 'instant' })
+    expect(scrollTo).toHaveBeenCalledOnce()
     expect(window.scrollY).toBe(0)
     expect(screen.getByRole('heading', { name: 'WHO WE ARE' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '페이지 맨 위로 이동' })).not.toBeInTheDocument()

@@ -75,7 +75,6 @@ describe('public consumer product detail', () => {
     expect(screen.queryByRole('button', { name: /번째 상품 이미지/ })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: product.brandName })).toHaveAttribute('href', `/brands/${product.brandId}`)
     expect(screen.getByText(/소재의 다음 이야기/)).toHaveTextContent('오래 사용할 가방')
-    expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, left: 0, behavior: 'instant' })
     expect(readRecentlyViewedProductIds(5)).toEqual([])
   })
   it('records a successfully loaded product only for the signed-in account', async () => {

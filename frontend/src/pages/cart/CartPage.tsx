@@ -1,4 +1,4 @@
-import { useLayoutEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Header } from '../landing/components/Header.tsx'
 import { Footer } from '../landing/components/Footer.tsx'
@@ -20,7 +20,6 @@ export function CartPage() {
   const [checkoutBusy, setCheckoutBusy] = useState(false)
   const chosen = selectedCart(cart?.items ?? [], selection)
   const locked = checkoutBusy || action.pending
-  useLayoutEffect(() => { window.scrollTo({ top: 0, left: 0, behavior: 'instant' }) }, [])
   return <div className="landing-page shop-page cart-page"><Header isLogoVisible /><main className="cart-content">
     <div className="shop-catalog__heading"><p aria-hidden="true">&nbsp;</p><h1>CART</h1></div>
     {query.isPending ? <div className="shop-catalog__state" role="status">장바구니를 불러오는 중</div>

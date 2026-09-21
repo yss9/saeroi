@@ -230,10 +230,7 @@
   margin: 0;
 }
 
-/*
-  큰 박스 — 주문 하나. 좌측 상단 주문 날짜 · 우측 상단 "주문 상세보기" 를 머리말에 두고,
-  그 아래 제품별 작은 박스(consumer-order-item)를 늘어세운다.
-*/
+/* 결제 묶음 하나를 큰 박스로 두고, 그 안에서 브랜드별 주문과 제품을 나눈다. */
 .consumer-order-group {
   border: 1px solid var(--line);
   border-radius: 0;
@@ -254,7 +251,9 @@
 .consumer-order-group__header-main {
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
   flex-wrap: wrap;
 }
 
@@ -286,14 +285,95 @@
   flex-direction: column;
 }
 
-.consumer-order-group__actions {
+.consumer-order-group__brand-order + .consumer-order-group__brand-order {
+  border-top: 1px solid var(--line);
+}
+
+.consumer-order-group__brand-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 20px 0;
+}
+
+.consumer-order-group__brand-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.consumer-order-group__brand-status p {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.consumer-order-group__item-shell {
+  position: relative;
+}
+
+.consumer-order-group__item-shell + .consumer-order-group__item-shell {
+  border-top: 1px solid var(--line);
+}
+
+.consumer-order-group__item-actions {
+  position: absolute;
+  top: 50%;
+  right: 20px;
+  z-index: 1;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 148px;
+}
+
+.consumer-order-group__shipping-action {
+  margin-top: 28px;
+}
+
+.consumer-order-group__item-shell + .consumer-order-group__item-shell
+  .consumer-order-group__shipping-action {
+  margin-top: 0;
+}
+
+.consumer-order-group__shipping-action .ui-button {
+  width: 100%;
+}
+
+.consumer-order-group__brand-order .consumer-order-item {
+  padding-right: 188px;
+}
+
+.consumer-order-group__brand-actions {
   display: flex;
   justify-content: flex-end;
+  gap: 10px;
   padding: 0 20px 18px;
 }
 
-/* 위 제품 박스의 배송조회·제품여정확인 버튼 열(148px)과 같은 너비로 맞춰,
-   구분선 없이도 한 열처럼 이어져 보인다. */
+.consumer-order-group__brand-actions .ui-button {
+  width: 148px;
+}
+
+.consumer-mypage .consumer-order-group__brand-actions .ui-button--secondary {
+  justify-content: space-between;
+  padding-inline: 0;
+}
+
+.consumer-order-group__actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 18px 20px;
+  border-top: 1px solid var(--line);
+  background: var(--paper-warm);
+}
+
+/* 브랜드별 동작 열(148px)과 같은 너비로 맞춰 결제 동작도 같은 축에 둔다. */
 .consumer-order-group__actions-column {
   display: flex;
   flex-direction: column;
@@ -314,18 +394,6 @@
   display: flex;
   gap: 16px;
   align-items: center;
-}
-
-.consumer-order-item--with-reference .consumer-order-item__body {
-  position: relative;
-  min-height: calc(84px + 44px);
-}
-
-.consumer-order-item--with-reference .consumer-order-group__reference {
-  position: absolute;
-  top: -18px;
-  right: -20px;
-  left: -20px;
 }
 
 .consumer-order-item__thumbnail {
@@ -385,21 +453,11 @@
   font-weight: 600;
 }
 
-.consumer-order-item__actions {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  align-self: stretch;
-  justify-content: center;
-  gap: 10px;
-  flex-shrink: 0;
-  width: 148px;
-  text-align: center;
-}
-
-.consumer-order-item__journey-disabled {
+.consumer-order-item__journey-notice {
+  margin: 0;
   color: var(--muted);
-  font-size: 0.76rem;
+  font-size: 0.9rem;
+  line-height: 1.7;
 }
 
 /* 주문 상세 페이지 — 받는 곳·결제 정보를 표(dl)로 늘어놓는다. */
@@ -407,6 +465,40 @@
   display: flex;
   align-items: center;
   margin-bottom: 14px;
+}
+
+.consumer-order-detail__brands {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.consumer-order-detail__brand-order {
+  padding: 20px;
+  border: 1px solid var(--line);
+}
+
+.consumer-order-detail__brand-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.consumer-order-detail__brand-heading h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.consumer-order-detail__brand-order .consumer-order-item--detail {
+  padding-inline: 0;
+}
+
+.consumer-order-detail__shipping {
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
 }
 
 .consumer-order-detail__section {
@@ -614,9 +706,33 @@
     flex-wrap: wrap;
   }
 
-  .consumer-order-item__actions {
+  .consumer-order-group__brand-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .consumer-order-group__brand-actions {
+    flex-direction: column;
+  }
+
+  .consumer-order-group__brand-actions .ui-button {
     width: 100%;
-    flex-direction: row;
+  }
+
+  .consumer-order-group__item-actions {
+    position: static;
+    transform: none;
+    width: auto;
+    padding: 12px 20px 0;
+  }
+
+  .consumer-order-group__shipping-action {
+    margin-top: 0;
+  }
+
+  .consumer-order-group__brand-order .consumer-order-item {
+    padding-right: 20px;
   }
 
   .consumer-order-group__actions-column {
@@ -1401,7 +1517,7 @@ dd.consumer-profile-edit__field-edit {
 .consumer-profile-edit__gate-notice { font-size: 13px; line-height: 1.7; white-space: nowrap; }
 .consumer-profile-edit__gate .ui-field { max-width: 360px; }
 .consumer-profile-edit__gate .ui-button { align-self: flex-start; min-width: 88px; }
-.consumer-mypage .consumer-order-item__actions .ui-button,
+.consumer-mypage .consumer-order-group__item-actions .ui-button,
 .consumer-mypage .consumer-order-detail__receipt-action .ui-button {
   justify-content: space-between;
   gap: 12px;
@@ -1411,11 +1527,21 @@ dd.consumer-profile-edit__field-edit {
   background: transparent;
   color: var(--ink);
 }
-.consumer-mypage .consumer-order-item__actions .ui-button { white-space: nowrap; }
-.consumer-mypage .consumer-order-item__actions .consumer-order-item__passport { justify-content: flex-start; }
-.consumer-mypage .consumer-order-item__actions .ui-button:hover,
+.consumer-mypage .consumer-order-group__item-actions .ui-button { white-space: nowrap; }
+.consumer-mypage .consumer-order-group__item-actions .consumer-order-item__passport { justify-content: flex-start; }
+.consumer-mypage .consumer-order-group__item-actions .ui-button--primary {
+  justify-content: center;
+  padding-inline: 12px;
+  background: var(--brand-blue);
+  color: #fff;
+}
+.consumer-mypage .consumer-order-group__item-actions .ui-button--primary:hover:not(:disabled) {
+  background: var(--deep-blue);
+  color: #fff;
+}
+.consumer-mypage .consumer-order-group__item-actions .ui-button:hover,
 .consumer-mypage .consumer-order-detail__receipt-action .ui-button:hover { color: var(--brand-blue); }
-.consumer-order-item__actions .ui-button svg { width: 16px; height: 16px; }
+.consumer-order-group__item-actions .ui-button svg { width: 16px; height: 16px; }
 .consumer-mypage .consumer-order-group__detail-link {
   flex-shrink: 0;
   justify-content: space-between;
@@ -1595,7 +1721,6 @@ dd.consumer-profile-edit__field-edit {
 .consumer-order-detail__journey { display: inline-block; margin-top: 16px; }
 .consumer-mypage .consumer-order-detail .consumer-section-heading__eyebrow { color: var(--ink); font-family: "Manrope", sans-serif; }
 .consumer-mypage .consumer-order-detail__progress .consumer-order-progress { max-width: 680px; gap: 24px; }
-.consumer-mypage .consumer-order-item__journey-disabled { text-align: left; padding-inline: 0; align-self: stretch; }
 .consumer-order-group__pay, .consumer-order-group__cancel { display: flex; justify-content: center; align-items: center; min-height: 36px; border-radius: 6px; font: inherit; font-size: 13px; font-weight: 600; }
 .consumer-mypage-main .consumer-order-group__pay { width: 100%; border: 0; background: var(--brand-orange); color: var(--ink); text-decoration: none; }
 .consumer-mypage-main .consumer-order-group__pay:hover:not(:disabled) { background: #e68b50; color: var(--ink); }
@@ -1646,8 +1771,8 @@ dd.consumer-profile-edit__field-edit {
 .consumer-mypage .ui-modal__panel { padding: 24px; }
 .consumer-mypage .ui-modal__title { color: var(--ink); font-size: 20px; line-height: 1.5; }
 .consumer-mypage .ui-modal__body { font-size: 14px; line-height: 1.8; word-break: keep-all; overflow-wrap: anywhere; }
-.consumer-mypage .consumer-order-group__reference { margin: 0; padding: 12px 20px; color: var(--muted); font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
-.consumer-mypage :is(.consumer-order-item__actions, .consumer-order-group__header, .return-card__actions) .ui-button:hover:not(:disabled) { background: transparent; text-decoration: none; }
+.consumer-mypage .consumer-order-group__reference { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+.consumer-mypage :is(.consumer-order-group__item-actions, .consumer-order-group__brand-actions, .consumer-order-group__header, .return-card__actions) .ui-button:hover:not(:disabled) { text-decoration: none; }
 .consumer-mypage .company-wallet__install-link {
   display: inline-flex;
   align-items: center;

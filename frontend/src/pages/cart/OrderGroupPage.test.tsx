@@ -21,6 +21,7 @@ beforeEach(() => {
   useAuthStore.getState().signIn({ id: 1, name: '고객', email: 'c@test.com', role: 'CONSUMER', walletAddress: null }, 'token')
   vi.mocked(getGroup).mockResolvedValue(group); vi.mocked(approveGroup).mockResolvedValue({ ...group, status: 'PAID' }); vi.mocked(cancelGroup).mockResolvedValue(undefined)
   vi.spyOn(apiClient, 'get').mockResolvedValue({ data: { items: [], totalPrice: 0, totalQuantity: 0 } } as never)
+  vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
 })
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.resetAllMocks(); useAuthStore.getState().signOut() })
 describe('order group checkout', () => {
@@ -80,16 +81,20 @@ describe('order group checkout', () => {
     await screen.findByText(/주문을 확인할 수 없습니다/)
     expect(screen.queryByRole('button', { name: '결제하기' })).not.toBeInTheDocument()
   })
-  it('shows every brand and total in whole-group cancellation confirmation', async () => {
+  it('결제 전 묶음 취소는 함께 사라지는 주문 건수를 알리고 환불 문장은 빼 둔다', async () => {
     show(); await screen.findByText(/ORG-3/); fireEvent.click(screen.getByRole('button', { name: '주문 전체 취소' }))
-    const dialog = screen.getByRole('dialog'); expect(dialog).toHaveTextContent('브랜드 A'); expect(dialog).toHaveTextContent('브랜드 B'); expect(dialog).toHaveTextContent('20,000원'); expect(dialog).toHaveTextContent('부분 취소 불가')
+    const dialog = screen.getByRole('dialog'); expect(dialog).toHaveTextContent('주문 2건이 모두 취소'); expect(dialog).toHaveTextContent('부분 취소는 할 수 없습니다'); expect(dialog).toHaveTextContent('되돌릴 수 없습니다'); expect(dialog).not.toHaveTextContent('환불')
     fireEvent.click(screen.getByRole('button', { name: '전체 취소 확인' })); await waitFor(() => expect(cancelGroup).toHaveBeenCalledTimes(1))
+  })
+  it('결제한 묶음 취소는 주문 건수와 총 환불 금액을 알린다', async () => {
+    vi.mocked(getGroup).mockResolvedValue({ ...group, status: 'PAID', paidAt: '2026-09-17T12:00:00+09:00' })
+    show(); await screen.findByText(/ORG-3/); fireEvent.click(screen.getByRole('button', { name: '주문 전체 취소' }))
+    const dialog = screen.getByRole('dialog'); expect(dialog).toHaveTextContent('주문 2건이 모두 취소'); expect(dialog).toHaveTextContent('결제하신 20,000원은 환불됩니다')
   })
   it('opens whole-group cancellation from the action query', async () => {
     show(false, '?action=cancel')
     const dialog = await screen.findByRole('dialog')
-    expect(dialog).toHaveTextContent('브랜드 A')
-    expect(dialog).toHaveTextContent('브랜드 B')
+    expect(dialog).toHaveTextContent('주문 2건이 모두 취소')
     expect(cancelGroup).not.toHaveBeenCalled()
   })
   it('disables cancellation based on server cancelable', async () => {
@@ -97,8 +102,11 @@ describe('order group checkout', () => {
   })
   it('supports explicit mock payment without a real redirect', async () => {
     vi.mocked(readyGroup).mockResolvedValue({ orderGroupId: 3, tid: 'mock', redirectUrl: '', totalPrice: 20000, live: false, paymentDeadline: group.paymentDeadline, remainingSeconds: group.remainingSeconds }); show(); await screen.findByText(/ORG-3/)
+    vi.mocked(window.scrollTo).mockClear()
     fireEvent.click(screen.getByRole('button', { name: '결제하기' })); const approve = await screen.findByRole('button', { name: '결제 승인 (시연)' }); await waitFor(() => expect(approve).toBeEnabled()); expect(screen.getByRole('dialog')).toHaveTextContent('실제 금액은 청구되지 않습니다.'); fireEvent.click(approve)
     await screen.findByRole('heading', { name: '주문·결제 완료' }); expect(approveGroup).toHaveBeenCalledWith(3, 'MOCK-PG-TOKEN')
+    expect(window.scrollTo).toHaveBeenCalledOnce()
+    expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, left: 0, behavior: 'instant' })
   })
   it('resumes the existing single order without creating another order', async () => {
     vi.mocked(apiClient.get).mockImplementation(async url => ({ data: url === '/v1/product-orders/1' ? { ...group.orders[0], orderGroupId: null, orderGroupCode: null } : { items: [] } }) as never)

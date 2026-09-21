@@ -240,18 +240,25 @@
 /* 상태는 색 띠로 말하지 않는다. 카드마다 색 선이 서면 줄로 세운 목록이 띠밭이 되고,
    정작 읽어야 할 소재 이름과 단가가 뒤로 밀린다 — 상태는 머리줄의 배지가 말한다. */
 
-/* 아직 채울 사진이 없다. 자리만 잡아 둔다. */
+/* 사진이 없는 소재는 자리만 잡아 둔다. 있으면 이 자리를 통째로 채운다 —
+   높이를 고정해야 사진 유무로 목록이 들쭉날쭉해지지 않는다. */
 .listing-card__thumbnail {
   position: relative;
   display: grid;
-  min-height: 160px;
+  height: 160px;
   place-items: center;
   border: 1px dashed var(--ui-color-border);
   border-radius: var(--ui-radius);
   background: var(--ui-color-bg);
   color: var(--ui-color-border);
+  overflow: hidden;
 }
 .listing-card__thumbnail svg { width: 34px; height: 34px; }
+.listing-card__thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 
 /* 등급은 사진 위에 얹는다. 사진이 들어와도 같은 자리에 그대로 겹친다. */
 .listing-card__grade {
@@ -447,7 +454,7 @@
   box-shadow: var(--ui-shadow);
 }
 
-/* 아직 채울 사진이 없다. 자리만 잡아 둔다. */
+/* 사진이 없으면 자리만 잡아 둔다. 있으면 이 자리를 통째로 채운다. */
 /* 오른쪽 내용만큼 늘어난다. 정사각형으로 못 박으면 옆이 길 때 사진만 작게 남는다. */
 .listing-detail__photo {
   position: relative;
@@ -458,8 +465,15 @@
   border-radius: var(--ui-radius);
   background: var(--ui-color-bg);
   color: var(--ui-color-border);
+  overflow: hidden;
 }
 .listing-detail__photo svg { width: 42px; height: 42px; }
+.listing-detail__photo img {
+  width: 100%;
+  height: 100%;
+  min-height: 280px;
+  object-fit: cover;
+}
 .listing-detail__photo span {
   position: absolute;
   top: 0.6rem;

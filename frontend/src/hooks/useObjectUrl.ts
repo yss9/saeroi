@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 
 /**
  * `Blob`(또는 `File`)을 `<img src>` · `<a href>` 에 쓸 수 있는 blob URL 로 바꾼다.
@@ -22,26 +22,30 @@ import { useEffect, useMemo } from 'react'
  *       `apiClient` 로 받아 온 blob 을 여기서 URL 로 바꿔 그린다
  * </ul>
  *
- * <h2>왜 useState 가 아니라 useMemo 인가</h2>
+ * <h2>왜 effect 에서 만드는가</h2>
  *
- * <p>effect 에서 만들어 `setState` 하면 **첫 렌더가 URL 없이 한 번 지나간다.** 그 프레임에
- * `<img src="">` 를 그리면 빈 요청이 나가고, 피하려면 호출부마다 "아직 없음" 분기를
- * 두어야 한다. 렌더 중에 URL 을 만들면 그 분기가 필요 없다. 해제는 effect 정리에서
- * 하므로 누수도 없다.
- *
- * <p>대가는 있다 — `useMemo` 는 캐시일 뿐이라 React 가 계산을 한 번 더 돌리면 URL 이
- * 하나 더 생기고 그 하나는 해제되지 않는다. 페이지 수명 동안의 blob 하나이고,
- * `setState` 경로의 빈 요청보다 눈에 덜 띄는 대가라고 판단했다.
+ * <p>생성과 해제를 같은 effect 에 두면 마운트마다 만든 URL을 정확히 그 마운트의 정리에서
+ * 해제할 수 있다. 개발 모드의 StrictMode가 effect를 정리한 뒤 다시 실행해도 이미 해제된
+ * URL을 재사용하지 않고 새 URL을 만든다. URL이 준비되기 전에는 `null`을 반환하므로
+ * 호출부는 그동안 `<img>` 자체를 그리지 않아 빈 `src` 요청을 막는다.
  */
 export function useObjectUrl(source: Blob | null | undefined): string | null {
-  const url = useMemo(() => (source ? URL.createObjectURL(source) : null), [source])
+  const [created, setCreated] = useState<{ source: Blob; url: string } | null>(null)
 
-  useEffect(
-    () => () => {
-      if (url !== null) URL.revokeObjectURL(url)
-    },
-    [url],
-  )
+  useEffect(() => {
+    if (!source) {
+      // 파일을 제거한 뒤에도 이전 Blob을 상태가 붙잡아 두지 않는다.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setCreated(null)
+      return
+    }
 
-  return url
+    const url = URL.createObjectURL(source)
+    // Blob URL은 브라우저 외부 자원이라 effect에서 생성한 뒤 렌더에 전달해야 한다.
+    setCreated({ source, url })
+    return () => URL.revokeObjectURL(url)
+  }, [source])
+
+  // source가 바뀐 직후 effect가 새 URL을 만들기 전에는 이전 source의 URL을 노출하지 않는다.
+  return created && created.source === source ? created.url : null
 }
