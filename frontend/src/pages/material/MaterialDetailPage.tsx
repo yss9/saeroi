@@ -13,6 +13,7 @@ import { MaterialBalanceTable } from '../../features/material/components/Materia
 import { EvidenceUpload } from '../../features/evidence/components/EvidenceUpload.tsx'
 import { ListingList } from '../../features/marketplace/components/ListingList.tsx'
 import { useMaterial } from '../../features/material/hooks/useMaterial.ts'
+import { useMaterialBalances } from '../../features/material/hooks/useMaterialBalances.ts'
 import {
   FIBER_TYPE_LABEL,
   GRADE_LABEL,
@@ -58,6 +59,15 @@ export function MaterialDetailPage() {
     canAccess(sellAccess, { isAuthenticated, role: user?.role ?? null })
 
   const { data, isPending, isError, error, refetch } = useMaterial(id)
+
+  // **총 수량은 내 수량이 아니다.** 거래는 소재 행을 복제하지 않고 잔량만 옮기므로,
+  // 0.5kg 을 산 사람도 이 화면에서는 소재 전체의 발행량을 본다. 내가 가진 양을 따로
+  // 적지 않으면 산 것이 사라진 것처럼 읽힌다.
+  //
+  // 아래 보유자 표와 같은 쿼리 키라 요청이 한 번 더 나가지는 않는다.
+  const balances = useMaterialBalances(id)
+  const myBalance =
+    user === null ? undefined : balances.data?.find((balance) => balance.ownerId === user.id)
   const navigate = useNavigate()
 
   // **출구는 이른 반환보다 먼저 그려져야 한다.** 조회가 실패한 화면이야말로 사용자가
@@ -130,6 +140,22 @@ export function MaterialDetailPage() {
             {/* gram 을 단위 없이 보여주면 1.2kg 인지 1200kg 인지 알 수 없다. */}
             <dd>{formatKg(data.totalQuantity)}</dd>
           </div>
+          {/*
+            가지지 않은 소재에는 줄을 그리지 않는다. "0 kg" 으로 적으면 가졌다가 다 쓴
+            것처럼 읽히고, 그건 빈칸보다 나쁜 거짓이다.
+          */}
+          {myBalance && (
+            <div>
+              <dt>내 보유량</dt>
+              <dd>
+                {formatKg(myBalance.quantity)}
+                {/* 잠긴 몫은 지금 쓸 수 없다. 합계만 보여주면 쓸 수 있는 양을 오해한다. */}
+                {myBalance.lockedQuantity > 0 && (
+                  <small> · 잠김 {formatKg(myBalance.lockedQuantity)}</small>
+                )}
+              </dd>
+            </div>
+          )}
           <div>
             <dt>규격</dt>
             <dd>{formatDimensions(data)}</dd>

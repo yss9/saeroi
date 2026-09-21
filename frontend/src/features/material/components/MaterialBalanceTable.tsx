@@ -1,4 +1,5 @@
 import { EmptyState, ErrorMessage, Loading } from '../../../components/common/index.ts'
+import { useAuth } from '../../auth/hooks/useAuth.ts'
 import { shortenAddress } from '../../../utils/address.ts'
 import { formatKg } from '../../../utils/quantity.ts'
 import { useMaterialBalances } from '../hooks/useMaterialBalances.ts'
@@ -23,6 +24,9 @@ export interface MaterialBalanceTableProps {
  */
 export function MaterialBalanceTable({ materialId }: MaterialBalanceTableProps) {
   const { data, isPending, isError, error, refetch } = useMaterialBalances(materialId)
+  // 보유자는 지갑 주소로만 적힌다. 주소는 사람이 외우는 값이 아니라서, 표시가 없으면
+  // 내가 산 수량을 확인하러 온 사람이 어느 줄을 봐야 하는지 알 수 없다.
+  const { user } = useAuth()
 
   if (isPending) return <Loading variant="skeleton" rows={2} label="보유 현황을 불러오는 중" />
   if (isError) return <ErrorMessage error={error} onRetry={() => void refetch()} />
@@ -53,7 +57,12 @@ export function MaterialBalanceTable({ materialId }: MaterialBalanceTableProps) 
         <tbody>
           {data.map((balance) => (
             <tr key={balance.ownerId}>
-              <td>{shortenAddress(balance.walletAddress)}</td>
+              <td>
+                {shortenAddress(balance.walletAddress)}{' '}
+                {user?.id === balance.ownerId && (
+                  <span className="ui-badge ui-badge--info">나</span>
+                )}
+              </td>
               <td className="is-numeric">{formatKg(balance.quantity)}</td>
               <td className="is-numeric">{formatKg(balance.lockedQuantity)}</td>
               {/* 음수를 그대로 보여준다. Math.max(0, ...) 로 감추지 않는다. */}
