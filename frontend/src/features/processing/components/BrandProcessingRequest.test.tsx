@@ -159,9 +159,9 @@ it('예상 금액이 없는 둘러보기 응답에서도 업체 목록을 그린
   mockProcessors(BROWSED_PROCESSOR)
   setup()
   expect(await screen.findByRole('radio', { name: /새로 가공소/ })).toBeInTheDocument()
-  // 하루 처리량은 적지 않는다 — 브랜드가 고를 때 쓰는 값은 금액과 소요일이다.
+  // 카드는 고를 때 쓰는 값만 적는다 — 하루 처리량도 kg당 단가도 그 자리가 아니다.
   expect(screen.queryByText(/하루 처리량/)).not.toBeInTheDocument()
-  expect(screen.getByText(/kg당 단가/)).toHaveTextContent('1,200원')
+  expect(screen.queryByText(/kg당 단가/)).not.toBeInTheDocument()
   expect(screen.getByText('수량과 가공 목적을 정하면 금액과 소요일을 계산해요')).toBeInTheDocument()
 })
 
