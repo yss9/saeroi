@@ -27,3 +27,17 @@
 .admin-market__status { padding: 6px 9px; border-radius: 999px; background: #eef1ef; font-size: 12px; font-weight: 800; }
 .admin-market__status--open { background: #e8f6ed; color: #237047; }
 @media (max-width: 760px) { .admin-market { padding: 32px 18px; } .admin-market__header { flex-direction: column; } .admin-market__dates { grid-template-columns: 1fr; } .admin-market__success span { margin-left: 0; width: 100%; } }
+
+.admin-market__hint { margin: -2px 0 2px; color: #758078; font-size: 13px; line-height: 1.6; }
+.admin-market__list article { flex-wrap: wrap; }
+.admin-market__list article div { flex-grow: 1; }
+.admin-market__cancel { padding: 8px 13px; border: 1px solid #d9b4b0; border-radius: 9px; background: #fff; color: #9c3f38; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.admin-market__cancel:disabled { cursor: not-allowed; opacity: .5; }
+.admin-market__confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; padding: 11px 13px; border-radius: 10px; background: #fff3f1; }
+.admin-market__confirm span { flex-grow: 1; color: #8d3a34; font-size: 12px; }
+.admin-market__confirm button { padding: 8px 13px; border: 1px solid #ccd5cf; border-radius: 9px; background: #fff; color: #627068; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.admin-market__confirm button:disabled { cursor: not-allowed; opacity: .5; }
+.admin-market__cancel-confirm { border-color: transparent !important; background: #a8403a !important; color: #fff !important; }
+.admin-market__status--canceled { background: #f6ecea; color: #8d3a34; }
+.admin-market__status--resolved { background: #eaf1fa; color: #2f5a8c; }
+.admin-market__status--resolving { background: #fdf3e3; color: #8a6524; }

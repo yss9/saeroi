@@ -1,50 +1,145 @@
-.chain-lab { display: grid; gap: 22px; width: min(1180px, 100%); margin: 0 auto; padding: 42px 36px 72px; color: #18251d; }
-.chain-lab__hero { display: flex; align-items: flex-start; justify-content: space-between; gap: 28px; padding: 30px; border-radius: 24px; background: radial-gradient(circle at 86% 12%, rgb(82 177 113 / 20%), transparent 27%), linear-gradient(135deg, #10251a, #1d412d); color: #fff; box-shadow: 0 20px 55px rgb(18 56 34 / 18%); }
-.chain-lab__hero h1 { margin: 6px 0 12px; font-size: clamp(30px, 4vw, 48px); letter-spacing: -.04em; }
-.chain-lab__hero p { max-width: 720px; margin: 0; color: #cfdfd3; line-height: 1.7; }
-.chain-lab__hero .chain-lab__eyebrow { color: #80e5a4; font-size: 12px; font-weight: 850; letter-spacing: .16em; }
-.chain-lab__live { display: flex; flex: none; align-items: center; gap: 8px; margin-top: 3px; padding: 9px 13px; border: 1px solid rgb(154 229 178 / 25%); border-radius: 999px; background: rgb(255 255 255 / 8%); color: #b9eec9; font-size: 13px; font-weight: 750; }
-.chain-lab__live svg { color: #6ee797; }
-.chain-lab__live.is-querying svg { animation: chain-pulse 1s ease-in-out infinite; }
-.chain-lab__search { display: grid; gap: 9px; padding: 22px; border: 1px solid #dce5df; border-radius: 18px; background: #fff; box-shadow: 0 10px 28px rgb(31 70 44 / 6%); }
-.chain-lab__monitor { overflow: hidden; border: 1px solid #243c2d; border-radius: 20px; background: #101b14; color: #eef8f1; box-shadow: 0 16px 40px rgb(16 36 23 / 16%); }
-.chain-lab__monitor-head, .chain-lab__monitor-head > div:first-child, .chain-lab__monitor-actions { display: flex; align-items: center; gap: 12px; }.chain-lab__monitor-head { justify-content: space-between; padding: 19px 21px; border-bottom: 1px solid #27382d; }.chain-lab__monitor-head h2 { margin: 0 0 3px; font-size: 17px; }.chain-lab__monitor-head p { margin: 0; color: #8fa596; font-size: 12px; }.chain-lab__monitor-dot { width: 10px; height: 10px; border-radius: 50%; background: #65746a; box-shadow: 0 0 0 5px rgb(101 116 106 / 12%); }.chain-lab__monitor-dot.is-live { background: #56de83; box-shadow: 0 0 0 5px rgb(86 222 131 / 12%), 0 0 16px #56de83; animation: chain-pulse 1.6s ease-in-out infinite; }
-.chain-lab__monitor-actions > span { color: #87998d; font-size: 11px; }.chain-lab__monitor-actions button { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 11px; border: 1px solid #385141; border-radius: 9px; background: #192a1f; color: #c9d9ce; font: inherit; font-size: 12px; font-weight: 750; cursor: pointer; }.chain-lab__monitor-error { display: flex; align-items: center; gap: 8px; padding: 11px 20px; background: #3a201e; color: #ffc3bd; font-size: 13px; }
-.chain-lab__block-strip { display: grid; grid-template-columns: repeat(4, minmax(150px, 1fr)); gap: 10px; padding: 17px 20px; overflow-x: auto; }.chain-lab__block-strip article { display: grid; grid-template-columns: 1fr 74px; gap: 9px 12px; min-width: 160px; padding: 14px; border: 1px solid #2b4032; border-radius: 12px; background: #15241a; }.chain-lab__block-strip article.is-latest { border-color: #3c8055; background: linear-gradient(135deg, #193321, #15241a); box-shadow: inset 3px 0 #54d47e; animation: chain-block-in .45s ease-out; }.chain-lab__block-strip article > div:first-child { display: grid; gap: 4px; }.chain-lab__block-strip article span { color: #7f9486; font-size: 9px; font-weight: 800; letter-spacing: .08em; }.chain-lab__block-strip article strong { color: #e5f5ea; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 14px; }.chain-lab__block-strip footer { display: flex; grid-column: 1 / -1; justify-content: space-between; padding-top: 8px; border-top: 1px solid #2a3b30; }.chain-lab__block-strip footer span:last-child { color: #67d98a; }.chain-lab__block-bars { display: flex; align-items: flex-end; justify-content: flex-end; gap: 3px; height: 34px; }.chain-lab__block-bars i { width: 5px; min-height: 7px; border-radius: 2px 2px 0 0; background: #3d9f5d; opacity: .72; }.chain-lab__monitor-wait { display: flex; grid-column: 1 / -1; align-items: center; justify-content: center; gap: 9px; min-height: 98px; color: #89a091; }
-.chain-lab__feed { border-top: 1px solid #27382d; }.chain-lab__feed-head { display: flex; justify-content: space-between; padding: 12px 20px; color: #7f9486; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }.chain-lab__feed > button { display: grid; grid-template-columns: 72px minmax(0, 1fr) 110px 86px; align-items: center; gap: 12px; width: 100%; padding: 12px 20px; border: 0; border-top: 1px solid #223329; background: transparent; color: inherit; text-align: left; cursor: pointer; }.chain-lab__feed > button:hover { background: #18281e; }.chain-lab__tx-kind { justify-self: start; padding: 5px 7px; border: 1px solid #405047; border-radius: 6px; color: #8fa095 !important; }.chain-lab__tx-kind.is-project { border-color: #3a7650; background: #183722; color: #66dc8b !important; }.chain-lab__tx-main { display: grid; min-width: 0; gap: 4px; }.chain-lab__tx-main code { overflow: hidden; color: #dbeae0; text-overflow: ellipsis; white-space: nowrap; }.chain-lab__tx-main small, .chain-lab__tx-block small { overflow: hidden; color: #7f9486; text-overflow: ellipsis; white-space: nowrap; }.chain-lab__tx-block { display: grid; gap: 3px; color: #b7c9bd; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; }.chain-lab__tx-open { color: #61d686 !important; font-size: 11px !important; letter-spacing: 0 !important; }.chain-lab__feed-empty { margin: 0; padding: 24px 20px; border-top: 1px solid #223329; color: #82958a; font-size: 13px; text-align: center; }
-.chain-lab__search label { font-size: 13px; font-weight: 800; color: #314c3b; }
-.chain-lab__search > div { display: flex; gap: 10px; }
-.chain-lab__search input { flex: 1; min-width: 0; height: 48px; padding: 0 15px; border: 1px solid #bdcbc1; border-radius: 11px; color: #1f3327; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
-.chain-lab__search input:focus { outline: 3px solid rgb(45 122 76 / 14%); border-color: #3a8057; }
-.chain-lab__search button, .chain-lab__attack-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; padding: 0 17px; border-radius: 10px; font: inherit; font-weight: 800; cursor: pointer; }
-.chain-lab__search button { border: 0; background: #246f45; color: #fff; }
-.chain-lab__search button:disabled, .chain-lab__attack-actions button:disabled { cursor: not-allowed; opacity: .48; }
-.chain-lab__search small { color: #728078; line-height: 1.5; }
-.chain-lab__error { display: flex; align-items: center; gap: 9px; padding: 14px 17px; border: 1px solid #edcaca; border-radius: 12px; background: #fff3f2; color: #9d3838; }
-.chain-lab__summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-.chain-lab__summary article { display: grid; gap: 7px; min-width: 0; padding: 18px 20px; border: 1px solid #dce5df; border-radius: 15px; background: #fff; }
-.chain-lab__summary span { color: #738078; font-size: 12px; font-weight: 700; }
-.chain-lab__summary strong { overflow: hidden; font-size: 18px; text-overflow: ellipsis; }
-.chain-lab__summary .is-good strong { color: #1d7b45; }.chain-lab__summary .is-danger strong { color: #b33e3e; }
-.chain-lab__evidence, .chain-lab__attack { padding: 24px; border: 1px solid #dce5df; border-radius: 20px; background: #fff; box-shadow: 0 10px 30px rgb(31 70 44 / 5%); }
-.chain-lab__section-heading, .chain-lab__section-heading > div { display: flex; align-items: center; gap: 11px; }
-.chain-lab__section-heading { justify-content: space-between; margin-bottom: 20px; }
-.chain-lab__section-heading > div > svg { width: 26px; height: 26px; color: #2b7650; }
-.chain-lab__section-heading span { display: grid; gap: 3px; }.chain-lab__section-heading strong { font-size: 17px; }.chain-lab__section-heading small { color: #78857d; }
-.chain-lab__network, .chain-lab__safe { display: inline-flex !important; padding: 6px 10px; border-radius: 999px; background: #edf6f0; color: #2b704b; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 800; }
-.chain-lab__safe { background: #fff5dd; color: #8b6417; }
-.chain-lab__evidence dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; border: 1px solid #e1e8e3; border-radius: 14px; overflow: hidden; }
-.chain-lab__evidence dl > div { min-width: 0; padding: 15px 17px; border-bottom: 1px solid #e7ece8; }.chain-lab__evidence dl > div:nth-last-child(-n+2) { border-bottom: 0; }.chain-lab__evidence dl > div:nth-child(odd):not(.is-wide) { border-right: 1px solid #e7ece8; }.chain-lab__evidence dl > .is-wide { grid-column: 1 / -1; }
-.chain-lab__evidence dt { margin-bottom: 5px; color: #7a857e; font-size: 12px; font-weight: 700; }.chain-lab__evidence dd { overflow: hidden; margin: 0; color: #243b2d; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
-.chain-lab__attack { border-color: #e4d9bd; background: linear-gradient(180deg, #fffdf8, #fff); }
-.chain-lab__attack-flow { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: center; gap: 10px; }
-.chain-lab__attack-flow > div { display: flex; align-items: center; gap: 11px; min-height: 76px; padding: 14px; border: 1px solid #e0e5e1; border-radius: 13px; background: #fff; }.chain-lab__attack-flow > div > svg { flex: none; width: 23px; height: 23px; color: #5e7165; }.chain-lab__attack-flow > div > span { display: grid; gap: 4px; }.chain-lab__attack-flow strong { font-size: 14px; }.chain-lab__attack-flow small { color: #7a857e; }.chain-lab__attack-flow > span { color: #a4aea7; font-weight: 900; }
-.chain-lab__attack-flow > div.is-active { border-color: #e4a5a0; background: #fff4f2; }.chain-lab__attack-flow > div.is-active > svg { color: #b33e3e; }.chain-lab__attack-flow > div.is-good { border-color: #a9d6b8; background: #f0faf3; }.chain-lab__attack-flow > div.is-good > svg { color: #277849; }
-.chain-lab__attack-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 18px; }.chain-lab__attack-button { border: 1px solid #d49b93; background: #fff; color: #9c3f38; }.chain-lab__verify-button { border: 0; background: #246f45; color: #fff; }.chain-lab__restore-button { border: 1px solid #ccd5cf; background: #fff; color: #627068; }
-.chain-lab__verdict { display: flex; gap: 12px; margin-top: 17px; padding: 15px 17px; border-radius: 13px; }.chain-lab__verdict > svg { flex: none; width: 24px; height: 24px; }.chain-lab__verdict div { display: grid; gap: 3px; }.chain-lab__verdict span { font-size: 13px; }.chain-lab__verdict.is-verified { background: #eaf7ef; color: #226c42; }.chain-lab__verdict.is-compromised { background: #fff0ee; color: #9c3734; }
-.chain-lab__diff { margin-top: 14px; border: 1px solid #ead3cf; border-radius: 12px; overflow: hidden; }.chain-lab__diff-head, .chain-lab__diff-row { display: grid; grid-template-columns: minmax(110px, .6fr) minmax(0, 1fr) minmax(0, 1fr); gap: 12px; padding: 11px 14px; }.chain-lab__diff-head { background: #f8eeec; color: #86615d; font-size: 11px; font-weight: 800; text-transform: uppercase; }.chain-lab__diff-row { border-top: 1px solid #f0dfdc; font-size: 13px; }.chain-lab__diff-row code { overflow: hidden; color: #704a47; text-overflow: ellipsis; white-space: nowrap; }
-.chain-lab__empty { display: grid; justify-items: center; gap: 8px; padding: 54px 20px; border: 1px dashed #cbd6ce; border-radius: 18px; background: rgb(255 255 255 / 55%); color: #6e7c73; text-align: center; }.chain-lab__empty svg { width: 38px; height: 38px; color: #4c8a65; }.chain-lab__empty strong { color: #304c3a; }
-@keyframes chain-pulse { 50% { opacity: .3; transform: scale(.86); } }
-@keyframes chain-block-in { from { opacity: 0; transform: translateY(-8px); } }
-@media (max-width: 850px) { .chain-lab__summary { grid-template-columns: repeat(2, 1fr); }.chain-lab__attack-flow { grid-template-columns: 1fr; }.chain-lab__attack-flow > span { display: none; }.chain-lab__block-strip { grid-template-columns: repeat(4, minmax(180px, 1fr)); }.chain-lab__feed > button { grid-template-columns: 70px minmax(0, 1fr) 90px; }.chain-lab__tx-open { display: none; } }
-@media (max-width: 620px) { .chain-lab { padding: 24px 16px 52px; }.chain-lab__hero { flex-direction: column; padding: 23px; }.chain-lab__monitor-head { align-items: flex-start; flex-direction: column; }.chain-lab__monitor-actions { justify-content: space-between; width: 100%; }.chain-lab__feed > button { grid-template-columns: 68px minmax(0, 1fr); }.chain-lab__tx-block { display: none; }.chain-lab__search > div { flex-direction: column; }.chain-lab__summary { grid-template-columns: 1fr; }.chain-lab__evidence dl { grid-template-columns: 1fr; }.chain-lab__evidence dl > .is-wide { grid-column: auto; }.chain-lab__evidence dl > div { border-right: 0 !important; border-bottom: 1px solid #e7ece8 !important; }.chain-lab__evidence dl > div:last-child { border-bottom: 0 !important; }.chain-lab__section-heading { align-items: flex-start; flex-direction: column; }.chain-lab__diff-head { display: none; }.chain-lab__diff-row { grid-template-columns: 1fr; }.chain-lab__attack-actions button { width: 100%; } }
+/* 관리자 블록체인 검증 대시보드.
+   위: 블록 트레인(사슬로 이어진 레일) · 아래: 해시로 다시 읽은 온체인 원본. */
+
+.chain-lab { display: grid; gap: 18px; width: min(1440px, 100%); margin: 0 auto; padding: 34px 32px 64px; color: #18251d; }
+.chain-lab__kicker { color: #7f9486; font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+
+/* ── 헤더 ─────────────────────────────────────────────── */
+.chain-lab__hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+.chain-lab__hero h1 { margin: 4px 0 0; font-size: clamp(24px, 2.6vw, 30px); letter-spacing: -.035em; }
+.chain-lab__eyebrow { margin: 0; color: #2f7a4b; font-size: 11px; font-weight: 850; letter-spacing: .16em; }
+.chain-lab__hero-side { display: flex; align-items: center; gap: 10px; }
+.chain-lab__monitor-toggle { display: inline-flex; align-items: center; gap: 6px; padding: 8px 13px; border: 1px solid #ccd5cf; border-radius: 999px; background: #fff; color: #44554b; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.chain-lab__monitor-toggle svg { width: 15px; height: 15px; }
+
+.chain-lab__stream { display: inline-flex; align-items: center; gap: 7px; padding: 7px 13px; border-radius: 999px; font-size: 11px; font-weight: 800; letter-spacing: .06em; }
+.chain-lab__stream small { font-weight: 600; letter-spacing: 0; opacity: .8; }
+.chain-lab__stream.is-live { background: rgb(36 111 69 / 10%); color: #1d6b40; }
+.chain-lab__stream.is-live i { width: 8px; height: 8px; border-radius: 50%; background: #2f9c5c; animation: chain-breathe 1.8s ease-in-out infinite; }
+.chain-lab__stream.is-retrying { background: #fdf1e0; color: #98692a; }
+.chain-lab__stream.is-paused { background: #eef1ef; color: #66746b; }
+
+/* ── 블록 트레인 ──────────────────────────────────────── */
+.chain-lab__train { display: grid; gap: 14px; padding: 18px 21px 19px; border: 1px solid #243c2d; border-radius: 20px; background: #101b14; color: #eef8f1; box-shadow: 0 16px 40px rgb(16 36 23 / 14%); }
+.chain-lab__train-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 22px; flex-wrap: wrap; }
+.chain-lab__train-head p { max-width: 640px; margin: 4px 0 0; color: #b8cdbf; font-size: 13px; line-height: 1.6; }
+.chain-lab__train-side { display: flex; flex: none; flex-direction: column; align-items: flex-end; gap: 9px; }
+
+.chain-lab__switch { display: flex; padding: 3px; border: 1px solid #2b4032; border-radius: 999px; background: #15241a; }
+.chain-lab__switch button { padding: 6px 14px; border: 0; border-radius: 999px; background: transparent; color: #8fa596; font: inherit; font-size: 11px; font-weight: 800; cursor: pointer; }
+.chain-lab__switch button[aria-pressed="true"] { background: #2f7a4b; color: #eef8f1; }
+
+.chain-lab__head-block { display: flex; align-items: baseline; gap: 8px; margin: 0; }
+.chain-lab__head-block strong { color: #e8f8ee; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 26px; letter-spacing: -.02em; animation: chain-flash .5s ease-out; }
+.chain-lab__head-block small { color: #8fa596; font-size: 12px; }
+
+.chain-lab__monitor-error { display: flex; align-items: center; gap: 8px; margin: 0; padding: 10px 13px; border-radius: 11px; background: rgb(233 168 87 / 12%); color: #f0bb74; font-size: 12px; }
+.chain-lab__monitor-error svg { flex: none; width: 17px; height: 17px; }
+
+.chain-lab__rail { display: flex; align-items: center; justify-content: flex-end; min-height: 100px; margin: 0; padding: 0; overflow-x: auto; list-style: none; }
+.chain-lab__rail > li { display: flex; flex: none; align-items: center; }
+.chain-lab__rail-wait { display: flex; flex-grow: 1; align-items: center; justify-content: center; gap: 9px; color: #89a091; font-size: 13px; }
+.chain-lab__rail-wait svg { width: 18px; height: 18px; }
+
+.chain-lab__link { display: flex; align-items: center; width: 34px; color: #4aa96a; }
+.chain-lab__link i { flex-grow: 1; height: 1px; background: #2f5b3f; }
+
+.chain-lab__car { display: grid; gap: 8px; width: 152px; box-sizing: border-box; padding: 13px 14px; border: 1px solid #2b4032; border-radius: 13px; background: #15241a; }
+.chain-lab__car.is-latest { border-color: #3c8055; background: linear-gradient(135deg, #193321, #15241a); animation: chain-car-in .45s ease-out; }
+.chain-lab__car strong { color: #e5f5ea; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 14px; font-weight: 600; }
+.chain-lab__car footer { display: flex; justify-content: space-between; gap: 8px; color: #6f8578; font-size: 10px; }
+.chain-lab__car footer .is-ours { color: #67d98a; }
+.chain-lab__car-meter { overflow: hidden; height: 4px; border-radius: 999px; background: #22352a; }
+.chain-lab__car-meter i { position: relative; display: block; height: 100%; border-radius: inherit; background: #2f7a4b; transition: width .35s ease-out; }
+.chain-lab__car-meter b { position: absolute; top: 0; bottom: 0; left: 0; border-radius: inherit; background: #56de83; }
+
+.chain-lab__gap { display: grid; justify-items: center; gap: 4px; width: 100px; box-sizing: border-box; padding: 16px 8px; border: 1px dashed #2f4a38; border-radius: 13px; background: rgb(21 36 26 / 45%); }
+.chain-lab__gap > span { color: #5f7468; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 15px; letter-spacing: .12em; }
+.chain-lab__gap small { color: #6f8578; font-size: 10px; text-align: center; }
+.chain-lab__gap code { color: #4f6459; font-size: 9px; }
+
+.chain-lab__cadence { display: flex; align-items: center; gap: 14px; }
+.chain-lab__cadence small { flex: none; color: #6f8578; font-size: 11px; }
+.chain-lab__progress { overflow: hidden; flex-grow: 1; height: 6px; border-radius: 999px; background: #22352a; }
+.chain-lab__progress i { display: block; width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #3d9f5d, #6ee797); animation-name: chain-progress; animation-timing-function: linear; animation-fill-mode: forwards; }
+.chain-lab__progress.is-overdue i { background: linear-gradient(90deg, #a9803c, #e9b26a); }
+
+/* ── 조회 ─────────────────────────────────────────────── */
+.chain-lab__search { display: grid; gap: 9px; padding: 20px 22px; border: 1px solid #dce5df; border-radius: 18px; background: #fff; box-shadow: 0 10px 28px rgb(31 70 44 / 6%); }
+.chain-lab__search label { font-size: 12px; font-weight: 700; color: #44554b; }
+.chain-lab__search > div { display: flex; gap: 9px; }
+.chain-lab__search input { flex-grow: 1; min-width: 0; padding: 12px 14px; border: 1px solid #d4ddd7; border-radius: 11px; background: #fbfdfc; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; }
+.chain-lab__search button { display: inline-flex; flex: none; align-items: center; gap: 7px; padding: 12px 18px; border: 0; border-radius: 11px; background: #246f45; color: #fff; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.chain-lab__search button:disabled { background: #b5c6bb; cursor: not-allowed; }
+.chain-lab__search button svg { width: 16px; height: 16px; }
+.chain-lab__search small { color: #78857d; font-size: 12px; }
+
+.chain-lab__error { display: flex; align-items: center; gap: 9px; padding: 13px 16px; border-radius: 13px; background: #fff0ee; color: #9c3734; font-size: 13px; }
+.chain-lab__error svg { flex: none; width: 19px; height: 19px; }
+
+/* ── 온체인 원본 ──────────────────────────────────────── */
+.chain-lab__evidence { display: grid; gap: 14px; padding: 22px 24px; border: 1px solid #a9d6b8; border-radius: 18px; background: #fff; }
+.chain-lab__evidence[aria-busy="true"] { opacity: .55; transition: opacity .2s ease-out; }
+.chain-lab__evidence > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.chain-lab__evidence > header > div:first-child { display: grid; gap: 3px; }
+.chain-lab__evidence > header strong { font-size: 17px; }
+.chain-lab__evidence > header small { color: #6f7d74; font-size: 12px; }
+.chain-lab__evidence .chain-lab__kicker { color: #2f7a4b; }
+.chain-lab__evidence-badges { display: flex; flex: none; align-items: center; gap: 8px; }
+.chain-lab__status { padding: 5px 12px; border-radius: 999px; font-size: 11px; font-weight: 800; letter-spacing: .06em; }
+.chain-lab__status.is-good { background: #eaf7ef; color: #1d6b40; }
+.chain-lab__status.is-bad { background: #fff0ee; color: #9c3734; }
+.chain-lab__latency { padding: 5px 10px; border-radius: 999px; background: #f0f3f1; color: #55645b; font-size: 11px; font-weight: 800; }
+
+.chain-lab__evidence dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px; margin: 0; }
+.chain-lab__evidence dl > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; padding: 10px 12px; border-radius: 9px; background: #f7f9f8; }
+.chain-lab__evidence dl > div.is-wide { grid-column: 1 / -1; }
+.chain-lab__evidence dt { flex: none; color: #6f7d74; font-size: 12px; }
+.chain-lab__evidence dd { overflow: hidden; margin: 0; color: #20372a; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.chain-lab__note { margin: 0; color: #7a857e; font-size: 12px; line-height: 1.7; }
+
+/* ── 실시간 피드 ──────────────────────────────────────── */
+.chain-lab__feed { display: grid; padding: 14px 18px 6px; border: 1px solid #dce5df; border-radius: 16px; background: #fff; }
+.chain-lab__feed-head { display: flex; justify-content: space-between; gap: 12px; padding-bottom: 8px; color: #8a978f; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.chain-lab__feed > button { display: grid; grid-template-columns: 88px minmax(0, 1fr) 160px 92px; align-items: center; gap: 14px; width: 100%; padding: 9px 4px; border: 0; border-top: 1px solid #eef2ef; background: transparent; font: inherit; text-align: left; cursor: pointer; animation: chain-row-in .3s ease-out; }
+.chain-lab__feed > button:hover { background: #f7faf8; }
+.chain-lab__tx-kind { padding: 4px 8px; border-radius: 999px; background: #f0f2f1; color: #6f7d74; font-size: 10px; font-weight: 800; text-align: center; }
+.chain-lab__tx-kind.is-ours { background: #e6f4ec; color: #1d6b40; }
+.chain-lab__tx-main { display: grid; gap: 2px; min-width: 0; }
+.chain-lab__tx-main code { overflow: hidden; color: #20372a; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.chain-lab__tx-main small { overflow: hidden; color: #7a857e; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.chain-lab__tx-block { display: grid; gap: 2px; color: #55645b; font-size: 12px; }
+.chain-lab__tx-block small { color: #8a978f; font-size: 11px; }
+.chain-lab__tx-open { color: #246f45; font-size: 12px; font-weight: 700; text-align: right; }
+.chain-lab__feed-empty { margin: 0; padding: 22px 4px; border-top: 1px solid #eef2ef; color: #7a857e; font-size: 13px; }
+
+@keyframes chain-breathe { 50% { opacity: .3; transform: scale(.86); } }
+@keyframes chain-car-in { from { opacity: 0; transform: translateX(10px); } }
+@keyframes chain-row-in { from { opacity: 0; transform: translateY(-5px); } }
+@keyframes chain-flash { from { color: #8ff3b4; } }
+@keyframes chain-progress { from { width: 0; } to { width: 100%; } }
+
+/* 모션을 줄인 환경에서는 움직임을 전부 끈다. 진행 바가 전달하던 정보는 그 옆 문구
+   ("평균 1.9초 간격 · 2초 경과")가 그대로 말하므로 숨겨도 잃는 것이 없다. */
+@media (prefers-reduced-motion: reduce) {
+  .chain-lab__progress { display: none; }
+  .chain-lab__stream.is-live i, .chain-lab__car.is-latest, .chain-lab__feed > button, .chain-lab__head-block strong { animation: none; }
+  .chain-lab__car-meter i, .chain-lab__evidence { transition: none; }
+}
+
+@media (max-width: 1100px) {
+  .chain-lab__evidence dl { grid-template-columns: 1fr; }
+  .chain-lab__evidence dl > div.is-wide { grid-column: auto; }
+}
+
+@media (max-width: 720px) {
+  .chain-lab { padding: 24px 16px 52px; }
+  .chain-lab__train-head { flex-direction: column; }
+  .chain-lab__train-side { align-items: flex-start; width: 100%; }
+  .chain-lab__rail { justify-content: flex-start; }
+  .chain-lab__cadence { flex-wrap: wrap; }
+  .chain-lab__cadence small { flex: 1 0 100%; }
+  .chain-lab__search > div { flex-direction: column; }
+  .chain-lab__feed > button { grid-template-columns: 78px minmax(0, 1fr); }
+  .chain-lab__tx-block, .chain-lab__tx-open { display: none; }
+}

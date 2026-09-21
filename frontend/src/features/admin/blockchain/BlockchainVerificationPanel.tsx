@@ -1,47 +1,51 @@
-import {
-  ArrowClockwise,
-  CheckCircle,
-  Database,
-  Flask,
-  Pause,
-  Play,
-  Pulse,
-  ShieldCheck,
-  Warning,
-} from '@phosphor-icons/react'
-import { type FormEvent, type ReactNode, useEffect, useRef, useState } from 'react'
-import {
-  compareEvidence,
-  queryChainEvidence,
-  simulateSnapshotAttack,
-  toEvidenceSnapshot,
-  type ChainEvidence,
-  type EvidenceMismatch,
-  type EvidenceSnapshot,
-} from './blockchainVerification.ts'
+import { ArrowClockwise, Pause, Play, Pulse, ShieldCheck, Warning } from '@phosphor-icons/react'
+import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { queryChainEvidence, type ChainEvidence } from './blockchainVerification.ts'
 import {
   consumeBlockchainStream,
   type LiveBlock,
   type LiveTransaction,
 } from './blockchainLiveApi.ts'
+import {
+  buildTrain,
+  countOurTransactions,
+  formatElapsed,
+  formatInterval,
+  measureCadence,
+  measureNextBlock,
+} from './liveMetrics.ts'
 import './blockchain-verification.css'
 
 type QueryStatus = 'IDLE' | 'LOADING' | 'SUCCESS' | 'ERROR'
+
+/** 화면에 유지하는 블록 수. 접히는 칸이 있으므로 레일에 세우는 칸 수보다 넉넉해야 한다. */
+const BLOCK_BUFFER = 24
+
+/** 피드에 세우는 트랜잭션 수. */
+const FEED_LIMIT = 8
 
 export function BlockchainVerificationPanel() {
   const [hash, setHash] = useState('')
   const [status, setStatus] = useState<QueryStatus>('IDLE')
   const [evidence, setEvidence] = useState<ChainEvidence | null>(null)
-  const [snapshot, setSnapshot] = useState<EvidenceSnapshot | null>(null)
-  const [mismatches, setMismatches] = useState<EvidenceMismatch[] | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [attackActive, setAttackActive] = useState(false)
   const [monitoring, setMonitoring] = useState(true)
   const [liveBlocks, setLiveBlocks] = useState<LiveBlock[]>([])
   const [monitorError, setMonitorError] = useState<string | null>(null)
   const [lastCheckedAt, setLastCheckedAt] = useState<string | null>(null)
   const [streamConnected, setStreamConnected] = useState(false)
+  /** 다음 재시도 시각. 끊겼을 때 "몇 초 뒤" 인지 보여주려고 들고 있다. */
+  const [reconnectAt, setReconnectAt] = useState<number | null>(null)
+  const [queryStartedAt, setQueryStartedAt] = useState<number | null>(null)
+  /** 접는 기준을 바꾸는 스위치. 블록을 숨기지는 않는다(liveMetrics.buildTrain 참고). */
+  const [onlyOurs, setOnlyOurs] = useState(false)
   const lastEventIdRef = useRef<string | null>(null)
+
+  // 이벤트가 오지 않는 동안에도 시간은 흐른다. 이 tick 이 없으면 블록 사이 몇 초 동안
+  // 화면이 완전히 정지해 "끊긴 것" 처럼 보인다.
+  const now = useTicker(true, 1_000)
+  // RPC 왕복은 보통 수백 ms 라 1초 tick 으로는 숫자가 한 번도 안 올라간다.
+  const queryNow = useTicker(status === 'LOADING', 100)
 
   useEffect(() => {
     if (!monitoring) return
@@ -57,11 +61,15 @@ export function BlockchainVerificationPanel() {
             onOpen: () => {
               setStreamConnected(true)
               setMonitorError(null)
+              setReconnectAt(null)
               retryDelay = 1_000
             },
             onBlock: (block, eventId) => {
               if (eventId) lastEventIdRef.current = eventId
-              setLiveBlocks((current) => [block, ...current.filter((item) => item.hash !== block.hash)].slice(0, 8))
+              setLiveBlocks((current) => [
+                block,
+                ...current.filter((item) => item.hash !== block.hash),
+              ].slice(0, BLOCK_BUFFER))
             },
             onHeartbeat: (heartbeat) => setLastCheckedAt(heartbeat.checkedAt),
           })
@@ -70,6 +78,7 @@ export function BlockchainVerificationPanel() {
           if (controller.signal.aborted) break
           setStreamConnected(false)
           setMonitorError(reason instanceof Error ? reason.message : 'SSE 연결에 실패했습니다.')
+          setReconnectAt(Date.now() + retryDelay)
           await wait(retryDelay, controller.signal)
           retryDelay = Math.min(retryDelay * 2, 10_000)
         }
@@ -80,6 +89,7 @@ export function BlockchainVerificationPanel() {
     return () => {
       controller.abort()
       setStreamConnected(false)
+      setReconnectAt(null)
     }
   }, [monitoring])
 
@@ -90,13 +100,10 @@ export function BlockchainVerificationPanel() {
     const targetHash = selectedHash ?? hash
     if (selectedHash) changeHash(selectedHash)
     setStatus('LOADING')
+    setQueryStartedAt(Date.now())
     setError(null)
     try {
-      const fresh = await queryChainEvidence(targetHash)
-      const currentSnapshot = selectedHash ? toEvidenceSnapshot(fresh) : (snapshot ?? toEvidenceSnapshot(fresh))
-      setEvidence(fresh)
-      setSnapshot(currentSnapshot)
-      setMismatches(compareEvidence(currentSnapshot, fresh))
+      setEvidence(await queryChainEvidence(targetHash))
       setStatus('SUCCESS')
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'RPC 조회 중 알 수 없는 오류가 발생했습니다.')
@@ -107,30 +114,19 @@ export function BlockchainVerificationPanel() {
   function changeHash(value: string) {
     setHash(value)
     setEvidence(null)
-    setSnapshot(null)
-    setMismatches(null)
-    setAttackActive(false)
     setError(null)
     setStatus('IDLE')
   }
 
-  function runAttack() {
-    if (!snapshot) return
-    setSnapshot(simulateSnapshotAttack(snapshot))
-    setMismatches(null)
-    setAttackActive(true)
-  }
+  const querying = status === 'LOADING'
 
-  function restore() {
-    if (!evidence) return
-    const clean = toEvidenceSnapshot(evidence)
-    setSnapshot(clean)
-    setMismatches(compareEvidence(clean, evidence))
-    setAttackActive(false)
-  }
-
-  const verified = mismatches !== null && mismatches.length === 0
-  const compromised = mismatches !== null && mismatches.length > 0
+  const latest = liveBlocks[0] ?? null
+  const cadence = useMemo(() => measureCadence(liveBlocks), [liveBlocks])
+  const cars = useMemo(() => buildTrain(liveBlocks, onlyOurs), [liveBlocks, onlyOurs])
+  const ourCount = useMemo(() => countOurTransactions(liveBlocks), [liveBlocks])
+  const feed = useMemo(() => recentTransactions(liveBlocks, onlyOurs), [liveBlocks, onlyOurs])
+  const eta = measureNextBlock(latest?.timestamp ?? null, cadence.averageMs, now)
+  const elapsedQueryMs = queryStartedAt === null ? 0 : Math.max(0, queryNow - queryStartedAt)
 
   return (
     <section className="chain-lab" aria-labelledby="chain-lab-title">
@@ -138,56 +134,122 @@ export function BlockchainVerificationPanel() {
         <div>
           <p className="chain-lab__eyebrow">SSAFY BESU · LIVE RPC</p>
           <h1 id="chain-lab-title">블록체인 검증 대시보드</h1>
-          <p>
-            저장된 화면 값을 믿지 않고, 트랜잭션 해시를 기준으로 SSAFY 네트워크에서
-            영수증과 블록을 매번 다시 읽어 원본 여부를 검증합니다.
-          </p>
         </div>
-        <div className={`chain-lab__live ${status === 'LOADING' ? 'is-querying' : ''}`}>
-          <Pulse weight="fill" aria-hidden="true" />
-          <span>{status === 'LOADING' ? 'RPC 조회 중' : '실시간 조회 대기'}</span>
+        <div className="chain-lab__hero-side">
+          <StreamStatus
+            monitoring={monitoring}
+            connected={streamConnected}
+            lastCheckedAt={lastCheckedAt}
+            reconnectAt={reconnectAt}
+            now={now}
+          />
+          <button
+            type="button"
+            className="chain-lab__monitor-toggle"
+            onClick={() => setMonitoring((current) => !current)}
+          >
+            {monitoring ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
+            {monitoring ? '일시정지' : '모니터링 시작'}
+          </button>
         </div>
       </header>
 
-      <section className="chain-lab__monitor" aria-labelledby="chain-monitor-title">
-        <div className="chain-lab__monitor-head">
+      <section className="chain-lab__train" aria-labelledby="chain-train-title">
+        <div className="chain-lab__train-head">
           <div>
-            <span className={`chain-lab__monitor-dot ${monitoring && streamConnected ? 'is-live' : ''}`} aria-hidden="true" />
-            <div><h2 id="chain-monitor-title">실시간 블록 모니터</h2><p>백엔드가 SSAFY Besu를 폴링하고 새 블록을 SSE로 즉시 전달합니다.</p></div>
+            <span className="chain-lab__kicker">BLOCK TRAIN</span>
+            <p id="chain-train-title">
+              각 블록은 parentHash로 앞 블록에 묶여 있습니다. 고리를 끊으면 뒤따르는 모든 블록이 무효가 됩니다.
+            </p>
           </div>
-          <div className="chain-lab__monitor-actions">
-            {lastCheckedAt ? <span>노드 확인 {formatTime(lastCheckedAt)}</span> : <span>{streamConnected ? 'SSE 연결됨' : '연결 중'}</span>}
-            <button type="button" onClick={() => setMonitoring((current) => !current)}>
-              {monitoring ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
-              {monitoring ? '일시정지' : '모니터링 시작'}
-            </button>
+          <div className="chain-lab__train-side">
+            <div className="chain-lab__switch" role="group" aria-label="레일에 세울 블록">
+              <button type="button" aria-pressed={!onlyOurs} onClick={() => setOnlyOurs(false)}>
+                전체 블록
+              </button>
+              <button type="button" aria-pressed={onlyOurs} onClick={() => setOnlyOurs(true)}>
+                우리 거래만
+              </button>
+            </div>
+            {latest ? (
+              <p className="chain-lab__head-block">
+                {/* key 가 바뀌면 요소가 다시 mount 되어 한 번짜리 강조가 재생된다. */}
+                <strong key={latest.hash}>#{formatNumber(latest.number)}</strong>
+                <small>{formatElapsed(latest.timestamp, now)} 확정</small>
+              </p>
+            ) : null}
           </div>
         </div>
 
-        {monitorError ? <div className="chain-lab__monitor-error"><Warning aria-hidden="true" />{monitorError}</div> : null}
+        {monitorError ? (
+          <p className="chain-lab__monitor-error" role="status">
+            <Warning aria-hidden="true" />
+            {monitorError}
+          </p>
+        ) : null}
 
-        <div className="chain-lab__block-strip" aria-label="최근 감지 블록">
-          {liveBlocks.length > 0 ? liveBlocks.map((block, index) => (
-            <article className={index === 0 ? 'is-latest' : undefined} key={block.hash}>
-              <div><span>BLOCK</span><strong>#{formatNumber(block.number)}</strong></div>
-              <div className="chain-lab__block-bars" aria-hidden="true">
-                {Array.from({ length: 7 }, (_, bar) => <i key={bar} style={{ height: `${18 + ((block.number + bar * 7) % 24)}%` }} />)}
-              </div>
-              <footer><span>{block.transactions.length} tx</span><span>{block.projectTransactionCount} project</span></footer>
-            </article>
-          )) : <div className="chain-lab__monitor-wait"><Pulse aria-hidden="true" />최신 블록을 기다리고 있습니다.</div>}
-        </div>
+        <ol className="chain-lab__rail" aria-label="최근 블록">
+          {cars.length > 0 ? cars.map((car, index) => (
+            <li key={car.key}>
+              {index > 0 ? <ChainLink /> : null}
+              {car.kind === 'GAP' ? (
+                <div className="chain-lab__gap">
+                  <span aria-hidden="true">···</span>
+                  <small>
+                    {onlyOurs ? '우리 거래 없음' : '빈 블록'} {formatNumber(car.count)}
+                  </small>
+                  <code>
+                    {car.count === 1
+                      ? `#${formatNumber(car.fromNumber)}`
+                      : `#${formatNumber(car.fromNumber)}–${formatNumber(car.toNumber)}`}
+                  </code>
+                </div>
+              ) : (
+                <article className={`chain-lab__car ${car.latest ? 'is-latest' : ''}`}>
+                  <span className="chain-lab__kicker">BLOCK</span>
+                  <strong>#{formatNumber(car.block.number)}</strong>
+                  <div className="chain-lab__car-meter" aria-hidden="true">
+                    <i style={{ width: `${Math.max(6, car.loadRatio * 100)}%` }}>
+                      <b style={{ width: `${car.oursRatio * 100}%` }} />
+                    </i>
+                  </div>
+                  <footer>
+                    <span>전체 {formatNumber(car.block.transactions.length)}건</span>
+                    <span className={car.block.projectTransactionCount > 0 ? 'is-ours' : ''}>
+                      우리 거래 {formatNumber(car.block.projectTransactionCount)}건
+                    </span>
+                  </footer>
+                </article>
+              )}
+            </li>
+          )) : (
+            <li className="chain-lab__rail-wait">
+              <Pulse aria-hidden="true" />
+              최신 블록을 기다리고 있습니다.
+            </li>
+          )}
+        </ol>
 
-        <div className="chain-lab__feed">
-          <div className="chain-lab__feed-head"><span>실시간 트랜잭션</span><span>최근 블록에 포함된 순서</span></div>
-          {recentTransactions(liveBlocks).length > 0 ? recentTransactions(liveBlocks).map(({ transaction, block }) => (
-            <button type="button" key={transaction.hash} onClick={() => void inspect(undefined, transaction.hash)}>
-              <span className={`chain-lab__tx-kind ${transaction.contractName ? 'is-project' : ''}`}>{transaction.contractName ? 'PROJECT' : 'NETWORK'}</span>
-              <span className="chain-lab__tx-main"><code>{shorten(transaction.hash)}</code><small>{transaction.contractName ? `${transaction.contractName}${transaction.functionName ? ` · ${transaction.functionName}()` : ''}` : `${shorten(transaction.from)} → ${shorten(transaction.to ?? 'CREATE')}`}</small></span>
-              <span className="chain-lab__tx-block">#{formatNumber(block.number)}<small>{formatUnixTime(block.timestamp)}</small></span>
-              <span className="chain-lab__tx-open">검증하기 →</span>
-            </button>
-          )) : <p className="chain-lab__feed-empty">현재 표시 중인 블록에는 트랜잭션이 없습니다. 새 거래가 확정되면 여기에 즉시 나타납니다.</p>}
+        <div className="chain-lab__cadence">
+          <span className="chain-lab__kicker">다음 블록 예상</span>
+          {/* 진행은 CSS 애니메이션이 그린다. 매 프레임 렌더하지 않으면서도 부드럽고,
+              모션을 줄인 환경에서는 통째로 숨기면 되도록 텍스트에 같은 정보를 남겼다.
+              간격 표본이 없으면 그리지 않는다 — 임의의 기본값으로 채우면 재지도 않은
+              속도를 보여주게 된다. */}
+          {cadence.averageMs !== null ? (
+            <div className={`chain-lab__progress ${eta?.overdue ? 'is-overdue' : ''}`} aria-hidden="true">
+              <i key={latest?.hash ?? 'none'} style={{ animationDuration: `${cadence.averageMs}ms` }} />
+            </div>
+          ) : (
+            <div className="chain-lab__progress is-empty" aria-hidden="true" />
+          )}
+          <small>
+            {/* 접혀 있어도 간격은 받은 블록 전체로 잰 값이라 그대로 말한다. */}
+            {cadence.samples > 0
+              ? `${eta?.overdue ? '예상보다 지연 · ' : ''}평균 ${formatInterval(cadence.averageMs)} 간격 · ${Math.round((eta?.elapsedMs ?? 0) / 1000)}초 경과`
+              : '간격을 재려면 블록이 하나 더 필요합니다'}
+            {onlyOurs ? ` · 최근 ${formatNumber(liveBlocks.length)}블록 중 우리 거래 ${formatNumber(ourCount)}건` : ''}
+          </small>
         </div>
       </section>
 
@@ -202,112 +264,212 @@ export function BlockchainVerificationPanel() {
             spellCheck={false}
             autoComplete="off"
           />
-          <button type="submit" disabled={status === 'LOADING' || hash.trim().length === 0}>
+          <button type="submit" disabled={querying || hash.trim().length === 0}>
             <ArrowClockwise aria-hidden="true" />
             {evidence ? '체인에서 다시 조회' : 'SSAFY 체인 조회'}
           </button>
         </div>
-        <small>백엔드가 SSAFY Besu에서 직접 재조회합니다. MetaMask 연결, 서명 또는 가스가 필요하지 않습니다.</small>
+        <small>
+          백엔드가 SSAFY Besu에서 직접 재조회합니다. MetaMask 연결, 서명 또는 가스가 필요하지 않습니다.
+        </small>
       </form>
 
-      {error ? <div className="chain-lab__error" role="alert"><Warning aria-hidden="true" />{error}</div> : null}
+      {error ? (
+        <div className="chain-lab__error" role="alert">
+          <Warning aria-hidden="true" />
+          {error}
+        </div>
+      ) : null}
 
       {evidence ? (
-        <>
-          <section className="chain-lab__summary" aria-label="RPC 조회 요약">
-            <Metric label="트랜잭션 상태" value={evidence.status === 1 ? 'SUCCESS' : 'REVERTED'} tone={evidence.status === 1 ? 'good' : 'danger'} />
-            <Metric label="현재 블록" value={`#${formatNumber(evidence.latestBlock)}`} />
-            <Metric label="확정 수" value={`${formatNumber(evidence.confirmations)} confirmations`} />
-            <Metric label="RPC 응답" value={`${formatNumber(evidence.latencyMs)} ms`} />
-          </section>
-
-          <section className="chain-lab__evidence" aria-labelledby="chain-evidence-title">
-            <div className="chain-lab__section-heading">
-              <div><Pulse aria-hidden="true" /><span><strong id="chain-evidence-title">방금 읽은 온체인 원본</strong><small>{formatDate(evidence.queriedAt)} 재조회</small></span></div>
-              <span className="chain-lab__network">chain {evidence.chainId}</span>
+        <section className={`chain-lab__evidence ${querying ? 'is-stale' : ''}`} aria-labelledby="chain-evidence-title" aria-busy={querying}>
+          <header>
+            <div>
+              <span className="chain-lab__kicker">ON-CHAIN</span>
+              <strong id="chain-evidence-title">SSAFY 체인이 말하는 것</strong>
+              <small>
+                chain {evidence.chainId} · eth_getTransactionReceipt · {formatElapsed(evidence.queriedAt, now)} 재조회
+              </small>
             </div>
-            <dl>
-              <EvidenceRow label="트랜잭션 해시" value={evidence.hash} wide />
-              <EvidenceRow label="블록 번호" value={`#${formatNumber(evidence.blockNumber)}`} />
-              <EvidenceRow label="기록 시각" value={formatDate(new Date(evidence.timestamp * 1000).toISOString())} />
-              <EvidenceRow label="블록 해시" value={evidence.blockHash} wide />
-              <EvidenceRow label="보낸 주소" value={evidence.from} />
-              <EvidenceRow label="받는 컨트랙트" value={evidence.to ?? '컨트랙트 생성'} />
-              <EvidenceRow label="가스 사용량" value={formatNumber(Number(evidence.gasUsed))} />
-              <EvidenceRow label="이벤트 로그" value={`${formatNumber(evidence.logCount)}개`} />
-              <EvidenceRow label="전송 값(wei)" value={evidence.value} />
-              <EvidenceRow label="호출 데이터" value={evidence.input === '0x' ? '없음' : `${evidence.input.slice(0, 18)}… (${evidence.input.length}자)`} />
-            </dl>
-          </section>
-
-          <section className="chain-lab__attack" aria-labelledby="chain-attack-title">
-            <div className="chain-lab__section-heading">
-              <div><Flask aria-hidden="true" /><span><strong id="chain-attack-title">안전한 위변조 공격 실험</strong><small>실제 체인과 자산은 변경하지 않습니다.</small></span></div>
-              <span className="chain-lab__safe">LOCAL SIMULATION</span>
+            <div className="chain-lab__evidence-badges">
+              <span className={`chain-lab__status ${evidence.status === 1 ? 'is-good' : 'is-bad'}`}>
+                {evidence.status === 1 ? 'SUCCESS' : 'REVERTED'}
+              </span>
+              <span className="chain-lab__latency">
+                {querying ? '조회 중…' : `RPC ${formatNumber(evidence.latencyMs)} ms`}
+              </span>
             </div>
+          </header>
 
-            <div className="chain-lab__attack-flow" aria-label="공격 검증 흐름">
-              <FlowStep icon={<Database aria-hidden="true" />} title="1. DB 스냅샷" detail={attackActive ? '블록·수신자·상태 변조됨' : '온체인 값과 동일'} active={attackActive} />
-              <span aria-hidden="true">→</span>
-              <FlowStep icon={<ArrowClockwise aria-hidden="true" />} title="2. RPC 재조회" detail="같은 txHash로 원본 요청" active={status === 'LOADING'} />
-              <span aria-hidden="true">→</span>
-              <FlowStep icon={compromised ? <Warning aria-hidden="true" /> : <ShieldCheck aria-hidden="true" />} title="3. 필드 대조" detail={compromised ? `${mismatches.length}개 불일치 탐지` : verified ? '모든 증거 일치' : '재검증 필요'} active={compromised} good={verified} />
-            </div>
+          <dl>
+            <Row label="트랜잭션 해시" value={evidence.hash} wide />
+            <Row label="블록 해시" value={evidence.blockHash} wide />
+            <Row label="블록 번호" value={`#${formatNumber(evidence.blockNumber)}`} />
+            <Row label="기록 시각" value={formatDate(new Date(evidence.timestamp * 1000).toISOString())} />
+            <Row label="확정 수" value={`${formatNumber(evidence.confirmations)} confirmations`} />
+            <Row label="현재 블록" value={`#${formatNumber(evidence.latestBlock)}`} />
+            <Row label="보낸 주소" value={evidence.from} />
+            <Row label="받는 컨트랙트" value={evidence.to ?? '컨트랙트 생성'} />
+            <Row label="가스 사용량" value={formatNumber(Number(evidence.gasUsed))} />
+            <Row label="이벤트 로그" value={`${formatNumber(evidence.logCount)}개`} />
+            <Row label="전송 값(wei)" value={evidence.value} />
+            <Row
+              label="호출 데이터"
+              value={evidence.input === '0x' ? '없음' : `${evidence.input.slice(0, 18)}… (${formatNumber(evidence.input.length)}자)`}
+            />
+          </dl>
 
-            <div className="chain-lab__attack-actions">
-              <button type="button" className="chain-lab__attack-button" disabled={attackActive || status === 'LOADING'} onClick={runAttack}>
-                <Flask aria-hidden="true" /> DB 응답 위변조 시뮬레이션
-              </button>
-              <button type="button" className="chain-lab__verify-button" disabled={!attackActive || status === 'LOADING'} onClick={() => void inspect()}>
-                <ShieldCheck aria-hidden="true" /> RPC 원본과 재검증
-              </button>
-              {attackActive ? <button type="button" className="chain-lab__restore-button" onClick={restore}>스냅샷 복원</button> : null}
-            </div>
-
-            {verified ? (
-              <div className="chain-lab__verdict is-verified" role="status">
-                <CheckCircle weight="fill" aria-hidden="true" /><div><strong>무결성 검증 통과</strong><span>보관된 스냅샷과 방금 조회한 블록체인 원본이 모두 같습니다.</span></div>
-              </div>
-            ) : null}
-            {compromised ? (
-              <div className="chain-lab__verdict is-compromised" role="alert">
-                <Warning weight="fill" aria-hidden="true" /><div><strong>위변조 탐지</strong><span>DB나 화면의 값이 바뀌었지만 블록체인 원본은 그대로입니다.</span></div>
-              </div>
-            ) : null}
-
-            {compromised ? (
-              <div className="chain-lab__diff" aria-label="불일치 상세">
-                <div className="chain-lab__diff-head"><span>검증 필드</span><span>변조된 스냅샷</span><span>SSAFY 체인 원본</span></div>
-                {mismatches.map((mismatch) => (
-                  <div className="chain-lab__diff-row" key={mismatch.field}>
-                    <strong>{mismatch.label}</strong><code title={mismatch.stored}>{shorten(mismatch.stored)}</code><code title={mismatch.onChain}>{shorten(mismatch.onChain)}</code>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-          </section>
-        </>
+          <p className="chain-lab__note">
+            화면에 저장해 둔 값을 다시 보여주는 것이 아니라, 이 해시로 SSAFY 노드에 매번 다시 물어 받은 응답입니다.
+          </p>
+        </section>
+      ) : querying ? (
+        <div className="chain-lab__empty" aria-busy="true">
+          <Pulse aria-hidden="true" />
+          <strong>체인에서 읽는 중 · {formatNumber(elapsedQueryMs)} ms</strong>
+        </div>
       ) : (
         <div className="chain-lab__empty">
           <ShieldCheck aria-hidden="true" />
-          <strong>검증할 트랜잭션을 입력해 주세요</strong>
-          <span>소재 발행, 출처 검증, 거래 또는 생산 등록에서 생성된 txHash를 사용할 수 있습니다.</span>
+          <strong>검증할 트랜잭션을 고르거나 해시를 입력해 주세요</strong>
+          <span>아래 피드에서 행을 누르면 그 트랜잭션이 바로 올라갑니다.</span>
         </div>
       )}
+
+      <section className="chain-lab__feed" aria-label="실시간 트랜잭션">
+        <div className="chain-lab__feed-head">
+          <span>실시간 트랜잭션</span>
+          <span>{onlyOurs ? '우리 컨트랙트를 호출한 거래만 보고 있습니다' : '행을 누르면 위 대조에 불러옵니다'}</span>
+        </div>
+        {feed.length > 0 ? feed.map(({ transaction, block }) => (
+          <button type="button" key={transaction.hash} onClick={() => void inspect(undefined, transaction.hash)}>
+            <span className={`chain-lab__tx-kind ${transaction.contractName ? 'is-ours' : ''}`}>
+              {transaction.contractName ? '우리 거래' : '다른 팀'}
+            </span>
+            <span className="chain-lab__tx-main">
+              <code>{shorten(transaction.hash)}</code>
+              <small>
+                {transaction.contractName
+                  ? `${transaction.contractName}${transaction.functionName ? ` · ${transaction.functionName}()` : ''}`
+                  : `${shorten(transaction.from)} → ${shorten(transaction.to ?? 'CREATE')}`}
+              </small>
+            </span>
+            <span className="chain-lab__tx-block">
+              #{formatNumber(block.number)}
+              <small>{formatElapsed(block.timestamp, now)}</small>
+            </span>
+            <span className="chain-lab__tx-open">검증하기 →</span>
+          </button>
+        )) : (
+          <p className="chain-lab__feed-empty">
+            {onlyOurs
+              ? '표시 중인 블록에는 우리 컨트랙트를 호출한 거래가 없습니다.'
+              : '표시 중인 블록에는 트랜잭션이 없습니다. 새 거래가 확정되면 여기에 즉시 나타납니다.'}
+          </p>
+        )}
+      </section>
     </section>
   )
 }
 
-function Metric({ label, value, tone }: { label: string; value: string; tone?: 'good' | 'danger' }) {
-  return <article className={tone ? `is-${tone}` : undefined}><span>{label}</span><strong>{value}</strong></article>
+/** 블록 카드 사이의 고리. 사슬이 이어져 있다는 사실을 화면이 직접 말하게 한다. */
+function ChainLink() {
+  return (
+    <span className="chain-lab__link" aria-hidden="true">
+      <i />
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <path d="M10.5 13.5a4.5 4.5 0 0 0 6.4 0l2.6-2.6a4.5 4.5 0 0 0-6.4-6.4l-1 1" />
+        <path d="M13.5 10.5a4.5 4.5 0 0 0-6.4 0l-2.6 2.6a4.5 4.5 0 0 0 6.4 6.4l1-1" />
+      </svg>
+      <i />
+    </span>
+  )
 }
 
-function EvidenceRow({ label, value, wide = false }: { label: string; value: string; wide?: boolean }) {
-  return <div className={wide ? 'is-wide' : undefined}><dt>{label}</dt><dd title={value}>{value}</dd></div>
+/**
+ * 스트림 상태를 한 덩어리로 말한다.
+ *
+ * 점 하나만 있을 때는 "조용한 것" 과 "끊긴 것" 이 같아 보였다. 끊겼다면 언제 다시 붙는지까지
+ * 보여야 관리자가 기다릴지 새로고침할지 판단할 수 있다.
+ */
+function StreamStatus({
+  monitoring,
+  connected,
+  lastCheckedAt,
+  reconnectAt,
+  now,
+}: {
+  monitoring: boolean
+  connected: boolean
+  lastCheckedAt: string | null
+  reconnectAt: number | null
+  now: number
+}) {
+  if (!monitoring) return <span className="chain-lab__stream is-paused">일시정지</span>
+
+  if (!connected) {
+    const seconds = reconnectAt === null ? null : Math.max(0, Math.ceil((reconnectAt - now) / 1000))
+    return (
+      <span className="chain-lab__stream is-retrying">
+        재연결 중{seconds !== null ? ` · ${seconds}초 후 재시도` : ''}
+      </span>
+    )
+  }
+
+  return (
+    <span className="chain-lab__stream is-live">
+      <i aria-hidden="true" />
+      LIVE
+      <small>노드 확인 {formatElapsed(lastCheckedAt, now)}</small>
+    </span>
+  )
 }
 
-function FlowStep({ icon, title, detail, active = false, good = false }: { icon: ReactNode; title: string; detail: string; active?: boolean; good?: boolean }) {
-  return <div className={`${active ? 'is-active' : ''}${good ? ' is-good' : ''}`}>{icon}<span><strong>{title}</strong><small>{detail}</small></span></div>
+function Row({ label, value, wide = false }: { label: string; value: string; wide?: boolean }) {
+  return (
+    <div className={wide ? 'is-wide' : undefined}>
+      <dt>{label}</dt>
+      <dd title={value}>{value}</dd>
+    </div>
+  )
+}
+
+/**
+ * 일정 주기로 현재 시각을 돌려준다.
+ *
+ * 탭이 가려지면 멈춘다 — 보이지도 않는 화면 때문에 초당 렌더를 돌릴 이유가 없고,
+ * 브라우저가 백그라운드 타이머를 조이면 어차피 값이 튄다. 다시 보이는 순간 한 번
+ * 당겨 맞춰서 "몇 분 전" 이 멈춰 있던 것처럼 보이지 않게 한다.
+ */
+function useTicker(active: boolean, intervalMs: number): number {
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    if (!active) return
+    let timer = 0
+
+    const stop = () => {
+      window.clearInterval(timer)
+      timer = 0
+    }
+    const start = () => {
+      setNow(Date.now())
+      timer = window.setInterval(() => setNow(Date.now()), intervalMs)
+    }
+    const handleVisibility = () => {
+      stop()
+      if (!document.hidden) start()
+    }
+
+    if (!document.hidden) start()
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => {
+      stop()
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
+  }, [active, intervalMs])
+
+  return now
 }
 
 function formatNumber(value: number): string {
@@ -315,15 +477,7 @@ function formatNumber(value: number): string {
 }
 
 function formatDate(value: string): string {
-  return new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium', timeStyle: 'medium' }).format(new Date(value))
-}
-
-function formatTime(value: string): string {
-  return new Intl.DateTimeFormat('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date(value))
-}
-
-function formatUnixTime(value: string): string {
-  return formatTime(value)
+  return new Intl.DateTimeFormat('ko-KR', { dateStyle: 'short', timeStyle: 'medium' }).format(new Date(value))
 }
 
 function wait(milliseconds: number, signal: AbortSignal): Promise<void> {
@@ -339,8 +493,14 @@ function wait(milliseconds: number, signal: AbortSignal): Promise<void> {
   })
 }
 
-function recentTransactions(blocks: readonly LiveBlock[]): { transaction: LiveTransaction; block: LiveBlock }[] {
-  return blocks.flatMap((block) => block.transactions.map((transaction) => ({ transaction, block }))).slice(0, 12)
+function recentTransactions(
+  blocks: readonly LiveBlock[],
+  onlyOurs: boolean,
+): { transaction: LiveTransaction; block: LiveBlock }[] {
+  return blocks
+    .flatMap((block) => block.transactions.map((transaction) => ({ transaction, block })))
+    .filter((entry) => (onlyOurs ? entry.transaction.contractName !== null : true))
+    .slice(0, FEED_LIMIT)
 }
 
 function shorten(value: string): string {
