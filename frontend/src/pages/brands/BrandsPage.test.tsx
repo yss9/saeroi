@@ -56,11 +56,13 @@ describe('public brands', () => {
     })
     show('/brands?q=RE&sort=NAME')
     const pagination = await screen.findByRole('navigation', { name: '브랜드 페이지' })
+    vi.mocked(window.scrollTo).mockClear()
     fireEvent.click(within(pagination).getByRole('button', { name: '2페이지' }))
     await waitFor(() => expect(apiClient.get).toHaveBeenLastCalledWith('/v1/public/brands', expect.objectContaining({ params: { keyword: 'RE', sort: 'NAME', page: 1, size: 8 } })))
     expect(url().searchParams.get('q')).toBe('RE')
     expect(url().searchParams.get('sort')).toBe('NAME')
     await waitFor(() => expect(within(screen.getByRole('navigation', { name: '브랜드 페이지' })).getByRole('button', { name: '다음 페이지' })).toBeDisabled())
+    expect(window.scrollTo).toHaveBeenCalledOnce()
   })
   it('searches brand names, resets page and restores keyword on back navigation', async () => {
     show('/brands?q=old&page=3')

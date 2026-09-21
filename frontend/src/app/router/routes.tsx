@@ -66,6 +66,7 @@ import { TradeListPage } from '../../pages/trade/TradeListPage.tsx'
 import { BrowseLayout } from './guards/BrowseLayout.tsx'
 import { ProtectedRoute } from './guards/ProtectedRoute.tsx'
 import { FORBIDDEN_PATH, RoleGuard } from './guards/RoleGuard.tsx'
+import { ScrollOnNavigate } from './ScrollOnNavigate.tsx'
 
 const landingPageElement = <LandingPage />
 
@@ -85,7 +86,7 @@ const shopPageElement = <ShopPage />
  * 새 라우트는 반드시 이 파일에만 추가한다. 페이지 파일에서 라우트를 정의하면
  * 전체 경로 구조를 한눈에 볼 수 없게 되고 중복 경로가 생긴다.
  */
-export const routes: RouteObject[] = [
+const appRoutes: RouteObject[] = [
   // ── Public ────────────────────────────────────────────
   { path: '/', element: landingPageElement },
   { path: '/about', element: aboutPageElement },
@@ -300,4 +301,8 @@ export const routes: RouteObject[] = [
   // 정의되지 않은 경로. 예전에는 랜딩으로 보냈지만, 그러면 오타 URL 이 정상 화면처럼
   // 보여 사용자가 잘못을 눈치채지 못한다.
   { path: '*', element: <NotFoundPage /> },
+]
+
+export const routes: RouteObject[] = [
+  { element: <ScrollOnNavigate />, children: appRoutes },
 ]

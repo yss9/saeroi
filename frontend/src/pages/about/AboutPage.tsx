@@ -1,7 +1,7 @@
 import { ArrowRight, CaretUp, Check } from '@phosphor-icons/react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import logoUrl from '../../assets/saeroi-logo-vector.svg'
 import { siteAssetUrl } from '../../utils/siteAssetUrl.ts'
@@ -46,11 +46,6 @@ const traceSteps = ['MATERIAL', 'VERIFIED', 'PROCESS', 'PRODUCT', 'QR PASSPORT']
 export function AboutPage() {
   const pageRef = useRef<HTMLDivElement>(null)
   const [isBackToTopVisible, setIsBackToTopVisible] = useState(false)
-
-  useLayoutEffect(() => {
-    // 클라이언트 라우팅으로 남은 HOME 스크롤을 첫 페인트·ScrollTrigger 초기화 전에 해제.
-    window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
-  }, [])
 
   useEffect(() => {
     const page = pageRef.current
