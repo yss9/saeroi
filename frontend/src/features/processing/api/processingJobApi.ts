@@ -20,6 +20,8 @@ export interface ProcessingJobDetail {
   /** 환불된 시각. 값이 있으면 돈이 돌아간 것이다 */
   refundedAt:string|null
   outputs:ProcessingOutput[]
+  /** 거절·만료됐는데 온체인 잠금이 남아 브랜드가 풀어 줘야 하는가. */
+  chainReleaseRequired:boolean
 }
 export interface ProcessingChainPreparation {
   jobId:number; chainJobId:number|null; status:ProcessingJobStatus; brandWallet:string; processorWallet:string

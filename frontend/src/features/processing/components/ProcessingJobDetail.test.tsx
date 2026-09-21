@@ -5,7 +5,9 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { useAuthStore } from '../../../stores/authStore.ts'
 import { ProcessingJobDetail } from './ProcessingJobDetail.tsx'
 
-const mocks = vi.hoisted(() => ({ useProcessingJob: vi.fn(), saveResult: vi.fn() }))
+const mocks = vi.hoisted(() => ({ useProcessingJob: vi.fn(), saveResult: vi.fn(), accept: vi.fn(), releaseChainLock: vi.fn() }))
+const accept = mocks.accept
+const releaseChainLock = mocks.releaseChainLock
 
 vi.mock('../hooks/useProcessingJobs.ts', () => ({
   useProcessingJob: mocks.useProcessingJob,
@@ -17,6 +19,81 @@ vi.mock('../../evidence/components/EvidenceUpload.tsx', () => ({
 }))
 
 const mutation = () => ({ isPending: false, error: null, mutate: vi.fn() })
+
+/**
+ * PAID/DECLINED 단계의 단일 온체인 수락 흐름을 검증하는 테스트 전용 렌더 헬퍼.
+ * 위 `beforeEach` 의 기본 픽스처(PROCESSING 상태)와 겹치지 않도록 role·job 을 직접 받는다.
+ */
+function renderDetail({ role, job }: {
+  role: 'BRAND' | 'PROCESSOR'
+  job: { status: string; chainJobId: number | null; chainReleaseRequired?: boolean }
+}) {
+  useAuthStore.setState({
+    user: { id: role === 'PROCESSOR' ? 8 : 2, email: 'user@test.com', name: role === 'PROCESSOR' ? '가공사' : '새로이 브랜드', role, walletAddress: null },
+    accessToken: 'token',
+    isAuthenticated: true,
+  })
+  mocks.useProcessingJob.mockReturnValue({
+    detail: {
+      isPending: false,
+      isError: false,
+      data: {
+        jobId: 17,
+        jobCode: 'JOB-017',
+        requestId: 3,
+        brandId: 2,
+        processorId: 8,
+        fee: 10_000,
+        paymentAmount: 10_000,
+        status: job.status,
+        paymentExpiresAt: '2026-09-15T10:15:00',
+        createdAt: '2026-09-15T10:00:00',
+        chainJobId: job.chainJobId,
+        inputMaterialId: 11,
+        inputQuantity: 1_000,
+        lossQuantity: 0,
+        resultRevision: 0,
+        carrier: null,
+        trackingNumber: null,
+        returnCarrier: null,
+        returnTrackingNumber: null,
+        returnShippingEvidenceHash: null,
+        rejectionReason: null,
+        shippedAt: null,
+        receivedAt: null,
+        startedAt: null,
+        resultSubmittedAt: null,
+        rejectedAt: null,
+        returnShippedAt: null,
+        completedAt: null,
+        acceptExpiresAt: null,
+        acceptedAt: null,
+        declinedAt: null,
+        declineReason: null,
+        refundedAt: null,
+        chainReleaseRequired: job.chainReleaseRequired ?? false,
+        outputs: [],
+      },
+      refetch: vi.fn(),
+    },
+    request: { isPending: false, isError: false, data: undefined },
+    evidence: { data: { files: [] } },
+    initializeChain: mutation(),
+    accept: { ...mutation(), mutate: accept },
+    declineJob: mutation(),
+    releaseChainLock: { ...mutation(), mutate: releaseChainLock },
+    ship: mutation(),
+    receive: mutation(),
+    start: mutation(),
+    saveResult: mutation(),
+    submit: mutation(),
+    shipReturn: mutation(),
+    approve: mutation(),
+    reject: mutation(),
+    returnRejected: mutation(),
+  })
+  return render(<MemoryRouter><ProcessingJobDetail jobId={17} /></MemoryRouter>)
+}
 
 beforeEach(() => {
   useAuthStore.setState({
@@ -173,4 +250,35 @@ test('반환 발송 폼을 작업 카드 안에 중첩 카드 없이 표시한�
   expect(screen.getByRole('heading', { name: '가공 결과물 반환 발송' })).toBeInTheDocument()
   expect(container.querySelector('.pj-panel .pj-panel')).not.toBeInTheDocument()
   expect(container.querySelector('.pj-panel .pj-shipment-form')).toBeInTheDocument()
+})
+
+test('결제 직후에는 브랜드가 온체인 등록을 먼저 한다', () => {
+  renderDetail({ role: 'BRAND', job: { status: 'PAID', chainJobId: null } })
+
+  expect(screen.getByRole('button', { name: 'MetaMask로 온체인 작업 등록' })).toBeInTheDocument()
+})
+
+test('온체인 등록 전에는 가공사에게 수락 버튼을 보이지 않는다', () => {
+  renderDetail({ role: 'PROCESSOR', job: { status: 'PAID', chainJobId: null } })
+
+  expect(screen.queryByRole('button', { name: /수락/ })).not.toBeInTheDocument()
+  expect(screen.getByText(/브랜드가 온체인 작업을 등록하면/)).toBeInTheDocument()
+})
+
+test('가공사는 온체인 서명 한 번으로 수락한다', async () => {
+  const user = userEvent.setup()
+  renderDetail({ role: 'PROCESSOR', job: { status: 'PAID', chainJobId: 11 } })
+
+  await user.click(screen.getByRole('button', { name: 'MetaMask로 요청 수락' }))
+
+  expect(accept).toHaveBeenCalledOnce()
+})
+
+test('거절돼 잠금이 남으면 브랜드에게 해제를 요청한다', async () => {
+  const user = userEvent.setup()
+  renderDetail({ role: 'BRAND', job: { status: 'DECLINED', chainJobId: 11, chainReleaseRequired: true } })
+
+  await user.click(screen.getByRole('button', { name: 'MetaMask로 온체인 잠금 해제' }))
+
+  expect(releaseChainLock).toHaveBeenCalledOnce()
 })

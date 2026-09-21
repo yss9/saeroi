@@ -9,7 +9,6 @@ import type { MaterialType } from '../types/processorProfile.types.ts'
 import { MATERIAL_TYPE_LABEL } from '../types/processorProfile.types.ts'
 import { PROCESS_TYPE_LABEL } from '../types/processing.types.ts'
 import { useProcessingJob } from '../hooks/useProcessingJobs.ts'
-import { PROCESSING_CHAIN_STATUS } from '../services/processingContractService.ts'
 import type { ProcessingJobDetail as ProcessingJob } from '../api/processingJobApi.ts'
 import type { ProcessingRequestDetail } from '../api/processingRequestApi.ts'
 import { ProcessingShipmentForm } from './ProcessingShipmentForm.tsx'
@@ -68,8 +67,8 @@ function ProcessingJobDetailContent({ jobId, job, request, role, flow }: {
     hash: file.fileHash,
     label: `${EVIDENCE_TYPE_LABEL[file.evidenceType]} · ${file.storageKey.split('/').at(-1) ?? file.storageKey}`,
   }))
-  const pending=Boolean(flow.initializeChain?.isPending||flow.accept?.isPending||flow.acceptJob?.isPending||flow.declineJob?.isPending||flow.ship.isPending||flow.receive.isPending||flow.start.isPending||flow.saveResult.isPending||flow.submit.isPending||flow.shipReturn?.isPending||flow.approve.isPending||flow.reject.isPending||flow.returnRejected?.isPending)
-  const error=flow.initializeChain?.error||flow.accept?.error||flow.acceptJob?.error||flow.declineJob?.error||flow.ship.error||flow.receive.error||flow.start.error||flow.saveResult.error||flow.submit.error||flow.shipReturn?.error||flow.approve.error||flow.reject.error||flow.returnRejected?.error
+  const pending=Boolean(flow.initializeChain?.isPending||flow.accept?.isPending||flow.declineJob?.isPending||flow.releaseChainLock?.isPending||flow.ship.isPending||flow.receive.isPending||flow.start.isPending||flow.saveResult.isPending||flow.submit.isPending||flow.shipReturn?.isPending||flow.approve.isPending||flow.reject.isPending||flow.returnRejected?.isPending)
+  const error=flow.initializeChain?.error||flow.accept?.error||flow.declineJob?.error||flow.releaseChainLock?.error||flow.ship.error||flow.receive.error||flow.start.error||flow.saveResult.error||flow.submit.error||flow.shipReturn?.error||flow.approve.error||flow.reject.error||flow.returnRejected?.error
   const outputSum=rows.reduce((sum,row)=>sum+(Number.isSafeInteger(Number(row.quantity))&&Number(row.quantity)>0?Number(row.quantity):0),0)
   const lossQuantity=Math.max(job.inputQuantity-outputSum,0)
   const excessQuantity=Math.max(outputSum-job.inputQuantity,0)
@@ -97,21 +96,27 @@ function ProcessingJobDetailContent({ jobId, job, request, role, flow }: {
     <section className="pj-panel"><h2><Package/>투입 정보</h2><dl><div><dt>소재</dt><dd>{request?<><strong>{request.materialName}</strong><small>{request.materialCode}</small></>:'소재 정보 확인 중'}</dd></div><div><dt>투입 수량</dt><dd>{job.inputQuantity.toLocaleString()} g</dd></div><div><dt>가공비</dt><dd>{job.fee.toLocaleString()}원</dd></div><div><dt>Loss</dt><dd>{job.lossQuantity.toLocaleString()} g</dd></div></dl></section>
 
     {/*
-      **결제 다음은 가공사의 대답이다.** 맡을지 말지를 정하기 전에 브랜드가 소재를 보내면,
-      거절당했을 때 물건이 남의 창고에 가 있다 — 발송은 수락 뒤에만 열린다(서버도 409 로 막는다).
+      **결제가 끝나면 브랜드가 먼저 온체인에 올린다** — 가공사의 수락이 곧 온체인 서명이
+      되려면 서명할 대상(job)이 체인에 먼저 있어야 한다. 그 다음이 가공사의 대답이다.
+      발송은 수락 뒤에만 열린다(서버도 409 로 막는다).
     */}
-    {role==='PROCESSOR'&&job.status==='PAID'&&<section className="pj-panel pj-action"><div><p>결제가 끝난 요청입니다. 맡으시면 브랜드가 소재를 발송합니다.</p>{job.acceptExpiresAt&&<p className="pj-help">{formatDateTime(job.acceptExpiresAt)}까지 답하지 않으면 자동으로 거절되고 가공비가 환불됩니다.</p>}</div><div className="pj-decision"><button className="pj-secondary" disabled={pending} onClick={()=>setDeclining(true)}>거절</button><button disabled={pending} onClick={()=>flow.acceptJob.mutate()}>요청 수락</button></div></section>}
+    {role==='BRAND'&&job.status==='PAID'&&!job.chainJobId&&<section className="pj-panel pj-action"><div><p>결제가 끝났습니다. 가공업체가 수락할 수 있도록 입력 소재를 온체인 가공 작업에 잠급니다.</p><p className="pj-help">가공업체가 거절하거나 기한 내에 답하지 않으면 이 잠금을 직접 해제해야 합니다.</p></div><button disabled={pending} onClick={()=>flow.initializeChain.mutate()}>MetaMask로 온체인 작업 등록</button></section>}
+
+    {role==='PROCESSOR'&&job.status==='PAID'&&!job.chainJobId&&<section className="pj-panel pj-action"><p>브랜드가 온체인 작업을 등록하면 수락할 수 있습니다.</p></section>}
+
+    {/* 수락은 여기 한 번뿐이다. 이 서명이 곧 "가공사가 동의했다"는 온체인 증거다. */}
+    {role==='PROCESSOR'&&job.status==='PAID'&&job.chainJobId&&<section className="pj-panel pj-action"><div><p>가공 조건과 투입 소재를 확인한 뒤 수락해 주세요.</p>{job.acceptExpiresAt&&<p className="pj-help">{formatDateTime(job.acceptExpiresAt)}까지 답하지 않으면 자동으로 거절되고 가공비가 환불됩니다.</p>}</div><div className="pj-decision"><button className="pj-secondary" disabled={pending} onClick={()=>setDeclining(true)}>거절</button><button disabled={pending} onClick={()=>flow.accept.mutate()}>MetaMask로 요청 수락</button></div></section>}
 
     {role==='PROCESSOR'&&job.status==='PAID'&&declining&&<section className="pj-panel"><h2><X/>요청 거절</h2><p>사유는 브랜드에게 그대로 보입니다. 거절하면 가공비가 환불되고 소재 잠금이 풀립니다.</p><div className="pj-review"><input aria-label="거절 사유" maxLength={500} placeholder="예: 설비 점검 중입니다" value={declineReason} onChange={e=>setDeclineReason(e.target.value)}/><button className="is-danger" disabled={pending||!declineReason.trim()} onClick={()=>flow.declineJob.mutate(declineReason.trim())}>거절하기</button></div></section>}
 
-    {role==='BRAND'&&job.status==='PAID'&&<section className="pj-panel pj-action"><p>가공업체의 수락을 기다리고 있습니다.{job.acceptExpiresAt?` ${formatDateTime(job.acceptExpiresAt)}까지 답이 없으면 자동으로 환불됩니다.`:''}</p></section>}
+    {role==='BRAND'&&job.status==='PAID'&&job.chainJobId&&<section className="pj-panel pj-action"><p>가공업체의 수락을 기다리고 있습니다.{job.acceptExpiresAt?` ${formatDateTime(job.acceptExpiresAt)}까지 답이 없으면 자동으로 환불됩니다.`:''}</p></section>}
 
     {job.status==='DECLINED'&&<section className="pj-panel"><h2><X/>가공사가 거절했습니다</h2><p className="pj-warning">{job.declineReason??'가공업체가 기한 안에 답하지 않아 자동으로 종료되었습니다.'}</p>{job.refundedAt&&<p className="pj-help">{formatDateTime(job.refundedAt)}에 가공비가 환불되었습니다. 잠긴 소재 수량도 풀렸습니다.</p>}</section>}
 
-    {role==='BRAND'&&job.status==='ACCEPTED'&&!job.chainJobId&&<section className="pj-panel pj-action"><p>가공업체가 요청을 수락했습니다. 발송 전에 입력 소재를 온체인 가공 작업에 잠급니다.</p><button disabled={pending} onClick={()=>flow.initializeChain.mutate()}>MetaMask로 온체인 작업 등록</button></section>}
-    {role==='PROCESSOR'&&job.status==='ACCEPTED'&&job.chainJobId&&flow.chainStatusCode===PROCESSING_CHAIN_STATUS.REQUESTED&&<section className="pj-panel pj-action"><p>가공 조건과 투입 소재를 확인한 뒤 작업을 수락해 주세요.</p><button disabled={pending} onClick={()=>flow.accept.mutate()}>MetaMask로 가공 작업 수락</button></section>}
-    {role==='BRAND'&&job.status==='ACCEPTED'&&job.chainJobId&&flow.chainStatusCode===PROCESSING_CHAIN_STATUS.REQUESTED&&<section className="pj-panel pj-action"><p>가공업체의 온체인 작업 수락을 기다리고 있습니다.</p></section>}
-    {role==='BRAND'&&job.status==='ACCEPTED'&&job.chainJobId&&flow.chainStatusCode===PROCESSING_CHAIN_STATUS.ACCEPTED&&<ProcessingShipmentForm isPending={flow.ship.isPending} error={flow.ship.error} submitLabel="MetaMask 확인 후 발송 처리" onSubmit={input=>flow.ship.mutate(input)}/>}
+    {role==='BRAND'&&job.status==='ACCEPTED'&&<ProcessingShipmentForm isPending={flow.ship.isPending} error={flow.ship.error} submitLabel="MetaMask 확인 후 발송 처리" onSubmit={input=>flow.ship.mutate(input)}/>}
+
+    {/* 서버는 DB 와 환불만 정리한다. 체인의 잠금은 브랜드 지갑만 풀 수 있다. */}
+    {role==='BRAND'&&job.chainReleaseRequired&&<section className="pj-panel pj-action"><div><p>이 작업은 끝났지만 온체인 잠금이 남아 있습니다. 해제하기 전까지 해당 수량은 다시 쓸 수 없습니다.</p></div><button disabled={pending} onClick={()=>flow.releaseChainLock.mutate()}>MetaMask로 온체인 잠금 해제</button></section>}
     {role==='PROCESSOR'&&job.status==='SHIPPED'&&<section className="pj-panel pj-action"><p>소재가 도착했다면 수령을 확인해 주세요.</p><button disabled={pending} onClick={()=>flow.receive.mutate()}>소재 수령 처리</button></section>}
     {role==='PROCESSOR'&&job.status==='RECEIVED'&&<section className="pj-panel pj-action"><p>투입 소재와 작업 조건을 확인한 뒤 가공을 시작합니다.</p><button disabled={pending} onClick={()=>flow.start.mutate()}>가공 시작</button></section>}
 

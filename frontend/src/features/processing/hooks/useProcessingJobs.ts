@@ -12,6 +12,7 @@ import {
   PROCESSING_CHAIN_STATUS,
   acceptProcessingJob,
   approveProcessingResultOnChain,
+  cancelProcessingJob,
   confirmProcessingReceipt,
   createProcessingJob,
   getProcessingBrandLockId,
@@ -114,9 +115,15 @@ export function useProcessingJob(jobId: number) {
     },
     onSuccess: refresh,
   })
+  /*
+    수락은 온체인 서명 한 번이다 — 가공사가 지갑으로 서명해 체인에 동의를 남기고,
+    그 서명이 성공해야만 서버에 수락을 기록한다. 서명 없이 DB 만 바뀌는 경로는 없다
+    (서버도 chainJobId 없는 작업의 accept 를 막는다).
+  */
   const accept = useMutation({
     mutationFn: async () => {
       await confirmed(acceptProcessingJob(requireChainJob()))
+      await processingJobApi.accept(jobId)
     },
     onSuccess: refresh,
   })
@@ -221,15 +228,23 @@ export function useProcessingJob(jobId: number) {
     onSuccess: refresh,
   })
   /*
-    수락·거절은 온체인 서명이 없다. 브랜드가 결제한 일을 맡을지 말지를 서버에 적는 것이고,
-    온체인 작업 등록·수락은 그 뒤 발송 단계에서 따로 일어난다.
+    거절에는 온체인 서명이 없다. 가공사가 일 자체를 맡지 않기로 하는 것을 서버에
+    적을 뿐이다 — 잠긴 소재를 푸는 것은 브랜드 쪽 releaseChainLock 의 몫이다.
   */
-  const acceptJob = useMutation({
-    mutationFn: () => processingJobApi.accept(jobId),
-    onSuccess: refresh,
-  })
   const declineJob = useMutation({
     mutationFn: (reason: string) => processingJobApi.decline(jobId, reason),
+    onSuccess: refresh,
+  })
+  /*
+    거절·만료·취소로 끝났는데 온체인 잠금이 남아 있으면, 그 잠금을 푸는 서명은
+    브랜드 지갑만 할 수 있다 — Task 4 의 cancelProcessingJob 을 그대로 쓴다.
+  */
+  const releaseChainLock = useMutation({
+    mutationFn: async () => {
+      if (!detail.data?.chainJobId) throw new Error('온체인 작업이 없습니다.')
+      const tx = await cancelProcessingJob(detail.data.chainJobId)
+      await tx.wait()
+    },
     onSuccess: refresh,
   })
   const returnRejected = useMutation({
@@ -247,7 +262,7 @@ export function useProcessingJob(jobId: number) {
 
   return {
     detail, request, evidence, chainPreparation, chainStatus,
-    initializeChain, accept, acceptJob, declineJob, ship, receive, start, saveResult, submit, shipReturn, approve, reject, returnRejected,
+    initializeChain, accept, declineJob, releaseChainLock, ship, receive, start, saveResult, submit, shipReturn, approve, reject, returnRejected,
     chainStatusCode: chainStatus.data ?? PROCESSING_CHAIN_STATUS.NONE,
   }
 }
