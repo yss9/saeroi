@@ -600,6 +600,8 @@ class ProcessingRequestTests {
         mvc.perform(post("/processing-jobs/{id}/shipment", jobId)
                         .with(jwt().jwt(j -> j.subject(brandId.toString()))))
                 .andExpect(status().isConflict());
+        // 수락은 온체인 등록을 전제로 한다 — 먼저 체인에 올린 뒤에야 받을 수 있다.
+        linkChainJob(jobId);
         acceptJob(jobId);
         assertThat(jdbc.queryForObject("select status from processing_request where id=?", String.class, requestId))
                 .isEqualTo("ACCEPTED");
@@ -665,8 +667,9 @@ class ProcessingRequestTests {
         linkWallets(brandWallet, processorWallet);
         long jobId = createJob(300);
         payJob(jobId);
-        acceptJob(jobId);
+        // 수락은 온체인 등록을 전제로 한다 — 먼저 체인에 올린 뒤에야 받을 수 있다.
         linkChainJob(jobId);
+        acceptJob(jobId);
         mvc.perform(patch("/processing-jobs/{id}/ship", jobId)
                         .with(jwt().jwt(j -> j.subject(brandId.toString())))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -1027,8 +1030,9 @@ class ProcessingRequestTests {
         linkWallets("0x" + "5".repeat(40), "0x" + "6".repeat(40));
         long jobId = createJob(amount);
         payJob(jobId);
-        acceptJob(jobId);
+        // 수락은 온체인 등록을 전제로 한다 — 먼저 체인에 올린 뒤에야 받을 수 있다.
         linkChainJob(jobId);
+        acceptJob(jobId);
         return jobId;
     }
 

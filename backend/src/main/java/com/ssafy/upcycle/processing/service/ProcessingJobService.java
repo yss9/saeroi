@@ -51,6 +51,11 @@ public class ProcessingJobService {
         if (job.getStatus() != ProcessingJobStatus.PAID) {
             throw new BusinessException(PROCESSING_INVALID_STATE);
         }
+        // 수락은 온체인 서명으로 이뤄진다. 체인에 job 이 없으면 서명할 대상이 없고,
+        // 여기서 DB 만 ACCEPTED 로 올려 두면 체인은 영영 REQUESTED 에 남는다.
+        if (job.getChainJobId() == null) {
+            throw new BusinessException(PROCESSING_INVALID_STATE);
+        }
         LocalDateTime now = LocalDateTime.now(clock);
         job.accept(now);
         requestService.markAccepted(job.getProcessingRequestId());

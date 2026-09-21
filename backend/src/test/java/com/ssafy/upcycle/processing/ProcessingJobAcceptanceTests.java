@@ -2,6 +2,7 @@ package com.ssafy.upcycle.processing;
 
 import static com.ssafy.upcycle.user.WalletTestSignatures.KEY_PAIR;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -117,6 +118,27 @@ class ProcessingJobAcceptanceTests {
                 .andExpect(jsonPath("code").value("PROCESSING_INVALID_STATE"));
     }
 
+    @Test
+    @DisplayName("온체인 등록 전에는 수락할 수 없다")
+    void rejectsAcceptBeforeChainLink() throws Exception {
+        long jobId = paidJob();
+
+        mvc.perform(acceptJob(jobId))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("code").value("PROCESSING_INVALID_STATE"));
+    }
+
+    @Test
+    @DisplayName("온체인 등록이 끝난 작업은 수락된다")
+    void acceptsAfterChainLink() throws Exception {
+        long jobId = paidJob();
+        mvc.perform(chainLink(jobId, 11, 22)).andExpect(status().isOk());
+
+        mvc.perform(acceptJob(jobId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("data.status").value("ACCEPTED"));
+    }
+
     /** 요청이 곧 작업을 만든다 — 결제 전(CREATED) 작업의 jobId 를 응답에서 바로 받는다. */
     private long createdJob() throws Exception {
         String body = "{\"materialId\":" + materialId + ",\"processorId\":" + processorId
@@ -148,5 +170,10 @@ class ProcessingJobAcceptanceTests {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"onChainId\":" + onChainId + ",\"chainLockId\":" + chainLockId
                         + ",\"txHash\":\"" + txHash + "\",\"blockNumber\":1}");
+    }
+
+    private MockHttpServletRequestBuilder acceptJob(long jobId) {
+        return patch("/api/v1/processing-jobs/{id}/accept", jobId)
+                .with(jwt().jwt(j -> j.subject(processorId.toString())));
     }
 }
