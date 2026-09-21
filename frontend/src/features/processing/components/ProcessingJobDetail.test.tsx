@@ -27,7 +27,7 @@ const mutation = () => ({ isPending: false, error: null, mutate: vi.fn() })
  */
 function renderDetail({ role, job, chainStatusCode, chainStatusError }: {
   role: 'BRAND' | 'PROCESSOR'
-  job: { status: string; chainJobId: number | null; chainReleaseRequired?: boolean }
+  job: { status: string; chainJobId: number | null; chainReleaseRequired?: boolean; refundedAt?: string }
   // release-lock 패널은 "이미 풀렸다는 확실한 증거(CANCELED)" 가 없으면 그대로 둔다 —
   // 기본값은 "잠금이 아직 살아 있다" 쪽으로 둔다.
   chainStatusCode?: number
@@ -77,7 +77,7 @@ function renderDetail({ role, job, chainStatusCode, chainStatusError }: {
         acceptedAt: null,
         declinedAt: null,
         declineReason: null,
-        refundedAt: null,
+        refundedAt: job.refundedAt ?? null,
         chainReleaseRequired: job.chainReleaseRequired ?? false,
         outputs: [],
       },
@@ -348,4 +348,91 @@ test('뮤테이션 실패는 체인 조회 실패와 달리 전역 배너에 뜬
   render(<MemoryRouter><ProcessingJobDetail jobId={17} /></MemoryRouter>)
 
   expect(screen.getByRole('alert')).toHaveTextContent('지갑 서명이 거부되었습니다.')
+})
+
+
+// ── F3 · 구 순서로 만들어진 행의 온체인 등록 ────────────────────────────────────
+//
+// 새 순서에서 ACCEPTED 인 작업은 chainJobId 가 반드시 있다. 하지만 구 순서로
+// 만들어진 행(DB 수락이 먼저였던 시절)은 ACCEPTED 인데 체인에 없을 수 있고, 서버의
+// linkJob 은 그 경우를 위해 ACCEPTED 를 일부러 허용해 뒀다. 화면이 PAID 만 보면
+// 그 허용은 눌러 볼 방법이 없는 규칙으로 남는다.
+test('구 순서로 수락된 작업(ACCEPTED·체인 없음)도 브랜드가 온체인에 올릴 수 있다', () => {
+  renderDetail({ role: 'BRAND', job: { status: 'ACCEPTED', chainJobId: null } })
+
+  expect(screen.getByRole('button', { name: 'MetaMask로 온체인 작업 등록' })).toBeInTheDocument()
+})
+
+// ── F4 · 발송 폼의 체인 게이트 ────────────────────────────────────────────────
+//
+// markShipped 는 체인이 ACCEPTED 일 때만 통한다. 구 순서의 ACCEPTED 행은 체인이
+// 아직 REQUESTED 라 버튼을 누르면 되돌아간다(revert) — 그 자리에는 버튼이 아니라
+// 무엇을 기다리는지가 있어야 한다.
+test('체인이 아직 REQUESTED 면 발송 폼 대신 수락을 기다린다고 알린다', () => {
+  renderDetail({
+    role: 'BRAND',
+    job: { status: 'ACCEPTED', chainJobId: 11 },
+    chainStatusCode: PROCESSING_CHAIN_STATUS.REQUESTED,
+  })
+
+  expect(screen.queryByRole('button', { name: 'MetaMask 확인 후 발송 처리' })).not.toBeInTheDocument()
+  expect(screen.getByText('가공업체의 온체인 작업 수락을 기다리고 있습니다.')).toBeInTheDocument()
+})
+
+test('체인이 수락(ACCEPTED)됐으면 발송 폼을 연다', () => {
+  renderDetail({
+    role: 'BRAND',
+    job: { status: 'ACCEPTED', chainJobId: 11 },
+    chainStatusCode: PROCESSING_CHAIN_STATUS.ACCEPTED,
+  })
+
+  expect(screen.getByRole('button', { name: 'MetaMask 확인 후 발송 처리' })).toBeInTheDocument()
+})
+
+// 게이트는 "확실한 증거가 있을 때만 접는다" 는 같은 원칙을 따른다. 체인 조회가 아직
+// 끝나지 않았거나 실패하면 chainStatusCode 는 NONE 으로 남는데, 그걸로 폼을 감추면
+// 정상적인 새 순서 작업의 발송이 조회가 도는 동안 사라졌다가 나타난다.
+test('체인 상태를 아직 모르면(NONE) 발송 폼을 감추지 않는다', () => {
+  renderDetail({
+    role: 'BRAND',
+    job: { status: 'ACCEPTED', chainJobId: 11 },
+    chainStatusCode: PROCESSING_CHAIN_STATUS.NONE,
+  })
+
+  expect(screen.getByRole('button', { name: 'MetaMask 확인 후 발송 처리' })).toBeInTheDocument()
+})
+
+// ── F6 · 잠금에 대한 정직한 문구 ──────────────────────────────────────────────
+test('거절 확인 문구는 온체인 잠금이 브랜드 몫으로 남는다고 말한다', async () => {
+  const user = userEvent.setup()
+  renderDetail({ role: 'PROCESSOR', job: { status: 'PAID', chainJobId: 11 } })
+
+  await user.click(screen.getByRole('button', { name: '거절' }))
+
+  expect(screen.getByText(/온체인 잠금은 브랜드가 직접 해제/)).toBeInTheDocument()
+  expect(screen.queryByText(/거절하면 가공비가 환불되고 소재 잠금이 풀립니다/)).not.toBeInTheDocument()
+})
+
+test('잠금이 남은 거절 화면은 "소재 수량도 풀렸습니다" 라고 말하지 않는다', () => {
+  renderDetail({
+    role: 'BRAND',
+    job: { status: 'DECLINED', chainJobId: 11, chainReleaseRequired: true, refundedAt: '2026-09-15T11:00:00' },
+    chainStatusCode: PROCESSING_CHAIN_STATUS.ACCEPTED,
+  })
+
+  // 바로 아래에 "잠금이 남아 있습니다" 라는 해제 패널이 함께 뜬다 — 두 문장이
+  // 서로를 부정하면 브랜드는 어느 쪽을 믿어야 할지 알 수 없다.
+  expect(screen.queryByText(/잠긴 소재 수량도 풀렸습니다/)).not.toBeInTheDocument()
+  expect(screen.getByText(/온체인 잠금은 아직 남아 있습니다/)).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'MetaMask로 온체인 잠금 해제' })).toBeInTheDocument()
+})
+
+test('온체인에 올리기 전에 거절된 작업은 잠금까지 모두 풀렸다고 말한다', () => {
+  renderDetail({
+    role: 'BRAND',
+    job: { status: 'DECLINED', chainJobId: null, refundedAt: '2026-09-15T11:00:00' },
+  })
+
+  expect(screen.getByText(/잠긴 소재 수량도 풀렸습니다/)).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'MetaMask로 온체인 잠금 해제' })).not.toBeInTheDocument()
 })
