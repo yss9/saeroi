@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.ssafy.upcycle.blockchain.ScriptedReceiptClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ssafy.upcycle.blockchain.entity.BlockchainReferenceType;
 import com.ssafy.upcycle.blockchain.entity.BlockchainTransaction;
@@ -84,6 +85,8 @@ class ProductionChainLinkTests {
     private static final String EVIDENCE_HASH =
             "0x" + "b".repeat(64);
 
+    @Autowired private ScriptedReceiptClient chain;
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -126,6 +129,7 @@ class ProductionChainLinkTests {
 
     @BeforeEach
     void setUp() {
+        chain.expect("0x65b4d0d9f9f0e0a4b0b0f9e8d7c6b5a4d3c2b1a0", "0x1234567890123456789012345678901234567890");
         brand = userRepository.save(User.register(
                 "chain-brand@example.com", "{noop}x", "브랜드", "010-0000-0000", UserRole.BRAND));
         brandToken = tokenFor(brand);
