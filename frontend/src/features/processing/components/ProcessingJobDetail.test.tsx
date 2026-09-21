@@ -317,4 +317,26 @@ test('체인 상태를 알 수 없어도(조회 실패) 해제 패널은 그대�
 
   expect(screen.getByRole('button', { name: 'MetaMask로 온체인 잠금 해제' })).toBeInTheDocument()
   expect(screen.getByText(/이미 해제됐을 수도 있으니/)).toBeInTheDocument()
+  // 체인 조회 실패는 패널 안 안내 문구로만 보여준다 — 30초마다 도는 백그라운드
+  // 폴링이 실패할 때마다 전역 배너가 빨갛게 뜨면, 정작 방금 누른 뮤테이션의
+  // 실패가 그 배너에 묻힌다.
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+})
+
+test('뮤테이션 실패는 체인 조회 실패와 달리 전역 배너에 뜬다', () => {
+  renderDetail({
+    role: 'BRAND',
+    job: { status: 'DECLINED', chainJobId: 11, chainReleaseRequired: true },
+    chainStatusCode: PROCESSING_CHAIN_STATUS.ACCEPTED,
+  })
+  cleanup()
+  const flow = mocks.useProcessingJob()
+  mocks.useProcessingJob.mockReturnValue({
+    ...flow,
+    releaseChainLock: { ...flow.releaseChainLock, error: new Error('지갑 서명이 거부되었습니다.') },
+  })
+
+  render(<MemoryRouter><ProcessingJobDetail jobId={17} /></MemoryRouter>)
+
+  expect(screen.getByRole('alert')).toHaveTextContent('지갑 서명이 거부되었습니다.')
 })
