@@ -188,6 +188,54 @@ class SignupControllerTests {
         assertThat(response).doesNotContain("secret-that-must-not-leak");
     }
 
+    @Test
+    void rejectsNamesAndAddressesThatCarryControlCharacters() throws Exception {
+        // @NotBlank 는 앞뒤 공백만 본다 — 가운데 낀 \n 은 통과했고, 그대로 저장되면 목록·
+        // 배송 송장처럼 한 줄을 전제한 자리에서 레이아웃이 깨진다 (2026-09-21 확인).
+        Map<String, Object> body = consumerBody("control@example.com");
+        body.put("name", "줄바꿈\n이름");
+        body.put("address", "서울특별시 강남구\t테헤란로 212");
+
+        mockMvc.perform(post("/api/v1/auth/signup/consumer")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.data[?(@.field == 'name')]").exists())
+                .andExpect(jsonPath("$.data[?(@.field == 'address')]").exists());
+
+        assertThat(userRepository.findByEmail("control@example.com")).isEmpty();
+    }
+
+    @Test
+    void namesMayStillContainOrdinarySpaces() throws Exception {
+        // 제어문자만 막는다. 이름에 보통의 스페이스가 들어가는 것은 당연하다 —
+        // 여기까지 막으면 "김 철수" 를 못 쓰게 된다.
+        Map<String, Object> body = consumerBody("spaced@example.com");
+        body.put("name", "김 철수");
+
+        mockMvc.perform(post("/api/v1/auth/signup/consumer")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.name").value("김 철수"));
+    }
+
+    @Test
+    void tellsTheClientWhichFieldFailedToDeserialize() throws Exception {
+        // 예전에는 enum 오타든 깨진 JSON 이든 data:null 인 INVALID_REQUEST 하나로 끝났고
+        // 로그에도 "not readable" 만 남아, 어느 필드가 문제인지 양쪽 어디서도 알 수 없었다.
+        Map<String, Object> body = businessBody(UserRole.SUPPLIER);
+        body.put("role", "TOTALLY_BOGUS_ROLE");
+
+        mockMvc.perform(post("/api/v1/auth/signup/business")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.data[0].field").value("role"));
+    }
+
     private Map<String, Object> consumerBody(String email) {
         Map<String, Object> body = new HashMap<>();
         body.put("name", "홍길동");

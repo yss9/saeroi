@@ -40,6 +40,9 @@ public record ProductModelUpdateRequest(
         @JsonDeserialize(using = IntegralLongDeserializer.class)
         Long price,
 
+        // 등록 요청과 같은 상한. 수정에서만 더 긴 값을 받으면 등록은 막히고 수정은 통하는
+        // 어긋남이 생긴다 (TEXT 컬럼 바이트 한계는 ProductModelRegisterRequest 주석 참고).
+        @Size(max = 5000, message = "제품 설명은 5000자를 넘을 수 없습니다.")
         String description,
 
         @Size(max = 500, message = "이미지 주소는 500자를 넘을 수 없습니다.")

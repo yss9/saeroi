@@ -1,5 +1,7 @@
 package com.ssafy.upcycle.common.exception;
 
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 import com.ssafy.upcycle.common.response.ApiResponse;
 import com.ssafy.upcycle.common.storage.FileStorageErrorCode;
 import com.ssafy.upcycle.common.response.ValidationError;
@@ -75,11 +77,59 @@ public class GlobalExceptionHandler {
         return validationError(errors);
     }
 
+    /**
+     * 본문을 읽지 못했다 — 문법이 깨진 JSON, 또는 값이 필드 타입에 맞지 않는 경우.
+     *
+     * <p><b>어느 필드인지 알려준다.</b> 예전에는 두 경우를 묶어 {@code data:null} 인
+     * {@code INVALID_REQUEST} 만 내보내고 로그에도 {@code "not readable"} 만 남겼다.
+     * enum 오타 하나를 찾으려면 클라이언트도 서버도 볼 것이 없었다 — 필드 단위 메시지를
+     * 주는 검증 경로와 진단성이 크게 어긋났다 (2026-09-21 확인).
+     *
+     * <p>타입이 어긋난 것은 값이 틀린 것이므로 검증 실패와 같은 모양
+     * ({@code VALIDATION_ERROR} + {@code data:[{field,message}]})으로 답한다. 화면이
+     * 분기를 하나 덜 타도 된다.
+     *
+     * <p><b>Jackson 의 원문 메시지는 내보내지 않는다</b> — 내부 클래스 이름과 패키지
+     * 경로가 그대로 들어 있다. 경로와 우리 문구만 조합한다.
+     */
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<ApiResponse<Void>> handleHttpMessageNotReadableException(
+    public ResponseEntity<? extends ApiResponse<?>> handleHttpMessageNotReadableException(
             HttpMessageNotReadableException exception) {
-        log.warn("Request body is not readable");
+        if (exception.getCause() instanceof MismatchedInputException mismatch) {
+            String field = jsonPath(mismatch.getPath());
+            if (!field.isEmpty()) {
+                log.warn("Request body type mismatch: field={}, targetType={}",
+                        field, typeName(mismatch.getTargetType()));
+                return validationError(
+                        List.of(new ValidationError(field, "값의 형식이 올바르지 않습니다.")));
+            }
+        }
+        log.warn("Request body is not readable: cause={}",
+                exception.getCause() == null
+                        ? "none"
+                        : exception.getCause().getClass().getSimpleName());
         return error(CommonErrorCode.INVALID_REQUEST);
+    }
+
+    /** {@code composition[0].percentage} 처럼 검증 오류와 같은 표기로 경로를 만든다. */
+    private String jsonPath(List<JsonMappingException.Reference> path) {
+        StringBuilder builder = new StringBuilder();
+        for (JsonMappingException.Reference reference : path) {
+            if (reference.getFieldName() != null) {
+                if (!builder.isEmpty()) {
+                    builder.append('.');
+                }
+                builder.append(reference.getFieldName());
+            } else if (reference.getIndex() >= 0) {
+                builder.append('[').append(reference.getIndex()).append(']');
+            }
+        }
+        return builder.toString();
+    }
+
+    /** 로그 전용. 응답에는 나가지 않는다. */
+    private String typeName(Class<?> targetType) {
+        return targetType == null ? "unknown" : targetType.getSimpleName();
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)

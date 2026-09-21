@@ -43,6 +43,14 @@ public class KakaoPayGateway implements PaymentGateway {
     private static final String APPROVE_PATH = "/online/v1/payment/approve";
     private static final String CANCEL_PATH = "/online/v1/payment/cancel";
 
+    /**
+     * 카카오 {@code -701 authentication doesn't complete!} — 사용자가 결제창 인증을 마치지
+     * 않고 돌아온 경우. 본문에서 이 코드만 가려낸다. JSON 으로 파싱하지 않는 이유는 오류
+     * 응답의 모양이 문서화돼 있지 않고, 파싱이 실패하면 원래 오류까지 덮어쓰기 때문이다.
+     */
+    private static final java.util.regex.Pattern NOT_AUTHENTICATED =
+            java.util.regex.Pattern.compile("\"error_code\"\\s*:\\s*-701\\b");
+
     private final KakaoPayProperties properties;
     private final RestClient restClient;
 
@@ -123,12 +131,19 @@ public class KakaoPayGateway implements PaymentGateway {
             }
             return response;
         } catch (HttpStatusCodeException rejected) {
+            String responseBody = rejected.getResponseBodyAsString();
+            // 사용자가 결제창을 닫거나 뒤로 간 것은 장애가 아니다. 이것만 먼저 가려낸다 —
+            // 나머지는 정말로 우리가 봐야 할 문제이므로 ERROR + 502 를 그대로 둔다.
+            if (NOT_AUTHENTICATED.matcher(responseBody).find()) {
+                log.info("KakaoPay {} was not authenticated by the user (-701)", operation);
+                throw new BusinessException(TradeErrorCode.PAYMENT_NOT_AUTHENTICATED);
+            }
             // 카카오가 무엇을 거부했는지는 응답 본문에만 있다. 스택 트레이스에 묻히면
             // 진단이 불가능하므로 **상태코드와 본문을 한 줄로** 남긴다.
             // 본문에 cid 가 섞여 나올 수 있으나 cid 는 비밀값이 아니다. 시크릿 키는
             // 요청 헤더에만 있고 응답에는 실리지 않는다.
             log.error("KakaoPay {} rejected: status={} body={}",
-                    operation, rejected.getStatusCode(), rejected.getResponseBodyAsString());
+                    operation, rejected.getStatusCode(), responseBody);
             throw new BusinessException(TradeErrorCode.PAYMENT_GATEWAY_FAILED);
         } catch (RestClientException failure) {
             // 응답 자체가 없는 경우 — 네트워크·타임아웃·호스트 오류.
