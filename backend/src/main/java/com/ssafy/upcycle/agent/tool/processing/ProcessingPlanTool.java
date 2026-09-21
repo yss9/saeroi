@@ -69,7 +69,12 @@ public class ProcessingPlanTool extends AbstractAgentTool {
     @Override
     public Set<JourneyPhase> phases() {
         // 생산 단계에서도 "왜 이 소재를 못 쓰는가" 를 설명해야 한다.
-        return Set.of(JourneyPhase.PROCESSING, JourneyPhase.PRODUCTION);
+        // **소재 단계에도 노출한다.** 소재를 받은 직후 "이거 가공해야 해?" 는 자연스러운
+        // 물음인데, 예전에는 이 tool 이 가공 단계에만 있어 모델이 부를 수조차 없었다.
+        // 그래서 지어냈고 "필수 가공은 없습니다" 라고 사실과 반대로 답했다 — 이 플랫폼의
+        // 핵심 규칙인데 그랬다. 읽기 전용이고 데이터로만 답하므로 단계를 가릴 이유가 없다.
+        return Set.of(
+                JourneyPhase.MATERIAL_SOURCING, JourneyPhase.PROCESSING, JourneyPhase.PRODUCTION);
     }
 
     @Override
