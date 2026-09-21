@@ -1,4 +1,5 @@
 import { EmptyState, ErrorMessage, Loading, Pagination } from '../../../components/common/index.ts'
+import { useEvidenceThumbnails } from '../../evidence/hooks/useEvidenceThumbnails.ts'
 import { useListings } from '../hooks/useListings.ts'
 import type { GetListingsParams } from '../api/getListings.ts'
 import type { Listing } from '../types/marketplace.types.ts'
@@ -31,6 +32,10 @@ export function ListingList({
   viewer = 'buyer',
 }: ListingListProps) {
   const { data, isPending, isError, error, refetch } = useListings(params)
+  // 카드마다 따로 부르면 화면 하나에 판매글 수만큼 요청이 나간다(N+1) — 이 페이지에 보일
+  // materialId 를 모아 한 번에 묻는다. `data` 가 없을 때는 빈 배열이라 훅이 요청하지 않는다.
+  const materialIds = data?.content.map((listing) => listing.materialId) ?? []
+  const thumbnails = useEvidenceThumbnails('MATERIAL', materialIds)
 
   if (isPending) return <Loading variant="skeleton" rows={4} label="판매 목록을 불러오는 중" />
   if (isError) return <ErrorMessage error={error} onRetry={() => void refetch()} />
@@ -42,7 +47,12 @@ export function ListingList({
       <ul className="listing-list">
         {data.content.map((listing) => (
           <li key={listing.listingId}>
-            <ListingCard listing={listing} actions={renderActions?.(listing)} viewer={viewer} />
+            <ListingCard
+              listing={listing}
+              actions={renderActions?.(listing)}
+              viewer={viewer}
+              thumbnail={thumbnails.data?.[listing.materialId]}
+            />
           </li>
         ))}
       </ul>

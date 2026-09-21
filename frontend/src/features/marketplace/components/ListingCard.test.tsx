@@ -1,9 +1,17 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
 import type { Listing } from '../types/marketplace.types.ts'
 import { ListingCard } from './ListingCard.tsx'
+
+// ListingCard 가 그리는 EvidenceThumbnailImage 는 useQuery 를 쓴다(thumbnail 이
+// 없어도 훅 자체는 호출된다) — 그래서 QueryClientProvider 가 항상 있어야 한다.
+function renderCard(children: React.ReactNode) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return render(<QueryClientProvider client={queryClient}>{children}</QueryClientProvider>)
+}
 
 const listing: Listing = {
   listingId: 7,
@@ -33,7 +41,7 @@ function LocationProbe() {
 
 it('판매글 카드의 빈 영역을 클릭하면 상세로 이동한다', async () => {
   const user = userEvent.setup()
-  render(
+  renderCard(
     <MemoryRouter initialEntries={['/marketplace']}>
       <ListingCard listing={listing} />
       <LocationProbe />
@@ -48,7 +56,7 @@ it('판매글 카드의 빈 영역을 클릭하면 상세로 이동한다', asyn
 it('카드 내부 동작 버튼을 클릭하면 상세로 이동하지 않는다', async () => {
   const user = userEvent.setup()
   const action = vi.fn()
-  render(
+  renderCard(
     <MemoryRouter initialEntries={['/supplier/listings']}>
       <ListingCard listing={listing} actions={<button type="button" onClick={action}>판매 취소</button>} />
       <LocationProbe />
@@ -64,7 +72,7 @@ it('카드 내부 동작 버튼을 클릭하면 상세로 이동하지 않는다
 // 가로형 카드는 세 덩어리다 — 왼쪽 이미지 자리, 가운데 소재, 오른쪽 값. 여러 장을 훑을 때
 // 단가가 언제나 같은 자리에 와야 서로 견줄 수 있다.
 it('소재와 값을 한 줄에 나눠 보여준다', () => {
-  render(
+  renderCard(
     <MemoryRouter>
       <ListingCard listing={listing} />
     </MemoryRouter>,
@@ -83,7 +91,7 @@ it('소재와 값을 한 줄에 나눠 보여준다', () => {
 
 // 사진이 생기기 전에도 자리를 잡아 둔다 — 나중에 카드 높이와 줄 맞춤이 통째로 달라지지 않게.
 it('이미지 자리를 두고 그 위에 등급을 얹는다', () => {
-  const { container } = render(
+  const { container } = renderCard(
     <MemoryRouter>
       <ListingCard listing={{ ...listing, grade: 'A' }} />
     </MemoryRouter>,
