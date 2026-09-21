@@ -130,6 +130,9 @@ app:
     # 생산 배치 기록용 레지스트리. 이 주소만 비어 있어도 소재·거래 기록은 계속 동작한다 —
     # 나중에 붙는 컨트랙트가 앞선 기능을 멈추게 하지 않는다.
     production-registry-address: ${PRODUCTION_REGISTRY_ADDRESS:}
+    # 관리자 대시보드 SSE의 원본. HTTP RPC를 짧게 폴링하고 새 블록만 fan-out한다.
+    live-initial-delay-ms: ${BLOCKCHAIN_LIVE_INITIAL_DELAY_MS:2000}
+    live-poll-ms: ${BLOCKCHAIN_LIVE_POLL_MS:2500}
   prediction:
     chain-id: ${PREDICTION_CHAIN_ID:31221}
     rpc-url: ${PREDICTION_RPC_URL:${BESU_RPC_URL:}}
