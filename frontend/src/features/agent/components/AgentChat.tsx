@@ -20,7 +20,12 @@ import {
   useCompleteConversation,
   useSendMessage,
 } from '../hooks/useAgentConversation.ts'
-import { PHASE_LABEL, type PendingAction } from '../types/agent.types.ts'
+import {
+  PHASE_LABEL,
+  type AgentMessage,
+  type ConversationDetail,
+  type PendingAction,
+} from '../types/agent.types.ts'
 import { ConfirmCard } from './ConfirmCard.tsx'
 import { PaymentCard } from './PaymentCard.tsx'
 import { AgentTaskPanel } from './AgentTaskPanel.tsx'
@@ -123,14 +128,18 @@ export function AgentChat() {
           </p>
         )}
 
-        {conversation?.messages.map((message) => (
-          <article
-            key={message.id}
-            className={`agent-message agent-message--${message.role.toLowerCase()}`}
-          >
-            <p>{message.content}</p>
-          </article>
-        ))}
+        {timelineOf(conversation).map((entry) =>
+          entry.kind === 'message' ? (
+            <article
+              key={`m${entry.message.id}`}
+              className={`agent-message agent-message--${entry.message.role.toLowerCase()}`}
+            >
+              <p>{entry.message.content}</p>
+            </article>
+          ) : (
+            <ActionCard key={`a${entry.action.id}`} action={entry.action} />
+          ),
+        )}
 
         {/*
           첫 발화라 아직 대화가 없을 때. 낙관적 갱신은 기존 대화에만 붙일 수 있어서,
@@ -141,17 +150,6 @@ export function AgentChat() {
             <p>{send.variables.message}</p>
           </article>
         )}
-
-        {/*
-          카드는 말풍선에 붙이지 않고 로그 끝에 모아 그린다.
-
-          카드의 `messageId` 는 **tool 호출 메시지**를 가리키는데 그 줄은 화면에서 걸러진다
-          (사용자가 읽을 것은 모델의 말과 카드이지 호출 로그가 아니다). 그래서 말풍선에
-          붙이려 하면 붙을 자리가 없어 카드가 아예 보이지 않는다.
-        */}
-        {conversation?.actions.map((action) => (
-          <ActionCard key={action.id} action={action} />
-        ))}
 
         {send.isPending && (
           <p className="agent-chat__thinking" aria-live="polite">
@@ -239,6 +237,58 @@ function ActionCard({ action }: { action: PendingAction }) {
   return null
 }
 
+/**
+ * 대화와 카드를 <b>시간 순서대로</b> 엮는다.
+ *
+ * 예전에는 카드를 로그 끝에 모아 그렸다. 카드의 `messageId` 가 가리키는 tool 호출 메시지는
+ * 화면에서 걸러지므로(사용자가 읽을 것은 모델의 말과 카드이지 호출 로그가 아니다) 말풍선에
+ * 붙일 자리가 없었기 때문이다.
+ *
+ * 그 결과 여정이 길어질수록 처리된 카드가 바닥에 쌓이고, **지금 눌러야 할 카드가 그 사이에
+ * 묻혔다.** 게다가 카드가 대화의 어느 대목에서 나온 것인지도 알 수 없었다 — "이 결제가
+ * 무엇에 대한 것인가" 는 앞뒤 맥락과 함께 읽어야 한다.
+ *
+ * 그래서 붙일 자리가 없으면 **바로 앞 메시지 뒤에 놓는다.** 카드의 `messageId` 는 걸러진
+ * 줄이지만 그 번호는 여전히 순서를 말해 주므로, 그보다 작은 id 를 가진 마지막 메시지 뒤가
+ * 제자리다. 정렬만으로 같은 결과가 나온다 — 메시지 id 와 카드의 `messageId` 를 한 축에
+ * 놓고 세우면 된다.
+ *
+ * 같은 자리를 가리키는 카드가 여럿이면(한 턴에 여러 tool 을 부른 경우) 카드끼리는 자기
+ * id 순으로 둔다. 만들어진 차례가 곧 담당자가 눌러야 할 차례다.
+ *
+ * <b>아직 보내지지 않은 말풍선은 언제나 끝이다.</b> 낙관적 말풍선은 렌더 키가 겹치지 않도록
+ * id 가 음수인데, 그걸 그대로 정렬하면 방금 친 말이 대화 맨 위로 올라갔다가 답이 온 뒤에야
+ * 아래로 내려온다.
+ */
+export function timelineOf(conversation: ConversationDetail | null | undefined): TimelineEntry[] {
+  if (!conversation) return []
+
+  const entries: TimelineEntry[] = [
+    ...conversation.messages.map((message) => ({
+      kind: 'message' as const,
+      // 아직 서버에 없는 말풍선은 id 가 음수다(`optimisticUserMessage`). 그대로 정렬하면
+      // 방금 친 말이 대화 맨 위로 올라갔다가 답이 온 뒤에야 제자리로 내려온다.
+      // 보낸 말은 언제나 끝이므로 정렬에서 맨 뒤로 보낸다.
+      order: message.id < 0 ? Number.MAX_SAFE_INTEGER : message.id,
+      tie: message.id < 0 ? message.id : 0,
+      message,
+    })),
+    ...conversation.actions.map((action) => ({
+      kind: 'action' as const,
+      // 카드는 자기를 만든 tool 호출 **뒤에** 온다. 같은 번호면 메시지가 먼저다.
+      order: action.messageId,
+      tie: action.id,
+      action,
+    })),
+  ]
+
+  return entries.sort((a, b) => a.order - b.order || a.tie - b.tie)
+}
+
+export type TimelineEntry =
+  | { kind: 'message'; order: number; tie: number; message: AgentMessage }
+  | { kind: 'action'; order: number; tie: number; action: PendingAction }
+
 /** 처리가 끝난 카드. 한 줄만 차지한다. */
 function ProcessedAction({ action }: { action: PendingAction }) {
   return (
@@ -277,7 +327,9 @@ const SIGNERS: Record<string, (payload: SignPayload) => Promise<string>> = {
   request_custody_transfer: (payload) =>
     signCustodyTransfer(requireId(payload, 'jobId'), payload.carrier, payload.trackingNumber),
   approve_processing_result: (payload) => signProcessingApproval(requireId(payload, 'jobId')),
-  request_chain_receipt: (payload) => signTradeReceipt(requireId(payload, 'tradeId')),
+  // 수령은 카드 하나다 — 서명하면 그 자리에서 수령까지 확정된다. 예전에는 서명 카드와
+  // 확인 카드가 따로 떠서 두 번 눌러야 했다.
+  confirm_receipt: (payload) => signTradeReceipt(requireId(payload, 'tradeId')),
 }
 
 /** 서명 카드가 넘겨주는 값. 모델이 만든 인자라 무엇이 들었는지 보장되지 않는다. */
@@ -401,6 +453,10 @@ async function signTradeReceipt(tradeId: number): Promise<string> {
   }
 
   const receipt = await confirmedTransaction(confirmReceipt(trade.chainTradeId))
+
+  // **서버에 따로 알리지 않는다.** 다음 단계인 confirm_receipt 가 체인을 읽어 수령이
+  // 남았는지 확인하고, 그때 서명 시각까지 채운다. 여기서 한 번 더 보고하면 같은 일을
+  // 두 곳에서 하게 되고, 어긋나는 순간 어느 쪽이 정본인지 알 수 없다.
   return receipt.hash
 }
 
