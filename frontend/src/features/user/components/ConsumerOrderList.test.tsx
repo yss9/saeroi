@@ -265,6 +265,50 @@ describe('ConsumerOrderList', () => {
         '/mypage/orders/12',
       )
     })
+
+    it('묶음 결제 정보는 한 번만, 브랜드별 배송 정보는 각각 보여준다', () => {
+      renderList([
+        order({
+          id: 'PO-001:ITEM-001',
+          orderId: 12,
+          orderNumber: 'PO-001',
+          orderGroupId: 3,
+          orderGroupCode: 'ORG-3',
+          brandName: 'OCEAN LOOP',
+          productName: '오션 러그',
+          status: 'PAYMENT_PENDING',
+        }),
+        order({
+          id: 'PO-002:ITEM-002',
+          orderId: 13,
+          orderNumber: 'PO-002',
+          orderGroupId: 3,
+          orderGroupCode: 'ORG-3',
+          brandName: 'RE:CODE',
+          productName: '마켓 토트',
+          status: 'PAYMENT_PENDING',
+        }),
+      ])
+
+      expect(screen.getAllByRole('article')).toHaveLength(1)
+      const bundle = screen.getByRole('article', { name: 'ORG-3 주문' })
+      expect(within(bundle).getAllByText('주문 번호 ORG-3')).toHaveLength(1)
+      expect(within(bundle).getAllByRole('timer')).toHaveLength(1)
+      expect(within(bundle).getAllByRole('link', { name: '결제하기' })).toHaveLength(1)
+      expect(within(bundle).getByRole('link', { name: '결제하기' })).toHaveAttribute(
+        'href',
+        '/order-groups/3',
+      )
+
+      expect(within(bundle).getAllByText('결제 대기')).toHaveLength(2)
+      expect(within(bundle).getAllByRole('button', { name: /배송조회/ })).toHaveLength(2)
+      const detailLinks = within(bundle).getAllByRole('link', { name: /주문 상세보기/ })
+      expect(detailLinks).toHaveLength(2)
+      expect(detailLinks.map((link) => link.getAttribute('href'))).toEqual([
+        '/mypage/orders/12',
+        '/mypage/orders/13',
+      ])
+    })
   })
 
   it('주문이 없으면 둘러보기로 데려간다', () => {

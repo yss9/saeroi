@@ -40,6 +40,32 @@ const orderStatusMeta: Record<ConsumerOrderViewStatus, { label: string; tone: St
   DELIVERED: { label: '배송 완료', tone: 'success' },
 }
 
+interface ConsumerOrderBundle {
+  key: string
+  orderGroupId?: number | null
+  orderGroupCode?: string | null
+  orders: ConsumerOrderGroup[]
+}
+
+function bundleConsumerOrders(groups: readonly ConsumerOrderGroup[]): ConsumerOrderBundle[] {
+  const bundles = new Map<string, ConsumerOrderBundle>()
+  for (const group of groups) {
+    const key = group.orderGroupId != null ? `group:${group.orderGroupId}` : `order:${group.orderId}`
+    let bundle = bundles.get(key)
+    if (!bundle) {
+      bundle = {
+        key,
+        orderGroupId: group.orderGroupId,
+        orderGroupCode: group.orderGroupCode,
+        orders: [],
+      }
+      bundles.set(key, bundle)
+    }
+    bundle.orders.push(group)
+  }
+  return [...bundles.values()]
+}
+
 /**
  * 주문 내역.
  *
@@ -83,7 +109,7 @@ export function ConsumerOrderList({ orders }: { orders: readonly ConsumerRecentO
 
   // 서버가 주문을 최신순으로 보내므로 그 순서를 그대로 유지한다. 페이지 안에서 다시
   // 정렬하면 전체 주문 기준 정렬처럼 보이지만 실제로는 현재 20건 안에서만 맞게 된다.
-  const groups = groupConsumerOrders(orders)
+  const bundles = bundleConsumerOrders(groupConsumerOrders(orders))
 
   return (
     <section className="consumer-mypage-card" aria-labelledby="orders-title">
@@ -98,12 +124,12 @@ export function ConsumerOrderList({ orders }: { orders: readonly ConsumerRecentO
       {confirm.isError && <ErrorMessage error={confirm.error} />}
 
       <div className="consumer-recent-orders">
-        {groups.map((group) => (
-          <OrderGroupCard
-            key={group.orderId}
-            group={group}
-            busy={confirm.isPending && confirm.variables === group.orderId}
-            onConfirmDelivery={() => setPending(group)}
+        {bundles.map((bundle) => (
+          <OrderBundleCard
+            key={bundle.key}
+            bundle={bundle}
+            confirmingOrderId={confirm.isPending ? confirm.variables : undefined}
+            onConfirmDelivery={setPending}
             onShowShipping={setShippingItem}
           />
         ))}
@@ -128,81 +154,97 @@ export function ConsumerOrderList({ orders }: { orders: readonly ConsumerRecentO
 }
 
 /**
- * 큰 박스 — 주문 하나.
+ * 큰 박스 — 결제 묶음 하나.
  *
- * 좌측 상단 주문 날짜 · 우측 상단 "주문 상세보기"(별도 페이지로 이동). 배송 완료 확인·주문
- * 취소는 제품이 아니라 **주문 단위 동작**이라 제품 카드 안이 아니라 여기(주문 전체를 감싸는
- * 큰 박스)에 한 번만 둔다 — 제품이 여럿이면 버튼도 여럿이 되어 몇 번을 눌러야 하는지
- * 헷갈린다.
+ * 결제 버튼·마감·결제번호는 묶음에 한 번만 둔다. 배송 상태·배송조회·상세보기·수령 확인은
+ * 브랜드별 주문 단위라 묶음 안의 각 주문에 따로 둔다.
  */
-function OrderGroupCard({
-  group,
-  busy,
+function OrderBundleCard({
+  bundle,
+  confirmingOrderId,
   onConfirmDelivery,
   onShowShipping,
 }: {
-  group: ConsumerOrderGroup
-  busy: boolean
-  onConfirmDelivery: () => void
+  bundle: ConsumerOrderBundle
+  confirmingOrderId?: number
+  onConfirmDelivery: (order: ConsumerOrderGroup) => void
   onShowShipping: (item: ConsumerRecentOrder) => void
 }) {
-  const status = orderStatusMeta[group.status]
-  const paymentCountdown = usePaymentCountdown(group.remainingSeconds, group.paymentDeadline)
+  const firstOrder = bundle.orders[0]
+  const paymentOrder = bundle.orders.find((order) => order.status === 'PAYMENT_PENDING')
+  const paymentCountdown = usePaymentCountdown(paymentOrder?.remainingSeconds, paymentOrder?.paymentDeadline)
+  const orderReference = bundle.orderGroupCode ?? firstOrder.orderNumber
 
   return (
-    <article className="consumer-order-group" aria-label={`${group.orderNumber} 주문`}>
+    <article className="consumer-order-group" aria-label={`${orderReference} 주문`}>
       <header className="consumer-order-group__header">
         <div className="consumer-order-group__header-main">
-          <time dateTime={group.orderedAt}>{formatDate(group.orderedAt, dateFormatter)}</time>
-          <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
+          <time dateTime={firstOrder.orderedAt}>{formatDate(firstOrder.orderedAt, dateFormatter)}</time>
+          <p className="consumer-order-group__reference">주문 번호 {orderReference}</p>
         </div>
-        <Link className="consumer-order-group__detail-link" to={`/mypage/orders/${group.orderId}`}>
-          주문 상세보기 <ArrowRight aria-hidden="true" />
-        </Link>
       </header>
 
-      <div className="consumer-order-group__items">
-        {group.items.map((item, index) => (
-          <OrderItemCard
-            key={item.id}
-            item={item}
-            orderReference={index === 0 ? (group.orderGroupCode ?? group.orderNumber) : undefined}
-            onShowShipping={() => onShowShipping(item)}
-          />
-        ))}
+      <div className="consumer-order-group__orders">
+        {bundle.orders.map((order) => {
+          const status = orderStatusMeta[order.status]
+          const firstItem = order.items[0]
+          return (
+            <section className="consumer-order-group__brand-order" key={order.orderId} aria-label={`${firstItem.brandName} 주문`}>
+              <header className="consumer-order-group__brand-header">
+                <div className="consumer-order-group__brand-status">
+                  <p>{firstItem.brandName}</p>
+                  <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
+                </div>
+                <Link className="consumer-order-group__detail-link" to={`/mypage/orders/${order.orderId}`}>
+                  주문 상세보기 <ArrowRight aria-hidden="true" />
+                </Link>
+              </header>
+
+              <div className="consumer-order-group__items">
+                {order.items.map((item) => <OrderItemCard key={item.id} item={item} />)}
+              </div>
+
+              <footer className="consumer-order-group__brand-actions">
+                <Button variant="secondary" size="sm" onClick={() => onShowShipping(firstItem)}>
+                  배송조회 <ArrowRight aria-hidden="true" />
+                </Button>
+                {order.status === 'SHIPPING' && (
+                  <Button
+                    size="sm"
+                    loading={confirmingOrderId === order.orderId}
+                    onClick={() => onConfirmDelivery(order)}
+                  >
+                    배송 완료 확인
+                  </Button>
+                )}
+              </footer>
+            </section>
+          )
+        })}
       </div>
 
       {/* 주문 취소처럼 파괴적인 동작은 목록에서 빼고 주문 상세에서만 제공한다. */}
-      {(group.status === 'SHIPPING' || group.status === 'PAYMENT_PENDING') && (
+      {paymentOrder && (
         <footer className="consumer-order-group__actions">
           <div className="consumer-order-group__actions-column">
-            {group.status === 'PAYMENT_PENDING' && (
-              <>
-                {paymentCountdown.label && (
-                  <p className="consumer-order-group__deadline" role="timer">
-                    {paymentCountdown.label}
-                  </p>
-                )}
-                {paymentCountdown.expired ? (
-                  <button className="consumer-order-group__pay" type="button" disabled>
-                    결제하기
-                  </button>
-                ) : (
-                  <Link
-                    className="consumer-order-group__pay"
-                    to={group.orderGroupId != null
-                      ? `/order-groups/${group.orderGroupId}`
-                      : `/orders/${group.orderId}/checkout`}
-                  >
-                    결제하기
-                  </Link>
-                )}
-              </>
+            {paymentCountdown.label && (
+              <p className="consumer-order-group__deadline" role="timer">
+                {paymentCountdown.label}
+              </p>
             )}
-            {group.status === 'SHIPPING' && (
-              <Button size="sm" fullWidth loading={busy} onClick={onConfirmDelivery}>
-                배송 완료 확인
-              </Button>
+            {paymentCountdown.expired ? (
+              <button className="consumer-order-group__pay" type="button" disabled>
+                결제하기
+              </button>
+            ) : (
+              <Link
+                className="consumer-order-group__pay"
+                to={bundle.orderGroupId != null
+                  ? `/order-groups/${bundle.orderGroupId}`
+                  : `/orders/${paymentOrder.orderId}/checkout`}
+              >
+                결제하기
+              </Link>
             )}
           </div>
         </footer>
@@ -220,19 +262,12 @@ function OrderGroupCard({
  */
 function OrderItemCard({
   item,
-  orderReference,
-  onShowShipping,
 }: {
   item: ConsumerRecentOrder
-  orderReference?: string
-  onShowShipping: () => void
 }) {
   return (
-    <div className={`consumer-order-item${orderReference ? ' consumer-order-item--with-reference' : ''}`}>
+    <div className="consumer-order-item">
       <div className="consumer-order-item__body">
-        {orderReference && (
-          <p className="consumer-order-group__reference">주문 번호 {orderReference}</p>
-        )}
         <OrderThumbnail item={item} />
         <div className="consumer-order-item__info">
           <p className="consumer-order-item__brand">{item.brandName}</p>
@@ -244,9 +279,6 @@ function OrderItemCard({
         </div>
 
         <div className="consumer-order-item__actions">
-          <Button variant="secondary" size="sm" fullWidth onClick={onShowShipping}>
-            배송조회 <ArrowRight aria-hidden="true" />
-          </Button>
           {item.journeyUrl ? (
             // 버튼처럼 보여야 "배송조회" 와 나란히 1열로 정렬된다 — 실제로는 링크라 새
             // 탭 열기·우클릭 복사 같은 링크 동작은 그대로 유지된다.
