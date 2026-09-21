@@ -11,6 +11,7 @@ import type { ConsumerOrderViewStatus, ConsumerRecentOrder } from '../types/cons
  */
 export interface ConsumerOrderGroup {
   orderId: number
+  orderGroupId?: number | null
   orderGroupCode?: string | null
   orderNumber: string
   orderedAt: string
@@ -27,6 +28,7 @@ export function groupConsumerOrders(orders: readonly ConsumerRecentOrder[]): Con
     if (!group) {
       group = {
         orderId: item.orderId,
+        orderGroupId: item.orderGroupId,
         orderGroupCode: item.orderGroupCode,
         orderNumber: item.orderNumber,
         orderedAt: item.orderedAt,

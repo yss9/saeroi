@@ -106,8 +106,8 @@ describe('ConsumerOrderList', () => {
     expect(screen.queryByRole('button', { name: '주문 취소' })).not.toBeInTheDocument()
   })
   it('결제 대기 묶음 주문도 목록에는 취소 진입점을 두지 않는다', () => {
-    renderList([order({ status: 'PAYMENT_PENDING', orderGroupCode: 'CHANGED-CODE' })])
-    expect(screen.getByRole('link', { name: '결제하기' })).toHaveAttribute('href', '/orders/12/checkout')
+    renderList([order({ status: 'PAYMENT_PENDING', orderGroupId: 3, orderGroupCode: 'CHANGED-CODE' })])
+    expect(screen.getByRole('link', { name: '결제하기' })).toHaveAttribute('href', '/order-groups/3')
     expect(screen.queryByRole('link', { name: '주문 전체 취소' })).not.toBeInTheDocument()
   })
   it('묶음 주문은 코드를 표시하고 개별 취소를 막는다', () => {
