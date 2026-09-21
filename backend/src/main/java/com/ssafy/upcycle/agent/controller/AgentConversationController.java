@@ -1,6 +1,7 @@
 package com.ssafy.upcycle.agent.controller;
 
 import com.ssafy.upcycle.agent.dto.ConversationDetailResponse;
+import com.ssafy.upcycle.agent.dto.JourneyProgressResponse;
 import com.ssafy.upcycle.agent.dto.ConversationSummaryResponse;
 import com.ssafy.upcycle.agent.dto.SendMessageRequest;
 import com.ssafy.upcycle.agent.service.AgentConversationService;
@@ -55,6 +56,19 @@ public class AgentConversationController {
     public ApiResponse<ConversationDetailResponse> detail(
             @AuthenticationPrincipal Jwt jwt, @PathVariable Long conversationId) {
         return ApiResponse.success(conversationService.detail(userId(jwt), conversationId));
+    }
+
+    /**
+     * 대화 위에 뜨는 경과 표시.
+     *
+     * <p>대화 상세와 나누는 이유는 갱신 주기가 다르기 때문이다. 이쪽은 상대방이 움직였는지를
+     * 보려고 주기적으로 다시 읽는데, 대화 전체를 그 주기로 받으면 메시지 수십 건이 매번
+     * 따라온다.
+     */
+    @GetMapping("/{conversationId}/progress")
+    public ApiResponse<JourneyProgressResponse> progress(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable Long conversationId) {
+        return ApiResponse.success(conversationService.progress(userId(jwt), conversationId));
     }
 
     @PostMapping("/{conversationId}/messages")

@@ -2,6 +2,7 @@ package com.ssafy.upcycle.agent.service;
 
 import com.ssafy.upcycle.agent.AgentErrorCode;
 import com.ssafy.upcycle.agent.dto.ConversationDetailResponse;
+import com.ssafy.upcycle.agent.dto.JourneyProgressResponse;
 import com.ssafy.upcycle.agent.dto.ConversationSummaryResponse;
 import com.ssafy.upcycle.agent.entity.AgentConversation;
 import com.ssafy.upcycle.agent.entity.AgentMessage;
@@ -30,6 +31,7 @@ public class AgentConversationService {
     private final AgentPendingActionRepository pendingActions;
     private final ConversationStore store;
     private final AgentChatService chatService;
+    private final AgentJourneyProgress journeyProgress;
     private final UserRepository users;
 
     /**
@@ -130,6 +132,12 @@ public class AgentConversationService {
         return conversations.findByBrandUserIdOrderByUpdatedAtDesc(userId, PageRequest.of(0, capped)).stream()
                 .map(ConversationSummaryResponse::from)
                 .toList();
+    }
+
+    /** 대화 위 경과 표시. 도메인만 읽으므로 크레딧이 들지 않는다. */
+    @Transactional(readOnly = true)
+    public JourneyProgressResponse progress(Long userId, Long conversationId) {
+        return journeyProgress.of(userId, require(userId, conversationId));
     }
 
     @Transactional(readOnly = true)
