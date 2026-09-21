@@ -50,6 +50,11 @@ public class Web3jPredictionChainGateway implements PredictionChainGateway {
         return send(properties.marketAddress(),function).getTransactionHash();
     }
 
+    @Override public String cancelMarket(long marketId){
+        Function function=new Function("cancelMarket",List.of(new Uint256(BigInteger.valueOf(marketId))),List.of());
+        return send(properties.marketAddress(),function).getTransactionHash();
+    }
+
     @Override public String mintPoint(String wallet,BigInteger amount){
         Function function=new Function("mint",List.of(new Address(wallet),new Uint256(amount)),List.of());
         return send(properties.tokenAddress(),function).getTransactionHash();
