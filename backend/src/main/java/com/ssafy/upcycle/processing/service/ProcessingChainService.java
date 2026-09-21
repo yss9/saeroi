@@ -76,7 +76,7 @@ public class ProcessingChainService {
         MaterialLock lock = activeLock(jobId);
         lock.linkChainLock(request.chainLockId());
         job.linkChainJob(request.onChainId());
-        record(actorId, "createJob", jobId, request.txHash(), request.blockNumber());
+        record(actorId, "createJob", jobId, request.txHash());
         return response(job);
     }
 
@@ -108,7 +108,7 @@ public class ProcessingChainService {
         replacement.linkChainLock(receipt.processorLockId());
         input.linkProcessorLock(replacement.getId());
         job.receiveOnChain(request.txHash(), receipt.blockNumber(), now);
-        record(actorId, "confirmReceipt", jobId, request.txHash(), receipt.blockNumber());
+        record(actorId, "confirmReceipt", jobId, request.txHash());
         eventRecorder.record(input.getMaterialId(), MaterialEventType.OWNERSHIP_TRANSFERRED, actorId,
                 MaterialEventReferenceType.PROCESSING_JOB, jobId, null, input.getQuantity(),
                 "가공업체 수령 확인으로 입력 소재 소유권 이전",
@@ -129,7 +129,7 @@ public class ProcessingChainService {
                 job.getProcessorWallet(), Action.RETURN_SHIP, evidence.getFileHash(), 1);
         job.shipReturn(request.carrier(), request.trackingNumber(), evidence.getFileHash(),
                 request.txHash(), receipt.blockNumber(), now());
-        record(actorId, "markReturnShipped", jobId, request.txHash(), receipt.blockNumber());
+        record(actorId, "markReturnShipped", jobId, request.txHash());
         return response(job);
     }
 
@@ -170,7 +170,7 @@ public class ProcessingChainService {
             row.linkMaterial(child.getId());
         }
         job.confirmReturn(request.txHash(), receipt.blockNumber(), null, now);
-        record(actorId, "approveProcessingResult", jobId, request.txHash(), receipt.blockNumber());
+        record(actorId, "approveProcessingResult", jobId, request.txHash());
         eventRecorder.record(parent.getId(), MaterialEventType.PROCESSING_RESULT_APPROVED, actorId,
                 MaterialEventReferenceType.PROCESSING_JOB, jobId, null, input.getQuantity(),
                 "Brand 가공 결과 수령 및 승인",
@@ -206,7 +206,7 @@ public class ProcessingChainService {
         brand.increase(input.getQuantity());
         job.cancelAfterRejectedReturn(request.carrier(), request.trackingNumber(), evidence.getFileHash(),
                 request.txHash(), receipt.blockNumber(), now);
-        record(actorId, "returnRejectedInput", jobId, request.txHash(), receipt.blockNumber());
+        record(actorId, "returnRejectedInput", jobId, request.txHash());
         eventRecorder.record(input.getMaterialId(), MaterialEventType.PROCESSING_INPUT_RETURNED, actorId,
                 MaterialEventReferenceType.PROCESSING_JOB, jobId, null, input.getQuantity(),
                 "반려된 가공 입력 소재를 Brand에게 반환",
@@ -214,9 +214,9 @@ public class ProcessingChainService {
         return response(job);
     }
 
-    private void record(Long actorId, String function, Long jobId, String hash, Long block) {
+    private void record(Long actorId, String function, Long jobId, String hash) {
         recorder.record(actorId, ChainTransactionRecorder.Contract.PROCESSING_REGISTRY, function,
-                BlockchainReferenceType.PROCESSING, jobId, hash, block);
+                BlockchainReferenceType.PROCESSING, jobId, hash);
     }
     private ProcessingJob lockJob(Long id) { return jobs.findForUpdate(id).orElseThrow(() -> new BusinessException(PROCESSING_JOB_NOT_FOUND)); }
     private ProcessingInput requireInput(Long id) { return inputs.findByProcessingJobId(id).orElseThrow(() -> new BusinessException(PROCESSING_INVALID_STATE)); }

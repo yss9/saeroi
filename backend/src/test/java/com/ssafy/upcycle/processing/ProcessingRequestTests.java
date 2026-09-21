@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.assertj.core.api.Assertions.assertThat;
 import static com.ssafy.upcycle.user.WalletTestSignatures.*;
 
+import com.ssafy.upcycle.blockchain.ScriptedReceiptClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ssafy.upcycle.blockchain.service.ProcessingReceiptVerifier;
 import com.ssafy.upcycle.blockchain.service.ProcessingReceiptVerifier.Action;
@@ -51,6 +52,8 @@ import static org.mockito.Mockito.when;
         "spring.datasource.url=jdbc:h2:mem:processing-tests;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1"})
 @AutoConfigureMockMvc
 class ProcessingRequestTests {
+    private static final String PROCESSING_REGISTRY = "0x3333333333333333333333333333333333333333";
+    @Autowired ScriptedReceiptClient chain;
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
     @Autowired ObjectMapper mapper;
@@ -77,6 +80,7 @@ class ProcessingRequestTests {
 
     @BeforeEach
     void fixture() {
+        chain.expect(PROCESSING_REGISTRY, Credentials.create(KEY_PAIR).getAddress());
         // Real persisted fixtures: missing reservation writes and transaction errors are observable.
         for (String table : List.of("blockchain_transaction", "user_notification", "processing_signature_challenge", "evidence_file", "material_lineage", "processing_output",
                 "material_event", "processing_input", "processing_job", "material_lock", "processing_request_type", "processing_request_input",
@@ -1055,7 +1059,30 @@ class ProcessingRequestTests {
                 .andExpect(jsonPath("data.status").value("ACCEPTED"));
     }
 
+    /**
+     * 이 작업의 각 단계에서 체인이 무엇을 답할지 미리 정해 둔다.
+     *
+     * <p>서버가 해시를 체인에서 확인한 뒤에만 기록하는데, 가공은 <b>단계마다 서명자가
+     * 바뀐다</b> — 작업 생성·반송 수령은 브랜드, 수령·반송 발송은 가공사다. 그래서 해시별로
+     * 답을 달리 둔다 ({@code chainHash(jobId, step)} 가 단계마다 다른 해시를 만든다).
+     *
+     * <p><b>지갑은 그때그때 DB 에서 읽는다.</b> 테스트마다 {@code linkWallets} 에 다른 값을
+     * 넘기므로(고정 문자열·{@code KEY_PAIR} 서명 지갑 등) 하나로 고정하면 대부분의 테스트가
+     * "서명자 불일치" 로 거절된다 — 실제로 5건이 이렇게 깨졌었다.
+     */
+    private void chainReceiptsFor(long jobId) {
+        String brand = wallets.findByUserIdAndActiveTrue(brandId).orElseThrow().getWalletAddress();
+        String processor = wallets.findByUserIdAndActiveTrue(processorId).orElseThrow().getWalletAddress();
+        chain.expectFor(chainHash(jobId, 1), PROCESSING_REGISTRY, brand);
+        chain.expectFor(chainHash(jobId, 2), PROCESSING_REGISTRY, processor);
+        chain.expectFor(chainHash(jobId, 3), PROCESSING_REGISTRY, processor);
+        chain.expectFor(chainHash(jobId, 4), PROCESSING_REGISTRY, brand);
+        chain.expectFor(chainHash(jobId, 5), PROCESSING_REGISTRY, brand);
+        chain.expectFor(chainHash(jobId, 6), PROCESSING_REGISTRY, processor);
+    }
+
     private void linkChainJob(long jobId) throws Exception {
+        chainReceiptsFor(jobId);
         mvc.perform(post("/processing-jobs/{id}/chain", jobId)
                         .with(jwt().jwt(j -> j.subject(brandId.toString())))
                         .contentType(MediaType.APPLICATION_JSON)

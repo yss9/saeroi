@@ -1,5 +1,6 @@
 package com.ssafy.upcycle.user.dto;
 
+import com.ssafy.upcycle.common.validation.SingleLine;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -15,10 +16,12 @@ import jakarta.validation.constraints.Size;
  */
 public record ConsumerAddressRequest(
         @NotBlank(message = "배송지 이름은 필수입니다.")
+        @SingleLine
         @Size(max = 100, message = "배송지 이름은 100자를 초과할 수 없습니다.")
         String alias,
 
         @NotBlank(message = "수령인 이름은 필수입니다.")
+        @SingleLine
         @Size(min = 2, max = 100, message = "수령인 이름은 2자 이상 100자 이하여야 합니다.")
         String receiverName,
 
@@ -33,9 +36,11 @@ public record ConsumerAddressRequest(
         String zipCode,
 
         @NotBlank(message = "주소는 필수입니다.")
+        @SingleLine
         @Size(max = 255, message = "주소는 255자를 초과할 수 없습니다.")
         String address,
 
+        @SingleLine
         @Size(max = 255, message = "상세 주소는 255자를 초과할 수 없습니다.")
         String addressDetail) {
 }

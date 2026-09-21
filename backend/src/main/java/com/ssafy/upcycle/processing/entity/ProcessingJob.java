@@ -1,5 +1,7 @@
 package com.ssafy.upcycle.processing.entity;
 
+import com.ssafy.upcycle.common.exception.BusinessException;
+import com.ssafy.upcycle.processing.ProcessingErrorCode;
 import com.ssafy.upcycle.trade.entity.PaymentMethod;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
@@ -52,21 +54,21 @@ public class ProcessingJob {
     @Column(name = "payment_amount", nullable = false) private long paymentAmount;
     @Enumerated(EnumType.STRING) @Column(nullable = false) private ProcessingJobStatus status;
     @Column(name = "payment_expires_at", nullable = false) private LocalDateTime paymentExpiresAt;
-    /**
-     * 가공사가 수락을 답해야 하는 시각. <b>결제가 승인될 때 정해진다</b> — 그 전에는 기다리는
-     * 것이 결제이지 수락이 아니므로 {@code null} 이다.
-     */
-    @Column(name = "accept_expires_at") private LocalDateTime acceptExpiresAt;
-    @Column(name = "accepted_at") private LocalDateTime acceptedAt;
-    @Column(name = "declined_at") private LocalDateTime declinedAt;
-    /**
-     * 가공사가 일을 거절한 이유. {@code rejectionReason}(브랜드의 결과 반려 사유)과 컬럼을
-     * 나눈다 — 한 칸에 담으면 "거절 사유" 가 일을 안 받은 이유인지 결과가 나쁜 이유인지
-     * 응답만 보고 알 수 없다. 무응답으로 자동 거절되면 비어 있다.
-     */
-    @Column(name = "decline_reason", length = 500) private String declineReason;
-    /** 환불이 끝난 시각. 두 번 환불하지 않기 위한 표시이기도 하다. */
-    @Column(name = "refunded_at") private LocalDateTime refundedAt;
+    /**
+     * 가공사가 수락을 답해야 하는 시각. <b>결제가 승인될 때 정해진다</b> — 그 전에는 기다리는
+     * 것이 결제이지 수락이 아니므로 {@code null} 이다.
+     */
+    @Column(name = "accept_expires_at") private LocalDateTime acceptExpiresAt;
+    @Column(name = "accepted_at") private LocalDateTime acceptedAt;
+    @Column(name = "declined_at") private LocalDateTime declinedAt;
+    /**
+     * 가공사가 일을 거절한 이유. {@code rejectionReason}(브랜드의 결과 반려 사유)과 컬럼을
+     * 나눈다 — 한 칸에 담으면 "거절 사유" 가 일을 안 받은 이유인지 결과가 나쁜 이유인지
+     * 응답만 보고 알 수 없다. 무응답으로 자동 거절되면 비어 있다.
+     */
+    @Column(name = "decline_reason", length = 500) private String declineReason;
+    /** 환불이 끝난 시각. 두 번 환불하지 않기 위한 표시이기도 하다. */
+    @Column(name = "refunded_at") private LocalDateTime refundedAt;
     @Column(name = "carrier", length = 50) private String carrier;
     @Column(name = "tracking_number", length = 100) private String trackingNumber;
     @Column(name = "receive_tx_hash", unique = true, columnDefinition = "CHAR(66)") private String receiveTxHash;
@@ -139,20 +141,20 @@ public class ProcessingJob {
         if (!isPaymentDue(now)) throw new IllegalStateException("Job payment is not due");
         status = ProcessingJobStatus.EXPIRED;
     }
-
-    /**
-     * 가공사가 일을 받았다. <b>결제가 끝난 작업만</b> 수락될 수 있다.
-     *
-     * <p>수락 기한이 지났더라도 가공사가 먼저 누르면 받아 준다 — 만료 배치가 아직 돌지 않은
-     * 몇 분 사이에 들어온 수락을 거절하면, 가공사에게는 "방금 눌렀는데 왜 안 되냐" 가 된다.
-     * 배치가 이미 {@code DECLINED} 로 옮겼다면 상태 검사에서 걸린다.
-     */
-    public void accept(LocalDateTime at) {
-        requireState(ProcessingJobStatus.PAID);
-        this.acceptedAt = requireTime(at);
-        this.status = ProcessingJobStatus.ACCEPTED;
-    }
-
+
+    /**
+     * 가공사가 일을 받았다. <b>결제가 끝난 작업만</b> 수락될 수 있다.
+     *
+     * <p>수락 기한이 지났더라도 가공사가 먼저 누르면 받아 준다 — 만료 배치가 아직 돌지 않은
+     * 몇 분 사이에 들어온 수락을 거절하면, 가공사에게는 "방금 눌렀는데 왜 안 되냐" 가 된다.
+     * 배치가 이미 {@code DECLINED} 로 옮겼다면 상태 검사에서 걸린다.
+     */
+    public void accept(LocalDateTime at) {
+        requireState(ProcessingJobStatus.PAID);
+        this.acceptedAt = requireTime(at);
+        this.status = ProcessingJobStatus.ACCEPTED;
+    }
+
     /**
      * 아직 소재가 오가기 전인가. 취소·거절·만료로 끝낼 수 있는 구간이다.
      *
@@ -355,8 +357,21 @@ public class ProcessingJob {
         return completedAt;
     }
 
+    /**
+     * 순서가 어긋난 전이를 막는다.
+     *
+     * <p><b>도메인 오류로 던진다.</b> 예전에는 raw {@code IllegalStateException} 이라
+     * catch-all 로 떨어져 <b>500</b> 이 나갔다 — 11개 전이가 모두 이 메서드를 쓰므로
+     * 순서를 어긋나게 부르는 호출이 전부 500 이었다 (2026-09-21 확인: RECEIVED 가 아닌
+     * 작업에 {@code PATCH /start} → 500 {@code IllegalStateException}).
+     *
+     * <p>클라이언트가 이미 지난 단계를 다시 누른 것이지 서버 결함이 아니므로 409 가 맞다.
+     * 거래·주문은 서비스 층에서 이미 그렇게 답하고 있어 기준을 맞춘다.
+     */
     private void requireState(ProcessingJobStatus expected) {
-        if (status != expected) throw new IllegalStateException("Expected job state " + expected);
+        if (status != expected) {
+            throw new BusinessException(ProcessingErrorCode.PROCESSING_INVALID_STATE);
+        }
     }
 
     private static LocalDateTime requireTime(LocalDateTime at) {

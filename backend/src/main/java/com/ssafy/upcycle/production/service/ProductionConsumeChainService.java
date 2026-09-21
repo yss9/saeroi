@@ -111,8 +111,7 @@ public class ProductionConsumeChainService {
                 FUNCTION_NAME,
                 BlockchainReferenceType.MATERIAL,
                 batchId,
-                request.txHash(),
-                request.blockNumber());
+                request.txHash());
     }
 
     /**

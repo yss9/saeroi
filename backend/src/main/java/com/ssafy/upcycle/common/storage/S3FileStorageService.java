@@ -194,6 +194,12 @@ public class S3FileStorageService implements FileStorageService {
 
     @Override
     public boolean exists(String storageKey) {
+        // MinIO/S3 는 모양이 틀린 키를 NoSuchKey 가 아닌 다른 오류로 거절한다. 그대로
+        // 아래 SdkException 분기에 떨어지면 잘못된 입력이 500 이 된다 — 로컬 구현과
+        // 답이 갈리기도 한다. 저장소에 묻기 전에 같은 기준으로 먼저 거른다.
+        if (!FileStorageService.isWellFormedStorageKey(storageKey)) {
+            return false;
+        }
         try {
             s3.headObject(HeadObjectRequest.builder().bucket(bucket).key(storageKey).build());
             return true;

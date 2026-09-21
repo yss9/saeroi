@@ -1,5 +1,6 @@
 package com.ssafy.upcycle.user.dto;
 
+import com.ssafy.upcycle.common.validation.SingleLine;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -17,6 +18,7 @@ import jakarta.validation.constraints.Size;
  */
 public record ConsumerSignupRequest(
         @NotBlank(message = "이름은 필수입니다.")
+        @SingleLine
         @Size(min = 2, max = 100, message = "이름은 2자 이상 100자 이하여야 합니다.")
         String name,
 
@@ -42,10 +44,12 @@ public record ConsumerSignupRequest(
         String zipCode,
 
         @NotBlank(message = "주소는 필수입니다.")
+        @SingleLine
         @Size(max = 255, message = "주소는 255자를 초과할 수 없습니다.")
         String address,
 
         /** 동·호수. 빈 문자열로 와도 되고, 그때는 저장하지 않는다. */
+        @SingleLine
         @Size(max = 255, message = "상세 주소는 255자를 초과할 수 없습니다.")
         String addressDetail) {
 }

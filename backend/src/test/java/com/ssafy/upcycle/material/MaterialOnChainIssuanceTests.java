@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.ssafy.upcycle.blockchain.ScriptedReceiptClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ssafy.upcycle.common.security.jwt.JwtTokenService;
 import com.ssafy.upcycle.material.entity.MaterialBalance;
@@ -56,6 +57,8 @@ class MaterialOnChainIssuanceTests {
     private static final long CHAIN_ID = 31221L;
     private static final String TX_HASH = "0x" + "ab".repeat(32);
 
+    @Autowired private ScriptedReceiptClient chain;
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -82,6 +85,7 @@ class MaterialOnChainIssuanceTests {
 
     @BeforeEach
     void setUp() {
+        chain.expect("0xbe98f5a9aa8d0480b09c689e38806accd41a0f66", "0xaaaa000000000000000000000000000000000011");
         supplier = userRepository.save(User.register(
                 "onchain-supplier@example.com", "{noop}x", "공급자", "010-0000-0000",
                 UserRole.SUPPLIER));

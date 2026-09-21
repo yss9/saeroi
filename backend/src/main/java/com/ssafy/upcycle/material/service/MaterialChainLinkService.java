@@ -78,8 +78,7 @@ public class MaterialChainLinkService {
                 "mintMaterial",
                 BlockchainReferenceType.MATERIAL,
                 materialId,
-                request.txHash(),
-                request.blockNumber());
+                request.txHash());
         eventRecorder.record(
                 materialId,
                 MaterialEventType.MATERIAL_MINTED,
