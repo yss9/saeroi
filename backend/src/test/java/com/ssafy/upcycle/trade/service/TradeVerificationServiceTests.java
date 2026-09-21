@@ -55,7 +55,8 @@ class TradeVerificationServiceTests {
         MaterialTrade trade = tradeRepository.save(trade("TRD-000001", MATERIAL_ID));
         trade.markPaid("T1234", 200_000L, NOW, PaymentMethod.MOCK);
         trade.ship(NOW);
-        trade.confirmReceipt(NOW, NOW);
+        trade.confirmReceipt(NOW);
+        trade.markBuyerSigned(NOW);
         entityManager.flush();
 
         assertThat(tradeVerificationService.hasBuyerSignedTrade(MATERIAL_ID)).isTrue();
@@ -67,7 +68,8 @@ class TradeVerificationServiceTests {
         MaterialTrade trade = tradeRepository.save(trade("TRD-000001", OTHER_MATERIAL_ID));
         trade.markPaid("T1234", 200_000L, NOW, PaymentMethod.MOCK);
         trade.ship(NOW);
-        trade.confirmReceipt(NOW, NOW);
+        trade.confirmReceipt(NOW);
+        trade.markBuyerSigned(NOW);
         entityManager.flush();
 
         assertThat(tradeVerificationService.hasBuyerSignedTrade(MATERIAL_ID)).isFalse();
@@ -80,7 +82,8 @@ class TradeVerificationServiceTests {
         MaterialTrade signed = tradeRepository.save(trade("TRD-000001", MATERIAL_ID));
         signed.markPaid("T1234", 200_000L, NOW, PaymentMethod.MOCK);
         signed.ship(NOW);
-        signed.confirmReceipt(NOW, NOW);
+        signed.confirmReceipt(NOW);
+        signed.markBuyerSigned(NOW);
 
         tradeRepository.save(trade("TRD-000002", MATERIAL_ID));
         entityManager.flush();

@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.ssafy.upcycle.agent.dto.ConversationDetailResponse;
+import com.ssafy.upcycle.blockchain.service.ChainOrderStatusReader;
 import com.ssafy.upcycle.agent.entity.AgentMessageRole;
 import com.ssafy.upcycle.agent.entity.JourneyPhase;
 import com.ssafy.upcycle.agent.entity.PendingActionStatus;
@@ -57,6 +58,8 @@ class AgentStaleActionTests {
     @MockitoBean private LlmClient llmClient;
     @MockitoBean private MaterialTradeRepository trades;
     @MockitoBean private TradeReceiptService receiptService;
+    /** 수령 확정은 체인에 수령이 남은 뒤에만 된다. 이 슬라이스에는 RPC 가 없다. */
+    @MockitoBean private ChainOrderStatusReader chainOrders;
 
     private Long brandId;
 
@@ -90,13 +93,15 @@ class AgentStaleActionTests {
 
     @Test
     void 카드를_만든_뒤_화면에서_먼저_처리했으면_승인해도_실행되지_않는다() {
-        // 카드를 띄울 때는 아직 발송 상태였다.
-        givenTrade(TradeStatus.SHIPPED, null, false);
+        // 카드를 띄울 때는 아직 발송 상태였다. 온체인 주문과 체인 수령이 있어야 카드가
+        // 뜬다 — 수령 확정은 체인에 수령이 남은 뒤에만 되기 때문이다.
+        givenTrade(TradeStatus.SHIPPED, 29L, false);
+        when(chainOrders.alreadyReceived(29L)).thenReturn(true);
         callTool("confirm_receipt", "{\"tradeId\":15,\"summary\":\"수령 확정\"}");
         Long actionId = pendingActions.findAll().getFirst().getId();
 
         // 그 사이 담당자가 거래 상세 화면에서 수령을 확정했다.
-        givenTrade(TradeStatus.RECEIVED, null, true);
+        givenTrade(TradeStatus.RECEIVED, 29L, true);
         when(llmClient.complete(anyList(), anyList()))
                 .thenReturn(new LlmCompletion("확인했습니다.", List.of()));
 

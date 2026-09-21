@@ -62,6 +62,22 @@ public class ChainOrderStatusReader {
         return status(chainTradeId).map(status -> status == STATUS_SHIPPED);
     }
 
+    /**
+     * 서버가 체인을 <b>읽을 수 있는 설정인가.</b>
+     *
+     * <p>"읽을 수 없다" 와 "읽었는데 아직 아니다" 는 다른 일인데 {@link #status} 는 둘 다
+     * 빈 값으로 돌려준다. 체인 기록을 선행 조건으로 걸 때 그 둘을 같게 취급하면, 체인을
+     * 아예 쓰지 않는 환경(로컬·테스트)에서 수령 확정이 통째로 막힌다.
+     *
+     * <p>반대로 설정이 있는데 조회가 실패한 경우는 막아야 한다. 통과시키면 DB 가 체인보다
+     * 앞서 나가고, 그 어긋남은 되돌릴 수 없다.
+     */
+    public boolean canRead() {
+        String marketplace = properties.marketplaceAddress();
+        String rpcUrl = properties.rpcUrl();
+        return marketplace != null && !marketplace.isBlank() && rpcUrl != null && !rpcUrl.isBlank();
+    }
+
     /** 주문 상태 코드. 주문이 없으면 0({@code NONE})이다. */
     public Optional<Integer> status(long chainTradeId) {
         String marketplace = properties.marketplaceAddress();
@@ -75,7 +91,18 @@ public class ChainOrderStatusReader {
             Function function = new Function(
                     "getOrder",
                     List.of(new Uint256(BigInteger.valueOf(chainTradeId))),
-                    List.of(new TypeReference<OrderTuple>() {}));
+                    // **튜플을 구조체로 받지 않는다.** 정적 필드만 든 튜플은 ABI 인코딩에서
+                    // 그 필드들이 그냥 나열된 것과 같고, web3j 의 StaticStruct 디코딩은
+                    // "Zero length fixed array is invalid type" 으로 터진다(실측). 필드를
+                    // 순서대로 선언하면 같은 바이트가 그대로 풀린다.
+                    List.of(
+                            new TypeReference<Uint256>() {},   // id
+                            new TypeReference<Uint256>() {},   // listingId
+                            new TypeReference<Address>() {},   // seller
+                            new TypeReference<Address>() {},   // buyer
+                            new TypeReference<Uint256>() {},   // materialId
+                            new TypeReference<Uint256>() {},   // quantity
+                            new TypeReference<Uint8>() {}));   // status
             EthCall call = web3j
                     .ethCall(
                             Transaction.createEthCallTransaction(
@@ -87,13 +114,11 @@ public class ChainOrderStatusReader {
                 return Optional.empty();
             }
             var decoded = FunctionReturnDecoder.decode(call.getValue(), function.getOutputParameters());
-            if (decoded.isEmpty()) {
+            if (decoded.size() < 7) {
                 return Optional.empty();
             }
-            StaticStruct order = (StaticStruct) decoded.get(0);
-            // 마지막 필드가 status 다 (id, listingId, seller, buyer, materialId, quantity, status).
-            var last = order.getValue().get(order.getValue().size() - 1);
-            return Optional.of(((BigInteger) last.getValue()).intValue());
+            // 일곱 번째가 status 다 (id, listingId, seller, buyer, materialId, quantity, status).
+            return Optional.of(((BigInteger) decoded.get(6).getValue()).intValue());
         } catch (Exception failure) {
             // 체인을 못 읽는 것이 거래 조회를 막을 이유는 없다.
             log.warn(
@@ -106,28 +131,18 @@ public class ChainOrderStatusReader {
     }
 
     /** 이미 수령까지 기록됐는가. 서명 카드를 띄우지 않아도 되는 상태다. */
+    /**
+     * 이 주문에 <b>판매자 발송 서명이 남았는가.</b>
+     *
+     * <p>수령보다 앞 단계이므로 {@code RECEIVED} 이후도 참이다 — 이미 받았다면 발송은
+     * 당연히 지났다. 상태를 딱 맞춰 비교하면 뒤 단계에서 거짓이 된다.
+     */
+    public boolean alreadyShipped(long chainTradeId) {
+        return status(chainTradeId).filter(status -> status >= STATUS_SHIPPED).isPresent();
+    }
+
     public boolean alreadyReceived(long chainTradeId) {
         return status(chainTradeId).filter(status -> status >= STATUS_RECEIVED).isPresent();
     }
 
-    /**
-     * {@code getOrder} 가 돌려주는 튜플. 필드 순서는 컨트랙트와 같아야 한다.
-     *
-     * <p><b>{@code StaticStruct} 여야 한다.</b> 모든 필드가 고정 길이({@code uint256},
-     * {@code address}, {@code uint8})이므로 web3j 는 이 튜플을 정적 구조체로 인코딩한다.
-     * {@code DynamicStruct} 로 두면 오프셋 해석이 어긋나 디코딩이 조용히 실패한다 —
-     * 예외가 잡혀 {@code Optional.empty()} 가 되고, 값이 "없음" 으로 보여 원인을 찾기 어렵다.
-     */
-    public static class OrderTuple extends StaticStruct {
-        public OrderTuple() {
-            super(
-                    new Uint256(BigInteger.ZERO),
-                    new Uint256(BigInteger.ZERO),
-                    new Address(Address.DEFAULT.toString()),
-                    new Address(Address.DEFAULT.toString()),
-                    new Uint256(BigInteger.ZERO),
-                    new Uint256(BigInteger.ZERO),
-                    new Uint8(BigInteger.ZERO));
-        }
-    }
 }
