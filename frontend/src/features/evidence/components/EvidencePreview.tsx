@@ -60,8 +60,7 @@ export function EvidencePreview({ file }: EvidencePreviewProps) {
     return <ErrorMessage error={content.error} onRetry={() => void content.refetch()} />
   }
 
-  // blob URL 은 렌더 한 프레임 뒤가 아니라 같은 렌더에 나오지만(useObjectUrl 주석),
-  // 타입상 null 이 가능하므로 그때는 아직 그리지 않는다.
+  // blob URL은 effect가 만든다. 준비 전에는 <img src="">를 그리지 않고 기다린다.
   if (url === null) return null
 
   if (kind === 'PDF') {
