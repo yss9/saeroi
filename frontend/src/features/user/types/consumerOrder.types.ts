@@ -48,6 +48,7 @@ export interface ConsumerOrderResponse {
    */
   orderId: number
   orderCode: string
+  orderGroupId?: number | null
   orderGroupCode?: string | null
   brandName: string
   totalPrice: number

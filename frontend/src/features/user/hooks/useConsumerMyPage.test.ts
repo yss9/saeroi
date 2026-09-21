@@ -9,7 +9,9 @@ const orders: ConsumerOrderPage = {
   content: [
     {
       orderId: 1,
-    orderCode: 'PO-001',
+      orderCode: 'PO-001',
+      orderGroupId: 3,
+      orderGroupCode: 'ORG-003',
       brandName: 'ReWeave',
       totalPrice: 178000,
       status: 'PAID',
@@ -72,6 +74,7 @@ describe('toConsumerMyPageData', () => {
     expect(data.recentOrders).toHaveLength(2)
     expect(data.recentOrders[0]).toMatchObject({
       id: 'PO-001:ITEM-001',
+      orderGroupId: 3,
       status: 'PREPARING',
       itemCount: 2,
       journeyUrl: 'http://localhost:5173/qr/first-token',

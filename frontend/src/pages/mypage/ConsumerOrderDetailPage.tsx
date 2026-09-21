@@ -175,7 +175,12 @@ export function ConsumerOrderDetailPage() {
               {paymentCountdown.expired ? (
                 <Button disabled>결제하기</Button>
               ) : (
-                <Link className="consumer-order-detail__pay-link" to={`/orders/${group.orderId}/checkout`}>
+                <Link
+                  className="consumer-order-detail__pay-link"
+                  to={group.orderGroupId != null
+                    ? `/order-groups/${group.orderGroupId}`
+                    : `/orders/${group.orderId}/checkout`}
+                >
                   결제하기
                 </Link>
               )}
@@ -190,7 +195,7 @@ export function ConsumerOrderDetailPage() {
 
           */}
           <div className="consumer-order-detail__receipt-action">
-            {!group.orderGroupCode &&
+            {group.orderGroupId == null &&
               (group.status === 'PAYMENT_PENDING' || group.status === 'PREPARING') && (
                 <Button
                   variant="secondary"
@@ -200,10 +205,10 @@ export function ConsumerOrderDetailPage() {
                   주문 취소
                 </Button>
               )}
-            {group.orderGroupCode && group.status === 'PAYMENT_PENDING' && (
+            {group.orderGroupId != null && group.status === 'PAYMENT_PENDING' && (
               <Link
                 className="consumer-order-detail__cancel-link"
-                to={`/orders/${group.orderId}/checkout?action=cancel`}
+                to={`/order-groups/${group.orderGroupId}?action=cancel`}
               >
                 주문 전체 취소
               </Link>

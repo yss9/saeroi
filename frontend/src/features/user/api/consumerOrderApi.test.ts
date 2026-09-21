@@ -2,7 +2,7 @@ import type { AxiosResponse } from 'axios'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { apiClient } from '../../../services/apiClient.ts'
 import { getConsumerOrderThumbnail } from './getConsumerOrderThumbnail.ts'
-import { getMyProductOrders } from './getMyProductOrders.ts'
+import { getMyProductOrder, getMyProductOrders } from './getMyProductOrders.ts'
 import { getMyProductOrderSummary } from './getMyProductOrderSummary.ts'
 
 afterEach(() => vi.restoreAllMocks())
@@ -23,6 +23,14 @@ describe('consumer order API', () => {
     expect(get).toHaveBeenCalledWith('/v1/product-orders/me', {
       params: { status: 'PAID', page: 0, size: 20 },
     })
+  })
+
+  it('requests one authenticated consumer order by id', async () => {
+    const order = { orderId: 12 }
+    const get = vi.spyOn(apiClient, 'get').mockResolvedValue({ data: order } as AxiosResponse)
+
+    await expect(getMyProductOrder(12)).resolves.toBe(order)
+    expect(get).toHaveBeenCalledWith('/v1/product-orders/12')
   })
 
   it('requests the authenticated consumer order summary', async () => {
