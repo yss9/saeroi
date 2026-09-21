@@ -81,11 +81,22 @@ export default function AgentProcessingPaymentCallbackPage() {
   )
 }
 
+/**
+ * 결제를 확정하고 대화에 알릴 문장을 만든다.
+ *
+ * **다음 단계를 여기서 단정하지 않는다.** 예전에는 "다음은 소재를 업체로 보내는 단계" 라고
+ * 적어 보냈는데, 결제 직후 작업은 `PAID` 이고 인계는 업체가 수락한 뒤에만 된다
+ * (`ProcessingJob.ship` 이 `ACCEPTED` 를 요구한다). 모델이 그 문장을 믿고 안내하면 담당자는
+ * 시킨 대로 눌렀다가 도메인 거절을 본다.
+ *
+ * 서버가 사건 보고에 **그 순간의 실제 상태**를 붙여 준다(`AgentPendingWork`). 화면은 무슨
+ * 일이 있었는지만 알리고, 다음에 할 일은 그쪽이 말하게 둔다 — 소재 결제 콜백도 같다.
+ */
 async function confirmAndDescribe(jobId: number, pgToken: string): Promise<string> {
   await processingRequestApi.confirmPayment(jobId, pgToken)
   return (
     `가공비 결제가 완료되었습니다 (작업 ${jobId}번). ` +
-    '담당자에게 결제 내역을 알리고, 다음은 소재를 업체로 보내는 단계임을 안내하세요.'
+    '담당자에게 결제 내역과 지금 상태를 알려주고, 다음에 할 일을 안내하세요.'
   )
 }
 
