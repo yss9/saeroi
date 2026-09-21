@@ -69,6 +69,13 @@ public class ProcessingChainService {
     @Transactional
     public ProcessingJobResponse linkJob(Long actorId, Long jobId, ProcessingChainJobLinkRequest request) {
         ProcessingJob job = lockJob(jobId); requireBrand(job, actorId);
+        // 결제 전에는 온체인에 올리지 않는다 — 돈이 오지 않은 일에 소재를 잠그면
+        // 브랜드가 스스로 잠근 재고를 풀 방법이 결제 취소밖에 없어진다.
+        // ACCEPTED 를 남기는 이유: 이 변경이 배포되는 순간 이미 ACCEPTED 인데 온체인
+        // 등록이 안 된 작업이 떠 있을 수 있다. 그것들이 막히면 안 된다.
+        if (job.getStatus() != ProcessingJobStatus.PAID && job.getStatus() != ProcessingJobStatus.ACCEPTED) {
+            throw new BusinessException(PROCESSING_INVALID_STATE);
+        }
         if (job.getChainJobId() != null) {
             if (job.getChainJobId().equals(request.onChainId())) return response(job);
             throw new BusinessException(PROCESSING_INVALID_STATE);
