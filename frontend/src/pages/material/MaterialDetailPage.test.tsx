@@ -191,7 +191,10 @@ describe('소재 정보', () => {
     api.getMaterial.mockResolvedValue(detail({ totalQuantity: 20_500 }))
     renderPage()
 
-    expect(await screen.findByText('20.5 kg')).toBeInTheDocument()
+    // dt/dd 짝으로 본다. 아래 보유자 표도 같은 수량을 kg 로 그리므로, 문자열만
+    // 찾으면 어느 자리의 값인지 구분되지 않는다.
+    const term = await screen.findByText('총 수량')
+    expect(term.nextElementSibling).toHaveTextContent('20.5 kg')
   })
 
   it('등급이 없으면 미지정으로 보여준다', async () => {
@@ -459,4 +462,47 @@ describe('페이지 상태', () => {
       expect(api.getMaterial).not.toHaveBeenCalled()
     },
   )
+})
+
+/*
+  총 수량은 "이 소재가 세상에 얼마나 있는가" 이고, 내 보유량은 "그중 내가 얼마를
+  가졌는가" 다. 거래는 소재 행을 복제하지 않고 잔량만 옮기므로 둘은 거의 항상 다르다 —
+  0.5kg 을 산 사람에게 총 15kg 만 보여주면 자기가 산 양이 사라진 것처럼 읽힌다.
+*/
+describe('내 보유량', () => {
+  it('내가 가진 수량을 총 수량과 나란히 보여준다', async () => {
+    signInAs('BRAND')
+    api.getMaterial.mockResolvedValue(detail({ totalQuantity: 15_000 }))
+    api.getMaterialBalances.mockResolvedValue([
+      BALANCE,
+      { ...BALANCE, ownerId: 7, quantity: 500, lockedQuantity: 0, available: 500 },
+    ])
+    renderPage()
+
+    // dt/dd 짝으로 본다. 표에도 같은 수량이 나오므로 문자열만 찾으면 어느 자리의
+    // 값인지 구분되지 않는다.
+    const term = await screen.findByText('내 보유량')
+    expect(term.nextElementSibling).toHaveTextContent('0.5 kg')
+    expect(await screen.findByText('15 kg')).toBeInTheDocument()
+  })
+
+  it('가지지 않은 소재에는 내 보유량을 적지 않는다', async () => {
+    // 없는 값을 "0 kg" 으로 적으면 가졌다가 다 쓴 것처럼 읽힌다. 줄 자체를 그리지 않는다.
+    signInAs('BRAND')
+    api.getMaterial.mockResolvedValue(detail())
+    api.getMaterialBalances.mockResolvedValue([BALANCE])
+    renderPage()
+
+    expect(await screen.findByText('수거 데님 원단')).toBeInTheDocument()
+    expect(screen.queryByText('내 보유량')).not.toBeInTheDocument()
+  })
+
+  it('로그인하지 않았으면 내 보유량을 묻지 않는다', async () => {
+    api.getMaterial.mockResolvedValue(detail())
+    api.getMaterialBalances.mockResolvedValue([{ ...BALANCE, ownerId: 7 }])
+    renderPage()
+
+    expect(await screen.findByText('수거 데님 원단')).toBeInTheDocument()
+    expect(screen.queryByText('내 보유량')).not.toBeInTheDocument()
+  })
 })
