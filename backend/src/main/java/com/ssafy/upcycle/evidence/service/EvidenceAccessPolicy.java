@@ -58,9 +58,19 @@ public class EvidenceAccessPolicy {
     private final MaterialBalanceRepository materialBalanceRepository;
     private final ProcessingJobRepository processingJobRepository;
 
-    /** 조회 권한. 통과하지 못하면 {@code 403}. */
+    /**
+     * 조회 권한. 통과하지 못하면 {@code 403}.
+     *
+     * <p><b>사진류는 관계를 묻지 않는다</b> ({@link EvidenceType#isPubliclyViewablePhoto}).
+     * 마켓플레이스를 구경하는 쪽은 아직 등록자도 보유자도 아니라, 이 예외가 없으면 사진
+     * 없이 사라고 하는 셈이 된다. 계근표·거래명세서 같은 문서는 이 예외에 들지 않아
+     * 여전히 관계가 있어야 한다.
+     */
     public void requireReadable(Long requesterId, EvidenceFile evidence) {
         if (isUploader(requesterId, evidence)) {
+            return;
+        }
+        if (evidence.getEvidenceType().isPubliclyViewablePhoto()) {
             return;
         }
         if (evidence.getReferenceType() == EvidenceReferenceType.PROCESSING_JOB) {
