@@ -1,5 +1,5 @@
-import { useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useObjectUrl } from '../../../hooks/useObjectUrl.ts'
 import type { AppError } from '../../../utils/errors.ts'
 import { consumerOrderKeys } from '../api/consumerOrderKeys.ts'
 import { getConsumerOrderThumbnail } from '../api/getConsumerOrderThumbnail.ts'
@@ -11,12 +11,7 @@ export function useConsumerOrderThumbnail(imageUrl: string) {
     queryFn: () => getConsumerOrderThumbnail(imageUrl),
     retry: false,
   })
-  const url = useMemo(() => (query.data ? URL.createObjectURL(query.data) : null), [query.data])
-
-  useEffect(() => {
-    if (url === null) return
-    return () => URL.revokeObjectURL(url)
-  }, [url])
+  const url = useObjectUrl(query.data)
 
   return { url, isPending: query.isPending, isError: query.isError }
 }
