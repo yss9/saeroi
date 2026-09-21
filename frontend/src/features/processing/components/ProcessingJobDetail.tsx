@@ -9,6 +9,7 @@ import type { MaterialType } from '../types/processorProfile.types.ts'
 import { MATERIAL_TYPE_LABEL } from '../types/processorProfile.types.ts'
 import { PROCESS_TYPE_LABEL } from '../types/processing.types.ts'
 import { useProcessingJob } from '../hooks/useProcessingJobs.ts'
+import { PROCESSING_CHAIN_STATUS } from '../services/processingContractService.ts'
 import type { ProcessingJobDetail as ProcessingJob } from '../api/processingJobApi.ts'
 import type { ProcessingRequestDetail } from '../api/processingRequestApi.ts'
 import { ProcessingShipmentForm } from './ProcessingShipmentForm.tsx'
@@ -115,8 +116,14 @@ function ProcessingJobDetailContent({ jobId, job, request, role, flow }: {
 
     {role==='BRAND'&&job.status==='ACCEPTED'&&<ProcessingShipmentForm isPending={flow.ship.isPending} error={flow.ship.error} submitLabel="MetaMask 확인 후 발송 처리" onSubmit={input=>flow.ship.mutate(input)}/>}
 
-    {/* 서버는 DB 와 환불만 정리한다. 체인의 잠금은 브랜드 지갑만 풀 수 있다. */}
-    {role==='BRAND'&&job.chainReleaseRequired&&<section className="pj-panel pj-action"><div><p>이 작업은 끝났지만 온체인 잠금이 남아 있습니다. 해제하기 전까지 해당 수량은 다시 쓸 수 없습니다.</p></div><button disabled={pending} onClick={()=>flow.releaseChainLock.mutate()}>MetaMask로 온체인 잠금 해제</button></section>}
+    {/*
+      서버는 DB 와 환불만 정리한다. 체인의 잠금은 브랜드 지갑만 풀 수 있다.
+      **chainReleaseRequired 는 필요조건일 뿐이다** — 서버는 상태 + chainJobId 존재만으로
+      계산하고, 해제를 기록하는 API 가 없어 cancelJob 에 성공해도 재조회 시 계속 true 로
+      온다. 잠금이 실제로 살아 있는지는 체인 상태(REQUESTED·ACCEPTED)로 판단한다 —
+      CANCELED 가 되면 이미 풀린 것이므로 패널을 접는다.
+    */}
+    {role==='BRAND'&&job.chainReleaseRequired&&(flow.chainStatusCode===PROCESSING_CHAIN_STATUS.REQUESTED||flow.chainStatusCode===PROCESSING_CHAIN_STATUS.ACCEPTED)&&<section className="pj-panel pj-action"><div><p>이 작업은 끝났지만 온체인 잠금이 남아 있습니다. 해제하기 전까지 해당 수량은 다시 쓸 수 없습니다.</p></div><button disabled={pending} onClick={()=>flow.releaseChainLock.mutate()}>MetaMask로 온체인 잠금 해제</button></section>}
     {role==='PROCESSOR'&&job.status==='SHIPPED'&&<section className="pj-panel pj-action"><p>소재가 도착했다면 수령을 확인해 주세요.</p><button disabled={pending} onClick={()=>flow.receive.mutate()}>소재 수령 처리</button></section>}
     {role==='PROCESSOR'&&job.status==='RECEIVED'&&<section className="pj-panel pj-action"><p>투입 소재와 작업 조건을 확인한 뒤 가공을 시작합니다.</p><button disabled={pending} onClick={()=>flow.start.mutate()}>가공 시작</button></section>}
 

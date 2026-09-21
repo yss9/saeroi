@@ -58,10 +58,15 @@ export function useProcessingJob(jobId: number) {
     queryFn: ({ signal }) => processingRequestApi.detail(requestId!, signal),
     enabled: requestId !== undefined,
   })
+  /*
+    EXPIRED 도 켜 둔다 — 결제 전 취소(CREATED)만 정말 체인에 아무것도 없다. 만료된
+    작업은 이미 온체인 잠금이 있을 수 있고, 그 상태를 알아야 브랜드에게 해제 패널을
+    보여줄 수 있다(release-lock 게이트가 chainStatusCode 를 본다).
+  */
   const chainPreparation = useQuery({
     queryKey: keys.chainPreparation(jobId),
     queryFn: () => processingJobApi.chainPreparation(jobId),
-    enabled: detail.data?.status !== 'CREATED' && detail.data?.status !== 'EXPIRED',
+    enabled: detail.data?.status !== 'CREATED',
   })
   const chainJobId = chainPreparation.data?.chainJobId
   const chainStatus = useQuery({
@@ -119,10 +124,18 @@ export function useProcessingJob(jobId: number) {
     수락은 온체인 서명 한 번이다 — 가공사가 지갑으로 서명해 체인에 동의를 남기고,
     그 서명이 성공해야만 서버에 수락을 기록한다. 서명 없이 DB 만 바뀌는 경로는 없다
     (서버도 chainJobId 없는 작업의 accept 를 막는다).
+
+    **서명과 기록 사이에서 끊기면 재시도가 두 번째 서명이 되면 안 된다.** 서명은
+    성공했는데 이어지는 PATCH 가 실패하면(네트워크 끊김, 500, 탭 닫힘) 작업은 여전히
+    PAID 로 남고 가공사는 같은 버튼을 다시 본다 — 이때 그대로 다시 서명하면 컨트랙트가
+    `REQUESTED` 를 요구하는데 이미 `ACCEPTED` 라서 되돌린다. 그래서 매번 온체인 상태를
+    먼저 읽어 이미 수락돼 있으면 서명을 건너뛰고 PATCH 만 다시 부른다.
   */
   const accept = useMutation({
     mutationFn: async () => {
-      await confirmed(acceptProcessingJob(requireChainJob()))
+      const id = requireChainJob()
+      const chainState = await getProcessingChainStatus(id)
+      if (chainState === PROCESSING_CHAIN_STATUS.REQUESTED) await confirmed(acceptProcessingJob(id))
       await processingJobApi.accept(jobId)
     },
     onSuccess: refresh,

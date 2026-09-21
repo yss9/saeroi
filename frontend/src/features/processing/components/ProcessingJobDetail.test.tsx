@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { useAuthStore } from '../../../stores/authStore.ts'
+import { PROCESSING_CHAIN_STATUS } from '../services/processingContractService.ts'
 import { ProcessingJobDetail } from './ProcessingJobDetail.tsx'
 
 const mocks = vi.hoisted(() => ({ useProcessingJob: vi.fn(), saveResult: vi.fn(), accept: vi.fn(), releaseChainLock: vi.fn() }))
@@ -24,9 +25,12 @@ const mutation = () => ({ isPending: false, error: null, mutate: vi.fn() })
  * PAID/DECLINED 단계의 단일 온체인 수락 흐름을 검증하는 테스트 전용 렌더 헬퍼.
  * 위 `beforeEach` 의 기본 픽스처(PROCESSING 상태)와 겹치지 않도록 role·job 을 직접 받는다.
  */
-function renderDetail({ role, job }: {
+function renderDetail({ role, job, chainStatusCode }: {
   role: 'BRAND' | 'PROCESSOR'
   job: { status: string; chainJobId: number | null; chainReleaseRequired?: boolean }
+  // release-lock 패널은 chainReleaseRequired 뿐 아니라 체인이 아직 REQUESTED·ACCEPTED 인지도 본다 —
+  // 기본값은 "잠금이 아직 살아 있다" 쪽으로 둔다.
+  chainStatusCode?: number
 }) {
   useAuthStore.setState({
     user: { id: role === 'PROCESSOR' ? 8 : 2, email: 'user@test.com', name: role === 'PROCESSOR' ? '가공사' : '새로이 브랜드', role, walletAddress: null },
@@ -91,6 +95,7 @@ function renderDetail({ role, job }: {
     approve: mutation(),
     reject: mutation(),
     returnRejected: mutation(),
+    chainStatusCode: chainStatusCode ?? PROCESSING_CHAIN_STATUS.ACCEPTED,
   })
   return render(<MemoryRouter><ProcessingJobDetail jobId={17} /></MemoryRouter>)
 }
@@ -256,6 +261,8 @@ test('결제 직후에는 브랜드가 온체인 등록을 먼저 한다', () =>
   renderDetail({ role: 'BRAND', job: { status: 'PAID', chainJobId: null } })
 
   expect(screen.getByRole('button', { name: 'MetaMask로 온체인 작업 등록' })).toBeInTheDocument()
+  // chainReleaseRequired 가 false 인데도 role==='BRAND' 만으로 해제 패널이 뜨면 잡아낸다.
+  expect(screen.queryByRole('button', { name: 'MetaMask로 온체인 잠금 해제' })).not.toBeInTheDocument()
 })
 
 test('온체인 등록 전에는 가공사에게 수락 버튼을 보이지 않는다', () => {
@@ -263,6 +270,7 @@ test('온체인 등록 전에는 가공사에게 수락 버튼을 보이지 않�
 
   expect(screen.queryByRole('button', { name: /수락/ })).not.toBeInTheDocument()
   expect(screen.getByText(/브랜드가 온체인 작업을 등록하면/)).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'MetaMask로 온체인 잠금 해제' })).not.toBeInTheDocument()
 })
 
 test('가공사는 온체인 서명 한 번으로 수락한다', async () => {
@@ -272,13 +280,22 @@ test('가공사는 온체인 서명 한 번으로 수락한다', async () => {
   await user.click(screen.getByRole('button', { name: 'MetaMask로 요청 수락' }))
 
   expect(accept).toHaveBeenCalledOnce()
+  expect(screen.queryByRole('button', { name: 'MetaMask로 온체인 잠금 해제' })).not.toBeInTheDocument()
 })
 
 test('거절돼 잠금이 남으면 브랜드에게 해제를 요청한다', async () => {
   const user = userEvent.setup()
-  renderDetail({ role: 'BRAND', job: { status: 'DECLINED', chainJobId: 11, chainReleaseRequired: true } })
+  renderDetail({ role: 'BRAND', job: { status: 'DECLINED', chainJobId: 11, chainReleaseRequired: true }, chainStatusCode: PROCESSING_CHAIN_STATUS.ACCEPTED })
 
   await user.click(screen.getByRole('button', { name: 'MetaMask로 온체인 잠금 해제' }))
 
   expect(releaseChainLock).toHaveBeenCalledOnce()
+})
+
+test('체인 잠금이 이미 풀렸으면(CANCELED) 해제 패널이 사라진다', () => {
+  // 서버 chainReleaseRequired 는 상태+chainJobId 만 보고 여전히 true 를 준다 — 해제
+  // 성공 뒤에도 그대로다. 그래서 화면은 체인 상태로 한 번 더 걸러야 한다.
+  renderDetail({ role: 'BRAND', job: { status: 'DECLINED', chainJobId: 11, chainReleaseRequired: true }, chainStatusCode: PROCESSING_CHAIN_STATUS.CANCELED })
+
+  expect(screen.queryByRole('button', { name: 'MetaMask로 온체인 잠금 해제' })).not.toBeInTheDocument()
 })
