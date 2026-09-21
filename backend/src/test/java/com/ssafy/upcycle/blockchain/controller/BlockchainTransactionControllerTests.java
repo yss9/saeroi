@@ -1,22 +1,27 @@
 package com.ssafy.upcycle.blockchain.controller;
 
+import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.ssafy.upcycle.common.security.jwt.JwtTokenService;
-import com.ssafy.upcycle.user.entity.User;
-import com.ssafy.upcycle.user.entity.UserRole;
-import com.ssafy.upcycle.user.repository.UserRepository;
+import com.ssafy.upcycle.blockchain.dto.BlockchainTransactionResponse;
+import com.ssafy.upcycle.blockchain.entity.BlockchainReferenceType;
+import com.ssafy.upcycle.blockchain.entity.BlockchainTransactionStatus;
+import com.ssafy.upcycle.blockchain.service.BlockchainTransactionQueryService;
+import com.ssafy.upcycle.common.exception.GlobalExceptionHandler;
+import com.ssafy.upcycle.common.security.config.SecurityConfig;
+import com.ssafy.upcycle.common.security.handler.RestAccessDeniedHandler;
+import com.ssafy.upcycle.common.security.handler.RestAuthenticationEntryPoint;
+import java.time.LocalDateTime;
 import java.util.List;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.HttpHeaders;
-import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
@@ -27,38 +32,23 @@ import org.springframework.test.web.servlet.MockMvc;
  * 실제로 바인딩되어 {@code ApiResponse} 봉투로 나가는가다 — {@code MaterialControllerTests}
  * 와 같은 관례.
  */
-@SpringBootTest
-@AutoConfigureMockMvc
+@WebMvcTest(BlockchainTransactionController.class)
+@Import({
+        SecurityConfig.class,
+        RestAuthenticationEntryPoint.class,
+        RestAccessDeniedHandler.class,
+        GlobalExceptionHandler.class
+})
 class BlockchainTransactionControllerTests {
 
     @Autowired
     private MockMvc mockMvc;
 
-    @Autowired
-    private JwtTokenService jwtTokenService;
+    @MockitoBean
+    private BlockchainTransactionQueryService transactionQueryService;
 
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private JdbcTemplate jdbc;
-
-    private String token;
-
-    @BeforeEach
-    void setUp() {
-        clean();
-        User brand = userRepository.save(
-                User.register("blockchain-tx-viewer@example.com", "{noop}x", "브랜드", "010-0000-0000", UserRole.BRAND));
-        token = jwtTokenService
-                .issueAccessToken(String.valueOf(brand.getId()), List.of(brand.getRole().name()))
-                .value();
-    }
-
-    @AfterEach
-    void tearDown() {
-        clean();
-    }
+    @MockitoBean
+    private JwtDecoder jwtDecoder;
 
     @Test
     void requiresAuthentication() throws Exception {
@@ -71,8 +61,11 @@ class BlockchainTransactionControllerTests {
 
     @Test
     void returnsAnEmptyListWhenNothingIsRecorded() throws Exception {
+        when(transactionQueryService.findAll(BlockchainReferenceType.MATERIAL, 999L))
+                .thenReturn(List.of());
+
         mockMvc.perform(get("/api/blockchain/transactions")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .with(jwt())
                         .param("referenceType", "MATERIAL")
                         .param("referenceId", "999"))
                 .andExpect(status().isOk())
@@ -82,10 +75,17 @@ class BlockchainTransactionControllerTests {
 
     @Test
     void returnsTheRecordedTransactionFields() throws Exception {
-        insert("MATERIAL", 55L, "linkMaterialToken");
+        when(transactionQueryService.findAll(BlockchainReferenceType.MATERIAL, 55L))
+                .thenReturn(List.of(new BlockchainTransactionResponse(
+                        "linkMaterialToken",
+                        "0x" + "c".repeat(64),
+                        100L,
+                        "0x" + "b".repeat(40),
+                        BlockchainTransactionStatus.SUCCESS,
+                        LocalDateTime.of(2026, 9, 21, 12, 0))));
 
         mockMvc.perform(get("/api/blockchain/transactions")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .with(jwt())
                         .param("referenceType", "MATERIAL")
                         .param("referenceId", "55"))
                 .andExpect(status().isOk())
@@ -98,35 +98,9 @@ class BlockchainTransactionControllerTests {
     @Test
     void rejectsANonPositiveReferenceId() throws Exception {
         mockMvc.perform(get("/api/blockchain/transactions")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .with(jwt())
                         .param("referenceType", "MATERIAL")
                         .param("referenceId", "0"))
                 .andExpect(status().isBadRequest());
-    }
-
-    private void insert(String referenceType, long referenceId, String functionName) {
-        jdbc.update(
-                """
-                INSERT INTO blockchain_transaction (
-                    chain_id, contract_address, tx_hash, reference_type, reference_id,
-                    function_name, from_wallet, status, block_number, log_index, created_at,
-                    confirmed_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
-                """,
-                31221L,
-                "0x" + "a".repeat(40),
-                "0x" + "c".repeat(64),
-                referenceType,
-                referenceId,
-                functionName,
-                "0x" + "b".repeat(40),
-                "SUCCESS",
-                100L,
-                0);
-    }
-
-    private void clean() {
-        jdbc.update("DELETE FROM blockchain_transaction");
-        userRepository.deleteAll();
     }
 }
