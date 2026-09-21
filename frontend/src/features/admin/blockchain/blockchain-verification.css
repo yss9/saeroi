@@ -1,0 +1,145 @@
+/* 관리자 블록체인 검증 대시보드.
+   위: 블록 트레인(사슬로 이어진 레일) · 아래: 해시로 다시 읽은 온체인 원본. */
+
+.chain-lab { display: grid; gap: 18px; width: min(1440px, 100%); margin: 0 auto; padding: 34px 32px 64px; color: #18251d; }
+.chain-lab__kicker { color: #7f9486; font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+
+/* ── 헤더 ─────────────────────────────────────────────── */
+.chain-lab__hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+.chain-lab__hero h1 { margin: 4px 0 0; font-size: clamp(24px, 2.6vw, 30px); letter-spacing: -.035em; }
+.chain-lab__eyebrow { margin: 0; color: #2f7a4b; font-size: 11px; font-weight: 850; letter-spacing: .16em; }
+.chain-lab__hero-side { display: flex; align-items: center; gap: 10px; }
+.chain-lab__monitor-toggle { display: inline-flex; align-items: center; gap: 6px; padding: 8px 13px; border: 1px solid #ccd5cf; border-radius: 999px; background: #fff; color: #44554b; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.chain-lab__monitor-toggle svg { width: 15px; height: 15px; }
+
+.chain-lab__stream { display: inline-flex; align-items: center; gap: 7px; padding: 7px 13px; border-radius: 999px; font-size: 11px; font-weight: 800; letter-spacing: .06em; }
+.chain-lab__stream small { font-weight: 600; letter-spacing: 0; opacity: .8; }
+.chain-lab__stream.is-live { background: rgb(36 111 69 / 10%); color: #1d6b40; }
+.chain-lab__stream.is-live i { width: 8px; height: 8px; border-radius: 50%; background: #2f9c5c; animation: chain-breathe 1.8s ease-in-out infinite; }
+.chain-lab__stream.is-retrying { background: #fdf1e0; color: #98692a; }
+.chain-lab__stream.is-paused { background: #eef1ef; color: #66746b; }
+
+/* ── 블록 트레인 ──────────────────────────────────────── */
+.chain-lab__train { display: grid; gap: 14px; padding: 18px 21px 19px; border: 1px solid #243c2d; border-radius: 20px; background: #101b14; color: #eef8f1; box-shadow: 0 16px 40px rgb(16 36 23 / 14%); }
+.chain-lab__train-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 22px; flex-wrap: wrap; }
+.chain-lab__train-head p { max-width: 640px; margin: 4px 0 0; color: #b8cdbf; font-size: 13px; line-height: 1.6; }
+.chain-lab__train-side { display: flex; flex: none; flex-direction: column; align-items: flex-end; gap: 9px; }
+
+.chain-lab__switch { display: flex; padding: 3px; border: 1px solid #2b4032; border-radius: 999px; background: #15241a; }
+.chain-lab__switch button { padding: 6px 14px; border: 0; border-radius: 999px; background: transparent; color: #8fa596; font: inherit; font-size: 11px; font-weight: 800; cursor: pointer; }
+.chain-lab__switch button[aria-pressed="true"] { background: #2f7a4b; color: #eef8f1; }
+
+.chain-lab__head-block { display: flex; align-items: baseline; gap: 8px; margin: 0; }
+.chain-lab__head-block strong { color: #e8f8ee; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 26px; letter-spacing: -.02em; animation: chain-flash .5s ease-out; }
+.chain-lab__head-block small { color: #8fa596; font-size: 12px; }
+
+.chain-lab__monitor-error { display: flex; align-items: center; gap: 8px; margin: 0; padding: 10px 13px; border-radius: 11px; background: rgb(233 168 87 / 12%); color: #f0bb74; font-size: 12px; }
+.chain-lab__monitor-error svg { flex: none; width: 17px; height: 17px; }
+
+.chain-lab__rail { display: flex; align-items: center; justify-content: flex-end; min-height: 100px; margin: 0; padding: 0; overflow-x: auto; list-style: none; }
+.chain-lab__rail > li { display: flex; flex: none; align-items: center; }
+.chain-lab__rail-wait { display: flex; flex-grow: 1; align-items: center; justify-content: center; gap: 9px; color: #89a091; font-size: 13px; }
+.chain-lab__rail-wait svg { width: 18px; height: 18px; }
+
+.chain-lab__link { display: flex; align-items: center; width: 34px; color: #4aa96a; }
+.chain-lab__link i { flex-grow: 1; height: 1px; background: #2f5b3f; }
+
+.chain-lab__car { display: grid; gap: 8px; width: 152px; box-sizing: border-box; padding: 13px 14px; border: 1px solid #2b4032; border-radius: 13px; background: #15241a; }
+.chain-lab__car.is-latest { border-color: #3c8055; background: linear-gradient(135deg, #193321, #15241a); animation: chain-car-in .45s ease-out; }
+.chain-lab__car strong { color: #e5f5ea; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 14px; font-weight: 600; }
+.chain-lab__car footer { display: flex; justify-content: space-between; gap: 8px; color: #6f8578; font-size: 10px; }
+.chain-lab__car footer .is-ours { color: #67d98a; }
+.chain-lab__car-meter { overflow: hidden; height: 4px; border-radius: 999px; background: #22352a; }
+.chain-lab__car-meter i { position: relative; display: block; height: 100%; border-radius: inherit; background: #2f7a4b; transition: width .35s ease-out; }
+.chain-lab__car-meter b { position: absolute; top: 0; bottom: 0; left: 0; border-radius: inherit; background: #56de83; }
+
+.chain-lab__gap { display: grid; justify-items: center; gap: 4px; width: 100px; box-sizing: border-box; padding: 16px 8px; border: 1px dashed #2f4a38; border-radius: 13px; background: rgb(21 36 26 / 45%); }
+.chain-lab__gap > span { color: #5f7468; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 15px; letter-spacing: .12em; }
+.chain-lab__gap small { color: #6f8578; font-size: 10px; text-align: center; }
+.chain-lab__gap code { color: #4f6459; font-size: 9px; }
+
+.chain-lab__cadence { display: flex; align-items: center; gap: 14px; }
+.chain-lab__cadence small { flex: none; color: #6f8578; font-size: 11px; }
+.chain-lab__progress { overflow: hidden; flex-grow: 1; height: 6px; border-radius: 999px; background: #22352a; }
+.chain-lab__progress i { display: block; width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #3d9f5d, #6ee797); animation-name: chain-progress; animation-timing-function: linear; animation-fill-mode: forwards; }
+.chain-lab__progress.is-overdue i { background: linear-gradient(90deg, #a9803c, #e9b26a); }
+
+/* ── 조회 ─────────────────────────────────────────────── */
+.chain-lab__search { display: grid; gap: 9px; padding: 20px 22px; border: 1px solid #dce5df; border-radius: 18px; background: #fff; box-shadow: 0 10px 28px rgb(31 70 44 / 6%); }
+.chain-lab__search label { font-size: 12px; font-weight: 700; color: #44554b; }
+.chain-lab__search > div { display: flex; gap: 9px; }
+.chain-lab__search input { flex-grow: 1; min-width: 0; padding: 12px 14px; border: 1px solid #d4ddd7; border-radius: 11px; background: #fbfdfc; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; }
+.chain-lab__search button { display: inline-flex; flex: none; align-items: center; gap: 7px; padding: 12px 18px; border: 0; border-radius: 11px; background: #246f45; color: #fff; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.chain-lab__search button:disabled { background: #b5c6bb; cursor: not-allowed; }
+.chain-lab__search button svg { width: 16px; height: 16px; }
+.chain-lab__search small { color: #78857d; font-size: 12px; }
+
+.chain-lab__error { display: flex; align-items: center; gap: 9px; padding: 13px 16px; border-radius: 13px; background: #fff0ee; color: #9c3734; font-size: 13px; }
+.chain-lab__error svg { flex: none; width: 19px; height: 19px; }
+
+/* ── 온체인 원본 ──────────────────────────────────────── */
+.chain-lab__evidence { display: grid; gap: 14px; padding: 22px 24px; border: 1px solid #a9d6b8; border-radius: 18px; background: #fff; }
+.chain-lab__evidence[aria-busy="true"] { opacity: .55; transition: opacity .2s ease-out; }
+.chain-lab__evidence > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.chain-lab__evidence > header > div:first-child { display: grid; gap: 3px; }
+.chain-lab__evidence > header strong { font-size: 17px; }
+.chain-lab__evidence > header small { color: #6f7d74; font-size: 12px; }
+.chain-lab__evidence .chain-lab__kicker { color: #2f7a4b; }
+.chain-lab__evidence-badges { display: flex; flex: none; align-items: center; gap: 8px; }
+.chain-lab__status { padding: 5px 12px; border-radius: 999px; font-size: 11px; font-weight: 800; letter-spacing: .06em; }
+.chain-lab__status.is-good { background: #eaf7ef; color: #1d6b40; }
+.chain-lab__status.is-bad { background: #fff0ee; color: #9c3734; }
+.chain-lab__latency { padding: 5px 10px; border-radius: 999px; background: #f0f3f1; color: #55645b; font-size: 11px; font-weight: 800; }
+
+.chain-lab__evidence dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px; margin: 0; }
+.chain-lab__evidence dl > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; padding: 10px 12px; border-radius: 9px; background: #f7f9f8; }
+.chain-lab__evidence dl > div.is-wide { grid-column: 1 / -1; }
+.chain-lab__evidence dt { flex: none; color: #6f7d74; font-size: 12px; }
+.chain-lab__evidence dd { overflow: hidden; margin: 0; color: #20372a; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.chain-lab__note { margin: 0; color: #7a857e; font-size: 12px; line-height: 1.7; }
+
+/* ── 실시간 피드 ──────────────────────────────────────── */
+.chain-lab__feed { display: grid; padding: 14px 18px 6px; border: 1px solid #dce5df; border-radius: 16px; background: #fff; }
+.chain-lab__feed-head { display: flex; justify-content: space-between; gap: 12px; padding-bottom: 8px; color: #8a978f; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.chain-lab__feed > button { display: grid; grid-template-columns: 88px minmax(0, 1fr) 160px 92px; align-items: center; gap: 14px; width: 100%; padding: 9px 4px; border: 0; border-top: 1px solid #eef2ef; background: transparent; font: inherit; text-align: left; cursor: pointer; animation: chain-row-in .3s ease-out; }
+.chain-lab__feed > button:hover { background: #f7faf8; }
+.chain-lab__tx-kind { padding: 4px 8px; border-radius: 999px; background: #f0f2f1; color: #6f7d74; font-size: 10px; font-weight: 800; text-align: center; }
+.chain-lab__tx-kind.is-ours { background: #e6f4ec; color: #1d6b40; }
+.chain-lab__tx-main { display: grid; gap: 2px; min-width: 0; }
+.chain-lab__tx-main code { overflow: hidden; color: #20372a; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.chain-lab__tx-main small { overflow: hidden; color: #7a857e; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.chain-lab__tx-block { display: grid; gap: 2px; color: #55645b; font-size: 12px; }
+.chain-lab__tx-block small { color: #8a978f; font-size: 11px; }
+.chain-lab__tx-open { color: #246f45; font-size: 12px; font-weight: 700; text-align: right; }
+.chain-lab__feed-empty { margin: 0; padding: 22px 4px; border-top: 1px solid #eef2ef; color: #7a857e; font-size: 13px; }
+
+@keyframes chain-breathe { 50% { opacity: .3; transform: scale(.86); } }
+@keyframes chain-car-in { from { opacity: 0; transform: translateX(10px); } }
+@keyframes chain-row-in { from { opacity: 0; transform: translateY(-5px); } }
+@keyframes chain-flash { from { color: #8ff3b4; } }
+@keyframes chain-progress { from { width: 0; } to { width: 100%; } }
+
+/* 모션을 줄인 환경에서는 움직임을 전부 끈다. 진행 바가 전달하던 정보는 그 옆 문구
+   ("평균 1.9초 간격 · 2초 경과")가 그대로 말하므로 숨겨도 잃는 것이 없다. */
+@media (prefers-reduced-motion: reduce) {
+  .chain-lab__progress { display: none; }
+  .chain-lab__stream.is-live i, .chain-lab__car.is-latest, .chain-lab__feed > button, .chain-lab__head-block strong { animation: none; }
+  .chain-lab__car-meter i, .chain-lab__evidence { transition: none; }
+}
+
+@media (max-width: 1100px) {
+  .chain-lab__evidence dl { grid-template-columns: 1fr; }
+  .chain-lab__evidence dl > div.is-wide { grid-column: auto; }
+}
+
+@media (max-width: 720px) {
+  .chain-lab { padding: 24px 16px 52px; }
+  .chain-lab__train-head { flex-direction: column; }
+  .chain-lab__train-side { align-items: flex-start; width: 100%; }
+  .chain-lab__rail { justify-content: flex-start; }
+  .chain-lab__cadence { flex-wrap: wrap; }
+  .chain-lab__cadence small { flex: 1 0 100%; }
+  .chain-lab__search > div { flex-direction: column; }
+  .chain-lab__feed > button { grid-template-columns: 78px minmax(0, 1fr); }
+  .chain-lab__tx-block, .chain-lab__tx-open { display: none; }
+}
