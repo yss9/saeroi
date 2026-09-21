@@ -24,6 +24,33 @@ spring:
       # 테이블이 없는 상태를 만나지 않는다. 데이터는 클래스마다 @BeforeEach 가 채운다.
       ddl-auto: create
 app:
+  # ── 스케줄러를 사실상 멈춘다 ──────────────────────────────────────────
+  #
+  # 만료 워커와 블록 폴러가 테스트 중에 돌면 @MockitoBean 리포지토리를 건드린다. 그 호출이
+  # `when(...)` 스터빙 중간에 끼어들면 Mockito 가 엉뚱한 메시지로 터진다 —
+  # "Optional cannot be returned by findExpiredUnpaid()" 가 실제로 그랬고, 정작 그 테스트는
+  # findExpiredUnpaid 를 쓰지도 않아 원인을 찾기 어려웠다.
+  #
+  # 단독 실행에서는 통과하고 전체 실행에서만 깨지는 모양이라 플레이키로 보인다. 실행이
+  # 길어질수록 워커가 끼어들 기회가 늘기 때문이다. 블록 폴러(2.5초)가 들어온 뒤 확률이
+  # 눈에 띄게 올라갔다.
+  #
+  # 끄는 대신 주기를 길게 둔다. @EnableScheduling 이 도메인 설정 클래스마다 붙어 있어 한
+  # 곳에서 끌 수 없고, 주기만 늘리면 워커 자체의 동작은 그대로 시험할 수 있다.
+  trade:
+    payment-expiry:
+      interval-ms: 3600000
+  processing:
+    expiry:
+      interval-ms: 3600000
+  product:
+    order-expiry:
+      interval-ms: 3600000
+  prediction:
+    oracle-delay-ms: 3600000
+  blockchain:
+    live-initial-delay-ms: 3600000
+    live-poll-ms: 3600000
   company-role-approval-guard:
     # 기존 도메인 테스트는 각 기능의 자체 권한 검사를 독립적으로 검증한다.
     # 전역 승인 차단은 CompanyRoleApprovalGuardTests에서만 다시 켜서 검증한다.
