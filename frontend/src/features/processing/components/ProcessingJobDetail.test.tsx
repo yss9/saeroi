@@ -25,12 +25,15 @@ const mutation = () => ({ isPending: false, error: null, mutate: vi.fn() })
  * PAID/DECLINED 단계의 단일 온체인 수락 흐름을 검증하는 테스트 전용 렌더 헬퍼.
  * 위 `beforeEach` 의 기본 픽스처(PROCESSING 상태)와 겹치지 않도록 role·job 을 직접 받는다.
  */
-function renderDetail({ role, job, chainStatusCode }: {
+function renderDetail({ role, job, chainStatusCode, chainStatusError }: {
   role: 'BRAND' | 'PROCESSOR'
   job: { status: string; chainJobId: number | null; chainReleaseRequired?: boolean }
-  // release-lock 패널은 chainReleaseRequired 뿐 아니라 체인이 아직 REQUESTED·ACCEPTED 인지도 본다 —
+  // release-lock 패널은 "이미 풀렸다는 확실한 증거(CANCELED)" 가 없으면 그대로 둔다 —
   // 기본값은 "잠금이 아직 살아 있다" 쪽으로 둔다.
   chainStatusCode?: number
+  // 체인 조회가 실패한 경우를 흉내 낸다 — chainStatusCode 는 NONE 으로 남지만
+  // 패널은 접히면 안 된다(그건 CANCELED 가 확실할 때만 할 일이다).
+  chainStatusError?: boolean
 }) {
   useAuthStore.setState({
     user: { id: role === 'PROCESSOR' ? 8 : 2, email: 'user@test.com', name: role === 'PROCESSOR' ? '가공사' : '새로이 브랜드', role, walletAddress: null },
@@ -96,6 +99,7 @@ function renderDetail({ role, job, chainStatusCode }: {
     reject: mutation(),
     returnRejected: mutation(),
     chainStatusCode: chainStatusCode ?? PROCESSING_CHAIN_STATUS.ACCEPTED,
+    chainStatus: { isError: chainStatusError ?? false, error: chainStatusError ? new Error('체인 상태를 불러오지 못했습니다.') : null },
   })
   return render(<MemoryRouter><ProcessingJobDetail jobId={17} /></MemoryRouter>)
 }
@@ -298,4 +302,19 @@ test('체인 잠금이 이미 풀렸으면(CANCELED) 해제 패널이 사라진�
   renderDetail({ role: 'BRAND', job: { status: 'DECLINED', chainJobId: 11, chainReleaseRequired: true }, chainStatusCode: PROCESSING_CHAIN_STATUS.CANCELED })
 
   expect(screen.queryByRole('button', { name: 'MetaMask로 온체인 잠금 해제' })).not.toBeInTheDocument()
+})
+
+test('체인 상태를 알 수 없어도(조회 실패) 해제 패널은 그대로 남는다', () => {
+  // 조회 실패면 chainStatusCode 가 NONE 으로 남는다 — CANCELED 라는 확실한 증거가
+  // 없으므로 패널을 접지 않는다. 잠금이 남아 있는데 버튼이 없는 것보다, 이미
+  // 풀렸는데 눌러서 되돌아가는 쪽이 낫다.
+  renderDetail({
+    role: 'BRAND',
+    job: { status: 'DECLINED', chainJobId: 11, chainReleaseRequired: true },
+    chainStatusCode: PROCESSING_CHAIN_STATUS.NONE,
+    chainStatusError: true,
+  })
+
+  expect(screen.getByRole('button', { name: 'MetaMask로 온체인 잠금 해제' })).toBeInTheDocument()
+  expect(screen.getByText(/이미 해제됐을 수도 있으니/)).toBeInTheDocument()
 })

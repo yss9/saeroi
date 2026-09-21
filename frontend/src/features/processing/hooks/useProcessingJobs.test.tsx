@@ -13,7 +13,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ProcessingJobDetail } from '../api/processingJobApi.ts'
 import { PROCESSING_CHAIN_STATUS } from '../services/processingContractService.ts'
 import { useProcessingJob } from './useProcessingJobs.ts'
@@ -30,16 +30,24 @@ vi.mock('../api/processingJobApi.ts', async (importOriginal) => {
   return { ...actual, processingJobApi: { ...actual.processingJobApi, detail: api.detail, chainPreparation: api.chainPreparation, accept: api.accept } }
 })
 
+const requestApi = vi.hoisted(() => ({ detail: vi.fn() }))
 vi.mock('../api/processingRequestApi.ts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../api/processingRequestApi.ts')>()
-  // accept 재시도 검증에는 요청 상세 내용이 필요 없다 — react-query 가 undefined 를
-  // 캐시값으로 받아들이지 않으므로 빈 객체로 채운다.
-  return { ...actual, processingRequestApi: { ...actual.processingRequestApi, detail: vi.fn().mockResolvedValue({}) } }
+  return { ...actual, processingRequestApi: { ...actual.processingRequestApi, detail: requestApi.detail } }
 })
 
+const evidenceApi = vi.hoisted(() => ({ getEvidence: vi.fn() }))
 vi.mock('../../evidence/api/getEvidence.ts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../evidence/api/getEvidence.ts')>()
-  return { ...actual, getEvidence: vi.fn().mockResolvedValue({ files: [], summary: [] }) }
+  return { ...actual, getEvidence: evidenceApi.getEvidence }
+})
+
+beforeEach(() => {
+  // accept 재시도 검증에는 요청 상세·증빙 내용이 필요 없다 — react-query 가
+  // undefined 를 캐시값으로 받아들이지 않으므로 빈 값으로 채운다. resetAllMocks 가
+  // 매 테스트마다 구현을 지우므로 여기서 다시 심는다.
+  requestApi.detail.mockResolvedValue({})
+  evidenceApi.getEvidence.mockResolvedValue({ files: [], summary: [] })
 })
 
 function job(overrides: Partial<ProcessingJobDetail> = {}): ProcessingJobDetail {
@@ -98,5 +106,32 @@ describe('useProcessingJob accept 재시도', () => {
     // ACCEPTED 라서 되돌아갔을 것이다.
     expect(contract.acceptProcessingJob).toHaveBeenCalledOnce()
     expect(api.accept).toHaveBeenCalledTimes(2)
+  })
+
+  it('REQUESTED도 ACCEPTED도 아닌 상태(NONE 등 예상 밖의 값)에서는 서명을 그대로 시도한다', async () => {
+    // 체인 리셋·재배포로 chainJobId 가 낡았거나, 잘못된 네트워크거나, 읽기가 이상값을
+    // 내놓은 경우를 흉내 낸다 — "이미 ACCEPTED" 가 아니면 무조건 서명을 시도해야
+    // 서명 없이 서버에만 수락이 적히는 일이 없다.
+    api.detail.mockResolvedValue(job())
+    api.chainPreparation.mockResolvedValue({
+      jobId: 41, chainJobId: 11, status: 'PAID', brandWallet: '0x1111111111111111111111111111111111111111',
+      processorWallet: '0x2222222222222222222222222222222222222222', inputTokenId: 1, inputQuantity: 1_000, processTypes: ['CLEANING'],
+    })
+    contract.acceptProcessingJob.mockResolvedValue(txReceipt())
+    contract.getProcessingChainStatus.mockResolvedValue(PROCESSING_CHAIN_STATUS.NONE)
+    api.accept.mockResolvedValue(job({ status: 'ACCEPTED' }))
+
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+    function wrapper({ children }: { children: ReactNode }) {
+      return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    }
+    const { result } = renderHook(() => useProcessingJob(41), { wrapper })
+    await waitFor(() => expect(result.current.chainPreparation.isSuccess).toBe(true))
+
+    result.current.accept.mutate()
+    await waitFor(() => expect(result.current.accept.isSuccess).toBe(true))
+
+    expect(contract.acceptProcessingJob).toHaveBeenCalledOnce()
+    expect(api.accept).toHaveBeenCalledOnce()
   })
 })

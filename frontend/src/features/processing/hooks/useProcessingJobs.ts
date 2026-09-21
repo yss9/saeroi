@@ -129,13 +129,19 @@ export function useProcessingJob(jobId: number) {
     성공했는데 이어지는 PATCH 가 실패하면(네트워크 끊김, 500, 탭 닫힘) 작업은 여전히
     PAID 로 남고 가공사는 같은 버튼을 다시 본다 — 이때 그대로 다시 서명하면 컨트랙트가
     `REQUESTED` 를 요구하는데 이미 `ACCEPTED` 라서 되돌린다. 그래서 매번 온체인 상태를
-    먼저 읽어 이미 수락돼 있으면 서명을 건너뛰고 PATCH 만 다시 부른다.
+    먼저 읽어 이미 ACCEPTED 일 때만 서명을 건너뛴다.
+
+    **"이미 끝났다"는 쪽으로만 건너뛴다.** `NONE`(체인 리셋·재배포로 chainJobId 가
+    낡았거나 잘못된 네트워크), `CANCELED`, `DECLINED`, 읽기 실패로 나온 `NaN` 까지
+    ACCEPTED 가 아닌 모든 값은 그대로 서명을 시도한다 — 서명 없이 서버에만 수락을
+    적으면 이 기획의 전제(서명이 곧 수락이다)가 깨진다. 예상 밖의 상태는 컨트랙트가
+    시끄럽게 되돌리는 편이, 조용히 근거 없는 수락을 만드는 것보다 낫다.
   */
   const accept = useMutation({
     mutationFn: async () => {
       const id = requireChainJob()
       const chainState = await getProcessingChainStatus(id)
-      if (chainState === PROCESSING_CHAIN_STATUS.REQUESTED) await confirmed(acceptProcessingJob(id))
+      if (chainState !== PROCESSING_CHAIN_STATUS.ACCEPTED) await confirmed(acceptProcessingJob(id))
       await processingJobApi.accept(jobId)
     },
     onSuccess: refresh,
