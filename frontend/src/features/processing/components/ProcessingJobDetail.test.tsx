@@ -304,6 +304,15 @@ test('체인 잠금이 이미 풀렸으면(CANCELED) 해제 패널이 사라진�
   expect(screen.queryByRole('button', { name: 'MetaMask로 온체인 잠금 해제' })).not.toBeInTheDocument()
 })
 
+test('만료된 작업도 잠금이 남으면 해제를 안내한다', () => {
+  // EXPIRED 는 "환불되었습니다" 로 끝나는 화면이 아니다 — 온체인 잠금은 서버가
+  // 풀지 않으므로(cancelJob 은 브랜드 지갑/DEFAULT_ADMIN_ROLE 만 호출 가능), 만료
+  // 되어도 chainReleaseRequired 가 true 면 해제 패널이 떠야 한다.
+  renderDetail({ role: 'BRAND', job: { status: 'EXPIRED', chainJobId: 11, chainReleaseRequired: true } })
+
+  expect(screen.getByRole('button', { name: 'MetaMask로 온체인 잠금 해제' })).toBeInTheDocument()
+})
+
 test('체인 상태를 알 수 없어도(조회 실패) 해제 패널은 그대로 남는다', () => {
   // 조회 실패면 chainStatusCode 가 NONE 으로 남는다 — CANCELED 라는 확실한 증거가
   // 없으므로 패널을 접지 않는다. 잠금이 남아 있는데 버튼이 없는 것보다, 이미
