@@ -1,5 +1,9 @@
 import { apiClient } from '../../../services/apiClient.ts'
-import type { ConversationDetail, ConversationSummary } from '../types/agent.types.ts'
+import type {
+  ConversationDetail,
+  ConversationSummary,
+  JourneyProgress,
+} from '../types/agent.types.ts'
 
 /**
  * 한 턴에 LLM 이 여러 번 불리므로 기본 10초로는 턱없이 모자란다.
@@ -108,6 +112,19 @@ export async function rejectAction(actionId: number): Promise<ConversationDetail
     `/v1/agent/actions/${actionId}/reject`,
     undefined,
     { timeout: TURN_TIMEOUT_MS },
+  )
+  return data
+}
+
+/**
+ * 대화 위 경과 표시.
+ *
+ * 대화 상세와 나누어 받는다 — 상대방이 움직였는지 보려고 주기적으로 다시 읽는데, 대화
+ * 전체를 그 주기로 받으면 메시지 수십 건이 매번 따라온다.
+ */
+export async function getJourneyProgress(conversationId: number): Promise<JourneyProgress> {
+  const { data } = await apiClient.get<JourneyProgress>(
+    `/v1/agent/conversations/${conversationId}/progress`,
   )
   return data
 }

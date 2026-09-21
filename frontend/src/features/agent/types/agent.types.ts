@@ -108,3 +108,29 @@ export const PHASE_LABEL: Record<JourneyPhase, string> = {
   PRODUCT: '제품 등록',
   DONE: '완료',
 }
+
+/** 여정 한 칸, 또는 현재 단계의 세부 한 칸. */
+export interface JourneyMark {
+  label: string
+  done: boolean
+  current: boolean
+}
+
+/**
+ * 대화 위 경과 표시. **판정은 서버가 한다.**
+ *
+ * 화면이 계산하면 모델이 말하는 것과 막대가 어긋난다 — "아직 선별이 남았습니다" 라고
+ * 말하는데 막대는 다 찬 식이다. 가공 계획은 애초에 화면이 읽을 수도 없다.
+ */
+export interface JourneyProgress {
+  phase: string
+  /** 여정 네 칸: 소재 · 가공 · 생산 · 판매 */
+  journey: JourneyMark[]
+  /** 지금 따라가는 대상. null 이면 막대를 그리지 않는다 */
+  subject: string | null
+  subjectDetail: string | null
+  /** 현재 단계의 세부. 단계가 바뀌면 내용이 통째로 바뀐다 */
+  steps: JourneyMark[]
+  /** 담당자가 지금 할 일. 기다리는 중이면 그렇다고 적혀 있다 */
+  nextTodo: string | null
+}
