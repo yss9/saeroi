@@ -7,7 +7,16 @@ import com.ssafy.upcycle.agent.tool.AbstractAgentTool;
 import com.ssafy.upcycle.agent.tool.AgentToolContext;
 import com.ssafy.upcycle.agent.tool.AgentToolResult;
 import com.ssafy.upcycle.agent.tool.PendingActionKind;
+import com.ssafy.upcycle.material.dto.MyMaterialResponse;
+import com.ssafy.upcycle.material.service.MaterialQueryService;
+import com.ssafy.upcycle.processing.dto.ProcessingJobResponse;
+import com.ssafy.upcycle.processing.dto.ProcessingOutputResponse;
+import com.ssafy.upcycle.processing.entity.ProcessType;
+import com.ssafy.upcycle.processing.entity.RequiredProcessing;
+import com.ssafy.upcycle.processing.service.ProcessingJobService;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.springframework.stereotype.Component;
@@ -39,8 +48,16 @@ import org.springframework.stereotype.Component;
 @Component
 public class ApproveProcessingResultTool extends AbstractAgentTool {
 
-    public ApproveProcessingResultTool(ObjectMapper objectMapper) {
+    private final ProcessingJobService jobService;
+    private final MaterialQueryService materialQuery;
+
+    public ApproveProcessingResultTool(
+            ObjectMapper objectMapper,
+            ProcessingJobService jobService,
+            MaterialQueryService materialQuery) {
         super(objectMapper);
+        this.jobService = jobService;
+        this.materialQuery = materialQuery;
     }
 
     @Override
@@ -104,11 +121,76 @@ public class ApproveProcessingResultTool extends AbstractAgentTool {
         payload.put("signed", txHash != null);
         payload.put("txHash", txHash);
 
-        String message = txHash == null
-                ? "서명이 확인되지 않았습니다. 다시 시도해 주세요."
-                : "가공 결과를 승인했습니다. 결과물이 새 소재로 발행되어 보유 목록에 들어왔습니다. "
-                        + "이제 생산 단계로 넘어갈 수 있습니다.";
+        if (txHash == null) {
+            String failed = "서명이 확인되지 않았습니다. 다시 시도해 주세요.";
+            payload.put("message", failed);
+            return AgentToolResult.of(json(payload), failed);
+        }
+
+        // 결과물의 id 와 남은 필수 공정을 함께 돌려준다. 자세한 이유는 outcomeOf 에 적었다.
+        String message = outcomeOf(context, jobId, payload);
         payload.put("message", message);
         return AgentToolResult.of(json(payload), message);
+    }
+
+    /**
+     * 승인 뒤에 무엇이 남았는지.
+     *
+     * <h2>새 소재의 id 를 반드시 알려 준다</h2>
+     *
+     * <p>승인하면 투입 소재는 소비되고 <b>다른 id 의 소재</b>가 생긴다. 모델이 앞선 턴에서
+     * 기억한 id 로 다음 가공을 요청하면, 이미 사라진 소재를 가리키게 된다. 그래서 결과물의
+     * id 를 결과에 실어 보낸다.
+     *
+     * <h2>"이제 생산으로" 라고 단정하지 않는다</h2>
+     *
+     * <p>필수 공정은 세척·해체·선별 셋이고, 업체 한 곳이 셋을 다 하지 않는 경우가 흔하다.
+     * 그러면 가공은 <b>두 번, 세 번</b> 돌아간다 — 그때마다 소재가 새로 생기고 이력이
+     * 혈통을 따라 쌓인다. 예전에는 몇 번째 승인이든 "이제 생산 단계로 넘어갈 수 있습니다"
+     * 라고 말했는데, 공정이 남아 있으면 그건 거짓말이고 담당자는 생산 확정에서야 막힌다.
+     * 거기까지 가면 이미 가공비를 내고 물건을 보내고 받은 뒤다.
+     */
+    private String outcomeOf(AgentToolContext context, long jobId, Map<String, Object> payload) {
+        List<Long> outputMaterialIds = new ArrayList<>();
+        List<ProcessType> stillMissing = new ArrayList<>();
+        try {
+            ProcessingJobResponse job = jobService.detail(context.userId(), jobId);
+            List<MyMaterialResponse> mine = materialQuery.findMyMaterials(context.userId());
+            for (ProcessingOutputResponse output : job.outputs()) {
+                outputMaterialIds.add(output.materialId());
+                mine.stream()
+                        .filter(candidate -> candidate.materialId() == output.materialId())
+                        .findFirst()
+                        .ifPresent(material -> {
+                            for (ProcessType missing : RequiredProcessing.missing(
+                                    material.rootOrigin(), completedOf(material))) {
+                                if (!stillMissing.contains(missing)) {
+                                    stillMissing.add(missing);
+                                }
+                            }
+                        });
+            }
+        } catch (RuntimeException failure) {
+            // 조회가 흔들려도 승인 자체는 끝났다. 그 사실을 알리는 쪽이 먼저다.
+            return "가공 결과를 승인했습니다. 결과물이 새 소재로 발행되어 보유 목록에 들어왔습니다. "
+                    + "get_my_materials 로 새 소재를 확인하세요.";
+        }
+
+        payload.put("outputMaterialIds", outputMaterialIds);
+        payload.put("missingRequiredProcessTypes", stillMissing);
+
+        String base = "가공 결과를 승인했습니다. 결과물이 새 소재(" + outputMaterialIds
+                + ")로 발행되어 보유 목록에 들어왔습니다. 다음 작업에는 이 새 id 를 씁니다. ";
+        if (stillMissing.isEmpty()) {
+            return base + "필수 공정이 모두 끝나 생산 단계로 넘어갈 수 있습니다.";
+        }
+        return base + "아직 " + stillMissing + " 이(가) 남아 생산 확정에서 막힙니다. "
+                + "담당자에게 남은 공정을 알리고 이어서 맡길지 물어보세요.";
+    }
+
+    private List<ProcessType> completedOf(MyMaterialResponse material) {
+        return material.completedProcessTypes() == null
+                ? List.of()
+                : material.completedProcessTypes();
     }
 }

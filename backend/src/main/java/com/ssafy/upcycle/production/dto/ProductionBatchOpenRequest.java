@@ -34,8 +34,12 @@ public record ProductionBatchOpenRequest(
          *
          * <p>실제 작업 순서가 "배치 생성 → 소재 선택 → 사용량 입력 → …" 라,
          * 무엇을 만들지를 소재도 고르기 전에 확정하라고 강제할 이유가 없다. 나중에
-         * {@code PATCH /api/v1/production-batches/{batchId}} 로 지정할 수 있고,
-         * <b>확정 전에는 반드시 채워져야 한다</b>.
+         * {@code PATCH /api/v1/production-batches/{batchId}} 로 지정할 수 있다.
+         *
+         * <p><b>확정이 이 값을 요구하지는 않는다.</b> 브랜드의 실제 순서가 "생산을 끝내고
+         * → 그 결과물에 제품을 붙인다" 라, {@code assignProductModel} 이 확정 뒤 연결을
+         * 정상 순서로 다룬다. 다만 제품이 붙기 전까지 그 개체는 어느 제품의 재고로도
+         * 세지 않으므로, 팔려면 결국 붙여야 한다.
          *
          * <p>{@code @Positive} 는 남겨 둔다 — "안 보냄"({@code null})과 "0 이나 음수를
          * 보냄"은 다른 일이고, 후자는 여전히 실수다.

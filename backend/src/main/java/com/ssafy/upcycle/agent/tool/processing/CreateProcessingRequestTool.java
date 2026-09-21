@@ -23,7 +23,9 @@ import java.util.Set;
 import org.springframework.stereotype.Component;
 
 /**
- * 가공업체에 작업을 요청한다. 업체가 여기에 견적을 낸다.
+ * 가공업체에 작업을 요청한다. 요청하는 순간 업체의 등록 단가로 가공비가 계산되고 작업이
+ * 함께 생긴다 — <b>견적을 기다리는 구간은 없다.</b> 진행 상태와 가공비는
+ * {@code get_my_processing} 으로 본다.
  *
  * <p><b>필수 공정을 대신 채워 넣지 않는다.</b> 빠진 것이 있으면 요청을 만들지 않고 무엇이
  * 빠졌는지 돌려준다. 자동으로 넣어 주면 결과는 같아 보여도 담당자는 자기가 무엇에 돈을
@@ -58,7 +60,8 @@ public class CreateProcessingRequestTool extends AbstractAgentTool {
 
     @Override
     public String description() {
-        return "가공업체에 작업을 요청한다. 업체가 견적을 내면 list_quotes 로 비교할 수 있다. "
+        return "가공업체에 작업을 요청한다. 요청하면 그 자리에서 가공비가 정해지고 작업이 생긴다. "
+                + "진행 상태와 가공비는 get_my_processing 으로 확인한다. "
                 + "부르기 전에 check_processing_plan 으로 필수 공정을 확인하고 담당자에게 설명해야 한다. "
                 + "필수 공정이 빠져 있으면 요청이 만들어지지 않는다.";
     }

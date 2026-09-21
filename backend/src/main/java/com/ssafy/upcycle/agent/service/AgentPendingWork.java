@@ -4,6 +4,8 @@ import com.ssafy.upcycle.trade.dto.TradeResponse;
 import com.ssafy.upcycle.trade.dto.TradeSearchCondition;
 import com.ssafy.upcycle.trade.entity.TradeStatus;
 import com.ssafy.upcycle.blockchain.service.ChainOrderStatusReader;
+import com.ssafy.upcycle.processing.dto.ProcessingJobResponse;
+import com.ssafy.upcycle.processing.service.ProcessingJobWorkflowService;
 import com.ssafy.upcycle.trade.service.TradeQueryService;
 import java.util.ArrayList;
 import java.util.List;
@@ -36,6 +38,7 @@ public class AgentPendingWork {
     private static final int SIZE = 10;
 
     private final TradeQueryService tradeQuery;
+    private final ProcessingJobWorkflowService jobWorkflow;
     private final ChainOrderStatusReader chainOrders;
 
     /**
@@ -45,24 +48,18 @@ public class AgentPendingWork {
      * 넣는 것이 더 중요하고, 상태는 모델이 직접 조회해 보완할 수 있다.
      */
     public String describe(Long userId) {
-        try {
-            return describeTrades(userId);
-        } catch (RuntimeException failure) {
-            return "";
-        }
-    }
-
-    @Transactional(readOnly = true)
-    protected String describeTrades(Long userId) {
-        var page = tradeQuery.findMyTrades(
-                userId, new TradeSearchCondition(TradeSearchCondition.TradeSide.BUY, null, 0, SIZE));
-
         List<String> lines = new ArrayList<>();
-        for (TradeResponse trade : page.content()) {
-            String todo = todoOf(trade);
-            if (todo != null) {
-                lines.add("- 거래 %d(%s): %s".formatted(trade.tradeId(), trade.materialName(), todo));
-            }
+        // 거래와 가공을 따로 감싼다. 한쪽 조회가 흔들려도 다른 쪽 할 일은 살아 있어야 한다 —
+        // 이 문장을 붙이는 이유가 모델이 낡은 값으로 지어내는 것을 막는 것이기 때문이다.
+        try {
+            lines.addAll(tradeLines(userId));
+        } catch (RuntimeException ignored) {
+            // 아래에서 가공만이라도 붙인다.
+        }
+        try {
+            lines.addAll(processingLines(userId));
+        } catch (RuntimeException ignored) {
+            // 거래만 붙인다.
         }
         if (lines.isEmpty()) {
             return "";
@@ -75,7 +72,46 @@ public class AgentPendingWork {
 
                 이 목록이 정본이다. 앞선 조회 결과가 이것과 다르면 이 목록을 따르고,
                 해당하는 도구를 그 자리에서 부른다."""
-                .formatted(String.join("\n", lines));
+                .formatted(String.join(System.lineSeparator(), lines));
+    }
+
+    /**
+     * 가공 작업 중 담당자 차례인 것.
+     *
+     * <p><b>기다리는 중인 작업은 넣지 않는다.</b> 이 목록의 뜻은 "지금 손이 필요한 일" 이고,
+     * 여기 적히면 모델이 무언가 하려 든다. 결제 직후 화면이 "다음은 소재를 보낼 차례" 라고
+     * 알려 오던 것을 바로잡는 것이 이 목록을 가공까지 넓힌 이유다 — 실제로는 업체가
+     * 수락하기 전이라 인계가 거절된다.
+     *
+     * <p>판정은 {@link ProcessingTodo} 가 한다. {@code get_my_processing} 과 경과 막대가
+     * 같은 물음에 답하므로, 세 곳이 각자 판정하면 담당자가 받는 답이 서로 어긋난다.
+     */
+    @Transactional(readOnly = true)
+    protected List<String> processingLines(Long userId) {
+        List<String> lines = new ArrayList<>();
+        for (ProcessingJobResponse job : jobWorkflow.list(userId)) {
+            ProcessingTodo todo = ProcessingTodo.of(job.status());
+            if (!todo.isActionable()) {
+                continue;
+            }
+            lines.add("- 가공 작업 %d: %s".formatted(job.jobId(), todo.instruction()));
+        }
+        return lines;
+    }
+
+    @Transactional(readOnly = true)
+    protected List<String> tradeLines(Long userId) {
+        var page = tradeQuery.findMyTrades(
+                userId, new TradeSearchCondition(TradeSearchCondition.TradeSide.BUY, null, 0, SIZE));
+
+        List<String> lines = new ArrayList<>();
+        for (TradeResponse trade : page.content()) {
+            String todo = todoOf(trade);
+            if (todo != null) {
+                lines.add("- 거래 %d(%s): %s".formatted(trade.tradeId(), trade.materialName(), todo));
+            }
+        }
+        return lines;
     }
 
     /**
