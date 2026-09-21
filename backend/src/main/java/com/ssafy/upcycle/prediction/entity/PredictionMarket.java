@@ -56,6 +56,20 @@ public class PredictionMarket {
 
     public void startResolving() { if (status == PredictionMarketStatus.OPEN) status = PredictionMarketStatus.RESOLVING; }
     public void reopenAfterFailure() { if (status == PredictionMarketStatus.RESOLVING) status = PredictionMarketStatus.OPEN; }
+    /**
+     * 시장을 무효로 돌린다. 온체인 {@code cancelMarket} 이 확정된 뒤에만 부른다.
+     *
+     * <p>확정과 무효화는 둘 다 "이 시장을 끝낸 트랜잭션" 이라 {@code resolution_tx_hash} 한 칸을
+     * 같이 쓴다. 어느 쪽으로 끝났는지는 {@code status} 가 말하므로 칼럼을 더 두지 않는다.
+     *
+     * <p>{@code RESOLVING} 중인 시장은 막는다 — 오라클이 이미 결과를 제출하는 중이라면
+     * 체인에서 둘 중 하나는 revert 되고, 그 사이 DB 만 바뀌면 두 기록이 어긋난다.
+     */
+    public void cancel(String txHash, LocalDateTime at) {
+        if (status != PredictionMarketStatus.OPEN) throw new IllegalStateException("market is not open");
+        resolutionTxHash = txHash; resolvedAt = at; status = PredictionMarketStatus.CANCELED;
+    }
+
     public void resolve(int sold, int bucket, String hash, String txHash, LocalDateTime at) {
         if (status != PredictionMarketStatus.RESOLVING) throw new IllegalStateException("market is not resolving");
         soldQuantity = sold; winningBucketIndex = bucket; resultHash = hash;
