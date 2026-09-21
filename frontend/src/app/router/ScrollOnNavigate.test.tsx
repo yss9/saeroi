@@ -11,6 +11,15 @@ function NavigationFixture() {
       <button type="button" onClick={() => navigate('?action=cancel')}>쿼리 변경</button>
       <button type="button" onClick={() => navigate('/next#anchor')}>해시 경로</button>
       <button type="button" onClick={() => navigate('#anchor')}>해시만 변경</button>
+      <button
+        type="button"
+        onClick={() => navigate('/canonical', {
+          replace: true,
+          state: { skipGlobalScrollReset: true },
+        })}
+      >
+        교체 이동
+      </button>
       <div id="anchor">이동 위치</div>
     </>
   )
@@ -78,5 +87,14 @@ describe('ScrollOnNavigate', () => {
 
     expect(window.scrollTo).not.toHaveBeenCalled()
     expect(HTMLElement.prototype.scrollIntoView).not.toHaveBeenCalled()
+  })
+
+  it('이미 상단을 처리한 정규 경로 교체 이동은 다시 스크롤하지 않는다', () => {
+    show()
+    vi.mocked(window.scrollTo).mockClear()
+
+    fireEvent.click(screen.getByRole('button', { name: '교체 이동' }))
+
+    expect(window.scrollTo).not.toHaveBeenCalled()
   })
 })

@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Header } from '../landing/components/Header.tsx'
 import { Footer } from '../landing/components/Footer.tsx'
@@ -24,15 +24,19 @@ export function OrderGroupPage({ returning = false, single = false }: { returnin
   const id = Number(single ? orderId : orderGroupId)
   const payment = orderCheckout(single)
   const navigate = useNavigate()
+  const location = useLocation()
+  const cancellationComplete = Boolean(
+    (location.state as { cancellationComplete?: boolean } | null)?.cancellationComplete,
+  )
   const [missing, setMissing] = useState(false)
   const [search] = useSearchParams()
   const token = search.get('pg_token')
   const cancelRequested = search.get('action') === 'cancel'
   const client = useQueryClient()
   const [group, setGroup] = useState<OrderGroup | null>(null)
-  const [busy, setBusy] = useState(true)
+  const [busy, setBusy] = useState(!cancellationComplete)
   const [message, setMessage] = useState<string | null>(null)
-  const [canceled, setCanceled] = useState(false)
+  const [canceled, setCanceled] = useState(cancellationComplete)
   const [mock, setMock] = useState(false)
   const [confirm, setConfirm] = useState(false)
   const [attempt, setAttempt] = useState(0)
@@ -56,6 +60,10 @@ export function OrderGroupPage({ returning = false, single = false }: { returnin
   useEffect(() => {
     let active = true
     async function load() {
+      if (cancellationComplete) {
+        setBusy(false); setGroup(null); setMissing(false); setMessage(null); setMock(false); setConfirm(false); setCanceled(true)
+        return
+      }
       setBusy(true); setGroup(null); setMissing(false); setMessage(null); setMock(false); setConfirm(false); setCanceled(false)
       if (!Number.isSafeInteger(id) || id <= 0) { setMessage('올바른 주문이 아닙니다.'); setBusy(false); return }
       try {
@@ -83,7 +91,7 @@ export function OrderGroupPage({ returning = false, single = false }: { returnin
     return () => { active = false }
     // Requests use the route ID and token. Query client is stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, token, returning, single, cancelRequested, attempt, client])
+  }, [id, token, returning, single, cancelRequested, cancellationComplete, attempt, client])
   function handleError(error: unknown) {
     const target = orderGroupRedirect(error)
     if (target) { navigate(confirm || cancelRequested ? `${target}?action=cancel` : target, { replace: true }); return }
@@ -157,7 +165,24 @@ export function OrderGroupPage({ returning = false, single = false }: { returnin
       <button className="order-confirmation__cancel" type="button" disabled={busy || !group.cancelable} onClick={() => setConfirm(true)}>{single ? '주문 취소' : '주문 전체 취소'}</button>
       </div>
       {!group.cancelable && <p className="order-confirmation__notice">발송된 상품이 있어 전체 취소가 불가합니다.</p>}
-      <ConfirmModal open={confirm} title={single ? '주문을 취소할까요?' : '주문을 모두 취소할까요?'} message={`${group.orders.map(order => `${order.brandName} · ${money(order.totalPrice)}`).join('\n')}\n총 취소 금액 ${money(group.totalPrice)}${single ? '' : '\n브랜드별 부분 취소 불가'}`} confirmLabel={single ? '주문 취소 확인' : '전체 취소 확인'} cancelLabel="주문 유지" destructive loading={busy} onConfirm={() => void act('cancel')} onClose={() => setConfirm(false)} />
+      <ConfirmModal
+        open={confirm}
+        title={single ? '주문을 취소할까요?' : '주문을 모두 취소할까요?'}
+        message={single
+          ? `${group.orders.map(order => `${order.brandName} · ${money(order.totalPrice)}`).join('\n')}\n총 취소 금액 ${money(group.totalPrice)}`
+          : [
+              `이 결제의 주문 ${group.orders.length}건이 모두 취소됩니다.`,
+              ...(group.status === 'PAID' ? [`결제하신 ${money(group.totalPrice)}은 환불됩니다.`] : []),
+              '브랜드별 부분 취소는 할 수 없습니다.',
+              '취소한 주문은 목록에서 사라지고 되돌릴 수 없습니다.',
+            ].join('\n')}
+        confirmLabel={single ? '주문 취소 확인' : '전체 취소 확인'}
+        cancelLabel="주문 유지"
+        destructive
+        loading={busy}
+        onConfirm={() => void act('cancel')}
+        onClose={() => setConfirm(false)}
+      />
     </>}
     <nav className="order-confirmation__links" aria-label="주문 후 이동">{group?.status === 'PAID' && <Link to="/mypage/orders">주문 내역 보기</Link>}<Link to="/cart">장바구니</Link><Link to="/shop">쇼핑 계속하기</Link></nav>
   </main><Footer /></div>

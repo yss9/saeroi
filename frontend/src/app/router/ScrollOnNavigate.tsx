@@ -12,12 +12,22 @@ function hashTarget(hash: string): HTMLElement | null {
 
 /** 새 경로는 위에서 시작하고, 같은 화면의 쿼리·해시 상태 변경은 각 화면에 맡긴다. */
 export function ScrollOnNavigate() {
-  const { pathname, hash } = useLocation()
+  const { pathname, hash, key, state } = useLocation()
   const previousPathname = useRef<string | null>(null)
+  const skippedEntryKeys = useRef(new Set<string>())
 
   useLayoutEffect(() => {
     if (previousPathname.current === pathname) return
     previousPathname.current = pathname
+
+    const skipRequested = Boolean(
+      state && typeof state === 'object' && 'skipGlobalScrollReset' in state &&
+      state.skipGlobalScrollReset === true,
+    )
+    if (skipRequested && !skippedEntryKeys.current.has(key)) {
+      skippedEntryKeys.current.add(key)
+      return
+    }
 
     if (!hash) {
       window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
@@ -39,7 +49,7 @@ export function ScrollOnNavigate() {
     })
     observer.observe(document.body, { childList: true, subtree: true })
     return () => observer.disconnect()
-  }, [hash, pathname])
+  }, [hash, key, pathname, state])
 
   return <Outlet />
 }

@@ -116,12 +116,47 @@ describe('ConsumerOrderList', () => {
     expect(screen.queryByRole('button', { name: '주문 취소' })).not.toBeInTheDocument()
   })
 
-  it('PRODUCT PASSPORT는 화살표 없이 여정 주소로 연결한다', () => {
+  it('PRODUCT JOURNEY는 화살표 없이 여정 주소로 연결한다', () => {
     renderList()
 
-    const passport = screen.getByRole('link', { name: 'PRODUCT PASSPORT' })
+    const passport = screen.getByRole('link', { name: 'PRODUCT JOURNEY' })
     expect(passport).toHaveAttribute('href', 'http://localhost:5173/qr/journey-token')
     expect(passport.querySelector('svg')).toBeNull()
+  })
+
+  it('결제 전 PRODUCT JOURNEY를 누르면 이용 시점을 안내한다', async () => {
+    const user = renderList([
+      order({ status: 'PAYMENT_PENDING', journeyUrl: null, paidAt: null }),
+    ])
+
+    await user.click(screen.getByRole('button', { name: 'PRODUCT JOURNEY' }))
+
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByRole('heading', { name: 'PRODUCT JOURNEY' })).toBeInTheDocument()
+    expect(within(dialog).getByText('결제 완료 후 확인 가능합니다.')).toBeInTheDocument()
+  })
+
+  it('상품이 여러 개인 주문은 각 상품 행에 여정 링크와 배송조회를 하나씩 둔다', () => {
+    renderList([
+      order(),
+      order({
+        id: 'PO-001:ITEM-002',
+        itemCode: 'ITEM-002',
+        productName: '패치워크 버킷 햇',
+        journeyUrl: 'http://localhost:5173/qr/second-journey-token',
+      }),
+    ])
+
+    const itemActions = document.querySelectorAll('.consumer-order-group__item-actions')
+    expect(itemActions).toHaveLength(2)
+    expect(within(itemActions[0] as HTMLElement).getByRole('link', { name: 'PRODUCT JOURNEY' }))
+      .toHaveAttribute('href', 'http://localhost:5173/qr/journey-token')
+    expect(within(itemActions[0] as HTMLElement).getByRole('button', { name: '배송조회' }))
+      .toBeInTheDocument()
+    expect(within(itemActions[1] as HTMLElement).getByRole('link', { name: 'PRODUCT JOURNEY' }))
+      .toHaveAttribute('href', 'http://localhost:5173/qr/second-journey-token')
+    expect(within(itemActions[1] as HTMLElement).getByRole('button', { name: '배송조회' }))
+      .toBeInTheDocument()
   })
   // 이 테스트가 이 파일의 존재 이유다.
   it('배송 중인 주문을 수령 확인한다', async () => {
@@ -303,11 +338,8 @@ describe('ConsumerOrderList', () => {
       expect(within(bundle).getAllByText('결제 대기')).toHaveLength(2)
       expect(within(bundle).getAllByRole('button', { name: /배송조회/ })).toHaveLength(2)
       const detailLinks = within(bundle).getAllByRole('link', { name: /주문 상세보기/ })
-      expect(detailLinks).toHaveLength(2)
-      expect(detailLinks.map((link) => link.getAttribute('href'))).toEqual([
-        '/mypage/orders/12',
-        '/mypage/orders/13',
-      ])
+      expect(detailLinks).toHaveLength(1)
+      expect(detailLinks[0]).toHaveAttribute('href', '/mypage/order-groups/3')
     })
   })
 
