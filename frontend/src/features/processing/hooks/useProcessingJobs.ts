@@ -141,6 +141,7 @@ export function useProcessingJob(jobId: number) {
         processorWallet: prep.processorWallet,
         tokenId: prep.inputTokenId,
         amount: prep.inputQuantity,
+        processTypes: prep.processTypes,
         linkedChainJobIds,
       })
       const registered = orphan ?? await registerChainJob(prep)

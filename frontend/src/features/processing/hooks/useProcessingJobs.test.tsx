@@ -217,6 +217,7 @@ describe('useProcessingJob initializeChain 재시도', () => {
       processorWallet: preparation.processorWallet,
       tokenId: 9,
       amount: 1_000,
+      processTypes: ['CLEANING'],
       linkedChainJobIds: [],
     })
   })

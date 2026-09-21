@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { env } from '../../../config/env.ts'
 import { getReadContract, getWriteContract } from '../../../services/blockchain/contractFactory.ts'
 import { PROCESSING_CHAIN_STATUS, cancelProcessingJob, createProcessingJob, findUnlinkedProcessingJob, getProcessingBrandLockId, getProcessingProcessorLockId, returnRejectedProcessingInput, submitProcessingResultOnChain } from './processingContractService.ts'
 
@@ -9,6 +10,7 @@ const contract = vi.hoisted(() => ({
   returnRejectedInput: vi.fn(),
   cancelJob: vi.fn(),
   getJob: vi.fn(),
+  getProcessingTypes: vi.fn(),
   queryFilter: vi.fn(),
   filters: { ProcessingJobCreated: vi.fn(() => 'ProcessingJobCreated-filter') },
 }))
@@ -100,13 +102,18 @@ describe('processingContractService', () => {
     const log = (jobId: bigint, hash: string, block: number) =>
       ({ args: { jobId }, transactionHash: hash, blockNumber: block })
 
+    beforeEach(() => {
+      // 세척(0) · 재단(3) — 대부분의 검사는 공정이 맞는다는 전제에서 다른 축을 본다.
+      contract.getProcessingTypes.mockResolvedValue([0n, 3n])
+    })
+
     it('같은 조건으로 만들어졌고 아직 연결되지 않은 REQUESTED 작업을 찾아 준다', async () => {
       contract.queryFilter.mockResolvedValue([log(7n, '0xorphan', 1_234)])
       contract.getJob.mockResolvedValue({ status: BigInt(PROCESSING_CHAIN_STATUS.REQUESTED) })
       contract.getInputs.mockResolvedValue([{ tokenId: 9n, amount: 250n, brandLockId: 3n, processorLockId: 0n }])
 
       await expect(findUnlinkedProcessingJob({
-        brandWallet: brand, processorWallet: processor, tokenId: 9, amount: 250, linkedChainJobIds: [],
+        brandWallet: brand, processorWallet: processor, tokenId: 9, amount: 250, processTypes: ['CLEANING', 'CUTTING'], linkedChainJobIds: [],
       })).resolves.toEqual({ onChainId: 7, txHash: '0xorphan', blockNumber: 1_234 })
       expect(contract.filters.ProcessingJobCreated).toHaveBeenCalledWith(null, brand, processor)
     })
@@ -117,7 +124,7 @@ describe('processingContractService', () => {
       contract.getInputs.mockResolvedValue([{ tokenId: 9n, amount: 250n, brandLockId: 3n, processorLockId: 0n }])
 
       await expect(findUnlinkedProcessingJob({
-        brandWallet: brand, processorWallet: processor, tokenId: 9, amount: 250, linkedChainJobIds: [7],
+        brandWallet: brand, processorWallet: processor, tokenId: 9, amount: 250, processTypes: ['CLEANING', 'CUTTING'], linkedChainJobIds: [7],
       })).resolves.toBeNull()
     })
 
@@ -126,7 +133,7 @@ describe('processingContractService', () => {
       contract.getJob.mockResolvedValue({ status: BigInt(PROCESSING_CHAIN_STATUS.ACCEPTED) })
 
       await expect(findUnlinkedProcessingJob({
-        brandWallet: brand, processorWallet: processor, tokenId: 9, amount: 250, linkedChainJobIds: [],
+        brandWallet: brand, processorWallet: processor, tokenId: 9, amount: 250, processTypes: ['CLEANING', 'CUTTING'], linkedChainJobIds: [],
       })).resolves.toBeNull()
     })
 
@@ -136,7 +143,7 @@ describe('processingContractService', () => {
       contract.getInputs.mockResolvedValue([{ tokenId: 9n, amount: 400n, brandLockId: 3n, processorLockId: 0n }])
 
       await expect(findUnlinkedProcessingJob({
-        brandWallet: brand, processorWallet: processor, tokenId: 9, amount: 250, linkedChainJobIds: [],
+        brandWallet: brand, processorWallet: processor, tokenId: 9, amount: 250, processTypes: ['CLEANING', 'CUTTING'], linkedChainJobIds: [],
       })).resolves.toBeNull()
     })
 
@@ -146,8 +153,68 @@ describe('processingContractService', () => {
       contract.getInputs.mockResolvedValue([{ tokenId: 9n, amount: 250n, brandLockId: 3n, processorLockId: 0n }])
 
       await expect(findUnlinkedProcessingJob({
-        brandWallet: brand, processorWallet: processor, tokenId: 9, amount: 250, linkedChainJobIds: [],
+        brandWallet: brand, processorWallet: processor, tokenId: 9, amount: 250, processTypes: ['CLEANING', 'CUTTING'], linkedChainJobIds: [],
       })).resolves.toEqual({ onChainId: 7, txHash: '0xnew', blockNumber: 200 })
+    })
+
+    /*
+      **공정까지 대조하지 않으면 잘못된 기록이 영구히 남는다.** 브랜드·가공사·소재·수량이
+      같고 공정만 다른 두 요청은 흔하다(같은 원단을 세척만 맡기는 건과 세척+재단을
+      맡기는 건). 공정을 보지 않으면 뒤의 요청이 앞의 요청을 위해 만들어진 온체인
+      작업을 가져다 쓰고, 체인에는 하지도 않은 공정이 그 작업의 이력으로 남는다 —
+      이 계층이 존재하는 이유가 바로 그 이력이다.
+    */
+    it('공정이 다른 작업은 가져다 쓰지 않는다 — 체인에 없던 공정이 기록된다', async () => {
+      contract.queryFilter.mockResolvedValue([log(7n, '0xwrongtypes', 1_234)])
+      contract.getJob.mockResolvedValue({ status: BigInt(PROCESSING_CHAIN_STATUS.REQUESTED) })
+      contract.getInputs.mockResolvedValue([{ tokenId: 9n, amount: 250n, brandLockId: 3n, processorLockId: 0n }])
+      contract.getProcessingTypes.mockResolvedValue([0n]) // 세척만
+
+      await expect(findUnlinkedProcessingJob({
+        brandWallet: brand, processorWallet: processor, tokenId: 9, amount: 250,
+        processTypes: ['CLEANING', 'CUTTING'], linkedChainJobIds: [],
+      })).resolves.toBeNull()
+    })
+
+    it('공정 개수가 같아도 내용이 다르면 다른 요청이다', async () => {
+      contract.queryFilter.mockResolvedValue([log(7n, '0xwrongtypes', 1_234)])
+      contract.getJob.mockResolvedValue({ status: BigInt(PROCESSING_CHAIN_STATUS.REQUESTED) })
+      contract.getInputs.mockResolvedValue([{ tokenId: 9n, amount: 250n, brandLockId: 3n, processorLockId: 0n }])
+      contract.getProcessingTypes.mockResolvedValue([0n, 4n]) // 세척 + 분쇄
+
+      await expect(findUnlinkedProcessingJob({
+        brandWallet: brand, processorWallet: processor, tokenId: 9, amount: 250,
+        processTypes: ['CLEANING', 'CUTTING'], linkedChainJobIds: [],
+      })).resolves.toBeNull()
+    })
+
+    /*
+      순서는 보지 않는다. 체인에 적히는 순서는 등록 시점에 서버가 준
+      `prep.processTypes` 의 순서 그대로인데, 서버가 재조회 때 같은 순서를 준다는
+      보장이 없다 — 순서까지 요구했다가 놓치면 그대로 서명으로 떨어져 **잠금이 두 번**
+      걸린다. 공정 묶음이 같으면 같은 일이다.
+    */
+    it('같은 공정이 순서만 다르면 같은 작업으로 본다', async () => {
+      contract.queryFilter.mockResolvedValue([log(7n, '0xreordered', 1_234)])
+      contract.getJob.mockResolvedValue({ status: BigInt(PROCESSING_CHAIN_STATUS.REQUESTED) })
+      contract.getInputs.mockResolvedValue([{ tokenId: 9n, amount: 250n, brandLockId: 3n, processorLockId: 0n }])
+      contract.getProcessingTypes.mockResolvedValue([3n, 0n]) // 재단 + 세척
+
+      await expect(findUnlinkedProcessingJob({
+        brandWallet: brand, processorWallet: processor, tokenId: 9, amount: 250,
+        processTypes: ['CLEANING', 'CUTTING'], linkedChainJobIds: [],
+      })).resolves.toEqual({ onChainId: 7, txHash: '0xreordered', blockNumber: 1_234 })
+    })
+
+    it('배포 블록부터만 조회한다 — 제네시스부터 훑으면 서명 팝업 앞이 막힌다', async () => {
+      contract.queryFilter.mockResolvedValue([])
+
+      await findUnlinkedProcessingJob({
+        brandWallet: brand, processorWallet: processor, tokenId: 9, amount: 250,
+        processTypes: ['CLEANING'], linkedChainJobIds: [],
+      })
+
+      expect(contract.queryFilter).toHaveBeenCalledWith('ProcessingJobCreated-filter', env.chainFromBlock, 'latest')
     })
   })
 })
