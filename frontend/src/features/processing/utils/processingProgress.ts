@@ -50,16 +50,29 @@ const JOB_LABEL: Record<ProcessingJobStatus, string> = {
   CANCELED: '반환 종료',
 }
 
-/** 작업 상태 한 줄. 작업이 있는 화면(요청 상세의 진행 칸)이 쓴다. */
-export function jobLabel(jobStatus: ProcessingJobStatus): string {
+/**
+ * **`PAID` 만은 한 단어로 적을 수 없다.** 결제 뒤의 그 구간은 둘로 갈린다 — 온체인
+ * 등록 전에는 브랜드가 할 일이 남아 있고, 등록한 뒤로 사흘 동안 기다리는 것은
+ * 가공사의 서명이다. 한 라벨로 뭉개면 둘 중 한쪽에게 반드시 거짓말을 한다.
+ *
+ * @param chainRegistered 이 작업이 이미 온체인에 등록됐는가(`chainJobId != null`).
+ */
+function jobText(jobStatus: ProcessingJobStatus, chainRegistered: boolean): string {
+  if (jobStatus === 'PAID') return chainRegistered ? '수락 대기' : JOB_LABEL.PAID
   return JOB_LABEL[jobStatus]
+}
+
+/** 작업 상태 한 줄. 작업이 있는 화면(요청 상세의 진행 칸)이 쓴다. */
+export function jobLabel(jobStatus: ProcessingJobStatus, chainRegistered = false): string {
+  return jobText(jobStatus, chainRegistered)
 }
 
 export function progressLabel(
   requestStatus: ProcessingRequestStatus,
   jobStatus?: ProcessingJobStatus,
+  chainRegistered = false,
 ): string {
-  return jobStatus === undefined ? REQUEST_LABEL[requestStatus] : JOB_LABEL[jobStatus]
+  return jobStatus === undefined ? REQUEST_LABEL[requestStatus] : jobText(jobStatus, chainRegistered)
 }
 
 /** 상태 색을 고르는 이름. 라벨과 같은 근거(작업이 있으면 작업)를 쓴다. */
@@ -87,7 +100,7 @@ export type ProcessingPhase = 'MY_TURN' | 'IN_PROGRESS' | 'DONE' | 'CLOSED'
 /** 브랜드가 직접 눌러야 다음으로 넘어가는 작업 상태. */
 const MY_TURN_JOB: readonly ProcessingJobStatus[] = [
   'CREATED', // 결제 대기
-  'PAID', // 결제가 끝났다 — 브랜드가 소재를 온체인 작업에 잠가야 가공사가 수락할 수 있다
+  // 'PAID' 는 여기 두지 않는다 — 등록 전후로 차례가 갈려 `phaseOf` 가 따로 답한다.
   'ACCEPTED', // 가공사가 수락했다 — 이제 소재를 보낸다
   'RETURN_SHIPPED', // 수령 확인 대기 — 확인해야 산출 소재가 발행된다
 ]
@@ -96,17 +109,22 @@ const MY_TURN_JOB: readonly ProcessingJobStatus[] = [
 const CLOSED_JOB: readonly ProcessingJobStatus[] = ['REJECTED', 'DECLINED', 'EXPIRED', 'CANCELED']
 
 /**
- * @param chainReleaseRequired 끝난 작업에 온체인 잠금이 남아 있는가(서버가 계산해 준다).
- *   거절·만료·취소는 서버가 DB 와 환불만 정리한다 — 체인의 잠금은 브랜드 지갑이
+ * @param chain.chainReleaseRequired 끝난 작업에 온체인 잠금이 남아 있는가(서버가 계산해
+ *   준다). 거절·만료·취소는 서버가 DB 와 환불만 정리한다 — 체인의 잠금은 브랜드 지갑이
  *   `cancelJob` 을 서명해야 풀린다. 그 서명이 남아 있는 한 "종료" 가 아니라 **내 차례**다.
  *   접어 버리면 그 수량은 목록에서 사라진 채로 온체인 가용 잔량에서만 빠져 있다.
+ * @param chain.chainRegistered 이 작업이 이미 온체인에 등록됐는가(`chainJobId != null`).
+ *   `PAID` 는 등록 **전에만** 내 차례다. 등록한 뒤로는 가공사의 서명을 사흘까지 기다리는
+ *   구간이고, 그 동안 "내 차례" 라고 말하면 작업 상세("가공업체의 수락을 기다리고
+ *   있습니다")와 정면으로 어긋난다 — 브랜드는 이미 한 일을 다시 하러 들어간다.
  */
 export function phaseOf(
   requestStatus: ProcessingRequestStatus,
   jobStatus: ProcessingJobStatus | undefined,
-  chainReleaseRequired = false,
+  chain: { chainReleaseRequired?: boolean; chainRegistered?: boolean } = {},
 ): ProcessingPhase {
-  if (chainReleaseRequired) return 'MY_TURN'
+  if (chain.chainReleaseRequired) return 'MY_TURN'
+  if (jobStatus === 'PAID') return chain.chainRegistered ? 'IN_PROGRESS' : 'MY_TURN'
   if (jobStatus === undefined) {
     // 요청이 만들어지면 곧바로 작업이 생기므로 여기 오는 일은 드물다 — 결제가 남아 있다.
     if (requestStatus === 'REQUESTED') return 'MY_TURN'

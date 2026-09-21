@@ -177,6 +177,18 @@ test('결제가 끝난 요청은 온체인 등록이 남아 내 차례에 있다
   expect(within(table).getByText('온체인 등록 대기')).toBeInTheDocument()
 })
 
+test('등록까지 끝난 요청은 내 차례에서 빠지고 진행 중으로 간다', async () => {
+  const user = userEvent.setup()
+  mockApi(() => response, [{ jobId: 40, requestId: 17, status: 'PAID', chainJobId: 55 }])
+  renderPage()
+  await screen.findByText('폐데님 원단')
+
+  await user.click(screen.getByRole('button', { name: /진행 중/ }))
+
+  const table = await screen.findByRole('table', { name: '내 가공 요청 목록' })
+  expect(within(table).getByText('수락 대기')).toBeInTheDocument()
+})
+
 // 거절·만료로 끝나도 온체인 잠금이 남아 있으면 브랜드 지갑의 서명이 한 번 더 남는다 —
 // "종료" 로 접으면 그 수량은 목록에서 사라진 채 온체인 가용 잔량에서만 빠져 있다.
 test('끝난 요청이라도 온체인 잠금이 남으면 내 차례에 있다', async () => {

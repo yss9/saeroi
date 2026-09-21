@@ -64,6 +64,7 @@ const jobBase = {
   declinedAt: null,
   declineReason: null,
   refundedAt: null,
+  chainJobId: null,
   outputs: [],
 }
 const createdJob = { ...jobBase, status: 'CREATED' }
@@ -209,6 +210,20 @@ test('결제한 뒤에는 브랜드를 온체인 등록으로 안내한다', asy
   expect(screen.queryByRole('button', { name: '결제 진행' })).not.toBeInTheDocument()
   // 결제 칸이 사라진 뒤에는 가공 조건이 금액을 남기는 유일한 자리다.
   expect(screen.getByText('가공 비용').parentElement).toHaveTextContent('120,000원')
+})
+
+// 등록까지 끝나면 기다리는 것은 가공사의 온체인 서명이다. 여기서 계속 "등록하러
+// 가세요" 라고 말하면, 작업 상세("가공업체의 수락을 기다리고 있습니다")와 사흘 내내
+// 서로 다른 말을 한다 — 브랜드는 이미 한 일을 다시 하러 들어간다.
+test('온체인 등록까지 끝난 뒤에는 가공사의 수락을 기다린다', async () => {
+  mockBackend([{ ...paidJob, chainJobId: 55 }])
+
+  renderPage()
+
+  expect(await screen.findByText('수락 대기')).toBeInTheDocument()
+  expect(screen.queryByRole('link', { name: '온체인 작업 등록하기' })).not.toBeInTheDocument()
+  expect(screen.queryByText('온체인 등록 대기')).not.toBeInTheDocument()
+  expect(screen.queryByRole('link', { name: '소재 발송하기' })).not.toBeInTheDocument()
 })
 
 test('가공사가 수락하면 발송을 가공 작업 상세로 안내한다', async () => {

@@ -68,7 +68,10 @@ export function BrandProcessingRequestList() {
   */
   const phaseFor = (item: { requestId: number; status: ProcessingRequestStatus }) => {
     const job = jobOf(item.requestId)
-    return phaseOf(item.status, job?.status, job?.chainReleaseRequired ?? false)
+    return phaseOf(item.status, job?.status, {
+      chainReleaseRequired: job?.chainReleaseRequired ?? false,
+      chainRegistered: job?.chainJobId != null,
+    })
   }
 
   const items = requests.data?.items ?? []
@@ -162,7 +165,7 @@ export function BrandProcessingRequestList() {
                 <span
                   className={`br-list__status is-${progressTone(item.status, jobOf(item.requestId)?.status)}`}
                 >
-                  {progressLabel(item.status, jobOf(item.requestId)?.status)}
+                  {progressLabel(item.status, jobOf(item.requestId)?.status, jobOf(item.requestId)?.chainJobId != null)}
                 </span>
                 <Link
                   className="br-list__quote"

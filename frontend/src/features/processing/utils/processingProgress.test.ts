@@ -7,7 +7,7 @@
 // 그 수량은 영영 묶인 채로 남는다.
 
 import { describe, expect, it } from 'vitest'
-import { jobLabel, phaseOf } from './processingProgress.ts'
+import { jobLabel, phaseOf, progressLabel } from './processingProgress.ts'
 
 describe('브랜드 목록의 묶음', () => {
   it('결제가 끝난 작업은 브랜드 차례다 — 온체인 등록이 남아 있다', () => {
@@ -19,14 +19,30 @@ describe('브랜드 목록의 묶음', () => {
     expect(jobLabel('PAID')).toMatch(/온체인/)
   })
 
+  /*
+    **등록이 끝나면 PAID 는 더 이상 내 차례가 아니다.** 그 뒤로 기다리는 것은 가공사의
+    온체인 서명이고, 그 창은 사흘이다 — 목록이 사흘 내내 "내 차례 · 온체인 등록 대기"
+    라고 말하는 동안 작업 상세는 "가공업체의 수락을 기다리고 있습니다" 라고 말한다.
+    F2 가 고친 것과 같은 어긋남이 한 걸음 뒤로 밀린 것뿐이다.
+  */
+  it('등록이 끝난 PAID 는 내 차례가 아니라 진행 중이다', () => {
+    expect(phaseOf('ACCEPTED', 'PAID', { chainRegistered: true })).toBe('IN_PROGRESS')
+  })
+
+  it('등록이 끝난 PAID 라벨은 가공사의 수락을 기다린다고 말한다', () => {
+    expect(jobLabel('PAID', true)).toBe('수락 대기')
+    expect(progressLabel('ACCEPTED', 'PAID', true)).toBe('수락 대기')
+    expect(progressLabel('ACCEPTED', 'PAID')).toBe('온체인 등록 대기')
+  })
+
   it.each(['DECLINED', 'EXPIRED', 'CANCELED'] as const)(
     '%s 라도 온체인 잠금이 남아 있으면 브랜드 차례다', (status) => {
-      expect(phaseOf('ACCEPTED', status, true)).toBe('MY_TURN')
+      expect(phaseOf('ACCEPTED', status, { chainReleaseRequired: true })).toBe('MY_TURN')
     })
 
   it.each(['DECLINED', 'EXPIRED', 'CANCELED'] as const)(
     '%s 이고 잠금도 남지 않았으면 종료다', (status) => {
-      expect(phaseOf('ACCEPTED', status, false)).toBe('CLOSED')
+      expect(phaseOf('ACCEPTED', status, { chainReleaseRequired: false })).toBe('CLOSED')
     })
 
   it('결과 반려(REJECTED)는 잠금과 무관하게 여전히 종료 묶음이다', () => {

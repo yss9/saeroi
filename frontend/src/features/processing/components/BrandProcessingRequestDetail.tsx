@@ -60,7 +60,7 @@ export function BrandProcessingRequestDetail({ requestId }: Props) {
         <div><span>PROCESSING REQUEST DETAIL</span><h1>{request.materialName}</h1></div>
         {/* 요청은 만들어진 뒤 움직이지 않는다 — 그 뒤의 일은 작업이 말한다. */}
         <span className={`br-detail__request-status is-${progressTone(request.status, job?.status)}`}>
-          {progressLabel(request.status, job?.status)}
+          {progressLabel(request.status, job?.status, job?.chainJobId != null)}
         </span>
       </header>
 
@@ -121,7 +121,7 @@ export function BrandProcessingRequestDetail({ requestId }: Props) {
 
         발송은 그 뒤다. 수락 전에 보낸 소재는 가공사가 거절하면 갈 곳이 없다.
       */}
-      {job?.status === 'PAID' && (
+      {job?.status === 'PAID' && job.chainJobId === null && (
         <div className="br-detail__job-link">
           <span>결제가 끝났습니다. 소재를 온체인 가공 작업에 잠가야 가공사가 수락할 수 있습니다.</span>
           <Link to={`/processing/jobs/${job.jobId}`}>온체인 작업 등록하기</Link>
