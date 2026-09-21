@@ -42,7 +42,13 @@ export const processingJobApi={
   /**
    * 가공사가 일을 맡는다 — `PATCH /processing-jobs/{jobId}/accept`
    *
-   * **결제된 작업만 수락할 수 있다.** 소재 발송은 이 뒤에만 열린다(결제만으로 보내면 409).
+   * **이 요청은 수락을 만들지 않고 기록한다.** 수락은 가공사가 `acceptJob` 에 서명한
+   * 그 순간 체인에서 이미 일어났고, 여기서는 그 결과를 DB 에 적을 뿐이다. 그래서
+   * 서버는 **결제됐고(PAID) 온체인에 등록된(chainJobId) 작업만** 받는다 — 둘 중
+   * 하나라도 아니면 409 다. 서명 없이 상태만 ACCEPTED 로 바뀌는 길은 없다.
+   *
+   * 온체인 등록은 그 앞 단계이고 브랜드의 몫이다(`linkChain`). 소재 발송은 이 뒤에만
+   * 열린다.
    */
   accept:async(jobId:number)=>(await apiClient.patch<ProcessingJobDetail>(`${root}/${jobId}/accept`)).data,
   /**
