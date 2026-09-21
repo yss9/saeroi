@@ -198,15 +198,21 @@ public class AgentToolExecutor {
     }
 
     /**
-     * 카드에 보여줄 한 줄.
+     * 카드에 보일 한 줄.
      *
-     * <p>tool 이 스스로 요약을 만들게 하지 않고 인자를 그대로 쓴다. 요약을 모델이나 tool 이
-     * 만들면 카드에 적힌 내용과 실제로 실행될 인자가 어긋날 수 있고, 사용자는 카드만 보고
-     * 승인한다. 인자 자체를 보여주는 편이 안전하다.
+     * <p><b>모델이 준 {@code summary} 를 먼저 쓴다.</b> 쓰기 tool 은 대부분 그 인자를
+     * 요구하고, 담당자가 읽을 문장으로 쓰라고 스키마에 적어 두었다. 예전에는 tool 설명과
+     * 인자 JSON 을 이어 붙였는데, 카드에 "배송된 소재의 수령을 확정한다. 소유권이
+     * 이전되고… / {\"tradeId\":16,…}" 가 그대로 떠서 읽히지 않았다.
+     *
+     * <p>없을 때만 예전 방식으로 떨어진다 — 그때라도 무엇을 하려는지는 보여야 한다.
      */
     private String summarize(AgentTool tool, JsonNode arguments) {
-        String rendered = arguments.toString();
-        String summary = tool.description() + " / " + rendered;
+        String provided = arguments.path("summary").asText(null);
+        if (provided != null && !provided.isBlank()) {
+            return provided.length() > 500 ? provided.substring(0, 500) : provided;
+        }
+        String summary = tool.description() + " / " + arguments;
         return summary.length() > 500 ? summary.substring(0, 500) : summary;
     }
 
