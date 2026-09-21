@@ -59,6 +59,16 @@ export async function approveProcessingResultOnChain(jobId: number): Promise<Con
 export async function rejectProcessingResultOnChain(jobId: number): Promise<ContractTransactionResponse> {
   return (await getWriteContract('processingRegistry')).rejectProcessingResult(jobId) as Promise<ContractTransactionResponse>
 }
+/**
+ * 거절·만료된 가공 작업의 온체인 잠금을 푼다.
+ *
+ * 컨트랙트는 `job.brand` 또는 DEFAULT_ADMIN_ROLE 에게만 허용한다. 서버는 지갑이
+ * 없으므로 브랜드가 직접 서명한다.
+ */
+export async function cancelProcessingJob(chainJobId: number): Promise<ContractTransactionResponse> {
+  const contract = await getWriteContract('processingRegistry')
+  return contract.cancelJob(chainJobId) as Promise<ContractTransactionResponse>
+}
 export async function getProcessingChainStatus(jobId: number): Promise<number> {
   const job = await (await getReadContract('processingRegistry').getJob(jobId)) as { status: bigint }
   return Number(job.status)

@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getReadContract, getWriteContract } from '../../../services/blockchain/contractFactory.ts'
-import { PROCESSING_CHAIN_STATUS, createProcessingJob, getProcessingBrandLockId, getProcessingProcessorLockId, returnRejectedProcessingInput, submitProcessingResultOnChain } from './processingContractService.ts'
+import { PROCESSING_CHAIN_STATUS, cancelProcessingJob, createProcessingJob, getProcessingBrandLockId, getProcessingProcessorLockId, returnRejectedProcessingInput, submitProcessingResultOnChain } from './processingContractService.ts'
 
 const contract = vi.hoisted(() => ({
   createJob: vi.fn(),
   submitProcessingResult: vi.fn(),
   getInputs: vi.fn(),
   returnRejectedInput: vi.fn(),
+  cancelJob: vi.fn(),
 }))
 
 vi.mock('../../../services/blockchain/contractFactory.ts', () => ({
@@ -20,6 +21,7 @@ beforeEach(() => {
   vi.mocked(getReadContract).mockResolvedValue(contract as never)
   contract.createJob.mockResolvedValue({ hash: '0xcreate' })
   contract.submitProcessingResult.mockResolvedValue({ hash: '0xresult' })
+  contract.cancelJob.mockResolvedValue({ hash: '0xcancel' })
 })
 
 describe('processingContractService', () => {
@@ -72,5 +74,11 @@ describe('processingContractService', () => {
       [hash, hash],
       hash,
     )
+  })
+
+  it('브랜드 지갑으로 온체인 잠금을 해제한다', async () => {
+    await cancelProcessingJob(11)
+
+    expect(contract.cancelJob).toHaveBeenCalledWith(11)
   })
 })
