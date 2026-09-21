@@ -14,8 +14,13 @@ import { tradeKeys } from '../api/tradeKeys.ts'
  * 발송·수령 확인의 온체인 서명.
  *
  * **앞의 두 단계와 다르다.** `markShipped` 와 `confirmReceipt` 는 새 번호를 채번하지 않는다 —
- * 이미 있는 주문의 상태를 바꿀 뿐이다. 그래서 서버에 알릴 것이 없고
- * ({@link useOnChainLink} 가 필요 없다) 트랜잭션만 보내면 된다.
+ * 이미 있는 주문의 상태를 바꿀 뿐이라 `useOnChainLink` 의 모양(이벤트에서 id 를 꺼내
+ * 알린다)에 맞지 않는다.
+ *
+ * **수령은 서버에 따로 알리지 않는다.** 뒤이어 부르는 수령 확정(`POST /receive/confirm`)이
+ * 체인을 읽어 수령이 남았는지 확인하고 그때 `buyer_signed_at` 까지 채운다. 순서가 서명
+ * 먼저이므로 보고할 것이 없다 — 예전에는 반대 순서라 수령 확인이 서명 없이 그 값을
+ * 채우고 있었고, 지갑 서명을 하지 않은 거래가 "검증됨" 으로 보였다.
  *
  * **`confirmReceipt` 가 이 서비스에서 소유권이 실제로 옮겨가는 유일한 자리다.**
  * 컨트랙트가 ERC1155 잔액을 판매자에서 구매자로 이동시킨다. 오프체인의
@@ -49,8 +54,14 @@ export function useTradeChainAction(tradeId: number) {
   )
 
   const receive = useCallback(
-    (chainTradeId: number) => transaction.execute(() => confirmReceipt(chainTradeId)),
-    [transaction],
+    async (chainTradeId: number) => {
+      const receipt = await transaction.execute(() => confirmReceipt(chainTradeId))
+      // 서버에 따로 알리지 않는다. 뒤이어 부르는 수령 확정이 체인을 읽어 확인하고 그때
+      // 서명 시각까지 채운다 — 같은 일을 두 곳에서 하면 어긋나는 순간 정본을 알 수 없다.
+      void queryClient.invalidateQueries({ queryKey: tradeKeys.detail(tradeId) })
+      return receipt
+    },
+    [queryClient, tradeId, transaction],
   )
 
   /**
