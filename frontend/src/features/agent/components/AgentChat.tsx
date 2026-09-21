@@ -24,7 +24,8 @@ import { PHASE_LABEL, type PendingAction } from '../types/agent.types.ts'
 import { ConfirmCard } from './ConfirmCard.tsx'
 import { PaymentCard } from './PaymentCard.tsx'
 import { AgentTaskPanel } from './AgentTaskPanel.tsx'
-import { TradeProgressBar } from './TradeProgressBar.tsx'
+import { JourneyProgressBar } from './JourneyProgressBar.tsx'
+import { ProductionChainCard } from './ProductionChainCard.tsx'
 import { WalletSignCard } from './WalletSignCard.tsx'
 
 /**
@@ -80,7 +81,6 @@ export function AgentChat() {
 
   // 이번 대화가 언제 시작됐는지. 진행 막대와 절차 패널이 이 시점 이후의 거래만 센다.
   // 대화는 항상 담당자의 첫 발화로 시작하므로 그 시각이 곧 여정의 시작이다.
-  const startedAt = conversation?.messages[0]?.createdAt ?? null
 
   return (
     <section className="agent-chat">
@@ -104,8 +104,11 @@ export function AgentChat() {
       </header>
 
       {/* 상대방이 움직여야 넘어가는 구간에서, 대화를 걸지 않아도 상태가 보이게 한다.
-          도메인 API 만 읽으므로 크레딧이 들지 않는다. */}
-      <TradeProgressBar startedAt={startedAt} />
+          도메인 API 만 읽으므로 크레딧이 들지 않는다.
+
+          단계마다 보여줄 것이 다르다 — 소재는 거래 하나, 가공은 공정 목록, 생산은 배치,
+          판매는 제품이다. 그 판정은 서버가 하고 여기서는 그리기만 한다. */}
+      <JourneyProgressBar conversationId={conversation?.id ?? null} />
 
       {/*
         왼쪽은 대화, 오른쪽은 절차. 절차를 대화 위에 쌓으면 매번 지나쳐야 하고, 대화가
@@ -197,6 +200,16 @@ export function AgentChat() {
  * 않고 기존 `marketplaceContractService` 를 거치는 것이 이 저장소의 규칙이다.
  */
 function ActionCard({ action }: { action: PendingAction }) {
+  // **처리된 카드는 한 줄로 접는다.**
+  //
+  // 승인·거절이 끝난 카드가 전체 크기로 대화 끝에 쌓이면, 지금 눌러야 할 카드가 그 사이에
+  // 묻힌다. 여정이 길어질수록 심해진다 — 결제·서명·확인이 건마다 하나씩 남는다.
+  //
+  // 지우지는 않는다. 무엇에 동의했는지가 대화 기록이고, 분쟁 때 근거가 된다.
+  if (action.status !== 'PENDING') {
+    return <ProcessedAction action={action} />
+  }
+
   if (action.actionType === 'PAYMENT') {
     return <PaymentCard action={action} />
   }
@@ -204,8 +217,15 @@ function ActionCard({ action }: { action: PendingAction }) {
     return <ConfirmCard action={action} />
   }
   if (action.actionType === 'WALLET_SIGN') {
-    // tool 이름으로 서명 방법을 고른다. 타입만 보고 하나로 몰면 수령 확정 카드를 눌렀을 때
-    // 주문 생성에 서명하게 되는 식으로 엉뚱한 트랜잭션이 나간다.
+    // 생산 온체인 기록만 카드가 따로다. 네 번의 서명을 컨트랙트가 순서대로 강제하고 다음
+    // 단계는 체인 상태로 정해야 해서, 단발 서명용 WalletSignCard 의 모양에 맞지 않는다.
+    // 생산 화면의 패널을 그대로 쓰므로 서명 구현이 두 벌이 되지 않는다.
+    if (action.toolName === 'record_production_chain') {
+      return <ProductionChainCard action={action} />
+    }
+
+    // 나머지는 tool 이름으로 서명 방법을 고른다. 타입만 보고 하나로 몰면 수령 확정 카드를
+    // 눌렀을 때 주문 생성에 서명하게 되는 식으로 엉뚱한 트랜잭션이 나간다.
     const signer = SIGNERS[action.toolName]
     if (!signer) {
       return (
@@ -217,6 +237,33 @@ function ActionCard({ action }: { action: PendingAction }) {
     return <WalletSignCard action={action} onSign={signer} />
   }
   return null
+}
+
+/** 처리가 끝난 카드. 한 줄만 차지한다. */
+function ProcessedAction({ action }: { action: PendingAction }) {
+  return (
+    <p className={`agent-done agent-done--${action.status.toLowerCase()}`}>
+      <span className="agent-done__mark" aria-hidden="true">
+        {action.status === 'COMPLETED' ? '✓' : '·'}
+      </span>
+      <span className="agent-done__label">{PROCESSED_LABEL[action.actionType]}</span>
+      <span className="agent-done__summary">{action.summary}</span>
+      <span className="agent-done__status">{PROCESSED_STATUS[action.status]}</span>
+    </p>
+  )
+}
+
+const PROCESSED_LABEL: Record<string, string> = {
+  PAYMENT: '결제',
+  WALLET_SIGN: '서명',
+  CONFIRM: '확인',
+}
+
+const PROCESSED_STATUS: Record<string, string> = {
+  COMPLETED: '완료',
+  REJECTED: '취소',
+  EXPIRED: '기한 지남',
+  STALE: '이미 처리됨',
 }
 
 /**

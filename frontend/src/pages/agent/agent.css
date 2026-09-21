@@ -480,3 +480,145 @@
   opacity: 0.5;
   cursor: default;
 }
+
+/* ── 처리가 끝난 카드 ─────────────────────────────────────
+ *
+ * 승인·거절이 끝난 카드를 전체 크기로 두면 지금 눌러야 할 카드가 그 사이에 묻힌다.
+ * 기록은 남기되 한 줄로 접는다 — 무엇에 동의했는지는 분쟁 때 근거가 된다. */
+.agent-done {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 2px 0;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: #6b7280;
+  background: #f9fafb;
+  border-radius: 6px;
+}
+
+.agent-done__mark {
+  flex: 0 0 auto;
+  color: #16a34a;
+}
+
+.agent-done--rejected .agent-done__mark,
+.agent-done--expired .agent-done__mark,
+.agent-done--stale .agent-done__mark {
+  color: #9ca3af;
+}
+
+.agent-done__label {
+  flex: 0 0 auto;
+  font-weight: 600;
+  color: #374151;
+}
+
+/* 요약이 길어도 한 줄을 넘기지 않는다. 전체는 이미 대화에 남아 있다. */
+.agent-done__summary {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-done__status {
+  flex: 0 0 auto;
+}
+
+/*
+ * 제품 등록 확인 카드의 이미지 업로드.
+ *
+ * 채팅으로는 파일을 올릴 수 없어 카드가 대신 받는다. 담당자가 올리기 전에는 승인 버튼이
+ * 잠기므로, 여기가 비어 보이면 안 된다 — 무엇을 해야 하는지 문장으로 말해 준다.
+ */
+.agent-card__upload {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: flex-start;
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  border: 1px dashed var(--agent-card-border, #d4d4d8);
+  border-radius: 8px;
+}
+
+.agent-card__upload-hint {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--agent-muted, #71717a);
+}
+
+.agent-card__thumb {
+  width: 100%;
+  max-width: 220px;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.agent-card__upload-button {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
+  border: 1px solid var(--agent-card-border, #d4d4d8);
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.agent-card__upload-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/*
+ * 여정 네 칸 — 경과 표시의 윗층.
+ *
+ * 대화가 길어져도 "전체에서 어디쯤" 을 잃지 않게 항상 보인다. 아랫층(현재 단계 세부)보다
+ * 눈에 덜 띄어야 한다 — 지금 할 일은 아랫층이고, 여기는 방향만 알려 준다.
+ */
+.agent-progress__journey {
+  display: flex;
+  gap: 0.375rem;
+  align-items: center;
+  margin: 0 0 0.5rem;
+  padding: 0;
+  list-style: none;
+  font-size: 0.75rem;
+}
+
+.agent-progress__phase {
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  color: var(--agent-muted, #71717a);
+  background: var(--agent-phase-bg, rgba(113, 113, 122, 0.1));
+}
+
+.agent-progress__phase + .agent-progress__phase::before {
+  content: '';
+}
+
+.agent-progress__phase.is-done {
+  color: var(--agent-done, #15803d);
+  background: var(--agent-done-bg, rgba(21, 128, 61, 0.12));
+}
+
+/* 지금 단계는 한눈에 보여야 한다. 아래 세부가 이 칸의 내용이다. */
+.agent-progress__phase.is-current {
+  color: var(--agent-current, #1d4ed8);
+  background: var(--agent-current-bg, rgba(29, 78, 216, 0.12));
+  font-weight: 600;
+}
+
+/*
+ * 다음 할 일 한 줄.
+ *
+ * 담당자가 할 일이 없는 구간에서도 비우지 않는다 — 비어 있으면 무언가 놓쳤는지
+ * 대화를 거슬러 찾게 된다. "기다리는 중" 이라고 적는 것이 정보다.
+ */
+.agent-progress__todo {
+  margin: 0.5rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--agent-muted, #71717a);
+}
