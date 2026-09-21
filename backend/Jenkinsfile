@@ -86,7 +86,9 @@ pipeline {
                 // frontend Jenkinsfile 과 같은 방식으로 :test-$BUILD_NUMBER 를 함께 찍는다. 쌓이는 번호 태그는
                 // deploy/master 의 scripts/prune-images.sh 크론이 서비스별 최신 5개만 남기고 정리한다.
                 sh 'docker build -f docker/Dockerfile -t $IMAGE:test -t $IMAGE:test-$BUILD_NUMBER .'
-                sh 'flock -w 900 /var/jenkins_home/cf-deploy.lock bash $DEPLOY_DIR/scripts/test-deploy.sh backend'
+                // 테스트 예측시장은 종료 뒤 실제 정산까지 검증해야 하므로 오라클을 켠 채 배포한다.
+                // 운영 배포는 별도 스테이지이며 이 값의 영향을 받지 않는다.
+                sh 'PREDICTION_ORACLE_ENABLED=true flock -w 900 /var/jenkins_home/cf-deploy.lock bash $DEPLOY_DIR/scripts/test-deploy.sh backend'
             }
         }
 
