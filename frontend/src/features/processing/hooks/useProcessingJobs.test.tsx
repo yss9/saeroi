@@ -18,16 +18,28 @@ import type { ProcessingJobDetail } from '../api/processingJobApi.ts'
 import { PROCESSING_CHAIN_STATUS } from '../services/processingContractService.ts'
 import { useProcessingJob } from './useProcessingJobs.ts'
 
-const contract = vi.hoisted(() => ({ acceptProcessingJob: vi.fn(), getProcessingChainStatus: vi.fn() }))
+const contract = vi.hoisted(() => ({
+  acceptProcessingJob: vi.fn(), getProcessingChainStatus: vi.fn(),
+  createProcessingJob: vi.fn(), findUnlinkedProcessingJob: vi.fn(),
+  getProcessingBrandLockId: vi.fn(), readProcessingEventValues: vi.fn(),
+}))
 vi.mock('../services/processingContractService.ts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../services/processingContractService.ts')>()
-  return { ...actual, acceptProcessingJob: contract.acceptProcessingJob, getProcessingChainStatus: contract.getProcessingChainStatus }
+  return {
+    ...actual,
+    acceptProcessingJob: contract.acceptProcessingJob,
+    getProcessingChainStatus: contract.getProcessingChainStatus,
+    createProcessingJob: contract.createProcessingJob,
+    findUnlinkedProcessingJob: contract.findUnlinkedProcessingJob,
+    getProcessingBrandLockId: contract.getProcessingBrandLockId,
+    readProcessingEventValues: contract.readProcessingEventValues,
+  }
 })
 
-const api = vi.hoisted(() => ({ detail: vi.fn(), chainPreparation: vi.fn(), accept: vi.fn() }))
+const api = vi.hoisted(() => ({ detail: vi.fn(), chainPreparation: vi.fn(), accept: vi.fn(), list: vi.fn(), linkChain: vi.fn() }))
 vi.mock('../api/processingJobApi.ts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../api/processingJobApi.ts')>()
-  return { ...actual, processingJobApi: { ...actual.processingJobApi, detail: api.detail, chainPreparation: api.chainPreparation, accept: api.accept } }
+  return { ...actual, processingJobApi: { ...actual.processingJobApi, detail: api.detail, chainPreparation: api.chainPreparation, accept: api.accept, list: api.list, linkChain: api.linkChain } }
 })
 
 const requestApi = vi.hoisted(() => ({ detail: vi.fn() }))
@@ -65,6 +77,11 @@ function job(overrides: Partial<ProcessingJobDetail> = {}): ProcessingJobDetail 
 
 function txReceipt() {
   return { hash: '0xabc', blockNumber: 1, wait: () => Promise.resolve({ status: 1 }) }
+}
+
+/** 영수증에서 해시·블록을 읽는 쪽(등록)은 `wait()` 가 돌려주는 값을 쓴다. */
+function confirmedReceipt() {
+  return { hash: '0xabc', blockNumber: 1, wait: () => Promise.resolve({ status: 1, hash: '0xabc', blockNumber: 1 }) }
 }
 
 afterEach(() => vi.resetAllMocks())
@@ -133,5 +150,93 @@ describe('useProcessingJob accept 재시도', () => {
 
     expect(contract.acceptProcessingJob).toHaveBeenCalledOnce()
     expect(api.accept).toHaveBeenCalledOnce()
+  })
+})
+
+/*
+  브랜드의 온체인 등록도 "서명 한 번 + 서버 기록 한 번" 이다 — 그리고 여기서 끊기는
+  쪽이 훨씬 나쁘다.
+
+  createJob 이 확정된 뒤 `POST /processing-jobs/{id}/chain` 이 실패하면 작업은 여전히
+  PAID · chainJobId=null 로 남아 등록 패널이 그대로 돌아온다. 그대로 다시 누르면 같은
+  소재가 **두 번째로** 잠기는데, 그 두 번째 온체인 작업은 DB 어디에서도 가리킬 수
+  없으므로 잠금을 풀 방법이 영영 없다(cancelJob 을 부르려면 chainJobId 가 필요하다).
+
+  그래서 accept 와 같은 원칙을 쓴다 — **체인이 "이미 했다" 고 말할 때만 서명을 접는다.**
+  등록에는 읽어 볼 상태값이 없으므로(연결 전이라 chainJobId 자체가 없다) 대신
+  `ProcessingJobCreated` 로그에서 "내가 만들었는데 아직 연결되지 않은" 작업을 찾는다.
+*/
+describe('useProcessingJob initializeChain 재시도', () => {
+  const preparation = {
+    jobId: 41, chainJobId: null, status: 'PAID' as const,
+    brandWallet: '0x1111111111111111111111111111111111111111',
+    processorWallet: '0x2222222222222222222222222222222222222222',
+    inputTokenId: 9, inputQuantity: 1_000, processTypes: ['CLEANING' as const],
+  }
+
+  function renderInitialize() {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+    function wrapper({ children }: { children: ReactNode }) {
+      return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    }
+    return renderHook(() => useProcessingJob(41), { wrapper })
+  }
+
+  it('POST /chain 이 실패한 뒤 재시도하면, 고아가 된 온체인 작업을 다시 쓰고 서명하지 않는다', async () => {
+    api.detail.mockResolvedValue(job({ chainJobId: null }))
+    api.chainPreparation.mockResolvedValue(preparation)
+    api.list.mockResolvedValue([])
+    contract.createProcessingJob.mockResolvedValue(confirmedReceipt())
+    contract.readProcessingEventValues.mockReturnValue([77n])
+    contract.getProcessingBrandLockId.mockResolvedValue(31)
+    // 1차 시도 시점에는 아직 아무것도 체인에 없다.
+    contract.findUnlinkedProcessingJob.mockResolvedValueOnce(null)
+
+    const { result } = renderInitialize()
+    await waitFor(() => expect(result.current.chainPreparation.isSuccess).toBe(true))
+
+    // 1차 — createJob 은 확정됐는데 서버 기록이 실패한다.
+    api.linkChain.mockRejectedValueOnce(new Error('네트워크 오류'))
+    result.current.initializeChain.mutate()
+    await waitFor(() => expect(result.current.initializeChain.isError).toBe(true))
+
+    expect(contract.createProcessingJob).toHaveBeenCalledOnce()
+    expect(api.linkChain).toHaveBeenCalledWith(41, { onChainId: 77, chainLockId: 31, txHash: '0xabc', blockNumber: 1 })
+
+    // 재시도 — 이번에는 로그에서 방금 만든 고아 작업이 보인다.
+    contract.findUnlinkedProcessingJob.mockResolvedValue({ onChainId: 77, txHash: '0xabc', blockNumber: 1 })
+    api.linkChain.mockResolvedValueOnce(job({ chainJobId: 77 }))
+    result.current.initializeChain.mutate()
+    await waitFor(() => expect(result.current.initializeChain.isSuccess).toBe(true))
+
+    // 두 번째 createJob 은 없다 — 있었다면 같은 소재가 한 번 더, 되돌릴 수 없게 잠겼다.
+    expect(contract.createProcessingJob).toHaveBeenCalledOnce()
+    expect(api.linkChain).toHaveBeenCalledTimes(2)
+    expect(contract.findUnlinkedProcessingJob).toHaveBeenLastCalledWith({
+      brandWallet: preparation.brandWallet,
+      processorWallet: preparation.processorWallet,
+      tokenId: 9,
+      amount: 1_000,
+      linkedChainJobIds: [],
+    })
+  })
+
+  it('이미 다른 작업에 연결된 번호는 후보에서 빼고 보낸다', async () => {
+    api.detail.mockResolvedValue(job({ chainJobId: null }))
+    api.chainPreparation.mockResolvedValue(preparation)
+    api.list.mockResolvedValue([job({ jobId: 40, chainJobId: 11 }), job({ jobId: 41, chainJobId: null })])
+    contract.findUnlinkedProcessingJob.mockResolvedValue(null)
+    contract.createProcessingJob.mockResolvedValue(confirmedReceipt())
+    contract.readProcessingEventValues.mockReturnValue([77n])
+    contract.getProcessingBrandLockId.mockResolvedValue(31)
+    api.linkChain.mockResolvedValue(job({ chainJobId: 77 }))
+
+    const { result } = renderInitialize()
+    await waitFor(() => expect(result.current.chainPreparation.isSuccess).toBe(true))
+
+    result.current.initializeChain.mutate()
+    await waitFor(() => expect(result.current.initializeChain.isSuccess).toBe(true))
+
+    expect(contract.findUnlinkedProcessingJob).toHaveBeenCalledWith(expect.objectContaining({ linkedChainJobIds: [11] }))
   })
 })

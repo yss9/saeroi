@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ContractTransactionResponse } from 'ethers'
-import { processingJobApi, type ProcessingSignatureAction, type ResultDraftInput } from '../api/processingJobApi.ts'
+import { processingJobApi, type ProcessingChainPreparation, type ProcessingSignatureAction, type ResultDraftInput } from '../api/processingJobApi.ts'
 import { processingRequestApi } from '../api/processingRequestApi.ts'
 import { processingKeys } from '../api/processingKeys.ts'
 import { inventoryKeys } from '../../inventory/api/inventoryKeys.ts'
@@ -15,6 +15,7 @@ import {
   cancelProcessingJob,
   confirmProcessingReceipt,
   createProcessingJob,
+  findUnlinkedProcessingJob,
   getProcessingBrandLockId,
   getProcessingChainStatus,
   markProcessingReturnShipped,
@@ -25,6 +26,7 @@ import {
   rejectProcessingResultOnChain,
   startProcessingOnChain,
   submitProcessingResultOnChain,
+  type UnlinkedProcessingJob,
 } from '../services/processingContractService.ts'
 
 const keys = {
@@ -39,6 +41,19 @@ async function confirmed(response: Promise<ContractTransactionResponse>) {
   const receipt = await tx.wait()
   if (!receipt || receipt.status !== 1) throw new Error('블록체인 트랜잭션이 확정되지 않았습니다.')
   return receipt
+}
+
+/** 온체인에 새 가공 작업을 만들고, 영수증에서 번호를 꺼낸다. */
+async function registerChainJob(prep: ProcessingChainPreparation): Promise<UnlinkedProcessingJob> {
+  const receipt = await confirmed(createProcessingJob(
+    prep.processorWallet,
+    prep.inputTokenId,
+    prep.inputQuantity,
+    prep.processTypes,
+  ))
+  const values = readProcessingEventValues(receipt, 'ProcessingJobCreated', 'jobId')
+  if (values.length !== 1) throw new Error('온체인 작업 번호를 확인하지 못했습니다.')
+  return { onChainId: Number(values[0]), txHash: receipt.hash, blockNumber: receipt.blockNumber }
 }
 
 export function useProcessingJobs() {
@@ -98,24 +113,43 @@ export function useProcessingJob(jobId: number) {
     return id
   }
 
+  /*
+    브랜드의 온체인 등록도 "서명 한 번 + 서버 기록 한 번" 이다 — 그리고 여기서 끊기는
+    쪽이 수락보다 훨씬 나쁘다.
+
+    `createJob` 이 확정된 뒤 `POST /processing-jobs/{id}/chain` 이 실패하면(네트워크
+    끊김, 500, 탭 닫힘) 작업은 여전히 PAID · chainJobId=null 이라 등록 패널이 그대로
+    돌아온다. 그대로 다시 누르면 같은 소재가 **두 번째로** 잠기는데, 그 두 번째 온체인
+    작업은 DB 어디에서도 가리킬 수 없다 — `cancelJob` 은 chainJobId 를 받는데 그 번호가
+    어디에도 적혀 있지 않다. 잠긴 수량은 영영 돌아오지 않는다.
+
+    그래서 accept 와 같은 원칙을 쓴다 — **체인이 "이미 했다" 고 말할 때만 서명을 접는다.**
+    등록에는 읽어 볼 상태값이 없으므로(연결 전이라 번호 자체를 모른다) 대신
+    `ProcessingJobCreated` 로그에서 "내가 이 조건으로 만들었는데 아직 아무 작업에도
+    연결되지 않은" 번호를 찾는다. 찾지 못하면 그대로 서명한다 — 고아를 못 보고
+    지나쳐 한 번 더 잠그는 일은 남지만(findUnlinkedProcessingJob 주석 참고),
+    "확실하지 않으면 서명한다" 쪽이 서명 없이 근거 없는 기록을 만드는 것보다 낫다.
+  */
   const initializeChain = useMutation({
     mutationFn: async () => {
       const prep = requirePreparation()
-      const receipt = await confirmed(createProcessingJob(
-        prep.processorWallet,
-        prep.inputTokenId,
-        prep.inputQuantity,
-        prep.processTypes,
-      ))
-      const values = readProcessingEventValues(receipt, 'ProcessingJobCreated', 'jobId')
-      if (values.length !== 1) throw new Error('온체인 작업 번호를 확인하지 못했습니다.')
-      const onChainId = Number(values[0])
-      const chainLockId = await getProcessingBrandLockId(onChainId)
+      // 다른 작업이 이미 가져간 번호는 후보가 아니다 — 그 잠금에는 주인이 있다.
+      const linkedChainJobIds = (await processingJobApi.list())
+        .flatMap(item => (item.chainJobId === null ? [] : [item.chainJobId]))
+      const orphan = await findUnlinkedProcessingJob({
+        brandWallet: prep.brandWallet,
+        processorWallet: prep.processorWallet,
+        tokenId: prep.inputTokenId,
+        amount: prep.inputQuantity,
+        linkedChainJobIds,
+      })
+      const registered = orphan ?? await registerChainJob(prep)
+      const chainLockId = await getProcessingBrandLockId(registered.onChainId)
       return processingJobApi.linkChain(jobId, {
-        onChainId,
+        onChainId: registered.onChainId,
         chainLockId,
-        txHash: receipt.hash,
-        blockNumber: receipt.blockNumber,
+        txHash: registered.txHash,
+        blockNumber: registered.blockNumber,
       })
     },
     onSuccess: refresh,
