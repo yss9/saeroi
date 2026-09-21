@@ -59,7 +59,7 @@ public class MyTradesTool extends AbstractAgentTool {
                 + "needsChainOrder 가 true 면 결제는 됐지만 블록체인 기록이 아직이라 "
                 + "request_chain_order 로 서명 카드를 띄워야 한다. "
                 + "needsChainReceipt 가 true 면 수령은 확정됐지만 그것이 아직 체인에 "
-                + "남지 않았다 — request_chain_receipt 로 서명 카드를 띄워야 한다. "
+                + "남지 않았다 — confirm_receipt 로 서명 카드를 띄워야 한다. "
                 + "두 값은 별개다. 하나가 false 라고 다른 하나까지 끝난 것이 아니다.";
     }
 

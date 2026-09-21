@@ -18,6 +18,7 @@ import com.ssafy.upcycle.agent.service.llm.LlmClient;
 import com.ssafy.upcycle.agent.service.llm.LlmCompletion;
 import com.ssafy.upcycle.agent.service.llm.ToolCall;
 import com.ssafy.upcycle.trade.entity.MaterialTrade;
+import com.ssafy.upcycle.trade.entity.TradeStatus;
 import com.ssafy.upcycle.trade.repository.MaterialTradeRepository;
 import com.ssafy.upcycle.user.entity.User;
 import com.ssafy.upcycle.user.entity.UserRole;
@@ -68,12 +69,20 @@ class AgentChainReceiptTests {
         users.deleteAll();
     }
 
+    /**
+     * <b>카드는 하나다.</b> 누르면 지갑이 열리고, 서명이 끝나면 그 자리에서 수령까지
+     * 확정된다.
+     *
+     * <p>예전에는 서명 카드와 확인 카드가 따로 떠서 두 번 눌러야 했다. 같은 한 가지 일을
+     * 두 번 승인하게 만드는 셈이고, 두 번째를 잊으면 체인에는 소유권이 넘어왔는데 서버는
+     * 모르는 상태가 됐다.
+     */
     @Test
-    void 수령_확정이_끝난_거래에는_서명_카드가_뜬다() {
-        givenTrade(29L, LocalDateTime.now());
+    void 수령_카드는_서명_카드_하나다() {
+        givenTrade(29L, null);
 
         ConversationDetailResponse detail = callTool(
-                "request_chain_receipt", "{\"tradeId\":16,\"summary\":\"수령 온체인 기록\"}");
+                "confirm_receipt", "{\"tradeId\":16,\"summary\":\"수령 온체인 기록\"}");
 
         assertThat(detail.actions()).hasSize(1);
         assertThat(detail.actions().getFirst().actionType()).isEqualTo(PendingActionType.WALLET_SIGN);
@@ -86,24 +95,34 @@ class AgentChainReceiptTests {
         givenTrade(null, LocalDateTime.now());
 
         ConversationDetailResponse detail = callTool(
-                "request_chain_receipt", "{\"tradeId\":16,\"summary\":\"수령 온체인 기록\"}");
+                "confirm_receipt", "{\"tradeId\":16,\"summary\":\"수령 온체인 기록\"}");
 
         assertThat(lastToolResult()).contains("ALREADY_DONE");
         assertThat(detail.actions()).isEmpty();
     }
 
+    /** 이미 확정된 거래는 서명도 끝난 상태다 — 확정이 체인을 보고 나서만 되므로. */
     @Test
-    void 수령_확정_전에는_띄우지_않는다() {
-        givenTrade(29L, null);
+    void 이미_확정된_거래에는_띄우지_않는다() {
+        givenTrade(29L, LocalDateTime.now());
 
-        callTool("request_chain_receipt", "{\"tradeId\":16,\"summary\":\"수령 온체인 기록\"}");
+        ConversationDetailResponse detail = callTool(
+                "confirm_receipt", "{\"tradeId\":16,\"summary\":\"수령 온체인 기록\"}");
 
-        assertThat(lastToolResult()).contains("confirm_receipt");
+        assertThat(lastToolResult()).contains("ALREADY_DONE");
+        assertThat(detail.actions()).isEmpty();
     }
 
+    /**
+     * 스텁 거래 하나.
+     *
+     * <p>발송까지 끝난 상태로 둔다 — 수령 카드는 {@code SHIPPED} 에서만 뜬다. 상태를
+     * 비워 두면 "아직 발송하지 않았다" 로 걸려 카드가 아예 만들어지지 않는다.
+     */
     private void givenTrade(Long chainTradeId, LocalDateTime receivedAt) {
         MaterialTrade trade = mock(MaterialTrade.class);
         when(trade.getBuyerId()).thenReturn(brandId);
+        when(trade.getStatus()).thenReturn(TradeStatus.SHIPPED);
         when(trade.getChainTradeId()).thenReturn(chainTradeId);
         when(trade.getReceivedAt()).thenReturn(receivedAt);
         when(trades.findById(any())).thenReturn(Optional.of(trade));

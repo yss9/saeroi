@@ -133,7 +133,7 @@ public class AgentPendingWork {
                 && trade.receivedAt() != null
                 && chainOrders.needsReceiptSignature(trade.chainTradeId()).orElse(false)) {
             return "수령은 확정됐지만 체인에 남지 않았다. 체인에서는 소재가 아직 판매자 잠금에 "
-                    + "있다. request_chain_receipt 로 서명 카드를 띄운다";
+                    + "있다. confirm_receipt 로 서명 카드를 띄운다 — 서명하면 수령까지 확정된다";
         }
         if (trade.status() == TradeStatus.CREATED) {
             return "결제가 아직이다. 담당자가 결제창을 닫았다면 cancel_trade 로 정리한다";
