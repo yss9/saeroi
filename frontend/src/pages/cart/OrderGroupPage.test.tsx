@@ -81,16 +81,20 @@ describe('order group checkout', () => {
     await screen.findByText(/주문을 확인할 수 없습니다/)
     expect(screen.queryByRole('button', { name: '결제하기' })).not.toBeInTheDocument()
   })
-  it('shows every brand and total in whole-group cancellation confirmation', async () => {
+  it('결제 전 묶음 취소는 함께 사라지는 주문 건수를 알리고 환불 문장은 빼 둔다', async () => {
     show(); await screen.findByText(/ORG-3/); fireEvent.click(screen.getByRole('button', { name: '주문 전체 취소' }))
-    const dialog = screen.getByRole('dialog'); expect(dialog).toHaveTextContent('브랜드 A'); expect(dialog).toHaveTextContent('브랜드 B'); expect(dialog).toHaveTextContent('20,000원'); expect(dialog).toHaveTextContent('부분 취소 불가')
+    const dialog = screen.getByRole('dialog'); expect(dialog).toHaveTextContent('주문 2건이 모두 취소'); expect(dialog).toHaveTextContent('부분 취소는 할 수 없습니다'); expect(dialog).toHaveTextContent('되돌릴 수 없습니다'); expect(dialog).not.toHaveTextContent('환불')
     fireEvent.click(screen.getByRole('button', { name: '전체 취소 확인' })); await waitFor(() => expect(cancelGroup).toHaveBeenCalledTimes(1))
+  })
+  it('결제한 묶음 취소는 주문 건수와 총 환불 금액을 알린다', async () => {
+    vi.mocked(getGroup).mockResolvedValue({ ...group, status: 'PAID', paidAt: '2026-09-17T12:00:00+09:00' })
+    show(); await screen.findByText(/ORG-3/); fireEvent.click(screen.getByRole('button', { name: '주문 전체 취소' }))
+    const dialog = screen.getByRole('dialog'); expect(dialog).toHaveTextContent('주문 2건이 모두 취소'); expect(dialog).toHaveTextContent('결제하신 20,000원은 환불됩니다')
   })
   it('opens whole-group cancellation from the action query', async () => {
     show(false, '?action=cancel')
     const dialog = await screen.findByRole('dialog')
-    expect(dialog).toHaveTextContent('브랜드 A')
-    expect(dialog).toHaveTextContent('브랜드 B')
+    expect(dialog).toHaveTextContent('주문 2건이 모두 취소')
     expect(cancelGroup).not.toHaveBeenCalled()
   })
   it('disables cancellation based on server cancelable', async () => {

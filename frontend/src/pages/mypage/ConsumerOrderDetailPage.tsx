@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import {
   Button,
   ConfirmModal,
@@ -11,6 +12,9 @@ import {
 } from '../../components/common/index.ts'
 import { useAuth } from '../../features/auth/hooks/useAuth.ts'
 import { useLogout } from '../../features/auth/hooks/useLogout.ts'
+import { cancelGroup } from '../../features/cart/checkout.ts'
+import { productKeys } from '../../features/product/api/productKeys.ts'
+import { consumerOrderKeys } from '../../features/user/api/consumerOrderKeys.ts'
 import { ConsumerAccountLayout } from '../../features/user/components/ConsumerAccountLayout.tsx'
 import { OrderProgress, TrackingLine } from '../../features/user/components/ConsumerOrderList.tsx'
 import { useCancelProductOrder } from '../../features/user/hooks/useCancelProductOrder.ts'
@@ -22,7 +26,11 @@ import type {
   ConsumerRecentOrder,
 } from '../../features/user/types/consumerMyPage.types.ts'
 import { formatDate } from '../../features/user/utils/formatDate.ts'
-import { groupConsumerOrders } from '../../features/user/utils/groupConsumerOrders.ts'
+import {
+  bundleConsumerOrders,
+  groupConsumerOrders,
+  type ConsumerOrderGroup,
+} from '../../features/user/utils/groupConsumerOrders.ts'
 import { maskAddressDetail, maskName as maskReceiverName } from '../../utils/mask.ts'
 
 const priceFormatter = new Intl.NumberFormat('ko-KR', {
@@ -57,23 +65,56 @@ const orderStatusMeta: Record<ConsumerOrderViewStatus, { label: string; tone: St
  * 찾아 쓴다 — 목록에서 "주문 상세보기" 를 눌러 들어오면 캐시가 이미 있어 즉시 뜨고,
  * 새로고침·직접 링크로 들어와도 목록과 같은 요청 한 번으로 채워진다.
  */
-export function ConsumerOrderDetailPage() {
-  const { orderId } = useParams<{ orderId: string }>()
+export function ConsumerOrderDetailPage({ grouped = false }: { grouped?: boolean }) {
+  const { orderId, orderGroupId } = useParams<{ orderId: string; orderGroupId: string }>()
   const navigate = useNavigate()
   const { user } = useAuth()
   const logout = useLogout()
   const cancel = useCancelProductOrder()
+  const queryClient = useQueryClient()
+  const cancelOrderGroup = useMutation({
+    mutationFn: (id: number) => cancelGroup(id, '구매자 묶음 전체 취소'),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: consumerOrderKeys.all })
+      void queryClient.invalidateQueries({ queryKey: productKeys.all })
+    },
+  })
   const [cancelOpen, setCancelOpen] = useState(false)
   const profile = user ? { id: user.id, name: user.name, email: user.email } : null
   const myPage = useConsumerMyPage(profile)
 
-  const group = useMemo(() => {
+  const bundle = useMemo(() => {
     if (!myPage.data) return null
-    return groupConsumerOrders(myPage.data.recentOrders).find(
-      (candidate) => String(candidate.orderId) === orderId,
+    const bundles = bundleConsumerOrders(groupConsumerOrders(myPage.data.recentOrders))
+    return bundles.find((candidate) => grouped
+      ? String(candidate.orderGroupId) === orderGroupId
+      : candidate.orders.some((order) => String(order.orderId) === orderId)) ?? null
+  }, [grouped, myPage.data, orderGroupId, orderId])
+  const firstOrder = bundle?.orders[0]
+  const paymentOrder = bundle?.orders.find((order) => order.status === 'PAYMENT_PENDING')
+  const paymentCountdown = usePaymentCountdown(
+    paymentOrder?.remainingSeconds,
+    paymentOrder?.paymentDeadline,
+  )
+  const isOrderGroup = bundle?.orderGroupId != null
+  const allItems = bundle?.orders.flatMap((order) => order.items) ?? []
+  const totalAmount = bundle?.orders.reduce(
+    (sum, order) => sum + (order.items[0]?.totalAmount ?? 0),
+    0,
+  ) ?? 0
+  const cancelable = bundle?.orders.every(
+    (order) => order.status === 'PAYMENT_PENDING' || order.status === 'PREPARING',
+  ) ?? false
+
+  if (!grouped && bundle?.orderGroupId != null) {
+    return (
+      <Navigate
+        replace
+        to={`/mypage/order-groups/${bundle.orderGroupId}`}
+        state={{ skipGlobalScrollReset: true }}
+      />
     )
-  }, [myPage.data, orderId])
-  const paymentCountdown = usePaymentCountdown(group?.remainingSeconds, group?.paymentDeadline)
+  }
 
   return (
     <ConsumerAccountLayout
@@ -96,7 +137,7 @@ export function ConsumerOrderDetailPage() {
             onRetry={() => void myPage.refetch()}
           />
         </div>
-      ) : !group ? (
+      ) : !bundle || !firstOrder ? (
         <section className="consumer-mypage-card">
           <EmptyState
             title="주문을 찾을 수 없습니다"
@@ -113,8 +154,12 @@ export function ConsumerOrderDetailPage() {
           <div className="consumer-section-heading">
             <div>
               <p className="consumer-section-heading__eyebrow">ORDER DETAIL</p>
-              <h2 id="order-detail-title">주문번호 {group.orderNumber}</h2>
-              {group.orderGroupCode && <p className="consumer-order-detail__payment-code">결제번호 {group.orderGroupCode}</p>}
+              <h2 id="order-detail-title">
+                {isOrderGroup ? '결제번호' : '주문번호'}{' '}
+                {isOrderGroup
+                  ? (bundle.orderGroupCode ?? firstOrder.orderNumber)
+                  : firstOrder.orderNumber}
+              </h2>
             </div>
             <Link className="consumer-text-link" to="/mypage/orders">
               주문 내역으로
@@ -125,18 +170,26 @@ export function ConsumerOrderDetailPage() {
               — "주문 : 2026. 09. 16. 오후 03:39" 형태. */}
           <p className="consumer-order-detail__ordered-at">
             주문 :{' '}
-            <time dateTime={group.orderedAt}>
-              {formatDate(group.orderedAt, dateFormatter) === '-'
+            <time dateTime={firstOrder.orderedAt}>
+              {formatDate(firstOrder.orderedAt, dateFormatter) === '-'
                 ? '-'
-                : `${formatDate(group.orderedAt, dateFormatter)} ${formatDate(group.orderedAt, timeFormatter)}`}
+                : `${formatDate(firstOrder.orderedAt, dateFormatter)} ${formatDate(firstOrder.orderedAt, timeFormatter)}`}
             </time>
           </p>
 
-          <div className="consumer-order-group__items">
-            {group.items.map((item) => (
-              <OrderDetailItemRow key={item.id} item={item} />
-            ))}
-          </div>
+          {isOrderGroup ? (
+            <div className="consumer-order-detail__brands">
+              {bundle.orders.map((order) => (
+                <GroupBrandOrderDetail key={order.orderId} order={order} />
+              ))}
+            </div>
+          ) : (
+            <div className="consumer-order-group__items">
+              {firstOrder.items.map((item) => (
+                <OrderDetailItemRow key={item.id} item={item} />
+              ))}
+            </div>
+          )}
 
           {/* 배송지와 결제 정보를 하나의 정렬 기준으로 표시한다. */}
           <div className="consumer-order-detail__section">
@@ -144,32 +197,32 @@ export function ConsumerOrderDetailPage() {
             <dl className="consumer-order-detail__info-grid">
               <div>
                 <dt>상품 수</dt>
-                <dd>{group.items.length}개</dd>
+                <dd>{allItems.length}개</dd>
               </div>
               <div>
                 <dt>총 결제금액</dt>
                 <dd className="consumer-order-detail__total">
-                  {priceFormatter.format(group.items[0].totalAmount)}
+                  {priceFormatter.format(totalAmount)}
                 </dd>
               </div>
 
               <div>
                 <dt>받는사람</dt>
-                <dd>{maskReceiverName(group.items[0]?.receiverName ?? '')}</dd>
+                <dd>{maskReceiverName(allItems[0]?.receiverName ?? '')}</dd>
               </div>
               <div>
                 <dt>주소</dt>
                 <dd>
-                  [{group.items[0].zipCode}] {group.items[0].address}
-                  {group.items[0].addressDetail
-                    ? ` ${maskAddressDetail(group.items[0].addressDetail)}`
+                  [{allItems[0].zipCode}] {allItems[0].address}
+                  {allItems[0].addressDetail
+                    ? ` ${maskAddressDetail(allItems[0].addressDetail)}`
                     : ''}
                 </dd>
               </div>
             </dl>
           </div>
 
-          {group.status === 'PAYMENT_PENDING' && (
+          {paymentOrder && (
             <div className="consumer-order-detail__payment-action">
               {paymentCountdown.label && <p role="timer">{paymentCountdown.label}</p>}
               {paymentCountdown.expired ? (
@@ -177,9 +230,9 @@ export function ConsumerOrderDetailPage() {
               ) : (
                 <Link
                   className="consumer-order-detail__pay-link"
-                  to={group.orderGroupId != null
-                    ? `/order-groups/${group.orderGroupId}`
-                    : `/orders/${group.orderId}/checkout`}
+                  to={isOrderGroup
+                    ? `/order-groups/${bundle.orderGroupId}`
+                    : `/orders/${paymentOrder.orderId}/checkout`}
                 >
                   결제하기
                 </Link>
@@ -195,8 +248,7 @@ export function ConsumerOrderDetailPage() {
 
           */}
           <div className="consumer-order-detail__receipt-action">
-            {group.orderGroupId == null &&
-              (group.status === 'PAYMENT_PENDING' || group.status === 'PREPARING') && (
+            {!isOrderGroup && cancelable && (
                 <Button
                   variant="secondary"
                   loading={cancel.isPending}
@@ -205,33 +257,54 @@ export function ConsumerOrderDetailPage() {
                   주문 취소
                 </Button>
               )}
-            {group.orderGroupId != null && group.status === 'PAYMENT_PENDING' && (
-              <Link
-                className="consumer-order-detail__cancel-link"
-                to={`/order-groups/${group.orderGroupId}?action=cancel`}
+            {isOrderGroup && cancelable && (
+              <Button
+                variant="secondary"
+                loading={cancelOrderGroup.isPending}
+                onClick={() => setCancelOpen(true)}
               >
                 주문 전체 취소
-              </Link>
+              </Button>
             )}
             <Button variant="secondary" onClick={() => window.print()}>
               영수증 출력
             </Button>
           </div>
 
-          {cancel.isError && <ErrorMessage error={cancel.error} />}
+          {(cancel.isError || cancelOrderGroup.isError) && (
+            <ErrorMessage error={cancel.error ?? cancelOrderGroup.error} />
+          )}
           <ConfirmModal
             open={cancelOpen}
-            title="주문을 취소할까요?"
-            message={`${group.orderNumber} 주문을 취소합니다.${group.status === 'PREPARING' ? ' 결제하신 금액은 환불됩니다.' : ''} 취소한 주문은 목록에서 사라지고 되돌릴 수 없습니다.`}
-            confirmLabel="주문 취소"
+            title={isOrderGroup ? '주문을 모두 취소할까요?' : '주문을 취소할까요?'}
+            message={isOrderGroup
+              ? [
+                  `이 결제의 주문 ${bundle.orders.length}건이 모두 취소됩니다.`,
+                  ...(!paymentOrder ? [`결제하신 ${new Intl.NumberFormat('ko-KR').format(totalAmount)}원은 환불됩니다.`] : []),
+                  '브랜드별 부분 취소는 할 수 없습니다.',
+                  '취소한 주문은 목록에서 사라지고 되돌릴 수 없습니다.',
+                ].join('\n')
+              : `${firstOrder.orderNumber} 주문을 취소합니다.${firstOrder.status === 'PREPARING' ? ' 결제하신 금액은 환불됩니다.' : ''} 취소한 주문은 목록에서 사라지고 되돌릴 수 없습니다.`}
+            confirmLabel={isOrderGroup ? '전체 취소 확인' : '주문 취소'}
+            cancelLabel={isOrderGroup ? '주문 유지' : undefined}
             destructive
-            loading={cancel.isPending}
-            onConfirm={() =>
-              cancel.mutate(group.orderId, {
+            loading={cancel.isPending || cancelOrderGroup.isPending}
+            onConfirm={() => {
+              if (isOrderGroup && bundle.orderGroupId != null) {
+                cancelOrderGroup.mutate(bundle.orderGroupId, {
+                  onSuccess: () => navigate(`/order-groups/${bundle.orderGroupId}`, {
+                    replace: true,
+                    state: { cancellationComplete: true },
+                  }),
+                  onSettled: () => setCancelOpen(false),
+                })
+                return
+              }
+              cancel.mutate(firstOrder.orderId, {
                 onSuccess: () => navigate('/mypage/orders', { replace: true }),
                 onSettled: () => setCancelOpen(false),
               })
-            }
+            }}
             onClose={() => setCancelOpen(false)}
           />
         </section>
@@ -240,9 +313,44 @@ export function ConsumerOrderDetailPage() {
   )
 }
 
+function GroupBrandOrderDetail({ order }: { order: ConsumerOrderGroup }) {
+  const status = orderStatusMeta[order.status]
+  const firstItem = order.items[0]
+
+  return (
+    <section
+      className="consumer-order-detail__brand-order"
+      aria-label={`${firstItem.brandName} 주문`}
+    >
+      <header className="consumer-order-detail__brand-heading">
+        <h3>{firstItem.brandName}</h3>
+        <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
+      </header>
+
+      <div className="consumer-order-group__items">
+        {order.items.map((item) => (
+          <div className="consumer-order-item consumer-order-item--detail" key={item.id}>
+            <OrderDetailProductBody item={item} />
+          </div>
+        ))}
+      </div>
+
+      <div
+        className="consumer-order-detail__shipping"
+        aria-label={`${firstItem.brandName} 배송조회`}
+      >
+        <p className="consumer-order-detail__section-title">배송조회</p>
+        <div className="consumer-order-detail__progress">
+          <OrderProgress order={firstItem} />
+        </div>
+        <TrackingLine order={firstItem} />
+      </div>
+    </section>
+  )
+}
+
 function OrderDetailItemRow({ item }: { item: ConsumerRecentOrder }) {
   const status = orderStatusMeta[item.status]
-  const thumbnail = useConsumerOrderThumbnail(item.thumbnailUrl)
 
   return (
     <div className="consumer-order-item consumer-order-item--detail">
@@ -250,29 +358,44 @@ function OrderDetailItemRow({ item }: { item: ConsumerRecentOrder }) {
         <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
       </div>
 
-      <div className="consumer-order-item__body">
-        <div className="consumer-order-item__thumbnail">
-          {thumbnail.url ? (
-            <img src={thumbnail.url} alt={item.thumbnailAlt} />
-          ) : (
-            <span aria-hidden="true" />
-          )}
-        </div>
-        <div className="consumer-order-item__info">
-          <p className="consumer-order-item__brand">{item.brandName}</p>
-          <h3>{item.productName}</h3>
-          <p className="consumer-order-item__price">
-            {priceFormatter.format(item.itemPrice)}
-            <span> · {item.itemCount}개</span>
-          </p>
-          {item.journeyUrl && <a className="consumer-text-link consumer-order-detail__journey" href={item.journeyUrl}>PRODUCT PASSPORT</a>}
-        </div>
-      </div>
+      <OrderDetailProductBody item={item} />
 
       <div className="consumer-order-detail__progress">
         <OrderProgress order={item} />
       </div>
       <TrackingLine order={item} />
+    </div>
+  )
+}
+
+function OrderDetailProductBody({ item }: { item: ConsumerRecentOrder }) {
+  const thumbnail = useConsumerOrderThumbnail(item.thumbnailUrl)
+
+  return (
+    <div className="consumer-order-item__body">
+      <div className="consumer-order-item__thumbnail">
+        {thumbnail.url ? (
+          <img src={thumbnail.url} alt={item.thumbnailAlt} />
+        ) : (
+          <span aria-hidden="true" />
+        )}
+      </div>
+      <div className="consumer-order-item__info">
+        <p className="consumer-order-item__brand">{item.brandName}</p>
+        <h3>{item.productName}</h3>
+        <p className="consumer-order-item__price">
+          {priceFormatter.format(item.itemPrice)}
+          <span> · {item.itemCount}개</span>
+        </p>
+        {item.journeyUrl && (
+          <a
+            className="consumer-text-link consumer-order-detail__journey"
+            href={item.journeyUrl}
+          >
+            PRODUCT JOURNEY
+          </a>
+        )}
+      </div>
     </div>
   )
 }

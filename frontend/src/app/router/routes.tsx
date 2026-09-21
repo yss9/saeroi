@@ -144,6 +144,7 @@ const appRoutes: RouteObject[] = [
       // 주문 상세보기. 목록 카드의 "주문 상세보기" 에서 들어온다 — 별도 API 없이 목록과
       // 같은 Query 캐시(useConsumerMyPage)에서 주문 번호로 찾아 쓴다.
       { path: '/mypage/orders/:orderId', element: <ConsumerOrderDetailPage /> },
+      { path: '/mypage/order-groups/:orderGroupId', element: <ConsumerOrderDetailPage grouped /> },
       // 배송지 관리. 마이페이지의 기본 배송지 카드에서 "편집" 으로 들어간다.
       { path: '/mypage/addresses', element: <ConsumerAddressPage /> },
       // 서버에 영구 저장된 소비자 찜 목록.
