@@ -32,6 +32,15 @@ public class BlockchainConfig {
                     properties.chainId(),
                     properties.materialTokenAddress(),
                     properties.marketplaceAddress());
+            // **주소만 있고 rpc-url 이 비면 읽기가 조용히 실패한다.** isConfigured() 는
+            // 주소 3개만 보므로 위 로그가 "enabled" 라고 말하는데도 체인을 읽을 수 없다.
+            // 실제로 수령 서명이 남았는지 판정하는 값이 항상 false 로 나왔고, 원인을
+            // 찾는 데 오래 걸렸다 — 실패하는 자리에 로그가 없었기 때문이다.
+            if (properties.rpcUrl() == null || properties.rpcUrl().isBlank()) {
+                log.warn("Blockchain rpc-url is EMPTY - the server cannot READ the chain. "
+                        + "Receipt verification and on-chain status checks will silently "
+                        + "return 'unknown'. Set BESU_RPC_URL or app.blockchain.rpc-url.");
+            }
         } else {
             log.warn("Blockchain link is NOT configured - chain endpoints will return 501. "
                             + "chainId={} materialToken={} marketplace={} "

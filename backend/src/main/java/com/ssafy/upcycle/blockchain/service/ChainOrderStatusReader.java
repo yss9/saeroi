@@ -11,7 +11,7 @@ import org.web3j.abi.FunctionEncoder;
 import org.web3j.abi.FunctionReturnDecoder;
 import org.web3j.abi.TypeReference;
 import org.web3j.abi.datatypes.Address;
-import org.web3j.abi.datatypes.DynamicStruct;
+import org.web3j.abi.datatypes.StaticStruct;
 import org.web3j.abi.datatypes.Function;
 import org.web3j.abi.datatypes.generated.Uint256;
 import org.web3j.abi.datatypes.generated.Uint8;
@@ -83,23 +83,24 @@ public class ChainOrderStatusReader {
                             DefaultBlockParameterName.LATEST)
                     .send();
             if (call.hasError()) {
-                log.debug("Chain order read failed: id={} error={}", chainTradeId, call.getError().getMessage());
+                log.warn("Chain order read failed: id={} error={}", chainTradeId, call.getError().getMessage());
                 return Optional.empty();
             }
             var decoded = FunctionReturnDecoder.decode(call.getValue(), function.getOutputParameters());
             if (decoded.isEmpty()) {
                 return Optional.empty();
             }
-            DynamicStruct order = (DynamicStruct) decoded.get(0);
+            StaticStruct order = (StaticStruct) decoded.get(0);
             // 마지막 필드가 status 다 (id, listingId, seller, buyer, materialId, quantity, status).
             var last = order.getValue().get(order.getValue().size() - 1);
             return Optional.of(((BigInteger) last.getValue()).intValue());
         } catch (Exception failure) {
             // 체인을 못 읽는 것이 거래 조회를 막을 이유는 없다.
-            log.debug(
-                    "Chain order read failed: id={} reason={}",
+            log.warn(
+                    "Chain order read failed: id={} reason={} message={}",
                     chainTradeId,
-                    failure.getClass().getSimpleName());
+                    failure.getClass().getSimpleName(),
+                    failure.getMessage());
             return Optional.empty();
         }
     }
@@ -109,8 +110,15 @@ public class ChainOrderStatusReader {
         return status(chainTradeId).filter(status -> status >= STATUS_RECEIVED).isPresent();
     }
 
-    /** {@code getOrder} 가 돌려주는 튜플. 필드 순서는 컨트랙트와 같아야 한다. */
-    public static class OrderTuple extends DynamicStruct {
+    /**
+     * {@code getOrder} 가 돌려주는 튜플. 필드 순서는 컨트랙트와 같아야 한다.
+     *
+     * <p><b>{@code StaticStruct} 여야 한다.</b> 모든 필드가 고정 길이({@code uint256},
+     * {@code address}, {@code uint8})이므로 web3j 는 이 튜플을 정적 구조체로 인코딩한다.
+     * {@code DynamicStruct} 로 두면 오프셋 해석이 어긋나 디코딩이 조용히 실패한다 —
+     * 예외가 잡혀 {@code Optional.empty()} 가 되고, 값이 "없음" 으로 보여 원인을 찾기 어렵다.
+     */
+    public static class OrderTuple extends StaticStruct {
         public OrderTuple() {
             super(
                     new Uint256(BigInteger.ZERO),
