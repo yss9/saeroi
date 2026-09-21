@@ -604,6 +604,10 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
         error={errors.name?.message}
         {...register('name', {
           required: '소재명을 입력해 주세요.',
+          // required 는 빈 문자열만 막는다 — 공백만 넣으면 truthy 라 그대로 통과했고
+          // 오류 하나 없이 다음 단계로 넘어갔다 (2026-09-21 확인).
+          // 가입 폼들이 이미 쓰는 방식(trim 후 길이 확인)과 맞춘다.
+          validate: (value) => value.trim().length > 0 || '소재명을 입력해 주세요.',
           maxLength: { value: 200, message: '소재명은 200자를 넘을 수 없습니다.' },
         })}
       />

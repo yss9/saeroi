@@ -9,7 +9,10 @@ vi.mock('../../features/auth/hooks/useAuth.ts', () => ({ useAuth: () => ({ user:
 vi.mock('../../features/auth/hooks/useLogout.ts', () => ({ useLogout: () => ({ mutate: vi.fn() }) }))
 vi.mock('../../features/user/components/ConsumerAccountLayout.tsx', () => ({ ConsumerAccountLayout: ({ children }: { children: ReactNode }) => <main>{children}</main> }))
 vi.mock('../../features/wallet/components/WalletRegistrationPanel.tsx', () => ({ WalletRegistrationPanel: () => null }))
-vi.mock('../../features/wallet/hooks/useWallet.ts', () => ({ useWallet: () => ({ status: 'connected', wrongChain: false, address: '0x123' }) }))
+vi.mock('../../features/wallet/hooks/useWallet.ts', () => ({
+  useWallet: () => ({ status: 'connected', wrongChain: false, address: '0x123' }),
+  useSwitchChainNotice: () => ({ message: null, report: () => {} }),
+}))
 vi.mock('../../features/wallet/hooks/useMyWallets.ts', () => ({ useMyWallets: () => ({ activeWallet: { walletAddress: '0x123' } }) }))
 vi.mock('../../features/prediction/hooks/usePredictionMarkets.ts', () => ({ predictionKeys: { all: ['prediction-markets'] }, usePredictionMarkets: () => ({ data: [] }) }))
 vi.mock('../../features/prediction/hooks/usePredictionPointBalance.ts', () => ({ predictionPointBalanceKey: () => ['balance'], usePredictionPointBalance: () => ({ data: 0n }) }))

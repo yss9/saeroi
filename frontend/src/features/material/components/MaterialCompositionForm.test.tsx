@@ -24,6 +24,7 @@ vi.mock('../api/createMaterial.ts', () => api)
  * 관문 자체는 MaterialForm.test.tsx 의 "지갑 미연결" 이 지킨다.
  */
 vi.mock('../../wallet/hooks/useWallet.ts', () => ({
+  useSwitchChainNotice: () => ({ message: null, report: () => {} }),
   useWallet: () => ({ address: '0xabc', connect: vi.fn() }),
 }))
 

@@ -188,7 +188,12 @@ function OrderGroupCard({
                     결제하기
                   </button>
                 ) : (
-                  <Link className="consumer-order-group__pay" to={`/orders/${group.orderId}/checkout`}>
+                  <Link
+                    className="consumer-order-group__pay"
+                    to={group.orderGroupId != null
+                      ? `/order-groups/${group.orderGroupId}`
+                      : `/orders/${group.orderId}/checkout`}
+                  >
                     결제하기
                   </Link>
                 )}

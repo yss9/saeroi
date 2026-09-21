@@ -77,6 +77,16 @@
   color: var(--color-text-muted, #6b6862);
 }
 
+/* 안내 문구 바로 아래에 둔다 — "전환해 주세요" 와 전환 수단이 떨어져 있으면
+   읽고도 무엇을 눌러야 하는지 다시 찾아야 한다. */
+.on-chain-panel__switch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0 0 12px;
+}
+
 .on-chain-panel__actions {
   display: flex;
   align-items: center;

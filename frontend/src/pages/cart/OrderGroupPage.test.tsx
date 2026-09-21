@@ -85,6 +85,13 @@ describe('order group checkout', () => {
     const dialog = screen.getByRole('dialog'); expect(dialog).toHaveTextContent('브랜드 A'); expect(dialog).toHaveTextContent('브랜드 B'); expect(dialog).toHaveTextContent('20,000원'); expect(dialog).toHaveTextContent('부분 취소 불가')
     fireEvent.click(screen.getByRole('button', { name: '전체 취소 확인' })); await waitFor(() => expect(cancelGroup).toHaveBeenCalledTimes(1))
   })
+  it('opens whole-group cancellation from the action query', async () => {
+    show(false, '?action=cancel')
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toHaveTextContent('브랜드 A')
+    expect(dialog).toHaveTextContent('브랜드 B')
+    expect(cancelGroup).not.toHaveBeenCalled()
+  })
   it('disables cancellation based on server cancelable', async () => {
     vi.mocked(getGroup).mockResolvedValue({ ...group, cancelable: false }); show(); await screen.findByText(/ORG-3/); expect(screen.getByRole('button', { name: '주문 전체 취소' })).toBeDisabled()
   })
@@ -94,7 +101,7 @@ describe('order group checkout', () => {
     await screen.findByRole('heading', { name: '주문·결제 완료' }); expect(approveGroup).toHaveBeenCalledWith(3, 'MOCK-PG-TOKEN')
   })
   it('resumes the existing single order without creating another order', async () => {
-    vi.mocked(apiClient.get).mockImplementation(async url => ({ data: url === '/v1/product-orders/me' ? { content: [{ ...group.orders[0], orderGroupCode: null }], hasNext: false } : { items: [] } }) as never)
+    vi.mocked(apiClient.get).mockImplementation(async url => ({ data: url === '/v1/product-orders/1' ? { ...group.orders[0], orderGroupId: null, orderGroupCode: null } : { items: [] } }) as never)
     const post = vi.spyOn(apiClient, 'post').mockImplementation(async url => ({ data: url.endsWith('/ready') ? { live: false, redirectUrl: '', tid: 'mock' } : { ...group.orders[0], status: 'PAID', orderGroupCode: null } }) as never)
     showSingle(true); await screen.findByText(/결제가 완료되지 않았습니다/)
     expect(post).not.toHaveBeenCalled()
@@ -105,14 +112,14 @@ describe('order group checkout', () => {
     expect(readyGroup).not.toHaveBeenCalled()
   })
   it('uses the server group ID hint instead of parsing the displayed group code', async () => {
-    vi.mocked(apiClient.get).mockImplementation(async url => ({ data: url === '/v1/product-orders/me' ? { content: [{ ...group.orders[0], orderGroupCode: 'CHANGED-CODE' }], hasNext: false } : { items: [] } }) as never)
+    vi.mocked(apiClient.get).mockImplementation(async url => ({ data: url === '/v1/product-orders/1' ? { ...group.orders[0], orderGroupId: 3, orderGroupCode: 'CHANGED-CODE' } : { items: [] } }) as never)
     vi.spyOn(apiClient, 'post').mockRejectedValue(createAppError(ERROR_KIND.API_ERROR, { status: 409, code: 'PRODUCT_ORDER_BELONGS_TO_GROUP', details: { orderGroupId: 3 } }))
     showSingle(); await screen.findAllByText('ORD-1'); fireEvent.click(screen.getByRole('button', { name: '결제하기' }))
     await waitFor(() => expect(screen.getByLabelText('현재 위치')).toHaveTextContent('/order-groups/3'))
     await screen.findByText('ORG-3'); expect(readyGroup).not.toHaveBeenCalled()
   })
   it('only cancels a single order after explicit confirmation', async () => {
-    vi.mocked(apiClient.get).mockImplementation(async url => ({ data: url === '/v1/product-orders/me' ? { content: [{ ...group.orders[0], orderGroupCode: null }], hasNext: false } : { items: [] } }) as never)
+    vi.mocked(apiClient.get).mockImplementation(async url => ({ data: url === '/v1/product-orders/1' ? { ...group.orders[0], orderGroupId: null, orderGroupCode: null } : { items: [] } }) as never)
     const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ data: undefined } as never)
     showSingle(false, '?action=cancel'); await screen.findByRole('dialog')
     expect(post).not.toHaveBeenCalled(); fireEvent.click(screen.getByRole('button', { name: '주문 취소 확인' }))

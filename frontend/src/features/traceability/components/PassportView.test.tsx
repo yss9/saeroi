@@ -162,6 +162,20 @@ describe('PassportView', () => {
     expect(screen.getByRole('button', { name: /수거/ })).toHaveAttribute('aria-current', 'step')
   })
 
+  it('블록체인 검증 전에는 Verified 라고 말하지 않는다', async () => {
+    // 예전에는 이 배지가 무조건 "Verified" 였다. 같은 화면 아래 여정 요약은
+    // blockchainVerified=false 일 때 "기록 확인 중" 을 띄우므로, 한 페이지가 검증됐다고도
+    // 아니라고도 말하는 상태였다 (2026-09-21 확인). 검증된 출처가 이 제품의 값어치라서
+    // 여기서 앞서 말하면 안 된다.
+    api.getPassport.mockResolvedValue(
+      passport({ journey: { ...journey(), blockchainVerified: false } }),
+    )
+    renderView()
+
+    expect(await screen.findByText('블록체인 기록 확인 중')).toBeInTheDocument()
+    expect(screen.queryByText('Verified Upcycled Product')).not.toBeInTheDocument()
+  })
+
   it('수거·원단 등록 단계에서는 여정 전체 지점을 미리 보여준다', async () => {
     const user = userEvent.setup()
     const { container } = renderView()

@@ -7,30 +7,37 @@ import { toErrorMessage } from '../../../utils/errors.ts'
 import { openKakaoPostcode } from '../../../utils/kakaoPostcode.ts'
 import { PROCESS_TYPE_LABEL, type ProcessType } from '../types/processing.types.ts'
 import { useProcessorProfile } from '../hooks/useProcessorProfile.ts'
-import { MATERIAL_TYPE_LABEL, type MaterialType, type ProcessorCapability, type ProcessorLeadTime } from '../types/processorProfile.types.ts'
+import { MATERIAL_TYPE_LABEL, type MaterialType, type ProcessorCapability } from '../types/processorProfile.types.ts'
 import './processor-profile.css'
 
 const materialTypes = Object.keys(MATERIAL_TYPE_LABEL) as MaterialType[]
 const processTypes = Object.keys(PROCESS_TYPE_LABEL) as ProcessType[]
-const emptyCapability = (materialType: MaterialType = 'DENIM', processType: ProcessType = 'CLEANING'): ProcessorCapability => ({ materialType, processType, minQuantity: 1, maxQuantity: 1 })
-const emptyLeadTime = (capability: ProcessorCapability): ProcessorLeadTime => ({ materialType: capability.materialType, processType: capability.processType, maxQuantity: capability.maxQuantity, leadDays: 1 })
+const emptyCapability = (materialType: MaterialType = 'DENIM', processType: ProcessType = 'CLEANING'): ProcessorCapability => ({ materialType, processType, dailyCapacity: 0, pricePerKg: 0 })
+const toKg = (gram: number) => Math.round(gram / 100) / 10
 const capabilityKey = ({ materialType, processType }: Pick<ProcessorCapability, 'materialType' | 'processType'>) => `${materialType}:${processType}`
 const capabilityLabel = ({ materialType, processType }: Pick<ProcessorCapability, 'materialType' | 'processType'>) => `${MATERIAL_TYPE_LABEL[materialType]} · ${PROCESS_TYPE_LABEL[processType]}`
-const readQuantity = (value: string, current: number) => /^\d*$/.test(value) ? Number(value) : current
 
+/**
+ * 조건 하나를 적는 창.
+ *
+ * 가공사가 적는 것은 둘뿐이다 — **하루에 몇 kg 을 처리하는가**, **kg 당 얼마인가**. 그 둘로
+ * 브랜드 화면의 예상 금액(단가 × 수량)과 소요일(⌈수량 ÷ 하루 처리량⌉)이 나온다.
+ */
 interface ConditionEditor {
   mode: 'add' | 'edit'
   index: number | null
   capability: ProcessorCapability
-  ranges: ProcessorLeadTime[]
+  /** kg 단위 입력값. 서버로는 g 로 바꿔 보낸다 */
+  dailyCapacityKg: string
+  pricePerKg: string
 }
 
-function conditionError(capability: ProcessorCapability, ranges: ProcessorLeadTime[]) {
-  if (!Number.isInteger(capability.minQuantity) || !Number.isInteger(capability.maxQuantity) || capability.minQuantity < 1) return '수량은 1 g 이상의 정수로 입력해 주세요.'
-  if (capability.maxQuantity < capability.minQuantity) return '최대 수량은 최소 수량보다 크거나 같아야 해요.'
-  const sorted = [...ranges].sort((a, b) => a.maxQuantity - b.maxQuantity)
-  if (!sorted.length || sorted.at(-1)!.maxQuantity !== capability.maxQuantity) return '마지막 구간은 최대 처리 수량까지 포함해야 해요.'
-  if (sorted.some((row, index) => !Number.isInteger(row.leadDays) || row.leadDays < 1 || row.maxQuantity < capability.minQuantity || (index > 0 && row.maxQuantity <= sorted[index - 1].maxQuantity))) return '소요일과 수량 구간을 순서대로 확인해 주세요.'
+function conditionError(dailyCapacityKg: string, pricePerKg: string) {
+  const capacity = Number(dailyCapacityKg)
+  const price = Number(pricePerKg)
+  // 하루 처리량은 소요일의 분모라 0 일 수 없다. 단가는 0 을 받는다 — 무상 가공이 있다.
+  if (!Number.isFinite(capacity) || capacity <= 0) return '하루 처리량을 0보다 크게 입력해 주세요.'
+  if (!Number.isInteger(price) || price < 0) return 'kg 당 단가를 원 단위 정수로 입력해 주세요.'
   return ''
 }
 
@@ -41,29 +48,26 @@ export function ProcessorProfileForm() {
   const editorTitleRef = useRef<HTMLHeadingElement>(null)
   const [region, setRegion] = useState('')
   const [capabilities, setCapabilities] = useState<ProcessorCapability[]>([])
-  const [leadTimes, setLeadTimes] = useState<ProcessorLeadTime[]>([])
-  const [materialFilter, setMaterialFilter] = useState<MaterialType | 'ALL'>('ALL')
+  // 소재도 공정처럼 체크박스다 — 하나만 고르게 하면 "데님과 면을 같은 조건으로" 를
+  // 적으려고 같은 일을 두 번 해야 한다.
+  const [materialFilters, setMaterialFilters] = useState<MaterialType[]>([])
   const [processFilters, setProcessFilters] = useState<ProcessType[]>([])
-  const [registrationFilter, setRegistrationFilter] = useState<'ALL' | 'REGISTERED' | 'UNREGISTERED'>('ALL')
   const [editor, setEditor] = useState<ConditionEditor | null>(null)
-  const [rangeDraft, setRangeDraft] = useState('')
   const [editorError, setEditorError] = useState('')
   const [saveNotice, setSaveNotice] = useState('')
   const [isSearchingAddress, setIsSearchingAddress] = useState(false)
   const [addressSearchError, setAddressSearchError] = useState('')
-  const loading = data.profile.isPending || data.capabilities.isPending || data.leadTimes.isPending || company.isPending
-  const loadError = data.profile.isError || data.capabilities.isError || data.leadTimes.isError || company.isError
+  const loading = data.profile.isPending || data.capabilities.isPending || company.isPending
+  const loadError = data.profile.isError || data.capabilities.isError || company.isError
   const editorOpen = editor !== null
   const profileImageUrl = useObjectUrl(data.image.data)
 
   useEffect(() => {
     if (initialized.current || loading || loadError) return
     initialized.current = true
-    const loadedCapabilities = data.capabilities.data ?? []
     setRegion(data.profile.data?.region ?? company.profile?.address ?? '')
-    setCapabilities(loadedCapabilities)
-    setLeadTimes(data.leadTimes.data?.length ? data.leadTimes.data : loadedCapabilities.map(emptyLeadTime))
-  }, [company.profile?.address, data.capabilities.data, data.leadTimes.data, data.profile.data, loadError, loading])
+    setCapabilities(data.capabilities.data ?? [])
+  }, [company.profile?.address, data.capabilities.data, data.profile.data, loadError, loading])
 
   useEffect(() => {
     if (!editorOpen) return
@@ -81,92 +85,64 @@ export function ProcessorProfileForm() {
       : [...current, processType])
   }
 
+  function toggleMaterialFilter(materialType: MaterialType) {
+    setMaterialFilters(current => current.includes(materialType)
+      ? current.filter(value => value !== materialType)
+      : [...current, materialType])
+  }
+
   function openEditor(candidate: ProcessorCapability) {
     const index = capabilities.findIndex(row => capabilityKey(row) === capabilityKey(candidate))
     const capability = index >= 0 ? { ...capabilities[index] } : { ...candidate }
-    const ranges = index >= 0
-      ? leadTimes.filter(row => capabilityKey(row) === capabilityKey(capability)).sort((a, b) => a.maxQuantity - b.maxQuantity).map(row => ({ ...row }))
-      : [emptyLeadTime(capability)]
-    setRangeDraft('')
     setEditorError('')
-    setEditor({ mode: index >= 0 ? 'edit' : 'add', index: index >= 0 ? index : null, capability, ranges })
-  }
-
-  function updateEditorCapability(patch: Partial<ProcessorCapability>) {
-    setEditor(current => {
-      if (!current) return current
-      const capability = { ...current.capability, ...patch }
-      const sorted = [...current.ranges].sort((a, b) => a.maxQuantity - b.maxQuantity)
-      const withinRange = sorted.filter(row => row.maxQuantity >= capability.minQuantity && row.maxQuantity < capability.maxQuantity)
-      const finalRow = sorted.at(-1) ?? emptyLeadTime(capability)
-      return {
-        ...current,
-        capability,
-        ranges: [...withinRange, { ...finalRow, materialType: capability.materialType, processType: capability.processType, maxQuantity: capability.maxQuantity }],
-      }
+    setEditor({
+      mode: index >= 0 ? 'edit' : 'add',
+      index: index >= 0 ? index : null,
+      capability,
+      dailyCapacityKg: capability.dailyCapacity ? String(toKg(capability.dailyCapacity)) : '',
+      pricePerKg: String(capability.pricePerKg ?? ''),
     })
+  }
+
+  function updateEditor(patch: Partial<Pick<ConditionEditor, 'dailyCapacityKg' | 'pricePerKg'>>) {
+    setEditor(current => (current ? { ...current, ...patch } : current))
     setEditorError('')
   }
 
-  function updateEditorRange(rangeIndex: number, patch: Partial<ProcessorLeadTime>) {
-    setEditor(current => current ? { ...current, ranges: current.ranges.map((row, index) => index === rangeIndex ? { ...row, ...patch } : row) } : current)
-    setEditorError('')
-  }
-
-  function addEditorRange() {
-    if (!editor) return
-    const boundary = Number(rangeDraft)
-    const ranges = [...editor.ranges].sort((a, b) => a.maxQuantity - b.maxQuantity)
-    const finalRow = ranges.at(-1)
-    const lastStart = ranges.length === 1 ? editor.capability.minQuantity : ranges.at(-2)!.maxQuantity + 1
-    if (!Number.isInteger(boundary) || !finalRow || boundary < lastStart || boundary >= finalRow.maxQuantity) {
-      setEditorError(`최대 수량은 ${lastStart.toLocaleString()}~${Math.max(lastStart, (finalRow?.maxQuantity ?? 1) - 1).toLocaleString()} g 사이로 입력해 주세요.`)
-      return
-    }
-    setEditor({ ...editor, ranges: [...ranges.slice(0, -1), { ...finalRow, maxQuantity: boundary }, finalRow] })
-    setRangeDraft('')
-    setEditorError('')
-  }
-
-  function removeEditorRange(rangeIndex: number) {
-    if (!editor || editor.ranges.length <= 1) return
-    const ranges = [...editor.ranges].sort((a, b) => a.maxQuantity - b.maxQuantity)
-    const removed = ranges[rangeIndex]
-    const remaining = ranges.filter((_, index) => index !== rangeIndex)
-    if (rangeIndex === ranges.length - 1) remaining[remaining.length - 1] = { ...remaining.at(-1)!, maxQuantity: removed.maxQuantity }
-    setEditor({ ...editor, ranges: remaining })
-    setEditorError('')
-  }
-
+  /** 다른 조건에 적어 둔 하루 처리량·단가를 그대로 가져온다. 대개 소재만 다르고 값은 같다. */
   function copySettings(sourceKey: string) {
     if (!editor || !sourceKey) return
     const source = capabilities.find(row => capabilityKey(row) === sourceKey)
     if (!source) return
-    const ranges = leadTimes.filter(row => capabilityKey(row) === sourceKey).sort((a, b) => a.maxQuantity - b.maxQuantity)
-      .map(row => ({ ...row, materialType: editor.capability.materialType, processType: editor.capability.processType }))
-    setEditor({ ...editor, capability: { ...editor.capability, minQuantity: source.minQuantity, maxQuantity: source.maxQuantity }, ranges })
+    setEditor({
+      ...editor,
+      dailyCapacityKg: String(toKg(source.dailyCapacity)),
+      pricePerKg: String(source.pricePerKg),
+    })
     setEditorError('')
   }
 
   async function applyEditor() {
     if (!editor) return
-    const message = conditionError(editor.capability, editor.ranges)
+    const message = conditionError(editor.dailyCapacityKg, editor.pricePerKg)
     setEditorError(message)
     if (message) return
-    const key = capabilityKey(editor.capability)
+
+    const capability: ProcessorCapability = {
+      materialType: editor.capability.materialType,
+      processType: editor.capability.processType,
+      // 서버는 gram/일 로 받는다. 화면이 kg 으로 묻는 것은 사람이 그렇게 세기 때문이다.
+      dailyCapacity: Math.round(Number(editor.dailyCapacityKg) * 1000),
+      pricePerKg: Number(editor.pricePerKg),
+    }
     const nextCapabilities = editor.mode === 'add'
-      ? [...capabilities, editor.capability]
-      : capabilities.map((row, index) => index === editor.index ? editor.capability : row)
-    const nextLeadTimes = [...leadTimes.filter(row => capabilityKey(row) !== key), ...editor.ranges]
+      ? [...capabilities, capability]
+      : capabilities.map((row, index) => index === editor.index ? capability : row)
     setSaveNotice('')
     try {
       if (!data.profile.data) await data.saveProfile.mutateAsync({ region })
-      await data.saveConditions.mutateAsync({
-        capabilities: { capabilities: nextCapabilities },
-        leadTimes: { leadTimes: [...nextLeadTimes].sort((a, b) => a.materialType.localeCompare(b.materialType) || a.processType.localeCompare(b.processType) || a.maxQuantity - b.maxQuantity) },
-      })
+      await data.saveConditions.mutateAsync({ capabilities: nextCapabilities })
       setCapabilities(nextCapabilities)
-      setLeadTimes(nextLeadTimes)
       setEditor(null)
       setSaveNotice('취급 조건이 저장되었어요.')
     } catch { /* mutation error is rendered below */ }
@@ -174,14 +150,11 @@ export function ProcessorProfileForm() {
 
   async function removeEditorCondition() {
     if (!editor || editor.index === null) return
-    const key = capabilityKey(editor.capability)
     const nextCapabilities = capabilities.filter((_, index) => index !== editor.index)
-    const nextLeadTimes = leadTimes.filter(row => capabilityKey(row) !== key)
     setSaveNotice('')
     try {
-      await data.saveConditions.mutateAsync({ capabilities: { capabilities: nextCapabilities }, leadTimes: { leadTimes: nextLeadTimes } })
+      await data.saveConditions.mutateAsync({ capabilities: nextCapabilities })
       setCapabilities(nextCapabilities)
-      setLeadTimes(nextLeadTimes)
       setEditor(null)
       setSaveNotice('취급 조건이 삭제되었어요.')
     } catch { /* mutation error is rendered below */ }
@@ -209,16 +182,11 @@ export function ProcessorProfileForm() {
   }
 
   if (loading) return <div className="processor-profile-state" role="status">업체 정보를 불러오는 중이에요…</div>
-  if (loadError) return <div className="processor-profile-state processor-profile-error" role="alert">{toErrorMessage(data.profile.error ?? data.capabilities.error ?? data.leadTimes.error ?? company.error)}</div>
+  if (loadError) return <div className="processor-profile-state processor-profile-error" role="alert">{toErrorMessage(data.profile.error ?? data.capabilities.error ?? company.error)}</div>
 
   const searchResults = materialTypes.flatMap(materialType => processTypes.map(processType => emptyCapability(materialType, processType)))
-    .filter(capability => materialFilter === 'ALL' || capability.materialType === materialFilter)
+    .filter(capability => !materialFilters.length || materialFilters.includes(capability.materialType))
     .filter(capability => !processFilters.length || processFilters.includes(capability.processType))
-    .filter(capability => {
-      if (registrationFilter === 'ALL') return true
-      const registered = capabilities.some(row => capabilityKey(row) === capabilityKey(capability))
-      return registrationFilter === 'REGISTERED' ? registered : !registered
-    })
 
   return <div className="processor-profile-form">
     <section className="processor-profile-card processor-profile-region-card">
@@ -242,8 +210,8 @@ export function ProcessorProfileForm() {
     <section className="processor-profile-card">
       <div className="processor-profile-section-head"><div className="processor-profile-title"><MagnifyingGlass size={23} /><div><h2>취급 조건 검색</h2></div></div><strong className="processor-profile-count">등록된 취급 조건 {capabilities.length}개</strong></div>
       <div className="processor-profile-search-controls">
-        <label><span>소재</span><select aria-label="소재 필터" value={materialFilter} onChange={event => setMaterialFilter(event.target.value as MaterialType | 'ALL')}><option value="ALL">전체 소재</option>{materialTypes.map(type => <option key={type} value={type}>{MATERIAL_TYPE_LABEL[type]}</option>)}</select></label>
-        <label><span>등록 상태</span><select aria-label="등록 상태 필터" value={registrationFilter} onChange={event => setRegistrationFilter(event.target.value as typeof registrationFilter)}><option value="ALL">전체</option><option value="REGISTERED">등록됨</option><option value="UNREGISTERED">미등록</option></select></label>
+        {/* 소재도 공정과 같은 방식으로 고른다 — 한 번에 여러 소재를 훑어야 조건을 한 벌로 적는다. */}
+        <fieldset><legend>소재</legend><div className="processor-profile-filter-checks">{materialTypes.map(type => <label key={type}><input type="checkbox" checked={materialFilters.includes(type)} onChange={() => toggleMaterialFilter(type)} /><span>{MATERIAL_TYPE_LABEL[type]}</span></label>)}</div></fieldset>
         <fieldset><legend>공정 방식</legend><div className="processor-profile-filter-checks">{processTypes.map(type => <label key={type}><input type="checkbox" checked={processFilters.includes(type)} onChange={() => toggleProcessFilter(type)} /><span>{PROCESS_TYPE_LABEL[type]}</span></label>)}</div></fieldset>
         <strong>검색 결과 {searchResults.length}개</strong>
       </div>
@@ -251,14 +219,17 @@ export function ProcessorProfileForm() {
         const key = capabilityKey(candidate)
         const existing = capabilities.find(row => capabilityKey(row) === key)
         const label = capabilityLabel(candidate)
-        const ranges = existing ? leadTimes.filter(row => capabilityKey(row) === key) : []
-        return <div className={`processor-profile-search-result${existing ? ' is-registered' : ''}`} key={key}><div><strong>{label}</strong><span>{existing ? `${existing.minQuantity.toLocaleString()}~${existing.maxQuantity.toLocaleString()} g · 소요일 ${ranges.length}개 구간` : '수량과 소요일을 등록할 수 있어요.'}</span></div><button type="button" className={existing ? 'is-edit' : ''} aria-label={`${label} ${existing ? '등록됨 · 수정' : '추가'}`} onClick={() => openEditor(existing ?? candidate)}>{existing ? <><CheckCircle weight="fill" />등록됨 · 수정</> : <><Plus />추가</>}</button></div>
+        return <div className={`processor-profile-search-result${existing ? ' is-registered' : ''}`} key={key}><div><strong>{label}</strong><span>{existing ? `하루 ${toKg(existing.dailyCapacity).toLocaleString()} kg · kg당 ${existing.pricePerKg.toLocaleString()}원` : '하루 처리량과 단가를 등록할 수 있어요.'}</span></div><button type="button" className={existing ? 'is-edit' : ''} aria-label={`${label} ${existing ? '등록됨' : '추가'}`} onClick={() => openEditor(existing ?? candidate)}>{existing ? <><CheckCircle weight="fill" />등록됨</> : <><Plus />추가</>}</button></div>
       }) : <p className="processor-profile-no-results">조건에 맞는 공정이 없어요. 필터를 변경해 주세요.</p>}</div>
     </section>
 
     <section className="processor-profile-card processor-profile-preview">
       <div className="processor-profile-title"><CheckCircle size={23} /><div><h2>Brand 검색 노출 미리보기</h2></div></div>
-      <div className="processor-profile-preview-body"><strong>{region || '업체 주소 미등록'}</strong><div>{capabilities.map(capability => <span key={capabilityKey(capability)}>{capabilityLabel(capability)} · {capability.minQuantity.toLocaleString()}~{capability.maxQuantity.toLocaleString()} g</span>)}</div></div>
+      {/*
+        등록한 조건을 고치러 검색 칸으로 되돌아가지 않는다 — 이미 눈앞에 있는 줄을 누르면
+        그 조건의 편집 모달이 열린다. 검색은 "없는 조건을 새로 만드는" 자리로 남는다.
+      */}
+      <div className="processor-profile-preview-body"><strong>{region || '업체 주소 미등록'}</strong><div>{capabilities.map(capability => <button type="button" key={capabilityKey(capability)} aria-label={`${capabilityLabel(capability)} 조건 수정`} onClick={() => openEditor(capability)}>{capabilityLabel(capability)} · 하루 {toKg(capability.dailyCapacity).toLocaleString()} kg · kg당 {capability.pricePerKg.toLocaleString()}원</button>)}</div>{capabilities.length > 0 && <small>클릭하면 수정할 수 있어요.</small>}</div>
     </section>
 
     {(data.saveProfile.isError || data.saveConditions.isError) && <p className="processor-profile-message processor-profile-error" role="alert">{toErrorMessage(data.saveProfile.error ?? data.saveConditions.error)}</p>}
@@ -266,25 +237,32 @@ export function ProcessorProfileForm() {
 
     {editor && (() => {
       const label = capabilityLabel(editor.capability)
-      const ranges = [...editor.ranges].sort((a, b) => a.maxQuantity - b.maxQuantity)
+      const capacity = Number(editor.dailyCapacityKg)
+      const price = Number(editor.pricePerKg)
       return <div className="processor-profile-modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setEditor(null) }}>
         <section className="processor-profile-modal" role="dialog" aria-modal="true" aria-labelledby="processor-condition-dialog-title">
           <header><div><span>{editor.mode === 'edit' ? '등록된 조건 수정' : '새 취급 조건'}</span><h2 id="processor-condition-dialog-title" ref={editorTitleRef} tabIndex={-1}>{label} 조건 {editor.mode === 'edit' ? '수정' : '추가'}</h2></div><button type="button" aria-label="모달 닫기" onClick={() => setEditor(null)}><X /></button></header>
           <div className="processor-profile-modal-content">
             <div className="processor-profile-modal-summary"><strong>{MATERIAL_TYPE_LABEL[editor.capability.materialType]}</strong><span>{PROCESS_TYPE_LABEL[editor.capability.processType]}</span></div>
+
             {capabilities.some(row => capabilityKey(row) !== capabilityKey(editor.capability)) && <div className="processor-profile-copy-row"><Copy /><label><span>다른 조건 설정 가져오기</span><select aria-label={`${label} 설정 가져오기`} defaultValue="" onChange={event => copySettings(event.target.value)}><option value="">선택하세요</option>{capabilities.filter(row => capabilityKey(row) !== capabilityKey(editor.capability)).map(row => <option key={capabilityKey(row)} value={capabilityKey(row)}>{capabilityLabel(row)}</option>)}</select></label></div>}
+
+            {/*
+              적는 것은 둘뿐이다. 이 둘로 브랜드 화면의 예상 금액과 소요일이 나오므로,
+              적으면서 그 결과를 바로 아래에 보여준다 — 숫자만 넣고 "이게 얼마로 보이지" 를
+              따로 계산하게 두지 않는다.
+            */}
             <div className="processor-profile-condition-fields">
-              <label><span>최소 처리 수량</span><div className="processor-profile-unit"><input aria-label="최소 처리 수량" type="text" inputMode="numeric" pattern="[0-9]*" value={editor.capability.minQuantity} onChange={event => updateEditorCapability({ minQuantity: readQuantity(event.target.value, editor.capability.minQuantity) })} /><b>g</b></div></label>
-              <label><span>최대 처리 수량</span><div className="processor-profile-unit"><input aria-label="최대 처리 수량" type="text" inputMode="numeric" pattern="[0-9]*" value={editor.capability.maxQuantity} onChange={event => updateEditorCapability({ maxQuantity: readQuantity(event.target.value, editor.capability.maxQuantity) })} /><b>g</b></div></label>
+              <label><span>하루 처리량</span><div className="processor-profile-unit"><input aria-label="하루 처리량" type="text" inputMode="decimal" value={editor.dailyCapacityKg} placeholder="예: 200" onChange={event => { if (/^\d*\.?\d*$/.test(event.target.value)) updateEditor({ dailyCapacityKg: event.target.value }) }} /><b>kg / 일</b></div></label>
+              <label><span>kg 당 단가</span><div className="processor-profile-unit"><input aria-label="kg 당 단가" type="text" inputMode="numeric" value={editor.pricePerKg} placeholder="예: 3000" onChange={event => { if (/^\d*$/.test(event.target.value)) updateEditor({ pricePerKg: event.target.value }) }} /><b>원</b></div></label>
             </div>
-            <div className="processor-profile-ranges">
-              <div className="processor-profile-ranges-head"><div><strong>수량 구간별 평균 소요일</strong><p>마지막 구간은 최대 처리 수량에 자동으로 맞춰져요.</p></div></div>
-              <div className="processor-profile-range-adder"><label><span>새 구간 최대 수량</span><div className="processor-profile-unit"><input aria-label={`${label} 새 구간 최대 수량`} type="text" inputMode="numeric" pattern="[0-9]*" value={rangeDraft} placeholder="예: 1000" onChange={event => { if (/^\d*$/.test(event.target.value)) setRangeDraft(event.target.value) }} /><b>g</b></div></label><button type="button" aria-label={`${label} 소요일 구간 추가`} onClick={addEditorRange} disabled={editor.capability.maxQuantity <= editor.capability.minQuantity}><Plus />구간 추가</button></div>
-              <div className="processor-profile-range-list">{ranges.map((range, rangeIndex) => {
-                const rangeStart = rangeIndex === 0 ? editor.capability.minQuantity : ranges[rangeIndex - 1].maxQuantity + 1
-                return <div className="processor-profile-range" key={`${range.maxQuantity}:${rangeIndex}`}><span className="processor-profile-range-number">{rangeIndex + 1}</span><div className="processor-profile-range-start"><span>시작</span><strong>{rangeStart.toLocaleString()} g</strong></div><span className="processor-profile-range-separator">~</span><label><span>최대</span><div className="processor-profile-unit"><input aria-label={`${label} 구간 최대 수량 ${rangeIndex + 1}`} type="text" inputMode="numeric" pattern="[0-9]*" value={range.maxQuantity} readOnly={rangeIndex === ranges.length - 1} onChange={event => updateEditorRange(rangeIndex, { maxQuantity: readQuantity(event.target.value, range.maxQuantity) })} /><b>g</b></div></label><label><span>평균 소요일</span><div className="processor-profile-unit"><input aria-label={`${label} 평균 소요일 ${rangeIndex + 1}`} type="text" inputMode="numeric" pattern="[0-9]*" value={range.leadDays} onChange={event => updateEditorRange(rangeIndex, { leadDays: readQuantity(event.target.value, range.leadDays) })} /><b>일</b></div></label><button type="button" aria-label={`${label} 소요일 구간 ${rangeIndex + 1} 삭제`} disabled={ranges.length === 1} onClick={() => removeEditorRange(rangeIndex)}><Trash /></button></div>
-              })}</div>
-            </div>
+
+            {capacity > 0 && price > 0 && <p className="processor-profile-estimate">브랜드가 <strong>{capacity.toLocaleString()} kg</strong> 을 맡기면 <strong>{(capacity * price).toLocaleString()}원 · 1일</strong> 로 보입니다. 그보다 많으면 날짜가 그만큼 늘어납니다.</p>}
+
+            <p className="processor-profile-help">
+              소요일은 따로 적지 않습니다 — 요청 수량을 하루 처리량으로 나눠 서버가 셉니다.
+            </p>
+
             {editorError && <p className="processor-profile-inline-error" role="alert">{editorError}</p>}
           </div>
           <footer>{editor.mode === 'edit' && <button type="button" className="processor-profile-modal-delete" disabled={data.saveConditions.isPending} onClick={() => void removeEditorCondition()}><Trash />조건 삭제</button>}<div><button type="button" className="processor-profile-modal-cancel" disabled={data.saveConditions.isPending} onClick={() => setEditor(null)}>취소</button><button type="button" className="processor-profile-modal-apply" disabled={data.saveConditions.isPending} onClick={() => void applyEditor()}>{data.saveConditions.isPending ? '저장 중…' : editor.mode === 'edit' ? '변경사항 적용' : '조건 추가'}</button></div></footer>

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { env } from '../../config/env.ts'
+import { useSwitchChainNotice, useWallet } from '../../features/wallet/hooks/useWallet.ts'
 import type { ChainLinkStatus } from '../../hooks/useOnChainLink.ts'
 import type { AppError } from '../../utils/errors.ts'
 import { Button } from './Button.tsx'
@@ -70,6 +71,28 @@ export function OnChainPanel({
 }: OnChainPanelProps) {
   const done = onChainId !== null
 
+  // **시키려면 수단을 함께 준다.**
+  //
+  // 예전에는 "SSAFY 네트워크로 전환해 주세요" 라고 적기만 했다. 전환 버튼은 회사 정보
+  // 화면에만 있어서, 사용자는 안내를 읽고도 이 화면에서 할 수 있는 일이 없었다.
+  //
+  // 들어서자마자 자동으로 띄우지는 않는다. 무엇에 대한 요청인지 모른 채 지갑 팝업을
+  // 만나면 일단 거절하게 되고, 거절한 뒤에는 다시 띄울 근거가 없다. 누를 자리를 여기
+  // 두는 것으로 충분하다 — 전환 자체는 앱이 한다(등록돼 있지 않으면 추가까지).
+  // **`wallet.wrongChain` 을 그대로 쓰지 않는다.** 그것은 chainId 를 읽은 뒤에만 참이라,
+  // 지갑은 붙었는데 체인을 아직 못 읽은 구간에서 거짓이 된다. 반면 이 패널을 쓰는 쪽은
+  // `chainId === 기대값` 이 아니면 전부 "전환해 주세요" 를 띄운다 — 그래서 그 구간에서
+  // 문구만 뜨고 누를 것이 없었다. 판정 기준을 부모와 같게 맞춘다.
+  const wallet = useWallet()
+  const { message: switchMessage, report } = useSwitchChainNotice()
+  // 기대 체인이 설정돼 있지 않으면 어디로 바꾸라 할지도 없다 — 그때는 두지 않는다.
+  const needsChainSwitch =
+    !done &&
+    actionable &&
+    wallet.address !== null &&
+    env.besuChainIdHex !== null &&
+    wallet.chainId !== env.besuChainIdHex
+
   return (
     <section className="on-chain-panel">
       <header className="on-chain-panel__header">
@@ -121,6 +144,15 @@ export function OnChainPanel({
             <p className="on-chain-panel__blocked" role="status">
               {blockedReason}
             </p>
+          )}
+
+          {needsChainSwitch && (
+            <div className="on-chain-panel__switch">
+              <Button variant="secondary" onClick={() => void wallet.switchChain().then(report)}>
+                네트워크 전환
+              </Button>
+              {switchMessage && <span className="on-chain-panel__hint">{switchMessage}</span>}
+            </div>
           )}
 
           <div className="on-chain-panel__actions">

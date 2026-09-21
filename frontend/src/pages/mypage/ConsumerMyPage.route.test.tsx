@@ -318,6 +318,55 @@ describe('consumer mypage route', () => {
     expect(screen.getByRole('button', { name: '결제하기' })).toBeDisabled()
   })
 
+  it('묶음 주문 상세의 결제와 전체 취소는 묶음 화면으로 연결한다', async () => {
+    const groupedOrderPage: ConsumerOrderPage = {
+      ...orderPage,
+      content: [{
+        ...orderPage.content[0],
+        orderGroupId: 3,
+        orderGroupCode: 'ORG-003',
+        status: 'CREATED',
+        paidAt: null,
+        shippedAt: null,
+        deliveredAt: null,
+        remainingSeconds: 1800,
+      }],
+    }
+    mockMyPageApi(groupedOrderPage)
+    signInAsConsumer()
+
+    renderRoute('/mypage/orders/1')
+
+    expect(await screen.findByText('결제번호 ORG-003')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '결제하기' })).toHaveAttribute('href', '/order-groups/3')
+    expect(screen.getByRole('link', { name: '주문 전체 취소' })).toHaveAttribute('href', '/order-groups/3?action=cancel')
+    expect(screen.queryByRole('button', { name: '주문 취소' })).not.toBeInTheDocument()
+  })
+
+  it('단일 결제 대기 주문 상세는 기존 단일 결제 경로를 유지한다', async () => {
+    const singleOrderPage: ConsumerOrderPage = {
+      ...orderPage,
+      content: [{
+        ...orderPage.content[0],
+        orderGroupId: null,
+        orderGroupCode: null,
+        status: 'CREATED',
+        paidAt: null,
+        shippedAt: null,
+        deliveredAt: null,
+        remainingSeconds: 1800,
+      }],
+    }
+    mockMyPageApi(singleOrderPage)
+    signInAsConsumer()
+
+    renderRoute('/mypage/orders/1')
+
+    expect(await screen.findByRole('link', { name: '결제하기' })).toHaveAttribute('href', '/orders/1/checkout')
+    expect(screen.getByRole('button', { name: '주문 취소' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: '주문 전체 취소' })).not.toBeInTheDocument()
+  })
+
   it('links the common storefront menus to their pages', async () => {
     mockMyPageApi()
     signInAsConsumer()

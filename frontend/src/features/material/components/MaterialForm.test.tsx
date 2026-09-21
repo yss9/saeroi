@@ -42,6 +42,7 @@ vi.mock('../../inventory/hooks/useMyMaterials.ts', () => myMaterials)
  */
 const wallet = vi.hoisted(() => ({ address: '0xabc' as string | null, connect: vi.fn() }))
 vi.mock('../../wallet/hooks/useWallet.ts', () => ({
+  useSwitchChainNotice: () => ({ message: null, report: () => {} }),
   useWallet: () => wallet,
 }))
 
@@ -420,6 +421,20 @@ describe('필수 검증', () => {
 
     expect(await screen.findByText('소재명을 입력해 주세요.')).toBeInTheDocument()
     expect(api.createMaterial).not.toHaveBeenCalled()
+  })
+
+  it('소재명이 공백뿐이면 다음 단계로 넘어가지 않는다', async () => {
+    // RHF 의 required 는 빈 문자열만 막는다 — 공백만 넣으면 truthy 라 통과했고,
+    // 오류 하나 없이 2단계로 넘어갔다 (2026-09-21 확인). 서버는 @NotBlank 라
+    // 결국 400 이 나므로, 사용자는 마지막 단계에서야 처음으로 되돌아가야 했다.
+    const user = userEvent.setup()
+    renderForm()
+    await user.selectOptions(screen.getByLabelText('소재 유형'), 'DENIM')
+    await user.type(screen.getByLabelText('소재명'), '      ')
+    await user.click(screen.getByRole('button', { name: /^다음:/ }))
+
+    expect(await screen.findByText('소재명을 입력해 주세요.')).toBeInTheDocument()
+    expect(screen.getByLabelText('소재명')).toBeInTheDocument()
   })
 
   // 소재 유형은 ENUM 7종 고정이라 자유 입력을 서버로 보낼 수 없다(400). '기타'

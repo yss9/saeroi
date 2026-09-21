@@ -22,7 +22,10 @@ const auth = vi.hoisted(() => ({ user: { id: 2 } as { id: number } | null }))
 vi.mock('../../auth/hooks/useAuth.ts', () => ({ useAuth: () => auth }))
 
 const wallet = vi.hoisted(() => ({ address: '0xabc' as string | null }))
-vi.mock('../../wallet/hooks/useWallet.ts', () => ({ useWallet: () => wallet }))
+vi.mock('../../wallet/hooks/useWallet.ts', () => ({
+  useWallet: () => wallet,
+  useSwitchChainNotice: () => ({ message: null, report: () => {} }),
+}))
 
 const material = vi.hoisted(() => ({ data: { tokenId: 7 } as { tokenId: number | null } | undefined }))
 vi.mock('../../material/hooks/useMaterial.ts', () => ({ useMaterial: () => material }))
