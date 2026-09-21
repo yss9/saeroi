@@ -136,9 +136,13 @@ function ProcessingJobDetailContent({ jobId, job, request, role, flow }: {
       새 순서 작업의 발송 폼이 조회가 도는 동안 사라졌다 나타난다. 해제 패널과 같은
       원칙 — **확실한 증거가 있을 때만 접는다.** DB 가 ACCEPTED 인 작업에서 체인이
       REQUESTED 라는 것은 "가공사가 아직 서명하지 않았다" 는 확실한 증거다.
+
+      **체인에 아직 올라가지도 않은 행(chainJobId=null)은 둘 다 아니다.** 그 자리에서
+      할 일은 바로 위 등록 패널이 말한다 — 함께 띄우면 서로 배타적인 다음 단계가
+      두 개 보이고, 발송 쪽은 누를 작업이 체인에 없어 되돌아간다.
     */}
-    {role==='BRAND'&&job.status==='ACCEPTED'&&flow.chainStatusCode===PROCESSING_CHAIN_STATUS.REQUESTED&&<section className="pj-panel pj-action"><p>가공업체의 온체인 작업 수락을 기다리고 있습니다.</p></section>}
-    {role==='BRAND'&&job.status==='ACCEPTED'&&flow.chainStatusCode!==PROCESSING_CHAIN_STATUS.REQUESTED&&<ProcessingShipmentForm isPending={flow.ship.isPending} error={flow.ship.error} submitLabel="MetaMask 확인 후 발송 처리" onSubmit={input=>flow.ship.mutate(input)}/>}
+    {role==='BRAND'&&job.status==='ACCEPTED'&&job.chainJobId&&flow.chainStatusCode===PROCESSING_CHAIN_STATUS.REQUESTED&&<section className="pj-panel pj-action"><p>가공업체의 온체인 작업 수락을 기다리고 있습니다.</p></section>}
+    {role==='BRAND'&&job.status==='ACCEPTED'&&job.chainJobId&&flow.chainStatusCode!==PROCESSING_CHAIN_STATUS.REQUESTED&&<ProcessingShipmentForm isPending={flow.ship.isPending} error={flow.ship.error} submitLabel="MetaMask 확인 후 발송 처리" onSubmit={input=>flow.ship.mutate(input)}/>}
 
     {/*
       서버는 DB 와 환불만 정리한다. 체인의 잠금은 브랜드 지갑만 풀 수 있다.

@@ -361,6 +361,9 @@ test('구 순서로 수락된 작업(ACCEPTED·체인 없음)도 브랜드가 �
   renderDetail({ role: 'BRAND', job: { status: 'ACCEPTED', chainJobId: null } })
 
   expect(screen.getByRole('button', { name: 'MetaMask로 온체인 작업 등록' })).toBeInTheDocument()
+  // 다음 단계는 하나뿐이어야 한다. 등록 패널과 발송 폼이 함께 뜨면 브랜드는 서로
+  // 배타적인 두 버튼 중 하나를 고르게 되고, 발송 쪽은 체인에 작업이 없어 되돌아간다.
+  expect(screen.queryByRole('button', { name: 'MetaMask 확인 후 발송 처리' })).not.toBeInTheDocument()
 })
 
 // ── F4 · 발송 폼의 체인 게이트 ────────────────────────────────────────────────
