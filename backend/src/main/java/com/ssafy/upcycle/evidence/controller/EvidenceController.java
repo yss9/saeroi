@@ -5,15 +5,20 @@ import com.ssafy.upcycle.common.storage.FileContent;
 import com.ssafy.upcycle.evidence.EvidenceApiPaths;
 import com.ssafy.upcycle.evidence.dto.EvidenceFileResponse;
 import com.ssafy.upcycle.evidence.dto.EvidenceListResponse;
+import com.ssafy.upcycle.evidence.dto.EvidenceThumbnailResponse;
 import com.ssafy.upcycle.evidence.dto.EvidenceUploadRequest;
 import com.ssafy.upcycle.evidence.entity.EvidenceReferenceType;
 import com.ssafy.upcycle.evidence.service.EvidenceContentService;
 import com.ssafy.upcycle.evidence.service.EvidenceDeletionService;
 import com.ssafy.upcycle.evidence.service.EvidenceListService;
+import com.ssafy.upcycle.evidence.service.EvidenceThumbnailService;
 import com.ssafy.upcycle.evidence.service.EvidenceUploadService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
@@ -54,6 +59,7 @@ public class EvidenceController {
     private final EvidenceListService evidenceListService;
     private final EvidenceContentService evidenceContentService;
     private final EvidenceDeletionService evidenceDeletionService;
+    private final EvidenceThumbnailService evidenceThumbnailService;
 
     /**
      * 증빙 파일을 올린다. 한 요청에 최대 10개, 파일당 10MB.
@@ -103,6 +109,28 @@ public class EvidenceController {
             @RequestParam @Positive(message = "증빙 대상 id는 양수여야 합니다.") Long referenceId) {
         return ApiResponse.success(
                 evidenceListService.findAll(userId(jwt), referenceType, referenceId));
+    }
+
+    /**
+     * 여러 대상의 대표 사진을 한 번에 찾는다. 마켓플레이스 카드 썸네일용, S15P21E104-438/439 연장.
+     *
+     * <p>목록({@code findAll})과 달리 <b>관계를 묻지 않는다</b> — 사진류만 다루고
+     * {@code EvidenceAccessPolicy} 가 사진류는 누구나 읽게 열어 뒤(위 클래스 주석), 여기서도
+     * 같은 기준을 쓴다. 계근표·거래명세서는 대표 사진 후보에 들지 않으므로 이 응답으로는
+     * 새어 나가지 않는다.
+     *
+     * <p>사진이 없는 대상 id 는 응답 맵에 <b>키 자체가 없다</b> — {@code null} 로 채우면
+     * "아직 없다" 와 "지금 조회에 실패했다" 를 프론트가 구분할 수 없다.
+     */
+    @GetMapping("/thumbnails")
+    public ApiResponse<Map<Long, EvidenceThumbnailResponse>> thumbnails(
+            @RequestParam EvidenceReferenceType referenceType,
+            @RequestParam
+                    @NotEmpty(message = "대상 id 목록이 비어 있습니다.")
+                    @Size(max = 100, message = "한 번에 조회할 수 있는 대상은 100개까지입니다.")
+                    List<@Positive(message = "대상 id는 양수여야 합니다.") Long> referenceIds) {
+        return ApiResponse.success(
+                evidenceThumbnailService.findThumbnails(referenceType, referenceIds));
     }
 
     /**
