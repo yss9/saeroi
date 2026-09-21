@@ -230,10 +230,7 @@
   margin: 0;
 }
 
-/*
-  큰 박스 — 주문 하나. 좌측 상단 주문 날짜 · 우측 상단 "주문 상세보기" 를 머리말에 두고,
-  그 아래 제품별 작은 박스(consumer-order-item)를 늘어세운다.
-*/
+/* 결제 묶음 하나를 큰 박스로 두고, 그 안에서 브랜드별 주문과 제품을 나눈다. */
 .consumer-order-group {
   border: 1px solid var(--line);
   border-radius: 0;
@@ -254,7 +251,9 @@
 .consumer-order-group__header-main {
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
   flex-wrap: wrap;
 }
 
@@ -286,14 +285,58 @@
   flex-direction: column;
 }
 
-.consumer-order-group__actions {
+.consumer-order-group__brand-order + .consumer-order-group__brand-order {
+  border-top: 1px solid var(--line);
+}
+
+.consumer-order-group__brand-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 20px 0;
+}
+
+.consumer-order-group__brand-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.consumer-order-group__brand-status p {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.consumer-order-group__brand-actions {
   display: flex;
   justify-content: flex-end;
+  gap: 10px;
   padding: 0 20px 18px;
 }
 
-/* 위 제품 박스의 배송조회·제품여정확인 버튼 열(148px)과 같은 너비로 맞춰,
-   구분선 없이도 한 열처럼 이어져 보인다. */
+.consumer-order-group__brand-actions .ui-button {
+  width: 148px;
+}
+
+.consumer-mypage .consumer-order-group__brand-actions .ui-button--secondary {
+  justify-content: space-between;
+  padding-inline: 0;
+}
+
+.consumer-order-group__actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 18px 20px;
+  border-top: 1px solid var(--line);
+  background: var(--paper-warm);
+}
+
+/* 브랜드별 동작 열(148px)과 같은 너비로 맞춰 결제 동작도 같은 축에 둔다. */
 .consumer-order-group__actions-column {
   display: flex;
   flex-direction: column;
@@ -314,18 +357,6 @@
   display: flex;
   gap: 16px;
   align-items: center;
-}
-
-.consumer-order-item--with-reference .consumer-order-item__body {
-  position: relative;
-  min-height: calc(84px + 44px);
-}
-
-.consumer-order-item--with-reference .consumer-order-group__reference {
-  position: absolute;
-  top: -18px;
-  right: -20px;
-  left: -20px;
 }
 
 .consumer-order-item__thumbnail {
@@ -617,6 +648,20 @@
   .consumer-order-item__actions {
     width: 100%;
     flex-direction: row;
+  }
+
+  .consumer-order-group__brand-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .consumer-order-group__brand-actions {
+    flex-direction: column;
+  }
+
+  .consumer-order-group__brand-actions .ui-button {
+    width: 100%;
   }
 
   .consumer-order-group__actions-column {
@@ -1646,8 +1691,8 @@ dd.consumer-profile-edit__field-edit {
 .consumer-mypage .ui-modal__panel { padding: 24px; }
 .consumer-mypage .ui-modal__title { color: var(--ink); font-size: 20px; line-height: 1.5; }
 .consumer-mypage .ui-modal__body { font-size: 14px; line-height: 1.8; word-break: keep-all; overflow-wrap: anywhere; }
-.consumer-mypage .consumer-order-group__reference { margin: 0; padding: 12px 20px; color: var(--muted); font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
-.consumer-mypage :is(.consumer-order-item__actions, .consumer-order-group__header, .return-card__actions) .ui-button:hover:not(:disabled) { background: transparent; text-decoration: none; }
+.consumer-mypage .consumer-order-group__reference { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+.consumer-mypage :is(.consumer-order-item__actions, .consumer-order-group__brand-actions, .consumer-order-group__header, .return-card__actions) .ui-button:hover:not(:disabled) { text-decoration: none; }
 .consumer-mypage .company-wallet__install-link {
   display: inline-flex;
   align-items: center;

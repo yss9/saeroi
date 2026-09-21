@@ -21,6 +21,7 @@ beforeEach(() => {
   useAuthStore.getState().signIn({ id: 1, name: '고객', email: 'c@test.com', role: 'CONSUMER', walletAddress: null }, 'token')
   vi.mocked(getGroup).mockResolvedValue(group); vi.mocked(approveGroup).mockResolvedValue({ ...group, status: 'PAID' }); vi.mocked(cancelGroup).mockResolvedValue(undefined)
   vi.spyOn(apiClient, 'get').mockResolvedValue({ data: { items: [], totalPrice: 0, totalQuantity: 0 } } as never)
+  vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
 })
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.resetAllMocks(); useAuthStore.getState().signOut() })
 describe('order group checkout', () => {
@@ -97,8 +98,11 @@ describe('order group checkout', () => {
   })
   it('supports explicit mock payment without a real redirect', async () => {
     vi.mocked(readyGroup).mockResolvedValue({ orderGroupId: 3, tid: 'mock', redirectUrl: '', totalPrice: 20000, live: false, paymentDeadline: group.paymentDeadline, remainingSeconds: group.remainingSeconds }); show(); await screen.findByText(/ORG-3/)
+    vi.mocked(window.scrollTo).mockClear()
     fireEvent.click(screen.getByRole('button', { name: '결제하기' })); const approve = await screen.findByRole('button', { name: '결제 승인 (시연)' }); await waitFor(() => expect(approve).toBeEnabled()); expect(screen.getByRole('dialog')).toHaveTextContent('실제 금액은 청구되지 않습니다.'); fireEvent.click(approve)
     await screen.findByRole('heading', { name: '주문·결제 완료' }); expect(approveGroup).toHaveBeenCalledWith(3, 'MOCK-PG-TOKEN')
+    expect(window.scrollTo).toHaveBeenCalledOnce()
+    expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, left: 0, behavior: 'instant' })
   })
   it('resumes the existing single order without creating another order', async () => {
     vi.mocked(apiClient.get).mockImplementation(async url => ({ data: url === '/v1/product-orders/1' ? { ...group.orders[0], orderGroupId: null, orderGroupCode: null } : { items: [] } }) as never)

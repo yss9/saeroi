@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Header } from '../landing/components/Header.tsx'
@@ -37,7 +37,18 @@ export function OrderGroupPage({ returning = false, single = false }: { returnin
   const [confirm, setConfirm] = useState(false)
   const [attempt, setAttempt] = useState(0)
   const running = useRef(false)
+  const previousResult = useRef<'PAID' | 'CANCELED' | 'OTHER' | null>(null)
   const paymentCountdown = usePaymentCountdown(group?.remainingSeconds, group?.paymentDeadline)
+
+  useLayoutEffect(() => {
+    const result = canceled ? 'CANCELED' : group?.status === 'PAID' ? 'PAID' : group ? 'OTHER' : null
+    const previous = previousResult.current
+    previousResult.current = result
+    if ((result === 'PAID' || result === 'CANCELED') && previous === 'OTHER') {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+    }
+  }, [canceled, group])
+
   function refresh() {
     try { if (sessionStorage.getItem(payment.storageKey) === String(id)) sessionStorage.removeItem(payment.storageKey) } catch { /* Storage may be unavailable. */ }
     for (const key of [consumerOrderKeys.all, productKeys.all, publicProductKeys.all, ['consumer-cart']]) void client.invalidateQueries({ queryKey: key })
