@@ -22,7 +22,15 @@ public enum BlockchainErrorCode implements ErrorCode {
     BLOCKCHAIN_LINK_INVALID(
             HttpStatus.BAD_REQUEST,
             "BLOCKCHAIN_LINK_INVALID",
-            "온체인 기록 정보가 올바르지 않습니다.");
+            "온체인 기록 정보가 올바르지 않습니다."),
+    BLOCKCHAIN_TRANSACTION_NOT_FOUND(
+            HttpStatus.NOT_FOUND,
+            "BLOCKCHAIN_TRANSACTION_NOT_FOUND",
+            "SSAFY 네트워크에서 트랜잭션을 찾지 못했습니다."),
+    BLOCKCHAIN_RPC_UNAVAILABLE(
+            HttpStatus.SERVICE_UNAVAILABLE,
+            "BLOCKCHAIN_RPC_UNAVAILABLE",
+            "SSAFY 블록체인 노드에 연결할 수 없습니다.");
 
     private final HttpStatus status;
     private final String code;

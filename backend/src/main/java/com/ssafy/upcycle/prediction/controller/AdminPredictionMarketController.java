@@ -28,5 +28,11 @@ public class AdminPredictionMarketController {
             @Valid @RequestBody PredictionMarketCreateRequest request) {
         return ApiResponse.success(service.create(request));
     }
+
+    /** 시장을 무효로 돌리고 참여자 스테이크를 환불 대상으로 만든다. 되돌릴 수 없다. */
+    @PostMapping("/{marketId}/cancel")
+    public ApiResponse<PredictionMarketResponse> cancel(@PathVariable Long marketId) {
+        return ApiResponse.success(service.cancel(marketId));
+    }
 }
 

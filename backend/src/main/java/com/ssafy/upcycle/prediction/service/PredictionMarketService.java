@@ -140,6 +140,26 @@ public class PredictionMarketService {
                 .orElseThrow(() -> error(PredictionErrorCode.WALLET_REQUIRED));
     }
 
+    /**
+     * 예측시장을 무효화한다. 참여자의 스테이크는 컨트랙트가 환불 대상으로 돌린다.
+     *
+     * <p><b>온체인이 먼저다.</b> 체인 호출이 실패하면 예외가 트랜잭션을 되돌려 DB 는 OPEN 그대로
+     * 남는다. 순서를 뒤집으면 체인에서는 아직 열려 있는데 화면만 무효로 보이는 상태가 생기고,
+     * 그 사이 들어온 베팅은 어디에도 기록되지 않는다.
+     *
+     * <p>오라클 워커가 같은 행을 집어 결과를 확정하는 것과 겹치지 않도록 잠그고 읽는다.
+     */
+    @Transactional
+    public PredictionMarketResponse cancel(Long marketId) {
+        PredictionMarket market = markets.findWithLockById(marketId)
+                .orElseThrow(() -> error(PredictionErrorCode.MARKET_NOT_FOUND));
+        if (market.getStatus() != PredictionMarketStatus.OPEN) {
+            throw error(PredictionErrorCode.MARKET_NOT_CANCELABLE);
+        }
+        market.cancel(chain.cancelMarket(market.getChainMarketId()), LocalDateTime.now(clock));
+        return response(market);
+    }
+
     private PredictionMarket requireMarket(Long id) {
         return markets.findById(id).orElseThrow(() -> error(PredictionErrorCode.MARKET_NOT_FOUND));
     }
