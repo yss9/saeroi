@@ -765,6 +765,33 @@ class ProcessingRequestTests {
         assertThat(jdbc.queryForObject("select status from processing_job where id=?",String.class,jobId)).isEqualTo("EXPIRED");
         assertThat(locks.findAll().getFirst().getStatus()).isEqualTo(MaterialLockStatus.EXPIRED);
     }
+    /*
+      산출물의 소재 종류는 가공사가 고르는 값이 아니다. 데님을 맡겼는데 면사가 나올 수는
+      없다 — 가공은 소재를 정제하고 모양을 바꿀 뿐 섬유 자체를 바꾸지 않는다. 종류가
+      갈리면 혈통을 거슬러 올라가는 추적이 그 지점에서 거짓이 된다.
+    */
+    @Test
+    void outputMaterialTypeFollowsTheInputMaterial() throws Exception {
+        long jobId = startProcessingJob(300);
+
+        mvc.perform(post("/processing-jobs/{id}/result", jobId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "outputs": [
+                                    {"materialType":"COTTON","name":"재생 면사","grade":"A","gradeReason":"오염과 손상이 없음","quantity":200}
+                                  ],
+                                  "evidenceHash":"0x%s",
+                                  "manifestUrl":"https://example.com/processing/manifest.json"
+                                }
+                                """.formatted("a".repeat(64))))
+                .andExpect(status().isOk());
+
+        // 요청은 COTTON 을 보냈다. 투입 소재가 DENIM 이므로 DENIM 으로 기록돼야 한다.
+        assertThat(outputs.findAllByProcessingJobIdOrderById(jobId).getFirst().getMaterialType())
+                .isEqualTo(MaterialType.DENIM);
+    }
     @Test
     void confirmedProcessingResultCreatesChildMaterialAndLineageAtomically() throws Exception {
         long jobId = startProcessingJob(300);
