@@ -69,6 +69,8 @@ export function ConfirmCard({ action }: { action: PendingAction }) {
       <p className="agent-card__title">확인이 필요합니다</p>
       <p className="agent-card__raw">{action.summary}</p>
 
+      {needsImage && <ProductDetails payloadJson={action.payloadJson} />}
+
       {needsImage && action.status === 'PENDING' && (
         <div className="agent-card__upload">
           {preview ? (
@@ -107,4 +109,64 @@ export function ConfirmCard({ action }: { action: PendingAction }) {
       {error && <p className="agent-card__error">{error}</p>}
     </div>
   )
+}
+
+/**
+ * 제품 등록 카드가 보여줄 값.
+ *
+ * <b>가격은 승인 전에 보여야 한다.</b> 카드에는 모델이 만든 한 줄 요약만 떴고, 가격·분류·설명은
+ * 인자에만 들어 있었다. 담당자가 "전부 알아서 정해줘" 라고 한 뒤 25,000원을 모르고 승인했고,
+ * 나중에 조회에서야 얼마인지 알았다 — 마켓에 붙는 값이고 되돌리려면 새 모델을 등록해야 한다.
+ *
+ * 인자를 읽지 못하면 아무것도 그리지 않는다. 모델이 만든 JSON 이라 형태가 어긋날 수 있고,
+ * 그때는 요약만 남는 편이 깨진 칸을 보여주는 것보다 낫다.
+ */
+function ProductDetails({ payloadJson }: { payloadJson: string }) {
+  const detail = parseProduct(payloadJson)
+  if (!detail) return null
+
+  return (
+    <dl className="agent-card__fields">
+      {detail.name && (
+        <>
+          <dt>제품명</dt>
+          <dd>{detail.name}</dd>
+        </>
+      )}
+      {typeof detail.price === 'number' && (
+        <>
+          <dt>판매가</dt>
+          <dd>{detail.price.toLocaleString()}원</dd>
+        </>
+      )}
+      {detail.category && (
+        <>
+          <dt>분류</dt>
+          <dd>{detail.subcategory ? `${detail.category} / ${detail.subcategory}` : detail.category}</dd>
+        </>
+      )}
+      {detail.description && (
+        <>
+          <dt>설명</dt>
+          <dd>{detail.description}</dd>
+        </>
+      )}
+    </dl>
+  )
+}
+
+type ProductPayload = {
+  name?: string
+  price?: number
+  category?: string
+  subcategory?: string
+  description?: string
+}
+
+function parseProduct(payloadJson: string): ProductPayload | null {
+  try {
+    return JSON.parse(payloadJson) as ProductPayload
+  } catch {
+    return null
+  }
 }

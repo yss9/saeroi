@@ -94,16 +94,13 @@ export default function AgentProcessingPaymentCallbackPage() {
  */
 async function confirmAndDescribe(jobId: number, pgToken: string): Promise<string> {
   await processingRequestApi.confirmPayment(jobId, pgToken)
-  return (
-    `가공비 결제가 완료되었습니다 (작업 ${jobId}번). ` +
-    '담당자에게 결제 내역과 지금 상태를 알려주고, 다음에 할 일을 안내하세요.'
-  )
+  // 담당자가 읽는 문장이다. 모델용 지시는 넣지 않는다 — AgentPaymentCallbackPage 주석 참고.
+  return `가공비 결제가 완료되었습니다. (작업 ${jobId}번)`
 }
 
 function notPaidMessage(jobId: number): string {
   return (
-    `담당자가 결제창을 닫아 가공비가 결제되지 않았습니다 (작업 ${jobId}번). ` +
-    '작업은 결제 기한까지 그대로 있으니 다시 결제할 수 있다고 알리고, ' +
-    '계속 진행할지 담당자에게 물어보세요.'
+    `결제창을 닫아 가공비가 결제되지 않았습니다. (작업 ${jobId}번) ` +
+    '작업은 결제 기한까지 그대로 있어 다시 결제할 수 있습니다.'
   )
 }

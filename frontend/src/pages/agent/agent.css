@@ -451,6 +451,32 @@
   word-break: break-all;
 }
 
+/*
+ * 확인 카드가 승인 전에 보여주는 값. 제품 등록의 판매가가 여기 뜬다 — 모델이 정한 금액을
+ * 모르고 승인하는 일이 실제로 있었다.
+ */
+.agent-card__fields {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 10px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f9fafb;
+  font-size: 13px;
+}
+
+.agent-card__fields dt {
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.agent-card__fields dd {
+  margin: 0;
+  color: #111827;
+  word-break: break-word;
+}
+
 .agent-chat__input {
   display: flex;
   gap: 8px;

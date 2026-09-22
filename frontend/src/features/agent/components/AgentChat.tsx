@@ -12,6 +12,9 @@ import {
   approveProcessingResultOnChain,
   createProcessingJob,
   getProcessingBrandLockId,
+  getProcessingChainStatus,
+  markProcessingShipped,
+  processingEvidenceHash,
   readProcessingEventValues,
 } from '../../processing/services/processingContractService.ts'
 import { getTrade } from '../../trade/api/getTrade.ts'
@@ -372,7 +375,8 @@ async function signCustodyTransfer(
 ): Promise<string> {
   const preparation = await processingJobApi.chainPreparation(jobId)
 
-  let txHash: string
+  // 체인의 작업 번호. 방금 만들었으면 이벤트에서, 이미 있으면 준비 응답에서 온다.
+  let chainJobId: number
   if (preparation.chainJobId == null) {
     const receipt = await confirmedTransaction(
       createProcessingJob(
@@ -392,14 +396,61 @@ async function signCustodyTransfer(
       txHash: receipt.hash,
       blockNumber: receipt.blockNumber,
     })
-    txHash = receipt.hash
+    chainJobId = onChainId
   } else {
     // 등록은 이미 끝났다. 발송만 남은 상태로 다시 들어온 것이다.
-    txHash = `linked:${preparation.chainJobId}`
+    chainJobId = preparation.chainJobId
+  }
+
+  // **체인에도 발송을 남긴다.** 이것을 빠뜨리면 체인의 작업은 ACCEPTED 에 머물고, 업체가
+  // 수령을 부를 때 컨트랙트가 "Processing: invalid status" 로 거절한다 — confirmReceipt 는
+  // markShipped 뒤에만 받는다. 실제로 그렇게 막혔다.
+  //
+  // 증빙 해시에 송장을 담는 이유는 가공 화면과 같다(useProcessingJobs.ship). 체인에 남는
+  // 값이 어느 발송이었는지 나중에 대조할 수 있어야 한다.
+  //
+  // **이미 서명이 남았으면 건너뛴다.** 서명이 체인에 들어간 뒤 서버 호출이 실패하는 창이
+  // 있다(네트워크 끊김, 토큰 만료, 서버 재시작). 그때 다시 시도하면 markShipped 가
+  // revert 하고 — 체인이 이미 SHIPPED 라 require(ACCEPTED)를 어긴다 — 그 뒤의 서버 호출까지
+  // 못 가서 DB 가 영원히 따라잡지 못한다. 그래서 재시도는 서버만 채운다.
+  let shipTxHash: string | null = null
+  if (!(await processingAlreadyShipped(chainJobId))) {
+    const shipReceipt = await confirmedTransaction(
+      markProcessingShipped(
+        chainJobId,
+        processingEvidenceHash({
+          type: 'PROCESSING_OUTBOUND_SHIPMENT',
+          jobId,
+          carrier: carrier ?? '',
+          trackingNumber: trackingNumber ?? '',
+        }),
+      ),
+    )
+    shipTxHash = shipReceipt.hash
   }
 
   await processingJobApi.ship(jobId, { carrier, trackingNumber })
-  return txHash
+  // 건너뛴 경우에도 해시를 돌려줘야 카드가 완료로 닫힌다. 그때는 앞선 시도의 해시를 알 수
+  // 없으므로 이 값을 근거로 쓰지 않는다 — 서버는 체인을 직접 읽어 판정한다.
+  return shipTxHash ?? 'already-signed'
+}
+
+/**
+ * 이 가공 작업에 <b>발송 서명이 이미 체인에 남았는가.</b>
+ *
+ * 번호로 크기를 비교하지 않는다 — DECLINED(9)·CANCELED(10)가 SHIPPED(3)보다 큰데 그 둘은
+ * 발송이 일어난 적 없다. 서버의 ChainProcessingStatusReader 와 같은 판정이다.
+ */
+const PROCESSING_SHIPPED_OR_BEYOND = new Set([3, 4, 5, 6, 7, 8, 11, 12])
+
+async function processingAlreadyShipped(chainJobId: number): Promise<boolean> {
+  try {
+    return PROCESSING_SHIPPED_OR_BEYOND.has(await getProcessingChainStatus(chainJobId))
+  } catch {
+    // 체인을 못 읽었다고 발송을 막지 않는다. 서명을 시도하고, 이미 남아 있으면 컨트랙트가
+    // 거절한다 — 그 실패는 담당자에게 그대로 보인다.
+    return false
+  }
 }
 
 /**

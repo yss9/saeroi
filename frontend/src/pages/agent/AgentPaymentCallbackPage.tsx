@@ -91,12 +91,20 @@ export default function AgentPaymentCallbackPage() {
 }
 
 /** 결제를 승인하고, 대화에 넣을 문장을 만든다. */
+/**
+ * 이 문장은 **담당자가 읽는다.** 대화에 어시스턴트 말풍선으로 그대로 남는다.
+ *
+ * 그래서 모델에게 주는 지시("담당자에게 알려주고 안내하세요")나 도구 이름을 넣지 않는다.
+ * 예전에는 넣었는데 두 가지가 망가졌다 — 담당자가 그 지시문을 읽었고, 모델이 그것을 자기
+ * 말투로 배워 다음 턴에 통째로 베꼈다. 지금 무엇을 해야 하는지는 서버가 매 턴 시스템
+ * 프롬프트로 넣는다(`AgentTurnStore.loadPrompt`).
+ *
+ * 문장을 끝맺는 것도 같은 이유다. 어중간하게 끊으면 모델이 이어 써서 한 문장이 두
+ * 말풍선으로 쪼개진다.
+ */
 async function approveAndDescribe(tradeId: number, pgToken: string): Promise<string> {
   await approvePayment(tradeId, pgToken)
-  return (
-    `결제가 완료되었습니다 (거래 ${tradeId}번). ` +
-    '담당자에게 결제 내역과 지금 상태를 알려주고, 다음에 할 일을 안내하세요.'
-  )
+  return `결제가 완료되었습니다. (거래 ${tradeId}번)`
 }
 
 /**
@@ -109,14 +117,7 @@ async function cancelAndDescribe(tradeId: number): Promise<string> {
   try {
     await cancelTrade(tradeId, '결제창에서 취소')
   } catch {
-    return (
-      `결제가 진행되지 않았습니다 (거래 ${tradeId}번). ` +
-      'get_my_trades 로 이 거래의 상태를 확인하고, 아직 남아 있으면 cancel_trade 로 정리한 뒤 ' +
-      '담당자에게 알려주세요.'
-    )
+    return `결제가 진행되지 않았습니다. (거래 ${tradeId}번) 이 거래가 아직 남아 있을 수 있습니다.`
   }
-  return (
-    `담당자가 결제창을 닫아 거래 ${tradeId}번이 취소되었습니다. 판매 글의 수량은 되돌렸습니다. ` +
-    '담당자에게 이 사실을 알리고, 다시 진행할지 다른 소재를 볼지 물어보세요.'
-  )
+  return `결제창을 닫아 거래 ${tradeId}번이 취소되었습니다. 판매 글의 수량은 되돌렸습니다.`
 }
