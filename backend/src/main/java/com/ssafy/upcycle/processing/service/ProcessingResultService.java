@@ -9,6 +9,7 @@ import com.ssafy.upcycle.material.entity.MaterialEventReferenceType;
 import com.ssafy.upcycle.material.entity.MaterialEventType;
 import com.ssafy.upcycle.material.entity.MaterialLineageRelationType;
 import com.ssafy.upcycle.material.entity.MaterialLock;
+import com.ssafy.upcycle.material.entity.MaterialType;
 import com.ssafy.upcycle.material.entity.MaterialLockReferenceType;
 import com.ssafy.upcycle.material.entity.MaterialLockStatus;
 import com.ssafy.upcycle.material.repository.MaterialBalanceRepository;
@@ -71,9 +72,20 @@ public class ProcessingResultService {
             throw new BusinessException(PROCESSING_OUTPUT_INVALID);
         }
 
+        // **산출물의 소재 종류는 요청이 정하지 않는다.** 가공은 섬유를 정제하고 모양을
+        // 바꿀 뿐 데님을 면사로 만들지 않는다. 요청이 준 값을 그대로 믿으면 혈통을
+        // 거슬러 올라가는 추적이 그 지점에서 거짓이 되고, 되돌릴 방법도 없다 —
+        // 자식 소재는 여기 적힌 값으로 만들어진다.
+        //
+        // 검증해서 거절하지 않고 **덮어쓴다.** 고를 수 없는 값을 물은 뒤 틀렸다고
+        // 답하는 것보다, 애초에 고르게 하지 않는 편이 정직하다. 화면도 이 값을
+        // 입력칸이 아니라 읽기 전용으로 보여준다.
+        MaterialType inputMaterialType = materials.findById(input.getMaterialId())
+                .orElseThrow(() -> new BusinessException(PROCESSING_MATERIAL_NOT_FOUND))
+                .getMaterialType();
         for (ProcessingOutputRequest output : request.outputs()) {
             outputs.save(ProcessingOutput.submit(
-                    jobId, input.getId(), output.materialType(), output.name(), output.grade(),
+                    jobId, input.getId(), inputMaterialType, output.name(), output.grade(),
                     output.gradeReason(), output.quantity()));
         }
         job.submitResult(

@@ -765,6 +765,59 @@ class ProcessingRequestTests {
         assertThat(jdbc.queryForObject("select status from processing_job where id=?",String.class,jobId)).isEqualTo("EXPIRED");
         assertThat(locks.findAll().getFirst().getStatus()).isEqualTo(MaterialLockStatus.EXPIRED);
     }
+    /*
+      산출물의 소재 종류는 가공사가 고르는 값이 아니다. 데님을 맡겼는데 면사가 나올 수는
+      없다 — 가공은 소재를 정제하고 모양을 바꿀 뿐 섬유 자체를 바꾸지 않는다. 종류가
+      갈리면 혈통을 거슬러 올라가는 추적이 그 지점에서 거짓이 된다.
+    */
+    @Test
+    void outputMaterialTypeFollowsTheInputMaterial() throws Exception {
+        long jobId = startProcessingJob(300);
+
+        mvc.perform(post("/processing-jobs/{id}/result", jobId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "outputs": [
+                                    {"materialType":"COTTON","name":"재생 면사","grade":"A","gradeReason":"오염과 손상이 없음","quantity":200}
+                                  ],
+                                  "evidenceHash":"0x%s",
+                                  "manifestUrl":"https://example.com/processing/manifest.json"
+                                }
+                                """.formatted("a".repeat(64))))
+                .andExpect(status().isOk());
+
+        // 요청은 COTTON 을 보냈다. 투입 소재가 DENIM 이므로 DENIM 으로 기록돼야 한다.
+        assertThat(outputs.findAllByProcessingJobIdOrderById(jobId).getFirst().getMaterialType())
+                .isEqualTo(MaterialType.DENIM);
+    }
+    /*
+      결과 임시 저장도 같은 규칙을 따라야 한다. 최종 제출(#outputMaterialTypeFollowsTheInputMaterial)
+      만 고치고 임시 저장을 남겨 두면, 화면이 소재 종류를 빼고 보내는 순간 임시 저장이
+      500 으로 죽는다 — DTO 에서 @NotNull 을 떼어냈으므로 null 이 검증을 통과해
+      ProcessingOutput.draft 의 IllegalArgumentException 까지 그대로 내려간다.
+    */
+    @Test
+    void resultDraftTakesOutputMaterialTypeFromTheInputMaterial() throws Exception {
+        long jobId = startProcessingJob(300);
+
+        // 화면이 실제로 보내는 본문이다 — 소재 종류는 서버가 정하므로 싣지 않는다.
+        mvc.perform(post("/processing-jobs/{id}/results", jobId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "outputs": [
+                                    {"name":"재생 데님 원단","grade":"A","gradeReason":"오염과 손상이 없음","quantity":200}
+                                  ]
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        assertThat(outputs.findAllByProcessingJobIdOrderById(jobId).getFirst().getMaterialType())
+                .isEqualTo(MaterialType.DENIM);
+    }
     @Test
     void confirmedProcessingResultCreatesChildMaterialAndLineageAtomically() throws Exception {
         long jobId = startProcessingJob(300);
