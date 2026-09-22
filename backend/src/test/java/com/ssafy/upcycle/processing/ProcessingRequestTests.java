@@ -792,6 +792,32 @@ class ProcessingRequestTests {
         assertThat(outputs.findAllByProcessingJobIdOrderById(jobId).getFirst().getMaterialType())
                 .isEqualTo(MaterialType.DENIM);
     }
+    /*
+      결과 임시 저장도 같은 규칙을 따라야 한다. 최종 제출(#outputMaterialTypeFollowsTheInputMaterial)
+      만 고치고 임시 저장을 남겨 두면, 화면이 소재 종류를 빼고 보내는 순간 임시 저장이
+      500 으로 죽는다 — DTO 에서 @NotNull 을 떼어냈으므로 null 이 검증을 통과해
+      ProcessingOutput.draft 의 IllegalArgumentException 까지 그대로 내려간다.
+    */
+    @Test
+    void resultDraftTakesOutputMaterialTypeFromTheInputMaterial() throws Exception {
+        long jobId = startProcessingJob(300);
+
+        // 화면이 실제로 보내는 본문이다 — 소재 종류는 서버가 정하므로 싣지 않는다.
+        mvc.perform(post("/processing-jobs/{id}/results", jobId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "outputs": [
+                                    {"name":"재생 데님 원단","grade":"A","gradeReason":"오염과 손상이 없음","quantity":200}
+                                  ]
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        assertThat(outputs.findAllByProcessingJobIdOrderById(jobId).getFirst().getMaterialType())
+                .isEqualTo(MaterialType.DENIM);
+    }
     @Test
     void confirmedProcessingResultCreatesChildMaterialAndLineageAtomically() throws Exception {
         long jobId = startProcessingJob(300);
