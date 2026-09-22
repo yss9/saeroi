@@ -86,22 +86,32 @@ public class PublicProductCatalogService {
     }
 
     /**
-     * 소비자에게 보여 줄 갤러리 사진 한 장의 바이트.
+     * 소비자에게 보여 줄 갤러리 사진 한 장의 바이트와 캐시 키(storageKey).
      *
      * <p>상세와 같은 관문을 지난다 — 판매 중이 아니거나 소비자에게 감추는 분류면 404 다.
      * 이미지만 열어 두면 목록에서 사라진 제품의 사진이 주소만으로 계속 나간다.
      */
     @Transactional(readOnly = true)
-    public FileContent readImage(Long productModelId, Long productImageId) {
+    public PublicImageContent readImage(Long productModelId, Long productImageId) {
         findOnSaleModel(productModelId);
-        return productModelImageService.readImage(productModelId, productImageId);
+        FileContent file = productModelImageService.readImage(productModelId, productImageId);
+        // ProductImage의 storageKey는 readImage 호출 경로에서 꺼낼 수 없으므로
+        // 간단히 productImageId를 storageKey로 사용 (ETag는 productModelId+imageId 조합이면 충분)
+        return new PublicImageContent(file, String.valueOf(productImageId));
     }
 
     @Transactional(readOnly = true)
-    public FileContent readThumbnail(Long productModelId) {
-        findOnSaleModel(productModelId);
-        return productImageService.readThumbnail(productModelId);
+    public PublicImageContent readThumbnail(Long productModelId) {
+        ProductModel model = findOnSaleModel(productModelId);
+        FileContent file = productImageService.readThumbnail(productModelId);
+        // ProductModel.thumbnailUrl이 storageKey
+        return new PublicImageContent(file, model.getThumbnailUrl());
     }
+
+    /**
+     * 공개 이미지 응답용 — FileContent + storageKey(ETag 생성 용).
+     */
+    public record PublicImageContent(FileContent content, String storageKey) {}
 
     /**
      * 공개할 수 있는 상품만 찾는다.

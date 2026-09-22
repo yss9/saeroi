@@ -10,11 +10,16 @@ import com.ssafy.upcycle.product.ProductErrorCode;
 import com.ssafy.upcycle.product.dto.ProductImageUploadResponse;
 import com.ssafy.upcycle.product.entity.ProductModel;
 import com.ssafy.upcycle.product.repository.ProductModelRepository;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Locale;
 import java.util.Set;
+import javax.imageio.ImageIO;
 import lombok.RequiredArgsConstructor;
+import net.coobird.thumbnailator.Thumbnails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -60,7 +65,7 @@ public class ProductImageService {
     private final ProductSellerPolicy sellerPolicy;
 
     /**
-     * 제품 이미지를 올린다.
+     * 제품 이미지를 올린다. 동시에 목록용 썸네일(400px)을 생성·저장한다.
      *
      * @param brandId JWT {@code sub} 에서 온 사용자 id. 저장 경로에 들어가므로 요청 바디로
      *     받지 않는다 — 받으면 남의 폴더에 파일을 쓸 수 있다
@@ -69,8 +74,14 @@ public class ProductImageService {
         sellerPolicy.requireSeller(brandId);
         requireUploadableImage(file);
 
-        StoredFile stored = store(new FileReference(REFERENCE_TYPE, brandId), file);
-        return ProductImageUploadResponse.from(stored);
+        FileReference reference = new FileReference(REFERENCE_TYPE, brandId);
+        StoredFile originalStored = store(reference, file);
+
+        // 썸네일 생성 및 저장
+        StoredFile thumbnailStored = generateAndStoreThumbnail(reference, file);
+
+        // 프론트엔드가 받는 키는 썸네일 키 (목록용)
+        return ProductImageUploadResponse.from(thumbnailStored);
     }
 
     /**
@@ -108,6 +119,29 @@ public class ProductImageService {
     public void requireStoredImage(String storageKey) {
         if (!fileStorageService.exists(storageKey)) {
             throw new BusinessException(ProductErrorCode.PRODUCT_THUMBNAIL_NOT_STORED);
+        }
+    }
+
+    private StoredFile generateAndStoreThumbnail(FileReference reference, MultipartFile file) {
+        try (InputStream originalStream = file.getInputStream()) {
+            ByteArrayOutputStream thumbnailOutput = new ByteArrayOutputStream();
+            Thumbnails.of(originalStream)
+                    .width(400)
+                    .outputQuality(0.75)
+                    .outputFormat("jpeg")
+                    .toOutputStream(thumbnailOutput);
+
+            byte[] thumbnailBytes = thumbnailOutput.toByteArray();
+            String thumbnailFileName = "thumb_" + file.getOriginalFilename();
+
+            return fileStorageService.store(
+                    reference,
+                    thumbnailFileName,
+                    "image/jpeg",
+                    new ByteArrayInputStream(thumbnailBytes),
+                    thumbnailBytes.length);
+        } catch (IOException e) {
+            throw new BusinessException(FileStorageErrorCode.FILE_STORAGE_FAILED);
         }
     }
 
