@@ -272,7 +272,7 @@ class ProductModelImageGalleryApiTests {
                         get(PUBLIC_PATH + "/{id}/images/{imageId}", model.getId(), imageId))
                 .andExpect(status().isOk())
                 .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "image/jpeg"))
-                .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "public, max-age=300"))
+                .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "public, max-age=86400, immutable"))
                 .andExpect(header().string("X-Content-Type-Options", "nosniff"))
                 .andReturn()
                 .getResponse()

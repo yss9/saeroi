@@ -6,6 +6,7 @@ import com.ssafy.upcycle.product.dto.PublicProductModelResponse;
 import com.ssafy.upcycle.product.dto.PublicProductModelSearchCondition;
 import com.ssafy.upcycle.product.service.PublicProductCatalogService;
 import com.ssafy.upcycle.trade.dto.PageResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
@@ -65,8 +66,13 @@ public class PublicProductCatalogController {
     }
 
     @GetMapping("/{productModelId}/thumbnail")
-    public ResponseEntity<Resource> thumbnail(@PathVariable Long productModelId) {
-        return image(publicProductCatalogService.readThumbnail(productModelId));
+    public ResponseEntity<Resource> thumbnail(
+            @PathVariable Long productModelId,
+            HttpServletRequest request) {
+        PublicProductCatalogService.PublicImageContent imageContent =
+                publicProductCatalogService.readThumbnail(productModelId);
+        String etag = generateETag(imageContent.storageKey());
+        return imageWithCache(imageContent.content(), etag, request);
     }
 
     /**
@@ -80,33 +86,47 @@ public class PublicProductCatalogController {
      */
     @GetMapping("/{productModelId}/images/{productImageId}")
     public ResponseEntity<Resource> image(
-            @PathVariable Long productModelId, @PathVariable Long productImageId) {
-        return image(publicProductCatalogService.readImage(productModelId, productImageId));
+            @PathVariable Long productModelId,
+            @PathVariable Long productImageId,
+            HttpServletRequest request) {
+        PublicProductCatalogService.PublicImageContent imageContent =
+                publicProductCatalogService.readImage(productModelId, productImageId);
+        String etag = generateETag(imageContent.storageKey());
+        return imageWithCache(imageContent.content(), etag, request);
     }
 
     /**
      * 공개 이미지 응답. 대표 이미지와 갤러리가 같은 헤더를 쓴다.
      *
      * <ul>
-     *   <li>{@code Content-Disposition: inline} — 사진은 화면에 그린다. 원본 파일명은 싣지
-     *       않는다: 한글·따옴표·개행이 들어간 이름은 헤더 인젝션이 되고 그 이름은 사용자가
-     *       정한 값이다
-     *   <li>{@code X-Content-Type-Options: nosniff} — 화이트리스트로 svg 를 막는 노력이
-     *       브라우저의 타입 추측으로 무의미해질 수 있다
-     *   <li>{@code Cache-Control: public} — 비로그인에게 열린 자료라 공용 프록시가 캐시해도
-     *       된다. 판매가 끝난 상품은 5분 안에 404 로 바뀐다
+     *   <li>{@code ETag} — storageKey 기반, 재업로드 시 자동 무효화
+     *   <li>{@code Cache-Control: public, max-age=86400, immutable} — 1일 캐시, 불변 표시
+     *   <li>{@code 304 Not Modified} — If-None-Match 일치 시 본문 없이 반환
+     *   <li>{@code Content-Disposition: inline} — 사진은 화면에 그린다
+     *   <li>{@code X-Content-Type-Options: nosniff} — 타입 추측 방지
      * </ul>
      */
-    private ResponseEntity<Resource> image(FileContent file) {
+    private ResponseEntity<Resource> imageWithCache(
+            FileContent file, String etag, jakarta.servlet.http.HttpServletRequest request) {
+        String ifNoneMatch = request.getHeader("If-None-Match");
+        if (etag.equals(ifNoneMatch)) {
+            return ResponseEntity.status(304).build();
+        }
+
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(file.contentType()))
                 .contentLength(file.size())
+                .header(HttpHeaders.ETAG, etag)
                 .header(
                         HttpHeaders.CONTENT_DISPOSITION,
                         ContentDisposition.inline().build().toString())
-                .header(HttpHeaders.CACHE_CONTROL, "public, max-age=300")
+                .header(HttpHeaders.CACHE_CONTROL, "public, max-age=86400, immutable")
                 .header("X-Content-Type-Options", "nosniff")
-                // InputStreamResource 는 한 번만 읽힌다. Spring 이 응답으로 흘린 뒤 닫아 준다.
                 .body(new InputStreamResource(file.stream()));
+    }
+
+    private String generateETag(String storageKey) {
+        // storageKey는 업로드마다 변하므로 이미지 재업로드 시 자동으로 캐시 무효화됨
+        return "\"" + storageKey.hashCode() + "\"";
     }
 }
