@@ -30,21 +30,16 @@ function formatDate(value: string) {
 }
 
 function PredictionResult({ soldQuantity, bucketIndex }: { soldQuantity: number; bucketIndex: number }) {
-  const [displayedQuantity, setDisplayedQuantity] = useState(0)
-  const [settled, setSettled] = useState(false)
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const [displayedQuantity, setDisplayedQuantity] = useState(() => reduceMotion ? soldQuantity : 0)
+  const [settled, setSettled] = useState(reduceMotion)
 
   useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      setDisplayedQuantity(soldQuantity)
-      setSettled(true)
-      return
-    }
+    if (reduceMotion) return
 
     const steps = buildResultRevealSteps(soldQuantity)
     let index = 0
     let timer = 0
-    setDisplayedQuantity(0)
-    setSettled(false)
 
     const advance = () => {
       const step = steps[index]
@@ -59,7 +54,7 @@ function PredictionResult({ soldQuantity, bucketIndex }: { soldQuantity: number;
 
     timer = window.setTimeout(advance, 120)
     return () => window.clearTimeout(timer)
-  }, [soldQuantity])
+  }, [reduceMotion, soldQuantity])
 
   return (
     <p
