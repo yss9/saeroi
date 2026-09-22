@@ -264,18 +264,68 @@ describe('PassportView', () => {
     expect(screen.getAllByRole('heading', { name: '가공' })).not.toHaveLength(0)
   })
 
-  it('다섯 단계에 서로 다른 색상과 단계 아이콘을 동일하게 적용한다', async () => {
+  it('다섯 단계를 그리고 선택된 하나만 활성으로 구분한다', async () => {
     const { container } = renderView()
     await screen.findByRole('heading', { name: 'RE:BAG' })
 
     const stepItems = Array.from(screen.getByRole('list', { name: '여정 단계' }).querySelectorAll('li'))
-    expect(new Set(stepItems.map((item) => item.getAttribute('style'))).size).toBe(5)
+    expect(stepItems).toHaveLength(5)
     expect(stepItems.every((item) => item.querySelector('.journey-stepper__icon svg'))).toBe(true)
+
+    // 선택 여부는 인라인 style이 아니라 상태로 본다. 예전에는 단계마다 다른 hue를
+    // 인라인으로 주입해서 "style 다섯 개가 서로 다르다"를 셌는데, 지금은 색을 CSS가
+    // 상태(활성/비활성)로 정하므로 li에 인라인 style 자체가 없다.
+    const buttons = stepItems.map((item) => item.querySelector('button'))
+    expect(buttons.filter((button) => button?.classList.contains('is-active'))).toHaveLength(1)
+    expect(buttons.filter((button) => button?.getAttribute('aria-current') === 'step')).toHaveLength(1)
+    expect(stepItems.every((item) => item.getAttribute('style') === null)).toBe(true)
 
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Flow View' }))
-    expect(container.querySelectorAll('.journey-flow-backdrop__stage')).toHaveLength(5)
-    expect(container.querySelectorAll('.journey-flow-backdrop__stage .journey-flow-backdrop__icon svg')).toHaveLength(5)
+    // Flow 캔버스 안에는 단계 칩을 그리지 않는다 — 캔버스 바깥 위쪽 스테퍼가 같은
+    // 다섯 단계를 이미 보여주고 있어 한 화면에 같은 줄이 두 번 나온다. 한 번 지웠다가
+    // 되살아난 적이 있어 없다는 쪽으로 고정한다.
+    expect(container.querySelectorAll('.journey-flow-backdrop__stage')).toHaveLength(0)
+  })
+
+  /**
+   * Phosphor 아이콘은 이름을 DOM에 남기지 않는다. 대신 `<svg>`의 자식이 weight별 `<path>`
+   * 뿐이라는 점을 쓴다 — IconBase는 `alt`가 있을 때의 `<title>`, `children`, 그리고
+   * `weights.get(weight)` 세 가지만 자식으로 넣는데 이 화면은 앞의 둘을 쓰지 않는다.
+   * `size`는 `<svg>`의 width/height 속성이라 innerHTML에 들어가지 않으므로, 22px 스테퍼와
+   * 24px 노드처럼 크기가 달라도 같은 아이콘·같은 weight면 innerHTML이 정확히 일치한다.
+   * 프로덕션 코드에 테스트용 표식을 심지 않으려고 이 방법을 쓴다.
+   */
+  function iconShape(element: Element | null | undefined): string {
+    const svg = element?.querySelector('svg')
+    expect(svg?.innerHTML).toContain('path')
+    return svg?.innerHTML ?? ''
+  }
+
+  it('같은 단계는 스테퍼·지도 마커·Flow 노드·상세 헤더에서 모두 같은 아이콘을 쓴다', async () => {
+    const user = userEvent.setup()
+    const { container } = renderView()
+    await screen.findByRole('heading', { name: 'RE:BAG' })
+
+    await user.click(screen.getByRole('button', { name: /원단 등록 완료/ }))
+
+    const stepper = iconShape(
+      screen.getByRole('button', { name: /원단 등록 완료/ }).closest('li')?.querySelector('.journey-stepper__icon'),
+    )
+    const detailHeader = iconShape(container.querySelector('.journey-detail__icon'))
+    const mapNode = iconShape(container.querySelector('[data-node-stage="SOURCE"] .journey-node__icon'))
+
+    await user.click(screen.getByRole('button', { name: 'Flow View' }))
+    const flowNode = iconShape(container.querySelector('[data-node-stage="SOURCE"] .journey-node__icon'))
+
+    expect(detailHeader).toBe(stepper)
+    expect(mapNode).toBe(stepper)
+    expect(flowNode).toBe(stepper)
+
+    // 위 비교가 실제로 아이콘을 구분하는지 — 다른 단계는 달라야 한다. 이게 없으면
+    // 다섯 단계가 전부 같은 아이콘이어도 통과한다.
+    const otherStage = iconShape(container.querySelector('[data-node-stage="PROCESSING"] .journey-node__icon'))
+    expect(otherStage).not.toBe(stepper)
   })
 
   it('모바일에서는 지도와 단계별 상세만 간결하게 보여준다', async () => {
