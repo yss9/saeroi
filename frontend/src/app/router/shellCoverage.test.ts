@@ -59,7 +59,7 @@ const INTENTIONALLY_BARE: ReadonlyMap<string, string> = new Map([
   ['/mypage/inquiries', '소비자 계정 화면. 마이페이지와 같은 껍데기를 쓴다'],
   ['/mypage/reviews', '소비자 계정 화면. 마이페이지와 같은 껍데기를 쓴다'],
   ['/mypage/profile', '소비자 계정 화면. 마이페이지와 같은 껍데기를 쓴다'],
-  ['/mypage/predictions', '소비자 예측 화면. ConsumerAccountLayout을 쓴다'],
+  ['/predictions', '소비자 예측 화면. 쇼핑몰 공통 헤더·푸터를 사용한다'],
   ['/orders/:orderId/payment/return', '카카오페이에서 돌아오는 자리. 소비자 구역이라 사업자 셸이 어울리지 않는다'],
   ['/terms', '정적 안내 페이지. 쇼핑몰 공통 헤더·푸터 사용, 비회원도 접근'],
   ['/privacy', '정적 안내 페이지. 쇼핑몰 공통 헤더·푸터 사용, 비회원도 접근'],

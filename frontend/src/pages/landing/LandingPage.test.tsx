@@ -286,7 +286,7 @@ describe('LandingPage', () => {
 
     const primaryNavigation = screen.getByRole('navigation', { name: '주요 메뉴' })
     expect(within(primaryNavigation).getByRole('link', { name: 'PREDICTION' }))
-      .toHaveAttribute('href', '/mypage/predictions')
+      .toHaveAttribute('href', '/predictions')
   })
 
   it('shows login and signup links in the account menu when signed out', async () => {

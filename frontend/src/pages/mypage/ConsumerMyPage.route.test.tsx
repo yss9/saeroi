@@ -525,7 +525,7 @@ describe('consumer mypage route', () => {
     renderRoute('/mypage')
     await screen.findByRole('heading', { name: '내 프로필' })
     const menu = screen.getByRole('navigation', { name: '주요 메뉴' })
-    for (const [name, href] of [['SHOP', '/shop'], ['BRANDS', '/brands'], ['ABOUT', '/about'], ['PREDICTION', '/mypage/predictions']]) {
+    for (const [name, href] of [['SHOP', '/shop'], ['BRANDS', '/brands'], ['ABOUT', '/about'], ['PREDICTION', '/predictions']]) {
       expect(within(menu).getByRole('link', { name })).toHaveAttribute('href', href)
     }
     expect(within(screen.getByRole('navigation', { name: '마이페이지 메뉴' }))

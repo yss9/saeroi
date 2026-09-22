@@ -1,16 +1,13 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Button, ErrorMessage, Loading } from '../../components/common/index.ts'
-import { useAuth } from '../../features/auth/hooks/useAuth.ts'
-import { useLogout } from '../../features/auth/hooks/useLogout.ts'
 import { grantPredictionWelcomePoint, savePredictionSurvey } from '../../features/prediction/api/predictionApi.ts'
 import { usePredictionChainState } from '../../features/prediction/hooks/usePredictionChainState.ts'
 import { predictionKeys, usePredictionMarkets } from '../../features/prediction/hooks/usePredictionMarkets.ts'
 import { predictionPointBalanceKey, usePredictionPointBalance } from '../../features/prediction/hooks/usePredictionPointBalance.ts'
 import { approveAndPlacePredictionBet, claimPrediction, formatPredictionPoint } from '../../features/prediction/services/predictionContractService.ts'
 import type { PredictionMarket, PredictionReasonCode } from '../../features/prediction/types/prediction.types.ts'
-import { ConsumerAccountLayout } from '../../features/user/components/ConsumerAccountLayout.tsx'
+import { ConsumerShopLayout } from '../../features/user/components/ConsumerAccountLayout.tsx'
 import { WalletRegistrationPanel } from '../../features/wallet/components/WalletRegistrationPanel.tsx'
 import { useMyWallets } from '../../features/wallet/hooks/useMyWallets.ts'
 import { useWallet } from '../../features/wallet/hooks/useWallet.ts'
@@ -29,74 +26,13 @@ function formatDate(value: string) {
 }
 
 function PredictionResult({ soldQuantity, bucketIndex }: { soldQuantity: number; bucketIndex: number }) {
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  const finalDigits = Math.max(0, Math.floor(soldQuantity)).toString().padStart(5, '0').split('')
-  const [displayDigits, setDisplayDigits] = useState(() => reduceMotion ? finalDigits : finalDigits.map(() => '0'))
-  const [settled, setSettled] = useState(reduceMotion)
-  const [replaySequence, setReplaySequence] = useState(0)
-
-  useEffect(() => {
-    if (reduceMotion) return
-
-    const targetDigits = Math.max(0, Math.floor(soldQuantity)).toString().padStart(5, '0').split('')
-    const startedAt = performance.now()
-    let previousAt = startedAt
-    let frame = 0
-    const wheelPositions = targetDigits.map((_, index) => index * 2)
-    const stopTimes = targetDigits.map((_, index) => 1_450 + index * 230)
-
-    const spin = (now: number) => {
-      const elapsed = now - startedAt
-      const delta = Math.min(32, now - previousAt)
-      previousAt = now
-      const nextDigits = wheelPositions.map((position, index) => {
-        if (elapsed >= stopTimes[index]) return targetDigits[index]
-        const progress = elapsed / stopTimes[index]
-        const turnsPerMillisecond = 0.045 * ((1 - progress) ** 2) + 0.004
-        wheelPositions[index] = position + delta * turnsPerMillisecond
-        return String(Math.floor(wheelPositions[index]) % 10)
-      })
-      setDisplayDigits(nextDigits)
-
-      if (elapsed >= stopTimes.at(-1)!) {
-        setSettled(true)
-        return
-      }
-      frame = window.requestAnimationFrame(spin)
-    }
-
-    frame = window.requestAnimationFrame(spin)
-    return () => window.cancelAnimationFrame(frame)
-  }, [reduceMotion, replaySequence, soldQuantity])
-
-  function replay() {
-    if (reduceMotion) return
-    setDisplayDigits(finalDigits.map(() => '0'))
-    setSettled(false)
-    setReplaySequence((sequence) => sequence + 1)
-  }
-
   return (
-    <section
-      className={`prediction-card__result ${settled ? 'is-settled' : 'is-counting'}`}
+    <p
+      className="prediction-card__result"
       aria-label={`최종 순판매량 ${soldQuantity}개, 당첨 구간 ${bucketIndex + 1}`}
     >
-      <header className="prediction-card__result-head">
-        <div>
-          <p>최종 순판매량</p>
-          <span aria-live="polite">{settled ? `결과 확정 · 당첨 구간 #${bucketIndex + 1}` : '판매량 집계 중'}</span>
-        </div>
-        <button type="button" onClick={replay} disabled={!settled || reduceMotion}>다시 보기</button>
-      </header>
-      <div className="prediction-card__reels" aria-hidden="true">
-        {displayDigits.map((digit, index) => (
-          <span className="prediction-card__reel" key={index}>
-            <b key={`${replaySequence}-${index}-${digit}`}>{digit}</b>
-          </span>
-        ))}
-        <em>개</em>
-      </div>
-    </section>
+      최종 순판매량 <strong>{soldQuantity.toLocaleString()}</strong>개 · 당첨 구간 #{bucketIndex + 1}
+    </p>
   )
 }
 
@@ -203,9 +139,6 @@ function MarketCard({ market, walletAddress }: { market: PredictionMarket; walle
 }
 
 export function PredictionMarketPage() {
-  const navigate = useNavigate()
-  const { user } = useAuth()
-  const logout = useLogout()
   const wallet = useWallet()
   const myWallets = useMyWallets()
   const markets = usePredictionMarkets()
@@ -223,9 +156,8 @@ export function PredictionMarketPage() {
   const welcomeAlreadyReceived = Boolean(welcome.data) || Boolean(welcome.error && toErrorMessage(welcome.error).includes('이미 지급'))
 
   return (
-    <ConsumerAccountLayout current="predictions" profile={user ? { name: user.name, email: user.email } : null}
-      onSignOut={() => logout.mutate(undefined, { onSuccess: () => navigate('/', { replace: true }) })}
-      signOutPending={logout.isPending} signOutError={logout.error}>
+    <ConsumerShopLayout>
+      <main className="consumer-mypage-main prediction-page">
       <section className="consumer-mypage-card prediction-intro">
         <p className="consumer-section-heading__eyebrow">ON-CHAIN PREDICTION</p>
         <h2>판매량 예측시장</h2>
@@ -247,6 +179,7 @@ export function PredictionMarketPage() {
           {markets.data?.length === 0 ? <p>현재 열린 예측시장이 없습니다.</p> : null}
         </section>
       )}
-    </ConsumerAccountLayout>
+      </main>
+    </ConsumerShopLayout>
   )
 }

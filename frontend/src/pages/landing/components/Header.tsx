@@ -26,8 +26,8 @@ const navigation = [
 
 const predictionNavigation = {
   label: 'PREDICTION',
-  homeHref: '/mypage/predictions',
-  route: '/mypage/predictions',
+  homeHref: '/predictions',
+  route: '/predictions',
 }
 
 interface HeaderProps {
