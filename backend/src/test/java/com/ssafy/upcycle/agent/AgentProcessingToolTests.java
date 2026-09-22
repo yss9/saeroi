@@ -56,6 +56,7 @@ class AgentProcessingToolTests {
 
     private Long brandId;
     private Long wasteMaterialId;
+    private Long virginMaterialId;
 
     @BeforeEach
     void setUp() {
@@ -70,6 +71,14 @@ class AgentProcessingToolTests {
         wasteMaterialId = material.getId();
         balances.save(MaterialBalance.of(
                 material.getId(), brandId, WALLET, material.getTotalQuantity()));
+
+        // 새 원단. 씻을 것도 해체할 것도 없어 필수 공정이 없다.
+        Material virgin = materials.save(Material.register(
+                "MAT-900002", MaterialType.SILK, MaterialRootOrigin.VIRGIN, "실크 원단", null, "A",
+                30_000L, null, null, brandId));
+        virginMaterialId = virgin.getId();
+        balances.save(MaterialBalance.of(
+                virgin.getId(), brandId, WALLET, virgin.getTotalQuantity()));
     }
 
     @AfterEach
@@ -89,6 +98,26 @@ class AgentProcessingToolTests {
         String result = lastToolResult();
         assertThat(result).contains("CLEANING").contains("DISASSEMBLY").contains("SORTING");
         assertThat(result).contains("\"readyForProduction\":false");
+    }
+
+    /**
+     * 신소재는 <b>필수 공정이 없다</b>고 답해야 한다. "다 거쳤다" 와 다른 말이다.
+     *
+     * <p>예전에는 출처를 보지 않고 늘 세척·해체·선별을 필수로 넣었다. 그래서 신소재에 대해
+     * 스스로 모순된 응답이 나갔다 — 필수 셋, 거친 것 없음, 빠진 것 없음, "모두 거쳤습니다".
+     * 모델은 그 hint 를 그대로 옮겨 담당자에게 "필수 공정을 모두 거쳤으니 생산 확정할 준비가
+     * 됐습니다" 라고 말했다. 아무 공정도 거치지 않은 새 원단이었다.
+     */
+    @Test
+    void 신소재에는_필수_공정이_없다고_답한다() {
+        callTool("check_processing_plan", "{\"materialId\":" + virginMaterialId + "}");
+
+        String result = lastToolResult();
+        assertThat(result).contains("\"requiredProcessTypes\":[]");
+        assertThat(result).contains("\"readyForProduction\":true");
+        assertThat(result).contains("필수 공정이 없습니다");
+        // "모두 거쳤다" 는 거치지 않은 소재에 쓸 말이 아니다.
+        assertThat(result).doesNotContain("모두 거쳤습니다");
     }
 
     @Test

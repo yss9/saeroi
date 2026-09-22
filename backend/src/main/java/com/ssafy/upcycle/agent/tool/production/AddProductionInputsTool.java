@@ -60,7 +60,8 @@ public class AddProductionInputsTool extends AbstractAgentTool {
                 {
                   "type": "object",
                   "properties": {
-                    "batchId": {"type": "integer"},
+                    "batchId": {"type": "integer",
+                      "description": "생산 배치 번호. get_my_production_batches 의 productionBatchId 이거나 시스템 프롬프트의 현재 상태 목록에 적힌 번호다. **카드 번호(cardId)를 쓰지 않는다** — 실제로 그렇게 넘겨 배치를 찾지 못한 일이 있었다"},
                     "inputs": {
                       "type": "array", "minItems": 1, "maxItems": 20,
                       "items": {

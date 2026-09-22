@@ -71,9 +71,11 @@ public class PurchaseMaterialTool extends AbstractAgentTool {
                     "receiverPhone": {"type": "string"},
                     "zipCode": {"type": "string"},
                     "address": {"type": "string"},
-                    "addressDetail": {"type": "string"}
+                    "addressDetail": {"type": "string"},
+                    "summary": {"type": "string",
+                      "description": "담당자가 무엇에 결제하는지 한 줄로. 카드에 그대로 보인다. 예: 실크 원단 1kg 구매 (30,000원)"}
                   },
-                  "required": ["listingId","quantityGram","receiverName","receiverPhone","zipCode","address"],
+                  "required": ["listingId","quantityGram","receiverName","receiverPhone","zipCode","address","summary"],
                   "additionalProperties": false
                 }""";
     }
@@ -123,7 +125,10 @@ public class PurchaseMaterialTool extends AbstractAgentTool {
         // 화면이 이 주소로 카카오페이를 띄운다.
         payload.put("redirectUrl", payment.redirectUrl());
 
-        String summary = "소재 구매 결제를 시작했습니다. %,d원".formatted(trade.totalPrice());
+        // **문장을 끝맺는다.** 이 값은 ASSISTANT 역할로 이력에 들어가므로, 모델 눈에는 자기가
+        // 쓰다 만 말로 보인다. 예전에는 "… 30,000원" 으로 끝나서 모델이 다음 턴에 "이 청구될
+        // 예정입니다." 를 이어 붙였고, 화면에는 한 문장이 두 말풍선으로 쪼개져 떴다.
+        String summary = "소재 구매 결제를 시작했습니다. %,d원이 청구됩니다.".formatted(trade.totalPrice());
         return AgentToolResult.of(json(payload), summary);
     }
 

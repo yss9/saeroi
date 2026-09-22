@@ -3,6 +3,7 @@ package com.ssafy.upcycle.agent;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -90,7 +91,10 @@ class AgentChatServiceTests {
         ConversationDetailResponse detail = conversationService.start(brandId, "내 소재 보여줘");
         // 소재 조회 tool 은 MATERIAL_SOURCING 단계에서만 보인다. INTAKE 에서 불렀으므로
         // 실행되지 않고 거절돼야 한다 — 그 사실이 모델에게 결과로 돌아간다.
-        assertThat(lastToolResult()).contains("UNKNOWN_TOOL");
+        //
+        // 거절 문구는 **어느 단계로 옮기면 되는지**까지 말해 준다. 이름만 거절하면 모델이
+        // 그 기능이 없다고 결론 내고 담당자에게 직접 처리하라고 넘긴다.
+        assertThat(lastToolResult()).contains("WRONG_PHASE").contains("set_phase");
         assertThat(detail.messages().getLast().content()).isEqualTo("보유하신 소재가 없습니다.");
     }
 
@@ -146,7 +150,7 @@ class AgentChatServiceTests {
         // confirm_receipt 는 MATERIAL_SOURCING 전용인데 INTAKE 에서 부른다.
         ConversationDetailResponse detail = conversationService.start(brandId, "수령 확정해줘");
 
-        assertThat(lastToolResult()).contains("UNKNOWN_TOOL");
+        assertThat(lastToolResult()).contains("WRONG_PHASE");
         assertThat(detail.actions()).isEmpty();
         assertThat(pendingActions.count()).isZero();
     }
@@ -178,15 +182,41 @@ class AgentChatServiceTests {
         assertThat(lastToolResult()).contains("AWAITING_USER_CONFIRMATION");
     }
 
+    /**
+     * 상한에 걸려도 <b>모아 둔 답을 버리지 않는다.</b>
+     *
+     * <p>회차마다 "글로 답하거나 / tool 을 부르거나" 둘 중 하나라서, 상한을 tool 에 다 쓰면
+     * 결론을 쓸 자리가 없다. 그때 고정 문구를 내보내면 담당자는 자기가 설명을 못 한 줄
+     * 알게 된다 — 실제로 조회는 다 끝나 있었는데도 그랬다.
+     */
     @Test
-    void tool_루프가_상한에_걸리면_장애가_아니라_되묻는다() {
+    void 상한에_걸리면_tool_없이_한_번_더_불러_말로_끝맺는다() {
         // 모델이 결론을 못 내고 같은 tool 을 계속 부르는 상황. 상한(test 설정 3)에 걸린다.
         when(llmClient.complete(anyList(), anyList()))
                 .thenReturn(new LlmCompletion(null, List.of(new ToolCall("c", "set_phase", "{\"phase\":\"INTAKE\"}"))));
+        // tool 목록을 비워 부르면 모델은 글로 답할 수밖에 없다. 더 구체적인 스텁이 이긴다.
+        when(llmClient.complete(anyList(), argThat(List::isEmpty)))
+                .thenReturn(new LlmCompletion("실크 판매 글이 아직 없습니다. 소재 종류를 비우고 찾아볼까요?", List.of()));
 
         ConversationDetailResponse detail = conversationService.start(brandId, "계속 돌아라");
 
-        verify(llmClient, times(3)).complete(anyList(), anyList());
+        // 상한 3회 + 마무리 1회.
+        verify(llmClient, times(3)).complete(anyList(), argThat(tools -> !tools.isEmpty()));
+        verify(llmClient, times(1)).complete(anyList(), argThat(List::isEmpty));
+        assertThat(detail.messages().getLast().role()).isEqualTo(AgentMessageRole.ASSISTANT);
+        assertThat(detail.messages().getLast().content()).isEqualTo("실크 판매 글이 아직 없습니다. 소재 종류를 비우고 찾아볼까요?");
+    }
+
+    /** 마무리 호출까지 실패하면 그때는 고정 문구다. 말없이 끝내면 화면이 비어 버린다. */
+    @Test
+    void 마무리_호출이_실패하면_되묻는_문구로_내려간다() {
+        when(llmClient.complete(anyList(), anyList()))
+                .thenReturn(new LlmCompletion(null, List.of(new ToolCall("c", "set_phase", "{\"phase\":\"INTAKE\"}"))));
+        when(llmClient.complete(anyList(), argThat(List::isEmpty)))
+                .thenThrow(new BusinessException(AgentErrorCode.AGENT_LLM_UNAVAILABLE));
+
+        ConversationDetailResponse detail = conversationService.start(brandId, "계속 돌아라");
+
         assertThat(detail.messages().getLast().role()).isEqualTo(AgentMessageRole.ASSISTANT);
         assertThat(detail.messages().getLast().content()).contains("조금 더 구체적으로");
     }

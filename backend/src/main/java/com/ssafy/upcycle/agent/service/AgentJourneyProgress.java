@@ -15,6 +15,7 @@ import com.ssafy.upcycle.processing.service.ProcessingJobWorkflowService;
 import com.ssafy.upcycle.product.dto.ProductModelResponse;
 import com.ssafy.upcycle.product.service.ProductModelQueryService;
 import com.ssafy.upcycle.production.dto.ProductionBatchResponse;
+import com.ssafy.upcycle.production.dto.ProductionInputResponse;
 import com.ssafy.upcycle.production.entity.ProductionBatchStatus;
 import com.ssafy.upcycle.production.service.ProductionBatchService;
 import com.ssafy.upcycle.trade.dto.TradeResponse;
@@ -283,12 +284,31 @@ public class AgentJourneyProgress {
         if (batches.isEmpty()) {
             return JourneyProgressResponse.empty(phase, journey);
         }
-        ProductionBatchResponse batch = batches.getFirst();
+        // **가장 최근에 만든 배치를 본다.** 예전에는 getFirst() 였는데 그것은 가장 오래된
+        // 배치다. 지난 테스트에서 버려 둔 빈 배치가 목록 앞에 남아 있으면, 방금 확정하고
+        // 체인 기록까지 끝낸 배치가 아니라 그 빈 배치를 따라간다 — 다 끝냈는데 막대는
+        // "투입할 소재를 정할 차례입니다" 라고 말했다.
+        //
+        // 진행 중인 것을 고르는 규칙("확정 안 된 것 우선")도 같은 이유로 틀린다. 버려진
+        // 배치가 영원히 미확정이라 늘 그쪽이 뽑힌다. 대화가 다루는 배치를 서버가 알 방법이
+        // 없으므로, 가장 최근에 만든 것을 그 대리값으로 쓴다.
+        ProductionBatchResponse batch = batches.stream()
+                .max(java.util.Comparator.comparing(ProductionBatchResponse::productionBatchId))
+                .orElseThrow();
 
         boolean confirmed = batch.status() == ProductionBatchStatus.CONFIRMED;
+        // **투입 여부를 batch.totalUsedQuantity() 로 보지 않는다.** 그 값은 확정 시점에 제품에
+        // 실제로 쓰인 양으로 채워지고 그 전까지 언제나 0 이다 (ProductionBatch.confirm).
+        // 그대로 쓰면 소재를 넣어 둔 배치에도 "투입할 소재를 정할 차례입니다" 가 떠서, 담당자는
+        // 방금 넣은 것이 사라진 줄 안다. 화면 쪽은 같은 함정을 이미 피하고 있다
+        // (ProductionBatchDetail.tsx 주석).
+        long inputTotal = batch.inputs() == null
+                ? 0L
+                : batch.inputs().stream().mapToLong(ProductionInputResponse::inputQuantity).sum();
+
         List<Mark> steps = new ArrayList<>();
         steps.add(Mark.done("배치"));
-        steps.add(mark("소재 투입", batch.totalUsedQuantity() > 0));
+        steps.add(mark("소재 투입", inputTotal > 0));
         steps.add(mark("확정", confirmed));
         steps.add(mark("제품 연결", batch.productModelId() != null));
         // 체인은 네 번 서명하지만 막대에서는 한 칸이다. 서버가 아는 것은 1단계의 산물인
@@ -297,7 +317,7 @@ public class AgentJourneyProgress {
         markCurrent(steps);
 
         String todo;
-        if (!confirmed && batch.totalUsedQuantity() == 0) {
+        if (!confirmed && inputTotal == 0) {
             todo = "투입할 소재를 정할 차례입니다.";
         } else if (!confirmed) {
             todo = "생산을 확정할 차례입니다. 되돌릴 수 없습니다.";
@@ -306,7 +326,7 @@ public class AgentJourneyProgress {
         } else if (batch.productModelId() == null) {
             todo = "만든 제품을 등록해 이 생산에 연결할 차례입니다.";
         } else {
-            todo = "생산이 끝났습니다. 판매를 시작할 수 있습니다.";
+            todo = "생산이 끝났습니다. 판매를 시작할 차례입니다.";
         }
 
         return new JourneyProgressResponse(

@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 /**
  * 턴 중간의 짧은 쓰기들. <b>LLM 호출을 트랜잭션 밖으로 밀어내기 위해 존재한다.</b>
@@ -39,18 +40,56 @@ public class AgentTurnStore {
     private final AgentToolRegistry registry;
     private final AgentPromptBuilder promptBuilder;
     private final AgentConversationRepository conversations;
+    private final AgentPendingWork pendingWork;
 
     /**
-     * 모델에 넣을 프롬프트를 통째로 만들어 돌려준다.
+     * 서버가 방금 조회한 실제 상태. <b>한 턴에 한 번만 부른다.</b>
      *
-     * <p>이력을 메모리에 담아 반환하는 것이 핵심이다. 호출자는 이 값을 들고 트랜잭션 <b>밖</b>
-     * 에서 LLM 을 부르므로, 20~30초 동안 커넥션이 반납된 상태가 된다.
+     * <p>도메인 상태는 한 턴 안에서 바뀌지 않는다 — 쓰기 tool 은 실행되지 않고 카드만 만들고,
+     * 읽기 tool 은 아무것도 바꾸지 않는다. 상태가 움직이는 것은 담당자가 카드를 승인하는
+     * 별도의 요청이고, 그때는 새 턴이 시작된다.
+     *
+     * <p>그래서 회차마다 다시 조회하면 같은 답을 여러 번 받는 낭비다. 거래·가공·생산·제품 네
+     * 갈래를 보고 그 중 배치 조회는 배치마다 투입을 또 읽으므로, 상한 6회 기준으로 한 발화에
+     * 수십 번의 질의가 됐다.
      */
     @Transactional(readOnly = true)
-    public TurnPrompt loadPrompt(Long conversationId) {
+    public String liveState(Long conversationId) {
+        AgentConversation conversation = load(conversationId);
+        // 대화 시작 시각을 함께 넘긴다 — 이 대화가 만든 배치와 지난 작업의 흔적을 가른다.
+        return pendingWork.describe(conversation.getBrandUserId(), conversation.getCreatedAt());
+    }
+
+    /**
+     * 모델에 넣을 프롬프트. {@code liveState} 는 {@link #liveState} 가 턴 시작에 한 번 읽은 값이다.
+     *
+     * <p><b>막힌 단계는 시스템 프롬프트로 넣는다.</b> 예전에는 이 목록을 ASSISTANT 메시지로
+     * 이력에 넣었는데(reportEvent), 두 가지가 동시에 망가졌다.
+     *
+     * <p>하나, 담당자가 그걸 읽었다. "request_chain_order 로 서명 카드를 띄운다", "이 목록이
+     * 정본이다" 같은 모델용 지시문이 대화창에 그대로 떴다.
+     *
+     * <p>둘, 모델이 그걸 <b>자기 말투로 배웠다.</b> ASSISTANT 역할이라 "내가 평소에 하는 말"
+     * 로 보였고, 다음 턴에 그 블록을 통째로 베껴 거래 번호만 바꿔 출력했다 — 아직 결제도 안 된
+     * 거래에 대해 "결제는 끝났고 온체인 기록이 아직이다" 라는 없는 사실까지 지어냈다.
+     *
+     * <p>그리고 이 자리여야 <b>매 턴</b> 들어간다. 이력에 넣던 방식은 결제 복귀 같은 특정
+     * 순간에만 들어가서, 그 순간을 놓친 단계는 그 뒤로 모델의 시야에서 사라졌다. 실제로 결제만
+     * 되고 온체인 주문이 없는 거래가 그렇게 잊혔다.
+     *
+     * <p>이력은 회차마다 다시 읽는다 — tool 결과가 붙기 때문이다.
+     *
+     * <p><b>이력을 메모리에 담아 반환하는 것이 핵심이다.</b> 호출자는 이 값을 들고 트랜잭션
+     * <b>밖</b>에서 LLM 을 부르므로, 20~30초 동안 커넥션이 반납된 상태가 된다.
+     */
+    @Transactional(readOnly = true)
+    public TurnPrompt loadPrompt(Long conversationId, String liveState) {
         AgentConversation conversation = load(conversationId);
         List<LlmMessage> messages = new ArrayList<>();
         messages.add(LlmMessage.system(promptBuilder.build(conversation)));
+        if (StringUtils.hasText(liveState)) {
+            messages.add(LlmMessage.system(liveState));
+        }
         messages.addAll(store.toLlmMessages(store.history(conversationId)));
         return new TurnPrompt(messages, registry.specsFor(conversation.getPhase()));
     }

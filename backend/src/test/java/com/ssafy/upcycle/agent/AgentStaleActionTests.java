@@ -116,6 +116,65 @@ class AgentStaleActionTests {
                 .anyMatch(message -> message.content() != null && message.content().contains("이미 수령이 확정"));
     }
 
+    /**
+     * <b>방금 한 서명은 "지난 일" 이 아니다.</b>
+     *
+     * <p>온체인 주문 서명은 서명자가 체인에 주문을 만든 뒤 chain-link API 로 서버에 붙이고
+     * 나서 카드를 승인한다. 그래서 승인 시점에는 이미 {@code chainTradeId} 가 채워져 있다 —
+     * 그 일을 한 것이 담당자 자신이다. 상태만 보고 판정하면 성공한 서명이 "이미 처리됨" 으로
+     * 닫히고, 담당자는 서명이 헛일이었다고 읽는다. 실제로 그렇게 보였다.
+     */
+    @Test
+    void 방금_한_서명이_자기_카드를_이미_처리됨으로_닫지_않는다() {
+        // 카드를 띄울 때는 온체인 주문이 없었다.
+        givenTrade(TradeStatus.PAID, null, false);
+        callTool("request_chain_order", "{\"tradeId\":15,\"summary\":\"실크 원단 1kg 구매\"}");
+        Long actionId = pendingActions.findAll().getFirst().getId();
+
+        // 서명이 끝나 체인에 주문이 생기고 서버에도 붙었다.
+        givenTrade(TradeStatus.PAID, 41L, false);
+        when(llmClient.complete(anyList(), anyList()))
+                .thenReturn(new LlmCompletion("기록됐습니다.", List.of()));
+
+        ConversationDetailResponse detail =
+                pendingActionService.complete(brandId, actionId, "{\"txHash\":\"0xabc123\"}");
+
+        assertThat(pendingActions.findById(actionId).orElseThrow().getStatus())
+                .isEqualTo(PendingActionStatus.COMPLETED);
+        assertThat(detail.messages())
+                .anyMatch(message -> message.content() != null
+                        && message.content().contains("블록체인에 기록됐습니다"));
+        assertThat(detail.messages())
+                .noneMatch(message -> message.content() != null
+                        && message.content().contains("다시 서명할 필요가 없습니다"));
+    }
+
+    /**
+     * 해시가 없는 승인은 그대로 판정한다.
+     *
+     * <p>화면이 {@code alreadyLinked} 로 닫는 건들이 이쪽이고, 그건 정말 남이 먼저 한
+     * 경우다. 완화가 모든 승인으로 번지면 위의 방어가 사라진다.
+     */
+    @Test
+    void 해시가_없는_승인은_이미_처리됨_판정을_그대로_받는다() {
+        givenTrade(TradeStatus.PAID, null, false);
+        callTool("request_chain_order", "{\"tradeId\":15,\"summary\":\"실크 원단 1kg 구매\"}");
+        Long actionId = pendingActions.findAll().getFirst().getId();
+
+        givenTrade(TradeStatus.PAID, 41L, false);
+        when(llmClient.complete(anyList(), anyList()))
+                .thenReturn(new LlmCompletion("이미 끝났습니다.", List.of()));
+
+        ConversationDetailResponse detail =
+                pendingActionService.complete(brandId, actionId, "{\"alreadyLinked\":true}");
+
+        assertThat(pendingActions.findById(actionId).orElseThrow().getStatus())
+                .isEqualTo(PendingActionStatus.STALE);
+        assertThat(detail.messages())
+                .anyMatch(message -> message.content() != null
+                        && message.content().contains("다시 서명할 필요가 없습니다"));
+    }
+
     /** 스텁 거래 하나. 도메인 픽스처를 만들지 않는 이유는 여기서 볼 것이 판정 로직이기 때문이다. */
     private void givenTrade(TradeStatus status, Long chainTradeId, boolean received) {
         MaterialTrade trade = mock(MaterialTrade.class);

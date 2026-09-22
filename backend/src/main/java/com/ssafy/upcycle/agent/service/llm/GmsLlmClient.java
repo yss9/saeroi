@@ -100,11 +100,14 @@ public class GmsLlmClient implements LlmClient {
             request.putObject("thinking").put("type", "adaptive");
         }
 
-        // 시스템 프롬프트는 메시지가 아니라 최상위 필드다.
-        messages.stream()
+        // 시스템 프롬프트는 메시지가 아니라 최상위 필드다. **여러 개를 받는다** — 첫 블록은
+        // 매 턴 같은 정적 프롬프트이고, 뒤따르는 블록은 서버가 방금 조회한 실제 상태처럼
+        // 턴마다 달라지는 것이다. 캐시 경계가 첫 블록 끝에 놓이므로 순서가 중요하다.
+        putSystem(request, messages.stream()
                 .filter(message -> message.role() == LlmRole.SYSTEM)
-                .findFirst()
-                .ifPresent(system -> putSystem(request, system.content()));
+                .map(LlmMessage::content)
+                .filter(content -> content != null && !content.isBlank())
+                .toList());
 
         ArrayNode messageArray = request.putArray("messages");
         for (LlmMessage message : messages) {
@@ -148,15 +151,30 @@ public class GmsLlmClient implements LlmClient {
      * 캐시가 먹으면 두 번째 호출부터 그 부분의 입력 비용이 크게 떨어진다 — 크레딧이 토큰당
      * 차감되는 이 환경에서 가장 큰 절약 수단이다.
      */
-    private void putSystem(ObjectNode request, String prompt) {
-        if (!properties.promptCache()) {
-            request.put("system", prompt);
+    /**
+     * 시스템 블록들을 넣는다.
+     *
+     * <p><b>캐시 경계는 첫 블록에만 둔다.</b> 정적 프롬프트(300줄 남짓)와 tool 명세가 한 턴에
+     * 여러 번 재전송되므로 절약폭이 거기 있고, 뒤 블록은 턴마다 달라져 캐시될 수 없다. 뒤
+     * 블록에 경계를 두면 매번 캐시가 무효화돼 앞 블록의 절약까지 날아간다.
+     */
+    private void putSystem(ObjectNode request, List<String> prompts) {
+        if (prompts.isEmpty()) {
             return;
         }
-        ObjectNode block = request.putArray("system").addObject();
-        block.put("type", "text");
-        block.put("text", prompt);
-        block.putObject("cache_control").put("type", "ephemeral");
+        if (!properties.promptCache()) {
+            request.put("system", String.join(System.lineSeparator() + System.lineSeparator(), prompts));
+            return;
+        }
+        ArrayNode blocks = request.putArray("system");
+        for (int index = 0; index < prompts.size(); index++) {
+            ObjectNode block = blocks.addObject();
+            block.put("type", "text");
+            block.put("text", prompts.get(index));
+            if (index == 0) {
+                block.putObject("cache_control").put("type", "ephemeral");
+            }
+        }
     }
 
     private ObjectNode toRequestMessage(LlmMessage message) {

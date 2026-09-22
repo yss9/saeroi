@@ -19,6 +19,7 @@ import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 /**
  * 모델이 요청한 tool 을 실제로 돌리는 곳. <b>쓰기 경계가 여기 있다.</b>
@@ -54,7 +55,10 @@ public class AgentToolExecutor {
         Optional<AgentTool> found = registry.find(call.name(), conversation.getPhase());
         if (found.isEmpty()) {
             log.info("Agent tool rejected: name={} phase={}", call.name(), conversation.getPhase());
-            return error("UNKNOWN_TOOL", "지금 단계에서 쓸 수 없는 기능입니다: " + call.name());
+            // **어느 단계로 옮기면 되는지 함께 알려준다.** 이름만 거절하면 모델이 "그 기능은
+            // 없다" 고 결론 내리고 담당자에게 할 수 없는 일이라고 답한다. 실제로 판매 시작을
+            // 그렇게 거절했다 — 단계만 옮기면 되는 일이었다.
+            return error("WRONG_PHASE", registry.phaseHintFor(call.name(), conversation.getPhase()));
         }
         AgentTool tool = found.get();
 
@@ -119,15 +123,43 @@ public class AgentToolExecutor {
      *
      * <p>여기서 예외가 나면 비어 있는 것으로 본다 — 사전 점검이 흔들린다고 담당자가 승인한
      * 작업을 막을 이유는 없다. 못 본 것은 도메인이 거절한다.
+     *
+     * <h2>방금 한 서명은 "지난 일" 이 아니다</h2>
+     *
+     * <p><b>승인이 트랜잭션 해시를 들고 왔으면 판정하지 않는다.</b> 이 검사는 "다른 경로로
+     * 이미 처리됐는가" 를 보는 것인데, 서명이 끝난 직후에는 그 다른 경로가 <b>담당자 자신의
+     * 서명</b>이다. 구분할 방법이 상태뿐이라 자기 일을 남의 일로 읽는다.
+     *
+     * <p>실제로 그렇게 깨졌다. 소재 구매 온체인 기록은 서명자가 체인에 주문을 만든 뒤
+     * chain-link API 로 서버에 붙이고({@code signTradeOrder}) 나서 카드를 승인한다. 그래서
+     * 승인 시점에는 이미 {@code chainTradeId} 가 채워져 있고, 검사가 "이 거래는 이미
+     * 블록체인에 기록돼 있어 다시 서명할 필요가 없습니다" 를 돌려준다. 카드는 <b>성공한
+     * 서명인데도</b> "이미 처리됨" 으로 닫히고, {@code execute} 가 돌지 않아 "주문이
+     * 블록체인에 기록됐습니다 (tx …)" 도 남지 않는다. 담당자는 서명이 헛일이었다고 읽는다.
+     *
+     * <p>해시가 없는 승인은 그대로 판정한다 — 화면이 {@code alreadyLinked} /
+     * {@code alreadyReceived} 로 닫는 건들이 그쪽이고, 그건 정말 남이 먼저 한 경우다.
+     *
+     * <p>이 완화가 안전한 이유는 검사를 건너뛴 승인도 결국 도메인을 지나기 때문이다. 어긋난
+     * 건은 {@code TradeReceiptService.requireChainReceipt} 처럼 <b>체인을 직접 읽는 가드</b>가
+     * 거절하고, 그 거절은 {@code AgentActionStore.runOrFail} 이 읽을 수 있는 문장으로 바꾼다.
      */
     public Optional<String> stalenessReason(
             AgentConversation conversation,
             Long userId,
             AgentPendingAction action,
             JsonNode arguments) {
+        if (carriesFreshSignature(arguments)) {
+            return Optional.empty();
+        }
         return registry
                 .findApproved(action.getToolName())
                 .flatMap(tool -> stalenessReason(tool, userId, conversation, arguments));
+    }
+
+    /** 승인과 함께 방금 남긴 트랜잭션 해시가 왔는가. {@code WalletSignCard} 가 넣는다. */
+    private boolean carriesFreshSignature(JsonNode arguments) {
+        return StringUtils.hasText(arguments.path("_userResult").path("txHash").asText(null));
     }
 
     /** 이미 지난 일인지. 사전 점검이 흔들려도 정상 흐름을 세우지 않는다 — 승인 때 다시 본다. */
@@ -190,10 +222,19 @@ public class AgentToolExecutor {
 
         // 모델에게 "요청을 띄웠고 아직 안 끝났다"는 사실을 분명히 돌려준다. 이 문구가 모호하면
         // 모델이 완료로 착각하고 다음 단계를 진행해 버린다.
+        //
+        // **cardId 는 도메인 번호가 아니라고 못 박는다.** 예전에는 이 값을 actionId 라는
+        // 이름으로만 돌려줬는데, 승인 뒤 실행 결과가 이력에 들어가지 않아 모델이 본 숫자가
+        // 이것뿐이었다. 그래서 그것을 도메인 번호로 썼다 — 카드 44번을 승인해 생산 배치
+        // 3번이 열렸는데 add_production_inputs 에 batchId:44 를 넘겨 "생산 배치를 찾을 수
+        // 없습니다" 로 끝났다. 번호는 시스템 프롬프트의 실제 상태 목록이 알려준다
+        // (AgentPendingWork). 여기서는 헷갈릴 여지를 지운다.
         return """
-                {"status":"AWAITING_USER_CONFIRMATION","actionId":%d,"actionType":"%s",\
+                {"status":"AWAITING_USER_CONFIRMATION","cardId":%d,"actionType":"%s",\
                 "message":"담당자에게 확인 카드를 띄웠습니다. 담당자가 승인하기 전까지 이 작업은 \
-                수행되지 않았습니다. 결과를 기다리고, 완료된 것처럼 말하지 마세요."}"""
+                수행되지 않았습니다. 결과를 기다리고, 완료된 것처럼 말하지 마세요. \
+                cardId 는 이 카드의 번호일 뿐입니다 — 거래·작업·배치 번호로 쓰지 마세요. \
+                그 번호는 조회 도구나 시스템 프롬프트의 현재 상태 목록에서 확인하세요."}"""
                 .formatted(action.getId(), action.getActionType().name());
     }
 

@@ -7,6 +7,7 @@ import com.ssafy.upcycle.agent.tool.AbstractAgentTool;
 import com.ssafy.upcycle.agent.tool.AgentToolContext;
 import com.ssafy.upcycle.agent.tool.AgentToolResult;
 import com.ssafy.upcycle.material.dto.MyMaterialResponse;
+import com.ssafy.upcycle.material.entity.MaterialRootOrigin;
 import com.ssafy.upcycle.material.service.MaterialQueryService;
 import com.ssafy.upcycle.processing.entity.ProcessType;
 import com.ssafy.upcycle.processing.entity.RequiredProcessing;
@@ -101,18 +102,40 @@ public class ProcessingPlanTool extends AbstractAgentTool {
                 material.completedProcessTypes() == null ? List.of() : material.completedProcessTypes();
         List<ProcessType> missing = RequiredProcessing.missing(material.rootOrigin(), completed);
 
+        // **이 소재에 걸리는 필수 공정만 돌려준다.** 예전에는 출처를 보지 않고 늘
+        // RequiredProcessing.all() 을 넣었는데, 신소재에 대해 스스로 모순된 응답이 됐다 —
+        // "필수 공정 셋", "거친 것 없음", "빠진 것 없음", "모두 거쳤습니다" 가 한 payload 에
+        // 같이 들어갔다. 모델은 그 hint 를 그대로 옮겨 담당자에게 "필수 공정을 모두 거쳤으니
+        // 생산 확정할 준비가 됐습니다" 라고 말했다. 아무 공정도 거치지 않은 새 원단이었다.
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("materialId", materialId);
         payload.put("materialName", material.name());
         payload.put("rootOrigin", material.rootOrigin());
         payload.put("completedProcessTypes", completed);
-        payload.put("requiredProcessTypes", RequiredProcessing.all());
+        payload.put("requiredProcessTypes",
+                RequiredProcessing.appliesTo(material.rootOrigin()) ? RequiredProcessing.all() : List.of());
         payload.put("missingRequiredProcessTypes", missing);
         payload.put("readyForProduction", missing.isEmpty());
-        payload.put("hint", missing.isEmpty()
-                ? "필수 공정을 모두 거쳤습니다. 추가 공정은 제품 특성에 따라 담당자와 상의해 정하세요."
-                : "가공을 요청하기 전에 이 공정들이 왜 필요한지 담당자에게 먼저 설명하고 동의를 받으세요. "
-                        + "이것을 빠뜨리면 생산 확정 단계에서 막혀 소재를 다시 가공 보내야 합니다.");
+        payload.put("hint", hintFor(material.rootOrigin(), missing));
         return AgentToolResult.of(json(payload));
+    }
+
+    /**
+     * 담당자에게 무엇을 말해야 하는지.
+     *
+     * <p><b>필수 공정이 없는 것과 다 거친 것을 구분한다.</b> 둘을 같은 문장으로 묶으면 모델이
+     * 신소재에 대해 "모두 거쳤습니다" 라고 말하고, 담당자는 거치지도 않은 공정이 끝난 줄 안다.
+     */
+    private String hintFor(MaterialRootOrigin rootOrigin, List<ProcessType> missing) {
+        if (!RequiredProcessing.appliesTo(rootOrigin)) {
+            return "이 소재는 신소재라 **필수 공정이 없습니다.** 바로 생산에 투입할 수 있습니다. "
+                    + "재단·염색 같은 공정은 제품 특성에 따라 담당자와 상의해 정하세요 — 의무가 아닙니다.";
+        }
+        if (missing.isEmpty()) {
+            return "폐소재의 필수 공정(세척·해체·선별)을 모두 거쳤습니다. "
+                    + "추가 공정은 제품 특성에 따라 담당자와 상의해 정하세요.";
+        }
+        return "가공을 요청하기 전에 이 공정들이 왜 필요한지 담당자에게 먼저 설명하고 동의를 받으세요. "
+                + "이것을 빠뜨리면 생산 확정 단계에서 막혀 소재를 다시 가공 보내야 합니다.";
     }
 }

@@ -7,6 +7,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
 /**
@@ -67,5 +68,29 @@ public class AgentToolRegistry {
     /** 단계를 무시하고 찾는다. 사용자가 이미 승인한 액션을 실행할 때만 쓴다. */
     public Optional<AgentTool> findApproved(String name) {
         return Optional.ofNullable(byName.get(name));
+    }
+
+    /**
+     * 단계가 맞지 않아 거절할 때 <b>어디로 옮기면 되는지</b> 알려주는 문장.
+     *
+     * <p>"지금 단계에서 쓸 수 없습니다" 만 돌려주면 모델이 <b>그 기능이 없다고 결론 낸다.</b>
+     * 실제로 그렇게 새어 나갔다. 생산·체인 기록까지 끝낸 담당자가 판매 시작을 요청했는데,
+     * {@code set_product_on_sale} 이 {@code PRODUCT} 전용이고 대화는 {@code PRODUCTION} 에
+     * 머물러 있었다. 모델은 "저는 할 수 없고 담당자가 직접 플랫폼에서 처리해야 합니다" 라고
+     * 답했고, 담당자는 제품 화면으로 나가 직접 눌렀다 — 한 대화창에서 끝낸다는 전제가
+     * 마지막 칸에서 깨졌다.
+     *
+     * <p>이름 자체가 없는 경우와 단계만 다른 경우를 구분한다. 없는 이름을 "단계를 옮기면
+     * 된다" 고 안내하면 모델이 옮긴 뒤 다시 부르며 같은 실패를 반복한다.
+     */
+    public String phaseHintFor(String name, JourneyPhase phase) {
+        AgentTool tool = byName.get(name);
+        if (tool == null) {
+            return "그런 이름의 기능이 없습니다: " + name + ". 지금 단계에서 쓸 수 있는 기능 중에서 고르세요.";
+        }
+        String phases = tool.phases().stream().map(Enum::name).sorted().collect(Collectors.joining(", "));
+        return ("%s 은(는) %s 단계의 기능이고 지금은 %s 단계입니다. **할 수 없는 일이 아닙니다** — "
+                + "set_phase 로 %s 로 옮긴 뒤 다시 부르세요. 담당자에게 직접 처리하라고 안내하지 마세요.")
+                .formatted(name, phases, phase.name(), phases);
     }
 }
