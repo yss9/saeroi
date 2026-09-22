@@ -6,9 +6,81 @@
   --company-ink: #172033;
   --company-muted: #687586;
   --company-line: #e2e7eb;
+
+  /*
+    역할 테마 — 색조를 나누지 않고 깊이만 나눈다.
+
+    공급 → 가공 → 브랜드 순으로 바닥이 무거워지므로, 소재가 흐르는 방향이 배경 무게로
+    읽힌다. 색조로 가르지 않은 이유는 팔레트에 남은 자리가 없기 때문이다: 블루는 체인,
+    오렌지는 강조, 초록은 SUCCESS, 빨강은 에러로 이미 나가 있어 역할마다 새 색조를 하나씩
+    주면 한 화면에 일곱 가지 뜻이 겹친다.
+
+    이 셸은 사업자 대시보드만이 아니라 보호 라우트 전체를 감싸므로(소비자·관리자 포함)
+    기본값은 지금 색을 그대로 두고 사업자 세 역할만 덮어쓴다.
+  */
+  --role-ground: #f5f7f8;
+  --role-surface: #fff;
+  --role-accent: var(--company-blue-dark);
+  --role-wash: rgb(33 106 159 / 0.09);
+
   min-height: 100vh;
   color: var(--company-ink);
-  background: #f5f7f8;
+  background: var(--role-ground);
+}
+
+/*
+  업무 화면(소재·재고·거래·마켓)은 `.console` 이라는 독립 팔레트 위에 서 있고, 그 캔버스가
+  본문 폭을 가득 채운다. 그대로 두면 역할 바닥이 머리말·사이드바와 가장자리에만 남아
+  세 역할이 같은 화면으로 보인다 — 캔버스와 선만 역할 값으로 돌려준다.
+
+  패널(흰 카드)과 글자색은 건드리지 않는다: 콘솔은 의도적으로 다른 언어이고, 여기서
+  바꾸려는 것은 "그 도구가 어느 역할의 바닥에 놓여 있는가" 하나다.
+*/
+.company-dashboard .console {
+  --console-canvas: var(--role-ground);
+  --console-line: var(--company-line);
+  /* 콘솔 보조 글자(#64748b)는 원래 캔버스(#f8fafc)에서 4.56:1 로 겨우 넘던 값이라,
+     캔버스가 역할 바닥으로 내려가면 3.6~4.1:1 로 깨진다. 한 단 더 짙게 잡아
+     가장 무거운 브랜드 바닥에서도 5.7:1 을 남긴다. */
+  --console-ink-3: #4b5563;
+}
+
+/*
+  깊이만으로는 갈라지지 않는다 — 측정값이 그렇다.
+
+  처음에는 한 색조 안에서 명도만 세 단으로 나눴는데, 인접한 두 역할의 바닥이 명도비
+  1.12, 색조차 2~4° 로 나왔다. 두 화면을 나란히 놓아야 겨우 보이는 차이라 "지금 어느
+  역할인가" 를 말해 주지 못한다.
+
+  그래서 무게 순서(공급 → 가공 → 브랜드)는 그대로 두고 색조만 조금씩 흘렸다. 지금은
+  인접 쌍의 색조차가 21° / 46° 다. 무게로 흐름을 읽고 색조로 지금 자리를 안다.
+*/
+
+/* 상류 — 폐소재가 들어오는 자리. 가장 가볍고 색이 없다. */
+.company-dashboard[data-role='SUPPLIER'] {
+  --company-line: #e3dfd4;
+  --role-ground: #fbfaf6;
+  --role-surface: #fff;
+  --role-accent: #8a5a2b;
+  --role-wash: #f1e8da;
+}
+
+/* 중류 — 가공. 올리브로 기운다. */
+.company-dashboard[data-role='PROCESSOR'] {
+  --company-line: #dce0cb;
+  --role-ground: #edefe2;
+  --role-surface: #f8f9f1;
+  --role-accent: #4f5b33;
+  --role-wash: #dfe4ce;
+}
+
+/* 하류 — 제품이 나가는 자리. 가장 무겁고 흙빛으로 기운다. */
+.company-dashboard[data-role='BRAND'] {
+  --company-line: #d7c6bb;
+  --role-ground: #e8ddd6;
+  --role-surface: #f7f1ed;
+  --role-accent: #7a4030;
+  --role-wash: #ddccc2;
 }
 
 .company-dashboard a {
@@ -42,8 +114,9 @@
   align-items: center;
   padding: 0 28px;
   border-bottom: 1px solid var(--company-line);
-  background: rgb(255 255 255 / 0.96);
-  backdrop-filter: blur(12px);
+  /* 역할 바닥이 베이지로 내려가면 반투명 흰 머리말은 거의 흰색으로 읽혀 역할 색이 사라진다.
+     그래서 불투명한 역할 표면색으로 두고, 값이 없어진 backdrop-filter 는 걷어냈다. */
+  background: var(--role-surface);
 }
 
 .company-dashboard__logo {
@@ -73,9 +146,11 @@
   white-space: nowrap;
 }
 
+/* 머리말의 역할 이름. 강조색을 여기에 두는 것이 가장 값이 크다 — 바닥 무게만으로는
+   "지금 어느 역할인지" 를 세 화면을 나란히 봐야 알 수 있기 때문이다. */
 .company-dashboard__identity small {
   flex: 0 0 auto;
-  color: var(--company-blue);
+  color: var(--role-accent);
   font-size: 0.74rem;
   font-weight: 800;
 }
@@ -255,12 +330,12 @@
   padding: 28px 18px 22px;
   overflow: hidden;
   border-right: 1px solid var(--company-line);
-  background: #fff;
+  background: var(--role-surface);
 }
 
 .company-dashboard__sidebar-heading {
   padding: 0 12px 22px;
-  border-bottom: 1px solid #edf0f2;
+  border-bottom: 1px solid var(--company-line);
 }
 
 .company-dashboard__sidebar-heading span {
@@ -374,8 +449,8 @@
 
 .company-dashboard__sidebar nav a:hover,
 .company-dashboard__sidebar nav .company-dashboard__nav-link--active {
-  background: rgb(33 106 159 / 0.09);
-  color: var(--company-blue-dark);
+  background: var(--role-wash);
+  color: var(--role-accent);
 }
 
 .company-dashboard__sidebar nav svg {

@@ -98,6 +98,25 @@ describe('CompanyDashboardLayout', () => {
 
   // 소비자에게 이 사이드바는 거의 계정 메뉴다. 마이페이지가 목록 끝에 붙어 있으면
   // 자기 계정으로 돌아가는 길이 숨는다.
+  // data-role 은 역할 테마를 고르는 유일한 고리다(company-dashboard.css). 이게 빠지면
+  // 화면이 깨지지 않고 조용히 기본 테마로 돌아가므로 눈으로는 못 잡는다.
+  it.each([['SUPPLIER'], ['PROCESSOR'], ['BRAND']] as const)(
+    '%s 셸에 역할 테마를 고를 data-role 을 남긴다',
+    (role) => {
+      setBusinessUser(role)
+      const { container } = renderLayout()
+
+      expect(container.querySelector('.company-dashboard')).toHaveAttribute('data-role', role)
+    },
+  )
+
+  it('소비자에게는 사업자 역할 테마를 씌우지 않는다', () => {
+    setBusinessUser('CONSUMER')
+    const { container } = renderLayout()
+
+    expect(container.querySelector('.company-dashboard')).toHaveAttribute('data-role', 'CONSUMER')
+  })
+
   it('계정 메뉴를 사이드바 맨 위에 둔다', () => {
     setBusinessUser('CONSUMER')
     renderLayout()
