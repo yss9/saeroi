@@ -1018,27 +1018,74 @@ function declutterPositions(
   return next
 }
 
+/** `.journey-node__flow-label` 카드의 반폭 — 노드 마크업의 `rect x="-78" width="156"`. */
+const FLOW_LABEL_HALF_WIDTH = 78
+/** 라벨 카드 바깥에 남길 좌우 여백. */
+const FLOW_SIDE_MARGIN = 12
+/** 한 열의 노드들이 세로로 퍼지는 폭. */
+const FLOW_COLUMN_SPAN = 430
+
+/**
+ * 노드 중심에서 위로 **실제 보이는** 끝 — 번호 배지(`translate(17 -17)`의 `r=10`,
+ * stroke 1.5)의 위 끝이다.
+ *
+ * <p>halo(`r=34`)를 쓰면 안 된다. `.journey-node__halo`는 기본 `opacity: 0`이고 선택된
+ * 노드 하나만 그것도 10% 틴트로 나타난다 — 보이지 않는 반지름에 맞춰 중앙을 잡으면
+ * 다이어그램 전체가 그만큼 아래로 내려앉아 위 여백만 넓어 보인다.
+ */
+const FLOW_NODE_INK_TOP = 27.75
+/** 노드 중심에서 아래로 보이는 끝 — 업체명 카드(`rect y=32 height=54`, stroke 1)의 아래 끝. */
+const FLOW_NODE_INK_BOTTOM = 86.5
+
+/**
+ * Flow View의 노드 좌표.
+ *
+ * <p><b>열은 STAGE_ORDER 길이가 아니라 노드가 있는 단계 개수로 센다.</b> 운송
+ * (COLLECTION)은 노드 없이 이동선만 있는 단계라 그 자리를 열로 잡으면 다이어그램
+ * 한가운데가 빈다. 그 단계를 빼고 남은 열을 캔버스 폭에 고르게 펴면 빈 칸이 사라지고
+ * 좌우 여백이 같아진다 — 좌우 순서는 STAGE_ORDER를 그대로 따른다.
+ *
+ * <p>가로 간격은 리터럴이 아니라 라벨 카드 기하에서 나온다. 첫 열 중심이
+ * `여백 + 카드반폭`, 마지막 열 중심이 `폭 - 여백 - 카드반폭`이고 그 사이를 열 수로
+ * 나눈다. 다섯 열이 다 찰 때 간격이 820/4 = 205, 첫 열이 90으로 떨어져 예전 값과
+ * 정확히 같다.
+ */
 function flowPositions(nodes: JourneyNode[]): Record<string, Point> {
   const positions: Record<string, Point> = {}
   const groups = new Map<JourneyStageType, JourneyNode[]>()
   nodes.forEach((node) => groups.set(node.stage, [...(groups.get(node.stage) ?? []), node]))
-  STAGE_ORDER.forEach((stage, column) => {
+  const columns = STAGE_ORDER.filter((stage) => (groups.get(stage)?.length ?? 0) > 0)
+  const firstX = FLOW_SIDE_MARGIN + FLOW_LABEL_HALF_WIDTH
+  const lastX = MAP_VIEW_WIDTH - FLOW_SIDE_MARGIN - FLOW_LABEL_HALF_WIDTH
+  const columnGap = columns.length > 1 ? (lastX - firstX) / (columns.length - 1) : 0
+  columns.forEach((stage, column) => {
     const items = groups.get(stage) ?? []
     items.forEach((node, index) => {
-      const gap = 430 / Math.max(items.length, 1)
+      const gap = FLOW_COLUMN_SPAN / Math.max(items.length, 1)
       positions[node.nodeId] = {
-        x: 90 + column * 205,
-        // 노드 하나가 실제로 차지하는 세로 범위는 중심 기준 위 34px(`.journey-node__halo`
-        // 반지름), 아래 86px(`.journey-node__flow-label` 카드 y=32 + height=54)이다.
-        // 그러면 첫 노드 위 끝이 `69 + gap/2 - 34`, 마지막 노드 아래 끝이
-        // `69 + 430 - gap/2 + 86` 이라 gap이 상쇄되고 중점은 노드 개수와 무관하게
-        // 69 + 241 = 310 — viewBox 높이 620의 한가운데다. 라벨 카드까지 포함해서 맞춘
-        // 값이라 캔버스 위쪽에 무엇을 더 그리더라도 이 값을 따로 밀면 안 된다.
-        y: 69 + gap / 2 + index * gap,
+        // 열이 하나뿐이면 나눌 간격이 없으니 그대로 한가운데 둔다.
+        x: columns.length > 1 ? firstX + column * columnGap : MAP_VIEW_WIDTH / 2,
+        y: flowTopOffset() + gap / 2 + index * gap,
       }
     })
   })
   return positions
+}
+
+/**
+ * 첫 노드 중심을 어디에 둘지. 열에 노드가 몇 개든 <b>보이는 잉크의 중점이 캔버스
+ * 한가운데</b>에 오게 하는 값이다.
+ *
+ * <p>노드 개수를 k라 하면 첫 노드 중심이 `offset + span/2k`, 마지막이
+ * `offset + span - span/2k`라 두 중심의 중점은 k와 무관하게 `offset + span/2`다. 거기에
+ * 잉크가 위로 {@link FLOW_NODE_INK_TOP}, 아래로 {@link FLOW_NODE_INK_BOTTOM}만큼
+ * 퍼지므로 잉크 중점은 그보다 `(아래 - 위)/2`만큼 내려간다. 그 값을 캔버스 절반에서
+ * 빼면 offset이 나온다 — 열 개수·노드 개수가 달라져도 성립한다.
+ */
+function flowTopOffset(): number {
+  return MAP_VIEW_HEIGHT / 2
+    - FLOW_COLUMN_SPAN / 2
+    - (FLOW_NODE_INK_BOTTOM - FLOW_NODE_INK_TOP) / 2
 }
 
 function curvedRoute(from: Point, to: Point, index: number): { path: string; label: Point } {

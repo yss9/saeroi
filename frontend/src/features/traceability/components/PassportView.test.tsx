@@ -328,6 +328,49 @@ describe('PassportView', () => {
     expect(otherStage).not.toBe(stepper)
   })
 
+  /** `.journey-node`의 `transform="translate(x y)"`에서 노드 중심 좌표를 읽는다. */
+  function flowNodeCenters(container: HTMLElement): { x: number; y: number }[] {
+    return Array.from(container.querySelectorAll('.journey-node')).map((node) => {
+      const [x, y] = (node.getAttribute('transform') ?? '')
+        .replace(/^translate\(|\)$/g, '')
+        .split(/[\s,]+/)
+        .map(Number)
+      return { x, y }
+    })
+  }
+
+  it('Flow View는 노드가 있는 단계만 열로 세어 다이어그램을 가운데 둔다', async () => {
+    const user = userEvent.setup()
+    const { container } = renderView()
+    await screen.findByRole('heading', { name: 'RE:BAG' })
+    await user.click(screen.getByRole('button', { name: 'Flow View' }))
+
+    const centers = flowNodeCenters(container)
+    expect(centers).not.toHaveLength(0)
+
+    // 운송은 노드가 없으니 열도 차지하지 않는다 — 다섯 단계 중 넷만 열이 된다.
+    const columnXs = Array.from(new Set(centers.map((center) => center.x))).sort((a, b) => a - b)
+    expect(columnXs).toHaveLength(4)
+
+    // 열 간격이 고르다. 개수만 세면 부족하다 — 운송 자리를 열로 잡아 두더라도 그 열에는
+    // 찍힐 노드가 없어서 좌표 개수와 좌우 여백은 그대로 맞고, 간격만 어긋난다
+    // (그 경우 90·500·705·910으로 한가운데가 빈다).
+    const columnGaps = columnXs.slice(1).map((x, index) => x - columnXs[index])
+    columnGaps.forEach((gap) => expect(gap).toBeCloseTo(columnGaps[0], 5))
+
+    // 업체명 카드(반폭 78)까지 포함한 좌우 여백이 같다.
+    const labelHalfWidth = 78
+    const viewBoxWidth = 1000
+    expect(columnXs[0] - labelHalfWidth)
+      .toBeCloseTo(viewBoxWidth - (columnXs[columnXs.length - 1] + labelHalfWidth), 5)
+
+    // 세로도 마찬가지로 가운데다. 기준은 **보이는** 잉크다 — 위로는 번호 배지 위 끝
+    // 27.75, 아래로는 업체명 카드 아래 끝 86.5. halo(r=34)는 기본 opacity가 0이라
+    // 그걸 기준으로 잡으면 다이어그램이 그만큼 아래로 내려앉는다.
+    const ys = centers.map((center) => center.y)
+    expect((Math.min(...ys) - 27.75 + Math.max(...ys) + 86.5) / 2).toBeCloseTo(310, 5)
+  })
+
   it('모바일에서는 지도와 단계별 상세만 간결하게 보여준다', async () => {
     vi.stubGlobal('matchMedia', vi.fn((query: string) => ({
       matches: query === '(max-width: 760px)',

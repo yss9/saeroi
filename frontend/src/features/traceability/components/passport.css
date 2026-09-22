@@ -398,6 +398,17 @@
   font-weight: 750;
 }
 
+/*
+  두 뷰가 이 규칙 하나를 공유한다. 예전에는 Journey Map만 따로
+  `height: clamp(500px, 48vw, 650px)`를 썼는데, 두 뷰의 viewBox가 똑같이 1000×620이고
+  `preserveAspectRatio` 기본값이라 배율은 `min(박스폭/1000, 박스높이/620)`로 정해진다 —
+  박스 폭이 같으니 그려지는 배경 사각형 크기는 원래도 같았고, 다른 건 사각형 위아래에
+  남는 빈 띠(뷰포트에 따라 28~67px)뿐이었다. 그래서 뷰를 바꾸면 카드 높이가 최대
+  129px 달라지고 사각형이 그만큼 위아래로 튀었다. 높이를 지정하지 않으면 두 뷰 모두
+  viewBox 비율대로 높이를 잡아 빈 띠가 사라지고 전환할 때 아무것도 움직이지 않는다.
+  min-height는 좁은 데스크톱에서 캔버스가 납작해지는 걸 막는 하한이고, 두 뷰에 같은
+  값이라 띠가 생기더라도 대칭이고 서로 같다.
+*/
 .journey-canvas > svg {
   display: block;
   width: 100%;
@@ -435,11 +446,6 @@
 
 .journey-flow-backdrop > rect {
   fill: #faf9f5;
-}
-
-.journey-canvas--map > svg {
-  height: clamp(500px, 48vw, 650px);
-  max-height: 650px;
 }
 
 .journey-canvas__edge {
