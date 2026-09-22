@@ -41,8 +41,10 @@ class ChainOrderReadProbeTests {
         assertThat(status.get()).isBetween(0, 6);
 
         // 실제로 진행 중인 주문도 읽는다. 값을 출력해 눈으로 확인한다.
-        System.out.println("[probe] order 41 status = " + reader.status(41L));
-        System.out.println("[probe] order 41 alreadyShipped = " + reader.alreadyShipped(41L));
-        System.out.println("[probe] order 41 alreadyReceived = " + reader.alreadyReceived(41L));
+        for (long id : new long[] {45L, 46L}) {
+            System.out.println("[probe] order " + id + " status = " + reader.status(id)
+                    + " shipped=" + reader.alreadyShipped(id)
+                    + " received=" + reader.alreadyReceived(id));
+        }
     }
 }

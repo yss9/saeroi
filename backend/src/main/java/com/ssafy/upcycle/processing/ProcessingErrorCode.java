@@ -19,6 +19,9 @@ public enum ProcessingErrorCode implements ErrorCode {
     PROCESSING_INVALID_STATE(HttpStatus.CONFLICT, "현재 상태에서는 가공 요청을 변경할 수 없습니다."),
     PROCESSING_JOB_NOT_FOUND(HttpStatus.NOT_FOUND, "가공 작업을 찾을 수 없습니다."),
     PROCESSING_CHAIN_NOT_LINKED(HttpStatus.CONFLICT, "온체인 작업 등록을 먼저 완료해야 소재를 발송할 수 있습니다."),
+    PROCESSING_CHAIN_SHIPMENT_REQUIRED(
+            HttpStatus.CONFLICT,
+            "발송을 블록체인에 먼저 서명해야 합니다. 서명이 남지 않으면 가공업체가 수령을 기록할 수 없습니다."),
     PROCESSING_WALLET_NOT_FOUND(HttpStatus.CONFLICT, "Brand와 Processor 모두 활성 지갑이 필요합니다."),
     PROCESSING_PAYMENT_NOT_PREPARED(HttpStatus.CONFLICT, "결제 준비가 필요합니다."),
     PROCESSING_PAYMENT_EXPIRED(HttpStatus.CONFLICT, "결제 가능 시간이 만료되었습니다."),
