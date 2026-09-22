@@ -82,6 +82,25 @@ describe('LoginPage', () => {
     expect(await screen.findByRole('heading', { name: '쇼핑 화면' })).toBeInTheDocument()
   })
 
+  it('소비자는 접근할 수 없는 복귀 경로 대신 마이페이지로 간다', async () => {
+    vi.spyOn(apiClient, 'post').mockResolvedValue({ data: {
+      accessToken: 'token',
+      user: { id: 5, email: 'c@test.com', name: '고객', phone: '010', role: 'CONSUMER', status: 'ACTIVE', createdAt: '2026-09-09T00:00:00' },
+    } })
+    const user = userEvent.setup()
+    render(<AppProviders><MemoryRouter initialEntries={[{ pathname: '/login', state: { from: { pathname: '/admin' } } }]}><Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/mypage" element={<h1>마이페이지 화면</h1>} />
+      <Route path="/admin" element={<h1>관리자 화면</h1>} />
+    </Routes></MemoryRouter></AppProviders>)
+
+    await user.type(screen.getByLabelText('이메일'), 'c@test.com')
+    await user.type(screen.getByLabelText('비밀번호'), 'password')
+    await user.click(screen.getByRole('button', { name: '로그인' }))
+
+    expect(await screen.findByRole('heading', { name: '마이페이지 화면' })).toBeInTheDocument()
+  })
+
   it('직접 로그인한 Brand를 회사 정보로 보낸다', async () => {
     vi.spyOn(apiClient, 'post').mockResolvedValue({ data: {
       accessToken: 'token',
