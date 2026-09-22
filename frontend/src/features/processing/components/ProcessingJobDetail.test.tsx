@@ -149,7 +149,6 @@ test('산출물 입력 의미를 라벨로 안내하고 선택한 등급과 판�
 
   expect(mocks.saveResult).toHaveBeenCalledWith({
     outputs: [{
-      materialType: 'DENIM',
       name: '재생 데님 원단',
       grade: 'B',
       gradeReason: '표면에 경미한 오염이 남아 있음',
@@ -158,6 +157,27 @@ test('산출물 입력 의미를 라벨로 안내하고 선택한 등급과 판�
   })
 })
 
+/*
+  산출물의 소재 종류는 가공사가 고를 값이 아니다 — 데님을 맡겼는데 면사가 나올 수는 없다.
+  가공은 섬유를 정제하고 모양을 바꿀 뿐 종류를 바꾸지 않는다. 화면은 투입 소재의 종류를
+  보여 주기만 하고 보내지 않는다. 서버가 투입 소재에서 파생하므로 보낼 이유도 없다.
+*/
+test('산출 소재 종류는 투입 소재를 그대로 따르고 고를 수 없다', async () => {
+  const user = userEvent.setup()
+  render(<MemoryRouter><ProcessingJobDetail jobId={17} /></MemoryRouter>)
+
+  const shown = screen.getByLabelText('산출물 1 소재 종류')
+  expect(shown).toHaveTextContent('데님')
+  expect(shown.tagName).not.toBe('SELECT')
+
+  await user.type(screen.getByLabelText('산출물 1 소재명'), '재생 데님 원단')
+  await user.type(screen.getByLabelText('산출물 1 등급 판정 사유'), '오염과 손상이 없음')
+  await user.type(screen.getByLabelText('산출물 1 산출 수량(g)'), '650')
+  await user.click(screen.getByRole('button', { name: '결과 임시 저장' }))
+
+  const [payload] = mocks.saveResult.mock.calls[0]
+  expect(payload.outputs[0]).not.toHaveProperty('materialType')
+})
 test('반환 발송 폼을 작업 카드 안에 중첩 카드 없이 표시한다', () => {
   const flow = mocks.useProcessingJob()
   mocks.useProcessingJob.mockReturnValue({

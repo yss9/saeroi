@@ -5,7 +5,6 @@ import { useAuthStore } from '../../../stores/authStore.ts'
 import { EvidenceUpload } from '../../evidence/components/EvidenceUpload.tsx'
 import { EVIDENCE_TYPE_LABEL } from '../../evidence/types/evidence.types.ts'
 import { GRADE_LABEL, type MaterialGrade } from '../../material/types/material.types.ts'
-import type { MaterialType } from '../types/processorProfile.types.ts'
 import { MATERIAL_TYPE_LABEL } from '../types/processorProfile.types.ts'
 import { PROCESS_TYPE_LABEL } from '../types/processing.types.ts'
 import { useProcessingJob } from '../hooks/useProcessingJobs.ts'
@@ -16,7 +15,7 @@ import { ProcessingShipmentForm } from './ProcessingShipmentForm.tsx'
 import { formatDateTime } from '../utils/processingTime.ts'
 import './processing-jobs.css'
 
-const materialTypes = Object.keys(MATERIAL_TYPE_LABEL) as MaterialType[]
+
 const materialGrades = Object.keys(GRADE_LABEL) as MaterialGrade[]
 const statusLabel = { CREATED:'결제 대기', PAID:'수락 대기', ACCEPTED:'발송 대기', DECLINED:'가공사 거절', SHIPPED:'배송 중', RECEIVED:'가공 시작 대기', PROCESSING:'가공 중', RESULT_SUBMITTED:'결과 반환 대기', RETURN_SHIPPED:'반환 배송 중', CONFIRMED:'가공 완료', REJECTED:'결과 보완', EXPIRED:'만료', CANCELED:'반환 종료' } as const
 /**
@@ -37,8 +36,9 @@ const PROGRESS_STEPS = [
   { status: 'CONFIRMED', label: '수령 확인' },
 ] as const
 
-type Row = { materialType: MaterialType; grade: MaterialGrade; gradeReason: string; name: string; quantity: string }
-const emptyRow = (): Row => ({ materialType:'DENIM', grade:'A', gradeReason:'', name:'', quantity:'' })
+// 산출 소재 종류는 여기 없다. 투입 소재에서 그대로 따라오므로 폼이 담을 값이 아니다.
+type Row = { grade: MaterialGrade; gradeReason: string; name: string; quantity: string }
+const emptyRow = (): Row => ({ grade:'A', gradeReason:'', name:'', quantity:'' })
 
 export function ProcessingJobDetail({ jobId }: { jobId:number }) {
   const role = useAuthStore(state => state.user?.role)
@@ -57,7 +57,7 @@ function ProcessingJobDetailContent({ jobId, job, request, role, flow }: {
   flow: ReturnType<typeof useProcessingJob>
 }) {
   const [rows,setRows] = useState<Row[]>(() => job.outputs.length > 0
-    ? job.outputs.map(output => ({ materialType:output.materialType, grade:output.grade, gradeReason:output.gradeReason, name:output.name, quantity:String(output.quantity) }))
+    ? job.outputs.map(output => ({ grade:output.grade, gradeReason:output.gradeReason, name:output.name, quantity:String(output.quantity) }))
     : [emptyRow()])
   const [reason,setReason] = useState('')
   // 거절은 사유가 필수라 한 번 더 묻는다 — 눌러서 바로 끝나는 일이 아니다.
@@ -127,9 +127,9 @@ function ProcessingJobDetailContent({ jobId, job, request, role, flow }: {
       {rows.map((row,index)=><fieldset className="pj-output" key={index}>
         <legend>산출물 {index+1}</legend>
         <div className="pj-output__grid">
-          <label>산출 소재 종류<select aria-label={`산출물 ${index+1} 소재 종류`} value={row.materialType} onChange={e=>setRows(v=>v.map((x,i)=>i===index?{...x,materialType:e.target.value as MaterialType}:x))}>
-            {materialTypes.map(type=><option value={type} key={type}>{MATERIAL_TYPE_LABEL[type]}</option>)}
-          </select></label>
+          {/* 고르게 하지 않는다. 가공은 섬유를 정제하고 모양을 바꿀 뿐 종류를 바꾸지 않아,
+              산출물의 종류는 언제나 투입 소재의 종류다. 서버도 같은 값을 파생해 기록한다. */}
+          <label>산출 소재 종류<output aria-label={`산출물 ${index+1} 소재 종류`}>{request?MATERIAL_TYPE_LABEL[request.materialType]:'투입 소재 확인 중'}</output><small className="pj-help">투입한 소재와 같습니다</small></label>
           <label>산출 소재명<input aria-label={`산출물 ${index+1} 소재명`} placeholder="예: 재생 데님 원단" value={row.name} onChange={e=>setRows(v=>v.map((x,i)=>i===index?{...x,name:e.target.value}:x))}/></label>
           <label>품질 등급<select aria-label={`산출물 ${index+1} 품질 등급`} value={row.grade} onChange={e=>setRows(v=>v.map((x,i)=>i===index?{...x,grade:e.target.value as MaterialGrade}:x))}>
             {materialGrades.map(grade=><option value={grade} key={grade}>{GRADE_LABEL[grade]}</option>)}

@@ -16,7 +16,7 @@
 // 실제 인가는 매 요청마다 서버가 DB 의 role·status 를 다시 읽어 판단한다.
 
 import { isValidElement, type ReactElement } from 'react'
-import type { RouteObject } from 'react-router-dom'
+import { matchPath, type RouteObject } from 'react-router-dom'
 import type { UserRole } from '../../types/role.types.ts'
 import { ProtectedRoute } from './guards/ProtectedRoute.tsx'
 import { RoleGuard, type RoleGuardProps } from './guards/RoleGuard.tsx'
@@ -126,6 +126,24 @@ export function getRouteAccessMap(): ReadonlyMap<string, RouteAccess> {
  */
 export function getRouteAccess(path: string): RouteAccess | undefined {
   return getRouteAccessMap().get(path)
+}
+
+/**
+ * 실제 브라우저 주소에 해당하는 접근 조건을 찾는다.
+ *
+ * getRouteAccess 는 메뉴처럼 `/products/:productId` 형태의 라우트 정의를 검사할 때 쓴다.
+ * 로그인 후 복귀 주소는 `/products/31?from=cart` 같은 실제 주소이므로, 라우트 패턴과
+ * 대조하는 이 함수가 필요하다. 쿼리와 해시는 접근 권한을 바꾸지 않으므로 제외한다.
+ */
+export function getLocationAccess(location: string): RouteAccess | undefined {
+  const pathname = location.split(/[?#]/, 1)[0] || '/'
+  const exact = getRouteAccess(pathname)
+  if (exact) return exact
+
+  for (const [routePattern, access] of getRouteAccessMap()) {
+    if (matchPath({ path: routePattern, end: true }, pathname)) return access
+  }
+  return undefined
 }
 
 export interface Viewer {

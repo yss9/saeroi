@@ -2,10 +2,13 @@ import { describe, expect, it } from 'vitest'
 import {
   buildTrain,
   countOurTransactions,
+  countStackColumns,
   formatElapsed,
   formatInterval,
+  layoutStack,
   measureCadence,
   measureNextBlock,
+  type TrainCar,
 } from './liveMetrics.ts'
 import type { LiveBlock } from './blockchainLiveApi.ts'
 
@@ -145,6 +148,60 @@ describe('train assembly', () => {
 
   it('counts our transactions across the window', () => {
     expect(countOurTransactions(stream(block(10, at(0), 3, 2), block(11, at(2), 1, 1)))).toBe(3)
+  })
+})
+
+describe('stack layout', () => {
+  function cars(count: number): TrainCar[] {
+    return Array.from({ length: count }, (_, index) => ({
+      kind: 'BLOCK' as const,
+      key: `car-${index}`,
+      block: block(100 - index, '2026-09-21T00:00:00Z', 1, 0),
+      loadRatio: 1,
+      oursRatio: 0,
+      latest: index === 0,
+    }))
+  }
+
+  it('fills columns downward, then upward, so the chain stays one line', () => {
+    const cells = layoutStack(cars(9), 3)
+
+    expect(cells.map(({ column, row }) => `${column}:${row}`)).toEqual([
+      '1:1', '1:2', '1:3',
+      '2:3', '2:2', '2:1',
+      '3:1', '3:2', '3:3',
+    ])
+  })
+
+  it('crosses columns only where two columns meet at the same height', () => {
+    const cells = layoutStack(cars(7), 3)
+
+    // 칸을 건너는 고리는 각 칸의 마지막 블록에만 붙는다 — 마지막 칸은 뒤가 없어 붙지 않는다.
+    expect(cells.filter(({ tieAcross }) => tieAcross).map(({ column, row }) => `${column}:${row}`))
+      .toEqual(['1:3', '2:1'])
+    // 건너는 두 자리는 높이가 같아야 고리를 곧게 눕힐 수 있다.
+    expect(cells[2].row).toBe(cells[3].row)
+    expect(cells[5].row).toBe(cells[6].row)
+  })
+
+  it('ties a block to the one below it whichever way the column fills', () => {
+    const cells = layoutStack(cars(5), 3)
+
+    // 내려가는 1열: 위 두 칸에서 고리가 내려간다.
+    expect(cells.slice(0, 3).map(({ tieDown }) => tieDown)).toEqual([true, true, false])
+    // 올라가는 2열은 3행·2행만 차 있으므로 3행에는 아래가 없고 2행에서만 내려간다.
+    expect(cells.slice(3).map(({ row, tieDown }) => `${row}:${tieDown}`)).toEqual([
+      '3:false',
+      '2:true',
+    ])
+  })
+
+  it('counts the columns the grid has to open', () => {
+    expect(countStackColumns(cars(0), 3)).toBe(1)
+    expect(countStackColumns(cars(1), 3)).toBe(1)
+    expect(countStackColumns(cars(3), 3)).toBe(1)
+    expect(countStackColumns(cars(4), 3)).toBe(2)
+    expect(countStackColumns(cars(9), 3)).toBe(3)
   })
 })
 

@@ -1,16 +1,13 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Button, ErrorMessage, Loading } from '../../components/common/index.ts'
-import { useAuth } from '../../features/auth/hooks/useAuth.ts'
-import { useLogout } from '../../features/auth/hooks/useLogout.ts'
 import { grantPredictionWelcomePoint, savePredictionSurvey } from '../../features/prediction/api/predictionApi.ts'
 import { usePredictionChainState } from '../../features/prediction/hooks/usePredictionChainState.ts'
 import { predictionKeys, usePredictionMarkets } from '../../features/prediction/hooks/usePredictionMarkets.ts'
 import { predictionPointBalanceKey, usePredictionPointBalance } from '../../features/prediction/hooks/usePredictionPointBalance.ts'
 import { approveAndPlacePredictionBet, claimPrediction, formatPredictionPoint } from '../../features/prediction/services/predictionContractService.ts'
 import type { PredictionMarket, PredictionReasonCode } from '../../features/prediction/types/prediction.types.ts'
-import { ConsumerAccountLayout } from '../../features/user/components/ConsumerAccountLayout.tsx'
+import { ConsumerShopLayout } from '../../features/user/components/ConsumerAccountLayout.tsx'
 import { WalletRegistrationPanel } from '../../features/wallet/components/WalletRegistrationPanel.tsx'
 import { useMyWallets } from '../../features/wallet/hooks/useMyWallets.ts'
 import { useWallet } from '../../features/wallet/hooks/useWallet.ts'
@@ -28,12 +25,28 @@ function formatDate(value: string) {
   return new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
 }
 
+function formatPredictionProfit(value: bigint) {
+  return `${value > 0n ? '+' : ''}${formatPredictionPoint(value)}`
+}
+
+function PredictionResult({ soldQuantity, bucketIndex }: { soldQuantity: number; bucketIndex: number }) {
+  return (
+    <p
+      className="prediction-card__result"
+      aria-label={`최종 순판매량 ${soldQuantity}개, 당첨 구간 ${bucketIndex + 1}`}
+    >
+      최종 순판매량 <strong>{soldQuantity.toLocaleString()}</strong>개 · 당첨 구간 #{bucketIndex + 1}
+    </p>
+  )
+}
+
 function MarketCard({ market, walletAddress }: { market: PredictionMarket; walletAddress: string | null }) {
   const [bucket, setBucket] = useState(0)
   const [amount, setAmount] = useState('10')
   const [reasonCode, setReasonCode] = useState<PredictionReasonCode>('DESIGN')
   const [reasonText, setReasonText] = useState('')
   const [notice, setNotice] = useState<string | null>(null)
+  const [resultRevealed, setResultRevealed] = useState(false)
   const [now, setNow] = useState(0)
   useEffect(() => {
     const update = () => setNow(Date.now())
@@ -68,6 +81,9 @@ function MarketCard({ market, walletAddress }: { market: PredictionMarket; walle
   const expected = state && state.winningPool > 0n
     ? state.totalPool * state.userWinningStake / state.winningPool
     : state?.refundOnly ? state.userStake : 0n
+  const profit = state && market.status === 'RESOLVED'
+    ? expected - state.userStake
+    : state && market.status === 'CANCELED' ? 0n : null
   const canClaim = Boolean(state && !state.claimed && state.userStake > 0n
     && (market.status === 'CANCELED' || market.status === 'RESOLVED')
     && (state.refundOnly || state.userWinningStake > 0n))
@@ -80,13 +96,21 @@ function MarketCard({ market, walletAddress }: { market: PredictionMarket; walle
       </div>
       <p>판매 집계: {formatDate(market.salesStartsAt)} ~ {formatDate(market.salesEndsAt)}</p>
       <p>예측 마감: {formatDate(market.bettingEndsAt)}</p>
-      {market.soldQuantity !== null ? <p className="prediction-card__result">최종 순판매량 {market.soldQuantity}개 · 당첨 구간 #{(market.winningBucketIndex ?? 0) + 1}</p> : null}
+      {market.soldQuantity !== null && !resultRevealed ? (
+        <Button variant="secondary" onClick={() => setResultRevealed(true)}>결과 확인하기</Button>
+      ) : null}
+      {market.soldQuantity !== null && resultRevealed ? (
+        <PredictionResult
+          key={`${market.id}-${market.soldQuantity}`}
+          soldQuantity={market.soldQuantity}
+          bucketIndex={market.winningBucketIndex ?? 0}
+        />
+      ) : null}
 
       {state ? (
         <div className="prediction-card__wallet-stats">
-          <span>보유 {formatPredictionPoint(state.balance)} PRED</span>
           <span>내 예치 {formatPredictionPoint(state.userStake)} PRED</span>
-          <span>전체 풀 {formatPredictionPoint(state.totalPool)} PRED</span>
+          <span>내 수익 {profit === null ? '정산 전' : `${formatPredictionProfit(profit)} PRED`}</span>
         </div>
       ) : null}
 
@@ -121,9 +145,6 @@ function MarketCard({ market, walletAddress }: { market: PredictionMarket; walle
 }
 
 export function PredictionMarketPage() {
-  const navigate = useNavigate()
-  const { user } = useAuth()
-  const logout = useLogout()
   const wallet = useWallet()
   const myWallets = useMyWallets()
   const markets = usePredictionMarkets()
@@ -141,9 +162,8 @@ export function PredictionMarketPage() {
   const welcomeAlreadyReceived = Boolean(welcome.data) || Boolean(welcome.error && toErrorMessage(welcome.error).includes('이미 지급'))
 
   return (
-    <ConsumerAccountLayout current="predictions" profile={user ? { name: user.name, email: user.email } : null}
-      onSignOut={() => logout.mutate(undefined, { onSuccess: () => navigate('/', { replace: true }) })}
-      signOutPending={logout.isPending} signOutError={logout.error}>
+    <ConsumerShopLayout>
+      <main className="consumer-mypage-main prediction-page">
       <section className="consumer-mypage-card prediction-intro">
         <p className="consumer-section-heading__eyebrow">ON-CHAIN PREDICTION</p>
         <h2>판매량 예측시장</h2>
@@ -165,6 +185,7 @@ export function PredictionMarketPage() {
           {markets.data?.length === 0 ? <p>현재 열린 예측시장이 없습니다.</p> : null}
         </section>
       )}
-    </ConsumerAccountLayout>
+      </main>
+    </ConsumerShopLayout>
   )
 }

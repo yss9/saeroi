@@ -26,13 +26,11 @@ export async function loadPredictionChainState(
   market: PredictionMarket,
   walletAddress: string,
 ): Promise<PredictionChainState> {
-  const point = getReadContract('predictionPoint')
   const prediction = getReadContract('predictionMarket')
   const chainMarket = await prediction.getMarket(market.chainMarketId)
   const winningBucket = Number(chainMarket.winningBucket)
   const resolved = Number(chainMarket.status) === 2
-  const [balance, userStake, claimed, userWinningStake, winningPool] = await Promise.all([
-    point.balanceOf(walletAddress) as Promise<bigint>,
+  const [userStake, claimed, userWinningStake, winningPool] = await Promise.all([
     prediction.userTotalStake(market.chainMarketId, walletAddress) as Promise<bigint>,
     prediction.claimed(market.chainMarketId, walletAddress) as Promise<boolean>,
     resolved
@@ -43,7 +41,7 @@ export async function loadPredictionChainState(
       : Promise.resolve(0n),
   ])
   return {
-    balance, userStake, claimed, userWinningStake, winningPool,
+    userStake, claimed, userWinningStake, winningPool,
     totalPool: chainMarket.totalPool as bigint,
     refundOnly: Boolean(chainMarket.refundOnly),
   }

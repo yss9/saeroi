@@ -13,11 +13,17 @@ import { geoMercator } from 'd3-geo'
 import type { GeoProjection } from 'd3-geo'
 import type { GeoJsonObject } from 'geojson'
 import { useEffect, useId, useMemo, useState } from 'react'
-import type { CSSProperties, ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { ComposableMap, Geographies, Geography } from 'react-simple-maps'
 import { Modal, TransactionHash } from '../../../components/common/index.ts'
 import { MATERIAL_TYPE_LABEL } from '../../material/types/material.types.ts'
-import { STAGE_LABEL, STAGE_META, STAGE_ORDER, stageIndex } from '../utils/journeyStages.ts'
+import {
+  JOURNEY_ICON_WEIGHT,
+  STAGE_LABEL,
+  STAGE_META,
+  STAGE_ORDER,
+  stageIndex,
+} from '../utils/journeyStages.ts'
 import type {
   BlockchainProof,
   JourneyEdge,
@@ -78,7 +84,7 @@ const PROOF_STATUS_LABEL: Record<BlockchainProof['status'], string> = {
 
 function stageIcon(stage: JourneyStageType, size = 20) {
   const Icon = STAGE_META[stage].icon
-  return <Icon size={size} weight="duotone" aria-hidden="true" />
+  return <Icon size={size} weight={JOURNEY_ICON_WEIGHT} aria-hidden="true" />
 }
 
 function useMediaQuery(query: string) {
@@ -157,7 +163,7 @@ export function JourneyExplorer({ journey }: { journey: ProductJourney }) {
           </button>
           <button
             type="button"
-            className={viewMode === 'FLOW' ? 'is-active' : ''}
+            className={`journey-view-toggle__flow${viewMode === 'FLOW' ? ' is-active' : ''}`}
             aria-pressed={viewMode === 'FLOW'}
             onClick={() => setViewMode('FLOW')}
           >
@@ -259,14 +265,14 @@ function MobileJourneySummary({ journey }: { journey: ProductJourney }) {
   return (
     <div className="mobile-journey__summary" aria-label="제품 여정 요약">
       <section>
-        <Leaf size={23} weight="duotone" aria-hidden="true" />
+        <Leaf size={23} weight={JOURNEY_ICON_WEIGHT} aria-hidden="true" />
         <div>
           <span>업사이클 소재</span>
           <strong>{Math.round(journey.upcycleRatio)}%</strong>
         </div>
       </section>
       <section className={journey.blockchainVerified ? 'is-verified' : ''}>
-        <ShieldCheck size={23} weight="duotone" aria-hidden="true" />
+        <ShieldCheck size={23} weight={JOURNEY_ICON_WEIGHT} aria-hidden="true" />
         <div>
           <span>Journey 기록</span>
           <strong>{journey.blockchainVerified ? '검증 완료' : '확인 중'}</strong>
@@ -291,7 +297,7 @@ function JourneyStepper({
         const stage = stages.find((item) => item.stage === stageType)
         const active = stageType === activeStage
         return (
-          <li key={stageType} style={{ '--stage-color': STAGE_META[stageType].color } as CSSProperties}>
+          <li key={stageType}>
             <button
               type="button"
               className={active ? 'is-active' : ''}
@@ -358,12 +364,14 @@ function JourneyCanvas({
       })
       .map((edge) => edge.edgeId),
   ), [activeStage, journey.edges, journey.nodes])
-  // 수거(첫 화면)·원단 등록 두 단계는 여정 전체를 미리 보여준다 — 폐소재를 모아
-  // 공급업체에 등록하기까지가 이 서비스의 출발점이라, 그 두 단계에서는 전체 그림을
-  // 먼저 보여주는 편이 "앞으로 어떤 여정인지"를 바로 알 수 있다. 그 뒤(가공부터)는
-  // 다시 진행된 단계까지만 보여준다 — 아직 확정되지 않은 이후 기록을 미리 노출하지
-  // 않기 위해서다.
-  const showFullFlow = activeIndex <= stageIndex('SOURCE')
+  // 원단 등록(첫 화면)·운송 두 단계는 여정 전체를 미리 보여준다 — 아직 제품이 만들어지기
+  // 전이라 그 두 단계에서는 전체 그림을 먼저 보여주는 편이 "앞으로 어떤 여정인지"를 바로
+  // 알 수 있다. 그 뒤(가공부터)는 다시 진행된 단계까지만 보여준다 — 아직 확정되지 않은
+  // 이후 기록을 미리 노출하지 않기 위해서다.
+  //
+  // 경계를 STAGE_ORDER의 두 번째 단계 이름으로 적는다. 숫자로 적으면 순서를 바꿀 때
+  // 조용히 어긋나고, 실제로 예전에 COLLECTION이 앞에 있을 때는 여기가 'SOURCE'였다.
+  const showFullFlow = activeIndex <= stageIndex('COLLECTION')
   const visibleEdges = journey.edges.filter((edge) =>
     viewMode === 'FLOW'
       || showFullFlow
@@ -437,7 +445,6 @@ function JourneyCanvas({
               <g
                 key={`${viewMode}-${activeStage}-${edge.edgeId}`}
                 className={`journey-canvas__edge${active ? ' is-active' : ''}${selected ? ' is-selected' : ''}${routeFocused && !focused ? ' is-dimmed' : ''}`}
-                style={{ '--edge-color': STAGE_META[edge.stage].color } as CSSProperties}
                 data-edge-id={edge.edgeId}
                 data-edge-stage={edge.stage}
               >
@@ -458,12 +465,26 @@ function JourneyCanvas({
                   <g className="journey-canvas__traveler" data-traveler-stage={edge.stage}>
                     <circle r="16" />
                     <g transform="translate(-10 -10)">
-                      <TravelerIcon size={20} weight="fill" aria-hidden="true" />
+                      <TravelerIcon size={20} weight={JOURNEY_ICON_WEIGHT} aria-hidden="true" />
                     </g>
+                    {/*
+                      begin이 **음수**인 것은 오타가 아니다. 이 `<g>`에는 초기 transform이
+                      없어서 animateMotion이 시작되기 전까지 viewBox 원점(캔버스 좌상단)에
+                      머무는데, 양수 지연을 주면 그 지연 동안 마커가 좌상단에 조각으로
+                      보인다 — 엣지 key에 viewMode와 activeStage가 들어 있어 뷰를 바꾸거나
+                      단계를 바꿀 때마다 전부 리마운트되며 매번 다시 나타났다.
+                      음수 오프셋은 "문서가 시작되기 전에 이미 시작된 것"으로 취급되어
+                      마운트 즉시 그 위상부터 활성이다. 엣지마다 위상을 어긋나게 하는
+                      효과는 그대로고, 원점에 머무는 구간만 사라진다.
+
+                      `<g>`에 transform으로 초기 위치를 주는 식으로 고치면 안 된다 —
+                      animateMotion의 모션 변환은 기존 transform을 대체하지 않고 그 위에
+                      더해져서, 도는 동안 좌표가 두 번 더해져 경로를 벗어난다.
+                    */}
                     <animateMotion
                       path={route.path}
                       dur="2.2s"
-                      begin={`${index * 0.18}s`}
+                      begin={`${-index * 0.18}s`}
                       repeatCount="indefinite"
                     />
                   </g>
@@ -487,7 +508,6 @@ function JourneyCanvas({
                 tabIndex={0}
                 aria-label={`${node.companyName ?? STAGE_LABEL[node.stage]} 상세 보기`}
                 className={`journey-node${selected ? ' is-selected' : ''}${current ? ' is-current' : ''}${routeFocused && !focusedNodeIds.has(node.nodeId) ? ' is-dimmed' : ''}`}
-                style={{ '--node-color': STAGE_META[node.stage].color } as CSSProperties}
                 transform={`translate(${point.x} ${point.y})`}
                 data-node-id={node.nodeId}
                 data-node-stage={node.stage}
@@ -500,7 +520,7 @@ function JourneyCanvas({
                 <circle className="journey-node__halo" r="34" />
                 <circle className="journey-node__body" r="23" />
                 <g className="journey-node__icon" transform="translate(-12 -12)">
-                  <NodeIcon size={24} weight="fill" aria-hidden="true" />
+                  <NodeIcon size={24} weight={JOURNEY_ICON_WEIGHT} aria-hidden="true" />
                 </g>
                 <g className="journey-node__stage-badge" transform="translate(17 -17)">
                   <circle r="10" />
@@ -596,10 +616,7 @@ function JourneyDetailPanel({
   const selectedStageNode = node?.stage === detailStage ? node : candidates[0]
 
   return (
-    <aside
-      className="journey-detail"
-      style={{ '--stage-color': STAGE_META[detailStage].color } as CSSProperties}
-    >
+    <aside className="journey-detail">
       <header className="journey-detail__header">
         <span className="journey-detail__icon">{stageIcon(detailStage, 24)}</span>
         <div>
@@ -642,16 +659,16 @@ function NodeDetail({ node }: { node: JourneyNode }) {
     <div className="journey-detail__body">
       <div className="journey-detail__company">
         <strong>{node.companyName ?? (node.stage === 'DELIVERY' ? '수령 지역' : '업체 정보')}</strong>
-        {node.locationName ? <span><MapPin size={17} />{node.locationName}</span> : null}
+        {node.locationName ? <span><MapPin size={17} weight={JOURNEY_ICON_WEIGHT} />{node.locationName}</span> : null}
       </div>
 
       <dl className="journey-detail__facts">
         <div>
-          <dt><CalendarBlank size={17} />시작</dt>
+          <dt><CalendarBlank size={17} weight={JOURNEY_ICON_WEIGHT} />시작</dt>
           <dd>{formatDate(node.startedAt)}</dd>
         </div>
         <div>
-          <dt><CheckCircle size={17} />완료</dt>
+          <dt><CheckCircle size={17} weight={JOURNEY_ICON_WEIGHT} />완료</dt>
           <dd>{formatDate(node.completedAt)}</dd>
         </div>
       </dl>
@@ -673,7 +690,7 @@ function NodeDetail({ node }: { node: JourneyNode }) {
           <ul className="journey-detail__materials">
             {node.materials.map((material, index) => (
               <li key={`${material.name}-${index}`}>
-                <span><Leaf size={17} />{material.name}</span>
+                <span><Leaf size={17} weight={JOURNEY_ICON_WEIGHT} />{material.name}</span>
                 <strong>{formatQuantity(material.batchQuantityGrams)}</strong>
                 <small>{MATERIAL_TYPE_LABEL[material.materialType] ?? material.materialType}</small>
               </li>
@@ -692,7 +709,7 @@ function NodeDetail({ node }: { node: JourneyNode }) {
               className="journey-detail__proof-row"
               onClick={() => setSelectedProof(proof)}
             >
-              <ShieldCheck size={18} weight="duotone" />
+              <ShieldCheck size={18} weight={JOURNEY_ICON_WEIGHT} />
               <span>{proof.functionName}</span>
               <span className="journey-detail__proof-more">자세히</span>
             </button>
@@ -706,7 +723,7 @@ function NodeDetail({ node }: { node: JourneyNode }) {
         <section className="journey-detail__section journey-detail__evidence">
           <h3>등록 증빙</h3>
           <p>
-            <FileText size={18} weight="duotone" />
+            <FileText size={18} weight={JOURNEY_ICON_WEIGHT} />
             {node.evidenceSummary.reduce((total, evidence) => total + evidence.count, 0)}개의 증빙 기록
           </p>
         </section>
@@ -788,7 +805,7 @@ function CollectionDetail({
             <li key={edge.edgeId}>
               <div>
                 <span>{from?.companyName ?? '출발지'}</span>
-                <ArrowRight size={15} aria-hidden="true" />
+                <ArrowRight size={15} weight={JOURNEY_ICON_WEIGHT} aria-hidden="true" />
                 <strong>{to?.companyName ?? '도착지'}</strong>
               </div>
               <small>{edge.materialName ?? '소재'} · {formatDate(edge.receivedAt ?? edge.shippedAt)}</small>
@@ -825,7 +842,7 @@ function JourneyMetrics({ journey }: { journey: ProductJourney }) {
         </div>
       </section>
       <section className="journey-metrics__verification">
-        <ShieldCheck size={34} weight="duotone" />
+        <ShieldCheck size={34} weight={JOURNEY_ICON_WEIGHT} />
         <div>
           <p className="journey-metrics__eyebrow">TRACEABILITY</p>
           <h2>{journey.blockchainVerified ? '블록체인 검증 완료' : '기록 확인 중'}</h2>
@@ -1015,21 +1032,74 @@ function declutterPositions(
   return next
 }
 
+/** `.journey-node__flow-label` 카드의 반폭 — 노드 마크업의 `rect x="-78" width="156"`. */
+const FLOW_LABEL_HALF_WIDTH = 78
+/** 라벨 카드 바깥에 남길 좌우 여백. */
+const FLOW_SIDE_MARGIN = 12
+/** 한 열의 노드들이 세로로 퍼지는 폭. */
+const FLOW_COLUMN_SPAN = 430
+
+/**
+ * 노드 중심에서 위로 **실제 보이는** 끝 — 번호 배지(`translate(17 -17)`의 `r=10`,
+ * stroke 1.5)의 위 끝이다.
+ *
+ * <p>halo(`r=34`)를 쓰면 안 된다. `.journey-node__halo`는 기본 `opacity: 0`이고 선택된
+ * 노드 하나만 그것도 10% 틴트로 나타난다 — 보이지 않는 반지름에 맞춰 중앙을 잡으면
+ * 다이어그램 전체가 그만큼 아래로 내려앉아 위 여백만 넓어 보인다.
+ */
+const FLOW_NODE_INK_TOP = 27.75
+/** 노드 중심에서 아래로 보이는 끝 — 업체명 카드(`rect y=32 height=54`, stroke 1)의 아래 끝. */
+const FLOW_NODE_INK_BOTTOM = 86.5
+
+/**
+ * Flow View의 노드 좌표.
+ *
+ * <p><b>열은 STAGE_ORDER 길이가 아니라 노드가 있는 단계 개수로 센다.</b> 운송
+ * (COLLECTION)은 노드 없이 이동선만 있는 단계라 그 자리를 열로 잡으면 다이어그램
+ * 한가운데가 빈다. 그 단계를 빼고 남은 열을 캔버스 폭에 고르게 펴면 빈 칸이 사라지고
+ * 좌우 여백이 같아진다 — 좌우 순서는 STAGE_ORDER를 그대로 따른다.
+ *
+ * <p>가로 간격은 리터럴이 아니라 라벨 카드 기하에서 나온다. 첫 열 중심이
+ * `여백 + 카드반폭`, 마지막 열 중심이 `폭 - 여백 - 카드반폭`이고 그 사이를 열 수로
+ * 나눈다. 다섯 열이 다 찰 때 간격이 820/4 = 205, 첫 열이 90으로 떨어져 예전 값과
+ * 정확히 같다.
+ */
 function flowPositions(nodes: JourneyNode[]): Record<string, Point> {
   const positions: Record<string, Point> = {}
   const groups = new Map<JourneyStageType, JourneyNode[]>()
   nodes.forEach((node) => groups.set(node.stage, [...(groups.get(node.stage) ?? []), node]))
-  STAGE_ORDER.forEach((stage, column) => {
+  const columns = STAGE_ORDER.filter((stage) => (groups.get(stage)?.length ?? 0) > 0)
+  const firstX = FLOW_SIDE_MARGIN + FLOW_LABEL_HALF_WIDTH
+  const lastX = MAP_VIEW_WIDTH - FLOW_SIDE_MARGIN - FLOW_LABEL_HALF_WIDTH
+  const columnGap = columns.length > 1 ? (lastX - firstX) / (columns.length - 1) : 0
+  columns.forEach((stage, column) => {
     const items = groups.get(stage) ?? []
     items.forEach((node, index) => {
-      const gap = 430 / Math.max(items.length, 1)
+      const gap = FLOW_COLUMN_SPAN / Math.max(items.length, 1)
       positions[node.nodeId] = {
-        x: 90 + column * 205,
-        y: 105 + gap / 2 + index * gap,
+        // 열이 하나뿐이면 나눌 간격이 없으니 그대로 한가운데 둔다.
+        x: columns.length > 1 ? firstX + column * columnGap : MAP_VIEW_WIDTH / 2,
+        y: flowTopOffset() + gap / 2 + index * gap,
       }
     })
   })
   return positions
+}
+
+/**
+ * 첫 노드 중심을 어디에 둘지. 열에 노드가 몇 개든 <b>보이는 잉크의 중점이 캔버스
+ * 한가운데</b>에 오게 하는 값이다.
+ *
+ * <p>노드 개수를 k라 하면 첫 노드 중심이 `offset + span/2k`, 마지막이
+ * `offset + span - span/2k`라 두 중심의 중점은 k와 무관하게 `offset + span/2`다. 거기에
+ * 잉크가 위로 {@link FLOW_NODE_INK_TOP}, 아래로 {@link FLOW_NODE_INK_BOTTOM}만큼
+ * 퍼지므로 잉크 중점은 그보다 `(아래 - 위)/2`만큼 내려간다. 그 값을 캔버스 절반에서
+ * 빼면 offset이 나온다 — 열 개수·노드 개수가 달라져도 성립한다.
+ */
+function flowTopOffset(): number {
+  return MAP_VIEW_HEIGHT / 2
+    - FLOW_COLUMN_SPAN / 2
+    - (FLOW_NODE_INK_BOTTOM - FLOW_NODE_INK_TOP) / 2
 }
 
 function curvedRoute(from: Point, to: Point, index: number): { path: string; label: Point } {
@@ -1144,24 +1214,15 @@ function MapBackdrop() {
   )
 }
 
+/**
+ * Flow View 배경 — 카드 한 장뿐이다. 예전에는 여기에 "1. 원단 등록 … 5. 최종 수령" 칩을
+ * 다시 그렸는데, 캔버스 바깥 위쪽 {@link JourneyStepper}가 같은 다섯 단계를 이미
+ * 보여주고 있어 같은 줄이 두 번 나왔다. 칩은 없애고 스테퍼 하나만 남긴다.
+ */
 function FlowBackdrop() {
   return (
     <g className="journey-flow-backdrop" aria-hidden="true">
-      <rect width="1000" height="620" rx="24" />
-      {STAGE_ORDER.map((stage, index) => (
-        <g
-          key={stage}
-          className="journey-flow-backdrop__stage"
-          style={{ '--stage-color': STAGE_META[stage].color } as CSSProperties}
-          transform={`translate(${24 + index * 205} 18)`}
-        >
-          <rect width="154" height="40" rx="20" />
-          <g className="journey-flow-backdrop__icon" transform="translate(12 8)">
-            {stageIcon(stage, 24)}
-          </g>
-          <text x="88" y="26" textAnchor="middle">{index + 1}. {STAGE_LABEL[stage]}</text>
-        </g>
-      ))}
+      <rect width={MAP_VIEW_WIDTH} height={MAP_VIEW_HEIGHT} rx="24" />
     </g>
   )
 }
