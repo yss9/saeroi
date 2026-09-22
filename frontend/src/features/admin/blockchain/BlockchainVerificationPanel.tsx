@@ -8,8 +8,10 @@ import {
 } from './blockchainLiveApi.ts'
 import {
   buildTrain,
+  countStackColumns,
   formatElapsed,
   formatInterval,
+  layoutStack,
   measureCadence,
   measureNextBlock,
 } from './liveMetrics.ts'
@@ -124,6 +126,9 @@ export function BlockchainVerificationPanel() {
   const latest = liveBlocks[0] ?? null
   const cadence = useMemo(() => measureCadence(liveBlocks), [liveBlocks])
   const cars = useMemo(() => buildTrain(liveBlocks, onlyOurs), [liveBlocks, onlyOurs])
+  // buildTrain 은 과거가 앞이다. 타워는 최신이 첫 자리이므로 뒤집어 넘긴다.
+  const cells = useMemo(() => layoutStack([...cars].reverse()), [cars])
+  const stackColumns = countStackColumns(cars)
   const feed = useMemo(() => recentTransactions(liveBlocks, onlyOurs), [liveBlocks, onlyOurs])
   const eta = measureNextBlock(latest?.timestamp ?? null, cadence.averageMs, now)
   const elapsedQueryMs = queryStartedAt === null ? 0 : Math.max(0, queryNow - queryStartedAt)
@@ -156,16 +161,8 @@ export function BlockchainVerificationPanel() {
 
       <section className="chain-lab__train" aria-labelledby="chain-train-title">
         <div className="chain-lab__train-head">
-          <h2 id="chain-train-title">최근 블록</h2>
-          <div className="chain-lab__train-side">
-            <div className="chain-lab__switch" role="group" aria-label="타워에 쌓을 블록">
-              <button type="button" aria-pressed={!onlyOurs} onClick={() => setOnlyOurs(false)}>
-                전체
-              </button>
-              <button type="button" aria-pressed={onlyOurs} onClick={() => setOnlyOurs(true)}>
-                우리 거래만
-              </button>
-            </div>
+          <div className="chain-lab__train-title">
+            <h2 id="chain-train-title">최근 블록</h2>
             {latest ? (
               <p className="chain-lab__head-block">
                 {/* key 가 바뀌면 요소가 다시 mount 되어 한 번짜리 강조가 재생된다. */}
@@ -173,6 +170,14 @@ export function BlockchainVerificationPanel() {
                 <small>{formatElapsed(latest.timestamp, now)}</small>
               </p>
             ) : null}
+          </div>
+          <div className="chain-lab__switch" role="group" aria-label="타워에 쌓을 블록">
+            <button type="button" aria-pressed={!onlyOurs} onClick={() => setOnlyOurs(false)}>
+              전체
+            </button>
+            <button type="button" aria-pressed={onlyOurs} onClick={() => setOnlyOurs(true)}>
+              saeroi 거래만
+            </button>
           </div>
         </div>
 
@@ -183,60 +188,64 @@ export function BlockchainVerificationPanel() {
           </p>
         ) : null}
 
-        <ol className="chain-lab__stack" aria-label="최근 블록">
-          {cars.length > 0 ? (
+        <div className="chain-lab__yard">
+          {cells.length > 0 ? (
             <>
               {/* 다음 블록이 앉을 빈 자리. 간격 표본이 없으면 그리지 않는다 — 재지도 않은 예상을 말하게 된다. */}
               {cadence.averageMs !== null ? (
-                <li>
-                  <p className="chain-lab__next">
-                    다음 블록
-                    <code>{formatInterval(cadence.averageMs)}</code>
-                  </p>
-                </li>
+                <p className="chain-lab__next">
+                  다음
+                  <code>{formatInterval(cadence.averageMs)}</code>
+                </p>
               ) : null}
-              {/* buildTrain 은 과거가 앞이다. 타워는 최신이 맨 위이므로 뒤집어 세운다. */}
-              {[...cars].reverse().map((car) => (
-                <li key={car.key}>
-                  {car.kind === 'GAP' ? (
-                    <div className="chain-lab__gap">
-                      <p className="chain-lab__gap-face">
-                        <span aria-hidden="true">···</span>
-                        <span>
-                          {car.count === 1
-                            ? `#${formatNumber(car.fromNumber)}`
-                            : `#${formatNumber(car.fromNumber)}–${formatNumber(car.toNumber)}`}
-                        </span>
-                      </p>
-                    </div>
-                  ) : (
-                    <article className={`chain-lab__brick ${car.latest ? 'is-latest' : ''}`}>
-                      <div className="chain-lab__brick-face">
-                        <div className="chain-lab__brick-main">
+              <ol
+                className="chain-lab__stack"
+                aria-label="최근 블록"
+                style={{ gridTemplateColumns: `repeat(${stackColumns}, var(--chain-box))` }}
+              >
+                {cells.map(({ car, column, row, tieDown, tieAcross }) => (
+                  <li key={car.key} style={{ gridColumn: column, gridRow: row }}>
+                    {car.kind === 'GAP' ? (
+                      <div className="chain-lab__gap">
+                        <i />
+                        <div className="chain-lab__slab">
+                          <p className="chain-lab__slab-face">
+                            {car.count === 1
+                              ? `#${formatNumber(car.fromNumber)}`
+                              : `#${formatNumber(car.fromNumber)}–${formatNumber(car.toNumber)}`}
+                          </p>
+                        </div>
+                        <i />
+                      </div>
+                    ) : (
+                      <article className={`chain-lab__brick ${car.latest ? 'is-latest' : ''}`}>
+                        <div className="chain-lab__brick-face">
                           <strong>#{formatNumber(car.block.number)}</strong>
                           {/* 막대 길이가 "전체 N건" 을 대신한다. 0건 블록도 최소 폭은 남겨 칸이 비어 보이지 않게 한다. */}
                           <div className="chain-lab__brick-meter" aria-hidden="true">
                             <i style={{ width: `${Math.max(6, car.loadRatio * 100)}%` }} />
                           </div>
+                          {car.block.projectTransactionCount > 0 ? (
+                            <span className="chain-lab__brick-ours">
+                              saeroi {formatNumber(car.block.projectTransactionCount)}
+                            </span>
+                          ) : null}
                         </div>
-                        {car.block.projectTransactionCount > 0 ? (
-                          <span className="chain-lab__brick-ours">
-                            우리 {formatNumber(car.block.projectTransactionCount)}
-                          </span>
-                        ) : null}
-                      </div>
-                    </article>
-                  )}
-                </li>
-              ))}
+                      </article>
+                    )}
+                    {tieDown ? <span className="chain-lab__tie is-down" aria-hidden="true" /> : null}
+                    {tieAcross ? <span className="chain-lab__tie is-across" aria-hidden="true" /> : null}
+                  </li>
+                ))}
+              </ol>
             </>
           ) : (
-            <li className="chain-lab__stack-wait">
+            <p className="chain-lab__stack-wait">
               <Pulse aria-hidden="true" />
               최신 블록을 기다리고 있습니다.
-            </li>
+            </p>
           )}
-        </ol>
+        </div>
 
         <div className="chain-lab__cadence">
           {/* 진행은 CSS 애니메이션이 그린다. 매 프레임 렌더하지 않으면서도 부드럽고,
@@ -260,110 +269,112 @@ export function BlockchainVerificationPanel() {
         </div>
       </section>
 
-      <form className="chain-lab__search" onSubmit={inspect}>
-        <label htmlFor="chain-transaction-hash">트랜잭션 해시</label>
-        <div>
-          <input
-            id="chain-transaction-hash"
-            value={hash}
-            onChange={(event) => changeHash(event.target.value)}
-            placeholder="0x로 시작하는 66자리 해시를 붙여 넣으세요"
-            spellCheck={false}
-            autoComplete="off"
-          />
-          <button type="submit" disabled={querying || hash.trim().length === 0}>
-            <ArrowClockwise aria-hidden="true" />
-            조회
-          </button>
-        </div>
-      </form>
+      <div className="chain-lab__side">
+        <form className="chain-lab__search" onSubmit={inspect}>
+          <label htmlFor="chain-transaction-hash">트랜잭션 해시</label>
+          <div>
+            <input
+              id="chain-transaction-hash"
+              value={hash}
+              onChange={(event) => changeHash(event.target.value)}
+              placeholder="0x로 시작하는 66자리 해시를 붙여 넣으세요"
+              spellCheck={false}
+              autoComplete="off"
+            />
+            <button type="submit" disabled={querying || hash.trim().length === 0}>
+              <ArrowClockwise aria-hidden="true" />
+              조회
+            </button>
+          </div>
+        </form>
 
-      {error ? (
-        <div className="chain-lab__error" role="alert">
-          <Warning aria-hidden="true" />
-          {error}
-        </div>
-      ) : null}
+        {error ? (
+          <div className="chain-lab__error" role="alert">
+            <Warning aria-hidden="true" />
+            {error}
+          </div>
+        ) : null}
 
-      {evidence ? (
-        <section className={`chain-lab__evidence ${querying ? 'is-stale' : ''}`} aria-labelledby="chain-evidence-title" aria-busy={querying}>
-          <header>
-            <strong id="chain-evidence-title">조회 결과</strong>
-            <div className="chain-lab__evidence-badges">
-              <span className={`chain-lab__status ${evidence.status === 1 ? 'is-good' : 'is-bad'}`}>
-                {evidence.status === 1 ? 'SUCCESS' : 'REVERTED'}
-              </span>
-              <span className="chain-lab__latency">
-                {querying ? '조회 중…' : `RPC ${formatNumber(evidence.latencyMs)} ms`}
-              </span>
-            </div>
-          </header>
+        {evidence ? (
+          <section className={`chain-lab__evidence ${querying ? 'is-stale' : ''}`} aria-labelledby="chain-evidence-title" aria-busy={querying}>
+            <header>
+              <strong id="chain-evidence-title">조회 결과</strong>
+              <div className="chain-lab__evidence-badges">
+                <span className={`chain-lab__status ${evidence.status === 1 ? 'is-good' : 'is-bad'}`}>
+                  {evidence.status === 1 ? 'SUCCESS' : 'REVERTED'}
+                </span>
+                <span className="chain-lab__latency">
+                  {querying ? '조회 중…' : `RPC ${formatNumber(evidence.latencyMs)} ms`}
+                </span>
+              </div>
+            </header>
 
-          <dl>
-            <Row label="해시" value={evidence.hash} wide />
-            <Row label="블록" value={`#${formatNumber(evidence.blockNumber)}`} />
-            <Row label="확정" value={formatNumber(evidence.confirmations)} />
-            <Row label="보낸 주소" value={evidence.from} />
-            <Row label="받는 컨트랙트" value={evidence.to ?? '컨트랙트 생성'} />
-            <Row label="가스" value={formatNumber(Number(evidence.gasUsed))} />
-            {/* 나머지는 접어 둔다. 열두 줄을 한꺼번에 세우면 어느 줄도 먼저 읽히지 않는다. */}
-            {allFields ? (
-              <>
-                <Row label="블록 해시" value={evidence.blockHash} wide />
-                <Row label="기록 시각" value={formatDate(new Date(evidence.timestamp * 1000).toISOString())} />
-                <Row label="현재 블록" value={`#${formatNumber(evidence.latestBlock)}`} />
-                <Row label="이벤트 로그" value={formatNumber(evidence.logCount)} />
-                <Row label="전송 값(wei)" value={evidence.value} />
-                <Row
-                  label="호출 데이터"
-                  value={evidence.input === '0x' ? '없음' : `${evidence.input.slice(0, 18)}… (${formatNumber(evidence.input.length)}자)`}
-                />
-                <Row label="체인" value={evidence.chainId} />
-                <Row label="재조회" value={formatElapsed(evidence.queriedAt, now)} />
-              </>
-            ) : null}
-          </dl>
+            <dl>
+              <Row label="해시" value={evidence.hash} wide />
+              <Row label="블록" value={`#${formatNumber(evidence.blockNumber)}`} />
+              <Row label="확정" value={formatNumber(evidence.confirmations)} />
+              <Row label="보낸 주소" value={evidence.from} />
+              <Row label="받는 컨트랙트" value={evidence.to ?? '컨트랙트 생성'} />
+              <Row label="가스" value={formatNumber(Number(evidence.gasUsed))} />
+              {/* 나머지는 접어 둔다. 열두 줄을 한꺼번에 세우면 어느 줄도 먼저 읽히지 않는다. */}
+              {allFields ? (
+                <>
+                  <Row label="블록 해시" value={evidence.blockHash} wide />
+                  <Row label="기록 시각" value={formatDate(new Date(evidence.timestamp * 1000).toISOString())} />
+                  <Row label="현재 블록" value={`#${formatNumber(evidence.latestBlock)}`} />
+                  <Row label="이벤트 로그" value={formatNumber(evidence.logCount)} />
+                  <Row label="전송 값(wei)" value={evidence.value} />
+                  <Row
+                    label="호출 데이터"
+                    value={evidence.input === '0x' ? '없음' : `${evidence.input.slice(0, 18)}… (${formatNumber(evidence.input.length)}자)`}
+                  />
+                  <Row label="체인" value={evidence.chainId} />
+                  <Row label="재조회" value={formatElapsed(evidence.queriedAt, now)} />
+                </>
+              ) : null}
+            </dl>
 
-          <button type="button" className="chain-lab__more" onClick={() => setAllFields((current) => !current)}>
-            {allFields ? '접기' : '전체 항목'}
-          </button>
-        </section>
-      ) : querying ? (
-        <div className="chain-lab__empty" aria-busy="true">
-          <Pulse aria-hidden="true" />
-          <strong>조회 중 · {formatNumber(elapsedQueryMs)} ms</strong>
-        </div>
-      ) : (
-        <div className="chain-lab__empty">
-          <ShieldCheck aria-hidden="true" />
-          <strong>해시를 입력하거나 아래에서 트랜잭션을 고르세요</strong>
-        </div>
-      )}
-
-      <section className="chain-lab__feed" aria-label="실시간 트랜잭션">
-        <div className="chain-lab__feed-head">트랜잭션</div>
-        {feed.length > 0 ? feed.map(({ transaction, block }) => (
-          <button type="button" key={transaction.hash} onClick={() => void inspect(undefined, transaction.hash)}>
-            <span className={`chain-lab__tx-kind ${transaction.contractName ? 'is-ours' : ''}`}>
-              {transaction.contractName ? '우리' : '타팀'}
-            </span>
-            <span className="chain-lab__tx-main">
-              <code>{shorten(transaction.hash)}</code>
-              <small>
-                {transaction.contractName
-                  ? `${transaction.contractName}${transaction.functionName ? ` · ${transaction.functionName}()` : ''}`
-                  : `${shorten(transaction.from)} → ${shorten(transaction.to ?? 'CREATE')}`}
-              </small>
-            </span>
-            <span className="chain-lab__tx-block">
-              #{formatNumber(block.number)}
-              <small>{formatElapsed(block.timestamp, now)}</small>
-            </span>
-          </button>
-        )) : (
-          <p className="chain-lab__feed-empty">{onlyOurs ? '우리 거래 없음' : '트랜잭션 없음'}</p>
+            <button type="button" className="chain-lab__more" onClick={() => setAllFields((current) => !current)}>
+              {allFields ? '접기' : '전체 항목'}
+            </button>
+          </section>
+        ) : querying ? (
+          <div className="chain-lab__empty" aria-busy="true">
+            <Pulse aria-hidden="true" />
+            <strong>조회 중 · {formatNumber(elapsedQueryMs)} ms</strong>
+          </div>
+        ) : (
+          <div className="chain-lab__empty">
+            <ShieldCheck aria-hidden="true" />
+            <strong>해시를 입력하거나 아래에서 트랜잭션을 고르세요</strong>
+          </div>
         )}
-      </section>
+
+        <section className="chain-lab__feed" aria-label="실시간 트랜잭션">
+          <div className="chain-lab__feed-head">트랜잭션</div>
+          {feed.length > 0 ? feed.map(({ transaction, block }) => (
+            <button type="button" key={transaction.hash} onClick={() => void inspect(undefined, transaction.hash)}>
+              <span className={`chain-lab__tx-kind ${transaction.contractName ? 'is-ours' : ''}`}>
+                {transaction.contractName ? 'saeroi' : '타팀'}
+              </span>
+              <span className="chain-lab__tx-main">
+                <code>{shorten(transaction.hash)}</code>
+                <small>
+                  {transaction.contractName
+                    ? `${transaction.contractName}${transaction.functionName ? ` · ${transaction.functionName}()` : ''}`
+                    : `${shorten(transaction.from)} → ${shorten(transaction.to ?? 'CREATE')}`}
+                </small>
+              </span>
+              <span className="chain-lab__tx-block">
+                #{formatNumber(block.number)}
+                <small>{formatElapsed(block.timestamp, now)}</small>
+              </span>
+            </button>
+          )) : (
+            <p className="chain-lab__feed-empty">{onlyOurs ? 'saeroi 거래 없음' : '트랜잭션 없음'}</p>
+          )}
+        </section>
+      </div>
     </section>
   )
 }

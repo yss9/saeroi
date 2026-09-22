@@ -5,7 +5,6 @@ import {
   ChatCircleText,
   ChatText,
   ClockCounterClockwise,
-  ChartBar,
   Heart,
   MapPin,
   Receipt,
@@ -133,7 +132,6 @@ const NAV_GROUPS: readonly ConsumerNavGroup[] = [
   {
     label: 'My 활동',
     items: [
-      { label: '판매량 예측시장', to: '/mypage/predictions', Icon: ChartBar },
       { label: '문의하기', to: '/mypage/inquiries/new', Icon: ChatCircleText },
       { label: '문의내역', to: '/mypage/inquiries', Icon: ChatText, end: true },
       { label: '리뷰관리', to: '/mypage/reviews', Icon: Star },

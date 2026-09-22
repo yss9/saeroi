@@ -19,8 +19,11 @@ const MAX_PLAUSIBLE_GAP_MS = 60_000
 /** 평균의 이 배수를 넘기면 지연으로 본다. 네트워크가 느려진 것을 정상인 척하지 않는다. */
 const OVERDUE_FACTOR = 2
 
-/** 레일에 한 번에 세우는 칸 수(블록 카드 + 접힌 칸). */
-const TRAIN_LIMIT = 7
+/** 타워에 한 번에 쌓는 칸 수(블록 + 접힌 칸). 한 칸에 STACK_COLUMN 개씩 세 줄이 된다. */
+const TRAIN_LIMIT = 9
+
+/** 한 칸에 쌓는 블록 수. 늘리면 세로로 길어져 스크롤 없이 한 화면에 안 들어온다. */
+export const STACK_COLUMN = 3
 
 export interface BlockCadence {
   /** 최근 블록들의 평균 간격(ms). 표본이 없으면 null — 이때는 예상을 표시하지 않는다. */
@@ -160,6 +163,57 @@ export function buildTrain(
   flushGap()
 
   return cars.slice(-limit)
+}
+
+export interface StackCell {
+  readonly car: TrainCar
+  /** 1부터 세는 격자 자리. CSS grid 의 column/row 로 그대로 넘긴다. */
+  readonly column: number
+  readonly row: number
+  /** 바로 아래 칸으로 내려가는 고리. */
+  readonly tieDown: boolean
+  /** 옆 칸으로 건너가는 고리. */
+  readonly tieAcross: boolean
+}
+
+/**
+ * 사슬 순서대로 받은 칸을 뱀 모양 격자에 앉힌다. cars 는 buildTrain 의 결과를
+ * 최신부터 넘긴 것이고, 결과의 column/row 는 1부터 센다.
+ *
+ * <b>왜 뱀 모양인가</b> — 모든 칸을 위에서 아래로 채우면 칸을 건너는 고리가 맨 아래에서
+ * 맨 위로 대각선을 그어야 해서 사슬이 끊긴 것처럼 보인다. 홀수 칸을 거꾸로 채우면
+ * 건너는 자리가 항상 같은 높이(1열 맨 아래 ↔ 2열 맨 아래)라 고리를 곧게 눕힐 수 있다.
+ */
+export function layoutStack(
+  cars: readonly TrainCar[],
+  perColumn: number = STACK_COLUMN,
+): StackCell[] {
+  const placed = cars.map((car, index) => {
+    const column = Math.floor(index / perColumn)
+    const offset = index % perColumn
+    // 짝수 칸은 위에서 아래로, 홀수 칸은 아래에서 위로 채운다.
+    const row = column % 2 === 0 ? offset : perColumn - 1 - offset
+    return { car, column, row, crosses: offset === perColumn - 1 && index + 1 < cars.length }
+  })
+
+  const filled = new Set(placed.map(({ column, row }) => `${column}:${row}`))
+
+  return placed.map(({ car, column, row, crosses }) => ({
+    car,
+    column: column + 1,
+    row: row + 1,
+    // 방향과 무관하게 "바로 아래 칸이 차 있으면" 고리를 내린다 — 오르는 칸에서도 같은 자리다.
+    tieDown: filled.has(`${column}:${row + 1}`),
+    tieAcross: crosses,
+  }))
+}
+
+/** 격자가 몇 칸으로 벌어지는지. grid-template-columns 에 넘긴다. */
+export function countStackColumns(
+  cars: readonly TrainCar[],
+  perColumn: number = STACK_COLUMN,
+): number {
+  return Math.max(1, Math.ceil(cars.length / perColumn))
 }
 
 /** 우리 컨트랙트를 호출한 트랜잭션 수의 합. 필터를 켰을 때 무엇이 남았는지 말해 준다. */

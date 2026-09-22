@@ -525,9 +525,11 @@ describe('consumer mypage route', () => {
     renderRoute('/mypage')
     await screen.findByRole('heading', { name: '내 프로필' })
     const menu = screen.getByRole('navigation', { name: '주요 메뉴' })
-    for (const [name, href] of [['SHOP', '/shop'], ['BRANDS', '/brands'], ['ABOUT', '/about']]) {
+    for (const [name, href] of [['SHOP', '/shop'], ['BRANDS', '/brands'], ['ABOUT', '/about'], ['PREDICTION', '/mypage/predictions']]) {
       expect(within(menu).getByRole('link', { name })).toHaveAttribute('href', href)
     }
+    expect(within(screen.getByRole('navigation', { name: '마이페이지 메뉴' }))
+      .queryByRole('link', { name: '판매량 예측시장' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: '쇼핑 계속하기' })).not.toBeInTheDocument()
     expect(screen.getAllByText('MY ACCOUNT')).toHaveLength(1)
     for (const label of ['My 정보', 'My 쇼핑', 'My 활동']) {
