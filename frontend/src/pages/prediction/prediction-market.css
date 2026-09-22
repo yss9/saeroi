@@ -16,6 +16,14 @@
 .prediction-buckets legend { padding: 0 5px; font-weight: 700; }
 .prediction-buckets label { display: flex; align-items: center; gap: 5px; padding: 7px 9px; border-radius: 8px; background: #f6f9f7; }
 .prediction-card__result, .prediction-success { color: #167044 !important; font-weight: 750; }
+.prediction-card__result { display: flex; align-items: baseline; gap: 4px; min-height: 36px; padding: 11px 14px; border-radius: 12px; background: #f1f6fb; color: #174b72 !important; }
+.prediction-card__result strong { min-width: 2ch; color: #ff7e3d; font-size: 25px; font-variant-numeric: tabular-nums; line-height: 1; text-align: right; }
+.prediction-card__result.is-counting strong { transform-origin: center bottom; animation: prediction-count-tick 160ms ease-out; }
+.prediction-card__result.is-settled { border: 1px solid #b9d2e5; box-shadow: 0 8px 22px rgb(33 106 159 / 10%); }
+.prediction-card__result.is-settled strong { animation: prediction-count-settle 420ms cubic-bezier(.2, .85, .3, 1.25); }
 .prediction-error { color: #b3261e !important; }
 .consumer-mypage .prediction-notice { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.7; }
+@keyframes prediction-count-tick { from { opacity: .55; transform: translateY(3px); } }
+@keyframes prediction-count-settle { 45% { color: #ff9b69; transform: scale(1.14); } }
+@media (prefers-reduced-motion: reduce) { .prediction-card__result strong { animation: none !important; } }
 @media (max-width: 680px) { .prediction-grid { grid-template-columns: 1fr; } .prediction-card__heading { flex-direction: column; } }

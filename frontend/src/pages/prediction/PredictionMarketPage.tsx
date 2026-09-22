@@ -10,6 +10,7 @@ import { predictionKeys, usePredictionMarkets } from '../../features/prediction/
 import { predictionPointBalanceKey, usePredictionPointBalance } from '../../features/prediction/hooks/usePredictionPointBalance.ts'
 import { approveAndPlacePredictionBet, claimPrediction, formatPredictionPoint } from '../../features/prediction/services/predictionContractService.ts'
 import type { PredictionMarket, PredictionReasonCode } from '../../features/prediction/types/prediction.types.ts'
+import { buildResultRevealSteps } from '../../features/prediction/utils/resultReveal.ts'
 import { ConsumerAccountLayout } from '../../features/user/components/ConsumerAccountLayout.tsx'
 import { WalletRegistrationPanel } from '../../features/wallet/components/WalletRegistrationPanel.tsx'
 import { useMyWallets } from '../../features/wallet/hooks/useMyWallets.ts'
@@ -26,6 +27,50 @@ const REASONS: { value: PredictionReasonCode; label: string }[] = [
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
+}
+
+function PredictionResult({ soldQuantity, bucketIndex }: { soldQuantity: number; bucketIndex: number }) {
+  const [displayedQuantity, setDisplayedQuantity] = useState(0)
+  const [settled, setSettled] = useState(false)
+
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setDisplayedQuantity(soldQuantity)
+      setSettled(true)
+      return
+    }
+
+    const steps = buildResultRevealSteps(soldQuantity)
+    let index = 0
+    let timer = 0
+    setDisplayedQuantity(0)
+    setSettled(false)
+
+    const advance = () => {
+      const step = steps[index]
+      setDisplayedQuantity(step.value)
+      index += 1
+      if (index >= steps.length) {
+        setSettled(true)
+        return
+      }
+      timer = window.setTimeout(advance, step.delayMs)
+    }
+
+    timer = window.setTimeout(advance, 120)
+    return () => window.clearTimeout(timer)
+  }, [soldQuantity])
+
+  return (
+    <p
+      className={`prediction-card__result ${settled ? 'is-settled' : 'is-counting'}`}
+      aria-label={`최종 순판매량 ${soldQuantity}개, 당첨 구간 ${bucketIndex + 1}`}
+    >
+      <span aria-hidden="true">최종 순판매량 </span>
+      <strong aria-hidden="true">{displayedQuantity.toLocaleString()}</strong>
+      <span aria-hidden="true">개 · 당첨 구간 #{bucketIndex + 1}</span>
+    </p>
+  )
 }
 
 function MarketCard({ market, walletAddress }: { market: PredictionMarket; walletAddress: string | null }) {
@@ -80,7 +125,13 @@ function MarketCard({ market, walletAddress }: { market: PredictionMarket; walle
       </div>
       <p>판매 집계: {formatDate(market.salesStartsAt)} ~ {formatDate(market.salesEndsAt)}</p>
       <p>예측 마감: {formatDate(market.bettingEndsAt)}</p>
-      {market.soldQuantity !== null ? <p className="prediction-card__result">최종 순판매량 {market.soldQuantity}개 · 당첨 구간 #{(market.winningBucketIndex ?? 0) + 1}</p> : null}
+      {market.soldQuantity !== null ? (
+        <PredictionResult
+          key={`${market.id}-${market.soldQuantity}`}
+          soldQuantity={market.soldQuantity}
+          bucketIndex={market.winningBucketIndex ?? 0}
+        />
+      ) : null}
 
       {state ? (
         <div className="prediction-card__wallet-stats">
