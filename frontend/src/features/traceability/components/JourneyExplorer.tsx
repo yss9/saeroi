@@ -467,10 +467,24 @@ function JourneyCanvas({
                     <g transform="translate(-10 -10)">
                       <TravelerIcon size={20} weight={JOURNEY_ICON_WEIGHT} aria-hidden="true" />
                     </g>
+                    {/*
+                      begin이 **음수**인 것은 오타가 아니다. 이 `<g>`에는 초기 transform이
+                      없어서 animateMotion이 시작되기 전까지 viewBox 원점(캔버스 좌상단)에
+                      머무는데, 양수 지연을 주면 그 지연 동안 마커가 좌상단에 조각으로
+                      보인다 — 엣지 key에 viewMode와 activeStage가 들어 있어 뷰를 바꾸거나
+                      단계를 바꿀 때마다 전부 리마운트되며 매번 다시 나타났다.
+                      음수 오프셋은 "문서가 시작되기 전에 이미 시작된 것"으로 취급되어
+                      마운트 즉시 그 위상부터 활성이다. 엣지마다 위상을 어긋나게 하는
+                      효과는 그대로고, 원점에 머무는 구간만 사라진다.
+
+                      `<g>`에 transform으로 초기 위치를 주는 식으로 고치면 안 된다 —
+                      animateMotion의 모션 변환은 기존 transform을 대체하지 않고 그 위에
+                      더해져서, 도는 동안 좌표가 두 번 더해져 경로를 벗어난다.
+                    */}
                     <animateMotion
                       path={route.path}
                       dur="2.2s"
-                      begin={`${index * 0.18}s`}
+                      begin={`${-index * 0.18}s`}
                       repeatCount="indefinite"
                     />
                   </g>
