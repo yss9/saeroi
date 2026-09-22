@@ -4,6 +4,7 @@ import { ErrorMessage, Loading } from '../../../components/common/index.ts'
 import { getPassportThumbnailUrl } from '../api/getPassport.ts'
 import { usePassport } from '../hooks/usePassport.ts'
 import type { ProductPassport } from '../types/traceability.types.ts'
+import { JOURNEY_ICON_WEIGHT } from '../utils/journeyStages.ts'
 import { JourneyExplorer } from './JourneyExplorer.tsx'
 import logoUrl from '../../../assets/saeroi-logo-vector.svg'
 import '../../../pages/landing/landing.css'
@@ -84,12 +85,12 @@ export function PassportView({ qrToken }: PassportViewProps) {
           */}
           {data.journey?.blockchainVerified ? (
             <span className="passport-product__verified">
-              <ShieldCheck size={18} weight="fill" aria-hidden="true" />
+              <ShieldCheck size={18} weight={JOURNEY_ICON_WEIGHT} aria-hidden="true" />
               Verified Upcycled Product
             </span>
           ) : (
             <span className="passport-product__verified is-pending">
-              <ShieldCheck size={18} weight="duotone" aria-hidden="true" />
+              <ShieldCheck size={18} weight={JOURNEY_ICON_WEIGHT} aria-hidden="true" />
               블록체인 기록 확인 중
             </span>
           )}
@@ -106,7 +107,7 @@ export function PassportView({ qrToken }: PassportViewProps) {
           </>
         ) : (
           <section className="passport-empty" aria-label="여정 준비 상태">
-            <ShieldCheck size={38} weight="duotone" aria-hidden="true" />
+            <ShieldCheck size={38} weight={JOURNEY_ICON_WEIGHT} aria-hidden="true" />
             <div>
               <h2>제품 여정을 준비하고 있습니다.</h2>
               <p>제품 정보는 확인되었으며, 연결된 Journey 기록은 아직 제공되지 않습니다.</p>
