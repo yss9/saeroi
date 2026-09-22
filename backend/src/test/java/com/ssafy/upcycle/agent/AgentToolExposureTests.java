@@ -47,15 +47,51 @@ class AgentToolExposureTests {
     }
 
     /**
-     * 단계마다 열둘을 넘지 않는다.
+     * 단계마다 열셋을 넘지 않는다.
      *
      * <p>{@code JourneyPhase} 가 적어 둔 이유가 있다 — 한꺼번에 넘기면 모델이 엉뚱한 단계의
      * tool 을 부르기 시작한다. 소재도 안 샀는데 생산 배치를 열려 하는 식이다.
+     *
+     * <p>열둘이었다가 생산 단계에 {@code cancel_production_batch} 를 넣으며 하나 올렸다.
+     * 배치 취소는 <b>묶인 소재를 풀는 유일한 길</b>이고, 문제가 생기는 단계에서 닿을 수
+     * 있어야 한다 — 다른 단계로 옮겨야만 정리할 수 있게 두면 담당자는 그 방법을 못 찾는다.
+     * 수를 줄이려고 그것을 빼는 것은 안전장치를 빼는 것이다.
      */
     @ParameterizedTest
     @EnumSource(JourneyPhase.class)
     void 단계마다_노출이_과하지_않다(JourneyPhase phase) {
-        assertThat(registry.specsFor(phase)).hasSizeLessThanOrEqualTo(12);
+        assertThat(registry.specsFor(phase)).hasSizeLessThanOrEqualTo(13);
+    }
+
+    /** 묶인 소재를 풀 방법은 생산 단계에서 보여야 한다. */
+    @Test
+    void 배치_취소는_생산_단계에서_보인다() {
+        assertThat(names(JourneyPhase.PRODUCTION)).contains("cancel_production_batch");
+    }
+
+    /**
+     * 단계가 달라 거절할 때 <b>어디로 옮기면 되는지</b> 말해 준다.
+     *
+     * <p>"지금 단계에서 쓸 수 없습니다" 만 돌려주면 모델이 그 기능이 없다고 결론 낸다. 실제로
+     * 생산 단계에서 판매 시작을 요청받고 "저는 할 수 없고 담당자가 직접 플랫폼에서 처리해야
+     * 합니다" 라고 답했다 — 단계만 옮기면 되는 일이었고, 담당자는 제품 화면으로 나갔다.
+     */
+    @Test
+    void 단계가_다르면_옮길_단계를_알려준다() {
+        String hint = registry.phaseHintFor("set_product_on_sale", JourneyPhase.PRODUCTION);
+
+        assertThat(hint).contains("PRODUCT");
+        assertThat(hint).contains("set_phase");
+        assertThat(hint).contains("할 수 없는 일이 아닙니다");
+    }
+
+    /** 없는 이름은 단계 문제가 아니다. 옮기라고 안내하면 옮긴 뒤 같은 실패를 반복한다. */
+    @Test
+    void 없는_이름은_단계를_옮기라고_하지_않는다() {
+        String hint = registry.phaseHintFor("make_me_a_sandwich", JourneyPhase.PRODUCTION);
+
+        assertThat(hint).contains("그런 이름의 기능이 없습니다");
+        assertThat(hint).doesNotContain("set_phase");
     }
 
     private List<String> names(JourneyPhase phase) {
