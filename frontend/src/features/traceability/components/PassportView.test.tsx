@@ -159,7 +159,7 @@ describe('PassportView', () => {
     expect(screen.getByText('ITEM-0001')).toBeInTheDocument()
     expect(screen.getByText('Verified Upcycled Product')).toBeInTheDocument()
     expect(screen.getByRole('list', { name: '여정 단계' }).querySelectorAll('li')).toHaveLength(5)
-    expect(screen.getByRole('button', { name: /수거/ })).toHaveAttribute('aria-current', 'step')
+    expect(screen.getByRole('button', { name: /원단 등록 완료/ })).toHaveAttribute('aria-current', 'step')
   })
 
   it('블록체인 검증 전에는 Verified 라고 말하지 않는다', async () => {
@@ -176,19 +176,19 @@ describe('PassportView', () => {
     expect(screen.queryByText('Verified Upcycled Product')).not.toBeInTheDocument()
   })
 
-  it('수거·원단 등록 단계에서는 여정 전체 지점을 미리 보여준다', async () => {
+  it('원단 등록·운송 단계에서는 여정 전체 지점을 미리 보여준다', async () => {
     const user = userEvent.setup()
     const { container } = renderView()
     await screen.findByRole('heading', { name: 'RE:BAG' })
 
-    // 기본 화면(수거)에서부터 이후 단계(가공·브랜드) 지점까지 이미 보인다 — 폐소재를
-    // 모아 등록하기까지가 출발점이라 전체 흐름을 먼저 보여준다.
-    expect(screen.getByRole('button', { name: /수거 완료/ })).toHaveAttribute('aria-current', 'step')
+    // 기본 화면(원단 등록)에서부터 이후 단계(가공·브랜드) 지점까지 이미 보인다 — 아직
+    // 제품이 만들어지기 전이라 전체 흐름을 먼저 보여준다.
+    expect(screen.getByRole('button', { name: /원단 등록 완료/ })).toHaveAttribute('aria-current', 'step')
     expect(container.querySelector('[data-node-id="process-a"]')).toBeInTheDocument()
     expect(container.querySelector('[data-edge-id="brand-a"]')).toBeInTheDocument()
 
-    // 원단 등록으로 옮겨도 마찬가지다.
-    await user.click(screen.getByRole('button', { name: /원단 등록 완료/ }))
+    // 운송으로 옮겨도 마찬가지다.
+    await user.click(screen.getByRole('button', { name: /운송 완료/ }))
     expect(container.querySelector('[data-node-id="process-a"]')).toBeInTheDocument()
     expect(container.querySelector('[data-edge-id="brand-a"]')).toBeInTheDocument()
 
@@ -224,7 +224,7 @@ describe('PassportView', () => {
     await screen.findByRole('heading', { name: 'RE:BAG' })
 
     await user.click(screen.getByRole('button', { name: /가공 완료/ }))
-    // 가공부터는 수거·원단 등록처럼 전체를 미리 보여주지 않는다 — 그 이후 단계
+    // 가공부터는 원단 등록·운송처럼 전체를 미리 보여주지 않는다 — 그 이후 단계
     // (브랜드) 지점은 진행되기 전까지 지도에도 나타나지 않는다.
     expect(container.querySelector('[data-edge-id="brand-a"]')).not.toBeInTheDocument()
 
@@ -347,7 +347,7 @@ describe('PassportView', () => {
     expect(screen.getByRole('img', { name: /업체 위치와 이동 경로/ })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Flow View' })).not.toBeInTheDocument()
 
-    // 기본 화면(수거)은 전체 여정을 미리 보여주므로 ReWeave(브랜드)도 이미 보인다 —
+    // 기본 화면(원단 등록)은 전체 여정을 미리 보여주므로 ReWeave(브랜드)도 이미 보인다 —
     // 다만 단계를 눌러야 그 단계가 활성 스텝(aria-current)이 된다.
     await user.click(screen.getByRole('button', { name: /브랜드 제작 완료/ }))
     await user.click(screen.getByRole('button', { name: 'ReWeave 상세 보기' }))
@@ -358,17 +358,22 @@ describe('PassportView', () => {
     expect(screen.getByRole('button', { name: '에코사이클' })).toHaveClass('is-active')
   })
 
-  it('수거업체를 만들지 않고 업체 사이 이동 기록만 보여준다', async () => {
+  it('운송 단계에 업체 노드를 만들지 않고 업체 사이 이동 기록만 보여준다', async () => {
     const user = userEvent.setup()
     const { container } = renderView()
     await screen.findByRole('heading', { name: 'RE:BAG' })
 
-    await user.click(screen.getByRole('button', { name: /수거 완료/ }))
+    await user.click(screen.getByRole('button', { name: /운송 완료/ }))
     expect(screen.getByText('2개의 이동 기록')).toBeInTheDocument()
     expect(container.querySelector('.journey-detail__selector')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^서울 원단 공급처$/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^그린텍스$/ })).not.toBeInTheDocument()
-    expect(screen.queryByText('수거업체')).not.toBeInTheDocument()
+
+    // 운송을 대신하는 가상의 업체를 만들지 않고 이동선 자체를 그 단계로 돌린다 —
+    // 백엔드가 이 단계의 nodeIds를 비워 내려주기 때문이다. 좌표 없는 노드가 빠지는
+    // Journey Map에서 세면 없는 게 당연해지므로, 모든 노드를 그리는 Flow View에서 센다.
+    await user.click(screen.getByRole('button', { name: 'Flow View' }))
+    expect(container.querySelectorAll('[data-node-stage="COLLECTION"]')).toHaveLength(0)
   })
 
   it('대표 이미지 외 업체·소재 사진을 만들지 않는다', async () => {

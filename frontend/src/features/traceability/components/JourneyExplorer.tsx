@@ -364,12 +364,14 @@ function JourneyCanvas({
       })
       .map((edge) => edge.edgeId),
   ), [activeStage, journey.edges, journey.nodes])
-  // 수거(첫 화면)·원단 등록 두 단계는 여정 전체를 미리 보여준다 — 폐소재를 모아
-  // 공급업체에 등록하기까지가 이 서비스의 출발점이라, 그 두 단계에서는 전체 그림을
-  // 먼저 보여주는 편이 "앞으로 어떤 여정인지"를 바로 알 수 있다. 그 뒤(가공부터)는
-  // 다시 진행된 단계까지만 보여준다 — 아직 확정되지 않은 이후 기록을 미리 노출하지
-  // 않기 위해서다.
-  const showFullFlow = activeIndex <= stageIndex('SOURCE')
+  // 원단 등록(첫 화면)·운송 두 단계는 여정 전체를 미리 보여준다 — 아직 제품이 만들어지기
+  // 전이라 그 두 단계에서는 전체 그림을 먼저 보여주는 편이 "앞으로 어떤 여정인지"를 바로
+  // 알 수 있다. 그 뒤(가공부터)는 다시 진행된 단계까지만 보여준다 — 아직 확정되지 않은
+  // 이후 기록을 미리 노출하지 않기 위해서다.
+  //
+  // 경계를 STAGE_ORDER의 두 번째 단계 이름으로 적는다. 숫자로 적으면 순서를 바꿀 때
+  // 조용히 어긋나고, 실제로 예전에 COLLECTION이 앞에 있을 때는 여기가 'SOURCE'였다.
+  const showFullFlow = activeIndex <= stageIndex('COLLECTION')
   const visibleEdges = journey.edges.filter((edge) =>
     viewMode === 'FLOW'
       || showFullFlow
@@ -1152,7 +1154,7 @@ function MapBackdrop() {
 }
 
 /**
- * Flow View 배경 — 카드 한 장뿐이다. 예전에는 여기에 "1. 수거 … 5. 최종 수령" 칩을
+ * Flow View 배경 — 카드 한 장뿐이다. 예전에는 여기에 "1. 원단 등록 … 5. 최종 수령" 칩을
  * 다시 그렸는데, 캔버스 바깥 위쪽 {@link JourneyStepper}가 같은 다섯 단계를 이미
  * 보여주고 있어 같은 줄이 두 번 나왔다. 칩은 없애고 스테퍼 하나만 남긴다.
  */
