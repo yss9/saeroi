@@ -109,9 +109,17 @@ public class ProcessingJobWorkflowService {
             throw new BusinessException(PROCESSING_RESULT_INVALID);
         long lossQuantity = input.getQuantity() - outputSum;
         job.saveResultDraft(lossQuantity, now());
+        // 최종 제출(ProcessingResultService#submit)과 같은 규칙이다 — 산출물의 소재 종류는
+        // 요청이 정하지 않고 투입 소재에서 그대로 따라온다. 요청의 값을 읽으면 안 되는
+        // 이유가 하나 더 있다: 화면은 이 값을 아예 보내지 않고 DTO 에도 @NotNull 이 없어,
+        // row.materialType() 은 null 로 내려와 ProcessingOutput.draft 가
+        // IllegalArgumentException 을 던지고 임시 저장 전체가 500 이 된다.
+        MaterialType inputMaterialType = materials.findById(input.getMaterialId())
+                .orElseThrow(() -> new BusinessException(PROCESSING_MATERIAL_NOT_FOUND))
+                .getMaterialType();
         outputs.deleteByProcessingJobId(jobId);
         outputs.saveAll(request.outputs().stream().map(row -> ProcessingOutput.draft(jobId, input.getId(),
-                row.materialType(), row.grade(), row.gradeReason(), row.name(), row.quantity())).toList());
+                inputMaterialType, row.grade(), row.gradeReason(), row.name(), row.quantity())).toList());
         return response(job);
     }
 
