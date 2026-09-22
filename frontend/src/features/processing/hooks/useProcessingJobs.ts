@@ -120,17 +120,31 @@ export function useProcessingJob(jobId: number) {
     },
     onSuccess: refresh,
   })
+  /*
+    발송. **서명이 먼저, 서버가 나중이다.**
+
+    서명이 빠지면 체인의 작업이 ACCEPTED 에 머물고, 업체가 수령을 누를 때 컨트랙트가
+    "Processing: invalid status" 로 거절한다 — confirmReceipt 는 markShipped 뒤에만 받는다.
+    막히는 사람이 담당자가 아니라 업체라서, 담당자는 왜 멈췄는지 알 수 없다.
+
+    **이미 서명이 남았으면 건너뛴다.** 서명이 들어간 뒤 서버 호출이 실패하는 창이 있는데
+    (네트워크 끊김, 토큰 만료), 그때 다시 시도하면 markShipped 가 revert 해서 — 체인이 이미
+    SHIPPED 라 require(ACCEPTED)를 어긴다 — 그 뒤의 서버 호출까지 못 간다. DB 가 영원히
+    따라잡지 못하므로, 재시도는 서버만 채운다. 서버도 체인을 읽어 같은 판정을 한다
+    (ChainProcessingStatusReader).
+  */
   const ship = useMutation({
     mutationFn: async (input: { carrier?: string; trackingNumber?: string }) => {
       const id = requireChainJob()
-      const receipt = await confirmed(markProcessingShipped(id, processingEvidenceHash({
-        type: 'PROCESSING_OUTBOUND_SHIPMENT',
-        jobId,
-        carrier: input.carrier ?? '',
-        trackingNumber: input.trackingNumber ?? '',
-      })))
-      await processingJobApi.ship(jobId, input)
-      return receipt
+      if (!(await processingAlreadyShipped(id))) {
+        await confirmed(markProcessingShipped(id, processingEvidenceHash({
+          type: 'PROCESSING_OUTBOUND_SHIPMENT',
+          jobId,
+          carrier: input.carrier ?? '',
+          trackingNumber: input.trackingNumber ?? '',
+        })))
+      }
+      return processingJobApi.ship(jobId, input)
     },
     onSuccess: refresh,
   })
@@ -249,5 +263,23 @@ export function useProcessingJob(jobId: number) {
     detail, request, evidence, chainPreparation, chainStatus,
     initializeChain, accept, acceptJob, declineJob, ship, receive, start, saveResult, submit, shipReturn, approve, reject, returnRejected,
     chainStatusCode: chainStatus.data ?? PROCESSING_CHAIN_STATUS.NONE,
+  }
+}
+
+/**
+ * 이 가공 작업에 **발송 서명이 이미 체인에 남았는가.**
+ *
+ * 번호로 크기를 비교하지 않는다 — DECLINED(9)·CANCELED(10)가 SHIPPED(3)보다 큰데 그 둘은
+ * 발송이 일어난 적 없다. 서버의 `ChainProcessingStatusReader` 와 같은 판정이다.
+ */
+const PROCESSING_SHIPPED_OR_BEYOND = new Set([3, 4, 5, 6, 7, 8, 11, 12])
+
+async function processingAlreadyShipped(chainJobId: number): Promise<boolean> {
+  try {
+    return PROCESSING_SHIPPED_OR_BEYOND.has(await getProcessingChainStatus(chainJobId))
+  } catch {
+    // 체인을 못 읽었다고 발송을 막지 않는다. 서명을 시도하고, 이미 남아 있으면 컨트랙트가
+    // 거절한다 — 그 실패는 담당자에게 그대로 보인다.
+    return false
   }
 }

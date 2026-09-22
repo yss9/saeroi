@@ -111,7 +111,15 @@ function ProcessingJobDetailContent({ jobId, job, request, role, flow }: {
     {role==='BRAND'&&job.status==='ACCEPTED'&&!job.chainJobId&&<section className="pj-panel pj-action"><p>가공업체가 요청을 수락했습니다. 발송 전에 입력 소재를 온체인 가공 작업에 잠급니다.</p><button disabled={pending} onClick={()=>flow.initializeChain.mutate()}>MetaMask로 온체인 작업 등록</button></section>}
     {role==='PROCESSOR'&&job.status==='ACCEPTED'&&job.chainJobId&&flow.chainStatusCode===PROCESSING_CHAIN_STATUS.REQUESTED&&<section className="pj-panel pj-action"><p>가공 조건과 투입 소재를 확인한 뒤 작업을 수락해 주세요.</p><button disabled={pending} onClick={()=>flow.accept.mutate()}>MetaMask로 가공 작업 수락</button></section>}
     {role==='BRAND'&&job.status==='ACCEPTED'&&job.chainJobId&&flow.chainStatusCode===PROCESSING_CHAIN_STATUS.REQUESTED&&<section className="pj-panel pj-action"><p>가공업체의 온체인 작업 수락을 기다리고 있습니다.</p></section>}
-    {role==='BRAND'&&job.status==='ACCEPTED'&&job.chainJobId&&flow.chainStatusCode===PROCESSING_CHAIN_STATUS.ACCEPTED&&<ProcessingShipmentForm isPending={flow.ship.isPending} error={flow.ship.error} submitLabel="MetaMask 확인 후 발송 처리" onSubmit={input=>flow.ship.mutate(input)}/>}
+    {/*
+      체인이 ACCEPTED 일 때뿐 아니라 **이미 SHIPPED 일 때도 띄운다.** 서명이 체인에 들어간 뒤
+      서버 호출이 실패하면(네트워크 끊김, 토큰 만료) 체인만 SHIPPED 가 되는데, ACCEPTED 에서만
+      띄우면 그 순간 폼이 사라져 담당자가 DB 를 따라잡게 할 방법이 없어진다. 작업은 영원히
+      ACCEPTED 로 남고 가공업체는 수령을 누를 수 없다.
+
+      이때 훅은 서명을 건너뛰고 서버만 부른다(useProcessingJobs.ship).
+    */}
+    {role==='BRAND'&&job.status==='ACCEPTED'&&job.chainJobId&&(flow.chainStatusCode===PROCESSING_CHAIN_STATUS.ACCEPTED||flow.chainStatusCode===PROCESSING_CHAIN_STATUS.SHIPPED)&&<ProcessingShipmentForm isPending={flow.ship.isPending} error={flow.ship.error} submitLabel={flow.chainStatusCode===PROCESSING_CHAIN_STATUS.SHIPPED?'발송 처리 마저 끝내기':'MetaMask 확인 후 발송 처리'} onSubmit={input=>flow.ship.mutate(input)}/>}
     {role==='PROCESSOR'&&job.status==='SHIPPED'&&<section className="pj-panel pj-action"><p>소재가 도착했다면 수령을 확인해 주세요.</p><button disabled={pending} onClick={()=>flow.receive.mutate()}>소재 수령 처리</button></section>}
     {role==='PROCESSOR'&&job.status==='RECEIVED'&&<section className="pj-panel pj-action"><p>투입 소재와 작업 조건을 확인한 뒤 가공을 시작합니다.</p><button disabled={pending} onClick={()=>flow.start.mutate()}>가공 시작</button></section>}
 
