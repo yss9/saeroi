@@ -24,6 +24,12 @@ const navigation = [
   { label: 'ABOUT', homeHref: '/about', route: '/about' },
 ]
 
+const predictionNavigation = {
+  label: 'PREDICTION',
+  homeHref: '/predictions',
+  route: '/predictions',
+}
+
 interface HeaderProps {
   isLogoVisible: boolean
   scrollToneViewportRatio?: number
@@ -117,6 +123,9 @@ export function Header({ isLogoVisible, scrollToneViewportRatio, forceScrolled }
   // /mypage 나 /admin 의 allow 가 바뀌면 여기 손대지 않아도 따라온다.
   const { items: accountItems, isResolving: isRoleResolving } = useVisibleMenu(ROLE_HOME_MENU_ITEMS)
   const accountLink = accountItems[0] ?? null
+  const primaryNavigation = user?.role === 'CONSUMER'
+    ? [...navigation, predictionNavigation]
+    : navigation
 
   return (
     <header className={`site-header${isScrolled ? ' site-header--scrolled' : ''}${isLogoVisible ? ' site-header--logo-visible' : ''}`}>
@@ -134,7 +143,7 @@ export function Header({ isLogoVisible, scrollToneViewportRatio, forceScrolled }
       </Link>
 
       <nav className="site-header__navigation" aria-label="주요 메뉴">
-        {navigation.map((item) => location.pathname === '/' && item.homeHref.startsWith('#') ? (
+        {primaryNavigation.map((item) => location.pathname === '/' && item.homeHref.startsWith('#') ? (
           <a key={item.label} href={item.homeHref}>{item.label}</a>
         ) : (
           <Link key={item.label} to={item.route}>{item.label}</Link>
