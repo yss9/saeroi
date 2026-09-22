@@ -43,16 +43,18 @@ function PredictionResult({ soldQuantity, bucketIndex }: { soldQuantity: number;
 
     const advance = () => {
       const step = steps[index]
-      setDisplayedQuantity(step.value)
-      index += 1
-      if (index >= steps.length) {
-        setSettled(true)
-        return
-      }
-      timer = window.setTimeout(advance, step.delayMs)
+      timer = window.setTimeout(() => {
+        setDisplayedQuantity(step.value)
+        index += 1
+        if (index >= steps.length) {
+          setSettled(true)
+          return
+        }
+        advance()
+      }, step.delayMs)
     }
 
-    timer = window.setTimeout(advance, 120)
+    advance()
     return () => window.clearTimeout(timer)
   }, [reduceMotion, soldQuantity])
 
@@ -62,7 +64,7 @@ function PredictionResult({ soldQuantity, bucketIndex }: { soldQuantity: number;
       aria-label={`최종 순판매량 ${soldQuantity}개, 당첨 구간 ${bucketIndex + 1}`}
     >
       <span aria-hidden="true">최종 순판매량 </span>
-      <strong aria-hidden="true">{displayedQuantity.toLocaleString()}</strong>
+      <strong key={displayedQuantity} aria-hidden="true">{displayedQuantity.toLocaleString()}</strong>
       <span aria-hidden="true">개 · 당첨 구간 #{bucketIndex + 1}</span>
     </p>
   )
@@ -74,6 +76,7 @@ function MarketCard({ market, walletAddress }: { market: PredictionMarket; walle
   const [reasonCode, setReasonCode] = useState<PredictionReasonCode>('DESIGN')
   const [reasonText, setReasonText] = useState('')
   const [notice, setNotice] = useState<string | null>(null)
+  const [resultRevealed, setResultRevealed] = useState(false)
   const [now, setNow] = useState(0)
   useEffect(() => {
     const update = () => setNow(Date.now())
@@ -120,7 +123,10 @@ function MarketCard({ market, walletAddress }: { market: PredictionMarket; walle
       </div>
       <p>판매 집계: {formatDate(market.salesStartsAt)} ~ {formatDate(market.salesEndsAt)}</p>
       <p>예측 마감: {formatDate(market.bettingEndsAt)}</p>
-      {market.soldQuantity !== null ? (
+      {market.soldQuantity !== null && !resultRevealed ? (
+        <Button variant="secondary" onClick={() => setResultRevealed(true)}>결과 확인하기</Button>
+      ) : null}
+      {market.soldQuantity !== null && resultRevealed ? (
         <PredictionResult
           key={`${market.id}-${market.soldQuantity}`}
           soldQuantity={market.soldQuantity}
