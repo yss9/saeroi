@@ -122,7 +122,17 @@ public class ProductImageService {
         }
     }
 
+    /**
+     * 목록 카드용 썸네일(폭 400px)을 만들어 별도 키로 저장한다.
+     *
+     * <p>{@code declared content-type} 이 jpeg/png/webp 라고 해서 바이트가 실제로 그
+     * 형식이라는 보장은 없다 ({@link #requireUploadableImage} 는 헤더만 본다). Thumbnailator
+     * 는 실제로 디코딩을 시도하므로, 여기서 그 사실이 드러난다 — {@code IOException} 뿐
+     * 아니라 {@code UnsupportedFormatException} 같은 unchecked 예외도 던진다. 둘 다 잡지
+     * 않으면 이미지가 아닌 바이트를 jpeg 라 우기는 요청이 500 으로 터진다.
+     */
     private StoredFile generateAndStoreThumbnail(FileReference reference, MultipartFile file) {
+        byte[] thumbnailBytes;
         try (InputStream originalStream = file.getInputStream()) {
             ByteArrayOutputStream thumbnailOutput = new ByteArrayOutputStream();
             Thumbnails.of(originalStream)
@@ -130,19 +140,18 @@ public class ProductImageService {
                     .outputQuality(0.75)
                     .outputFormat("jpeg")
                     .toOutputStream(thumbnailOutput);
-
-            byte[] thumbnailBytes = thumbnailOutput.toByteArray();
-            String thumbnailFileName = "thumb_" + file.getOriginalFilename();
-
-            return fileStorageService.store(
-                    reference,
-                    thumbnailFileName,
-                    "image/jpeg",
-                    new ByteArrayInputStream(thumbnailBytes),
-                    thumbnailBytes.length);
-        } catch (IOException e) {
-            throw new BusinessException(FileStorageErrorCode.FILE_STORAGE_FAILED);
+            thumbnailBytes = thumbnailOutput.toByteArray();
+        } catch (IOException | RuntimeException unreadableImage) {
+            throw new BusinessException(ProductErrorCode.PRODUCT_IMAGE_TYPE_NOT_ALLOWED);
         }
+
+        String thumbnailFileName = "thumb_" + file.getOriginalFilename();
+        return fileStorageService.store(
+                reference,
+                thumbnailFileName,
+                "image/jpeg",
+                new ByteArrayInputStream(thumbnailBytes),
+                thumbnailBytes.length);
     }
 
     private StoredFile store(FileReference reference, MultipartFile file) {
