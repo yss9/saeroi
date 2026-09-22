@@ -1,6 +1,7 @@
 import { useForm } from 'react-hook-form'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Button, ErrorMessage, Input } from '../../components/common/index.ts'
+import { canAccess, getLocationAccess } from '../../app/router/routeAccess.ts'
 import { AuthLayout } from '../../features/auth/components/AuthLayout.tsx'
 import { useLogin } from '../../features/auth/hooks/useLogin.ts'
 import type { LoginRequest } from '../../features/auth/types/auth.types.ts'
@@ -25,7 +26,10 @@ interface LocationState {
  */
 function landingPath(role: Parameters<typeof getRoleHomePath>[0], from?: string): string {
   const home = getRoleHomePath(role)
-  return isBusinessUserRole(role) ? home : (from ?? home)
+  if (isBusinessUserRole(role) || !from || from === '/403') return home
+
+  const access = getLocationAccess(from)
+  return access && canAccess(access, { isAuthenticated: true, role }) ? from : home
 }
 
 export function LoginPage() {

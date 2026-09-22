@@ -9,7 +9,7 @@ export function AdminPage() {
 
   return (
     <main className="page">
-      <nav className="admin-page__tabs" aria-label="관리자 기능">
+      <nav className={`admin-page__tabs ${section === 'blockchain' ? 'is-blockchain' : ''}`} aria-label="관리자 기능">
         <button type="button" className={section === 'applications' ? 'is-active' : ''}
           onClick={() => setSection('applications')}>사업자 가입 승인</button>
         <button type="button" className={section === 'prediction' ? 'is-active' : ''}
