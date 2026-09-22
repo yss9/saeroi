@@ -276,6 +276,19 @@ describe('LandingPage', () => {
     expect(screen.getByRole('link', { name: '우리의 이야기' })).toHaveAttribute('href', '/about')
   })
 
+  it('shows the prediction market in the primary navigation for consumers', () => {
+    useAuthStore.getState().signIn(
+      { id: 1, email: 'consumer@test.com', name: '고객', role: 'CONSUMER', walletAddress: null },
+      'access-token',
+    )
+
+    renderLandingPage()
+
+    const primaryNavigation = screen.getByRole('navigation', { name: '주요 메뉴' })
+    expect(within(primaryNavigation).getByRole('link', { name: 'PREDICTION' }))
+      .toHaveAttribute('href', '/mypage/predictions')
+  })
+
   it('shows login and signup links in the account menu when signed out', async () => {
     const user = userEvent.setup()
     renderLandingPage()
