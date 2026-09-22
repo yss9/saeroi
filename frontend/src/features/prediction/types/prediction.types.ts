@@ -34,7 +34,6 @@ export interface PredictionSurveyRequest {
 export interface PredictionPointGrant { walletAddress: string; amount: string; transactionHash: string }
 
 export interface PredictionChainState {
-  balance: bigint
   totalPool: bigint
   userStake: bigint
   userWinningStake: bigint
