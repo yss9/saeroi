@@ -25,6 +25,10 @@ function formatDate(value: string) {
   return new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
 }
 
+function formatPredictionProfit(value: bigint) {
+  return `${value > 0n ? '+' : ''}${formatPredictionPoint(value)}`
+}
+
 function PredictionResult({ soldQuantity, bucketIndex }: { soldQuantity: number; bucketIndex: number }) {
   return (
     <p
@@ -77,6 +81,9 @@ function MarketCard({ market, walletAddress }: { market: PredictionMarket; walle
   const expected = state && state.winningPool > 0n
     ? state.totalPool * state.userWinningStake / state.winningPool
     : state?.refundOnly ? state.userStake : 0n
+  const profit = state && market.status === 'RESOLVED'
+    ? expected - state.userStake
+    : state && market.status === 'CANCELED' ? 0n : null
   const canClaim = Boolean(state && !state.claimed && state.userStake > 0n
     && (market.status === 'CANCELED' || market.status === 'RESOLVED')
     && (state.refundOnly || state.userWinningStake > 0n))
@@ -102,9 +109,8 @@ function MarketCard({ market, walletAddress }: { market: PredictionMarket; walle
 
       {state ? (
         <div className="prediction-card__wallet-stats">
-          <span>보유 {formatPredictionPoint(state.balance)} PRED</span>
           <span>내 예치 {formatPredictionPoint(state.userStake)} PRED</span>
-          <span>전체 풀 {formatPredictionPoint(state.totalPool)} PRED</span>
+          <span>내 수익 {profit === null ? '정산 전' : `${formatPredictionProfit(profit)} PRED`}</span>
         </div>
       ) : null}
 
