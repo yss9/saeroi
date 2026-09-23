@@ -56,7 +56,11 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
+  /*
+    오른쪽 단이 280 에서 340 으로 넓어졌다. 결제·서명 카드가 여기 고정되면서 금액과 버튼이
+    한 줄에 들어가야 하기 때문이다. 대화 쪽은 1fr 이라 그만큼만 줄어든다.
+  */
+  grid-template-columns: minmax(0, 1fr) 340px;
 }
 
 .agent-chat__main {
@@ -75,6 +79,55 @@
   .agent-tasks {
     border-left: none;
     border-top: 1px solid #e5e5e5;
+  }
+}
+
+/*
+  오른쪽에 고정된 카드. 대화 안에 있을 때보다 좁으므로 여백을 줄인다.
+*/
+.agent-tasks__cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.agent-tasks__cards .agent-card {
+  margin-top: 0;
+  padding: 12px;
+}
+
+/*
+  카드가 오른쪽으로 갔을 때 대화에 남는 한 줄. 무엇을 기다리는 중인지는 대화에도 보여야
+  한다 — 아무 흔적도 없으면 담당자는 방금 요청이 어디로 갔는지 알 수 없다.
+*/
+.agent-waiting {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px dashed #d1d5db;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 13px;
+  color: #374151;
+}
+
+.agent-waiting__mark {
+  color: #6b7280;
+}
+
+.agent-waiting__where {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+@media (max-width: 780px) {
+  /* 좁은 화면에서는 카드가 대화 안에 남으므로 이 줄이 나올 일이 없다. */
+  .agent-waiting__where {
+    display: none;
   }
 }
 
@@ -327,28 +380,126 @@
   max-width: 100%;
 }
 
-.agent-message p {
+/*
+  말풍선은 **본문 전체**를 감싼다. 예전에는 <p> 에 배경을 줬는데, 모델의 답을 마크다운으로
+  그리면서 한 말풍선 안에 문단·목록·표가 함께 온다. <p> 에 배경이 있으면 목록과 표만 배경
+  밖으로 튀어나온다.
+*/
+.agent-message p,
+.agent-message__body {
   margin: 0;
   padding: 10px 14px;
   border-radius: 12px;
   font-size: 14px;
   line-height: 1.6;
-  white-space: pre-wrap;
+  width: fit-content;
+  max-width: 95%;
 }
 
 .agent-message--user p {
   background: #111827;
   color: #fff;
   margin-left: auto;
-  width: fit-content;
+  white-space: pre-wrap;
   max-width: 85%;
 }
 
-.agent-message--assistant p {
+.agent-message--assistant .agent-message__body {
   background: #f3f4f6;
   color: #111827;
-  width: fit-content;
-  max-width: 95%;
+}
+
+/* 말풍선 안쪽 첫 줄과 마지막 줄에 여백이 겹치면 위아래가 뜬다. */
+.agent-message__body > :first-child {
+  margin-top: 0;
+}
+
+.agent-message__body > :last-child {
+  margin-bottom: 0;
+}
+
+.agent-message__body p {
+  /* 문단 안의 줄바꿈은 모델이 의도한 것이다. 마크다운은 그것을 공백으로 합친다. */
+  white-space: pre-wrap;
+  margin: 0 0 8px;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  max-width: none;
+}
+
+.agent-message__body ul,
+.agent-message__body ol {
+  margin: 0 0 8px;
+  padding-left: 20px;
+}
+
+.agent-message__body li {
+  margin-bottom: 2px;
+}
+
+.agent-message__body h1,
+.agent-message__body h2,
+.agent-message__body h3 {
+  /* 대화창이 문서처럼 보이지 않게 제목도 본문 크기에 가깝게 둔다. */
+  font-size: 14px;
+  margin: 12px 0 6px;
+}
+
+.agent-message__body code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: #e5e7eb;
+  font-size: 13px;
+}
+
+.agent-message__body pre {
+  margin: 0 0 8px;
+  padding: 10px;
+  border-radius: 8px;
+  background: #e5e7eb;
+  overflow-x: auto;
+}
+
+.agent-message__body pre code {
+  padding: 0;
+  background: none;
+}
+
+/* 표는 대화 칸보다 넓어질 수 있다. 감싸 두지 않으면 말풍선이 찢어진다. */
+.agent-message__table {
+  margin: 0 0 8px;
+  overflow-x: auto;
+}
+
+.agent-message__body table {
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.agent-message__body th,
+.agent-message__body td {
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  text-align: left;
+}
+
+/*
+  머리글만 줄바꿈을 막는다. 내용까지 막으면 네 칸짜리 표가 좁은 대화 칸을 넘겨 가로
+  스크롤이 생기는데, 스크롤을 밀어야 보이는 칸은 사실상 안 읽힌다.
+*/
+.agent-message__body th {
+  white-space: nowrap;
+}
+
+.agent-message__body th {
+  background: #e5e7eb;
+  font-weight: 600;
+}
+
+/* 표가 대화 칸을 꽉 채우면 칸마다 폭이 고르게 잡힌다. */
+.agent-message__body table {
+  width: 100%;
 }
 
 /* 카드는 말풍선 바로 아래에 붙는다 — 어느 말에 대한 확인인지 보이게 한다. */

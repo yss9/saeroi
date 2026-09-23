@@ -1,5 +1,6 @@
 import { paidTotal, pendingStepOf, sinceStart, useAgentTrades } from '../hooks/useAgentTrades.ts'
-import type { ConversationDetail } from '../types/agent.types.ts'
+import type { ReactNode } from 'react'
+import type { ConversationDetail, PendingAction } from '../types/agent.types.ts'
 import type { Trade } from '../../trade/types/trade.types.ts'
 
 /** 상대를 기다리는 구간. 담당자가 할 수 있는 일이 없다는 것을 분명히 말해 준다. */
@@ -25,11 +26,27 @@ const WAITING_LABEL: Record<string, string> = {
  * <p>결제·서명 카드는 대화 흐름 안에 인라인으로 남는다 — 무엇에 동의하는지는 그 앞뒤 맥락과
  * 함께 읽어야 하기 때문이다. 여기서는 "왼쪽에 카드가 떠 있다" 는 사실만 알린다.
  */
-export function AgentTaskPanel({ conversation }: { conversation: ConversationDetail | null }) {
+export function AgentTaskPanel({
+  conversation,
+  pinnedCards = [],
+  renderCard,
+}: {
+  conversation: ConversationDetail | null
+  /** 여기에 고정할 카드. 넓은 화면에서만 온다 — 좁으면 대화 안에 남는다 */
+  pinnedCards?: PendingAction[]
+  /** 카드를 그리는 함수. 서명 방법 표가 대화 쪽에 있어서 그리기만 넘겨받는다 */
+  renderCard?: (action: PendingAction) => ReactNode
+}) {
   const { data } = useAgentTrades()
   const trades = (data?.content ?? []).filter((trade) => trade.status !== 'CANCELED')
 
   const openCards = conversation?.actions.filter((action) => action.status === 'PENDING') ?? []
+  // 여기 고정된 카드는 여기서 그대로 보이므로 따로 알릴 필요가 없다. 나머지만 알린다.
+  //
+  // **그릴 방법이 없으면 고정하지 않은 것으로 본다.** 그러지 않으면 카드가 대화에서도
+  // 빠지고 여기서도 안 그려져 어디에도 보이지 않는다.
+  const pinnedIds = new Set(renderCard ? pinnedCards.map((action) => action.id) : [])
+  const inlineCards = openCards.filter((action) => !pinnedIds.has(action.id))
   const actionable = trades.filter((trade) => pendingStepOf(trade) != null)
   const waiting = trades.filter(
     (trade) => pendingStepOf(trade) == null && WAITING_LABEL[trade.status] != null,
@@ -45,14 +62,34 @@ export function AgentTaskPanel({ conversation }: { conversation: ConversationDet
 
   return (
     <aside className="agent-tasks" aria-label="진행 절차">
-      {openCards.length > 0 && (
+      {/*
+        **카드를 여기에 고정한다.** 대화 안에 두면 모델이 계속 말하면서 카드가 위로 밀려
+        담당자가 도로 스크롤해야 했다 — 소재를 세 건 살 때 결제 카드 세 장이 그렇게 묻혔다.
+        이 패널은 따로 스크롤되므로 대화가 흘러도 그대로 남는다.
+
+        좁은 화면에서는 이 패널이 대화 아래로 내려가므로 `pinnedCards` 가 비어서 오고,
+        카드는 대화 안에 그대로 남는다.
+      */}
+      {pinnedCards.length > 0 && renderCard && (
+        <section className="agent-tasks__block agent-tasks__block--alert">
+          <h2>확인 대기 {pinnedCards.length}건</h2>
+          <div className="agent-tasks__cards">
+            {pinnedCards.map((action) => (
+              <div key={action.id}>{renderCard(action)}</div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* 대화 안에 남아 있는 카드(좁은 화면, 생산 온체인 기록)는 여기서 알리기만 한다. */}
+      {inlineCards.length > 0 && (
         <section className="agent-tasks__block agent-tasks__block--alert">
           <h2>확인 대기</h2>
           <p className="agent-tasks__hint">
-            왼쪽 대화에 {openCards.length}건의 카드가 떠 있습니다.
+            왼쪽 대화에 {inlineCards.length}건의 카드가 떠 있습니다.
           </p>
           <ul>
-            {openCards.map((action) => (
+            {inlineCards.map((action) => (
               <li key={action.id}>{cardLabel(action.actionType)}</li>
             ))}
           </ul>

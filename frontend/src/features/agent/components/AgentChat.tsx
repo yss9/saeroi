@@ -1,5 +1,8 @@
 import type { ContractTransactionResponse } from 'ethers'
 import { useEffect, useRef, useState } from 'react'
+import { useWideLayout } from '../hooks/useWideLayout.ts'
+import { pinnedToPanel } from './pinnedCards.ts'
+import { AgentMessageBody } from './AgentMessageBody.tsx'
 import { linkTradeOnChain } from '../../../services/blockchain/chainLinkApi.ts'
 import { getListing } from '../../marketplace/api/getListing.ts'
 import {
@@ -8,10 +11,12 @@ import {
   getOrder,
 } from '../../marketplace/services/marketplaceContractService.ts'
 import { processingJobApi } from '../../processing/api/processingJobApi.ts'
+import { chainAlreadyPassed } from '../../processing/services/processingChainProgress.ts'
 import {
   approveProcessingResultOnChain,
   createProcessingJob,
   getProcessingBrandLockId,
+  PROCESSING_CHAIN_STATUS,
   getProcessingChainStatus,
   markProcessingShipped,
   processingEvidenceHash,
@@ -49,6 +54,9 @@ export function AgentChat() {
   const [draft, setDraft] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  // 두 단으로 그려지는 폭인가. 떠 있는 카드를 어디에 그릴지가 여기 달렸다.
+  const wide = useWideLayout()
+  const openCards = (conversation?.actions ?? []).filter((action) => action.status === 'PENDING')
 
   // 새 메시지·카드가 생기거나 "답장 중" 이 켜질 때마다 아래로 붙인다.
   //
@@ -137,8 +145,22 @@ export function AgentChat() {
               key={`m${entry.message.id}`}
               className={`agent-message agent-message--${entry.message.role.toLowerCase()}`}
             >
-              <p>{entry.message.content}</p>
+              {/*
+                담당자가 친 말은 **그대로** 보여 준다. 마크다운으로 해석하면 별표나 밑줄이
+                든 문장이 담당자가 쓴 것과 다르게 보인다 — 자기가 뭐라고 썼는지는 화면에
+                적힌 대로여야 한다.
+              */}
+              {entry.message.role === 'USER' ? (
+                <p>{entry.message.content}</p>
+              ) : (
+                <AgentMessageBody content={entry.message.content} />
+              )}
             </article>
+          ) : pinnedToPanel(entry.action, wide) ? (
+            // 넓은 화면에서는 이 카드를 오른쪽 패널이 그린다. 여기에는 무엇을 기다리는지만
+            // 한 줄 남긴다 — 양쪽에 그리면 버튼이 둘이 되고, 서명 카드는 내부 상태를 들고
+            // 있어서 어느 쪽을 눌렀는지에 따라 다르게 굴러간다.
+            <WaitingHere key={`a${entry.action.id}`} action={entry.action} />
           ) : (
             <ActionCard key={`a${entry.action.id}`} action={entry.action} />
           ),
@@ -188,7 +210,14 @@ export function AgentChat() {
       </form>
         </div>
 
-        <AgentTaskPanel conversation={conversation ?? null} />
+        <AgentTaskPanel
+          conversation={conversation ?? null}
+          // 카드를 패널로 옮기지 않고 **그리는 함수만** 넘긴다. 서명 방법 표(SIGNERS)와
+          // 그것이 부르는 체인 호출이 전부 이 파일에 있어서, 패널이 직접 그리게 하면
+          // 두 파일이 서로를 import 하게 된다.
+          pinnedCards={wide ? openCards.filter((action) => pinnedToPanel(action, wide)) : []}
+          renderCard={(action) => <ActionCard action={action} />}
+        />
       </div>
     </section>
   )
@@ -200,6 +229,19 @@ export function AgentChat() {
  * 서명 카드에 실제 서명 함수를 주입한다. 컴포넌트가 `new ethers.Contract` 를 직접 만들지
  * 않고 기존 `marketplaceContractService` 를 거치는 것이 이 저장소의 규칙이다.
  */
+/** 카드가 오른쪽에 있을 때 대화에 남는 한 줄. 무엇을 기다리는 중인지는 보여야 한다. */
+function WaitingHere({ action }: { action: PendingAction }) {
+  return (
+    <p className="agent-waiting">
+      <span className="agent-waiting__mark" aria-hidden="true">
+        →
+      </span>
+      {action.summary}
+      <span className="agent-waiting__where">오른쪽에서 확인해 주세요</span>
+    </p>
+  )
+}
+
 function ActionCard({ action }: { action: PendingAction }) {
   // **처리된 카드는 한 줄로 접는다.**
   //
@@ -327,6 +369,7 @@ const PROCESSED_STATUS: Record<string, string> = {
  */
 const SIGNERS: Record<string, (payload: SignPayload) => Promise<string>> = {
   request_chain_order: (payload) => signTradeOrder(requireId(payload, 'tradeId')),
+  register_processing_chain_job: (payload) => registerProcessingChainJob(requireId(payload, 'jobId')),
   request_custody_transfer: (payload) =>
     signCustodyTransfer(requireId(payload, 'jobId'), payload.carrier, payload.trackingNumber),
   approve_processing_result: (payload) => signProcessingApproval(requireId(payload, 'jobId')),
@@ -375,46 +418,33 @@ async function signCustodyTransfer(
 ): Promise<string> {
   const preparation = await processingJobApi.chainPreparation(jobId)
 
-  // 체인의 작업 번호. 방금 만들었으면 이벤트에서, 이미 있으면 준비 응답에서 온다.
-  let chainJobId: number
+  // **여기서 작업을 만들지 않는다.** 예전에는 chainJobId 가 없으면 createProcessingJob 을
+  // 부르고 곧바로 markShipped 를 시도했는데, 그건 구조적으로 성공할 수 없다 — 방금 만든
+  // 작업은 REQUESTED 이고, markShipped 는 ACCEPTED 일 때만 받는다. 그 사이에 업체의
+  // 온체인 수락이 들어가야 하는데 그럴 틈이 없다.
+  //
+  // 실제로 `execution reverted: "Processing: invalid status"` 라는 원시 문자열이 담당자
+  // 화면에 그대로 떴고, 두 번 눌러도 같은 결과였다. 등록은 register_processing_chain_job
+  // 이 맡는다 — 가공 화면이 "온체인 작업 등록" 버튼을 따로 둔 것과 같은 모양이다.
   if (preparation.chainJobId == null) {
-    const receipt = await confirmedTransaction(
-      createProcessingJob(
-        preparation.processorWallet,
-        preparation.inputTokenId,
-        preparation.inputQuantity,
-        preparation.processTypes,
-      ),
+    throw new Error(
+      '이 작업은 아직 블록체인에 등록되지 않았습니다. 먼저 온체인 작업 등록을 끝내고, ' +
+        '업체가 체인에서 수락한 뒤에 인계할 수 있습니다.',
     )
-    const values = readProcessingEventValues(receipt, 'ProcessingJobCreated', 'jobId')
-    if (values.length !== 1) throw new Error('온체인 작업 번호를 확인하지 못했습니다.')
-    const onChainId = Number(values[0])
-    const chainLockId = await getProcessingBrandLockId(onChainId)
-    await processingJobApi.linkChain(jobId, {
-      onChainId,
-      chainLockId,
-      txHash: receipt.hash,
-      blockNumber: receipt.blockNumber,
-    })
-    chainJobId = onChainId
-  } else {
-    // 등록은 이미 끝났다. 발송만 남은 상태로 다시 들어온 것이다.
-    chainJobId = preparation.chainJobId
+  }
+  const chainJobId = preparation.chainJobId
+
+  const chainStatus = await getProcessingChainStatus(chainJobId).catch(() => null)
+  if (chainStatus === PROCESSING_CHAIN_STATUS.REQUESTED) {
+    throw new Error('가공업체가 아직 블록체인에서 작업을 수락하지 않았습니다. 수락 후 다시 시도해 주세요.')
   }
 
-  // **체인에도 발송을 남긴다.** 이것을 빠뜨리면 체인의 작업은 ACCEPTED 에 머물고, 업체가
-  // 수령을 부를 때 컨트랙트가 "Processing: invalid status" 로 거절한다 — confirmReceipt 는
-  // markShipped 뒤에만 받는다. 실제로 그렇게 막혔다.
-  //
-  // 증빙 해시에 송장을 담는 이유는 가공 화면과 같다(useProcessingJobs.ship). 체인에 남는
-  // 값이 어느 발송이었는지 나중에 대조할 수 있어야 한다.
-  //
   // **이미 서명이 남았으면 건너뛴다.** 서명이 체인에 들어간 뒤 서버 호출이 실패하는 창이
-  // 있다(네트워크 끊김, 토큰 만료, 서버 재시작). 그때 다시 시도하면 markShipped 가
-  // revert 하고 — 체인이 이미 SHIPPED 라 require(ACCEPTED)를 어긴다 — 그 뒤의 서버 호출까지
-  // 못 가서 DB 가 영원히 따라잡지 못한다. 그래서 재시도는 서버만 채운다.
+  // 있다(네트워크 끊김, 토큰 만료). 그때 다시 시도하면 markShipped 가 revert 하고 — 체인이
+  // 이미 SHIPPED 라 require(ACCEPTED)를 어긴다 — 그 뒤의 서버 호출까지 못 가서 DB 가
+  // 영원히 따라잡지 못한다. 그래서 재시도는 서버만 채운다.
   let shipTxHash: string | null = null
-  if (!(await processingAlreadyShipped(chainJobId))) {
+  if (!(await chainAlreadyPassed(chainJobId, 'SHIPPED'))) {
     const shipReceipt = await confirmedTransaction(
       markProcessingShipped(
         chainJobId,
@@ -430,27 +460,48 @@ async function signCustodyTransfer(
   }
 
   await processingJobApi.ship(jobId, { carrier, trackingNumber })
-  // 건너뛴 경우에도 해시를 돌려줘야 카드가 완료로 닫힌다. 그때는 앞선 시도의 해시를 알 수
-  // 없으므로 이 값을 근거로 쓰지 않는다 — 서버는 체인을 직접 읽어 판정한다.
+  // 건너뛴 경우에도 해시를 돌려줘야 카드가 완료로 닫힌다. 서버는 체인을 직접 읽어 판정한다.
   return shipTxHash ?? 'already-signed'
 }
 
 /**
- * 이 가공 작업에 <b>발송 서명이 이미 체인에 남았는가.</b>
+ * 가공 작업을 <b>블록체인에 등록한다.</b> 인계보다 앞선 단계다.
  *
- * 번호로 크기를 비교하지 않는다 — DECLINED(9)·CANCELED(10)가 SHIPPED(3)보다 큰데 그 둘은
- * 발송이 일어난 적 없다. 서버의 ChainProcessingStatusReader 와 같은 판정이다.
+ * 등록하면 투입 소재가 온체인에 잠기고 작업이 REQUESTED 가 된다. 그다음은 업체 차례다 —
+ * 업체가 체인에서 수락해야 인계 서명을 할 수 있다.
+ *
+ * 서명에 필요한 값을 모델에게서 받지 않고 서버에서 다시 읽는다(`chainPreparation`). 모델이
+ * 준 것은 jobId 뿐이고, 토큰·수량·업체 지갑은 조회해 얻는다 — 숫자를 지어내도 엉뚱한 작업이
+ * 체인에 올라가지 않는다.
  */
-const PROCESSING_SHIPPED_OR_BEYOND = new Set([3, 4, 5, 6, 7, 8, 11, 12])
-
-async function processingAlreadyShipped(chainJobId: number): Promise<boolean> {
-  try {
-    return PROCESSING_SHIPPED_OR_BEYOND.has(await getProcessingChainStatus(chainJobId))
-  } catch {
-    // 체인을 못 읽었다고 발송을 막지 않는다. 서명을 시도하고, 이미 남아 있으면 컨트랙트가
-    // 거절한다 — 그 실패는 담당자에게 그대로 보인다.
-    return false
+async function registerProcessingChainJob(jobId: number): Promise<string> {
+  const preparation = await processingJobApi.chainPreparation(jobId)
+  if (preparation.chainJobId != null) {
+    throw Object.assign(new Error('이 작업은 이미 블록체인에 등록돼 있습니다.'), {
+      code: 'CHAIN_ALREADY_DONE',
+    })
   }
+
+  const receipt = await confirmedTransaction(
+    createProcessingJob(
+      preparation.processorWallet,
+      preparation.inputTokenId,
+      preparation.inputQuantity,
+      preparation.processTypes,
+    ),
+  )
+  const values = readProcessingEventValues(receipt, 'ProcessingJobCreated', 'jobId')
+  if (values.length !== 1) throw new Error('온체인 작업 번호를 확인하지 못했습니다.')
+  const onChainId = Number(values[0])
+
+  const chainLockId = await getProcessingBrandLockId(onChainId)
+  await processingJobApi.linkChain(jobId, {
+    onChainId,
+    chainLockId,
+    txHash: receipt.hash,
+    blockNumber: receipt.blockNumber,
+  })
+  return receipt.hash
 }
 
 /**
