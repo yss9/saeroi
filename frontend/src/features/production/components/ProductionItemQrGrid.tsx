@@ -68,14 +68,14 @@ export function ProductionItemQrGrid({ batchId, productName }: ProductionItemQrG
   // 물어본다 — 같은 접두사를 쓰므로 이 배치의 이미지 요청이 그대로 세어진다.
   const loading = useIsFetching({ queryKey: productionItemKeys.all(batchId) }) > 0
 
-  if (isPending) return <Loading variant="skeleton" rows={3} label="제품 개체를 불러오는 중" />
+  if (isPending) return <Loading variant="skeleton" rows={3} label="생산 제품을 불러오는 중" />
   if (isError) return <ErrorMessage error={error} onRetry={() => void refetch()} />
 
   if (data.length === 0) {
     return (
       <EmptyState
-        title="만들어진 제품 개체가 없습니다"
-        description="확정된 생산인데 개체가 없다면 운영자에게 알려 주세요."
+        title="등록된 생산 제품이 없습니다"
+        description="생산을 확정했는데 제품이 보이지 않으면 운영자에게 알려 주세요."
       />
     )
   }
@@ -167,7 +167,7 @@ function QrCard({
           <img
             className="qr-card__image"
             src={qr.url}
-            alt={`${item.itemCode} 개체의 QR 코드`}
+            alt={`${item.itemCode} 제품의 QR 코드`}
             width={160}
             height={160}
           />

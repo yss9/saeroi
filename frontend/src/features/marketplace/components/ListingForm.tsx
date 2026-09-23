@@ -149,19 +149,18 @@ export function ListingForm({
       {chain.error && !chain.isRejected && <ErrorMessage error={chain.error} />}
       {chain.isRejected && (
         <p className="listing-form__preview">
-          판매 등록은 끝났습니다. 온체인 서명을 취소하셨으니 판매글 상세에서 다시 할 수
-          있습니다.
+          판매 등록은 끝났지만 이력 기록은 완료되지 않았습니다. 판매글 상세에서 다시 할 수 있습니다.
         </p>
       )}
 
       {/* 어느 단계인지 말해 준다 — 지갑을 봐야 하는지 기다리면 되는지가 다르다. */}
       <Button type="submit" loading={isPending || chain.isBusy} fullWidth>
         {chain.status === 'SIGNING'
-          ? '지갑에서 서명해 주세요'
+          ? '지갑에서 요청을 확인해 주세요'
           : chain.status === 'PENDING'
-            ? '블록 확정을 기다리는 중…'
+            ? '판매 이력을 저장하는 중…'
             : chain.status === 'LINKING'
-              ? '온체인 결과를 기록하는 중…'
+              ? '저장 결과를 확인하는 중…'
               : pendingListing
                 ? '판매 등록 완료하기'
                 : '판매 등록'}
@@ -169,8 +168,8 @@ export function ListingForm({
 
       {tokenId === null && (
         <p className="listing-form__preview">
-          이 소재는 아직 온체인에 발행되지 않아 서버에만 등록됩니다. 소재 상세에서 발행한 뒤
-          판매글 상세에서 온체인 등록을 할 수 있습니다.
+          소재 이력이 아직 저장되지 않았습니다. 소재 상세에서 이력을 저장한 뒤
+          판매글 상세에서 판매 이력 기록을 완료할 수 있습니다.
         </p>
       )}
     </form>

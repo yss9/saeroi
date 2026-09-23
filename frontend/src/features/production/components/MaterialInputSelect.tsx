@@ -206,7 +206,7 @@ export function MaterialInputPicker({
       */}
       {drafts.length > 0 && (
         <p className="material-input__note">
-          자투리는 생산을 확정할 때 <strong>새 소재로 발행</strong>되어 보유 소재로
+          자투리는 생산을 확정할 때 <strong>새 소재로 등록</strong>되어 보유 소재로
           돌아옵니다. 폐기는 그대로 사라집니다.
         </p>
       )}

@@ -59,7 +59,7 @@ function renderGrid(productName?: string) {
 
 /** 그려진 QR 이미지 수. alt 로 센다 — 자리표시자와 섞이지 않는다. */
 function drawnLabels(): HTMLElement[] {
-  return screen.queryAllByAltText(/개체의 QR 코드$/)
+  return screen.queryAllByAltText(/제품의 QR 코드$/)
 }
 
 beforeEach(() => {
@@ -181,7 +181,7 @@ describe('ProductionItemQrGrid', () => {
     api.getProductionItems.mockResolvedValue([])
     renderGrid()
 
-    expect(await screen.findByText('만들어진 제품 개체가 없습니다')).toBeInTheDocument()
+    expect(await screen.findByText('등록된 생산 제품이 없습니다')).toBeInTheDocument()
   })
 
   // 남의 배치는 403 이다. 빈 배열과 구분되어야 한다.

@@ -58,9 +58,9 @@ export function useTradeOnChain() {
         if (onChain.remainingQuantity < BigInt(quantityGram)) {
           throw createAppError(ERROR_KIND.TRANSACTION_FAILED, {
             message:
-              `체인에 남은 수량이 ${formatKg(onChain.remainingQuantity)} 뿐이라 ` +
+              `판매 가능한 수량이 ${formatKg(onChain.remainingQuantity)} 뿐이라 ` +
               `${formatKg(quantityGram)} 를 주문할 수 없습니다. ` +
-              '앞선 거래의 온체인 취소가 아직 서명되지 않아 생긴 차이입니다. ' +
+              '앞선 취소 거래의 수량 정리가 완료되지 않았습니다. ' +
               '수량을 줄이거나, 판매자에게 문의해 주세요.',
           })
         }

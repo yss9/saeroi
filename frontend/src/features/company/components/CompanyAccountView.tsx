@@ -128,7 +128,7 @@ export function CompanyAccountView({ state, walletState, onRetryWallet, onEdit }
         <div className="company-account__wallet-heading">
           <span className="company-account__wallet-icon" aria-hidden="true"><Wallet /></span>
           <div>
-            <h2>블록체인 지갑</h2>
+            <h2>업무용 지갑</h2>
           </div>
           <StatusBadge tone={walletBadge.tone}>{walletBadge.label}</StatusBadge>
         </div>
@@ -154,7 +154,7 @@ export function CompanyAccountView({ state, walletState, onRetryWallet, onEdit }
               ) : (
                 <div className="company-account__wallet-empty">
                   <strong>아직 연결된 지갑이 없습니다.</strong>
-                  <span>MetaMask를 연결하고 서명하여 회사 계정의 지갑을 등록해 주세요.</span>
+                  <span>업무에 사용할 지갑을 연결해 주세요.</span>
                 </div>
               )}
               <WalletRegistrationPanel registeredAddress={registeredAddress} />

@@ -220,7 +220,7 @@ describe('ProductRegisterPage', () => {
     ])
     renderPage()
 
-    expect(await screen.findByText('서명이 끝난 뒤에 연결할 수 있습니다')).toBeInTheDocument()
+    expect(await screen.findByText('확인이 끝난 뒤에 연결할 수 있습니다')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '제품 등록' })).not.toBeInTheDocument()
     expect(screen.getByText('이미 제품이 연결된 생산입니다')).toBeInTheDocument()
   })

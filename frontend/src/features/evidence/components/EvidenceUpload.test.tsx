@@ -304,7 +304,7 @@ describe('목록', () => {
 
     const list = within(await screen.findByRole('list', { name: '등록된 증빙' }))
     expect(list.getByText('계근표')).toBeInTheDocument()
-    expect(list.getByText(HASH)).toBeInTheDocument()
+    expect(list.queryByText(HASH)).not.toBeInTheDocument()
   })
 
   it('storageKey 를 <img src> 에 넣지 않는다', async () => {

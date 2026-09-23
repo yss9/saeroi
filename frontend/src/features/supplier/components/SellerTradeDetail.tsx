@@ -169,8 +169,7 @@ function LedgerCard({ chainTradeId }: { chainTradeId: number | null }) {
         </details>
       ) : (
         <p className="trade-detail__ledger-note">
-          판매 등록 때 지갑 서명이 끝나지 않아 생긴 상태입니다. 발송·수령도 이력에 남지
-          않습니다.
+          판매 이력 기록이 완료되지 않은 거래입니다. 발송·수령 기록도 이어서 저장되지 않습니다.
         </p>
       )}
     </section>

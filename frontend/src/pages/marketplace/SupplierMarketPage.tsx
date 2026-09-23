@@ -137,7 +137,7 @@ export function SupplierMarketPage() {
         <Metric label="품절" value={summary.soldOut} unit="건" pending={summary.isPending} icon={<CheckCircle weight="fill" />} />
         <Metric label="내림" value={summary.canceled} unit="건" pending={summary.isPending} icon={<EyeSlash weight="fill" />} />
         <Metric
-          label={summary.unrecorded > 0 ? '이력 미기록 · 서명 필요' : '이력 미기록'}
+          label={summary.unrecorded > 0 ? '기록 완료 필요' : '이력 미기록'}
           value={summary.unrecorded}
           unit="건"
           todo={summary.unrecorded > 0}

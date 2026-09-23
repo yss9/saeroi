@@ -42,7 +42,7 @@ describe('CompanyRoleApprovalPanel', () => {
     api.getCompanyRoleApplications.mockResolvedValue([{ ...pending, walletAddress: null, walletVerified: false, status: 'WAITING_WALLET' }])
     renderPanel()
     expect(await screen.findByText('지갑 등록 대기')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '온체인 권한 확인 후 승인' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '권한 등록 후 승인' })).toBeDisabled()
   })
 
   it('승인하면 대기 목록에서 처리한 카드를 제거한다', async () => {
@@ -55,7 +55,7 @@ describe('CompanyRoleApprovalPanel', () => {
       transactionHashes: ['0xaaa', '0xbbb', '0xccc'],
     })
     renderPanel()
-    await userEvent.click(await screen.findByRole('button', { name: '온체인 권한 확인 후 승인' }))
+    await userEvent.click(await screen.findByRole('button', { name: '권한 등록 후 승인' }))
     await waitFor(() => expect(blockchain.grantCompanyRoles).toHaveBeenCalledWith('BRAND', pending.walletAddress))
     expect(api.approveCompanyRole).toHaveBeenCalledWith(7, ['0xaaa', '0xbbb', '0xccc'])
     expect(await screen.findByText('심사할 사업자 계정이 없습니다.')).toBeInTheDocument()
@@ -71,7 +71,7 @@ describe('CompanyRoleApprovalPanel', () => {
     })
     renderPanel()
 
-    await userEvent.click(await screen.findByRole('button', { name: '온체인 권한 확인 후 승인' }))
+    await userEvent.click(await screen.findByRole('button', { name: '권한 등록 후 승인' }))
 
     await waitFor(() => expect(api.approveCompanyRole).toHaveBeenCalledWith(7, []))
     expect(await screen.findByText('심사할 사업자 계정이 없습니다.')).toBeInTheDocument()

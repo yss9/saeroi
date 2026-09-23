@@ -8,6 +8,7 @@ import { useAuthStore } from '../../stores/authStore.ts'
 import { USER_ROLES, type UserRole } from '../../types/role.types.ts'
 import { getRoleHomePath } from '../../features/auth/utils/roleHomePath.ts'
 import {
+  ACCOUNT_MENU_ITEMS,
   ALL_MENU_ITEMS,
   BUSINESS_MENU_ITEMS,
   isMenuActive,
@@ -202,6 +203,17 @@ describe('계정 메뉴', () => {
     for (const role of ['SUPPLIER', 'BRAND', 'PROCESSOR'] as const) {
       expect(firstAccountLabel(role), role).toBe('마이페이지')
     }
+  })
+
+  it('ADMIN 사이드바에는 관리자 홈 대신 세 기능을 직접 보여준다', () => {
+    const map = getRouteAccessMap()
+    const visible = ACCOUNT_MENU_ITEMS.filter((item) => {
+      const access = map.get(item.to)
+      return access !== undefined && canAccess(access, { isAuthenticated: true, role: 'ADMIN' })
+    }).map((item) => item.label)
+
+    expect(visible).toEqual(['사업자 가입 승인', '예측시장 개설', '블록체인 검증'])
+    expect(visible).not.toContain('관리자 페이지')
   })
 
   // 사업자는 로그인 직후에도 회사 정보로 간다 — 어느 일을 하러 왔든 같은 출발점이고,

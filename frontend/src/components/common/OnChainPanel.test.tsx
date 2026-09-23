@@ -68,7 +68,7 @@ it('네트워크가 다르면 그 자리에서 전환할 수 있다', async () =
   mockWallet({ wrongChain: true })
   renderPanel()
 
-  const button = screen.getByRole('button', { name: '네트워크 전환' })
+  const button = screen.getByRole('button', { name: '연결 환경 변경' })
   await user.click(button)
 
   expect(switchChain).toHaveBeenCalledOnce()
@@ -78,7 +78,7 @@ it('네트워크가 맞으면 전환 버튼을 두지 않는다', () => {
   mockWallet({ wrongChain: false })
   renderPanel({ ready: true, blockedReason: undefined })
 
-  expect(screen.queryByRole('button', { name: '네트워크 전환' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: '연결 환경 변경' })).not.toBeInTheDocument()
 })
 
 it('전환을 취소하면 그 사실을 알린다', async () => {
@@ -87,9 +87,9 @@ it('전환을 취소하면 그 사실을 알린다', async () => {
   mockWallet({ wrongChain: true })
   renderPanel()
 
-  await user.click(screen.getByRole('button', { name: '네트워크 전환' }))
+  await user.click(screen.getByRole('button', { name: '연결 환경 변경' }))
 
-  expect(await screen.findByText('네트워크 전환을 취소했습니다.')).toBeInTheDocument()
+  expect(await screen.findByText('연결 환경 변경을 취소했습니다.')).toBeInTheDocument()
 })
 
 // 이미 온체인에 올라간 단계에는 서명할 일이 없다 — 네트워크를 바꾸라고 할 이유도 없다.
@@ -97,7 +97,7 @@ it('이미 발행된 단계에는 전환 버튼을 두지 않는다', () => {
   mockWallet({ wrongChain: true })
   renderPanel({ onChainId: 12 })
 
-  expect(screen.queryByRole('button', { name: '네트워크 전환' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: '연결 환경 변경' })).not.toBeInTheDocument()
 })
 
 // 지갑은 붙어 있는데 체인을 아직 못 읽은 구간이 있다. 이때 부모 패널은
@@ -108,7 +108,7 @@ it('체인을 아직 못 읽었어도 전환 수단을 준다', () => {
   mockWallet({ wrongChain: false, chainId: null })
   renderPanel()
 
-  expect(screen.getByRole('button', { name: '네트워크 전환' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: '연결 환경 변경' })).toBeInTheDocument()
 })
 
 it('지갑이 연결되지 않았으면 전환 버튼을 두지 않는다', () => {
@@ -123,5 +123,5 @@ it('지갑이 연결되지 않았으면 전환 버튼을 두지 않는다', () =
   } as unknown as ReturnType<typeof useWallet>)
   renderPanel({ blockedReason: '지갑을 먼저 연결해 주세요.' })
 
-  expect(screen.queryByRole('button', { name: '네트워크 전환' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: '연결 환경 변경' })).not.toBeInTheDocument()
 })
