@@ -38,8 +38,6 @@ export function BlockchainVerificationPanel() {
   /** 다음 재시도 시각. 끊겼을 때 "몇 초 뒤" 인지 보여주려고 들고 있다. */
   const [reconnectAt, setReconnectAt] = useState<number | null>(null)
   const [queryStartedAt, setQueryStartedAt] = useState<number | null>(null)
-  /** 접는 기준을 바꾸는 스위치. 블록을 숨기지는 않는다(liveMetrics.buildTrain 참고). */
-  const [onlyOurs, setOnlyOurs] = useState(false)
   /** 온체인 원본의 나머지 항목을 펼칠지. 기본은 접힘 — 먼저 읽어야 할 여섯 줄만 세운다. */
   const [allFields, setAllFields] = useState(false)
   const lastEventIdRef = useRef<string | null>(null)
@@ -125,11 +123,11 @@ export function BlockchainVerificationPanel() {
 
   const latest = liveBlocks[0] ?? null
   const cadence = useMemo(() => measureCadence(liveBlocks), [liveBlocks])
-  const cars = useMemo(() => buildTrain(liveBlocks, onlyOurs), [liveBlocks, onlyOurs])
+  const cars = useMemo(() => buildTrain(liveBlocks, true), [liveBlocks])
   // buildTrain 은 과거가 앞이다. 타워는 최신이 첫 자리이므로 뒤집어 넘긴다.
   const cells = useMemo(() => layoutStack([...cars].reverse()), [cars])
   const stackColumns = countStackColumns(cars)
-  const feed = useMemo(() => recentTransactions(liveBlocks, onlyOurs), [liveBlocks, onlyOurs])
+  const feed = useMemo(() => recentTransactions(liveBlocks), [liveBlocks])
   const eta = measureNextBlock(latest?.timestamp ?? null, cadence.averageMs, now)
   const elapsedQueryMs = queryStartedAt === null ? 0 : Math.max(0, queryNow - queryStartedAt)
 
@@ -159,7 +157,7 @@ export function BlockchainVerificationPanel() {
       <section className="chain-lab__train" aria-labelledby="chain-train-title">
         <div className="chain-lab__train-head">
           <div className="chain-lab__train-title">
-            <h2 id="chain-train-title">최근 블록</h2>
+            <h2 id="chain-train-title">최근 새로이 거래 블록</h2>
             {latest ? (
               <p className="chain-lab__head-block">
                 {/* key 가 바뀌면 요소가 다시 mount 되어 한 번짜리 강조가 재생된다. */}
@@ -167,14 +165,6 @@ export function BlockchainVerificationPanel() {
                 <small>{formatElapsed(latest.timestamp, now)}</small>
               </p>
             ) : null}
-          </div>
-          <div className="chain-lab__switch" role="group" aria-label="타워에 쌓을 블록">
-            <button type="button" aria-pressed={!onlyOurs} onClick={() => setOnlyOurs(false)}>
-              전체
-            </button>
-            <button type="button" aria-pressed={onlyOurs} onClick={() => setOnlyOurs(true)}>
-              saeroi 거래만
-            </button>
           </div>
         </div>
 
@@ -347,19 +337,15 @@ export function BlockchainVerificationPanel() {
           </div>
         )}
 
-        <section className="chain-lab__feed" aria-label="실시간 트랜잭션">
-          <div className="chain-lab__feed-head">트랜잭션</div>
+        <section className="chain-lab__feed" aria-label="실시간 새로이 거래">
+          <div className="chain-lab__feed-head">새로이 거래</div>
           {feed.length > 0 ? feed.map(({ transaction, block }) => (
             <button type="button" key={transaction.hash} onClick={() => void inspect(undefined, transaction.hash)}>
-              <span className={`chain-lab__tx-kind ${transaction.contractName ? 'is-ours' : ''}`}>
-                {transaction.contractName ? 'saeroi' : '타팀'}
-              </span>
+              <span className="chain-lab__tx-kind is-ours">새로이</span>
               <span className="chain-lab__tx-main">
                 <code>{shorten(transaction.hash)}</code>
                 <small>
-                  {transaction.contractName
-                    ? `${transaction.contractName}${transaction.functionName ? ` · ${transaction.functionName}()` : ''}`
-                    : `${shorten(transaction.from)} → ${shorten(transaction.to ?? 'CREATE')}`}
+                  {`${transaction.contractName}${transaction.functionName ? ` · ${transaction.functionName}()` : ''}`}
                 </small>
               </span>
               <span className="chain-lab__tx-block">
@@ -368,7 +354,7 @@ export function BlockchainVerificationPanel() {
               </span>
             </button>
           )) : (
-            <p className="chain-lab__feed-empty">{onlyOurs ? 'saeroi 거래 없음' : '트랜잭션 없음'}</p>
+            <p className="chain-lab__feed-empty">새로이 거래 없음</p>
           )}
         </section>
       </div>
@@ -483,13 +469,10 @@ function wait(milliseconds: number, signal: AbortSignal): Promise<void> {
   })
 }
 
-function recentTransactions(
-  blocks: readonly LiveBlock[],
-  onlyOurs: boolean,
-): { transaction: LiveTransaction; block: LiveBlock }[] {
+function recentTransactions(blocks: readonly LiveBlock[]): { transaction: LiveTransaction; block: LiveBlock }[] {
   return blocks
     .flatMap((block) => block.transactions.map((transaction) => ({ transaction, block })))
-    .filter((entry) => (onlyOurs ? entry.transaction.contractName !== null : true))
+    .filter((entry) => entry.transaction.contractName !== null)
     .slice(0, FEED_LIMIT)
 }
 

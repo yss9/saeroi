@@ -42,10 +42,6 @@
 .chain-lab__train-head h2 { margin: 0; font-size: 20px; letter-spacing: -.02em; }
 .chain-lab__train-title { display: grid; gap: 10px; }
 
-.chain-lab__switch { display: flex; flex: none; padding: 3px; border: 1px solid var(--chain-line); border-radius: 999px; background: var(--chain-ground); }
-.chain-lab__switch button { min-height: 38px; padding: 8px 16px; border: 0; border-radius: 999px; background: transparent; color: var(--chain-ink-soft); font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; }
-.chain-lab__switch button[aria-pressed="true"] { background: var(--chain-orange-strong); color: #fff; }
-
 .chain-lab__head-block { display: flex; align-items: baseline; gap: 10px; margin: 0; }
 .chain-lab__head-block strong { color: var(--chain-blue-dark); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 30px; font-weight: 600; letter-spacing: -.02em; animation: chain-flash .5s ease-out; }
 .chain-lab__head-block small { color: var(--chain-ink-soft); font-size: 13px; }
