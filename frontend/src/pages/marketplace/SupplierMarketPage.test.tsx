@@ -207,7 +207,7 @@ describe('요약 지표', () => {
     renderPage('/supplier/listings')
 
     await waitFor(() =>
-      expect(screen.getByRole('group', { name: '이력 미기록 · 서명 필요' })).toHaveTextContent('1건'),
+      expect(screen.getByRole('group', { name: '기록 완료 필요' })).toHaveTextContent('1건'),
     )
   })
 })

@@ -61,7 +61,7 @@ function trade(overrides: Partial<Trade> = {}): Trade {
   }
 }
 
-const release = () => screen.queryByRole('button', { name: '온체인 예약 해제' })
+const release = () => screen.queryByRole('button', { name: '예약 수량 되돌리기' })
 
 beforeEach(() => {
   order.data = { status: 'CREATED' }

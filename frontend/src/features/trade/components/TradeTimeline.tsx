@@ -211,7 +211,7 @@ function invoiceOf(trade: Trade): string | null {
  */
 function signatureNote(trade: Trade): string | null {
   if (trade.buyerSignedAt === null || trade.buyerSignedAt === trade.receivedAt) return null
-  return `지갑 서명 ${formatTradeDateTime(trade.buyerSignedAt)}`
+  return `수령 확인 ${formatTradeDateTime(trade.buyerSignedAt)}`
 }
 
 /** 지금 이 단계를 누가 해야 하는지, 보는 사람 기준으로 말한다. */

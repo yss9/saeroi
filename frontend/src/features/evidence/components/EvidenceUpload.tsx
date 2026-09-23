@@ -243,7 +243,6 @@ export function EvidenceUpload({
                     아니라 저장소 경로라 <img src> 에 넣으면 깨진 이미지가 되고, 해시는
                     온체인에 올라간 값이라 사용자가 대조할 수 있다.
                   */}
-                  <p className="evidence__hash">{file.fileHash}</p>
                   <p>
                     <time dateTime={file.uploadedAt}>{formatDateTime(file.uploadedAt)}</time>
                   </p>
@@ -276,7 +275,7 @@ export function EvidenceUpload({
             // 가려진 것은 없는 것이 아니다. 개수는 위 요약에 이미 나와 있으니 여기서는
             // 무엇이 왜 안 보이는지만 말한다. EmptyState 를 쓰면 "증빙 없음" 이 된다.
             <p className="evidence__masked">
-              증빙이 등록되어 있지만 파일 정보는 보이지 않습니다. 파일 이름·해시·업로더는
+              증빙이 등록되어 있지만 파일 정보는 보이지 않습니다. 파일 정보와 업로더는
               업로더와 소재 등록자, 현재 보유자에게만 공개됩니다.
             </p>
           )}
@@ -360,7 +359,7 @@ export function EvidenceUpload({
       <ConfirmModal
           open
           title="증빙을 지울까요?"
-          message={`${EVIDENCE_TYPE_LABEL[pendingDelete.evidenceType]} 파일을 지웁니다. 온체인에 이미 기록된 증빙은 지울 수 없습니다.`}
+          message={`${EVIDENCE_TYPE_LABEL[pendingDelete.evidenceType]} 파일을 지웁니다. 이미 이력에 포함된 증빙은 지울 수 없습니다.`}
           // 파일 목록의 트리거 버튼과 이름이 같으면("삭제") 테스트도 사용자도 어느 쪽을
           // 눌렀는지 구분할 수 없다. 모달의 확인 버튼은 "지우기" 로 갈라 둔다.
           confirmLabel="지우기"

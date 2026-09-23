@@ -92,7 +92,7 @@ describe('CompanyDashboardLayout', () => {
 
     expect(screen.queryByRole('heading', { name: '제한된 업무 화면' })).not.toBeInTheDocument()
     expect(await screen.findByRole('heading', { name: '회사 정보 본문' })).toBeInTheDocument()
-    expect(screen.getByText('사업자 역할 승인 대기 중입니다.')).toBeInTheDocument()
+    expect(screen.getByText('사업자 가입 승인 대기 중입니다.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /알림/ })).not.toBeInTheDocument()
   })
 
@@ -127,6 +127,26 @@ describe('CompanyDashboardLayout', () => {
       .map((link) => link.textContent?.trim())
 
     expect(labels[0]).toBe('마이페이지')
+  })
+
+  it('관리자 사이드바에서 세 관리자 기능으로 바로 이동한다', () => {
+    setBusinessUser('ADMIN')
+    renderLayout('/admin/company-role-applications')
+
+    const nav = screen.getByRole('navigation', { name: '사업자 대시보드 메뉴' })
+    expect(within(nav).queryByRole('link', { name: '관리자 페이지' })).not.toBeInTheDocument()
+    expect(within(nav).getByRole('link', { name: '사업자 가입 승인' })).toHaveAttribute(
+      'href',
+      '/admin/company-role-applications',
+    )
+    expect(within(nav).getByRole('link', { name: '예측시장 개설' })).toHaveAttribute(
+      'href',
+      '/admin/prediction-markets',
+    )
+    expect(within(nav).getByRole('link', { name: '블록체인 검증' })).toHaveAttribute(
+      'href',
+      '/admin/blockchain',
+    )
   })
 
   it('renders role-specific navigation without duplicating other roles', () => {

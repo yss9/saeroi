@@ -59,14 +59,14 @@ export function MaterialMintPanel({ material }: { material: MaterialDetail }) {
 
   const blockedReason = (() => {
     if (address === null) return '지갑을 먼저 연결해 주세요.'
-    if (env.besuChainIdHex === null) return 'SSAFY 네트워크 Chain ID 설정이 필요합니다.'
+    if (env.besuChainIdHex === null) return '이력 기록 설정을 확인할 수 없습니다. 관리자에게 문의해 주세요.'
     if (!correctChain) {
-      return `MetaMask를 SSAFY 네트워크(${BigInt(env.besuChainIdHex).toString()})로 전환해 주세요.`
+      return '업무용 지갑 연결 환경으로 변경해 주세요.'
     }
-    if (contracts.materialToken === null) return 'MaterialToken 컨트랙트 주소 설정이 필요합니다.'
+    if (contracts.materialToken === null) return '이력 기록 기능을 사용할 수 없습니다. 관리자에게 문의해 주세요.'
     if (evidence.isPending) return '등록된 저울 사진 증빙을 확인하는 중입니다.'
     if (evidence.isError || evidence.data?.visibility !== 'FULL') {
-      return '저울 사진 증빙을 확인할 수 없어 발행할 수 없습니다. 잠시 후 다시 시도해 주세요.'
+      return '저울 사진 증빙을 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.'
     }
     if (hasAmbiguousWeightPhoto) {
       return '저울 사진 증빙이 여러 개입니다. 발행에 사용할 사진을 하나만 남겨 주세요.'
@@ -76,8 +76,8 @@ export function MaterialMintPanel({ material }: { material: MaterialDetail }) {
 
   return (
     <OnChainPanel
-      title="소재 발행"
-      description="이 소재를 블록체인에 발행합니다. 발행해야 온체인 판매 등록을 할 수 있습니다."
+      title="소재 이력 기록"
+      description="등록한 소재의 주요 정보를 변경할 수 없는 이력으로 저장합니다."
       onChainId={material.tokenId}
       actionable={actionable}
       ready={ready}
@@ -91,7 +91,7 @@ export function MaterialMintPanel({ material }: { material: MaterialDetail }) {
       error={mint.error}
       isBusy={mint.isBusy}
       isRejected={mint.isRejected}
-      actionLabel="온체인 발행"
+      actionLabel="소재 이력 저장"
       onSign={() => {
         if (!address) return
         void mint.mint({

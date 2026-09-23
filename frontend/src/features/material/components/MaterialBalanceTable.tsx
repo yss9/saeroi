@@ -36,7 +36,7 @@ export function MaterialBalanceTable({ materialId }: MaterialBalanceTableProps) 
         title="보유자가 없습니다"
         // "아직 아무도 안 가졌다" 와 "동기화가 안 됐다" 는 다른 상황이다.
         // 지금은 후자일 가능성이 높아 그 사실을 숨기지 않는다.
-        description="온체인 잔액 동기화가 아직 반영되지 않았을 수 있습니다."
+        description="최근 수량 변경이 아직 반영되지 않았을 수 있습니다."
       />
     )
   }

@@ -88,7 +88,7 @@ describe('판매 온체인 등록', () => {
     render(<ListingChainPanel listing={listing({ chainListingId: null })} />)
 
     // 여기가 사라지면 이 글은 영영 체인에 오르지 못하고, 구매자도 온체인 주문을 못 한다.
-    expect(screen.getByRole('button', { name: '온체인 등록' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: '이력 기록 완료하기' })).toBeEnabled()
   })
 
   it('방금 서명해 해시가 떠 있으면 결과를 남긴다', () => {
@@ -98,7 +98,7 @@ describe('판매 온체인 등록', () => {
 
     // 앞 테스트와 다른 것은 해시뿐이므로(둘 다 chainListingId 는 4), 이 쌍이 해시 조건만
     // 따로 못박는다. 서명이 끝나자마자 칸이 사라지면 성공했는지 알 수 없다.
-    expect(screen.getByRole('heading', { name: '판매 온체인 등록' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '판매 이력 기록' })).toBeInTheDocument()
   })
 
   it('판매자가 아니면 등록 여부와 무관하게 그리지 않는다', () => {

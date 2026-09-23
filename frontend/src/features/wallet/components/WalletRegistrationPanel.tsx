@@ -64,9 +64,9 @@ export function WalletRegistrationPanel({ registeredAddress }: WalletRegistratio
 
       {wallet.wrongChain ? (
         <div className="company-wallet__network-warning">
-          <p>SAEROI 네트워크로 전환한 뒤 지갑을 등록해 주세요.</p>
+          <p>블록체인 기록에 맞는 연결 환경으로 변경한 뒤 지갑을 등록해 주세요.</p>
           <Button variant="secondary" onClick={() => void wallet.switchChain().then(reportSwitch)}>
-            네트워크 전환
+            연결 환경 변경
           </Button>
           {switchMessage ? <span>{switchMessage}</span> : null}
         </div>
@@ -75,12 +75,12 @@ export function WalletRegistrationPanel({ registeredAddress }: WalletRegistratio
       ) : (
         <>
           <Button onClick={() => registration.mutate()} loading={registration.isPending}>
-            {registeredAddress ? '이 지갑으로 변경 및 서명' : '지갑 등록 및 서명'}
+            {registeredAddress ? '이 지갑으로 변경' : '지갑 등록'}
           </Button>
           {registeredAddress ? (
             <p>새 지갑을 등록하면 기존 지갑은 비활성화되고 이력은 보존됩니다.</p>
           ) : (
-            <p>서명은 지갑 소유 확인에만 사용되며 자산을 이동하지 않습니다.</p>
+            <p>지갑 확인 과정에서는 자산이 이동하지 않습니다.</p>
           )}
         </>
       )}

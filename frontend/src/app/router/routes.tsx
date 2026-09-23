@@ -294,7 +294,12 @@ const appRoutes: RouteObject[] = [
       // ── ADMIN ──
       {
         element: <RoleGuard allow={['ADMIN']} />,
-        children: [{ path: '/admin', element: <AdminPage /> }],
+        children: [
+          { path: '/admin', element: <Navigate to="/admin/company-role-applications" replace /> },
+          { path: '/admin/company-role-applications', element: <AdminPage section="applications" /> },
+          { path: '/admin/prediction-markets', element: <AdminPage section="prediction" /> },
+          { path: '/admin/blockchain', element: <AdminPage section="blockchain" /> },
+        ],
       },
     ],
   },

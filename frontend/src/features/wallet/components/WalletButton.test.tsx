@@ -336,7 +336,7 @@ describe('6. Network 변경', () => {
     await renderConnected(provider)
     // '네트워크 {chainId}' 는 JSX 상 텍스트 노드가 둘로 쪼개져 있다.
     // getByText(chainId) 로는 잡히지 않으므로 문단을 집어 textContent 로 본다.
-    const networkNote = () => screen.getByText(/^네트워크/)
+    const networkNote = () => screen.getByText(/^지갑 연결 환경/)
     expect(networkNote()).toHaveTextContent(EXPECTED_CHAIN)
 
     act(() => provider.emit('chainChanged', OTHER_CHAIN))
@@ -350,7 +350,7 @@ describe('6. Network 변경', () => {
     await renderConnected(connectedProvider({}, OTHER_CHAIN))
 
     expect(await screen.findByText(new RegExp(`${EXPECTED_CHAIN} 이어야 합니다`))).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '네트워크 전환' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '연결 환경 변경' })).toBeInTheDocument()
   })
 
   it('기대 체인이 설정되지 않았으면(현 배포 상태) 경고를 띄우지 않는다', async () => {
@@ -359,7 +359,7 @@ describe('6. Network 변경', () => {
     envState.besuChainIdHex = null
     await renderConnected(connectedProvider({}, OTHER_CHAIN))
 
-    expect(screen.queryByRole('button', { name: '네트워크 전환' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '연결 환경 변경' })).not.toBeInTheDocument()
     expect(screen.queryByText(/이어야 합니다/)).not.toBeInTheDocument()
   })
 
@@ -368,7 +368,7 @@ describe('6. Network 변경', () => {
     const provider = connectedProvider({ wallet_switchEthereumChain: null }, OTHER_CHAIN)
     await renderConnected(provider)
 
-    await userEvent.click(screen.getByRole('button', { name: '네트워크 전환' }))
+    await userEvent.click(screen.getByRole('button', { name: '연결 환경 변경' }))
 
     await waitFor(() => expect(provider.calls).toContain('wallet_switchEthereumChain'))
     expect(provider.calls).not.toContain('wallet_addEthereumChain')
@@ -383,7 +383,7 @@ describe('6. Network 변경', () => {
     )
     await renderConnected(provider)
 
-    await userEvent.click(screen.getByRole('button', { name: '네트워크 전환' }))
+    await userEvent.click(screen.getByRole('button', { name: '연결 환경 변경' }))
 
     await waitFor(() => expect(provider.calls).toContain('wallet_addEthereumChain'))
   })
@@ -397,10 +397,10 @@ describe('6. Network 변경', () => {
     )
     await renderConnected(provider)
 
-    await userEvent.click(screen.getByRole('button', { name: '네트워크 전환' }))
+    await userEvent.click(screen.getByRole('button', { name: '연결 환경 변경' }))
 
     expect(
-      await screen.findByText('네트워크 정보가 아직 설정되지 않았습니다. 관리자에게 문의하세요.'),
+      await screen.findByText('지갑 연결 환경이 아직 설정되지 않았습니다. 관리자에게 문의하세요.'),
     ).toBeInTheDocument()
     expect(provider.calls).not.toContain('wallet_addEthereumChain')
   })
@@ -413,22 +413,22 @@ describe('6. Network 변경', () => {
     )
     await renderConnected(provider)
 
-    await userEvent.click(screen.getByRole('button', { name: '네트워크 전환' }))
+    await userEvent.click(screen.getByRole('button', { name: '연결 환경 변경' }))
 
-    expect(await screen.findByText('네트워크 전환을 취소했습니다.')).toBeInTheDocument()
+    expect(await screen.findByText('연결 환경 변경을 취소했습니다.')).toBeInTheDocument()
   })
 
   it('전환에 성공하면 chainChanged 반영 후 경고가 사라진다', async () => {
     envState.besuChainIdHex = EXPECTED_CHAIN
     const provider = connectedProvider({ wallet_switchEthereumChain: null }, OTHER_CHAIN)
     await renderConnected(provider)
-    await userEvent.click(screen.getByRole('button', { name: '네트워크 전환' }))
+    await userEvent.click(screen.getByRole('button', { name: '연결 환경 변경' }))
 
     // 실제 지갑은 전환이 끝나면 chainChanged 를 밀어준다. 그 흐름을 재현한다.
     act(() => provider.emit('chainChanged', EXPECTED_CHAIN))
 
     await waitFor(() =>
-      expect(screen.queryByRole('button', { name: '네트워크 전환' })).not.toBeInTheDocument(),
+      expect(screen.queryByRole('button', { name: '연결 환경 변경' })).not.toBeInTheDocument(),
     )
     expect(screen.queryByText(/이어야 합니다/)).not.toBeInTheDocument()
   })

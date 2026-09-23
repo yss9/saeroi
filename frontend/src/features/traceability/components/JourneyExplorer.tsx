@@ -159,7 +159,7 @@ export function JourneyExplorer({ journey }: { journey: ProductJourney }) {
             onClick={() => setViewMode('MAP')}
           >
             <MapTrifold size={18} aria-hidden="true" />
-            Journey Map
+            여정 지도
           </button>
           <button
             type="button"
@@ -168,7 +168,7 @@ export function JourneyExplorer({ journey }: { journey: ProductJourney }) {
             onClick={() => setViewMode('FLOW')}
           >
             <ShareNetwork size={18} aria-hidden="true" />
-            Flow View
+            흐름 보기
           </button>
         </div>
       </div>
@@ -221,7 +221,7 @@ function MobileJourneyExplorer({
     <section className="journey-explorer journey-explorer--mobile" aria-label="모바일 제품 여정">
       <header className="mobile-journey__intro">
         <div>
-          <p>PRODUCT JOURNEY</p>
+          <p>제품 여정</p>
           <h2>여정 확인</h2>
         </div>
         <span>{journey.nodes.length}개의 기록 지점</span>
@@ -274,7 +274,7 @@ function MobileJourneySummary({ journey }: { journey: ProductJourney }) {
       <section className={journey.blockchainVerified ? 'is-verified' : ''}>
         <ShieldCheck size={23} weight={JOURNEY_ICON_WEIGHT} aria-hidden="true" />
         <div>
-          <span>Journey 기록</span>
+          <span>여정 기록</span>
           <strong>{journey.blockchainVerified ? '검증 완료' : '확인 중'}</strong>
         </div>
       </section>
@@ -408,7 +408,7 @@ function JourneyCanvas({
   return (
     <div className={`journey-canvas journey-canvas--${viewMode.toLowerCase()}${compact ? ' journey-canvas--compact' : ''}`}>
       <div className="journey-canvas__heading">
-        <span>{viewMode === 'MAP' ? 'Journey Map' : 'Flow View'}</span>
+        <span>{viewMode === 'MAP' ? '여정 지도' : '흐름 보기'}</span>
         <strong>{STAGE_LABEL[activeStage]}</strong>
       </div>
       {viewMode === 'MAP' && Object.keys(positions).length === 0 ? (
@@ -701,7 +701,7 @@ function NodeDetail({ node }: { node: JourneyNode }) {
 
       {node.blockchainProofs.length > 0 ? (
         <section className="journey-detail__section journey-detail__proofs">
-          <h3>블록체인 기록</h3>
+          <h3>검증 기록</h3>
           {node.blockchainProofs.map((proof) => (
             <button
               key={proof.txHash}
@@ -747,7 +747,7 @@ function BlockchainProofModal({
   onClose: () => void
 }) {
   return (
-    <Modal open={proof !== null} onClose={onClose} title="블록체인 기록 상세">
+    <Modal open={proof !== null} onClose={onClose} title="기록 상세">
       {proof && (
         <dl className="journey-proof-modal">
           <div>
@@ -763,14 +763,10 @@ function BlockchainProofModal({
             <dd>{PROOF_STATUS_LABEL[proof.status]}</dd>
           </div>
           <div>
-            <dt>트랜잭션</dt>
+            <dt>검증 번호</dt>
             <dd>
               <TransactionHash hash={proof.txHash} />
             </dd>
-          </div>
-          <div>
-            <dt>컨트랙트</dt>
-            <dd title={proof.contractAddress}>{proof.contractAddress}</dd>
           </div>
           <div>
             <dt>확정 블록</dt>
@@ -844,8 +840,8 @@ function JourneyMetrics({ journey }: { journey: ProductJourney }) {
       <section className="journey-metrics__verification">
         <ShieldCheck size={34} weight={JOURNEY_ICON_WEIGHT} />
         <div>
-          <p className="journey-metrics__eyebrow">TRACEABILITY</p>
-          <h2>{journey.blockchainVerified ? '블록체인 검증 완료' : '기록 확인 중'}</h2>
+          <p className="journey-metrics__eyebrow">이력 검증</p>
+          <h2>{journey.blockchainVerified ? '이력 검증 완료' : '기록 확인 중'}</h2>
         </div>
       </section>
     </div>

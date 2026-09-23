@@ -96,7 +96,7 @@ describe('구매 온체인 기록', () => {
     render(<TradeChainPanel trade={trade({ chainTradeId: null })} />)
 
     // 여기가 사라지면 이 거래는 영영 체인에 오르지 못한다 — 발송·수령도 함께 잃는다.
-    expect(screen.getByRole('button', { name: '온체인 주문' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: '거래 기록 완료하기' })).toBeEnabled()
   })
 
   it('방금 서명해 해시가 떠 있으면 결과를 남긴다', () => {
@@ -106,6 +106,6 @@ describe('구매 온체인 기록', () => {
 
     // 앞 테스트와 다른 것은 해시뿐이므로(둘 다 chainTradeId 는 9), 이 쌍이 해시 조건만
     // 따로 못박는다. 서명이 끝나자마자 칸이 사라지면 성공했는지 알 수 없다.
-    expect(screen.getByRole('heading', { name: '구매 온체인 기록' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '거래 이력 기록' })).toBeInTheDocument()
   })
 })

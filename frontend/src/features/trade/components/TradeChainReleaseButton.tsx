@@ -58,9 +58,9 @@ export function TradeChainReleaseButton({ trade }: { trade: Trade }) {
         loading={chain.isBusy}
         disabled={chain.isBusy}
       >
-        온체인 예약 해제
+        예약 수량 되돌리기
       </Button>
-      {chain.isRejected && <p className="trade-chain-release__note">서명을 취소했습니다.</p>}
+      {chain.isRejected && <p className="trade-chain-release__note">요청을 취소했습니다.</p>}
       {chain.error && !chain.isRejected && <ErrorMessage error={chain.error} />}
     </div>
   )
