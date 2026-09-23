@@ -133,4 +133,12 @@ export interface JourneyProgress {
   steps: JourneyMark[]
   /** 담당자가 지금 할 일. 기다리는 중이면 그렇다고 적혀 있다 */
   nextTodo: string | null
+  /**
+   * 이번 조회에서 **새 카드가 떴는가.**
+   *
+   * 대화는 주기 조회하지 않는다 — 담당자가 말을 걸 때만 바뀐다고 보았기 때문이다. 그런데
+   * 공급업체나 가공업체가 움직이면 담당자 차례가 되고, 그때 서버가 카드를 대신 띄운다.
+   * 이 값이 참일 때만 대화를 다시 읽는다 — 매번 읽으면 20초마다 대화 전체를 받아 온다.
+   */
+  conversationChanged: boolean
 }

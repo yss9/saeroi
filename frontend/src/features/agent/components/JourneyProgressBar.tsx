@@ -1,4 +1,6 @@
-import { useQuery } from '@tanstack/react-query'
+import { useEffect } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { agentKeys } from '../api/agentKeys.ts'
 import { getJourneyProgress } from '../api/agentApi.ts'
 import type { JourneyMark } from '../types/agent.types.ts'
 
@@ -24,7 +26,8 @@ const REFRESH_MS = 20_000
  * 가공 계획은 대화에 저장되어 있어 화면이 읽을 수도 없다.
  */
 export function JourneyProgressBar({ conversationId }: { conversationId: number | null }) {
-  const { data } = useQuery({
+  const queryClient = useQueryClient()
+  const { data, dataUpdatedAt } = useQuery({
     queryKey: ['agent', 'progress', conversationId],
     queryFn: () => getJourneyProgress(conversationId as number),
     enabled: conversationId !== null,
@@ -33,6 +36,26 @@ export function JourneyProgressBar({ conversationId }: { conversationId: number 
     // 많아, 이게 없으면 종일 서버를 두드린다.
     refetchIntervalInBackground: false,
   })
+
+  /*
+    서버가 카드를 새로 띄웠으면 대화를 다시 읽는다.
+
+    공급업체가 발송하거나 가공업체가 수락하면 담당자 차례가 되는데, 담당자는 그런 단계가
+    있다는 것조차 모른다. 그래서 서버가 카드를 대신 띄우고, 화면은 이 신호를 보고 대화를
+    갱신해 그 카드를 보여 준다.
+
+    `conversationChanged` 일 때만 무효화한다. 매번 하면 20초마다 대화 전체를 받아 오게 되고,
+    그건 대화를 주기 조회하지 않기로 한 이유를 그대로 되돌리는 것이다.
+
+    **`dataUpdatedAt` 을 함께 본다.** 플래그만 의존성에 두면 값이 `true` 에서 `true` 로
+    이어질 때 effect 가 다시 돌지 않는다 — 연달아 두 개의 카드가 뜨면 두 번째를 놓친다.
+    조회 시각은 폴링마다 바뀌므로, 판정은 플래그가 하고 재실행은 이 값이 맡는다.
+  */
+  useEffect(() => {
+    if (data?.conversationChanged) {
+      void queryClient.invalidateQueries({ queryKey: agentKeys.active() })
+    }
+  }, [data?.conversationChanged, dataUpdatedAt, queryClient])
 
   if (!data) return null
 
