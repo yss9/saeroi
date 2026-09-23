@@ -124,8 +124,10 @@ export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps
   }
 
 
+  // data-role 이 역할 테마를 고른다(company-dashboard.css). 로그인 전이거나 소비자·관리자면
+  // 속성이 붙지 않아 기본 테마가 그대로 남는다.
   return (
-    <div className="company-dashboard">
+    <div className="company-dashboard" data-role={user?.role}>
       <a className="company-dashboard__skip-link" href="#company-dashboard-content">본문으로 이동</a>
 
       <header className="company-dashboard__header">
