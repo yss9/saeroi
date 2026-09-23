@@ -144,7 +144,36 @@ function parsePayload(payloadJson: string): ChainOrderPayload | null {
  * 앱의 `AppError` 도, ethers 가 던지는 오류도, 우리가 던진 `Error` 도 모두 `message` 를
  * 갖고 있어 그걸 그대로 쓴다. 없으면 최소한의 안내라도 남긴다.
  */
+/**
+ * 컨트랙트가 되돌린 이유 → 담당자가 읽을 문장.
+ *
+ * ethers 는 revert 를 통째로 문자열로 준다 — `execution reverted: "Processing: invalid
+ * status" (action="estimateGas", data="0x08c379a0…", …)`. 그것이 카드에 그대로 뜨면
+ * 담당자는 무엇이 잘못됐는지도, 무엇을 기다려야 하는지도 알 수 없다. 실제로 그렇게 떴다.
+ *
+ * 여기 없는 revert 는 원문을 남긴다 — 개발자가 볼 단서까지 지우지는 않는다.
+ */
+const REVERT_MESSAGES: ReadonlyArray<readonly [string, string]> = [
+  ['Processing: invalid status',
+    '지금 단계에서는 이 서명을 할 수 없습니다. 가공업체가 블록체인에서 아직 처리하지 않았을 수 있습니다 — 잠시 뒤 상태를 확인해 주세요.'],
+  ['Processing: caller is not brand', '이 작업의 브랜드 지갑으로만 서명할 수 있습니다. 연결된 지갑을 확인해 주세요.'],
+  ['Processing: insufficient material', '소재 잔량이 모자랍니다. 블록체인에 남은 수량과 화면의 수량이 어긋난 상태입니다.'],
+  ['Marketplace: order is not shippable', '지금 단계에서는 발송을 기록할 수 없습니다. 결제와 온체인 주문이 끝났는지 확인해 주세요.'],
+  ['Marketplace: caller is not buyer', '이 거래의 구매자 지갑으로만 서명할 수 있습니다.'],
+  ['Production: invalid status', '지금 단계에서는 이 서명을 할 수 없습니다. 앞 단계 서명이 끝났는지 확인해 주세요.'],
+  ['Production: product already linked', '이 제품 개체는 이미 다른 생산에 연결돼 있습니다.'],
+]
+
 function messageOf(error: unknown): string {
+  const raw = rawMessageOf(error)
+  if (raw === null) {
+    return '서명에 실패했습니다. 브라우저 콘솔에서 자세한 내용을 확인해 주세요.'
+  }
+  const known = REVERT_MESSAGES.find(([revert]) => raw.includes(revert))
+  return known ? known[1] : raw
+}
+
+function rawMessageOf(error: unknown): string | null {
   if (error instanceof Error && error.message) {
     return error.message
   }
@@ -152,7 +181,7 @@ function messageOf(error: unknown): string {
     const message = (error as { message: unknown }).message
     if (typeof message === 'string' && message) return message
   }
-  return '서명에 실패했습니다. 브라우저 콘솔에서 자세한 내용을 확인해 주세요.'
+  return null
 }
 
 /**
