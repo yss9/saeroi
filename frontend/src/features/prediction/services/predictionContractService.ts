@@ -51,7 +51,7 @@ export async function approveAndPlacePredictionBet(
   market: PredictionMarket, bucketIndex: number, pointAmount: string,
 ): Promise<{ transactionHash: string; stakeAmount: string }> {
   const marketAddress = contracts.predictionMarket
-  if (!marketAddress) throw new Error('PredictionMarket 컨트랙트 주소가 설정되지 않았습니다.')
+  if (!marketAddress) throw new Error('예측시장 기능을 사용할 수 없습니다. 관리자에게 문의해 주세요.')
   const amount = parseUnits(pointAmount, DECIMALS)
   if (amount <= 0n) throw new Error('예측 포인트는 0보다 커야 합니다.')
 

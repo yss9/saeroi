@@ -127,7 +127,7 @@ describe('세 가지 상태', () => {
     api.getMaterialBalances.mockResolvedValue([])
     renderTable()
 
-    expect(await screen.findByText(/동기화가 아직 반영되지 않았을 수 있습니다/)).toBeInTheDocument()
+    expect(await screen.findByText(/최근 수량 변경이 아직 반영되지 않았을 수 있습니다/)).toBeInTheDocument()
   })
 
   it('실패하면 ErrorMessage 다 — EmptyState 가 아니다', async () => {

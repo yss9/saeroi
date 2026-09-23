@@ -57,11 +57,6 @@ export function OnChainPanel({
   ready,
   blockedReason,
   status,
-  hash,
-  walletAddress,
-  chainId,
-  contractAddress,
-  blockNumber,
   error,
   isBusy,
   isRejected,
@@ -98,43 +93,11 @@ export function OnChainPanel({
       <header className="on-chain-panel__header">
         <h3>{title}</h3>
         <span className={`on-chain-panel__badge ${done ? 'is-done' : ''}`}>
-          {done ? `온체인 #${onChainId}` : '미등록'}
+          {done ? '기록 완료' : '기록 필요'}
         </span>
       </header>
 
       <p className="on-chain-panel__lead">{description}</p>
-
-      {(walletAddress ||
-        chainId ||
-        contractAddress ||
-        (blockNumber !== null && blockNumber !== undefined)) && (
-        <dl className="on-chain-panel__details">
-          {walletAddress && (
-            <div>
-              <dt>서명 지갑</dt>
-              <dd title={walletAddress}>{shortAddress(walletAddress)}</dd>
-            </div>
-          )}
-          {chainId && (
-            <div>
-              <dt>네트워크</dt>
-              <dd>{formatChainId(chainId)}</dd>
-            </div>
-          )}
-          {contractAddress && (
-            <div>
-              <dt>컨트랙트</dt>
-              <dd title={contractAddress}>{shortAddress(contractAddress)}</dd>
-            </div>
-          )}
-          {blockNumber !== null && blockNumber !== undefined && (
-            <div>
-              <dt>확정 블록</dt>
-              <dd>{blockNumber.toLocaleString('ko-KR')}</dd>
-            </div>
-          )}
-        </dl>
-      )}
 
       {children}
 
@@ -149,7 +112,7 @@ export function OnChainPanel({
           {needsChainSwitch && (
             <div className="on-chain-panel__switch">
               <Button variant="secondary" onClick={() => void wallet.switchChain().then(report)}>
-                네트워크 전환
+                연결 환경 변경
               </Button>
               {switchMessage && <span className="on-chain-panel__hint">{switchMessage}</span>}
             </div>
@@ -161,40 +124,19 @@ export function OnChainPanel({
             </Button>
             {/* 단계마다 사용자가 기다려야 하는 이유가 다르다. 그냥 스피너만 돌리면
                 지갑을 봐야 하는지 기다리면 되는지 알 수 없다. */}
-            {status === 'SIGNING' && <span className="on-chain-panel__hint">지갑에서 서명해 주세요</span>}
-            {status === 'PENDING' && <span className="on-chain-panel__hint">블록 확정을 기다리는 중…</span>}
-            {status === 'LINKING' && <span className="on-chain-panel__hint">결과를 기록하는 중…</span>}
+            {status === 'SIGNING' && <span className="on-chain-panel__hint">지갑에서 요청을 확인해 주세요</span>}
+            {status === 'PENDING' && <span className="on-chain-panel__hint">이력을 저장하는 중…</span>}
+            {status === 'LINKING' && <span className="on-chain-panel__hint">저장 결과를 확인하는 중…</span>}
           </div>
 
           {/* 서명 거부는 오류가 아니라 사용자의 선택이다. 붉은 배너를 띄우면 고장으로 읽힌다. */}
-          {isRejected && <p className="on-chain-panel__hint">서명을 취소했습니다. 다시 시도할 수 있습니다.</p>}
+          {isRejected && <p className="on-chain-panel__hint">요청을 취소했습니다. 다시 시도할 수 있습니다.</p>}
           {error && !isRejected && <ErrorMessage error={error} />}
         </>
       )}
 
-      {hash && (
-        <>
-          <TransactionHash hash={hash} />
-          <p className="on-chain-panel__hint">
-            이 트랜잭션은 연결된 MetaMask 지갑이 직접 서명했습니다. 지갑 활동 또는 위 해시로 확인할 수 있습니다.
-          </p>
-        </>
-      )}
     </section>
   )
-}
-
-function shortAddress(value: string): string {
-  return `${value.slice(0, 8)}…${value.slice(-6)}`
-}
-
-function formatChainId(chainId: string): string {
-  try {
-    const decimal = BigInt(chainId).toString()
-    return chainId === env.besuChainIdHex ? `SSAFY (${decimal})` : `Chain ID ${decimal}`
-  } catch {
-    return chainId
-  }
 }
 
 /**
@@ -209,14 +151,14 @@ export function TransactionHash({ hash }: { hash: string }) {
   if (!env.besuExplorerUrl) {
     return (
       <p className="on-chain-panel__hash" title={hash}>
-        tx {short}
+        기록 번호 {short}
       </p>
     )
   }
 
   return (
     <p className="on-chain-panel__hash">
-      tx{' '}
+      기록 번호{' '}
       <a
         href={`${env.besuExplorerUrl}/tx/${hash}`}
         target="_blank"

@@ -136,10 +136,7 @@ export function BlockchainVerificationPanel() {
   return (
     <section className="chain-lab" aria-labelledby="chain-lab-title">
       <header className="chain-lab__hero">
-        <div>
-          <p className="chain-lab__eyebrow">SSAFY BESU</p>
-          <h1 id="chain-lab-title">블록체인 검증</h1>
-        </div>
+        <h1 id="chain-lab-title">블록체인 검증</h1>
         <div className="chain-lab__hero-side">
           <StreamStatus
             monitoring={monitoring}

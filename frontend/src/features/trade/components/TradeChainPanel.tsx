@@ -64,18 +64,18 @@ export function TradeChainPanel({ trade }: { trade: Trade }) {
 
   return (
     <OnChainPanel
-      title="구매 온체인 기록"
-      description="주문이 체인에 기록됩니다. 이 번호가 있어야 발송·수령 확인도 온체인에 남습니다."
+      title="거래 이력 기록"
+      description="주문 정보를 안전하게 저장해 발송과 수령 이력을 이어서 확인할 수 있습니다."
       onChainId={trade.chainTradeId}
       actionable
       ready={ready}
       blockedReason={
         tooLate
-          ? '이 거래는 이미 발송·수령 단계를 지났습니다. 온체인 주문은 결제 직후까지만 만들 수 있어, 이 거래는 오프체인 기록만 남습니다.'
+          ? '이 거래는 이미 발송·수령 단계를 지나 추가 이력을 저장할 수 없습니다.'
           : address === null
             ? '지갑을 먼저 연결해 주세요.'
             : chainListingId === null
-              ? '판매자가 이 판매 글을 온체인에 등록하지 않았습니다. 판매자가 판매글 상세에서 "온체인 등록" 을 먼저 해야 합니다.'
+              ? '판매 이력 기록이 완료되지 않았습니다. 판매자에게 기록 완료를 요청해 주세요.'
               : undefined
       }
       status={chain.status}
@@ -83,7 +83,7 @@ export function TradeChainPanel({ trade }: { trade: Trade }) {
       error={chain.error}
       isBusy={chain.isBusy}
       isRejected={chain.isRejected}
-      actionLabel="온체인 주문"
+      actionLabel="거래 기록 완료하기"
       onSign={() => {
         if (chainListingId === null) return
         void chain.order(trade.tradeId, chainListingId, trade.quantity)

@@ -70,7 +70,7 @@ export function ProcessingShipmentForm({
         carrier: carrier.trim(), trackingNumber: trackingNumber.trim(),
         evidenceFileId: selectedEvidence?.id, evidenceHash: selectedEvidence?.hash,
       })}>
-        {isPending ? 'MetaMask 확인 및 처리 중…' : submitLabel}
+        {isPending ? '요청을 처리하는 중…' : submitLabel}
       </button>
       {error !== undefined && error !== null && <p className="pj-error" role="alert">{errorMessage(error)}</p>}
     </>

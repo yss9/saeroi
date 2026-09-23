@@ -72,11 +72,7 @@ export function PredictionMarketCreatePanel() {
   return (
     <section className="admin-market" aria-labelledby="prediction-market-title">
       <header className="admin-market__header">
-        <div>
-          <p className="admin-market__eyebrow">SALES FORECAST</p>
-          <h1 id="prediction-market-title">예측시장 개설</h1>
-          <p>생산이 확정된 배치를 선택하고 베팅·판매 기간과 판매량 구간을 정합니다.</p>
-        </div>
+        <h1 id="prediction-market-title">예측시장 개설</h1>
         <span className="admin-market__count">개설 {markets.data?.length ?? 0}건</span>
       </header>
 

@@ -572,7 +572,7 @@ async function confirmedTransaction(response: Promise<ContractTransactionRespons
   const transaction = await response
   const receipt = await transaction.wait()
   if (!receipt || receipt.status !== 1) {
-    throw new Error('블록체인 트랜잭션이 확정되지 않았습니다.')
+    throw new Error('이력 저장이 완료되지 않았습니다.')
   }
   return receipt
 }

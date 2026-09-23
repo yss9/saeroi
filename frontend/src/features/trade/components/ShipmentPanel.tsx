@@ -482,7 +482,7 @@ function ShippedReceipt({
       {trade.status === 'SHIPPED' && (
         <p className="shipment-panel__note">
           구매자의 수령 확인을 기다리는 중입니다. 수령이 확인되면 소유권이 이전되고 이 수량의
-          판매 잠금이 해제됩니다.
+          예약된 판매 수량이 다시 판매 가능해집니다.
         </p>
       )}
     </>

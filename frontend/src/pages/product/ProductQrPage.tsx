@@ -120,7 +120,7 @@ function Content({
     return (
       <EmptyState
         title="아직 만들어진 QR 이 없습니다"
-        description="생산을 확정하면 개체마다 QR 이 생성됩니다. 작성 중인 생산은 개체가 없어 라벨도 없습니다."
+        description="생산을 확정하면 제품 하나마다 QR이 생성됩니다. 작성 중인 생산은 아직 제품이 없어 라벨도 없습니다."
         action={<Link to="/brand/production">제품 생산으로 이동</Link>}
       />
     )

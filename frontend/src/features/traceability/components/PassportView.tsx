@@ -86,12 +86,12 @@ export function PassportView({ qrToken }: PassportViewProps) {
           {data.journey?.blockchainVerified ? (
             <span className="passport-product__verified">
               <ShieldCheck size={18} weight={JOURNEY_ICON_WEIGHT} aria-hidden="true" />
-              Verified Upcycled Product
+              검증된 업사이클 제품
             </span>
           ) : (
             <span className="passport-product__verified is-pending">
               <ShieldCheck size={18} weight={JOURNEY_ICON_WEIGHT} aria-hidden="true" />
-              블록체인 기록 확인 중
+              제품 이력을 확인하는 중
             </span>
           )}
         </section>

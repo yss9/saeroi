@@ -267,11 +267,11 @@ export function PurchaseForm({ listing, onCreated }: PurchaseFormProps) {
           fullWidth
         >
           {chain.status === 'SIGNING'
-            ? '지갑에서 서명해 주세요'
+            ? '지갑에서 요청을 확인해 주세요'
             : chain.status === 'PENDING'
-              ? '블록 확정을 기다리는 중…'
+              ? '거래 이력을 저장하는 중…'
               : chain.status === 'LINKING'
-                ? '온체인 결과를 기록하는 중…'
+                ? '저장 결과를 확인하는 중…'
                 : listing.status === 'ON_SALE'
                   ? pendingTrade
                     ? '구매 요청 완료하기'

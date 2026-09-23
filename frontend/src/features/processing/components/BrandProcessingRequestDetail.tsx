@@ -121,7 +121,7 @@ export function BrandProcessingRequestDetail({ requestId }: Props) {
 
               결제 직후(PAID)가 아니라 가공사가 수락한 뒤에 둔다. 수락 전에 보낸 소재는
               가공사가 거절하면 갈 곳이 없다. */}
-          <span>가공사가 요청을 수락했습니다. 소재 발송은 작업 상세에서 온체인으로 진행합니다.</span>
+          <span>가공사가 요청을 수락했습니다. 작업 상세에서 소재를 발송해 주세요.</span>
           <Link to={`/processing/jobs/${job.jobId}`}>소재 발송하기</Link>
         </div>
       )}

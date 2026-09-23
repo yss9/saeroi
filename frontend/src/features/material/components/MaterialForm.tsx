@@ -104,11 +104,11 @@ const MAX_QUANTITY_KG = 1_000_000
  * 진행 중이 아니거나 에러 메시지가 대신 보여준다.
  */
 const MINT_STAGE: Partial<Record<ChainLinkStatus, { percent: number; label: string }>> = {
-  SIGNING: { percent: 20, label: '지갑 서명을 기다리는 중' },
-  PENDING: { percent: 55, label: '블록 확정을 기다리는 중' },
-  CONFIRMED: { percent: 80, label: '온체인 결과를 기록하는 중' },
-  LINKING: { percent: 80, label: '온체인 결과를 기록하는 중' },
-  LINKED: { percent: 100, label: '발행 완료' },
+  SIGNING: { percent: 20, label: '지갑에서 요청을 확인하는 중' },
+  PENDING: { percent: 55, label: '소재 이력을 저장하는 중' },
+  CONFIRMED: { percent: 80, label: '저장 결과를 확인하는 중' },
+  LINKING: { percent: 80, label: '저장 결과를 확인하는 중' },
+  LINKED: { percent: 100, label: '등록 완료' },
 }
 
 /**
@@ -127,7 +127,7 @@ const STEPS: readonly {
   { title: '기본 정보', hint: '유형 · 출처 · 소재명', fields: ['materialType', 'rootOrigin', 'name'] },
   { title: '수량 · 규격', hint: '수량 필수', fields: ['quantityKg', 'lengthMm', 'widthMm', 'description'] },
   { title: '구성 · 발생', hint: '모두 선택', fields: ['originReason', 'originReasonNote', 'composition'] },
-  { title: '등록 · 서명', hint: '지갑 필요', fields: [] },
+  { title: '등록 확인', hint: '최종 확인', fields: [] },
 ]
 
 /**
@@ -839,13 +839,13 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
             <section id="mat-step-4" className="console-panel mat-section">
               <div className="mat-section__head">
                 <h2>
-                  <span className="mat-section__dot" aria-hidden="true" />4. 등록 · 서명
+                  <span className="mat-section__dot" aria-hidden="true" />4. 등록 확인
                 </h2>
-                <span className="console__tag">sign</span>
+                <span className="console__tag">확인</span>
               </div>
               <p className="mat-section__note">
-                오른쪽 요약에서 값을 확인한 뒤 등록하세요. 등록을 누르면 지갑 서명 창이 뜨고,
-                서명이 끝나야 이력 기록이 완료됩니다.
+                오른쪽 요약에서 값을 확인한 뒤 등록하세요. 지갑에서 요청을 확인하면
+                이력 기록이 완료됩니다.
               </p>
 
               {/*
@@ -960,7 +960,7 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
             role={walletRequired && wallet.address === null ? 'alert' : undefined}
           >
             <div className="mat-section__head">
-              <h2>서명 지갑</h2>
+              <h2>등록에 사용할 지갑</h2>
               {wallet.address === null ? (
                 <span className="console-badge console-badge--wait">연결 필요</span>
               ) : (
@@ -974,8 +974,8 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
             {wallet.address === null ? (
               <>
                 <p className="mat-wallet__note">
-                  <strong>지갑을 먼저 연결해 주세요.</strong> 소재는 등록과 동시에 이력이
-                  기록되고, 그 서명은 등록자 지갑만 할 수 있습니다.
+                  <strong>지갑을 먼저 연결해 주세요.</strong> 소재를 등록하면 주요 정보가
+                  변경할 수 없는 이력으로 함께 저장됩니다.
                 </p>
                 {/*
                   <b>다른 주소에서 이미 연결해 둔 사용자에게 필요한 설명이다.</b>
@@ -994,7 +994,7 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
             ) : (
               <>
                 <p className="mat-wallet__address console__num">{wallet.address}</p>
-                <p className="mat-wallet__note">이 지갑으로 서명합니다.</p>
+                <p className="mat-wallet__note">이 지갑으로 등록을 확인합니다.</p>
               </>
             )}
           </section>
@@ -1026,7 +1026,7 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
             loading={isPending || isUploadingEvidence || mint.isBusy}
             disabled={compositionTotal > COMPOSITION_MAX_TOTAL}
           >
-            {pendingRegistration && !mint.isBusy ? '소재 등록 완료하기' : '소재 등록 및 서명 시작'}
+            {pendingRegistration && !mint.isBusy ? '소재 등록 완료하기' : '소재 등록'}
           </Button>
         </aside>
       </div>

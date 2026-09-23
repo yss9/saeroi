@@ -18,27 +18,26 @@
   --chain-face: 120px; --chain-depth: 24px; --chain-box: 144px;
   --chain-tie: 26px; --chain-bridge: 40px;
 
-  display: grid; grid-template-columns: minmax(0, 624px) minmax(0, 1fr); gap: 32px; align-items: start;
-  width: min(1600px, 100%); margin: 0 auto; padding: 40px 40px 72px; color: var(--chain-ink);
+  display: grid; grid-template-columns: minmax(0, 624px) minmax(0, 1fr); gap: 20px; align-items: start;
+  width: min(1600px, 100%); margin: 0 auto; padding: 24px 28px 36px; color: var(--chain-ink);
 }
 .chain-lab__kicker { color: var(--chain-orange); font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
 
 /* ── 헤더 ─────────────────────────────────────────────── */
-.chain-lab__hero { grid-column: 1 / -1; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
-.chain-lab__hero h1 { margin: 6px 0 0; font-size: clamp(30px, 3vw, 44px); letter-spacing: -.035em; }
-.chain-lab__eyebrow { margin: 0; color: var(--chain-orange); font-size: 13px; font-weight: 850; letter-spacing: .18em; }
+.chain-lab__hero { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.chain-lab__hero h1 { margin: 0; font-size: 2rem; line-height: 1.2; letter-spacing: -.03em; }
 .chain-lab__hero-side { display: flex; align-items: center; gap: 12px; }
-.chain-lab__monitor-toggle { display: inline-flex; align-items: center; gap: 8px; min-height: 46px; padding: 12px 20px; border: 1px solid #d8d3c6; border-radius: 999px; background: #fff; color: #3a3733; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+.chain-lab__monitor-toggle { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 9px 16px; border: 1px solid #d8d3c6; border-radius: 999px; background: #fff; color: #3a3733; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
 .chain-lab__monitor-toggle svg { width: 15px; height: 15px; }
 
-.chain-lab__stream { display: inline-flex; align-items: center; gap: 10px; padding: 12px 20px; border: 1px solid var(--chain-line); border-radius: 999px; background: #fff; font-size: 14px; font-weight: 800; letter-spacing: .06em; }
+.chain-lab__stream { display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border: 1px solid var(--chain-line); border-radius: 999px; background: #fff; font-size: 14px; font-weight: 800; letter-spacing: .06em; }
 .chain-lab__stream small { color: var(--chain-ink-soft); font-size: 13px; font-weight: 600; letter-spacing: 0; }
 .chain-lab__stream.is-live i { width: 10px; height: 10px; border-radius: 50%; background: var(--chain-orange-bright); animation: chain-breathe 1.8s ease-in-out infinite; }
 .chain-lab__stream.is-retrying { border-color: #f0dcb4; background: #fdf4e3; color: #8f5a14; }
 .chain-lab__stream.is-paused { border-color: var(--chain-line); background: var(--chain-ground); color: var(--chain-ink-soft); }
 
 /* ── 블록 타워 ────────────────────────────────────────── */
-.chain-lab__train { grid-column: 1; display: grid; gap: 20px; padding: 28px; border: 1px solid var(--chain-line); border-radius: 24px; background: #fff; }
+.chain-lab__train { grid-column: 1; display: grid; gap: 14px; padding: 20px; border: 1px solid var(--chain-line); border-radius: 20px; background: #fff; }
 .chain-lab__train-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
 .chain-lab__train-head h2 { margin: 0; font-size: 20px; letter-spacing: -.02em; }
 .chain-lab__train-title { display: grid; gap: 10px; }
@@ -54,7 +53,7 @@
 .chain-lab__monitor-error { display: flex; align-items: center; gap: 9px; margin: 0; padding: 12px 15px; border-radius: 11px; background: #fdf4e3; color: #8f5a14; font-size: 13px; }
 .chain-lab__monitor-error svg { flex: none; width: 17px; height: 17px; }
 
-.chain-lab__yard { overflow-x: auto; box-sizing: border-box; padding: 26px 28px 20px; border-radius: 18px; background: var(--chain-ground); }
+.chain-lab__yard { overflow-x: auto; box-sizing: border-box; padding: 18px 20px 14px; border-radius: 16px; background: var(--chain-ground); }
 .chain-lab__stack-wait { display: flex; align-items: center; justify-content: center; gap: 9px; margin: 0; padding: 40px 0; color: var(--chain-ink-soft); font-size: 13px; }
 .chain-lab__stack-wait svg { width: 18px; height: 18px; }
 
@@ -124,14 +123,14 @@
 .chain-lab__progress.is-overdue i { background: linear-gradient(90deg, #a9803c, #e9b26a); }
 
 /* ── 오른쪽 ───────────────────────────────────────────── */
-.chain-lab__side { display: grid; gap: 24px; align-content: start; min-width: 0; }
+.chain-lab__side { display: grid; gap: 14px; align-content: start; min-width: 0; }
 
-.chain-lab__search { display: grid; gap: 12px; padding: 28px; border: 1px solid var(--chain-line); border-radius: 20px; background: #fff; }
+.chain-lab__search { display: grid; gap: 8px; padding: 18px 20px; border: 1px solid var(--chain-line); border-radius: 16px; background: #fff; }
 .chain-lab__search label { color: #3a3733; font-size: 14px; font-weight: 700; }
 .chain-lab__search > div { display: flex; gap: 10px; }
-.chain-lab__search input { flex-grow: 1; min-width: 0; min-height: 48px; padding: 13px 16px; border: 1px solid #d8d3c6; border-radius: 12px; background: #fdfcf9; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 14px; }
+.chain-lab__search input { flex-grow: 1; min-width: 0; min-height: 42px; padding: 10px 13px; border: 1px solid #d8d3c6; border-radius: 10px; background: #fdfcf9; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 14px; }
 .chain-lab__search input:focus { outline: 3px solid rgb(194 85 31 / 18%); border-color: var(--chain-orange-strong); }
-.chain-lab__search button { display: inline-flex; flex: none; align-items: center; gap: 8px; min-height: 48px; padding: 13px 24px; border: 0; border-radius: 12px; background: var(--chain-orange-strong); color: #fff; font: inherit; font-size: 14px; font-weight: 800; cursor: pointer; }
+.chain-lab__search button { display: inline-flex; flex: none; align-items: center; gap: 8px; min-height: 42px; padding: 10px 18px; border: 0; border-radius: 10px; background: var(--chain-orange-strong); color: #fff; font: inherit; font-size: 14px; font-weight: 800; cursor: pointer; }
 .chain-lab__search button:disabled { background: #cbc5b8; cursor: not-allowed; }
 .chain-lab__search button svg { width: 16px; height: 16px; }
 
@@ -139,7 +138,7 @@
 .chain-lab__error svg { flex: none; width: 19px; height: 19px; }
 
 /* ── 온체인 원본 ──────────────────────────────────────── */
-.chain-lab__evidence { display: grid; gap: 18px; padding: 28px; border: 1px solid var(--chain-line); border-radius: 20px; background: #fff; }
+.chain-lab__evidence { display: grid; gap: 12px; padding: 18px 20px; border: 1px solid var(--chain-line); border-radius: 16px; background: #fff; }
 .chain-lab__evidence[aria-busy="true"] { opacity: .55; transition: opacity .2s ease-out; }
 .chain-lab__evidence > header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .chain-lab__evidence > header strong { font-size: 19px; }
@@ -152,19 +151,19 @@
 .chain-lab__latency { padding: 6px 12px; border-radius: 999px; background: var(--chain-ground); color: var(--chain-ink-soft); font-size: 12px; font-weight: 800; }
 
 .chain-lab__evidence dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; margin: 0; }
-.chain-lab__evidence dl > div { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-width: 0; padding: 13px 15px; border-radius: 11px; background: var(--chain-row); }
+.chain-lab__evidence dl > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; padding: 9px 12px; border-radius: 9px; background: var(--chain-row); }
 .chain-lab__evidence dl > div.is-wide { grid-column: 1 / -1; }
 .chain-lab__evidence dt { flex: none; color: var(--chain-ink-soft); font-size: 13px; }
 .chain-lab__evidence dd { overflow: hidden; margin: 0; color: var(--chain-blue-dark); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .chain-lab__more { justify-self: start; padding: 0; border: 0; background: transparent; color: var(--chain-orange); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
 
-.chain-lab__empty { display: grid; justify-items: center; gap: 10px; padding: 40px 24px; border: 1px solid var(--chain-line); border-radius: 20px; background: #fff; color: var(--chain-ink-soft); font-size: 14px; }
+.chain-lab__empty { display: grid; justify-items: center; gap: 8px; padding: 24px 18px; border: 1px solid var(--chain-line); border-radius: 16px; background: #fff; color: var(--chain-ink-soft); font-size: 14px; }
 .chain-lab__empty svg { width: 24px; height: 24px; color: var(--chain-orange-bright); }
 
 /* ── 실시간 피드 ──────────────────────────────────────── */
-.chain-lab__feed { display: grid; padding: 22px 24px 8px; border: 1px solid var(--chain-line); border-radius: 20px; background: #fff; }
+.chain-lab__feed { display: grid; padding: 15px 18px 6px; border: 1px solid var(--chain-line); border-radius: 16px; background: #fff; }
 .chain-lab__feed-head { padding-bottom: 12px; font-size: 15px; font-weight: 700; }
-.chain-lab__feed > button { display: grid; grid-template-columns: 76px minmax(0, 1fr) 100px; align-items: center; gap: 14px; width: 100%; min-height: 56px; padding: 12px 2px; border: 0; border-top: 1px solid #f0ede4; background: transparent; font: inherit; text-align: left; cursor: pointer; animation: chain-row-in .3s ease-out; }
+.chain-lab__feed > button { display: grid; grid-template-columns: 76px minmax(0, 1fr) 100px; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 8px 2px; border: 0; border-top: 1px solid #f0ede4; background: transparent; font: inherit; text-align: left; cursor: pointer; animation: chain-row-in .3s ease-out; }
 .chain-lab__feed > button:hover { background: var(--chain-row); }
 .chain-lab__tx-kind { padding: 5px 9px; border-radius: 999px; background: var(--chain-ground); color: var(--chain-ink-soft); font-size: 12px; font-weight: 800; text-align: center; }
 .chain-lab__tx-kind.is-ours { background: var(--chain-orange-soft); color: var(--chain-orange); }
@@ -205,10 +204,10 @@
 }
 
 @media (max-width: 720px) {
-  .chain-lab { padding: 24px 16px 52px; gap: 24px; }
-  .chain-lab__train { padding: 22px 18px; }
+  .chain-lab { padding: 20px 16px 32px; gap: 18px; }
+  .chain-lab__train { padding: 18px 16px; }
   .chain-lab__train-head { flex-direction: column; align-items: flex-start; }
-  .chain-lab__yard { padding: 20px 16px 16px; }
+  .chain-lab__yard { padding: 16px 14px 12px; }
   .chain-lab__cadence { flex-wrap: wrap; }
   .chain-lab__cadence small { flex: 1 0 100%; }
   .chain-lab__search > div { flex-direction: column; }

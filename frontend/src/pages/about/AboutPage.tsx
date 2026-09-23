@@ -339,7 +339,7 @@ export function AboutPage() {
 
         <section className="about-trace" aria-labelledby="about-trace-title">
           <div className="about-trace__intro" data-about-reveal data-about-stop>
-            <p className="about-kicker">BLOCKCHAIN-BACKED TRACEABILITY</p>
+            <p className="about-kicker">검증 가능한 순환 이력</p>
             <h2 id="about-trace-title">EVERY MATERIAL<br />LEAVES<br /><span className="about-trace__last-line">A TRACE.</span></h2>
             <p className="about-trace__subtitle">Transparency beyond the product</p>
             <div className="about-body-copy">

@@ -23,7 +23,7 @@ export interface ProductionBatchDetailProps {
 
 const STATUS_LABEL: Record<ProductionBatchStatus, string> = {
   DRAFT: '작성 중',
-  SIGNING: '서명 중',
+  SIGNING: '확인 중',
   CONFIRMED: '확정',
   FAILED: '실패',
   CANCELED: '취소',
@@ -77,7 +77,7 @@ export function ProductionBatchDetail({ batchId }: ProductionBatchDetailProps) {
       {/* 온체인 기록. 확정 전에는 못 하는 이유를 패널이 직접 적는다 — 투입이 더
           바뀔 수 있어 확정 전에 체인에 남기면 그 내용과 어긋난다. */}
       <section className="batch-detail__section">
-        <h2>온체인 기록</h2>
+        <h2>생산 이력</h2>
         <ProductionChainPanel batch={data} />
       </section>
 
@@ -274,13 +274,13 @@ function ConfirmedResult({ batch }: { batch: ProductionBatch }) {
       */}
       {batch.productModelId === null ? (
         <p className="batch-detail__note">
-          제품 개체가 만들어졌습니다.{' '}
+          생산 제품이 등록되었습니다.{' '}
           <Link to="/brand/products/new">제품 등록</Link>에서 이 생산을 골라 제품을 붙이면
           판매할 수 있습니다.
         </p>
       ) : (
         <p className="batch-detail__note">
-          제품 개체가 만들어졌습니다.{' '}
+          생산 제품이 등록되었습니다.{' '}
           <Link to="/brand/products">내 제품에서 판매를 시작</Link>할 수 있습니다.
         </p>
       )}

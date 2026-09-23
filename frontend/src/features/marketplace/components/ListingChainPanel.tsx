@@ -69,8 +69,8 @@ export function ListingChainPanel({ listing }: { listing: Listing }) {
 
   return (
     <OnChainPanel
-      title="판매 온체인 등록"
-      description="판매 수량이 체인에서도 잠깁니다. 등록해야 구매자가 온체인으로 주문할 수 있습니다."
+      title="판매 이력 기록"
+      description="판매 수량을 안전하게 기록해 중복 판매를 방지합니다."
       onChainId={listing.chainListingId}
       actionable={actionable}
       ready={ready}
@@ -78,7 +78,7 @@ export function ListingChainPanel({ listing }: { listing: Listing }) {
         address === null
           ? '지갑을 먼저 연결해 주세요.'
           : tokenId === null
-            ? '이 소재가 아직 온체인에 발행되지 않았습니다. 소재 상세에서 발행을 먼저 진행해 주세요.'
+            ? '소재 이력이 아직 저장되지 않았습니다. 소재 상세에서 먼저 저장해 주세요.'
             : undefined
       }
       status={chain.status}
@@ -86,7 +86,7 @@ export function ListingChainPanel({ listing }: { listing: Listing }) {
       error={chain.error}
       isBusy={chain.isBusy}
       isRejected={chain.isRejected}
-      actionLabel="온체인 등록"
+      actionLabel="이력 기록 완료하기"
       onSign={() => {
         if (tokenId === null) return
         void chain.register(listing.listingId, tokenId, listing.totalQuantity)

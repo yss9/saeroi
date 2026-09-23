@@ -55,7 +55,7 @@ describe('requireOnChainRole', () => {
 
     expect(isAppError(error)).toBe(true)
     // 사용자가 고칠 수 있는 일이 아니라는 것과, 누구에게 요청해야 하는지가 있어야 한다.
-    expect(isAppError(error) && error.message).toMatch(/브랜드 권한이 없습니다/)
+    expect(isAppError(error) && error.message).toMatch(/브랜드 업무 권한이 없습니다/)
     expect(isAppError(error) && error.message).toMatch(/관리자|담당자/)
   })
 

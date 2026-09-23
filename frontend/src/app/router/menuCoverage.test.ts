@@ -37,7 +37,7 @@ const NOT_IN_MENU: ReadonlyMap<string, string> = new Map([
   ['/signup/business', '인증 흐름'],
   ['/signup/complete', '인증 흐름. 가입 직후에만 지나간다'],
   ['/403', '가드가 보내는 안내 화면'],
-  ['/admin', '관리자 전용. ACCOUNT_MENU_ITEMS 가 따로 들고 있다'],
+  ['/admin', '관리자 진입용 리다이렉트. 사이드바는 세 하위 관리자 기능으로 직접 이동'],
   ['/mypage', '소비자 홈. ACCOUNT_MENU_ITEMS 가 따로 들고 있다'],
   ['/products', '이전 인증 목록의 호환 경로. 사업자 목록으로 이동'],
   ['/business/products', '기존 인증 제품 목록. 업무용 상세와 같은 경로 계층으로 유지'],

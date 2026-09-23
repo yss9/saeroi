@@ -47,13 +47,13 @@ export async function getWriteContract(
   // 사용자가 경고를 보지 못한 채 다른 체인에 같은 주소로 서명할 수 있다.
   if (!env.besuChainIdHex) {
     throw createAppError(ERROR_KIND.WRONG_NETWORK, {
-      message: 'SSAFY 네트워크 Chain ID가 설정되지 않았습니다.',
+      message: '업무용 지갑 연결 환경을 확인할 수 없습니다. 관리자에게 문의해 주세요.',
     })
   }
   const currentChainId = `0x${(await provider.getNetwork()).chainId.toString(16)}`
   if (currentChainId !== env.besuChainIdHex) {
     throw createAppError(ERROR_KIND.WRONG_NETWORK, {
-      message: `SSAFY 네트워크(${env.besuChainIdHex})로 전환해 주세요.`,
+      message: '업무용 지갑 연결 환경으로 변경해 주세요.',
     })
   }
 
@@ -78,7 +78,7 @@ export async function getWriteContract(
     if (signing.toLowerCase() !== registered.toLowerCase()) {
       throw createAppError(ERROR_KIND.WALLET_DISCONNECTED, {
         message:
-          `MetaMask에서 선택된 계정(${shortAddress(signing)})이 이 계정에 등록된 지갑` +
+          `현재 선택된 지갑(${shortAddress(signing)})이 이 계정에 등록된 지갑` +
           `(${shortAddress(registered)})과 다릅니다. 등록된 지갑으로 전환한 뒤 다시 시도해 주세요.`,
       })
     }
@@ -96,7 +96,7 @@ function createContract(name: ContractName, runner: ContractRunner): Contract {
   if (!address) {
     // 설정 누락은 사용자가 해결할 수 없는 문제다. 배포 담당이 볼 수 있게 키 이름을 남긴다.
     throw createAppError(ERROR_KIND.UNKNOWN, {
-      message: `${name} 컨트랙트 주소가 설정되지 않았습니다. (VITE_*_CONTRACT_ADDRESS)`,
+      message: '이력 기록 기능을 사용할 수 없습니다. 관리자에게 문의해 주세요.',
     })
   }
   return new Contract(address, abis[name], runner)

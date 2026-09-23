@@ -99,6 +99,13 @@ describe('routeAccess — routes.tsx 에서 파생한 접근 조건', () => {
     expect(getRouteAccess('/brand/products/new')).toEqual({ kind: 'role', allow: ['BRAND'] })
     expect(getRouteAccess('/processor/jobs')).toEqual({ kind: 'role', allow: ['PROCESSOR'] })
     expect(getRouteAccess('/admin')).toEqual({ kind: 'role', allow: ['ADMIN'] })
+    for (const path of [
+      '/admin/company-role-applications',
+      '/admin/prediction-markets',
+      '/admin/blockchain',
+    ]) {
+      expect(getRouteAccess(path), path).toEqual({ kind: 'role', allow: ['ADMIN'] })
+    }
   })
 
   it('정의되지 않은 경로는 undefined 다', () => {

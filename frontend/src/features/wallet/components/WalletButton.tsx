@@ -53,7 +53,7 @@ export function WalletButton() {
       </div>
 
       <p className="wallet__note">
-        네트워크 {wallet.chainId ?? '확인 불가'}
+        지갑 연결 환경 {wallet.chainId ?? '확인 불가'}
         {/* 기대 체인 ID(VITE_BESU_CHAIN_ID)가 설정되기 전에는 이 경고 자체가 뜨지 않는다. */}
         {wallet.wrongChain && ` — ${wallet.expectedChainId} 이어야 합니다`}
       </p>
@@ -63,7 +63,7 @@ export function WalletButton() {
           className="wallet__button wallet__button--ghost"
           onClick={() => void wallet.switchChain().then(report)}
         >
-          네트워크 전환
+          연결 환경 변경
         </button>
       )}
       {switchMessage && <p className="wallet__note">{switchMessage}</p>}

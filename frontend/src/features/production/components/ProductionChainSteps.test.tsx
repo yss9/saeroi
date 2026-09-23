@@ -123,11 +123,11 @@ describe('ProductionChainSteps', () => {
   it('체인이 DRAFT 면 2단계만 열어 준다', async () => {
     const user = renderSteps()
 
-    expect(signButton('투입 잠금·계획 기록')).toBeEnabled()
-    expect(signButton('소재 소각·자투리 발행')).toBeDisabled()
-    expect(signButton('제품 개체 연결')).toBeDisabled()
+    expect(signButton('생산에 사용할 소재 확정')).toBeEnabled()
+    expect(signButton('사용 소재 차감·자투리 등록')).toBeDisabled()
+    expect(signButton('생산 제품 등록')).toBeDisabled()
 
-    await user.click(signButton('투입 잠금·계획 기록'))
+    await user.click(signButton('생산에 사용할 소재 확정'))
     expect(steps.plan).toHaveBeenCalled()
   })
 
@@ -136,7 +136,7 @@ describe('ProductionChainSteps', () => {
     const user = renderSteps()
 
     expect(screen.getAllByText('완료').length).toBeGreaterThan(0)
-    await user.click(signButton('소재 소각·자투리 발행'))
+    await user.click(signButton('사용 소재 차감·자투리 등록'))
 
     expect(steps.confirm).toHaveBeenCalled()
   })
@@ -145,7 +145,7 @@ describe('ProductionChainSteps', () => {
     chain.status = 'CONFIRMED'
     const user = renderSteps()
 
-    await user.click(signButton('제품 개체 연결'))
+    await user.click(signButton('생산 제품 등록'))
 
     expect(steps.link).toHaveBeenCalled()
   })
@@ -156,16 +156,16 @@ describe('ProductionChainSteps', () => {
     items.data = [item(1)] // 생산 수량은 2개다
     renderSteps()
 
-    expect(signButton('제품 개체 연결')).toBeDisabled()
-    expect(screen.getByText(/연결할 개체 수가 맞지 않습니다 \(1 \/ 2개\)/)).toBeInTheDocument()
+    expect(signButton('생산 제품 등록')).toBeDisabled()
+    expect(screen.getByText(/등록할 생산 제품 수가 맞지 않습니다 \(1 \/ 2개\)/)).toBeInTheDocument()
   })
 
   it('소각 전에는 개체 연결을 막고 앞 단계를 가리킨다', () => {
     chain.status = 'SIGNING'
     renderSteps()
 
-    expect(signButton('제품 개체 연결')).toBeDisabled()
-    expect(screen.getByText('소재 소각을 먼저 마쳐 주세요.')).toBeInTheDocument()
+    expect(signButton('생산 제품 등록')).toBeDisabled()
+    expect(screen.getByText('사용 소재 차감과 자투리 등록을 먼저 마쳐 주세요.')).toBeInTheDocument()
   })
 
   it('개체가 연결됐으면 마지막 단계를 완료로 둔다', () => {
@@ -173,7 +173,7 @@ describe('ProductionChainSteps', () => {
     chain.linkedItemCount = 2
     renderSteps()
 
-    const row = screen.getByText('제품 개체 연결').closest('li') as HTMLElement
+    const row = screen.getByText('생산 제품 등록').closest('li') as HTMLElement
     expect(row.querySelector('button')).toBeNull()
   })
 

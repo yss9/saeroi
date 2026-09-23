@@ -42,13 +42,13 @@ export function ProductionChainSteps({ batch }: ProductionChainStepsProps) {
   if (batch.chainBatchId === null) return null
 
   if (chain.isPending) {
-    return <p className="chain-steps__loading">온체인 상태를 확인하는 중…</p>
+    return <p className="chain-steps__loading">생산 이력을 확인하는 중…</p>
   }
 
   if (chain.isError) {
     return (
       <ErrorMessage
-        error="온체인 상태를 읽지 못했습니다. 다음 단계를 진행할 수 있는지 확인할 수 없습니다."
+        error="생산 이력을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요."
         onRetry={() => void chain.refetch()}
       />
     )
@@ -59,11 +59,11 @@ export function ProductionChainSteps({ batch }: ProductionChainStepsProps) {
 
   return (
     <ol className="chain-steps chain-steps--actions">
-      <li className="chain-steps__done">온체인 생산 기록</li>
+      <li className="chain-steps__done">생산 이력 기록</li>
 
       <Step
-        label="투입 잠금·계획 기록"
-        description="투입한 소재를 체인에 적고 그만큼을 잠급니다. 잠긴 소재는 다른 생산에 쓸 수 없습니다."
+        label="생산에 사용할 소재 확정"
+        description="이번 생산에 사용할 소재와 수량을 확정합니다. 확정한 수량은 다른 생산에 사용할 수 없습니다."
         action={plan}
         done={status !== 'DRAFT'}
         ready={status === 'DRAFT'}
@@ -71,19 +71,19 @@ export function ProductionChainSteps({ batch }: ProductionChainStepsProps) {
       />
 
       <Step
-        label="소재 소각·자투리 발행"
-        description="잠긴 소재가 실제로 사라지고, 자투리가 있으면 새 소재로 발행되어 다시 팔 수 있습니다. 되돌릴 수 없습니다."
+        label="사용 소재 차감·자투리 등록"
+        description="생산에 사용한 소재 수량을 차감하고, 남은 자투리는 새 소재로 등록합니다. 완료 후에는 되돌릴 수 없습니다."
         action={confirm}
         done={status === 'CONFIRMED'}
         ready={status === 'SIGNING'}
         blockedReason={
-          status === 'DRAFT' ? '투입 잠금을 먼저 기록해 주세요.' : undefined
+          status === 'DRAFT' ? '생산에 사용할 소재를 먼저 확정해 주세요.' : undefined
         }
       />
 
       <Step
-        label="제품 개체 연결"
-        description="만들어진 개체를 생산에 묶습니다. 이 단계가 끝나야 QR 에서 소재 이력이 이어집니다."
+        label="생산 제품 등록"
+        description="만들어진 제품을 이번 생산 내역에 등록합니다. 이 단계가 끝나야 QR에서 소재 이력을 확인할 수 있습니다."
         action={link}
         done={linkedItemCount > 0}
         ready={status === 'CONFIRMED' && linkedItemCount === 0 && itemCount === batch.producedQuantity}
@@ -116,10 +116,10 @@ function blockedItemsReason({
   producedQuantity: number
 }): string | undefined {
   if (linkedItemCount > 0) return undefined
-  if (status !== 'CONFIRMED') return '소재 소각을 먼저 마쳐 주세요.'
-  if (itemCount === 0) return '개체 목록을 불러오는 중입니다.'
+  if (status !== 'CONFIRMED') return '사용 소재 차감과 자투리 등록을 먼저 마쳐 주세요.'
+  if (itemCount === 0) return '생산 제품 목록을 불러오는 중입니다.'
   if (itemCount !== producedQuantity) {
-    return `연결할 개체 수가 맞지 않습니다 (${itemCount} / ${producedQuantity}개). 목록을 새로 고친 뒤 다시 시도해 주세요.`
+    return `등록할 생산 제품 수가 맞지 않습니다 (${itemCount} / ${producedQuantity}개). 목록을 새로 고친 뒤 다시 시도해 주세요.`
   }
   return undefined
 }
@@ -152,7 +152,7 @@ function Step({
             loading={action.isBusy}
             onClick={() => void action.run()}
           >
-            서명
+            진행
           </Button>
         )}
       </div>

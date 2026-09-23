@@ -145,7 +145,7 @@ function sortForChoosing(batches: readonly ProductionBatch[]): ProductionBatch[]
  */
 function blockedReason(batch: ProductionBatch): string | null {
   if (batch.productModelId !== null) return '이미 제품이 연결된 생산입니다'
-  if (batch.status === 'SIGNING') return '서명이 끝난 뒤에 연결할 수 있습니다'
+  if (batch.status === 'SIGNING') return '확인이 끝난 뒤에 연결할 수 있습니다'
   if (batch.status !== 'DRAFT' && batch.status !== 'CONFIRMED') {
     return '작성 중이거나 확정된 생산에만 연결할 수 있습니다'
   }

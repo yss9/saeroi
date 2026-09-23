@@ -36,7 +36,7 @@ const keys = {
 async function confirmed(response: Promise<ContractTransactionResponse>) {
   const tx = await response
   const receipt = await tx.wait()
-  if (!receipt || receipt.status !== 1) throw new Error('블록체인 트랜잭션이 확정되지 않았습니다.')
+  if (!receipt || receipt.status !== 1) throw new Error('이력 저장이 완료되지 않았습니다.')
   return receipt
 }
 
@@ -83,12 +83,12 @@ export function useProcessingJob(jobId: number) {
     client.invalidateQueries({ queryKey: keys.chainStatus(jobId) }),
   ])
   const requirePreparation = () => {
-    if (!chainPreparation.data) throw new Error('온체인 작업 정보를 불러오지 못했습니다.')
+    if (!chainPreparation.data) throw new Error('작업 기록 정보를 불러오지 못했습니다.')
     return chainPreparation.data
   }
   const requireChainJob = () => {
     const id = requirePreparation().chainJobId
-    if (!id) throw new Error('먼저 온체인 작업을 등록해 주세요.')
+    if (!id) throw new Error('먼저 가공 작업을 등록해 주세요.')
     return id
   }
 
@@ -102,7 +102,7 @@ export function useProcessingJob(jobId: number) {
         prep.processTypes,
       ))
       const values = readProcessingEventValues(receipt, 'ProcessingJobCreated', 'jobId')
-      if (values.length !== 1) throw new Error('온체인 작업 번호를 확인하지 못했습니다.')
+      if (values.length !== 1) throw new Error('가공 작업 기록을 확인하지 못했습니다.')
       const onChainId = Number(values[0])
       const chainLockId = await getProcessingBrandLockId(onChainId)
       return processingJobApi.linkChain(jobId, {

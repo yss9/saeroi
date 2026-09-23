@@ -105,7 +105,7 @@ describe('MaterialSourceVerificationPanel', () => {
     const user = userEvent.setup()
     render(<MaterialSourceVerificationPanel material={material()} />)
 
-    await user.click(await screen.findByRole('button', { name: '출처 검증 서명' }))
+    await user.click(await screen.findByRole('button', { name: '출처 확인' }))
 
     expect(mocks.verify).toHaveBeenCalledWith(expect.objectContaining({
       evidenceHash: `0x${'ab'.repeat(32)}`,
@@ -116,7 +116,7 @@ describe('MaterialSourceVerificationPanel', () => {
     const user = userEvent.setup()
     render(<MaterialSourceVerificationPanel material={material()} />)
 
-    await user.click(screen.getByRole('button', { name: '출처 검증 서명' }))
+    await user.click(screen.getByRole('button', { name: '출처 확인' }))
 
     expect(mocks.verify).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -129,8 +129,8 @@ describe('MaterialSourceVerificationPanel', () => {
   it('아직 온체인에 발행되지 않은 소재는 서명을 막는다', () => {
     render(<MaterialSourceVerificationPanel material={material({ tokenId: null })} />)
 
-    expect(screen.getByRole('button', { name: '출처 검증 서명' })).toBeDisabled()
-    expect(screen.getByText('먼저 소재를 온체인에 발행해야 합니다.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '출처 확인' })).toBeDisabled()
+    expect(screen.getByText('먼저 소재 이력을 저장해 주세요.')).toBeInTheDocument()
   })
 
   it('이미 검증된 소재는 서명 버튼을 그리지 않는다', () => {
@@ -147,25 +147,25 @@ describe('MaterialSourceVerificationPanel', () => {
       />,
     )
 
-    expect(screen.queryByRole('button', { name: '출처 검증 서명' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '출처 확인' })).not.toBeInTheDocument()
   })
 
   it('다른 체인에서는 서명을 막고 SSAFY 전환을 안내한다', () => {
     mocks.chainId = '0x7a69'
     render(<MaterialSourceVerificationPanel material={material()} />)
 
-    expect(screen.getByRole('button', { name: '출처 검증 서명' })).toBeDisabled()
-    expect(screen.getByText('MetaMask를 SSAFY 네트워크(31221)로 전환해 주세요.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '출처 확인' })).toBeDisabled()
+    expect(screen.getByText('업무용 지갑 연결 환경으로 변경해 주세요.')).toBeInTheDocument()
   })
 
-  it('확정된 트랜잭션의 해시와 블록 번호를 표시한다', () => {
+  it('완료 후 원시 기록 정보는 사용자 화면에 표시하지 않는다', () => {
     mocks.verifyState.status = 'CONFIRMED'
     mocks.verifyState.hash = `0x${'a'.repeat(64)}`
     mocks.verifyState.receipt = { blockNumber: 123_456 }
 
     render(<MaterialSourceVerificationPanel material={material()} />)
 
-    expect(screen.getByText('123,456')).toBeInTheDocument()
-    expect(screen.getByTitle(`0x${'a'.repeat(64)}`)).toBeInTheDocument()
+    expect(screen.queryByText('123,456')).not.toBeInTheDocument()
+    expect(screen.queryByTitle(`0x${'a'.repeat(64)}`)).not.toBeInTheDocument()
   })
 })
