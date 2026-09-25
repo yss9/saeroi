@@ -3,6 +3,11 @@ import type { ContractTransactionResponse } from 'ethers'
 import { processingJobApi, type ProcessingSignatureAction, type ResultDraftInput } from '../api/processingJobApi.ts'
 import { processingRequestApi } from '../api/processingRequestApi.ts'
 import { processingKeys } from '../api/processingKeys.ts'
+import { chainAlreadyPassed } from '../services/processingChainProgress.ts'
+import {
+  createOrResumeProcessingChainJob,
+  forgetProcessingChainCreate,
+} from '../services/processingChainJobCreation.ts'
 import { inventoryKeys } from '../../inventory/api/inventoryKeys.ts'
 import { materialKeys } from '../../material/api/materialKeys.ts'
 import { signMessage } from '../../wallet/services/walletService.ts'
@@ -92,10 +97,16 @@ export function useProcessingJob(jobId: number) {
     return id
   }
 
+  /*
+    작업 등록. **두 번 만들지 않는다.** 체인에 작업을 만든 뒤 서버 연결(linkChain)이 실패하고 다시
+    누르면, 서버는 아직 체인 작업을 모르니 한 번 더 만들게 되고 앞의 작업은 소재를 잠근 채
+    버려진다. 보낸 거래를 기억해 두었다가 다시 누르면 그 거래에서 이어 간다
+    (processingChainJobCreation).
+  */
   const initializeChain = useMutation({
     mutationFn: async () => {
       const prep = requirePreparation()
-      const receipt = await confirmed(createProcessingJob(
+      const receipt = await createOrResumeProcessingChainJob(jobId, () => createProcessingJob(
         prep.processorWallet,
         prep.inputTokenId,
         prep.inputQuantity,
@@ -105,12 +116,14 @@ export function useProcessingJob(jobId: number) {
       if (values.length !== 1) throw new Error('가공 작업 기록을 확인하지 못했습니다.')
       const onChainId = Number(values[0])
       const chainLockId = await getProcessingBrandLockId(onChainId)
-      return processingJobApi.linkChain(jobId, {
+      const linked = await processingJobApi.linkChain(jobId, {
         onChainId,
         chainLockId,
         txHash: receipt.hash,
         blockNumber: receipt.blockNumber,
       })
+      forgetProcessingChainCreate(jobId)
+      return linked
     },
     onSuccess: refresh,
   })
@@ -149,14 +162,12 @@ export function useProcessingJob(jobId: number) {
     onSuccess: refresh,
   })
   /*
-    수령. 발송과 같은 이유로 **이미 지난 단계면 서명을 건너뛴다.**
+    수령. **이미 서명이 남았으면 서명을 건너뛰고 해시 없이 보낸다.**
 
-    서명이 체인에 들어간 뒤 서버 호출이 실패하면 체인은 RECEIVED 인데 DB 는 SHIPPED 로
-    남는다. 다시 누르면 confirmReceipt 가 revert 해서 그 뒤의 서버 호출까지 못 가고, DB 가
-    영원히 따라잡지 못한다.
-
-    서버는 트랜잭션 해시를 요구하지 않는다(ProcessingJobWorkflowService.receive) — 건너뛴
-    경우에는 보낼 해시가 없으므로 이것이 중요하다.
+    서버는 수령 서명의 영수증을 읽어 소재 잔액을 브랜드에서 업체로 옮긴다
+    (ProcessingChainService.receive). 서명이 체인에 들어간 뒤 서버 호출이 실패하면 화면은 해시를
+    잃고, 다시 서명하려 하면 체인이 이미 수령된 작업이라 되돌린다. 그래서 체인이 이미 수령을
+    지났으면 해시 없이 보내고, 서버가 체인에서 그 서명 거래를 찾아 똑같이 검증한 뒤 기록한다.
   */
   const receive = useMutation({
     mutationFn: async () => {
@@ -247,9 +258,16 @@ export function useProcessingJob(jobId: number) {
     },
     onSuccess: refresh,
   })
+  /*
+    결과 승인. 수령과 같다 — 이미 승인 서명이 남았으면 해시 없이 보내 서버가 체인에서 찾게 한다.
+    승인은 새 소재를 발행하는 자리라 그 번호가 영수증에만 있어, 서버가 거래를 찾아야 발행할 수 있다.
+  */
   const approve = useMutation({
     mutationFn: async () => {
       const id = requireChainJob()
+      if (await chainAlreadyPassed(id, 'CONFIRMED')) {
+        return processingJobApi.receiveReturn(jobId, {})
+      }
       const receipt = await confirmed(approveProcessingResultOnChain(id))
       return processingJobApi.receiveReturn(jobId, {
         txHash: receipt.hash,

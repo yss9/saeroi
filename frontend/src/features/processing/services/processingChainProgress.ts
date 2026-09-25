@@ -28,9 +28,11 @@ const PASSED: Record<ProcessingChainStep, ReadonlySet<number>> = {
   SHIPPED: new Set([3, 4, 5, 6, 7, 8, 11, 12]),
   RECEIVED: new Set([4, 5, 6, 7, 8, 11, 12]),
   PROCESSING: new Set([5, 6, 7, 8, 11, 12]),
+  // 결과 승인. 승인하면 7 CONFIRMED 가 되고 그 뒤로 가는 상태가 없다.
+  CONFIRMED: new Set([7]),
 }
 
-export type ProcessingChainStep = 'SHIPPED' | 'RECEIVED' | 'PROCESSING'
+export type ProcessingChainStep = 'SHIPPED' | 'RECEIVED' | 'PROCESSING' | 'CONFIRMED'
 
 /**
  * 체인이 이 단계를 <b>이미 지났는가.</b>
