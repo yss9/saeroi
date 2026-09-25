@@ -15,6 +15,8 @@ import com.ssafy.upcycle.agent.service.AgentConversationService;
 import com.ssafy.upcycle.agent.service.PendingActionService;
 import com.ssafy.upcycle.agent.service.llm.LlmClient;
 import com.ssafy.upcycle.agent.service.llm.LlmCompletion;
+import com.ssafy.upcycle.agent.service.llm.LlmMessage;
+import com.ssafy.upcycle.agent.service.llm.LlmRole;
 import com.ssafy.upcycle.agent.service.llm.ToolCall;
 import com.ssafy.upcycle.material.entity.Material;
 import com.ssafy.upcycle.material.entity.MaterialBalance;
@@ -34,6 +36,7 @@ import com.ssafy.upcycle.user.entity.UserWallet;
 import com.ssafy.upcycle.user.entity.UserRole;
 import com.ssafy.upcycle.user.repository.UserRepository;
 import com.ssafy.upcycle.user.repository.UserWalletRepository;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -122,32 +125,60 @@ class AgentBatchCancelTests {
     }
 
     /**
-     * 편집이 닫힌 배치는 취소할 수 없다. 거절은 읽을 수 있는 문장으로 담당자에게 간다.
+     * 편집이 닫힌 배치에는 <b>취소 카드를 띄우지 않는다.</b> 모델에게 이유를 돌려주고, 모델이 그것을
+     * 담당자에게 풀어 말한다.
      *
      * <p>{@code SIGNING} 으로 만들어 확인한다 — 서명한 내용과 저장된 내용이 달라지면 온체인
      * 기록이 무엇을 증명하는지 알 수 없게 되므로 그 뒤로는 손댈 수 없다. 확정된 배치도 같은
-     * 문으로 막힌다.
+     * 문으로 막힌다. 예전에는 카드가 떴고, 담당자가 누른 뒤에야 거절을 봤다.
      */
     @Test
-    void 편집이_닫힌_배치는_취소되지_않고_이유가_대화에_남는다() {
+    void 편집이_닫힌_배치는_취소_카드를_띄우지_않고_이유를_알린다() {
         var batch = batches.findById(batchId).orElseThrow();
         batch.startSigning();
         batches.save(batch);
 
-        ConversationDetailResponse proposed = callTool(
+        ConversationDetailResponse after = callTool(
                 "cancel_production_batch",
                 "{\"batchId\":%d,\"summary\":\"정리\"}".formatted(batchId));
 
-        when(llmClient.complete(anyList(), anyList()))
-                .thenReturn(new LlmCompletion("확인했습니다.", List.of()));
+        assertThat(after.actions()).as("할 수 없는 일에 카드를 띄우면 담당자는 누른 뒤에야 거절을 본다").isEmpty();
+        assertThat(lastToolResult()).contains("BATCH_NOT_CANCELABLE").contains("SIGNING");
+        assertThat(batches.findById(batchId).orElseThrow().getStatus())
+                .isEqualTo(ProductionBatchStatus.SIGNING);
+        assertThat(activeLockCount()).as("거절됐으니 잠금도 그대로다").isEqualTo(1);
+    }
+
+    /**
+     * 카드를 띄운 <b>뒤에</b> 서명이 시작되면 승인이 거절된다. 그 이유는 모델에게 가고, 담당자는
+     * 모델이 풀어 쓴 한 문장만 본다({@code AgentDomainRejectionOnApprovalTests} 참고).
+     */
+    @Test
+    void 카드를_띄운_뒤_서명이_시작되면_승인이_거절되고_이유가_전해진다() {
+        ConversationDetailResponse proposed = callTool(
+                "cancel_production_batch",
+                "{\"batchId\":%d,\"summary\":\"정리\"}".formatted(batchId));
+        var batch = batches.findById(batchId).orElseThrow();
+        batch.startSigning();
+        batches.save(batch);
+
+        List<String> systemSeen = new ArrayList<>();
+        when(llmClient.complete(anyList(), anyList())).thenAnswer(invocation -> {
+            List<LlmMessage> prompt = invocation.getArgument(0);
+            prompt.stream()
+                    .filter(message -> message.role() == LlmRole.SYSTEM)
+                    .forEach(message -> systemSeen.add(message.content()));
+            return new LlmCompletion("서명 중인 배치라 취소할 수 없습니다.", List.of());
+        });
         ConversationDetailResponse after = pendingActionService.complete(
                 brandId, proposed.actions().getFirst().id(), null);
 
         assertThat(batches.findById(batchId).orElseThrow().getStatus())
                 .isEqualTo(ProductionBatchStatus.SIGNING);
         assertThat(activeLockCount()).as("거절됐으니 잠금도 그대로다").isEqualTo(1);
+        assertThat(systemSeen).anyMatch(block -> block.contains("요청을 처리하지 못했습니다"));
         assertThat(after.messages()).anyMatch(message -> message.content() != null
-                && message.content().contains("요청을 처리하지 못했습니다"));
+                && message.content().contains("서명 중인 배치라 취소할 수 없습니다"));
     }
 
     private long activeLockCount() {
@@ -173,7 +204,6 @@ class AgentBatchCancelTests {
         return conversationService.send(brandId, conversationId, "진행해줘");
     }
 
-    @SuppressWarnings("unused")
     private String lastToolResult() {
         return messages.findAll().stream()
                 .filter(message -> message.getRole() == AgentMessageRole.TOOL)

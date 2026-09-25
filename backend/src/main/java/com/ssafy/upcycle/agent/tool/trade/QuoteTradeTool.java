@@ -2,13 +2,18 @@ package com.ssafy.upcycle.agent.tool.trade;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ssafy.upcycle.agent.entity.JourneyPhase;
+import com.ssafy.upcycle.agent.service.CompanyNames;
 import com.ssafy.upcycle.agent.tool.AbstractAgentTool;
 import com.ssafy.upcycle.agent.tool.AgentToolContext;
 import com.ssafy.upcycle.agent.tool.AgentToolResult;
 import com.ssafy.upcycle.material.dto.MaterialQuantityUnit;
 import com.ssafy.upcycle.trade.service.TradeCommandService;
-import java.util.Set;
+import com.ssafy.upcycle.common.unit.Quantities;
+import com.ssafy.upcycle.trade.dto.ListingResponse;
+import com.ssafy.upcycle.trade.dto.TradeQuoteResponse;
+import com.ssafy.upcycle.trade.repository.ListingSearchQueryRepository;
+import com.ssafy.upcycle.material.entity.MaterialRootOrigin;
+import java.util.Map;
 import org.springframework.stereotype.Component;
 
 /**
@@ -21,10 +26,19 @@ import org.springframework.stereotype.Component;
 public class QuoteTradeTool extends AbstractAgentTool {
 
     private final TradeCommandService tradeCommand;
+    /** 견적에 어느 판매 글인지(판매자·등급)를 붙이려고 읽는다. 없는 글이면 null 을 돌려주어 터지지 않는다. */
+    private final ListingSearchQueryRepository listings;
+    private final CompanyNames companyNames;
 
-    public QuoteTradeTool(ObjectMapper objectMapper, TradeCommandService tradeCommand) {
+    public QuoteTradeTool(
+            ObjectMapper objectMapper,
+            TradeCommandService tradeCommand,
+            ListingSearchQueryRepository listings,
+            CompanyNames companyNames) {
         super(objectMapper);
+        this.listings = listings;
         this.tradeCommand = tradeCommand;
+        this.companyNames = companyNames;
     }
 
     @Override
@@ -53,20 +67,30 @@ public class QuoteTradeTool extends AbstractAgentTool {
     }
 
     @Override
-    public Set<JourneyPhase> phases() {
-        return Set.of(JourneyPhase.MATERIAL_SOURCING);
-    }
-
-    @Override
     public boolean isWrite() {
         return false;
     }
 
     @Override
     public AgentToolResult execute(AgentToolContext context, JsonNode arguments) {
-        return AgentToolResult.of(json(tradeCommand.quote(
+        TradeQuoteResponse quote = tradeCommand.quote(
                 requiredPositiveLong(arguments, "listingId"),
                 requiredPositiveLong(arguments, "quantityGram"),
-                MaterialQuantityUnit.G)));
+                MaterialQuantityUnit.G);
+        // 금액은 서버가 계산한 것을 문장으로 준다. 모델이 gram 에 kg 단가를 곱해
+        // 25,000,000원이라고 말한 적이 있다.
+        Map<String, Object> payload = fields(quote);
+        payload.put("quantityText", Quantities.text(quote.quantity()));
+        payload.put("availableText", Quantities.text(quote.availableQuantity()));
+        payload.put("totalPriceText", "%,d원".formatted(quote.totalPrice()));
+        // 견적만 보고 말하면 "폐데님 원단 10kg : 20,000원" 이 된다 — 누구에게서 사는지가 빠진다.
+        ListingResponse listing = listings.findDetail(quote.listingId());
+        if (listing != null) {
+            payload.put("sellerName", companyNames.of(listing.sellerId(), listing.sellerName()));
+            payload.put("grade", listing.grade());
+            payload.put("originText", listing.rootOrigin() == MaterialRootOrigin.VIRGIN ? "신소재" : "폐소재");
+        }
+        payload.put("hint", "금액을 말할 때 어느 판매 글인지(판매자·등급·폐소재/신소재·kg당 단가)도 함께 말합니다.");
+        return AgentToolResult.of(json(payload));
     }
 }

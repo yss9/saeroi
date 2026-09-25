@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ssafy.upcycle.agent.entity.JourneyPhase;
 import java.util.Map;
-import java.util.Set;
 import org.springframework.stereotype.Component;
 
 /**
@@ -14,9 +13,10 @@ import org.springframework.stereotype.Component;
  * 때문이다. "정보가 충분히 모였는가" 는 담당자가 무엇을 말했는지에 달려 있고, 코드로
  * 판정하려면 결국 같은 판단을 더 나쁘게 재현하게 된다.
  *
- * <p>대신 단계를 바꿔도 <b>할 수 있는 일이 늘어날 뿐 권한은 늘어나지 않는다.</b> 어느 단계든
- * 쓰기는 사용자 확인을 거치고, 인가는 기존 도메인 서비스가 본다. 그래서 모델이 단계를 잘못
- * 옮겨도 생기는 최악은 "엉뚱한 tool 이 보이는 것" 이다.
+ * <p><b>단계는 도구를 열고 닫지 않는다.</b> 바뀌는 것은 화면의 진행 표시와 시스템 프롬프트의
+ * "현재 단계" 안내뿐이다. 도구는 늘 전부 보이고, 지금 할 수 있는 일인지는 도구가 실제 상태로
+ * 판단한다({@code AgentToolRegistry} 참고). 그래서 모델이 단계를 잘못 옮겨도 생기는 최악은
+ * 안내문이 한 단계 어긋나는 것이다.
  */
 @Component
 public class SetPhaseTool extends AbstractAgentTool {
@@ -34,6 +34,7 @@ public class SetPhaseTool extends AbstractAgentTool {
     public String description() {
         return "여정 단계를 옮긴다. INTAKE(요구사항 파악) → MATERIAL_SOURCING(소재 확보) → "
                 + "PROCESSING(가공) → PRODUCTION(생산) → PRODUCT(제품 등록). "
+                + "진행 표시와 단계 안내만 바꾸며, 도구는 단계와 상관없이 언제든 부를 수 있다. "
                 + "담당자가 이전 단계로 돌아가고 싶어 하면 되돌려도 된다.";
     }
 
@@ -50,11 +51,6 @@ public class SetPhaseTool extends AbstractAgentTool {
                   "required": ["phase"],
                   "additionalProperties": false
                 }""";
-    }
-
-    @Override
-    public Set<JourneyPhase> phases() {
-        return Set.of();
     }
 
     @Override

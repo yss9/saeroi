@@ -7,20 +7,28 @@ import com.ssafy.upcycle.agent.entity.AgentPendingAction;
 import com.ssafy.upcycle.agent.entity.ConversationStatus;
 import com.ssafy.upcycle.agent.entity.JourneyPhase;
 import java.util.List;
+import java.util.Set;
 
-/** 대화 화면이 한 번에 받는 전체 상태. */
+/**
+ * 대화 화면이 한 번에 받는 전체 상태.
+ *
+ * @param projectTradeIds 이 대화에서 산 거래 번호. 오른쪽 할 일 목록이 이것만 보인다 — 계정의
+ *     모든 거래를 보이면 홈페이지에서 산 다른 소재의 "수령 확정" 이 이 제품의 할 일처럼 뜬다
+ */
 public record ConversationDetailResponse(
         Long id,
         String title,
         JourneyPhase phase,
         ConversationStatus status,
         List<AgentMessageResponse> messages,
-        List<PendingActionResponse> actions) {
+        List<PendingActionResponse> actions,
+        List<Long> projectTradeIds) {
 
     public static ConversationDetailResponse of(
             AgentConversation conversation,
             List<AgentMessage> messages,
-            List<AgentPendingAction> actions) {
+            List<AgentPendingAction> actions,
+            Set<Long> projectTradeIds) {
         return new ConversationDetailResponse(
                 conversation.getId(),
                 conversation.getTitle(),
@@ -33,6 +41,7 @@ public record ConversationDetailResponse(
                         .filter(message -> !message.isToolCall())
                         .map(AgentMessageResponse::from)
                         .toList(),
-                actions.stream().map(PendingActionResponse::from).toList());
+                actions.stream().map(PendingActionResponse::from).toList(),
+                projectTradeIds.stream().sorted().toList());
     }
 }

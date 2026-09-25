@@ -1,8 +1,11 @@
 package com.ssafy.upcycle.agent.tool;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 
@@ -35,6 +38,17 @@ public abstract class AbstractAgentTool implements AgentTool {
         return Arrays.stream(type.getEnumConstants())
                 .map(constant -> '"' + constant.name() + '"')
                 .collect(Collectors.joining(","));
+    }
+
+    /**
+     * DTO 를 필드 맵으로 바꾼다. <b>모델이 읽을 문장 필드를 옆에 붙이려고</b> 쓴다.
+     *
+     * <p>수량은 gram 정수라 모델이 읽으려면 환산해야 하는데, 그러다 94,000g 을 "94g" 이라고
+     * 말했다. 그래서 도구 결과에 "94kg" 같은 문장을 함께 싣는다. DTO 에 필드를 더하지 않는
+     * 이유는 그 DTO 를 화면과 다른 기능도 함께 쓰기 때문이다 — 에이전트 때문에 바꾸지 않는다.
+     */
+    protected Map<String, Object> fields(Object dto) {
+        return objectMapper.convertValue(dto, new TypeReference<LinkedHashMap<String, Object>>() {});
     }
 
     protected String json(Object value) {

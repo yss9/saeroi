@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.ssafy.upcycle.agent.AgentErrorCode;
 import com.ssafy.upcycle.agent.entity.AgentConversation;
 import com.ssafy.upcycle.agent.entity.AgentPendingAction;
+import com.ssafy.upcycle.agent.entity.PendingActionType;
+import com.ssafy.upcycle.agent.project.AgentProjects;
 import com.ssafy.upcycle.agent.repository.AgentPendingActionRepository;
 import com.ssafy.upcycle.agent.tool.AgentToolArgumentException;
 import com.ssafy.upcycle.agent.tool.AgentToolResult;
@@ -40,12 +42,21 @@ public class AgentActionStore {
     private final AgentPendingActionRepository pendingActions;
     private final AgentConversationService conversationService;
     private final AgentToolExecutor executor;
+    private final AgentProjects projects;
     private final ConversationStore store;
     private final ObjectMapper objectMapper;
     private final Clock clock;
 
-    /** 승인 처리 결과. 대화를 이어갈지는 호출자가 트랜잭션 <b>밖에서</b> 판단한다. */
-    public record Outcome(Long conversationId, boolean resumeConversation) {}
+    /**
+     * 승인 처리 결과. 대화를 이어갈지는 호출자가 트랜잭션 <b>밖에서</b> 판단한다.
+     *
+     * @param summary 무슨 일이 일어났는지 한 줄. <b>이력에 넣지 않는다</b> — 모델에게는 이번
+     *     턴의 상태 블록으로 전해지고, 담당자에게 보일 문장은 모델이 쓴다. 예전에는 이것을
+     *     ASSISTANT 로 남겼는데, 곧이어 모델이 같은 말을 다시 해서 "수령이 블록체인에
+     *     기록되고 확정됐습니다" 가 세 건에 네 번 떴다. 모델이 말하지 못하면 이 문장이
+     *     그대로 화면에 나간다
+     */
+    public record Outcome(Long conversationId, boolean resumeConversation, String summary) {}
 
     /**
      * 승인된 카드를 실행한다. 실패하면 {@link ActionFailed} 로 나간다.
@@ -80,7 +91,7 @@ public class AgentActionStore {
             action.markStale();
             store.appendAssistant(conversation, stale.get());
             log.info("Agent action stale on approval: id={} tool={}", actionId, action.getToolName());
-            return new Outcome(conversation.getId(), false);
+            return new Outcome(conversation.getId(), false, stale.get());
         }
 
         AgentToolResult result = runOrFail(conversation, userId, action, arguments);
@@ -88,9 +99,21 @@ public class AgentActionStore {
         action.complete(result.payloadJson(), now);
         log.info("Agent action completed: id={} tool={}", actionId, action.getToolName());
 
-        // 실행 결과를 이력에 넣어 모델이 다음 말을 이어갈 수 있게 한다.
-        store.appendAssistant(conversation, result.userVisibleSummary());
-        return new Outcome(conversation.getId(), true);
+        // 이 카드가 프로젝트를 다음 단계로 들였으면 대화 단계도 따라간다. 진행 막대와 단계
+        // 안내가 이 값을 읽는데, 모델이 set_phase 를 잊으면 실제 진행보다 뒤처진다.
+        projects.claimedBy(action.getToolName(), arguments, result.payloadJson())
+                .furthestStage()
+                .ifPresent(conversation::advanceTo);
+
+        // **이력에 넣지 않는다.** 여기 넣으면 담당자 화면에 서버 문장이 뜨고, 이어지는
+        // 턴에서 모델이 같은 말을 한 번 더 한다. 결과는 이번 턴의 상태 블록으로만 전하고,
+        // 화면에 보일 문장은 모델이 한 번만 쓴다.
+        //
+        // **결제 카드는 여기서 모델을 부르지 않는다.** 승인은 결제창을 연 것일 뿐 결제가 아니다. 예전에는 여기서
+        // 모델이 돌아, 결제창이 뜨기도 전에 "✓ 결제 완료, 판매자 발송 대기 중" 을 썼다 — 결제는 15초 뒤였고,
+        // 담당자는 카드를 누르고 결제창이 뜨기까지 그 9초를 기다렸다. 결제를 마치거나 닫고 돌아오면 복귀 화면이
+        // 무슨 일이 있었는지 알리고 모델이 그때 말한다({@code AgentChatService.reportEvent}).
+        return new Outcome(conversation.getId(), resumesAfter(action.getActionType()), result.userVisibleSummary());
     }
 
     /**
@@ -144,23 +167,50 @@ public class AgentActionStore {
      * 클래스를 만든 이유다.
      */
     @Transactional
-    public void recordFailure(Long userId, Long actionId, String reason) {
+    public void recordFailure(Long userId, Long actionId) {
         AgentPendingAction action = pendingActions
                 .findById(actionId)
                 .orElseThrow(() -> new BusinessException(AgentErrorCode.AGENT_ACTION_NOT_FOUND));
-        AgentConversation conversation =
-                conversationService.require(userId, action.getConversationId());
+        conversationService.require(userId, action.getConversationId());
 
         if (action.isPending()) {
             action.reject(LocalDateTime.now(clock));
         }
-        // 이유를 대화에 남겨 모델이 담당자에게 설명하고 다른 수를 제안할 수 있게 한다.
-        store.appendAssistant(conversation, reason);
+        // **이유는 여기서 대화에 넣지 않는다.** 이어지는 턴에서 모델이 무엇이 막혔는지와 다음
+        // 할 일을 한 번 전하고, 모델이 말하지 못하면 그때 서버 문장이 나간다
+        // ({@code PendingActionService.resumeQuietly}). 여기서도 넣으면 담당자는 같은 실패를
+        // 서버 문장과 모델 문장으로 두 번 읽는다.
     }
 
-    /** 담당자가 카드를 거절했다. 대화 id 를 돌려준다 — 이어가기는 트랜잭션 밖에서 한다. */
+    /**
+     * 담당자에게 보일 안내 한 줄을 대화에 남긴다.
+     *
+     * <p>승인 뒤 모델이 이어 말하지 못했을 때 쓴다({@code PendingActionService.resumeQuietly}).
+     * 조용히 넘기면 담당자는 승인 뒤 아무 반응도 없는 화면을 보게 되고, 그것도 실패처럼
+     * 읽힌다.
+     */
     @Transactional
-    public Long recordUserRejection(Long userId, Long actionId) {
+    public void appendNotice(Long userId, Long conversationId, String notice) {
+        store.appendAssistant(conversationService.require(userId, conversationId), notice);
+    }
+
+    /** 승인 뒤 곧바로 모델이 이어 말하는가. 결제 카드는 복귀 화면이 결과를 알린 뒤에 말한다. */
+    public static boolean resumesAfter(PendingActionType type) {
+        return type != PendingActionType.PAYMENT;
+    }
+
+    /** 담당자가 취소한 카드. 이어가기는 트랜잭션 밖에서 하므로 필요한 값만 들고 나간다. */
+    public record Rejection(Long conversationId, String summary) {}
+
+    /**
+     * 담당자가 카드를 거절했다.
+     *
+     * <p><b>대화에 문장을 남기지 않는다.</b> 예전에는 서버가 "담당자가 이 작업을 취소했습니다." 를 먼저 쓰고
+     * 모델을 불렀다. 담당자는 서버 문장과 모델의 말을 둘 다 봤고, 서버 문장에는 무엇을 취소했는지도 없었다.
+     * 이제 무엇을 취소했는지를 돌려주고, 모델이 그것을 이어 말한다({@code PendingActionService.reject}).
+     */
+    @Transactional
+    public Rejection recordUserRejection(Long userId, Long actionId) {
         AgentPendingAction action = pendingActions
                 .findById(actionId)
                 .orElseThrow(() -> new BusinessException(AgentErrorCode.AGENT_ACTION_NOT_FOUND));
@@ -173,10 +223,7 @@ public class AgentActionStore {
             throw new BusinessException(AgentErrorCode.AGENT_ACTION_NOT_PENDING);
         }
         action.reject(now);
-
-        // 거절은 오류가 아니라 선택이다. 모델이 그 사실을 알고 다른 안을 내게 한다.
-        store.appendAssistant(conversation, "담당자가 이 작업을 취소했습니다.");
-        return conversation.getId();
+        return new Rejection(conversation.getId(), action.getSummary());
     }
 
     /**

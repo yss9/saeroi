@@ -2,7 +2,6 @@ package com.ssafy.upcycle.agent.tool.product;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ssafy.upcycle.agent.entity.JourneyPhase;
 import com.ssafy.upcycle.agent.tool.AbstractAgentTool;
 import com.ssafy.upcycle.agent.tool.AgentToolContext;
 import com.ssafy.upcycle.agent.tool.AgentToolResult;
@@ -15,7 +14,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.springframework.stereotype.Component;
 
 /**
@@ -64,11 +62,6 @@ public class IncomingOrdersTool extends AbstractAgentTool {
     public String parametersJsonSchema() {
         return """
                 {"type": "object", "properties": {}, "additionalProperties": false}""";
-    }
-
-    @Override
-    public Set<JourneyPhase> phases() {
-        return Set.of(JourneyPhase.PRODUCT);
     }
 
     @Override

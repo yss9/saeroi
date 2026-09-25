@@ -98,6 +98,23 @@ public class AgentConversation extends BaseEntity {
         this.phase = requireNonNull(next, "phase");
     }
 
+    /**
+     * 앞으로만 옮긴다. 이미 그 단계이거나 더 나아갔으면 그대로 둔다.
+     *
+     * <p>승인한 카드가 프로젝트를 다음 단계로 들였을 때 쓴다(소재를 사면 소재 단계, 가공을
+     * 맡기면 가공 단계 …). 도구가 단계로 가려지지 않게 된 뒤로 모델은 {@code set_phase} 를
+     * 부를 이유가 줄었고, 그대로 두면 진행 막대가 실제 진행보다 뒤처진다. 뒤로 돌리지 않는
+     * 이유는 생산 중에 소재를 더 사는 일이 흔하기 때문이다 — 그때 막대가 소재로 돌아가면
+     * 담당자는 생산이 사라진 줄 안다.
+     */
+    public void advanceTo(JourneyPhase reached) {
+        requireActive();
+        requireNonNull(reached, "phase");
+        if (phase != JourneyPhase.DONE && reached.ordinal() > phase.ordinal()) {
+            this.phase = reached;
+        }
+    }
+
     public void updateRequirement(String requirementJson) {
         requireActive();
         this.requirementJson = requirementJson;

@@ -2,11 +2,12 @@ package com.ssafy.upcycle.agent.tool.trade;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ssafy.upcycle.agent.entity.JourneyPhase;
+import com.ssafy.upcycle.agent.service.CompanyNames;
 import com.ssafy.upcycle.agent.tool.AbstractAgentTool;
 import com.ssafy.upcycle.agent.tool.AgentToolArgumentException;
 import com.ssafy.upcycle.agent.tool.AgentToolContext;
 import com.ssafy.upcycle.agent.tool.AgentToolResult;
+import com.ssafy.upcycle.common.unit.Quantities;
 import com.ssafy.upcycle.material.entity.MaterialRootOrigin;
 import com.ssafy.upcycle.material.entity.MaterialType;
 import com.ssafy.upcycle.trade.dto.ListingResponse;
@@ -14,7 +15,6 @@ import com.ssafy.upcycle.trade.dto.ListingSearchCondition;
 import com.ssafy.upcycle.trade.service.ListingQueryService;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.springframework.stereotype.Component;
 
 /**
@@ -45,10 +45,14 @@ public class SearchListingsTool extends AbstractAgentTool {
     private static final int SIZE = 5;
 
     private final ListingQueryService listingQuery;
+    /** 판매자는 대표자 이름이 아니라 업체명으로 보인다. */
+    private final CompanyNames companyNames;
 
-    public SearchListingsTool(ObjectMapper objectMapper, ListingQueryService listingQuery) {
+    public SearchListingsTool(
+            ObjectMapper objectMapper, ListingQueryService listingQuery, CompanyNames companyNames) {
         super(objectMapper);
         this.listingQuery = listingQuery;
+        this.companyNames = companyNames;
     }
 
     @Override
@@ -85,11 +89,6 @@ public class SearchListingsTool extends AbstractAgentTool {
     }
 
     @Override
-    public Set<JourneyPhase> phases() {
-        return Set.of(JourneyPhase.MATERIAL_SOURCING);
-    }
-
-    @Override
     public boolean isWrite() {
         return false;
     }
@@ -123,17 +122,34 @@ public class SearchListingsTool extends AbstractAgentTool {
                     "hint", hintForEmpty(arguments))));
         }
 
-        List<Candidate> candidates = result.content().stream().map(Candidate::from).toList();
+        Map<Long, String> sellers = companyNames.of(
+                result.content().stream().map(ListingResponse::sellerId).toList());
+        List<Candidate> candidates = result.content().stream()
+                .map(listing -> Candidate.from(
+                        listing, CompanyNames.pick(sellers, listing.sellerId(), listing.sellerName())))
+                .toList();
         long onChainCount = candidates.stream().filter(Candidate::onChain).count();
 
         return AgentToolResult.of(json(Map.of(
                 "listings", candidates,
                 "total", result.totalElements(),
                 "onChainCount", onChainCount,
+                // **잔량은 availableText 를 그대로 옮긴다.** gram 을 직접 환산하다 94,000g 을
+                // "94g" 이라고 말하고, 그 숫자로 수량이 부족하다며 담당자에게 주문을 줄이라고
+                // 권한 일이 있다.
+                "quantityNote", "잔량을 말할 때는 availableText 를 그대로 씁니다. "
+                        + "availableQuantityGram 을 직접 환산하지 마세요.",
                 "note", onChainCount == candidates.size()
                         ? "모두 블록체인 기록이 가능한 판매 글입니다."
                         : "onChain 이 false 인 판매 글은 구매는 되지만 블록체인 이력이 남지 않습니다. "
-                                + "담당자에게 이 차이를 알려주세요.")));
+                                + "담당자에게 이 차이를 알려주세요.",
+                // **후보를 보여 준다 — 하나뿐이어도.** 폐데님을 파는 곳이 한 곳뿐이자 모델은 비교할 게 없다고 보고
+                // "폐데님 원단 10kg : 20,000원" 만 말했다. 담당자는 누구에게서 무엇을 사는지 모른 채 결제했다.
+                "hint", candidates.size() == 1
+                        ? "판매 글이 하나뿐입니다. 그렇다고 알리고 이 글의 판매자·등급·폐소재/신소재·kg당 단가·남은 양을 "
+                                + "보여 준 뒤, 이 글로 살지와 몇 kg 살지를 묻습니다."
+                        : "후보마다 판매자·등급·폐소재/신소재·kg당 단가·남은 양을 나란히 보여 주고(표가 좋습니다), "
+                                + "무엇을 권하는지 이유와 함께 말한 뒤 고르게 합니다. 고른 뒤에 몇 kg 살지를 묻습니다.")));
     }
 
     /**
@@ -178,10 +194,21 @@ public class SearchListingsTool extends AbstractAgentTool {
             String grade,
             long pricePerKg,
             long availableQuantityGram,
+            /**
+             * 담당자에게 그대로 보여줄 잔량. <b>환산을 모델에게 맡기지 않는다.</b>
+             *
+             * <p>필드 이름에 단위를 적어 두었는데도 94,000g 을 "94g" 이라고 말한 적이 있다.
+             * 나눗셈은 맞았고 단위만 틀렸는데, 그 숫자로 "12.5kg 에 한참 못 미친다" 는
+             * 결론까지 내고 담당자에게 <b>주문 수량을 줄이라고 권했다.</b> 실제로는 94kg 이라
+             * 넉넉했다.
+             *
+             * <p>읽어서 그대로 옮길 문장을 주면 그 자리에서 틀릴 일이 없다.
+             */
+            String availableText,
             String sellerName,
             boolean onChain) {
 
-        static Candidate from(ListingResponse listing) {
+        static Candidate from(ListingResponse listing, String sellerName) {
             return new Candidate(
                     listing.listingId(),
                     listing.materialName(),
@@ -190,7 +217,8 @@ public class SearchListingsTool extends AbstractAgentTool {
                     listing.grade(),
                     listing.pricePerKg(),
                     listing.availableQuantity(),
-                    listing.sellerName(),
+                    Quantities.text(listing.availableQuantity()),
+                    sellerName,
                     listing.chainListingId() != null);
         }
     }

@@ -1,7 +1,9 @@
 package com.ssafy.upcycle.agent.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.ssafy.upcycle.agent.entity.AgentConversation;
 import com.ssafy.upcycle.agent.entity.AgentMessage;
 import com.ssafy.upcycle.agent.entity.AgentPendingAction;
@@ -15,6 +17,7 @@ import com.ssafy.upcycle.common.exception.BusinessException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,6 +38,7 @@ import org.springframework.util.StringUtils;
 public class AgentToolExecutor {
 
     private final AgentToolRegistry registry;
+    private final OpenCards openCards;
     private final AgentPendingActionRepository pendingActions;
     private final ObjectMapper objectMapper;
     private final Clock clock;
@@ -52,13 +56,12 @@ public class AgentToolExecutor {
             AgentMessage toolCallMessage,
             Duration actionTtl) {
 
-        Optional<AgentTool> found = registry.find(call.name(), conversation.getPhase());
+        // 대화 단계는 보지 않는다. 그 일을 지금 할 수 있는지는 tool 이 실제 상태로 판단한다
+        // ({@code AgentToolRegistry} 참고).
+        Optional<AgentTool> found = registry.find(call.name());
         if (found.isEmpty()) {
-            log.info("Agent tool rejected: name={} phase={}", call.name(), conversation.getPhase());
-            // **어느 단계로 옮기면 되는지 함께 알려준다.** 이름만 거절하면 모델이 "그 기능은
-            // 없다" 고 결론 내리고 담당자에게 할 수 없는 일이라고 답한다. 실제로 판매 시작을
-            // 그렇게 거절했다 — 단계만 옮기면 되는 일이었다.
-            return error("WRONG_PHASE", registry.phaseHintFor(call.name(), conversation.getPhase()));
+            log.info("Agent tool rejected: unknown name={}", call.name());
+            return error("UNKNOWN_TOOL", registry.unknownToolHint(call.name()));
         }
         AgentTool tool = found.get();
 
@@ -84,7 +87,21 @@ public class AgentToolExecutor {
                 log.info("Agent tool skipped as stale: name={} reason={}", tool.name(), stale.get());
                 return error("ALREADY_DONE", stale.get());
             }
-            return propose(conversation, tool, call, arguments, toolCallMessage, actionTtl);
+            // **같은 일에 카드를 두 장 만들지 않는다.** 카드를 만드는 문이 둘이라
+            // (모델과 서버) 한쪽만 막으면 다른 쪽으로 중복이 들어온다. 실제로 온체인 기록
+            // 카드가 자동으로 뜬 뒤 모델이 같은 거래에 한 장을 더 만들었고, 담당자가 한쪽만
+            // 누르자 나머지가 영원히 남았다 — 서명은 다 끝났는데 "지갑 서명이 필요합니다"
+            // 가 계속 떠 있었다.
+            Optional<AgentPendingAction> already =
+                    openCards.sameWork(openCards.of(conversation.getId()), tool.name(), arguments);
+            if (already.isPresent()) {
+                log.info(
+                        "Agent tool skipped, card already open: name={} cardId={}",
+                        tool.name(),
+                        already.get().getId());
+                return alreadyProposed(already.get());
+            }
+            return propose(conversation, userId, tool, call, arguments, toolCallMessage, actionTtl);
         }
 
         try {
@@ -109,7 +126,7 @@ public class AgentToolExecutor {
             AgentConversation conversation, Long userId, AgentPendingAction action, JsonNode mergedArguments) {
 
         AgentTool tool = registry
-                .findApproved(action.getToolName())
+                .find(action.getToolName())
                 .orElseThrow(() -> new IllegalStateException("Approved tool disappeared: " + action.getToolName()));
 
         return tool.execute(new AgentToolContext(userId, conversation), mergedArguments);
@@ -153,7 +170,7 @@ public class AgentToolExecutor {
             return Optional.empty();
         }
         return registry
-                .findApproved(action.getToolName())
+                .find(action.getToolName())
                 .flatMap(tool -> stalenessReason(tool, userId, conversation, arguments));
     }
 
@@ -177,6 +194,30 @@ public class AgentToolExecutor {
     }
 
     /**
+     * 서버가 스스로 카드를 띄워도 되는가. {@code BrandStepAutoProposer} 가 묻는다.
+     *
+     * <p><b>모델이 띄울 때와 같은 검사를 지난다.</b> 카드를 만드는 문이 둘인데 한쪽만
+     * 검사하면 그 문으로 들어온 카드는 도구가 막아 둔 것을 그대로 통과한다. 소재 인계가
+     * 그렇다 — 업체가 체인에서 수락하기 전에는 서명할 수 없고, 모르고 서명하면 컨트랙트가
+     * {@code Processing: invalid status} 로 되돌린다. 담당자는 자기가 부르지도 않은 카드에
+     * 서명했다가 영문 모를 오류를 보게 된다.
+     *
+     * <p>대화 단계는 보지 않는다. 자동 카드는 담당자 차례가 됐다는 사실만으로 뜬다.
+     *
+     * <p>막힌 이유는 돌려주지 않는다. 자동 카드는 담당자가 묻지 않았는데 뜨는 것이라,
+     * 띄우지 못할 때는 아무 말도 하지 않는 편이 맞다 — 폴링마다 "아직 할 수 없습니다" 가
+     * 쌓이면 대화가 그것으로 덮인다.
+     */
+    public boolean mayPropose(
+            AgentConversation conversation, Long userId, String toolName, JsonNode arguments) {
+        return registry
+                .find(toolName)
+                .map(tool -> refusalBeforeProposal(tool, userId, conversation, arguments).isEmpty()
+                        && stalenessReason(tool, userId, conversation, arguments).isEmpty())
+                .orElse(false);
+    }
+
+    /**
      * 카드를 띄우기 전 거절. 비어 있으면 카드를 만든다.
      *
      * <p>여기서 던져진 예외는 카드를 막지 않는다 — 사전 점검이 흔들린다고 정상 흐름까지
@@ -195,22 +236,47 @@ public class AgentToolExecutor {
         }
     }
 
+    /**
+     * 이미 떠 있는 카드를 가리켜 준다. <b>새로 만들지 않는다.</b>
+     *
+     * <p>"이미 했다"({@code ALREADY_DONE})와 다르다 — 그건 끝난 일이고, 이건 아직 담당자를
+     * 기다리는 일이다. 구분하지 않으면 모델이 완료로 읽고 다음 단계로 넘어간다.
+     */
+    /**
+     * 이 결과가 <b>담당자 앞에 카드를 띄웠다는</b> 것인가. 새로 띄웠든 이미 떠 있던 것이든 같다 — 담당자가 누르기
+     * 전까지 그 일은 일어나지 않았다.
+     */
+    public static boolean awaitsCard(String result) {
+        return result != null && result.contains("\"status\":\"AWAITING_USER_CONFIRMATION\"");
+    }
+
+    private String alreadyProposed(AgentPendingAction card) {
+        return """
+                {"status":"AWAITING_USER_CONFIRMATION","cardId":%d,"actionType":"%s",                "message":"이 작업은 이미 확인 카드로 띄워 두었고 담당자가 아직 승인하지                 않았습니다. 카드를 다시 띄우지 마세요 — 같은 일에 카드가 두 장 생기면 담당자가                 한쪽만 누르고 나머지는 계속 떠 있게 됩니다. 담당자에게 위에 떠 있는 카드를                 확인해 달라고만 안내하세요."}"""
+                .formatted(card.getId(), card.getActionType().name());
+    }
+
     private String propose(
             AgentConversation conversation,
+            Long userId,
             AgentTool tool,
             ToolCall call,
             JsonNode arguments,
             AgentMessage toolCallMessage,
             Duration actionTtl) {
 
-        String summary = summarize(tool, arguments);
+        AgentToolContext context = new AgentToolContext(userId, conversation);
+        // **서버가 만든 요약이 있으면 그것을 쓴다.** 이 한 줄이 처리 뒤 대화에 남는 동의
+        // 기록이라, 모델이 쓴 틀린 숫자가 거기 남으면 안 된다.
+        Optional<String> fromServer = serverSummary(tool, context, arguments);
+        String summary = fromServer.orElseGet(() -> summarize(tool, arguments));
         AgentPendingAction action = pendingActions.save(AgentPendingAction.propose(
                 conversation.getId(),
                 toolCallMessage.getId(),
                 tool.pendingKind().actionType(),
                 tool.name(),
                 summary,
-                call.argumentsJson(),
+                withServerValues(tool, context, arguments, call.argumentsJson(), fromServer),
                 tool.signatureSteps(),
                 LocalDateTime.now(clock).plus(actionTtl)));
 
@@ -229,13 +295,80 @@ public class AgentToolExecutor {
         // 3번이 열렸는데 add_production_inputs 에 batchId:44 를 넘겨 "생산 배치를 찾을 수
         // 없습니다" 로 끝났다. 번호는 시스템 프롬프트의 실제 상태 목록이 알려준다
         // (AgentPendingWork). 여기서는 헷갈릴 여지를 지운다.
+        //
+        // **카드에 실제로 적힌 내용을 돌려준다.** 제목은 서버가 실제 대상에서 만든다(serverSummary).
+        // 모델이 번호를 짐작해 다른 판매 글로 카드를 띄웠을 때, 카드는 "깨끗한 데님 3kg · 15,000원" 으로
+        // 바르게 적혔는데 모델은 그것을 보지 못하고 "데님 3kg 결제 카드를 띄웠습니다" 라고 말했다 —
+        // 담당자는 6,000원짜리 폐데님에 합의해 놓고 15,000원을 결제했다.
         return """
-                {"status":"AWAITING_USER_CONFIRMATION","cardId":%d,"actionType":"%s",\
-                "message":"담당자에게 확인 카드를 띄웠습니다. 담당자가 승인하기 전까지 이 작업은 \
-                수행되지 않았습니다. 결과를 기다리고, 완료된 것처럼 말하지 마세요. \
-                cardId 는 이 카드의 번호일 뿐입니다 — 거래·작업·배치 번호로 쓰지 마세요. \
-                그 번호는 조회 도구나 시스템 프롬프트의 현재 상태 목록에서 확인하세요."}"""
-                .formatted(action.getId(), action.getActionType().name());
+                {"status":"AWAITING_USER_CONFIRMATION","cardId":%d,"actionType":"%s","cardSummary":%s,\
+                "message":"담당자에게 확인 카드를 띄웠습니다. 카드에는 cardSummary 가 적혀 있습니다 — 서버가 \
+                실제 대상에서 만든 내용입니다. 담당자와 합의한 것과 소재·수량·금액이 다르면 그 사실을 먼저 \
+                알리고 카드를 취소하도록 안내하세요. 담당자가 승인하기 전까지 이 작업은 수행되지 않았습니다. \
+                결과를 기다리고, 완료된 것처럼 말하지 마세요. 결과를 확인하려고 이 턴에 조회하지도 마세요 — 담당자가                 누르기 전이라 조회해도 아직이고, 누르면 서버가 알려 줍니다. cardId 는 이 카드의 번호일 뿐입니다 — \
+                거래·작업·배치 번호로 쓰지 마세요. 그 번호는 조회 도구나 시스템 프롬프트의 현재 상태 목록에서 \
+                확인하세요."}"""
+                .formatted(action.getId(), action.getActionType().name(), quote(action.getSummary()));
+    }
+
+    /**
+     * 도구가 계산한 값을 카드 payload 에 합친다.
+     *
+     * <p>담당자가 승인 전에 보는 숫자가 모델이 쓴 것뿐이면, 틀린 금액을 보고 누르게 된다.
+     * 서버가 아는 값을 여기서 덮어 둔다({@link AgentTool#payloadExtras}).
+     */
+    /**
+     * 서버가 스스로 띄우는 카드의 제목. 도구가 쓰는 제목이 있으면 그것을 쓴다({@code BrandStepAutoProposer}).
+     *
+     * <p>카드를 만드는 문이 둘인데 제목을 한쪽만 도구가 쓰면, 같은 카드가 어느 문으로 들어왔는지에 따라 담긴 정보가
+     * 달라진다. 가공 결과 승인이 그랬다 — 모델이 띄우면 결과물과 손실이 적히는데 서버가 띄우면 "결과 승인" 뿐이었다.
+     */
+    public Optional<String> serverSummaryFor(
+            AgentConversation conversation, Long userId, String toolName, JsonNode arguments) {
+        return registry.find(toolName)
+                .flatMap(tool -> serverSummary(tool, new AgentToolContext(userId, conversation), arguments));
+    }
+
+    /** 서버 요약. 만들다 실패하면 비워 둔다 — 모델 문장으로 떨어질 뿐 카드는 뜬다. */
+    private Optional<String> serverSummary(AgentTool tool, AgentToolContext context, JsonNode arguments) {
+        try {
+            return tool.serverSummary(context, arguments)
+                    .filter(StringUtils::hasText)
+                    .map(text -> text.length() > 500 ? text.substring(0, 500) : text);
+        } catch (RuntimeException failure) {
+            log.warn(
+                    "Server summary unavailable: tool={} reason={}",
+                    tool.name(),
+                    failure.getClass().getSimpleName());
+            return Optional.empty();
+        }
+    }
+
+    private String withServerValues(
+            AgentTool tool,
+            AgentToolContext context,
+            JsonNode arguments,
+            String argumentsJson,
+            Optional<String> serverSummary) {
+        try {
+            Map<String, Object> extras = tool.payloadExtras(context, arguments);
+            if (extras.isEmpty() && serverSummary.isEmpty()) {
+                return argumentsJson;
+            }
+            ObjectNode merged = arguments.deepCopy();
+            extras.forEach((key, value) -> merged.set(key, objectMapper.valueToTree(value)));
+            // 서명 카드는 payload 의 summary 를 보여 준다(WalletSignCard). 카드 제목과 다른
+            // 문장이 뜨지 않게 같은 것으로 덮는다.
+            serverSummary.ifPresent(text -> merged.put("summary", text));
+            return objectMapper.writeValueAsString(merged);
+        } catch (RuntimeException | JsonProcessingException failure) {
+            // 부가 정보가 없다고 카드를 막지 않는다. 금액은 승인 뒤 서버가 다시 계산한다.
+            log.warn(
+                    "Card extras unavailable: tool={} reason={}",
+                    tool.name(),
+                    failure.getClass().getSimpleName());
+            return argumentsJson;
+        }
     }
 
     /**

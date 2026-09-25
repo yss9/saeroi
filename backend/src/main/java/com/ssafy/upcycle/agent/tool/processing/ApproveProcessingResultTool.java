@@ -2,23 +2,26 @@ package com.ssafy.upcycle.agent.tool.processing;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ssafy.upcycle.agent.entity.JourneyPhase;
 import com.ssafy.upcycle.agent.tool.AbstractAgentTool;
 import com.ssafy.upcycle.agent.tool.AgentToolContext;
 import com.ssafy.upcycle.agent.tool.AgentToolResult;
 import com.ssafy.upcycle.agent.tool.PendingActionKind;
+import com.ssafy.upcycle.common.unit.Quantities;
 import com.ssafy.upcycle.material.dto.MyMaterialResponse;
 import com.ssafy.upcycle.material.service.MaterialQueryService;
 import com.ssafy.upcycle.processing.dto.ProcessingJobResponse;
 import com.ssafy.upcycle.processing.dto.ProcessingOutputResponse;
 import com.ssafy.upcycle.processing.entity.ProcessType;
+import com.ssafy.upcycle.processing.entity.ProcessingJobStatus;
 import com.ssafy.upcycle.processing.entity.RequiredProcessing;
 import com.ssafy.upcycle.processing.service.ProcessingJobService;
+import com.ssafy.upcycle.processing.service.ProcessingJobWorkflowService;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.Map;
-import java.util.Set;
+import java.util.Optional;
 import org.springframework.stereotype.Component;
 
 /**
@@ -50,14 +53,17 @@ public class ApproveProcessingResultTool extends AbstractAgentTool {
 
     private final ProcessingJobService jobService;
     private final MaterialQueryService materialQuery;
+    private final ProcessingJobWorkflowService jobWorkflow;
 
     public ApproveProcessingResultTool(
             ObjectMapper objectMapper,
             ProcessingJobService jobService,
-            MaterialQueryService materialQuery) {
+            MaterialQueryService materialQuery,
+            ProcessingJobWorkflowService jobWorkflow) {
         super(objectMapper);
         this.jobService = jobService;
         this.materialQuery = materialQuery;
+        this.jobWorkflow = jobWorkflow;
     }
 
     @Override
@@ -90,11 +96,6 @@ public class ApproveProcessingResultTool extends AbstractAgentTool {
     }
 
     @Override
-    public Set<JourneyPhase> phases() {
-        return Set.of(JourneyPhase.PROCESSING);
-    }
-
-    @Override
     public boolean isWrite() {
         return true;
     }
@@ -110,6 +111,104 @@ public class ApproveProcessingResultTool extends AbstractAgentTool {
      * <p>{@code txHash} 를 검증하지 않는다. {@code receiveReturn} 이 영수증을 RPC 로 확인하며
      * 이미 하고 있고, 여기서 또 하면 같은 규칙이 두 곳에 생긴다.
      */
+    /**
+     * <b>업체가 결과물을 돌려보낸 뒤에만</b> 카드를 띄운다.
+     *
+     * <p>이 검사가 없던 동안, 업체가 결과를 <b>올리기만 한</b> 시점({@code RESULT_SUBMITTED})
+     * 에 승인 서명 카드가 자동으로 떴다. 남은 일 판정이 그 상태를 "승인할 차례" 로 봤기
+     * 때문이다. 그런데 {@code receiveReturn} 은 {@code RETURN_SHIPPED} 에서만 받으므로 그
+     * 카드는 <b>절대 성공할 수 없었다</b> — 담당자가 지갑을 열어 서명한 뒤에야 실패를 봤다.
+     *
+     * <p>결과를 올린 단계에서 담당자가 할 일은 결과를 확인하는 것이고, 반려할 게 있으면 가공
+     * 화면에서 한다. 승인 서명은 물건이 돌아오는 중일 때다.
+     */
+    @Override
+    public Optional<AgentToolResult> refuseBeforeProposal(AgentToolContext context, JsonNode arguments) {
+        ProcessingJobResponse job = findJob(context, arguments);
+        if (job == null
+                || job.status() == ProcessingJobStatus.RETURN_SHIPPED
+                || job.status() == ProcessingJobStatus.CONFIRMED) {
+            return Optional.empty();
+        }
+        String hint = job.status() == ProcessingJobStatus.RESULT_SUBMITTED
+                ? "업체가 결과를 올렸지만 아직 결과물을 돌려보내지 않았습니다. 지금은 결과를 담당자에게 "
+                        + "보여 주고, 고칠 게 있으면 가공 화면에서 반려할 수 있다고 안내하세요. 승인 서명은 "
+                        + "업체가 반환 발송한 뒤에 합니다."
+                : "이 작업은 아직 승인할 단계가 아닙니다(%s). 업체가 결과물을 돌려보낸 뒤에 승인합니다."
+                        .formatted(job.status());
+        return Optional.of(AgentToolResult.of(json(Map.of(
+                "error", "NOT_READY_FOR_APPROVAL",
+                "jobId", job.jobId(),
+                "status", job.status(),
+                "hint", hint))));
+    }
+
+    /** 이미 승인된 작업이면 카드를 만들지도, 실행하지도 않는다. */
+    @Override
+    public Optional<String> stalenessReason(AgentToolContext context, JsonNode arguments) {
+        if (carriesUserResult(arguments)) {
+            return Optional.empty();
+        }
+        ProcessingJobResponse job = findJob(context, arguments);
+        if (job != null && job.status() == ProcessingJobStatus.CONFIRMED) {
+            return Optional.of("이 가공 작업은 이미 승인됐습니다. 결과물은 보유 소재에 들어와 있습니다.");
+        }
+        return Optional.empty();
+    }
+
+    /** 방금 승인 서명을 들고 온 요청이면, 그 서명이 DB 를 앞서 있을 수 있다. 판정하지 않는다. */
+    private boolean carriesUserResult(JsonNode arguments) {
+        return arguments.path("_userResult").hasNonNull("txHash");
+    }
+
+    /**
+     * 카드 제목을 서버가 쓴다 — <b>무엇이 얼마나 돌아왔고 얼마가 줄었는지.</b>
+     *
+     * <p>승인하면 투입 소재가 소비되고 결과물이 새 소재가 된다. 되돌릴 수 없다. 그런데 카드에는 "폐데님 원단 10kg
+     * 가공 — 결과 승인" 만 떠서, 담당자는 10kg 을 보내 9.5kg 이 돌아왔다는 것(가공 중 손실 0.5kg)을 모르고 승인했다.
+     * 모델도 그 뒤 "가공된 폐데님 10kg" 이라고 말했다. 수동 화면은 결과물 목록과 손실을 함께 보여 준다.
+     */
+    @Override
+    public Optional<String> serverSummary(AgentToolContext context, JsonNode arguments) {
+        ProcessingJobResponse job = findJob(context, arguments);
+        if (job == null || job.outputs() == null || job.outputs().isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of("%s — 결과 승인 · %s".formatted(subjectOf(context, job), resultText(job)));
+    }
+
+    /** "투입 10kg → 결과물 폐데님 가공 소재 9.5kg(A등급) · 가공 중 손실 0.5kg" */
+    static String resultText(ProcessingJobResponse job) {
+        List<String> outputs = new ArrayList<>();
+        for (ProcessingOutputResponse output : job.outputs()) {
+            outputs.add("%s %s(%s등급)".formatted(output.name(), Quantities.text(output.quantity()), output.grade()));
+        }
+        String loss = job.lossQuantity() > 0
+                ? "가공 중 손실 " + Quantities.text(job.lossQuantity())
+                : "손실 없음";
+        return "투입 %s → 결과물 %s · %s".formatted(
+                Quantities.text(job.inputQuantity()), String.join(", ", outputs), loss);
+    }
+
+    /** "폐데님 원단 10kg 가공". 투입 소재를 찾지 못하면 작업 번호로. */
+    private String subjectOf(AgentToolContext context, ProcessingJobResponse job) {
+        return materialQuery.findMyMaterials(context.userId()).stream()
+                .filter(material -> job.inputMaterialId() != null && Objects.equals(material.materialId(), job.inputMaterialId()))
+                .map(MyMaterialResponse::name)
+                .filter(name -> name != null && !name.isBlank())
+                .findFirst()
+                .map(name -> "%s %s 가공".formatted(name, Quantities.text(job.inputQuantity())))
+                .orElse("가공 작업 %d".formatted(job.jobId()));
+    }
+
+    private ProcessingJobResponse findJob(AgentToolContext context, JsonNode arguments) {
+        long jobId = requiredPositiveLong(arguments, "jobId");
+        return jobWorkflow.list(context.userId()).stream()
+                .filter(job -> job.jobId() == jobId)
+                .findFirst()
+                .orElse(null);
+    }
+
     @Override
     public AgentToolResult execute(AgentToolContext context, JsonNode arguments) {
         long jobId = requiredPositiveLong(arguments, "jobId");
@@ -153,13 +252,16 @@ public class ApproveProcessingResultTool extends AbstractAgentTool {
     private String outcomeOf(AgentToolContext context, long jobId, Map<String, Object> payload) {
         List<Long> outputMaterialIds = new ArrayList<>();
         List<ProcessType> stillMissing = new ArrayList<>();
+        String result;
         try {
             ProcessingJobResponse job = jobService.detail(context.userId(), jobId);
+            result = resultText(job);
             List<MyMaterialResponse> mine = materialQuery.findMyMaterials(context.userId());
             for (ProcessingOutputResponse output : job.outputs()) {
                 outputMaterialIds.add(output.materialId());
                 mine.stream()
-                        .filter(candidate -> candidate.materialId() == output.materialId())
+                        // 둘 다 Long 이다. == 는 객체를 비교해 id 가 127 을 넘으면 결과물을 찾지 못한다.
+                        .filter(candidate -> Objects.equals(candidate.materialId(), output.materialId()))
                         .findFirst()
                         .ifPresent(material -> {
                             for (ProcessType missing : RequiredProcessing.missing(
@@ -179,8 +281,11 @@ public class ApproveProcessingResultTool extends AbstractAgentTool {
         payload.put("outputMaterialIds", outputMaterialIds);
         payload.put("missingRequiredProcessTypes", stillMissing);
 
-        String base = "가공 결과를 승인했습니다. 결과물이 새 소재(" + outputMaterialIds
-                + ")로 발행되어 보유 목록에 들어왔습니다. 다음 작업에는 이 새 id 를 씁니다. ";
+        // **무엇이 얼마나 돌아왔는지 먼저 적는다.** 가공 중 줄어든 양은 이 문장이 아니면 대화 어디에도 없다.
+        payload.put("result", result);
+        String base = "가공 결과를 승인했습니다. " + result + ". 결과물이 새 소재(" + outputMaterialIds
+                + ")로 발행되어 보유 목록에 들어왔습니다 — 이제 쓸 수 있는 양은 결과물의 양입니다. "
+                + "다음 작업에는 이 새 id 를 씁니다. ";
         if (stillMissing.isEmpty()) {
             return base + "필수 공정이 모두 끝나 생산 단계로 넘어갈 수 있습니다.";
         }

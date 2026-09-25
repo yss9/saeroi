@@ -4,6 +4,7 @@ import com.ssafy.upcycle.agent.entity.AgentConversation;
 import com.ssafy.upcycle.agent.entity.AgentMessage;
 import com.ssafy.upcycle.agent.repository.AgentConversationRepository;
 import com.ssafy.upcycle.agent.service.llm.LlmMessage;
+import com.ssafy.upcycle.agent.service.llm.LlmRole;
 import com.ssafy.upcycle.agent.service.llm.ToolCall;
 import com.ssafy.upcycle.agent.service.llm.ToolSpec;
 import java.util.ArrayList;
@@ -56,8 +57,7 @@ public class AgentTurnStore {
     @Transactional(readOnly = true)
     public String liveState(Long conversationId) {
         AgentConversation conversation = load(conversationId);
-        // 대화 시작 시각을 함께 넘긴다 — 이 대화가 만든 배치와 지난 작업의 흔적을 가른다.
-        return pendingWork.describe(conversation.getBrandUserId(), conversation.getCreatedAt());
+        return pendingWork.describe(conversation.getBrandUserId(), conversation.getId());
     }
 
     /**
@@ -91,7 +91,35 @@ public class AgentTurnStore {
             messages.add(LlmMessage.system(liveState));
         }
         messages.addAll(store.toLlmMessages(store.history(conversationId)));
-        return new TurnPrompt(messages, registry.specsFor(conversation.getPhase()));
+        if (endsWithOwnWords(messages)) {
+            messages.add(LlmMessage.user(SCREEN_EVENT_NOTICE));
+        }
+        return new TurnPrompt(messages, registry.specs());
+    }
+
+    /**
+     * 담당자의 말 없이 모델을 부를 때 마지막에 붙이는 알림. <b>이력에 저장하지 않는다.</b>
+     *
+     * <p>카드를 승인하거나 결제를 마치고 돌아오면 모델이 이어 말해야 하는데, 그때 이력의 마지막은
+     * 모델 자신의 말이다. 요청이 모델의 말로 끝나면 API 는 그것을 <b>이어 쓸 문장</b>으로 받는다 —
+     * 이미 끝난 문장이라 모델은 아무것도 덧붙이지 않았다. 실제로 승인 뒤 매 턴이 빈 답으로 끝나
+     * ("Agent turn got empty content"), 담당자는 모델의 안내 대신 서버가 대신 쓴 문장만 봤다 —
+     * "결제가 완료되었습니다. (거래 30번)", "주문이 블록체인에 기록됐습니다. (tx 0x…)".
+     *
+     * <p>담당자가 쓴 말로 보이지 않게 대괄호로 밝힌다. 무엇이 일어났는지는 시스템 프롬프트의
+     * "방금 일어난 일" 이 알려 준다({@code AgentChatService.justHappened}).
+     */
+    private static final String SCREEN_EVENT_NOTICE =
+            "[화면 알림 — 담당자가 입력한 말이 아닙니다] 담당자가 화면에서 방금 카드를 처리했거나 결제·서명을 "
+                    + "마쳤습니다. 시스템 프롬프트의 \"방금 일어난 일\" 과 현재 상태를 보고 담당자에게 이어서 안내하세요.";
+
+    /** 요청이 모델 자신의 말로 끝나는가. 도구 결과로 끝나면 모델이 이어 말할 차례라 괜찮다. */
+    private static boolean endsWithOwnWords(List<LlmMessage> messages) {
+        if (messages.isEmpty()) {
+            return false;
+        }
+        LlmMessage last = messages.getLast();
+        return last.role() == LlmRole.ASSISTANT && !last.hasToolCalls();
     }
 
     /** 한 번의 LLM 호출에 넘길 것. */
@@ -115,13 +143,16 @@ public class AgentTurnStore {
      *
      * <p>tool 실행 자체(도메인 서비스 호출)도 이 트랜잭션 안에서 일어난다. 읽기 tool 은
      * 짧고, 쓰기 tool 은 실행되지 않고 카드만 만들므로 길어지지 않는다.
+     *
+     * @return 모델에게 돌려준 결과. 카드가 떴는지 여기서 안다({@link AgentToolExecutor#awaitsCard})
      */
     @Transactional(propagation = Propagation.REQUIRED)
-    public void runTool(Long conversationId, Long userId, ToolCall call, String assistantText, Duration actionTtl) {
+    public String runTool(Long conversationId, Long userId, ToolCall call, String assistantText, Duration actionTtl) {
         AgentConversation conversation = load(conversationId);
         AgentMessage callMessage = store.appendToolCall(conversation, assistantText, call);
         String result = executor.execute(conversation, userId, call, callMessage, actionTtl);
         store.appendToolResult(conversation, call, result);
+        return result;
     }
 
     private AgentConversation load(Long conversationId) {

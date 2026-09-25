@@ -49,6 +49,9 @@ public class PendingActionService {
      * 되는지 모른 채 카드만 사라진 화면을 보게 된다. 그 기록이 실행과 <b>다른 트랜잭션</b>인
      * 이유는 {@link AgentActionStore} 에 적어 두었다.
      *
+     * <p><b>실패해도 모델이 이어 말한다.</b> 실패는 담당자가 가장 도움이 필요한 순간인데,
+     * 예전에는 그때만 대화가 끊겼다.
+     *
      * @param resultJson 화면이 만든 결과(txHash, pgToken, 업로드한 이미지 주소 …).
      *     없을 수도 있다(단순 확인)
      */
@@ -57,14 +60,51 @@ public class PendingActionService {
         try {
             outcome = actionStore.apply(userId, actionId, resultJson);
         } catch (AgentActionStore.ActionFailed failed) {
-            actionStore.recordFailure(userId, actionId, failed.getMessage());
+            actionStore.recordFailure(userId, actionId);
+            // **실패했을 때야말로 다음에 뭘 해야 하는지 말해야 한다.** 예전에는 실패 문장만
+            // 남기고 돌아갔다. 담당자는 "요청을 처리하지 못했습니다: 사용 가능한 수량이
+            // 부족합니다" 한 줄을 받고 그 자리에 멈췄다 — 무엇이 잘못됐는지도, 무엇을 하면
+            // 되는지도 없었다. 성공과 똑같이 모델이 이어 말하게 한다.
+            resumeQuietly(userId, failed.getConversationId(), failed.getMessage());
             return conversationService.detail(userId, failed.getConversationId());
         }
 
         if (outcome.resumeConversation()) {
-            chatService.resumeAfterAction(userId, outcome.conversationId());
+            resumeQuietly(userId, outcome.conversationId(), outcome.summary());
         }
         return conversationService.detail(userId, outcome.conversationId());
+    }
+
+    /**
+     * 승인 뒤 모델이 이어 말하게 한다. <b>여기서 실패해도 승인은 성공이다.</b>
+     *
+     * <p>승인의 DB 작업은 이미 커밋된 뒤다({@link AgentActionStore#apply}). 그 다음의 LLM
+     * 호출은 "모델이 한마디 덧붙이는 것" 이라 본질이 다른데, 예외를 그대로 올리면 <b>이미
+     * 끝난 작업이 화면에서 실패로 보인다.</b>
+     *
+     * <p>실제로 그랬다. 생산 배치 취소 카드를 승인해 배치가 정상적으로 취소됐는데, 이어진
+     * 호출이 빈 응답({@code EMPTY_CONTENT})을 받아 요청 전체가 {@code AGENT_LLM_UNAVAILABLE}
+     * 로 끝났다. 담당자는 "처리하지 못했습니다" 를 봤지만 배치는 이미 취소돼 있었다.
+     * 다시 누르면 이번에는 도메인이 "이미 취소된 배치" 라며 거절한다 — 무엇이 참인지 알
+     * 방법이 없어진다.
+     *
+     * <p>대신 무슨 일이 있었는지 대화에 남긴다. 조용히 넘기면 담당자는 승인 뒤 아무 반응도
+     * 없는 화면을 보게 되고, 그것도 실패처럼 읽힌다.
+     */
+    private void resumeQuietly(Long userId, Long conversationId, String outcome) {
+        try {
+            chatService.resumeAfterAction(userId, conversationId, outcome);
+        } catch (RuntimeException failure) {
+            log.warn(
+                    "Agent resume after approval failed: conversationId={} reason={} message={}",
+                    conversationId,
+                    failure.getClass().getSimpleName(),
+                    failure.getMessage());
+            // **무슨 일이 있었는지는 서버가 안다.** 모델이 말하지 못했다고 담당자가
+            // 아무것도 못 보면 안 된다 — 승인은 이미 끝났고, 그 사실이 화면에 없으면
+            // 실패로 읽힌다.
+            actionStore.appendNotice(userId, conversationId, outcome);
+        }
     }
 
     /**
@@ -124,10 +164,21 @@ public class PendingActionService {
         }
     }
 
-    /** 담당자가 카드를 거절했다. 기록은 트랜잭션 안에서, 대화 이어가기는 그 밖에서 한다. */
+    /**
+     * 담당자가 카드를 거절했다. 기록은 트랜잭션 안에서, 대화 이어가기는 그 밖에서 한다.
+     *
+     * <p>거절은 오류가 아니라 선택이다. 무엇을 취소했는지를 모델에게 넘겨 모델이 이어 말하게 한다. 모델이
+     * 말하지 못하면 이 문장이 그대로 남는다({@link #resumeQuietly}).
+     */
     public ConversationDetailResponse reject(Long userId, Long actionId) {
-        Long conversationId = actionStore.recordUserRejection(userId, actionId);
-        chatService.resumeAfterAction(userId, conversationId);
-        return conversationService.detail(userId, conversationId);
+        AgentActionStore.Rejection rejection = actionStore.recordUserRejection(userId, actionId);
+        resumeQuietly(userId, rejection.conversationId(), canceled(rejection.summary()));
+        return conversationService.detail(userId, rejection.conversationId());
+    }
+
+    static String canceled(String summary) {
+        return StringUtils.hasText(summary)
+                ? "담당자가 \"%s\" 카드를 취소했습니다.".formatted(summary)
+                : "담당자가 카드를 취소했습니다.";
     }
 }

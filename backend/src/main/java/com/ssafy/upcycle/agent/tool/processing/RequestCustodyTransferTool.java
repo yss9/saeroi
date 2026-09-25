@@ -2,14 +2,16 @@ package com.ssafy.upcycle.agent.tool.processing;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ssafy.upcycle.agent.entity.JourneyPhase;
 import com.ssafy.upcycle.agent.tool.AbstractAgentTool;
 import com.ssafy.upcycle.agent.tool.AgentToolContext;
 import com.ssafy.upcycle.agent.tool.AgentToolResult;
 import com.ssafy.upcycle.agent.tool.PendingActionKind;
+import java.util.Optional;
+import com.ssafy.upcycle.processing.service.ProcessingJobWorkflowService;
+import com.ssafy.upcycle.processing.dto.ProcessingJobResponse;
+import com.ssafy.upcycle.blockchain.service.ChainProcessingStatusReader;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Set;
 import org.springframework.stereotype.Component;
 
 /**
@@ -34,8 +36,19 @@ import org.springframework.stereotype.Component;
 @Component
 public class RequestCustodyTransferTool extends AbstractAgentTool {
 
-    public RequestCustodyTransferTool(ObjectMapper objectMapper) {
+    /** 컨트랙트의 {@code Status.REQUESTED}. 브랜드가 등록만 하고 업체가 아직 수락하지 않은 상태. */
+    private static final int CHAIN_REQUESTED = 1;
+
+    private final ProcessingJobWorkflowService jobWorkflow;
+    private final ChainProcessingStatusReader chainJobs;
+
+    public RequestCustodyTransferTool(
+            ObjectMapper objectMapper,
+            ProcessingJobWorkflowService jobWorkflow,
+            ChainProcessingStatusReader chainJobs) {
         super(objectMapper);
+        this.jobWorkflow = jobWorkflow;
+        this.chainJobs = chainJobs;
     }
 
     @Override
@@ -68,11 +81,6 @@ public class RequestCustodyTransferTool extends AbstractAgentTool {
     }
 
     @Override
-    public Set<JourneyPhase> phases() {
-        return Set.of(JourneyPhase.PROCESSING);
-    }
-
-    @Override
     public boolean isWrite() {
         return true;
     }
@@ -80,6 +88,55 @@ public class RequestCustodyTransferTool extends AbstractAgentTool {
     @Override
     public PendingActionKind pendingKind() {
         return PendingActionKind.WALLET_SIGN;
+    }
+
+    /**
+     * 체인이 <b>업체 수락까지</b> 갔는가. 안 갔으면 카드를 띄우지 않는다.
+     *
+     * <p>컨트랙트의 {@code markShipped} 는 체인 작업이 {@code ACCEPTED} 일 때만 받는다.
+     * 그 앞에는 브랜드의 등록({@code REQUESTED})과 업체의 온체인 수락이 있다 — 결제 뒤의
+     * 수락은 DB 상태일 뿐 체인과 별개다.
+     *
+     * <p>막지 않으면 담당자가 지갑 창을 열고 서명을 누른 뒤에야 실패한다. 실제로 그랬고,
+     * 화면에는 {@code execution reverted: "Processing: invalid status"} 라는 원시 문자열이
+     * 그대로 떴다. 두 번 눌러도 같은 결과였고, 무엇을 기다려야 하는지는 어디에도 없었다.
+     *
+     * <p>체인을 읽지 못하는 환경은 판정하지 않는다 — 막으면 인계가 통째로 불가능해진다.
+     */
+    @Override
+    public Optional<AgentToolResult> refuseBeforeProposal(
+            AgentToolContext context, JsonNode arguments) {
+        long jobId = requiredPositiveLong(arguments, "jobId");
+        if (!chainJobs.canRead()) {
+            return Optional.empty();
+        }
+        ProcessingJobResponse job = jobWorkflow.list(context.userId()).stream()
+                .filter(each -> each.jobId() == jobId)
+                .findFirst()
+                .orElse(null);
+        if (job == null) {
+            // 없는 작업은 여기서 판정하지 않는다 — 도메인이 거절할 일이다.
+            return Optional.empty();
+        }
+        if (job.chainJobId() == null) {
+            return Optional.of(AgentToolResult.of(json(Map.of(
+                    "error", "CHAIN_JOB_NOT_REGISTERED",
+                    "jobId", jobId,
+                    "hint", "이 작업은 아직 블록체인에 등록되지 않았습니다. 인계보다 먼저 "
+                            + "register_processing_chain_job 으로 등록 서명을 받아야 하고, "
+                            + "그 뒤에 업체가 체인에서 수락해야 인계할 수 있습니다."))));
+        }
+        int status = chainJobs.status(job.chainJobId()).orElse(-1);
+        if (status == CHAIN_REQUESTED) {
+            return Optional.of(AgentToolResult.of(json(Map.of(
+                    "error", "CHAIN_ACCEPT_PENDING",
+                    "jobId", jobId,
+                    "hint", "등록은 끝났고 **업체가 작업 조건을 확인하고 수락하기를 기다리는 중**입니다. "
+                            + "담당자가 할 수 있는 일이 없습니다 — 재촉할 tool 을 찾지 말고, 담당자에게는 "
+                            + "\"업체가 작업을 확인하는 중\" 이라고만 알리세요(\"온체인 수락\" 같은 말은 쓰지 "
+                            + "않습니다). 수락되면 소재를 보내는 서명을 할 수 있습니다."))));
+        }
+        return Optional.empty();
     }
 
     /**

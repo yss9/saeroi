@@ -33,12 +33,18 @@ public class ConversationStore {
      * 토크나이저가 무엇인지 확정되지 않았다. 개수로 자르고 상한을 보수적으로 잡는 편이,
      * 틀린 토크나이저로 정확한 척하는 것보다 낫다.
      *
-     * <p><b>20 으로 줄였다.</b> 크레딧이 토큰당 차감인데 tool 루프는 한 턴에 이력을 여러 번
-     * 다시 보낸다 — 이력이 길면 그 배수만큼 곱해진다. 잘려 나간 앞부분의 요구사항은
-     * {@code conversation.requirementJson} 으로 시스템 프롬프트에 다시 들어가므로, 대화가
-     * 무엇을 하기로 했는지는 잊지 않는다.
+     * <p><b>20 에서 40 으로 늘렸다.</b> 20 일 때는 요구사항이 {@code conversation.requirementJson}
+     * 으로 시스템 프롬프트에 다시 들어가니 잊지 않는다고 봤는데, 모델이 요구사항을 저장하지 않은 채
+     * 구매까지 가는 일이 흔했다. 소재 두 가지를 정하고 배송지를 확인하는 데 스무 개를 넘기자, 합의한
+     * 구매 목록("폐데님 3kg, 면 1kg")과 판매 글 번호가 담긴 검색 결과가 함께 잘려 나갔다. 모델은 번호를
+     * 짐작해 다른 소재를 샀고, 목록을 화면의 카드 제목으로 다시 짜 맞추다 담당자가 말한 적 없는
+     * "폴리에스터 2kg" 까지 샀다.
+     *
+     * <p>판매 글 번호와 보유 소재는 이제 이력이 아니라 상태 블록이 준다({@code AgentPendingWork}).
+     * 그래도 합의한 내용은 대화에만 있어, 한 제품의 소재를 정하는 대화가 통째로 들어갈 만큼은 남긴다.
+     * 크레딧이 토큰당 차감이라 호출당 입력이 늘지만, 틀린 소재를 사는 것보다 싸다.
      */
-    private static final int MAX_HISTORY_MESSAGES = 20;
+    private static final int MAX_HISTORY_MESSAGES = 40;
 
     private final AgentMessageRepository messages;
     private final Clock clock;

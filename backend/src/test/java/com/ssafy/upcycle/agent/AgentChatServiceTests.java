@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.ssafy.upcycle.agent.dto.ConversationDetailResponse;
+import com.ssafy.upcycle.agent.entity.AgentMessage;
 import com.ssafy.upcycle.agent.entity.AgentMessageRole;
 import com.ssafy.upcycle.agent.entity.JourneyPhase;
 import com.ssafy.upcycle.agent.entity.PendingActionStatus;
@@ -16,9 +17,12 @@ import com.ssafy.upcycle.agent.entity.PendingActionType;
 import com.ssafy.upcycle.agent.repository.AgentConversationRepository;
 import com.ssafy.upcycle.agent.repository.AgentMessageRepository;
 import com.ssafy.upcycle.agent.repository.AgentPendingActionRepository;
+import com.ssafy.upcycle.agent.service.AgentChatService;
 import com.ssafy.upcycle.agent.service.AgentConversationService;
 import com.ssafy.upcycle.agent.service.llm.LlmClient;
 import com.ssafy.upcycle.agent.service.llm.LlmCompletion;
+import com.ssafy.upcycle.agent.service.llm.LlmMessage;
+import com.ssafy.upcycle.agent.service.llm.LlmRole;
 import com.ssafy.upcycle.agent.service.llm.ToolCall;
 import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.user.entity.User;
@@ -43,6 +47,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 class AgentChatServiceTests {
 
     @Autowired private AgentConversationService conversationService;
+    @Autowired private AgentChatService chatService;
     @Autowired private AgentConversationRepository conversations;
     @Autowired private AgentMessageRepository messages;
     @Autowired private AgentPendingActionRepository pendingActions;
@@ -89,19 +94,106 @@ class AgentChatServiceTests {
                 .thenReturn(new LlmCompletion("보유하신 소재가 없습니다.", List.of()));
 
         ConversationDetailResponse detail = conversationService.start(brandId, "내 소재 보여줘");
-        // 소재 조회 tool 은 MATERIAL_SOURCING 단계에서만 보인다. INTAKE 에서 불렀으므로
-        // 실행되지 않고 거절돼야 한다 — 그 사실이 모델에게 결과로 돌아간다.
-        //
-        // 거절 문구는 **어느 단계로 옮기면 되는지**까지 말해 준다. 이름만 거절하면 모델이
-        // 그 기능이 없다고 결론 내고 담당자에게 직접 처리하라고 넘긴다.
-        assertThat(lastToolResult()).contains("WRONG_PHASE").contains("set_phase");
+
+        // 대화는 INTAKE 에 있지만 그대로 실행된다. 도구는 단계로 가리지 않는다
+        // (AgentToolRegistry 참고) — 예전에는 여기서 거절됐고, 단계를 옮기지 않은 모델이
+        // 할 수 있는 일을 "못 한다" 고 답했다.
+        assertThat(detail.phase()).isEqualTo(JourneyPhase.INTAKE);
+        assertThat(lastToolResult()).contains("보유한 소재가 없습니다").doesNotContain("error");
         assertThat(detail.messages().getLast().content()).isEqualTo("보유하신 소재가 없습니다.");
+    }
+
+    /**
+     * 카드 두 장을 연달아 누르면 첫 턴이 도는 동안 둘째 결과가 도착해, 첫 턴 뒤에 한 턴이 더 돈다. 첫 턴이 이미 두 결과를
+     * 다 말했으면 뒤 턴은 아무것도 남기지 않는다 — "가공이 모두 완료됐습니다…" 뒤에 "가공 작업 8, 9 모두
+     * 완료됐습니다…" 가 또 떴다.
+     */
+    @Test
+    void 뒤이어_말할_것이_없으면_아무것도_남기지_않는다() {
+        answerWith("무엇을 만들까요?");
+        Long id = conversationService.start(brandId, "지갑 만들래").id();
+        List<List<LlmMessage>> prompts = new java.util.ArrayList<>();
+        when(llmClient.complete(anyList(), anyList()))
+                .thenAnswer(invocation -> {
+                    prompts.add(List.copyOf(invocation.getArgument(0)));
+                    // 첫 턴이 도는 동안 둘째 카드가 끝난다.
+                    chatService.resumeAfterAction(brandId, id, "폐데님 원단 5kg 가공 결과 승인이 끝났습니다.");
+                    return new LlmCompletion("두 가공이 모두 끝났습니다. 이제 생산을 시작할 수 있습니다.", List.of());
+                })
+                .thenAnswer(invocation -> {
+                    prompts.add(List.copyOf(invocation.getArgument(0)));
+                    return new LlmCompletion("[[조용히]]", List.of());
+                });
+
+        chatService.resumeAfterAction(brandId, id, "울 원단 5kg 가공 결과 승인이 끝났습니다.");
+
+        List<String> said = messages.findByConversationIdOrderBySequenceNoAsc(id).stream()
+                .filter(message -> message.getRole() == AgentMessageRole.ASSISTANT && !message.isToolCall())
+                .map(AgentMessage::getContent)
+                .toList();
+        assertThat(said).containsExactly("무엇을 만들까요?", "두 가공이 모두 끝났습니다. 이제 생산을 시작할 수 있습니다.");
+        // 뒤 턴은 조용히 끝나도 된다는 것과 무엇이 끝났는지를 받았다.
+        assertThat(prompts).hasSize(2);
+        assertThat(prompts.get(1))
+                .filteredOn(message -> message.role() == LlmRole.SYSTEM)
+                .anyMatch(message -> message.content().contains("뒤이어 말하기")
+                        && message.content().contains("폐데님 원단 5kg 가공 결과 승인이 끝났습니다."));
+    }
+
+    @Test
+    void 뒤이어_말할_것이_있으면_그것만_남긴다() {
+        answerWith("무엇을 만들까요?");
+        Long id = conversationService.start(brandId, "지갑 만들래").id();
+        when(llmClient.complete(anyList(), anyList()))
+                .thenAnswer(invocation -> {
+                    chatService.resumeAfterAction(brandId, id, "폐데님 원단 5kg 소재 보내기 서명이 끝났습니다.");
+                    return new LlmCompletion("울 원단을 업체로 보냈습니다.", List.of());
+                })
+                .thenReturn(new LlmCompletion("[[조용히]] 폐데님 원단도 보냈습니다. 이제 업체가 받기를 기다립니다.", List.of()));
+
+        chatService.resumeAfterAction(brandId, id, "울 원단 5kg 소재 보내기 서명이 끝났습니다.");
+
+        assertThat(messages.findByConversationIdOrderBySequenceNoAsc(id).getLast().getContent())
+                .isEqualTo("폐데님 원단도 보냈습니다. 이제 업체가 받기를 기다립니다.");
+    }
+
+    /** 담당자의 말에 답하는 턴은 조용히 끝날 수 없다. 표시가 와도 그대로 남긴다 — 답이 없는 것보다 낫다. */
+    @Test
+    void 담당자에게_답하는_턴은_조용히_끝나지_않는다() {
+        answerWith("[[조용히]]");
+
+        ConversationDetailResponse detail = conversationService.start(brandId, "지갑 만들래");
+
+        assertThat(detail.messages().getLast().content()).isEqualTo("[[조용히]]");
+    }
+
+    @Test
+    void 한_번의_답에_도구를_둘_부르면_글은_첫_호출에만_남는다() {
+        // 면을 폐소재·신소재로 한꺼번에 찾은 답이었다. 글을 호출마다 붙이면 이력에 같은 말이
+        // 두 번 남아, 모델은 자기가 같은 말을 되풀이한 것으로 읽는다.
+        when(llmClient.complete(anyList(), anyList()))
+                .thenReturn(new LlmCompletion(
+                        "면 소재를 찾아보겠습니다.",
+                        List.of(
+                                new ToolCall("call-1", "get_my_materials", "{}"),
+                                new ToolCall("call-2", "get_my_materials", "{}"))))
+                .thenReturn(new LlmCompletion("보유하신 소재가 없습니다.", List.of()));
+
+        conversationService.start(brandId, "내 소재 보여줘");
+
+        assertThat(messages.findAll().stream()
+                        .filter(AgentMessage::isToolCall)
+                        .map(AgentMessage::getContent))
+                .containsExactly("면 소재를 찾아보겠습니다.", null);
     }
 
     @Test
     void 쓰기_tool_은_실행되지_않고_확인_카드만_만든다() {
         // 이 테스트가 이 기능의 핵심 안전 장치다. 모델이 쓰기 tool 을 불러도 도메인은
         // 움직이지 않아야 하고, 사용자가 누를 카드만 생겨야 한다.
+        //
+        // 대화 단계를 옮기지 않은 채(INTAKE) 부른다. 단계는 도구를 막지 않고, 막는 것은
+        // 이 카드다.
         when(llmClient.complete(anyList(), anyList()))
                 .thenReturn(new LlmCompletion(
                         null,
@@ -111,46 +203,65 @@ class AgentChatServiceTests {
                                 "{\"tradeId\":1,\"summary\":\"소재 구매 온체인 기록\"}"))))
                 .thenReturn(new LlmCompletion("확인해 주세요.", List.of()));
 
-        conversationService.start(brandId, "소재 발행해줘");
-        Long conversationId = conversations.findAll().getFirst().getId();
-        moveToPhase(conversationId, JourneyPhase.MATERIAL_SOURCING);
-
-        when(llmClient.complete(anyList(), anyList()))
-                .thenReturn(new LlmCompletion(
-                        null,
-                        List.of(new ToolCall(
-                                "call-2",
-                                "request_chain_order",
-                                "{\"tradeId\":1,\"summary\":\"소재 구매 온체인 기록\"}"))))
-                .thenReturn(new LlmCompletion("확인해 주세요.", List.of()));
-
-        ConversationDetailResponse detail = conversationService.send(brandId, conversationId, "발행 진행해줘");
+        ConversationDetailResponse detail = conversationService.start(brandId, "발행 진행해줘");
 
         assertThat(detail.actions()).hasSize(1);
         assertThat(detail.actions().getFirst().actionType()).isEqualTo(PendingActionType.WALLET_SIGN);
         assertThat(detail.actions().getFirst().status()).isEqualTo(PendingActionStatus.PENDING);
         // 모델에게 "아직 안 끝났다" 고 분명히 알려줘야 완료로 착각하지 않는다.
         assertThat(lastToolResult()).contains("AWAITING_USER_CONFIRMATION");
+        // 카드에 실제로 적힌 내용을 모델에게 돌려준다. 합의와 다른 카드를 띄웠을 때 모델이 알아챌 자리다.
+        assertThat(lastToolResult()).contains("\"cardSummary\"");
+    }
+
+    /**
+     * 카드를 띄운 턴은 도구 없이 한 번 더 불러 말로 끝낸다. 도구를 열어 두면 모델은 곧바로 조회하고, "아직 진행 중"
+     * 을 보고도 "서명이 완료되었습니다. 다음 단계를 안내하겠습니다" 를 이어 썼다.
+     */
+    @Test
+    void 카드를_띄우면_도구_없이_말로_끝낸다() {
+        List<List<LlmMessage>> prompts = new java.util.ArrayList<>();
+        List<Integer> toolCounts = new java.util.ArrayList<>();
+        when(llmClient.complete(anyList(), anyList()))
+                .thenAnswer(invocation -> {
+                    prompts.add(List.copyOf(invocation.getArgument(0)));
+                    toolCounts.add(((List<?>) invocation.getArgument(1)).size());
+                    return prompts.size() == 1
+                            ? new LlmCompletion(null, List.of(new ToolCall(
+                                    "call-1", "request_chain_order", "{\"tradeId\":1,\"summary\":\"소재 온체인 기록\"}")))
+                            : new LlmCompletion("온체인 기록 서명 카드를 띄웠습니다. 카드에서 서명해 주세요.", List.of());
+                });
+
+        ConversationDetailResponse detail = conversationService.start(brandId, "기록 남겨줘");
+
+        assertThat(toolCounts).hasSize(2);
+        // 둘째 호출에는 도구가 없다 — 조회로 새지 않는다.
+        assertThat(toolCounts.get(1)).isZero();
+        assertThat(prompts.get(1))
+                .filteredOn(message -> message.role() == LlmRole.SYSTEM)
+                .anyMatch(message -> message.content().contains("방금 확인 카드를 띄웠다"));
+        assertThat(detail.messages().getLast().content()).isEqualTo("온체인 기록 서명 카드를 띄웠습니다. 카드에서 서명해 주세요.");
     }
 
     @Test
-    void 단계에_없는_쓰기_tool_은_카드조차_만들지_않는다() {
-        // 읽기 tool 의 단계 차단은 위에서 함께 확인된다. 쓰기 쪽이 더 위험하다 — 노출만
-        // 좁히고 실행을 막지 않으면, 모델이 이전 단계에서 본 이름을 기억해 부르는 것만으로
-        // 담당자에게 누를 카드가 생긴다. 카드는 눌리면 도메인이 도는 자리다.
+    void 없는_이름의_tool_은_카드를_만들지_않고_있는_이름에서_고르라고_한다() {
+        // 모델이 이름을 지어내 부르는 것만으로 담당자에게 누를 카드가 생기면 안 된다.
+        // 카드는 눌리면 도메인이 도는 자리다.
+        //
+        // 단계를 옮기라고 안내하지도 않는다. 옮긴다고 생기는 이름이 아니라, 그렇게 안내하면
+        // 모델이 옮긴 뒤 같은 이름을 다시 부른다.
         when(llmClient.complete(anyList(), anyList()))
                 .thenReturn(new LlmCompletion(
                         null,
                         List.of(new ToolCall(
                                 "call-1",
-                                "confirm_receipt",
+                                "confirm_everything",
                                 "{\"tradeId\":1,\"summary\":\"수령 확정\"}"))))
-                .thenReturn(new LlmCompletion("아직 그 단계가 아닙니다.", List.of()));
+                .thenReturn(new LlmCompletion("그 기능은 없습니다.", List.of()));
 
-        // confirm_receipt 는 MATERIAL_SOURCING 전용인데 INTAKE 에서 부른다.
         ConversationDetailResponse detail = conversationService.start(brandId, "수령 확정해줘");
 
-        assertThat(lastToolResult()).contains("WRONG_PHASE");
+        assertThat(lastToolResult()).contains("UNKNOWN_TOOL").doesNotContain("set_phase");
         assertThat(detail.actions()).isEmpty();
         assertThat(pendingActions.count()).isZero();
     }
@@ -162,7 +273,6 @@ class AgentChatServiceTests {
         answerWith("네");
         conversationService.start(brandId, "소재 사고 싶어요");
         Long conversationId = conversations.findAll().getFirst().getId();
-        moveToPhase(conversationId, JourneyPhase.MATERIAL_SOURCING);
 
         when(llmClient.complete(anyList(), anyList()))
                 .thenReturn(new LlmCompletion(
@@ -257,6 +367,47 @@ class AgentChatServiceTests {
                 .hasMessageContaining("이미 종료된 대화");
     }
 
+    /**
+     * 담당자의 말 없이 이어 말할 때(결제 복귀·카드 승인 뒤) 요청이 <b>모델 자신의 말로 끝나지 않게</b>
+     * 화면 알림을 붙인다. 이력에는 남기지 않는다.
+     *
+     * <p>요청이 모델의 말로 끝나면 API 는 그것을 이어 쓸 문장으로 받는다. 이미 끝난 문장이라 모델은
+     * 아무것도 덧붙이지 않았고, 승인 뒤 매 턴이 빈 답으로 끝나 서버 문장("결제가 완료되었습니다.
+     * (거래 30번)")이 대신 나갔다.
+     */
+    @Test
+    @SuppressWarnings("unchecked")
+    void 담당자_말_없이_이어_말할_때는_화면_알림을_붙이고_저장하지_않는다() {
+        answerWith("어떤 지갑을 만드실 건가요?");
+        ConversationDetailResponse detail = conversationService.start(brandId, "지갑 만들고 싶어");
+
+        answerWith("결제가 끝났습니다. 이제 주문 기록에 서명해 주세요.");
+        conversationService.reportEvent(brandId, detail.id(), "결제가 완료되었습니다. (거래 30번)");
+
+        org.mockito.ArgumentCaptor<List<LlmMessage>> sent = org.mockito.ArgumentCaptor.forClass(List.class);
+        verify(llmClient, org.mockito.Mockito.atLeastOnce()).complete(sent.capture(), anyList());
+        LlmMessage last = sent.getAllValues().getLast().getLast();
+        assertThat(last.role()).isEqualTo(LlmRole.USER);
+        assertThat(last.content()).startsWith("[화면 알림");
+        assertThat(messages.findAll())
+                .as("담당자가 쓴 말이 아니므로 대화 기록에 남기지 않는다")
+                .noneMatch(message -> message.getContent() != null && message.getContent().startsWith("[화면 알림"));
+    }
+
+    /** 담당자가 말하면 붙이지 않는다 — 담당자의 말이 마지막이다. */
+    @Test
+    @SuppressWarnings("unchecked")
+    void 담당자가_말하면_화면_알림을_붙이지_않는다() {
+        answerWith("어떤 지갑을 만드실 건가요?");
+        conversationService.start(brandId, "지갑 만들고 싶어");
+
+        org.mockito.ArgumentCaptor<List<LlmMessage>> sent = org.mockito.ArgumentCaptor.forClass(List.class);
+        verify(llmClient, org.mockito.Mockito.atLeastOnce()).complete(sent.capture(), anyList());
+        LlmMessage last = sent.getAllValues().getLast().getLast();
+        assertThat(last.role()).isEqualTo(LlmRole.USER);
+        assertThat(last.content()).isEqualTo("지갑 만들고 싶어");
+    }
+
     private void answerWith(String content) {
         when(llmClient.complete(anyList(), anyList()))
                 .thenReturn(new LlmCompletion(content, List.of()));
@@ -269,11 +420,5 @@ class AgentChatServiceTests {
                 .reduce((first, second) -> second)
                 .orElseThrow()
                 .getToolPayloadJson();
-    }
-
-    private void moveToPhase(Long conversationId, JourneyPhase phase) {
-        var conversation = conversations.findById(conversationId).orElseThrow();
-        conversation.moveTo(phase);
-        conversations.save(conversation);
     }
 }

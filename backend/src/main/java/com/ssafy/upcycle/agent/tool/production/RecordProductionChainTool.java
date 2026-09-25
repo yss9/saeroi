@@ -2,7 +2,6 @@ package com.ssafy.upcycle.agent.tool.production;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ssafy.upcycle.agent.entity.JourneyPhase;
 import com.ssafy.upcycle.agent.tool.AbstractAgentTool;
 import com.ssafy.upcycle.agent.tool.AgentToolContext;
 import com.ssafy.upcycle.agent.tool.AgentToolResult;
@@ -13,7 +12,6 @@ import com.ssafy.upcycle.production.service.ProductionBatchService;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import org.springframework.stereotype.Component;
 
 /**
@@ -83,11 +81,6 @@ public class RecordProductionChainTool extends AbstractAgentTool {
                   "required": ["batchId", "summary"],
                   "additionalProperties": false
                 }""";
-    }
-
-    @Override
-    public Set<JourneyPhase> phases() {
-        return Set.of(JourneyPhase.PRODUCTION, JourneyPhase.PRODUCT);
     }
 
     @Override

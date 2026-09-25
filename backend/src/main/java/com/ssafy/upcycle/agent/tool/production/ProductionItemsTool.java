@@ -2,7 +2,6 @@ package com.ssafy.upcycle.agent.tool.production;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ssafy.upcycle.agent.entity.JourneyPhase;
 import com.ssafy.upcycle.agent.tool.AbstractAgentTool;
 import com.ssafy.upcycle.agent.tool.AgentToolContext;
 import com.ssafy.upcycle.agent.tool.AgentToolResult;
@@ -12,7 +11,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.springframework.stereotype.Component;
 
 /**
@@ -65,19 +63,6 @@ public class ProductionItemsTool extends AbstractAgentTool {
                   "required": ["batchId"],
                   "additionalProperties": false
                 }""";
-    }
-
-    /**
-     * 제품 등록 단계에서만 보인다.
-     *
-     * <p>개체는 확정이 만들고, 확정 직후 몇 개가 나왔는지는 {@code confirm_production} 의
-     * 응답이 이미 알려 준다. QR 과 개체 목록이 필요해지는 것은 제품을 올릴 때부터다.
-     * 생산 단계에 함께 두면 그 단계의 tool 이 열둘을 넘어, 모델이 지금 할 일과 상관없는
-     * 것을 부르기 시작한다.
-     */
-    @Override
-    public Set<JourneyPhase> phases() {
-        return Set.of(JourneyPhase.PRODUCT);
     }
 
     @Override

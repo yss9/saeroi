@@ -3,7 +3,6 @@ package com.ssafy.upcycle.agent.tool.trade;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ssafy.upcycle.blockchain.service.ChainOrderStatusReader;
-import com.ssafy.upcycle.agent.entity.JourneyPhase;
 import com.ssafy.upcycle.agent.tool.AbstractAgentTool;
 import com.ssafy.upcycle.agent.tool.AgentToolContext;
 import com.ssafy.upcycle.agent.tool.AgentToolResult;
@@ -15,7 +14,6 @@ import com.ssafy.upcycle.trade.repository.MaterialTradeRepository;
 import com.ssafy.upcycle.trade.service.TradeReceiptService;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Set;
 import org.springframework.stereotype.Component;
 
 /**
@@ -79,11 +77,6 @@ public class ConfirmReceiptTool extends AbstractAgentTool {
                   "required": ["tradeId", "summary"],
                   "additionalProperties": false
                 }""";
-    }
-
-    @Override
-    public Set<JourneyPhase> phases() {
-        return Set.of(JourneyPhase.MATERIAL_SOURCING);
     }
 
     @Override

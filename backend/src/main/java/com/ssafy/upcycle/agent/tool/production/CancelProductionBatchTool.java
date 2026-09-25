@@ -2,7 +2,6 @@ package com.ssafy.upcycle.agent.tool.production;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ssafy.upcycle.agent.entity.JourneyPhase;
 import com.ssafy.upcycle.agent.tool.AbstractAgentTool;
 import com.ssafy.upcycle.agent.tool.AgentToolContext;
 import com.ssafy.upcycle.agent.tool.AgentToolResult;
@@ -11,7 +10,8 @@ import com.ssafy.upcycle.production.dto.ProductionBatchResponse;
 import com.ssafy.upcycle.production.service.ProductionBatchService;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Set;
+import com.ssafy.upcycle.production.entity.ProductionBatchStatus;
+import java.util.Optional;
 import org.springframework.stereotype.Component;
 
 /**
@@ -49,6 +49,48 @@ public class CancelProductionBatchTool extends AbstractAgentTool {
         this.batchService = batchService;
     }
 
+    /**
+     * 초안이 아닌 배치는 <b>카드 전에</b> 막는다. 서명을 시작했거나 확정된 배치는 취소할 수 없다 —
+     * 서명한 내용과 저장된 내용이 달라지면 온체인 기록이 무엇을 증명하는지 알 수 없게 된다.
+     * 카드를 띄우면 담당자는 누른 뒤에야 거절을 본다.
+     */
+    @Override
+    public Optional<AgentToolResult> refuseBeforeProposal(AgentToolContext context, JsonNode arguments) {
+        ProductionBatchResponse batch = findBatch(context, arguments);
+        if (batch == null
+                || batch.status() == ProductionBatchStatus.DRAFT
+                || batch.status() == ProductionBatchStatus.CANCELED) {
+            return Optional.empty();
+        }
+        return Optional.of(AgentToolResult.of(json(Map.of(
+                "error", "BATCH_NOT_CANCELABLE",
+                "batchId", batch.productionBatchId(),
+                "status", batch.status(),
+                "hint", "이 배치는 취소할 수 없는 상태입니다(%s). 서명을 시작했거나 확정된 배치는 되돌릴 수 "
+                        .formatted(batch.status())
+                        + "없습니다. 담당자에게 그대로 알리고, 확정된 배치라면 블록체인 기록과 제품 연결로 "
+                        + "마무리하도록 안내하세요."))));
+    }
+
+    /** 이미 취소된 배치면 카드를 만들지도, 실행하지도 않는다. */
+    @Override
+    public Optional<String> stalenessReason(AgentToolContext context, JsonNode arguments) {
+        ProductionBatchResponse batch = findBatch(context, arguments);
+        if (batch != null && batch.status() == ProductionBatchStatus.CANCELED) {
+            return Optional.of("이 배치는 이미 취소됐습니다. 묶여 있던 소재도 풀려 있습니다.");
+        }
+        return Optional.empty();
+    }
+
+    /** 목록에서 찾는다. 단건 조회는 없는 번호에 예외를 던져 카드 트랜잭션을 망가뜨린다. */
+    private ProductionBatchResponse findBatch(AgentToolContext context, JsonNode arguments) {
+        long batchId = requiredPositiveLong(arguments, "batchId");
+        return batchService.findMyBatches(context.userId()).stream()
+                .filter(batch -> batch.productionBatchId() == batchId)
+                .findFirst()
+                .orElse(null);
+    }
+
     @Override
     public String name() {
         return "cancel_production_batch";
@@ -75,11 +117,6 @@ public class CancelProductionBatchTool extends AbstractAgentTool {
                   "required": ["batchId", "summary"],
                   "additionalProperties": false
                 }""";
-    }
-
-    @Override
-    public Set<JourneyPhase> phases() {
-        return Set.of(JourneyPhase.PRODUCTION);
     }
 
     @Override

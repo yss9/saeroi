@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 
 import com.ssafy.upcycle.agent.dto.ConversationDetailResponse;
 import com.ssafy.upcycle.agent.dto.PendingActionResponse;
+import com.ssafy.upcycle.agent.entity.AgentMessageRole;
 import com.ssafy.upcycle.agent.entity.JourneyPhase;
 import com.ssafy.upcycle.agent.entity.PendingActionStatus;
 import com.ssafy.upcycle.agent.repository.AgentConversationRepository;
@@ -16,10 +17,13 @@ import com.ssafy.upcycle.agent.service.AgentConversationService;
 import com.ssafy.upcycle.agent.service.PendingActionService;
 import com.ssafy.upcycle.agent.service.llm.LlmClient;
 import com.ssafy.upcycle.agent.service.llm.LlmCompletion;
+import com.ssafy.upcycle.agent.service.llm.LlmMessage;
+import com.ssafy.upcycle.agent.service.llm.LlmRole;
 import com.ssafy.upcycle.agent.service.llm.ToolCall;
 import com.ssafy.upcycle.user.entity.User;
 import com.ssafy.upcycle.user.entity.UserRole;
 import com.ssafy.upcycle.user.repository.UserRepository;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -66,11 +70,17 @@ class AgentDomainRejectionOnApprovalTests {
     }
 
     @Test
-    void 도메인이_거절하면_대화에_이유가_남고_오류로_끝나지_않는다() {
+    void 도메인이_거절하면_모델이_이유와_다음_할_일을_한_번만_전한다() {
         PendingActionResponse action = proposeProductRegistration();
 
-        when(llmClient.complete(anyList(), anyList()))
-                .thenReturn(new LlmCompletion("이미지를 다시 올려 주세요.", List.of()));
+        List<String> systemSeen = new ArrayList<>();
+        when(llmClient.complete(anyList(), anyList())).thenAnswer(invocation -> {
+            List<LlmMessage> prompt = invocation.getArgument(0);
+            prompt.stream()
+                    .filter(message -> message.role() == LlmRole.SYSTEM)
+                    .forEach(message -> systemSeen.add(message.content()));
+            return new LlmCompletion("상품 이미지를 찾지 못했어요. 이미지를 다시 올려 주세요.", List.of());
+        });
 
         // 저장소에 없는 이미지 키다. ProductModelRegistrationService.register 가
         // requireStoredImage 에서 BusinessException 을 던진다.
@@ -81,12 +91,34 @@ class AgentDomainRejectionOnApprovalTests {
         assertThat(pendingActions.findById(action.id()).orElseThrow().getStatus())
                 .isEqualTo(PendingActionStatus.REJECTED);
 
-        // 핵심은 여기다. 이유가 남지 않으면 담당자는 왜 안 됐는지 알 수 없다 —
-        // 예전에는 이 메시지가 실패한 트랜잭션과 함께 지워졌다.
-        assertThat(conversationService.detail(brandId, conversations.findAll().getFirst().getId())
-                        .messages())
-                .anyMatch(message ->
-                        message.content() != null && message.content().contains("처리하지 못했습니다"));
+        // 이유는 모델에게 간다. 예전에는 이 문장이 실패한 트랜잭션과 함께 지워졌다.
+        assertThat(systemSeen).anyMatch(block -> block.contains("요청을 처리하지 못했습니다"));
+
+        // **실패했을 때야말로 다음에 뭘 해야 하는지 말해야 한다.** 그리고 한 번만 말한다 —
+        // 서버 문장과 모델 문장이 나란히 뜨면 담당자는 같은 실패를 두 번 읽는다.
+        List<String> visible = visibleAssistantLines();
+        assertThat(visible)
+                .as("모델이 이어 말해야 담당자가 다음 단계를 안다")
+                .anyMatch(content -> content.contains("이미지를 다시 올려"));
+        assertThat(visible)
+                .as("모델이 말했으면 서버 문장은 나가지 않는다")
+                .noneMatch(content -> content.contains("처리하지 못했습니다"));
+    }
+
+    /** 모델마저 말하지 못하면 서버 문장이 <b>한 번</b> 나간다. 아무 반응이 없으면 그것도 실패로 읽힌다. */
+    @Test
+    void 거절_뒤_모델이_응답하지_못하면_서버_문장이_한_번_남는다() {
+        PendingActionResponse action = proposeProductRegistration();
+
+        when(llmClient.complete(anyList(), anyList())).thenThrow(new IllegalStateException("llm down"));
+
+        assertThatCode(() -> pendingActionService.complete(
+                        brandId, action.id(), "{\"thumbnailUrl\":\"product-images/없는키.png\"}"))
+                .doesNotThrowAnyException();
+
+        assertThat(visibleAssistantLines())
+                .filteredOn(content -> content.contains("처리하지 못했습니다"))
+                .hasSize(1);
     }
 
     @Test
@@ -154,5 +186,16 @@ class AgentDomainRejectionOnApprovalTests {
 
         ConversationDetailResponse detail = conversationService.send(brandId, started.id(), "등록해줘");
         return detail.actions().getFirst();
+    }
+
+    /** 담당자 화면에 뜨는 모델 쪽 줄. */
+    private List<String> visibleAssistantLines() {
+        return conversationService
+                .detail(brandId, conversations.findAll().getFirst().getId())
+                .messages().stream()
+                .filter(message -> message.role() == AgentMessageRole.ASSISTANT)
+                .map(message -> message.content())
+                .filter(content -> content != null)
+                .toList();
     }
 }

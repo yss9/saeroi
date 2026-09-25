@@ -2,7 +2,8 @@ package com.ssafy.upcycle.agent.tool.processing;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ssafy.upcycle.agent.entity.JourneyPhase;
+import com.ssafy.upcycle.agent.project.AgentProject;
+import com.ssafy.upcycle.agent.project.AgentProjects;
 import com.ssafy.upcycle.agent.tool.AbstractAgentTool;
 import com.ssafy.upcycle.agent.tool.AgentToolContext;
 import com.ssafy.upcycle.agent.tool.AgentToolResult;
@@ -13,7 +14,10 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import com.ssafy.upcycle.common.unit.Quantities;
+import com.ssafy.upcycle.material.entity.Material;
+import com.ssafy.upcycle.material.repository.MaterialRepository;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 /**
@@ -35,15 +39,29 @@ import org.springframework.stereotype.Component;
  *
  * <p>그 판정은 {@link ProcessingTodo} 가 한다. 경과 막대와 사건 보고가 같은 물음에
  * 답하는데, 각자 판정하면 모델이 받는 답과 화면이 어긋난다.
+ *
+ * <p><b>이 대화의 작업인지 적는다({@code thisProject}).</b> 목록은 담당자의 모든 작업이라, 모델이 지난 제품의 작업
+ * 7·6·5 까지 "완료" 로 늘어놓은 일이 있었다. 이 대화의 작업을 앞에 두고, 소재 이름을 붙여 번호 대신 부르게 한다.
  */
 @Component
 public class MyProcessingTool extends AbstractAgentTool {
 
     private final ProcessingJobWorkflowService jobWorkflow;
+    private final MaterialRepository materials;
+    /**
+     * 늦게 꺼낸다. 프로젝트 판정이 도구 목록을 쓰고 도구 목록이 이 도구를 품어서, 바로 받으면 서로를 기다린다.
+     */
+    private final ObjectProvider<AgentProjects> projects;
 
-    public MyProcessingTool(ObjectMapper objectMapper, ProcessingJobWorkflowService jobWorkflow) {
+    public MyProcessingTool(
+            ObjectMapper objectMapper,
+            ProcessingJobWorkflowService jobWorkflow,
+            MaterialRepository materials,
+            ObjectProvider<AgentProjects> projects) {
         super(objectMapper);
         this.jobWorkflow = jobWorkflow;
+        this.materials = materials;
+        this.projects = projects;
     }
 
     @Override
@@ -65,12 +83,6 @@ public class MyProcessingTool extends AbstractAgentTool {
     }
 
     @Override
-    public Set<JourneyPhase> phases() {
-        // 생산 단계에서도 본다 — 확정이 막히면 어느 가공이 안 끝났는지 여기서 확인한다.
-        return Set.of(JourneyPhase.PROCESSING, JourneyPhase.PRODUCTION);
-    }
-
-    @Override
     public boolean isWrite() {
         return false;
     }
@@ -78,19 +90,26 @@ public class MyProcessingTool extends AbstractAgentTool {
     @Override
     public AgentToolResult execute(AgentToolContext context, JsonNode arguments) {
         List<ProcessingJobResponse> jobs = jobWorkflow.list(context.userId());
+        AgentProject project = projectOf(context);
 
         List<Map<String, Object>> rows = new ArrayList<>();
         for (ProcessingJobResponse job : jobs) {
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("jobId", job.jobId());
+            row.put("thisProject", project.ownsJob(job.jobId()));
+            row.put("materialName", nameOf(job.inputMaterialId()));
             row.put("status", job.status());
             row.put("feeWon", job.fee());
             row.put("inputMaterialId", job.inputMaterialId());
             row.put("inputQuantityGram", job.inputQuantity());
+            row.put("inputText", Quantities.text(job.inputQuantity()));
             row.put("returnTrackingNumber", job.returnTrackingNumber());
             row.put("todo", ProcessingTodo.of(job.status()).instruction());
             rows.add(row);
         }
+
+        // 이 대화의 작업을 앞에 둔다. 모델은 앞에 있는 것부터 말한다.
+        rows.sort((a, b) -> Boolean.compare((boolean) b.get("thisProject"), (boolean) a.get("thisProject")));
 
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("jobs", rows);
@@ -99,8 +118,28 @@ public class MyProcessingTool extends AbstractAgentTool {
                 "hint",
                 "todo 가 담당자의 다음 행동이다. '기다리는 중' 인 건은 업체 차례이므로 "
                         + "재촉할 tool 을 찾지 말고 그대로 알린다. feeWon 은 이미 정해진 "
-                        + "가공비다 — 여러 건이면 나란히 보여 준다.");
+                        + "가공비다 — 여러 건이면 나란히 보여 준다. thisProject 가 false 인 작업은 지난 "
+                        + "제품의 것이다 — 담당자가 묻지 않았으면 꺼내지 않는다. 작업은 번호보다 "
+                        + "materialName 과 양으로 부른다(\"울 원단 5kg 가공\").");
         return AgentToolResult.of(json(payload));
     }
 
+    /** 이 대화의 프로젝트. 판정이 실패해도 목록은 돌려준다 — 전부 이 대화의 것이 아닌 것으로 본다. */
+    private AgentProject projectOf(AgentToolContext context) {
+        try {
+            Long conversationId = context.conversation() == null ? null : context.conversation().getId();
+            return conversationId == null
+                    ? AgentProject.empty()
+                    : projects.getObject().of(context.userId(), conversationId);
+        } catch (RuntimeException failure) {
+            return AgentProject.empty();
+        }
+    }
+
+    private String nameOf(Long materialId) {
+        if (materialId == null) {
+            return null;
+        }
+        return materials.findById(materialId).map(Material::getName).orElse(null);
+    }
 }

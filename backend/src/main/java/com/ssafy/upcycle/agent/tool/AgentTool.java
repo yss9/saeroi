@@ -1,8 +1,7 @@
 package com.ssafy.upcycle.agent.tool;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.ssafy.upcycle.agent.entity.JourneyPhase;
-import java.util.Set;
+import com.ssafy.upcycle.agent.project.AgentProject;
 
 /**
  * 모델이 부를 수 있는 기능 하나.
@@ -28,9 +27,6 @@ public interface AgentTool {
 
     /** 인자의 JSON Schema. 인자가 없으면 {@code {"type":"object","properties":{}}}. */
     String parametersJsonSchema();
-
-    /** 이 tool 이 노출되는 단계. 비어 있으면 모든 단계에서 보인다. */
-    Set<JourneyPhase> phases();
 
     /**
      * 상태를 바꾸는가.
@@ -79,6 +75,56 @@ public interface AgentTool {
             AgentToolContext context, com.fasterxml.jackson.databind.JsonNode arguments) {
         return java.util.Optional.empty();
     }
+
+    /**
+     * 카드에 보일 한 줄을 <b>서버가 만든다.</b> 비어 있으면 모델이 쓴 {@code summary} 를 쓴다.
+     *
+     * <p>이 한 줄은 카드 제목이자, 처리가 끝난 뒤 대화에 남는 <b>동의 기록</b>이다
+     * ("✓ 결제 폐데님 원단 12.5kg 구매 · 25,000원 완료"). 모델이 쓰게 두면 틀린 숫자가 그
+     * 기록에 영구히 남는다 — 실제로 12.5kg × 2,000원/kg 을 25,000,000원이라고 적었다.
+     *
+     * <p>금액·수량·대상이 들어가는 카드는 이것을 구현한다. 실패하면 비워 두고 모델 문장으로
+     * 떨어진다 — 카드를 못 띄우게 할 이유는 없다.
+     */
+    default java.util.Optional<String> serverSummary(
+            AgentToolContext context, com.fasterxml.jackson.databind.JsonNode arguments) {
+        return java.util.Optional.empty();
+    }
+
+    /**
+     * 카드에 함께 실을 값. <b>서버가 계산한 것만 넣는다.</b>
+     *
+     * <p>카드의 payload 는 모델이 만든 인자 그대로다. 그래서 담당자가 승인 전에 보는 숫자는
+     * 모델이 쓴 요약뿐이었다 — 실제로 12.5kg × 2,000원/kg 을 <b>25,000,000원</b>이라고 적은
+     * 적이 있다(gram 수량에 kg 단가를 곱했다). 서버는 금액을 모델에게서 받지 않으므로 실제
+     * 결제는 멀쩡했지만, <b>담당자는 틀린 금액을 보고 승인하게 된다.</b>
+     *
+     * <p>여기서 돌려준 값은 인자에 합쳐져 카드에 저장된다. 같은 이름이 있으면 이쪽이 이긴다 —
+     * 모델이 적어 넣은 값을 서버 계산으로 덮는 것이 이 훅의 목적이다.
+     *
+     * <p>실패해도 카드는 뜬다. 부가 정보가 없어 덜 친절할 뿐, 못 띄우게 할 이유는 없다.
+     */
+    default java.util.Map<String, Object> payloadExtras(
+            AgentToolContext context, com.fasterxml.jackson.databind.JsonNode arguments) {
+        return java.util.Map.of();
+    }
+
+    /**
+     * 승인된 이 카드로 <b>무엇이 생겼는지</b> 프로젝트에 적는다. 만든 것이 없으면 두지 않는다.
+     *
+     * <p>대화 하나는 제품 프로젝트 하나이고, 대화가 먼저 꺼내는 안내·자동 카드·진행 막대는
+     * 이 대화가 시작한 일만 본다({@link AgentProject}). 어떤 거래·가공·배치가 이 대화에서
+     * 생겼는지는 승인된 카드가 안다 — 카드의 인자와 실행 결과가 함께 남기 때문이다. 그래서
+     * 따로 기록하지 않고, 결과를 가장 잘 아는 도구가 거기서 번호를 읽는다.
+     *
+     * <p>이미 있는 일에 손대는 카드(수령·서명·취소)는 적지 않는다. 홈페이지에서 시작한 거래를
+     * 대화에서 수령했다고 그 거래가 이 프로젝트의 것이 되지는 않는다. 소재만 예외다 — 대화의
+     * 가공이나 생산에 쓴 순간 이 프로젝트의 소재가 된다.
+     *
+     * @param arguments 카드에 저장된 인자
+     * @param result 승인 뒤 실행 결과({@link AgentToolResult#payloadJson()})
+     */
+    default void claim(JsonNode arguments, JsonNode result, AgentProject.Builder project) {}
 
     /**
      * 쓰기 tool 이 사용자에게 어떤 종류의 확인을 요구하는지.

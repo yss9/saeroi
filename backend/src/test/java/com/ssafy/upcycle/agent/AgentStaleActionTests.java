@@ -141,9 +141,10 @@ class AgentStaleActionTests {
 
         assertThat(pendingActions.findById(actionId).orElseThrow().getStatus())
                 .isEqualTo(PendingActionStatus.COMPLETED);
+        // 결과는 모델이 말한다. 서버 문장은 이번 턴의 상태 블록으로만 들어간다.
         assertThat(detail.messages())
                 .anyMatch(message -> message.content() != null
-                        && message.content().contains("블록체인에 기록됐습니다"));
+                        && message.content().contains("기록됐습니다"));
         assertThat(detail.messages())
                 .noneMatch(message -> message.content() != null
                         && message.content().contains("다시 서명할 필요가 없습니다"));

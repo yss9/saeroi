@@ -2,7 +2,6 @@ package com.ssafy.upcycle.agent.tool.processing;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ssafy.upcycle.agent.entity.JourneyPhase;
 import com.ssafy.upcycle.agent.tool.AbstractAgentTool;
 import com.ssafy.upcycle.agent.tool.AgentToolContext;
 import com.ssafy.upcycle.agent.tool.AgentToolResult;
@@ -10,12 +9,15 @@ import com.ssafy.upcycle.agent.tool.PendingActionKind;
 import com.ssafy.upcycle.processing.dto.ProcessingPaymentReadyResponse;
 import com.ssafy.upcycle.processing.entity.ProcessingJob;
 import com.ssafy.upcycle.processing.entity.ProcessingJobStatus;
+import com.ssafy.upcycle.processing.repository.ProcessingInputRepository;
 import com.ssafy.upcycle.processing.repository.ProcessingJobRepository;
+import com.ssafy.upcycle.common.unit.Quantities;
+import com.ssafy.upcycle.material.entity.Material;
+import com.ssafy.upcycle.material.repository.MaterialRepository;
 import com.ssafy.upcycle.processing.service.ProcessingPaymentService;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import org.springframework.stereotype.Component;
 
 /**
@@ -43,14 +45,21 @@ public class PayProcessingFeeTool extends AbstractAgentTool {
     private final ProcessingPaymentService paymentService;
     // 카드가 아직 유효한지 보려고 작업을 읽는다.
     private final ProcessingJobRepository jobs;
+    // 카드 제목에 무엇을 맡긴 가공인지 적으려고 투입 소재를 읽는다.
+    private final ProcessingInputRepository inputs;
+    private final MaterialRepository materials;
 
     public PayProcessingFeeTool(
             ObjectMapper objectMapper,
             ProcessingPaymentService paymentService,
-            ProcessingJobRepository jobs) {
+            ProcessingJobRepository jobs,
+            ProcessingInputRepository inputs,
+            MaterialRepository materials) {
         super(objectMapper);
         this.paymentService = paymentService;
         this.jobs = jobs;
+        this.inputs = inputs;
+        this.materials = materials;
     }
 
     @Override
@@ -81,11 +90,6 @@ public class PayProcessingFeeTool extends AbstractAgentTool {
     }
 
     @Override
-    public Set<JourneyPhase> phases() {
-        return Set.of(JourneyPhase.PROCESSING);
-    }
-
-    @Override
     public boolean isWrite() {
         return true;
     }
@@ -101,6 +105,29 @@ public class PayProcessingFeeTool extends AbstractAgentTool {
      * <p>리포지토리로 직접 읽는다 — {@code @Transactional} 서비스를 부르면 그 안의 예외를
      * 잡아도 Spring 이 바깥 트랜잭션을 rollback-only 로 표시해 승인 전체가 커밋되지 않는다.
      */
+    /**
+     * 카드 제목을 서버가 쓴다. 가공비는 요청을 만들 때 서버가 정한 값이라, 모델이 대화
+     * 앞부분의 견적을 기억해 다르게 적으면 담당자는 틀린 금액을 보고 결제하게 된다.
+     *
+     * <p><b>번호 대신 무엇을 맡겼는지 적는다.</b> "가공 작업 8 가공비" 와 "가공 작업 9 가공비" 가 나란히 떴을 때
+     * 담당자는 어느 쪽이 울인지 알 수 없었다. 소재를 찾지 못하면 번호로 적는다.
+     */
+    @Override
+    public Optional<String> serverSummary(AgentToolContext context, JsonNode arguments) {
+        return jobs.findById(requiredPositiveLong(arguments, "jobId"))
+                .filter(job -> job.getBrandId().equals(context.userId()))
+                .map(job -> "%s — 가공비 · %,d원".formatted(subjectOf(job), job.getFee()));
+    }
+
+    private String subjectOf(ProcessingJob job) {
+        return inputs.findByProcessingJobId(job.getId())
+                .flatMap(input -> materials.findById(input.getMaterialId())
+                        .map(Material::getName)
+                        .filter(name -> !name.isBlank())
+                        .map(name -> "%s %s 가공".formatted(name, Quantities.text(input.getQuantity()))))
+                .orElse("가공 작업 %d".formatted(job.getId()));
+    }
+
     @Override
     public Optional<String> stalenessReason(AgentToolContext context, JsonNode arguments) {
         ProcessingJob job = jobs

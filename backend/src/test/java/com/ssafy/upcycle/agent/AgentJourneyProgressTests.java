@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.ssafy.upcycle.agent.dto.JourneyProgressResponse;
 import com.ssafy.upcycle.agent.entity.JourneyPhase;
 import com.ssafy.upcycle.agent.repository.AgentConversationRepository;
+import com.ssafy.upcycle.agent.repository.AgentPendingActionRepository;
 import com.ssafy.upcycle.agent.service.AgentJourneyProgress;
 import com.ssafy.upcycle.material.entity.Material;
 import com.ssafy.upcycle.material.entity.MaterialBalance;
@@ -36,7 +37,8 @@ import org.springframework.transaction.annotation.Transactional;
  * <ol>
  *   <li><b>가장 오래된 배치를 따라갔다.</b> 지난 테스트에서 버려 둔 빈 배치가 목록 앞에
  *       있으면, 방금 확정하고 체인 기록까지 끝낸 배치가 아니라 그 빈 배치를 가리켰다 —
- *       다 끝냈는데 막대는 "투입할 소재를 정할 차례입니다" 라고 말했다.
+ *       다 끝냈는데 막대는 "투입할 소재를 정할 차례입니다" 라고 말했다. 이제는 이 대화에서
+ *       연 배치만 본다.
  *   <li><b>투입 여부를 {@code totalUsedQuantity} 로 판정했다.</b> 그 값은 확정 시점에 제품에
  *       실제로 쓰인 양으로 채워지고 그 전까지 언제나 0 이다. 그래서 소재를 넣어 둔 배치도
  *       "아직 투입 안 됨" 으로 보였다.
@@ -55,6 +57,7 @@ class AgentJourneyProgressTests {
     @Autowired private MaterialRepository materials;
     @Autowired private MaterialBalanceRepository balances;
     @Autowired private ProductionBatchService batchService;
+    @Autowired private AgentPendingActionRepository cards;
 
     private Long brandId;
     private Long materialId;
@@ -84,17 +87,22 @@ class AgentJourneyProgressTests {
         conversationId = conversation.getId();
     }
 
+    /**
+     * 막대는 <b>이 대화에서 연 배치</b>를 가리킨다. 더 최근에 연 배치가 있어도 그것이 홈페이지나
+     * 지난 대화의 것이면 따라가지 않는다 — "가장 최근 배치" 는 서버가 이 대화의 배치를 모를 때
+     * 쓰던 대리값이었다.
+     */
     @Test
-    void 버려진_옛_배치가_아니라_최근_배치를_가리킨다() {
-        batchService.open(brandId, new ProductionBatchOpenRequest("버려진 배치", null, 10));
-        Long recent = batchService
+    void 더_최근_배치가_아니라_이_대화의_배치를_가리킨다() {
+        Long mine = batchService
                 .open(brandId, new ProductionBatchOpenRequest("지금 하는 배치", null, 5))
                 .productionBatchId();
+        batchService.open(brandId, new ProductionBatchOpenRequest("홈페이지에서 연 배치", null, 10));
+        ProjectCards.openedBatch(cards, conversationId, mine);
 
         JourneyProgressResponse response = progress.of(brandId, conversation());
 
         assertThat(response.subject()).isEqualTo("지금 하는 배치");
-        assertThat(recent).isNotNull();
     }
 
     @Test
@@ -104,6 +112,7 @@ class AgentJourneyProgressTests {
                 .productionBatchId();
         batchService.addInputs(brandId, batchId, new ProductionInputsRequest(List.of(
                 new ProductionInputRequest(materialId, 4_000L, 4_000L, 0L, 0L, null))));
+        ProjectCards.openedBatch(cards, conversationId, batchId);
 
         JourneyProgressResponse response = progress.of(brandId, conversation());
 

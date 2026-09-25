@@ -5,10 +5,15 @@ import com.ssafy.upcycle.agent.dto.ConversationDetailResponse;
 import com.ssafy.upcycle.agent.dto.JourneyProgressResponse;
 import com.ssafy.upcycle.agent.dto.ConversationSummaryResponse;
 import com.ssafy.upcycle.agent.entity.AgentConversation;
+import com.ssafy.upcycle.agent.service.step.BrandStep;
+import com.ssafy.upcycle.agent.service.step.BrandStepAutoProposer;
+import com.ssafy.upcycle.agent.service.step.BrandStepResolver;
 import com.ssafy.upcycle.agent.entity.AgentMessage;
 import com.ssafy.upcycle.agent.entity.AgentPendingAction;
 import com.ssafy.upcycle.agent.entity.ConversationStatus;
 import com.ssafy.upcycle.agent.entity.PendingActionStatus;
+import com.ssafy.upcycle.agent.project.AgentProject;
+import com.ssafy.upcycle.agent.project.AgentProjects;
 import com.ssafy.upcycle.agent.repository.AgentConversationRepository;
 import com.ssafy.upcycle.agent.repository.AgentPendingActionRepository;
 import com.ssafy.upcycle.common.exception.BusinessException;
@@ -32,7 +37,11 @@ public class AgentConversationService {
     private final ConversationStore store;
     private final AgentChatService chatService;
     private final AgentJourneyProgress journeyProgress;
+    /** 담당자 차례가 되면 말을 걸지 않아도 카드를 띄운다. */
+    private final BrandStepAutoProposer autoProposer;
     private final UserRepository users;
+    private final AgentProjects projects;
+    private final BrandStepResolver stepResolver;
 
     /**
      * 대화를 시작하거나 이어간다.
@@ -84,7 +93,7 @@ public class AgentConversationService {
         requireBrand(userId);
         return conversations
                 .findByBrandUserIdAndStatus(userId, ConversationStatus.ACTIVE)
-                .map(conversation -> ConversationDetailResponse.of(
+                .map(conversation -> toDetail(
                         conversation,
                         store.history(conversation.getId()),
                         pendingActions.findByConversationIdOrderByIdAsc(conversation.getId())))
@@ -115,9 +124,9 @@ public class AgentConversationService {
      * <p>결제 복귀가 대표적이다. 담당자가 카카오페이에서 돌아오면 결제는 끝났는데 대화는
      * 그 사실을 모른다. 이 경로로 사실을 넣어 주면 모델이 현황을 확인해 안내한다.
      *
-     * <p>사용자 발화가 아니라 <b>상황 보고</b>다. 그래서 화면에 말풍선으로 그리지 않아도
-     * 되도록 assistant 역할로 남긴다 — 담당자가 하지 않은 말이 자기 말풍선으로 보이면
-     * 대화 기록이 거짓이 된다.
+     * <p>사용자 발화가 아니라 <b>상황 보고</b>다. 담당자 말풍선으로 남기지 않는다 — 담당자가
+     * 하지 않은 말이 자기 말풍선으로 보이면 대화 기록이 거짓이 된다. 모델이 이 사실을 받아
+     * 한 번 전하고, 모델이 말하지 못하면 이 문장이 그대로 나간다.
      */
     public ConversationDetailResponse reportEvent(Long userId, Long conversationId, String note) {
         requireBrand(userId);
@@ -134,10 +143,31 @@ public class AgentConversationService {
                 .toList();
     }
 
-    /** 대화 위 경과 표시. 도메인만 읽으므로 크레딧이 들지 않는다. */
-    @Transactional(readOnly = true)
+    /**
+     * 대화 위 경과 표시. 도메인만 읽으므로 크레딧이 들지 않는다.
+     *
+     * <p><b>여기서 카드도 함께 맞춘다.</b> 화면이 20초마다 이 엔드포인트를 부르므로,
+     * 상대(공급업체·가공업체)가 움직여 담당자 차례가 된 것을 여기서 알아챈다. 기한이 지난
+     * 카드를 닫는 것도 같은 자리다 — 폴링을 새로 만들지 않고 이미 도는 것에 얹었다.
+     *
+     * <p>모델을 부르지 않는다 — 띄우는 카드는 인자가 이미 정해진 것들뿐이다
+     * ({@code AutoProposableStep}). 그래서 이 경로는 여전히 크레딧이 들지 않는다.
+     *
+     * <p><b>트랜잭션을 걸지 않는다.</b> 카드를 띄우기 전 도구가 스스로 보는 검사가 여기서
+     * 도는데, 그 검사가 {@code @Transactional} 서비스를 지나다 예외를 던지면 — 잡더라도 —
+     * 바깥 트랜잭션이 rollback-only 가 된다. 그러면 같은 트랜잭션에서 띄운 카드까지 사라진다.
+     * 쓰기는 {@code AgentStepCardStore} 의 짧은 트랜잭션들이 맡는다.
+     */
     public JourneyProgressResponse progress(Long userId, Long conversationId) {
-        return journeyProgress.of(userId, require(userId, conversationId));
+        AgentConversation conversation = require(userId, conversationId);
+        // **남은 일은 한 번만 판정한다.** 자동 카드·진행 막대·오른쪽 패널이 같은 목록을 읽는다.
+        // 각자 판정하던 동안 한 화면에서 서로 다른 말을 했고, 체인도 조회마다 두 번 읽었다.
+        // 자동 카드는 카드만 만들고 도메인을 움직이지 않으므로, 그 뒤에 막대를 그려도 같은 목록이다.
+        AgentProject project = projects.of(userId, conversationId);
+        List<BrandStep> steps = stepResolver.resolve(userId, project);
+        int changed = autoProposer.reconcile(conversation, steps);
+        return journeyProgress.of(userId, conversation, project, steps)
+                .withConversationChanged(changed > 0);
     }
 
     @Transactional(readOnly = true)
@@ -147,7 +177,13 @@ public class AgentConversationService {
         List<AgentMessage> messages = store.history(conversationId);
         List<AgentPendingAction> actions =
                 pendingActions.findByConversationIdOrderByIdAsc(conversationId);
-        return ConversationDetailResponse.of(conversation, messages, actions);
+        return toDetail(conversation, messages, actions);
+    }
+
+    private ConversationDetailResponse toDetail(
+            AgentConversation conversation, List<AgentMessage> messages, List<AgentPendingAction> actions) {
+        return ConversationDetailResponse.of(
+                conversation, messages, actions, projects.claimedFrom(actions).tradeIds());
     }
 
     @Transactional

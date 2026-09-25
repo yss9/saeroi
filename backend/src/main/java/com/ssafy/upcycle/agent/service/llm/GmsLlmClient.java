@@ -243,8 +243,18 @@ public class GmsLlmClient implements LlmClient {
 
         String answer = text.isEmpty() ? null : text.toString();
         if (toolCalls.isEmpty() && !StringUtils.hasText(answer)) {
-            log.warn("LLM completion failed: reason=EMPTY_CONTENT");
-            throw unavailable();
+            // **예외로 던지지 않는다.** 빈 답은 장애가 아니라 "이 호출로는 할 말을 못 찾았다"
+            // 는 사실이고, 호출부가 다시 시도할 수 있는 일이다.
+            //
+            // 던지던 때는 그 예외가 턴 전체를 끊어, 모델이 하려던 <b>다음 단계까지 사라졌다.</b>
+            // 생산 확정 카드를 승인한 뒤 이어지는 턴이 그렇게 죽어 record_production_chain 이
+            // 제안되지 않았고, 배치는 createBatch 만 된 채 멈췄다 — 만들어진 개체 10개가 어느
+            // 제품의 재고도 아니게 됐다. 담당자는 그 단계가 있는 줄도 몰랐다.
+            //
+            // 카드 승인 직후 턴에서 특히 자주 난다. 사용자 발화 없이 모델이 말하게 하는
+            // 자리라, tool 결과만 있고 새 질문이 없는 상태가 되기 때문으로 보인다.
+            log.warn("LLM completion empty: reason=EMPTY_CONTENT");
+            return new LlmCompletion(null, List.of());
         }
         return new LlmCompletion(answer, toolCalls);
     }

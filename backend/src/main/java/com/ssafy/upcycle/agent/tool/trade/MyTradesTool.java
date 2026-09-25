@@ -2,7 +2,6 @@ package com.ssafy.upcycle.agent.tool.trade;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ssafy.upcycle.agent.entity.JourneyPhase;
 import com.ssafy.upcycle.agent.tool.AbstractAgentTool;
 import com.ssafy.upcycle.agent.tool.AgentToolContext;
 import com.ssafy.upcycle.agent.tool.AgentToolResult;
@@ -12,7 +11,7 @@ import com.ssafy.upcycle.blockchain.service.ChainOrderStatusReader;
 import com.ssafy.upcycle.trade.service.TradeQueryService;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import com.ssafy.upcycle.common.unit.Quantities;
 import org.springframework.stereotype.Component;
 
 /**
@@ -77,11 +76,6 @@ public class MyTradesTool extends AbstractAgentTool {
     }
 
     @Override
-    public Set<JourneyPhase> phases() {
-        return Set.of(JourneyPhase.MATERIAL_SOURCING, JourneyPhase.PROCESSING);
-    }
-
-    @Override
     public boolean isWrite() {
         return false;
     }
@@ -119,6 +113,7 @@ public class MyTradesTool extends AbstractAgentTool {
             String status,
             String materialName,
             long quantityGram,
+            String quantityText,
             long totalPrice,
             boolean needsChainOrder,
             boolean needsChainReceipt) {
@@ -133,6 +128,7 @@ public class MyTradesTool extends AbstractAgentTool {
                     trade.status() == null ? null : trade.status().name(),
                     trade.materialName(),
                     trade.quantity(),
+                    Quantities.text(trade.quantity()),
                     trade.totalPrice(),
                     // 결제는 끝났는데 온체인 주문이 아직 없는 상태. 대화가 끊겼을 때 여기서 드러난다.
                     trade.chainTradeId() == null && isPaidOrLater(trade),

@@ -2,14 +2,15 @@ package com.ssafy.upcycle.agent.tool;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ssafy.upcycle.agent.entity.JourneyPhase;
+import com.ssafy.upcycle.agent.service.CompanyNames;
 import com.ssafy.upcycle.material.entity.MaterialType;
 import com.ssafy.upcycle.processing.dto.ProcessorSearchResponse;
 import com.ssafy.upcycle.processing.entity.ProcessType;
 import com.ssafy.upcycle.processing.service.ProcessorSearchService;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
+import com.ssafy.upcycle.common.unit.Quantities;
+import java.util.Map;
 import org.springframework.stereotype.Component;
 
 /**
@@ -25,10 +26,14 @@ public class SearchProcessorsTool extends AbstractAgentTool {
     private static final int DEFAULT_SIZE = 10;
 
     private final ProcessorSearchService processorSearch;
+    /** 검색이 돌려주는 이름은 대표자 이름이라 여러 업체가 "홍길동" 으로 보였다. 업체명으로 바꾼다. */
+    private final CompanyNames companyNames;
 
-    public SearchProcessorsTool(ObjectMapper objectMapper, ProcessorSearchService processorSearch) {
+    public SearchProcessorsTool(
+            ObjectMapper objectMapper, ProcessorSearchService processorSearch, CompanyNames companyNames) {
         super(objectMapper);
         this.processorSearch = processorSearch;
+        this.companyNames = companyNames;
     }
 
     @Override
@@ -59,11 +64,6 @@ public class SearchProcessorsTool extends AbstractAgentTool {
                   "additionalProperties": false
                 }"""
                 .formatted(enumValues(MaterialType.class), enumValues(ProcessType.class));
-    }
-
-    @Override
-    public Set<JourneyPhase> phases() {
-        return Set.of(JourneyPhase.PROCESSING);
     }
 
     @Override
@@ -101,7 +101,26 @@ public class SearchProcessorsTool extends AbstractAgentTool {
                     0,
                     "조건에 맞는 가공업체가 없습니다. 수량을 조정하거나 공정을 나눠서 다시 찾아보세요.")));
         }
-        return AgentToolResult.of(json(response));
+        Map<String, Object> payload = fields(response);
+        Map<Long, String> names = companyNames.of(
+                response.items().stream().map(ProcessorSearchResponse.Item::processorId).toList());
+        payload.put("items", response.items().stream().map(item -> withText(item, names)).toList());
+        return AgentToolResult.of(json(payload));
+    }
+
+    /**
+     * 처리량과 금액을 문장으로 붙인다. 처리량은 gram/일이고, 모델이 그것을 kg 으로 옮기다
+     * 틀리면 담당자는 업체를 잘못 고른다.
+     */
+    private Map<String, Object> withText(ProcessorSearchResponse.Item item, Map<Long, String> names) {
+        Map<String, Object> row = fields(item);
+        row.put("name", CompanyNames.pick(names, item.processorId(), item.name()));
+        row.put("dailyCapacityText", Quantities.text(item.dailyCapacity()) + "/일");
+        row.put("pricePerKgText", "kg당 %,d원".formatted(item.pricePerKg()));
+        if (item.estimatedPrice() != null) {
+            row.put("estimatedPriceText", "%,d원".formatted(item.estimatedPrice()));
+        }
+        return row;
     }
 
     private record EmptyResult(long total, String hint) {}

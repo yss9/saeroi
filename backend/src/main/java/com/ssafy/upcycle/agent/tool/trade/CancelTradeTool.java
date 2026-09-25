@@ -2,7 +2,6 @@ package com.ssafy.upcycle.agent.tool.trade;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ssafy.upcycle.agent.entity.JourneyPhase;
 import com.ssafy.upcycle.agent.tool.AbstractAgentTool;
 import com.ssafy.upcycle.agent.tool.AgentToolContext;
 import com.ssafy.upcycle.agent.tool.AgentToolResult;
@@ -14,7 +13,6 @@ import com.ssafy.upcycle.trade.repository.MaterialTradeRepository;
 import com.ssafy.upcycle.trade.service.PaymentService;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Set;
 import org.springframework.stereotype.Component;
 
 /**
@@ -71,13 +69,6 @@ public class CancelTradeTool extends AbstractAgentTool {
                   "required": ["tradeId", "summary"],
                   "additionalProperties": false
                 }""";
-    }
-
-    @Override
-    public Set<JourneyPhase> phases() {
-        // 가공 단계에 들어선 뒤에야 "그때 그 거래가 남아 있네" 를 알아차리는 일이 흔하다.
-        // 목록을 볼 수 있는 단계(get_my_trades)에서는 정리도 할 수 있어야 한다.
-        return Set.of(JourneyPhase.MATERIAL_SOURCING, JourneyPhase.PROCESSING);
     }
 
     @Override
