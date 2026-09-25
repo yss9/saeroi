@@ -107,7 +107,8 @@ export function useReportActionStep() {
     mutationFn: ({ actionId, resultJson }: { actionId: number; resultJson: string }) =>
       reportActionStep(actionId, resultJson),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: agentKeys.active() })
+      // 다단계 서명의 중간 단계도 막대를 움직인다 — 생산 온체인 기록이 그렇다.
+      void queryClient.invalidateQueries({ queryKey: agentKeys.all })
     },
   })
 }
@@ -144,9 +145,20 @@ export function useCompleteConversation() {
   })
 }
 
+/**
+ * 대화가 바뀌었다. <b>진행 막대도 함께 갱신한다.</b>
+ *
+ * 카드를 승인하면 단계가 끝나는데, 막대는 자기 주기(20초)로만 다시 읽었다. 결제를 마치고도
+ * 한참 동안 그 칸에 불이 들어오지 않았고, 막대가 함께 내려주는 "다음에 무엇을 하면
+ * 되는지"도 그만큼 늦게 바뀌었다 — 담당자가 다음 할 일을 늦게 알게 되는 자리다.
+ *
+ * 무효화만 하고 기다리지 않는다. 막대는 대화와 별개로 그려지므로 늦게 도착해도 대화가
+ * 멈추지 않는다.
+ */
 function writeCache(
   queryClient: ReturnType<typeof useQueryClient>,
   detail: ConversationDetail,
 ): void {
   queryClient.setQueryData(agentKeys.active(), detail)
+  void queryClient.invalidateQueries({ queryKey: agentKeys.progress(detail.id) })
 }

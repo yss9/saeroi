@@ -1,13 +1,8 @@
-import { paidTotal, pendingStepOf, sinceStart, useAgentTrades } from '../hooks/useAgentTrades.ts'
+import { paidTotal, useAgentTrades } from '../hooks/useAgentTrades.ts'
+import { useJourneyProgress } from '../hooks/useJourneyProgress.ts'
 import type { ReactNode } from 'react'
-import type { ConversationDetail, PendingAction } from '../types/agent.types.ts'
+import type { ConversationDetail, JourneySpend, JourneyTask, PendingAction } from '../types/agent.types.ts'
 import type { Trade } from '../../trade/types/trade.types.ts'
-
-/** 상대를 기다리는 구간. 담당자가 할 수 있는 일이 없다는 것을 분명히 말해 준다. */
-const WAITING_LABEL: Record<string, string> = {
-  PAID: '판매자 발송 대기',
-  SHIPPED: '배송 중',
-}
 
 /**
  * 오른쪽 절차 패널.
@@ -20,6 +15,12 @@ const WAITING_LABEL: Record<string, string> = {
  *
  * <p><b>할 일이 없으면 그 칸을 통째로 감춘다.</b> "없음" 이라고 적힌 빈 줄은 정보가 아니라
  * 소음이고, 매번 읽고 넘겨야 하는 것이 늘어난다.
+ *
+ * <h2>할 일은 서버가 판정한다</h2>
+ *
+ * <p>'해야 할 일' 과 '기다리는 중' 은 진행 막대와 같은 조회의 `tasks` 를 그대로 그린다. 예전에는
+ * 여기서 거래 상태를 보고 스스로 판정했는데(`pendingStepOf`), 그러면 막대·패널·대화가 한 화면에서
+ * 서로 다른 말을 했고, 거래만 볼 줄 알아 가공·생산·판매의 할 일은 아예 보이지 않았다.
  *
  * <h2>대화가 만든 카드는 여기서 누르지 않는다</h2>
  *
@@ -38,7 +39,14 @@ export function AgentTaskPanel({
   renderCard?: (action: PendingAction) => ReactNode
 }) {
   const { data } = useAgentTrades()
-  const trades = (data?.content ?? []).filter((trade) => trade.status !== 'CANCELED')
+  const { data: progress } = useJourneyProgress(conversation?.id ?? null)
+  // **이 대화에서 산 거래만 본다.** 대화 하나는 제품 하나다. 계정의 모든 거래를 보이면 에코백을
+  // 만드는 대화에 홈페이지에서 산 다른 소재의 결제·수령이 섞인다. 그 거래도 담당자가 물으면
+  // 대화가 처리한다 — 먼저 꺼내지 않을 뿐이다.
+  const projectTradeIds = new Set(conversation?.projectTradeIds ?? [])
+  const trades = (data?.content ?? []).filter(
+    (trade) => trade.status !== 'CANCELED' && projectTradeIds.has(trade.tradeId),
+  )
 
   const openCards = conversation?.actions.filter((action) => action.status === 'PENDING') ?? []
   // 여기 고정된 카드는 여기서 그대로 보이므로 따로 알릴 필요가 없다. 나머지만 알린다.
@@ -47,18 +55,16 @@ export function AgentTaskPanel({
   // 빠지고 여기서도 안 그려져 어디에도 보이지 않는다.
   const pinnedIds = new Set(renderCard ? pinnedCards.map((action) => action.id) : [])
   const inlineCards = openCards.filter((action) => !pinnedIds.has(action.id))
-  const actionable = trades.filter((trade) => pendingStepOf(trade) != null)
-  const waiting = trades.filter(
-    (trade) => pendingStepOf(trade) == null && WAITING_LABEL[trade.status] != null,
-  )
-  // 이력은 **이번 대화에서 만든 거래만** 센다. 계정의 지난 거래까지 합치면 새 대화를
-  // 시작한 첫 화면에 지난달 지출이 떠 있게 된다 — 지금 일인지 지난 일인지 구분되지 않는다.
-  //
-  // 반대로 '해야 할 일'과 '기다리는 중'은 전체를 본다. 지난 대화에서 산 소재가 아직 오는
-  // 중이라면 그건 여전히 담당자의 일이고, 대화를 끝냈다고 물건이 멈추지는 않는다.
-  const startedAt = conversation?.messages[0]?.createdAt ?? null
-  const journey = sinceStart(trades, startedAt)
-  const spent = paidTotal(journey)
+  // 서버가 이 대화의 프로젝트에서 판정한 남은 일. 모델이 읽는 목록과 같다.
+  const tasks = progress?.tasks ?? []
+  const actionable = tasks.filter((task) => task.actionable)
+  const waiting = tasks.filter((task) => !task.actionable)
+  const journey = trades
+  // **결제한 금액은 서버가 모은다** — 소재 구매와 가공비. 예전 서버라 값이 없으면 거래만으로 그린다.
+  const spending: JourneySpend[] = progress?.spending ?? journey
+    .filter((trade) => trade.paymentAmount > 0)
+    .map((trade) => ({ kind: 'MATERIAL', label: trade.materialName, detail: null, amount: trade.paymentAmount }))
+  const spendTotal = spending.length > 0 ? spending.reduce((sum, line) => sum + line.amount, 0) : paidTotal(journey)
 
   return (
     <aside className="agent-tasks" aria-label="진행 절차">
@@ -81,7 +87,7 @@ export function AgentTaskPanel({
         </section>
       )}
 
-      {/* 대화 안에 남아 있는 카드(좁은 화면, 생산 온체인 기록)는 여기서 알리기만 한다. */}
+      {/* 대화 안에 남아 있는 카드(좁은 화면)는 여기서 알리기만 한다. */}
       {inlineCards.length > 0 && (
         <section className="agent-tasks__block agent-tasks__block--alert">
           <h2>확인 대기</h2>
@@ -100,11 +106,8 @@ export function AgentTaskPanel({
         <section className="agent-tasks__block agent-tasks__block--alert">
           <h2>해야 할 일</h2>
           <ul>
-            {actionable.map((trade) => (
-              <li key={trade.tradeId}>
-                <span className="agent-tasks__name">{trade.materialName}</span>
-                <span className="agent-tasks__badge is-todo">{pendingStepOf(trade)}</span>
-              </li>
+            {actionable.map((task) => (
+              <TaskLine key={taskKey(task)} task={task} />
             ))}
           </ul>
         </section>
@@ -114,11 +117,8 @@ export function AgentTaskPanel({
         <section className="agent-tasks__block">
           <h2>기다리는 중</h2>
           <ul>
-            {waiting.map((trade) => (
-              <li key={trade.tradeId}>
-                <span className="agent-tasks__name">{trade.materialName}</span>
-                <span className="agent-tasks__badge">{WAITING_LABEL[trade.status]}</span>
-              </li>
+            {waiting.map((task) => (
+              <TaskLine key={taskKey(task)} task={task} />
             ))}
           </ul>
         </section>
@@ -140,25 +140,73 @@ export function AgentTaskPanel({
         </section>
       )}
 
-      {spent > 0 && (
+      {spendTotal > 0 && (
         <section className="agent-tasks__block agent-tasks__block--spend">
           <h2>결제한 금액</h2>
-          <p className="agent-tasks__total">{spent.toLocaleString()}원</p>
-          {/* 합계만 두면 "무엇에 썼는지" 를 확인하러 다른 화면을 열게 된다. */}
-          <ul>
-            {journey
-              .filter((trade) => trade.paymentAmount > 0)
-              .map((trade) => (
-                <li key={trade.tradeId}>
-                  <span className="agent-tasks__name">{trade.materialName}</span>
-                  <span>{trade.paymentAmount.toLocaleString()}원</span>
-                </li>
-              ))}
-          </ul>
+          <p className="agent-tasks__total">{spendTotal.toLocaleString()}원</p>
+          {/* 합계만 두면 "무엇에 썼는지" 를 확인하러 다른 화면을 열게 된다. 소재와 가공을 나눠 소계를 보인다. */}
+          {SPEND_GROUPS.map(({ kind, title }) => {
+            const lines = spending.filter((line) => line.kind === kind)
+            if (lines.length === 0) return null
+            const subtotal = lines.reduce((sum, line) => sum + line.amount, 0)
+            return (
+              <div key={kind} className="agent-tasks__spend-group">
+                <p className="agent-tasks__spend-title">
+                  <span>{title}</span>
+                  <span className="agent-tasks__amount">{subtotal.toLocaleString()}원</span>
+                </p>
+                <ul>
+                  {lines.map((line, index) => (
+                    <li key={`${kind}-${index}`}>
+                      <span className="agent-tasks__name">
+                        {line.label}
+                        {line.detail && <small className="agent-tasks__detail">{line.detail}</small>}
+                      </span>
+                      <span className="agent-tasks__amount">{line.amount.toLocaleString()}원</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )
+          })}
         </section>
       )}
     </aside>
   )
+}
+
+/**
+ * 남은 일 한 줄. 무엇에 대한 일인지를 위에, 할 일 문장을 아래에 둔다 — 문장이 한 줄 배지에
+ * 들어가지 않고, 배지에 욱여넣으면 이름이 밀려 무엇의 일인지 안 보인다.
+ */
+function TaskLine({ task }: { task: JourneyTask }) {
+  return (
+    <li className="agent-tasks__task">
+      <span className="agent-tasks__name">
+        {DOMAIN_LABEL[task.domain] ?? ''} {task.subject}
+      </span>
+      <span className={task.actionable ? 'agent-tasks__step is-todo' : 'agent-tasks__step'}>
+        {task.label}
+      </span>
+    </li>
+  )
+}
+
+/** 배치 하나에 할 일이 둘일 수 있어(체인 기록, 제품 연결) 문장까지 키에 넣는다. */
+const SPEND_GROUPS: { kind: JourneySpend['kind']; title: string }[] = [
+  { kind: 'MATERIAL', title: '소재 구매' },
+  { kind: 'PROCESSING', title: '가공비' },
+]
+
+function taskKey(task: JourneyTask): string {
+  return `${task.domain}-${task.referenceId}-${task.label}`
+}
+
+const DOMAIN_LABEL: Record<string, string> = {
+  TRADE: '소재',
+  PROCESSING: '가공',
+  PRODUCTION: '생산',
+  PRODUCT: '제품',
 }
 
 function cardLabel(actionType: string): string {

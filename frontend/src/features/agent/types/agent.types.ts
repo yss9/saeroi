@@ -69,6 +69,11 @@ export interface ConversationDetail {
   status: ConversationStatus
   messages: AgentMessage[]
   actions: PendingAction[]
+  /**
+   * 이 대화에서 산 거래 번호. 대화 하나는 제품 하나라, 오른쪽 할 일 목록은 이 거래만 보인다 —
+   * 계정의 모든 거래를 보이면 홈페이지에서 산 다른 소재의 "수령 확정" 이 이 제품의 할 일처럼 뜬다.
+   */
+  projectTradeIds: number[]
 }
 
 export interface ConversationSummary {
@@ -85,6 +90,23 @@ export interface PurchasePayload {
   totalPrice: number
   quantityGram: number
   redirectUrl: string
+  /** 서버가 판매 글에서 읽어 카드에 실은 소재 이름 */
+  materialName?: string
+  /**
+   * 누구에게서 무엇을 사는지 — 서버가 판매 글에서 읽어 싣는다. 판매 글이 한 곳뿐이자 모델이 판매자와 등급을
+   * 말하지 않고 "폐데님 원단 10kg : 20,000원" 만 말했다. 카드에는 늘 있어야 담당자가 확인할 수 있다.
+   */
+  sellerName?: string
+  grade?: string
+  /** 폐소재 · 신소재 */
+  originText?: string
+  pricePerKg?: number
+  /** 배송지. 모델이 대화로 받아 채운 값이라 담당자가 카드에서 확인해야 한다 */
+  receiverName?: string
+  receiverPhone?: string
+  zipCode?: string
+  address?: string
+  addressDetail?: string
 }
 
 /** 가공비 결제 카드가 담고 있는 값. 소재 구매와 같은 PaymentCard 가 쓴다. */
@@ -122,6 +144,30 @@ export interface JourneyMark {
  * 화면이 계산하면 모델이 말하는 것과 막대가 어긋난다 — "아직 선별이 남았습니다" 라고
  * 말하는데 막대는 다 찬 식이다. 가공 계획은 애초에 화면이 읽을 수도 없다.
  */
+/** 남은 일 한 줄. */
+export interface JourneyTask {
+  /** 무엇의 번호인지 — TRADE · PROCESSING · PRODUCTION · PRODUCT */
+  domain: string
+  referenceId: number
+  /** 소재 이름, 가공 작업, 배치 이름, 제품 이름 */
+  subject: string
+  /** 지금 할 일, 또는 무엇을 기다리는지 */
+  label: string
+  /** 담당자가 할 일이면 true, 상대를 기다리는 중이면 false */
+  actionable: boolean
+}
+
+/** 결제 한 건. */
+export interface JourneySpend {
+  /** MATERIAL(소재 구매) · PROCESSING(가공비) */
+  kind: 'MATERIAL' | 'PROCESSING'
+  /** 무엇에 — "폐데님 원단 10kg", "폐데님 원단 10kg 가공" */
+  label: string
+  /** 가공이면 공정과 업체 — "세척·해체·선별 · pro" */
+  detail: string | null
+  amount: number
+}
+
 export interface JourneyProgress {
   phase: string
   /** 여정 네 칸: 소재 · 가공 · 생산 · 판매 */
@@ -134,6 +180,12 @@ export interface JourneyProgress {
   /** 담당자가 지금 할 일. 기다리는 중이면 그렇다고 적혀 있다 */
   nextTodo: string | null
   /**
+   * 이 대화의 프로젝트에서 남은 일 전부. 오른쪽 패널이 그린다.
+   *
+   * 모델에게 가는 목록과 같은 판정에서 나온다 — 화면이 따로 판정하지 않는다.
+   */
+  tasks: JourneyTask[]
+  /**
    * 이번 조회에서 **새 카드가 떴는가.**
    *
    * 대화는 주기 조회하지 않는다 — 담당자가 말을 걸 때만 바뀐다고 보았기 때문이다. 그런데
@@ -141,4 +193,11 @@ export interface JourneyProgress {
    * 이 값이 참일 때만 대화를 다시 읽는다 — 매번 읽으면 20초마다 대화 전체를 받아 온다.
    */
   conversationChanged: boolean
+  /**
+   * 이 대화의 프로젝트에서 결제한 금액 — 소재 구매와 가공비. 서버가 모은다.
+   *
+   * 예전에는 화면이 거래만 더해 가공비가 빠졌다. 가공은 작업 하나가 한 줄이다 — 한 업체에 공정을 여럿
+   * 맡기면 공정이 한 줄에 함께 적히고, 업체가 다르면 따로 적힌다.
+   */
+  spending?: JourneySpend[]
 }

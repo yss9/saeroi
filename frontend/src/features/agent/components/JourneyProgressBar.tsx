@@ -1,11 +1,8 @@
 import { useEffect } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { agentKeys } from '../api/agentKeys.ts'
-import { getJourneyProgress } from '../api/agentApi.ts'
+import { useJourneyProgress } from '../hooks/useJourneyProgress.ts'
 import type { JourneyMark } from '../types/agent.types.ts'
-
-/** 상대가 움직였는지 보려고 주기적으로 다시 읽는다. 도메인만 읽으므로 크레딧이 들지 않는다. */
-const REFRESH_MS = 20_000
 
 /**
  * 지금 여정이 어디까지 왔는지. <b>대화 위에 항상 떠 있다.</b>
@@ -27,15 +24,7 @@ const REFRESH_MS = 20_000
  */
 export function JourneyProgressBar({ conversationId }: { conversationId: number | null }) {
   const queryClient = useQueryClient()
-  const { data, dataUpdatedAt } = useQuery({
-    queryKey: ['agent', 'progress', conversationId],
-    queryFn: () => getJourneyProgress(conversationId as number),
-    enabled: conversationId !== null,
-    refetchInterval: REFRESH_MS,
-    // 창을 보고 있지 않을 때는 조회하지 않는다. 대화창을 열어둔 채 다른 일을 하는 경우가
-    // 많아, 이게 없으면 종일 서버를 두드린다.
-    refetchIntervalInBackground: false,
-  })
+  const { data, dataUpdatedAt } = useJourneyProgress(conversationId)
 
   /*
     서버가 카드를 새로 띄웠으면 대화를 다시 읽는다.

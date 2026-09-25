@@ -12,6 +12,12 @@ import remarkGfm from 'remark-gfm'
  *
  * `remark-gfm` 이 표를 맡는다. 기본 마크다운에는 표가 없다.
  *
+ * <h2>물결표 하나는 취소선이 아니다</h2>
+ *
+ * `remark-gfm` 은 기본값으로 `~글자~` 도 취소선으로 그린다. 그런데 한국어에서 물결표는 범위다 — 모델이 "한 벌에
+ * 0.6~0.8kg 이 든다고 보면, 10벌에 6~8kg" 이라고 쓰자 두 물결표 사이가 통째로 그어져 숫자를 읽을 수 없었다.
+ * 그래서 `~~글자~~` 만 취소선으로 본다(`singleTilde: false`).
+ *
  * <h2>안전</h2>
  *
  * `react-markdown` 은 **원시 HTML 을 그리지 않는다.** `rehype-raw` 같은 플러그인을 붙이지
@@ -23,12 +29,17 @@ import remarkGfm from 'remark-gfm'
  *
  * 링크는 새 탭으로 열고 `noreferrer` 를 붙인다. 대화창은 작업 중인 화면이라, 링크를 눌러
  * 같은 탭이 떠나면 진행 중이던 서명이나 결제가 끊긴다.
+ *
+ * <h2>본문이 없을 수 있다</h2>
+ *
+ * tool 을 부르기로 한 턴의 메시지는 본문이 비어 있다(`AgentMessage.assistantToolCall`).
+ * 그래서 `null` 을 받는다.
  */
-export function AgentMessageBody({ content }: { content: string }) {
+export function AgentMessageBody({ content }: { content: string | null }) {
   return (
     <div className="agent-message__body">
       <Markdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={[[remarkGfm, { singleTilde: false }]]}
         components={{
           a: ({ children, href }) => (
             <a href={href} target="_blank" rel="noopener noreferrer">
@@ -43,7 +54,7 @@ export function AgentMessageBody({ content }: { content: string }) {
           ),
         }}
       >
-        {content}
+        {content ?? ''}
       </Markdown>
     </div>
   )

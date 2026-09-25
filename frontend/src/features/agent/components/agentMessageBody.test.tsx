@@ -20,6 +20,18 @@ describe('AgentMessageBody', () => {
     expect(document.body.textContent).not.toContain('**')
   })
 
+  it('범위를 나타내는 물결표는 취소선으로 그리지 않는다', () => {
+    // "0.6~0.8kg … 6~8kg" 의 두 물결표 사이가 통째로 그어졌다.
+    render(<AgentMessageBody content={'바지 한 벌에 약 0.6~0.8kg이 든다고 보면, 10벌에 6~8kg 정도가 필요합니다.'} />)
+    expect(document.querySelector('del')).toBeNull()
+    expect(document.body.textContent).toContain('0.6~0.8kg이 든다고 보면, 10벌에 6~8kg')
+  })
+
+  it('물결표 두 개로 감싸면 여전히 취소선이다', () => {
+    render(<AgentMessageBody content={'~~취소된 금액~~ 30,000원'} />)
+    expect(document.querySelector('del')?.textContent).toBe('취소된 금액')
+  })
+
   it('원시 HTML 은 실행하지 않는다', () => {
     render(<AgentMessageBody content={'<img src=x onerror="alert(1)"> 안녕하세요'} />)
     expect(document.querySelector('img')).toBeNull()

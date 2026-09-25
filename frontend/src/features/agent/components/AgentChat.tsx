@@ -22,6 +22,10 @@ import {
   processingEvidenceHash,
   readProcessingEventValues,
 } from '../../processing/services/processingContractService.ts'
+import {
+  createOrResumeProcessingChainJob,
+  forgetProcessingChainCreate,
+} from '../../processing/services/processingChainJobCreation.ts'
 import { getTrade } from '../../trade/api/getTrade.ts'
 import {
   useActiveConversation,
@@ -94,9 +98,6 @@ export function AgentChat() {
   if (isPending) {
     return <p className="agent-chat__loading">대화를 불러오는 중…</p>
   }
-
-  // 이번 대화가 언제 시작됐는지. 진행 막대와 절차 패널이 이 시점 이후의 거래만 센다.
-  // 대화는 항상 담당자의 첫 발화로 시작하므로 그 시각이 곧 여정의 시작이다.
 
   return (
     <section className="agent-chat">
@@ -474,15 +475,19 @@ async function signCustodyTransfer(
  * 준 것은 jobId 뿐이고, 토큰·수량·업체 지갑은 조회해 얻는다 — 숫자를 지어내도 엉뚱한 작업이
  * 체인에 올라가지 않는다.
  */
-async function registerProcessingChainJob(jobId: number): Promise<string> {
+export async function registerProcessingChainJob(jobId: number): Promise<string> {
   const preparation = await processingJobApi.chainPreparation(jobId)
   if (preparation.chainJobId != null) {
+    forgetProcessingChainCreate(jobId)
     throw Object.assign(new Error('이 작업은 이미 블록체인에 등록돼 있습니다.'), {
       code: 'CHAIN_ALREADY_DONE',
     })
   }
 
-  const receipt = await confirmedTransaction(
+  // **앞서 보낸 등록이 있으면 새로 만들지 않고 그 거래에서 이어 간다.** 서명이 체인에 들어간
+  // 뒤 서버 연결(linkChain)이 실패하는 창이 있다(네트워크 끊김, 로그인 만료). 그때 다시 누르면
+  // 서버는 아직 체인 작업을 모르니 한 번 더 만들게 되고, 앞의 작업은 소재를 잠근 채 버려진다.
+  const receipt = await createOrResumeProcessingChainJob(jobId, () =>
     createProcessingJob(
       preparation.processorWallet,
       preparation.inputTokenId,
@@ -501,6 +506,7 @@ async function registerProcessingChainJob(jobId: number): Promise<string> {
     txHash: receipt.hash,
     blockNumber: receipt.blockNumber,
   })
+  forgetProcessingChainCreate(jobId)
   return receipt.hash
 }
 
@@ -514,6 +520,14 @@ async function signProcessingApproval(jobId: number): Promise<string> {
   const preparation = await processingJobApi.chainPreparation(jobId)
   if (preparation.chainJobId == null) {
     throw new Error('이 작업은 아직 온체인에 등록되지 않아 승인할 수 없습니다.')
+  }
+
+  // **이미 승인 서명이 남았으면 다시 서명하지 않는다.** 서명 뒤 서버 호출이 실패했던 경우다 — 다시
+  // 서명하면 체인이 이미 승인된 작업이라 되돌린다. 해시 없이 보내면 서버가 체인에서 그 거래를 찾아
+  // 검증한 뒤 새 소재를 발행한다.
+  if (await chainAlreadyPassed(preparation.chainJobId, 'CONFIRMED')) {
+    await processingJobApi.receiveReturn(jobId, {})
+    return 'already-signed'
   }
 
   const receipt = await confirmedTransaction(approveProcessingResultOnChain(preparation.chainJobId))

@@ -3,6 +3,8 @@ import { useCompleteAction, useRejectAction } from '../hooks/useAgentConversatio
 import { StatusOrActions } from './PaymentCard.tsx'
 import { uploadProductImage } from '../../product/api/uploadProductImage.ts'
 import type { PendingAction } from '../types/agent.types.ts'
+import { formatKg } from '../../../utils/quantity.ts'
+import { PRODUCT_CATEGORY_LABEL, type ProductCategory } from '../../product/types/product.types.ts'
 
 /** 제품 등록만 이미지를 받는다. 다른 확인 카드에 업로드가 뜨면 담당자가 헷갈린다. */
 const NEEDS_IMAGE = 'register_product_model'
@@ -70,6 +72,9 @@ export function ConfirmCard({ action }: { action: PendingAction }) {
       <p className="agent-card__raw">{action.summary}</p>
 
       {needsImage && <ProductDetails payloadJson={action.payloadJson} />}
+      {action.toolName === 'add_production_inputs' && (
+        <ProductionInputDetails payloadJson={action.payloadJson} />
+      )}
 
       {needsImage && action.status === 'PENDING' && (
         <div className="agent-card__upload">
@@ -142,7 +147,12 @@ function ProductDetails({ payloadJson }: { payloadJson: string }) {
       {detail.category && (
         <>
           <dt>분류</dt>
-          <dd>{detail.subcategory ? `${detail.category} / ${detail.subcategory}` : detail.category}</dd>
+          {/* 코드("WALLET")를 그대로 보이지 않는다. 수동 등록 화면과 같은 한글 이름이다. 등록 뒤에는
+              바꿀 수 없어, 수동 화면처럼 그 사실을 함께 적는다. */}
+          <dd>
+            {categoryText(detail.category, detail.subcategory)}
+            <small className="agent-card__note"> · 등록 뒤 바꿀 수 없습니다</small>
+          </dd>
         </>
       )}
       {detail.description && (
@@ -155,12 +165,128 @@ function ProductDetails({ payloadJson }: { payloadJson: string }) {
   )
 }
 
+/** 세부 분류는 의류와 가방에만 있다. 쇼핑몰은 코드로 보여 주므로 한글 이름은 여기서만 쓴다. */
+const SUBCATEGORY_LABEL: Record<string, string> = {
+  TOP: '상의',
+  OUTER: '아우터',
+  PANTS: '바지',
+  SKIRT: '치마',
+  DRESS: '원피스',
+  TOTE: '토트',
+  SHOULDER: '숄더',
+  CROSSBODY: '크로스바디',
+  BACKPACK: '백팩',
+}
+
+function categoryText(category: string, subcategory?: string): string {
+  const main = PRODUCT_CATEGORY_LABEL[category as ProductCategory] ?? category
+  if (!subcategory) return main
+  return `${main} / ${SUBCATEGORY_LABEL[subcategory] ?? subcategory}`
+}
+
 type ProductPayload = {
   name?: string
   price?: number
   category?: string
   subcategory?: string
   description?: string
+}
+
+/**
+ * 투입 내역을 <b>숫자로</b> 보여 준다.
+ *
+ * 요약 한 줄("데님 6kg, 폴리에스터 2kg … 투입")로는 그중 얼마가 제품이 되고 얼마가 버려지는지
+ * 알 수 없다. 그 배분이 제품에 붙는 업사이클 비율을 정하므로, 담당자가 승인 전에 눈으로
+ * 확인할 수 있어야 한다.
+ *
+ * 숫자는 <b>서버가 풀어 둔 것</b>을 쓴다(AddProductionInputsTool.payloadExtras). 담당자는 투입량을 말하기도
+ * 하고 제품에 들어간 양을 말하기도 해서, 모델이 넘긴 인자에는 둘 중 하나만 있다. 서버가 네 숫자를 모두
+ * 채워 두며, 그것이 없을 때만 여기서 나머지를 계산한다.
+ *
+ * 수동 투입 화면과 같은 말과 같은 안내를 쓴다 — 자투리는 새 소재로 돌아오고, 폐기는 사라진다.
+ *
+ * 소재 한 줄을 이름과 숫자 두 줄로 쌓는다. 예전에는 "이름 | 숫자" 두 칸 격자에 줄마다 한 겹을 더 씌워,
+ * 두 번째 소재가 좁은 오른쪽 칸으로 밀려 글자가 세로로 쌓였다.
+ */
+function ProductionInputDetails({ payloadJson }: { payloadJson: string }) {
+  const inputs = parseInputs(payloadJson)
+  if (inputs.length === 0) return null
+
+  const noProduct = inputs.every((input) => input.productQuantity === 0)
+  return (
+    <div className="agent-card__inputs">
+      <ul>
+        {inputs.map((input) => (
+          <li key={input.materialId}>
+            <strong>{input.materialName ?? `소재 ${input.materialId}`}</strong>
+            {/* 한 화면에서 단위가 섞이면 비교가 안 된다. 다른 곳과 같이 kg 으로 보인다. */}
+            <span>
+              투입 {formatKg(input.inputQuantity)} = 제품 사용 {formatKg(input.productQuantity)}
+              {' + '}자투리 {formatKg(input.reusableScrapQuantity)}{' + '}폐기 {formatKg(input.wasteQuantity)}
+            </span>
+            {input.wasteReason && <small>폐기 사유: {input.wasteReason}</small>}
+          </li>
+        ))}
+      </ul>
+      <p className="agent-card__note">
+        자투리는 생산을 확정할 때 새 소재로 등록되어 보유 소재로 돌아옵니다. 폐기는 그대로 사라집니다.
+      </p>
+      {noProduct && (
+        <p className="agent-card__warning" role="alert">
+          제품에 쓰인 수량이 없습니다. 투입이 전부 자투리·폐기면 제품을 만들 수 없어 생산을 확정할 수 없습니다.
+        </p>
+      )}
+    </div>
+  )
+}
+
+interface ProductionInputLine {
+  materialId: number
+  materialName?: string
+  inputQuantity: number
+  productQuantity: number
+  reusableScrapQuantity: number
+  wasteQuantity: number
+  wasteReason?: string
+}
+
+interface ProductionInputPayload {
+  materialId?: number
+  materialName?: string
+  inputQuantity?: number
+  productQuantity?: number
+  reusableScrapQuantity?: number
+  wasteQuantity?: number
+  wasteReason?: string
+}
+
+function parseInputs(payloadJson: string): ProductionInputLine[] {
+  try {
+    const parsed = JSON.parse(payloadJson) as { inputs?: ProductionInputPayload[] }
+    return (parsed.inputs ?? []).flatMap((input) => {
+      if (typeof input?.materialId !== 'number') return []
+      const scrap = input.reusableScrapQuantity ?? 0
+      const waste = input.wasteQuantity ?? 0
+      // 서버가 풀어 둔 값이 없을 때만 계산한다 — 투입량이나 제품 사용 중 하나는 있다.
+      const total = input.inputQuantity ?? (input.productQuantity !== undefined
+        ? input.productQuantity + scrap + waste
+        : undefined)
+      if (total === undefined) return []
+      const product = input.productQuantity ?? total - scrap - waste
+      return [{
+        materialId: input.materialId,
+        materialName: input.materialName,
+        inputQuantity: total,
+        productQuantity: product,
+        reusableScrapQuantity: scrap,
+        wasteQuantity: waste,
+        wasteReason: input.wasteReason,
+      }]
+    })
+  } catch {
+    // 모델이 만든 인자라 깨질 수 있다. 못 읽으면 요약만 보여 준다 — 카드를 못 쓰게 만들지 않는다.
+    return []
+  }
 }
 
 function parseProduct(payloadJson: string): ProductPayload | null {

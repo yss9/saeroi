@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useCompleteAction } from '../hooks/useAgentConversation.ts'
+import { formatKg } from '../../../utils/quantity.ts'
 import type {
   PendingAction,
   ProcessingFeePayload,
@@ -52,10 +53,36 @@ export function PaymentCard({ action }: { action: PendingAction }) {
       </p>
 
       <dl className="agent-card__detail">
+        {detail?.materialName && (
+          <>
+            <dt>소재</dt>
+            <dd>{detail.materialName}</dd>
+          </>
+        )}
+        {detail?.sellerName && (
+          <>
+            <dt>판매자</dt>
+            <dd>{detail.sellerName}</dd>
+          </>
+        )}
+        {(detail?.grade || detail?.originText || detail?.pricePerKg != null) && (
+          <>
+            <dt>판매 글</dt>
+            <dd>
+              {[
+                detail.grade && `${detail.grade}등급`,
+                detail.originText,
+                detail.pricePerKg != null && `kg당 ${detail.pricePerKg.toLocaleString()}원`,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </dd>
+          </>
+        )}
         {detail?.quantityGram != null && (
           <>
             <dt>수량</dt>
-            <dd>{(detail.quantityGram / 1000).toLocaleString()} kg</dd>
+            <dd>{formatKg(detail.quantityGram)}</dd>
           </>
         )}
         {detail?.totalPrice != null && (
@@ -68,6 +95,30 @@ export function PaymentCard({ action }: { action: PendingAction }) {
           <>
             <dt>가공비</dt>
             <dd>{detail.fee.toLocaleString()} 원</dd>
+          </>
+        )}
+        {/*
+          **배송지를 결제 전에 보인다.** 받는 분과 주소는 모델이 대화에서 받아 채운 값이다.
+          카드에 없으면 담당자는 어디로 배송되는지 확인하지 못한 채 결제하게 된다 — 모델이
+          기본 배송지를 조회하지 않고 지어내도 알아챌 자리가 없다.
+        */}
+        {detail?.receiverName && (
+          <>
+            <dt>받는 분</dt>
+            <dd>
+              {detail.receiverName}
+              {detail.receiverPhone ? ` · ${detail.receiverPhone}` : ''}
+            </dd>
+          </>
+        )}
+        {detail?.address && (
+          <>
+            <dt>배송지</dt>
+            <dd className="agent-card__address">
+              {[detail.zipCode && `(${detail.zipCode})`, detail.address, detail.addressDetail]
+                .filter(Boolean)
+                .join(' ')}
+            </dd>
           </>
         )}
       </dl>

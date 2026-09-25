@@ -36,9 +36,9 @@ describe('pinnedToPanel', () => {
     expect(pinnedToPanel(card(), false)).toBe(false)
   })
 
-  it('생산 온체인 기록은 넓은 화면에서도 대화에 남는다', () => {
-    // 네 단계 진행을 보여 주는 패널이라 340px 폭에 넣으면 읽을 수 없다.
-    expect(pinnedToPanel(card({ toolName: 'record_production_chain' }), true)).toBe(false)
+  it('생산 온체인 기록도 넓은 화면에서는 패널이 그린다', () => {
+    // 이것만 대화에 남겼더니 서명 카드 중 이것만 떠내려갔다. 패널 안에서는 줄여 그린다.
+    expect(pinnedToPanel(card({ toolName: 'record_production_chain' }), true)).toBe(true)
   })
 
   it('처리가 끝난 카드는 고정하지 않는다', () => {

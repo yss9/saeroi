@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useCompleteAction, useRejectAction } from '../hooks/useAgentConversation.ts'
 import { StatusOrActions } from './PaymentCard.tsx'
-import { ProductionChainPanel } from '../../production/components/ProductionChainPanel.tsx'
+import { ProductionChainCompact } from './ProductionChainCompact.tsx'
 import { useProductionBatch } from '../../production/hooks/useProductionBatch.ts'
 import { useProductionChainStatus } from '../../production/hooks/useProductionChainStatus.ts'
 import type { PendingAction } from '../types/agent.types.ts'
@@ -9,14 +9,16 @@ import type { PendingAction } from '../types/agent.types.ts'
 /**
  * 생산 온체인 기록 카드. 서명이 네 번이다.
  *
- * <b>서명 흐름을 다시 만들지 않고 생산 화면의 패널을 그대로 띄운다.</b> 네 단계는 컨트랙트가
- * 순서를 강제하고, 다음에 할 단계는 `stepDone` 이 아니라 **체인 상태**로 정해야 한다 —
- * 트랜잭션은 성공했는데 서버 보고가 실패하면 서버 기준으로는 영원히 "아직 안 함" 이고, 그걸
- * 믿고 다시 서명하면 컨트랙트가 revert 해 막다른 길이 된다. 그 판정은 이미
- * `ProductionChainPanel` 이 하고 있으므로, 에이전트용으로 한 벌 더 만들면 두 구현이 어긋나는
- * 순간 어느 쪽이 정본인지 알 수 없게 된다.
+ * <b>서명 흐름을 다시 만들지 않는다.</b> 네 단계는 컨트랙트가 순서를 강제하고, 다음에 할 단계는
+ * `stepDone` 이 아니라 **체인 상태**로 정해야 한다 — 트랜잭션은 성공했는데 서버 보고가 실패하면 서버
+ * 기준으로는 영원히 "아직 안 함" 이고, 그걸 믿고 다시 서명하면 컨트랙트가 revert 해 막다른 길이 된다.
+ * 단계마다 서명하는 일은 생산 화면과 같은 훅이 한다.
  *
- * 그래서 이 카드가 하는 일은 셋뿐이다 — 패널을 띄우고, 체인이 "다 됐다" 고 말하면 카드를
+ * <b>모양만 줄였다({@link ProductionChainCompact}).</b> 예전에는 생산 화면의 진행표를 그대로 품어 단계마다 긴
+ * 설명과 상태 상자가 붙었고, 오른쪽 패널에서 글자가 세로로 쌓였다. 대화에서는 네 단계의 체크와 지금 단계의
+ * 서명 버튼 하나면 된다.
+ *
+ * 그래서 이 카드가 하는 일은 셋뿐이다 — 진행을 보이고, 체인이 "다 됐다" 고 말하면 카드를
  * 닫고, 담당자가 나중에 하겠다면 거절로 닫는다.
  */
 export function ProductionChainCard({ action }: { action: PendingAction }) {
@@ -59,17 +61,32 @@ export function ProductionChainCard({ action }: { action: PendingAction }) {
       {batch.isError && (
         <p className="agent-card__error">생산 정보를 불러오지 못했습니다.</p>
       )}
-      {batch.data && <ProductionChainPanel batch={batch.data} />}
+      {batch.data && <ProductionChainCompact batch={batch.data} />}
 
-      <StatusOrActions
-        action={action}
-        disabled
-        busyLabel="서명 진행 중…"
-        confirmLabel="서명 진행 중…"
-        onConfirm={() => {}}
-        isBusy={complete.isPending}
-        onReject={() => void reject.mutateAsync(action.id)}
-      />
+      {/* 서명 버튼은 위의 단계 안에 있다. 여기에 늘 잠긴 "서명 진행 중…" 버튼을 두면 서명을 하지 않았는데도
+          진행 중인 것처럼 읽힌다. 떠 있는 동안은 미루는 버튼만 둔다. */}
+      {action.status === 'PENDING' ? (
+        <div className="agent-card__actions">
+          <button
+            type="button"
+            className="agent-card__reject"
+            disabled={reject.isPending}
+            onClick={() => void reject.mutateAsync(action.id)}
+          >
+            나중에 하기
+          </button>
+        </div>
+      ) : (
+        <StatusOrActions
+          action={action}
+          disabled
+          busyLabel="처리 중…"
+          confirmLabel="확인"
+          onConfirm={() => {}}
+          isBusy={complete.isPending}
+          onReject={() => void reject.mutateAsync(action.id)}
+        />
+      )}
     </div>
   )
 }
