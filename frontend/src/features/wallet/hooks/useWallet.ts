@@ -15,6 +15,7 @@ export interface UseWalletResult extends WalletState {
   /** 기대 체인 ID (16진수). 미설정이면 null. */
   expectedChainId: string | null
   connect: () => void
+  selectAccount: () => void
   disconnect: () => void
   switchChain: () => Promise<SwitchChainResult>
 }
@@ -50,6 +51,7 @@ export function useWallet(): UseWalletResult {
   }, [state.address, state.chainId, setWallet])
 
   const connect = useCallback(() => void client.connect(), [client])
+  const selectAccount = useCallback(() => void client.selectAccount(), [client])
   const disconnect = useCallback(() => client.disconnect(), [client])
   const switchChain = useCallback(
     () =>
@@ -67,6 +69,7 @@ export function useWallet(): UseWalletResult {
     wrongChain,
     expectedChainId: env.besuChainIdHex,
     connect,
+    selectAccount,
     disconnect,
     switchChain,
   }

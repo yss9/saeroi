@@ -47,6 +47,9 @@ export function WalletButton() {
         <span className="wallet__address" title={wallet.address ?? undefined}>
           {wallet.address ? shortenAddress(wallet.address) : ''}
         </span>
+        <button className="wallet__button wallet__button--ghost" onClick={wallet.selectAccount}>
+          계정 변경
+        </button>
         <button className="wallet__button wallet__button--ghost" onClick={wallet.disconnect}>
           연결 해제
         </button>
@@ -67,6 +70,7 @@ export function WalletButton() {
         </button>
       )}
       {switchMessage && <p className="wallet__note">{switchMessage}</p>}
+      {wallet.notice && <p className="wallet__note">{NOTICE_TEXT[wallet.notice]}</p>}
 
       {/* dapp 이 지갑 연결을 강제로 끊는 표준 방법은 없다. 사용자가 오해하지 않게 명시한다. */}
       <p className="wallet__note wallet__note--muted">
