@@ -298,6 +298,36 @@ describe('4. 연결 거절', () => {
 
 // ────────────────────────────────────────────────────────────
 describe('5. Wallet Account 변경', () => {
+  it('계정 변경을 누르면 MetaMask 계정 선택을 요청하고 선택한 주소를 표시한다', async () => {
+    const provider = connectedProvider()
+    const originalRequest = provider.request.bind(provider)
+    provider.request = async (args) => {
+      if (args.method === 'wallet_requestPermissions') {
+        provider.calls.push(args.method)
+        return null
+      }
+      if (args.method === 'eth_accounts' && provider.calls.includes('wallet_requestPermissions')) return [OTHER]
+      return originalRequest(args)
+    }
+    await renderConnected(provider)
+
+    await userEvent.click(screen.getByRole('button', { name: '계정 변경' }))
+
+    await waitFor(() => expect(provider.calls).toContain('wallet_requestPermissions'))
+    expect(await screen.findByText(OTHER_SHORT)).toBeInTheDocument()
+    expect(screen.queryByText(SHORT)).not.toBeInTheDocument()
+  })
+
+  it('계정 선택을 취소해도 기존 연결 주소를 유지한다', async () => {
+    const provider = connectedProvider({ wallet_requestPermissions: rpcError(4001) })
+    await renderConnected(provider)
+
+    await userEvent.click(screen.getByRole('button', { name: '계정 변경' }))
+
+    expect(await screen.findByText('연결을 취소했습니다.')).toBeInTheDocument()
+    expect(screen.getByText(SHORT)).toBeInTheDocument()
+  })
+
   it('accountsChanged 로 다른 계정이 오면 화면 주소가 바뀐다', async () => {
     const provider = connectedProvider()
     await renderConnected(provider)
