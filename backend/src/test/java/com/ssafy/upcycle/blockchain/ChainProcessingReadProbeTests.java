@@ -45,7 +45,7 @@ class ChainProcessingReadProbeTests {
         assertThat(status.get()).isBetween(0, 12);
 
         // 진행됐던 작업도 읽는다. 값을 출력해 눈으로 확인한다.
-        for (long id : new long[] {1L, 4L}) {
+        for (long id : new long[] {1L, 4L, 17L}) {
             System.out.println("[probe] processing job " + id + " status = " + reader.status(id)
                     + " shipped=" + reader.alreadyShipped(id));
         }
