@@ -52,6 +52,13 @@ services:
       DB_USERNAME: ${MYSQL_USER}
       DB_PASSWORD: ${MYSQL_PASSWORD}
       AI_SERVER_BASE_URL: http://ai:8000
+      # BRAND 대화형 에이전트가 쓰는 LLM(GMS). env_file 금지 규칙에 따라 키를 명시한다.
+      # 비어 있으면 backend 는 뜨고 에이전트만 503 이다.
+      AGENT_LLM_BASE_URL: ${AGENT_LLM_BASE_URL:-https://gms.ssafy.io/gmsapi/api.anthropic.com}
+      AGENT_LLM_API_KEY: ${AGENT_LLM_API_KEY:-}
+      AGENT_LLM_MODEL: ${AGENT_LLM_MODEL:-claude-haiku-4-5-20251001}
+      AGENT_LLM_THINKING: ${AGENT_LLM_THINKING:-false}
+      AGENT_MAX_TOOL_ITERATIONS: ${AGENT_MAX_TOOL_ITERATIONS:-6}
       APP_STORAGE_TYPE: ${STORAGE_TYPE:-local}
       APP_STORAGE_BUCKET: ${STORAGE_BUCKET:-evidence}
       APP_STORAGE_ENDPOINT: ${STORAGE_ENDPOINT:-http://minio:9000}
@@ -80,6 +87,8 @@ services:
       KAKAOPAY_CID: ${KAKAOPAY_CID:-TC0ONETIME}
       KAKAOPAY_RETURN_URL: ${KAKAOPAY_RETURN_URL:-https://j15e104.p.ssafy.io/test/trades/{tradeId}/payment/return}
       KAKAOPAY_PROCESSING_RETURN_URL: ${KAKAOPAY_PROCESSING_RETURN_URL:-https://j15e104.p.ssafy.io/test/processing/jobs/{jobId}/payment/callback}
+      # 브랜드 AI 대화창에서 가공비를 결제했을 때의 복귀 화면. 넘기지 않으면 backend 기본값(localhost)으로 돌아간다.
+      KAKAOPAY_PROCESSING_AGENT_RETURN_URL: ${KAKAOPAY_PROCESSING_AGENT_RETURN_URL:-https://j15e104.p.ssafy.io/test/agent/processing/payment/callback?jobId={jobId}}
       # backend/develop 에서 새로 필수화된 값 (QR 이 제품에 인쇄되므로 빈 값이면 ProductQrConfig
       # 가 기동 자체를 막는다). `:-` 기본값을 쓴다 — `:?`는 MINIO_ROOT_PASSWORD 와 같은 이유로
       # 안 쓴다: 파일 전체가 매 호출마다 보간되므로 무관한 서비스 배포(`up --no-deps frontend`)
