@@ -1,5 +1,5 @@
 import { ArrowLeft, CheckCircle, Factory, Package, Plus, Trash, X } from '@phosphor-icons/react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '../../../stores/authStore.ts'
 import { EvidenceUpload } from '../../evidence/components/EvidenceUpload.tsx'
@@ -17,7 +17,7 @@ import './processing-jobs.css'
 
 
 const materialGrades = Object.keys(GRADE_LABEL) as MaterialGrade[]
-const statusLabel = { CREATED:'결제 대기', PAID:'수락 대기', ACCEPTED:'발송 대기', DECLINED:'가공사 거절', SHIPPED:'배송 중', RECEIVED:'가공 시작 대기', PROCESSING:'가공 중', RESULT_SUBMITTED:'결과 반환 대기', RETURN_SHIPPED:'반환 배송 중', CONFIRMED:'가공 완료', REJECTED:'결과 보완', EXPIRED:'만료', CANCELED:'반환 종료' } as const
+const statusLabel = { CREATED:'결제 대기', PAID:'수락 대기', ACCEPTED:'발송 대기', DECLINED:'가공사 거절', SHIPPED:'배송 중', RECEIVED:'가공 중', PROCESSING:'가공 중', RESULT_SUBMITTED:'결과 반환 대기', RETURN_SHIPPED:'반환 배송 중', CONFIRMED:'가공 완료', REJECTED:'결과 보완', EXPIRED:'만료', CANCELED:'반환 종료' } as const
 /**
  * 진행 막대의 칸. **순서가 곧 상태의 순서다** — 지금 상태가 몇 번째인지로 어디까지 칠할지
  * 정한다.
@@ -62,6 +62,18 @@ function ProcessingJobDetailContent({ jobId, job, request, role, flow }: {
   const [reason,setReason] = useState('')
   // 거절은 사유가 필수라 한 번 더 묻는다 — 눌러서 바로 끝나는 일이 아니다.
   const [declining,setDeclining] = useState(false)
+  /*
+    가공 시작 버튼은 없다 — 수령이 곧바로 가공 중으로 기록한다. 그 서버 기록만 끊겨 RECEIVED 로
+    남은 작업은 여기서 서명 없이 한 번 더 기록한다. 이 컴포넌트는 상태가 바뀔 때마다 새로
+    그려지므로(key) 한 번만 부르면 된다.
+  */
+  const startRequested = useRef(false)
+  const startJob = flow.start.mutate
+  useEffect(() => {
+    if (role !== 'PROCESSOR' || job.status !== 'RECEIVED' || startRequested.current) return
+    startRequested.current = true
+    startJob()
+  }, [role, job.status, startJob])
   const [declineReason,setDeclineReason] = useState('')
   const evidenceOptions = (flow.evidence?.data?.files ?? []).map(file => ({
     id: file.evidenceFileId,
@@ -156,7 +168,7 @@ function ProcessingJobDetailContent({ jobId, job, request, role, flow }: {
     */}
     {role==='BRAND'&&chainLockHeld&&<section className="pj-panel pj-action"><div><p>이 작업은 끝났지만 온체인 잠금이 남아 있습니다. 해제하기 전까지 해당 수량은 다시 쓸 수 없습니다.</p>{(flow.chainStatus?.isError||flow.chainPreparation?.isError)&&<p className="pj-help">체인 상태를 불러오지 못했습니다. 이미 해제됐을 수도 있으니 먼저 새로고침해 보세요.</p>}</div><button disabled={pending} onClick={()=>flow.releaseChainLock.mutate()}>MetaMask로 온체인 잠금 해제</button></section>}
     {role==='PROCESSOR'&&job.status==='SHIPPED'&&<section className="pj-panel pj-action"><p>소재가 도착했다면 수령을 확인해 주세요. 수령하면 바로 가공 결과를 작성할 수 있어요.</p><button disabled={pending} onClick={()=>flow.receive.mutate()}>소재 수령 처리</button></section>}
-    {role==='PROCESSOR'&&job.status==='RECEIVED'&&<section className="pj-panel pj-action"><p>소재 수령은 기록됐지만 가공 시작 서명이 끝나지 않았어요. 서명하면 바로 가공 결과를 작성할 수 있어요.</p><button disabled={pending} onClick={()=>flow.start.mutate()}>가공 시작 서명 다시 하기</button></section>}
+    {role==='PROCESSOR'&&job.status==='RECEIVED'&&<section className="pj-panel pj-action"><p>가공을 시작하고 있어요. 잠시 후 가공 결과를 작성할 수 있어요.</p></section>}
 
     {role==='PROCESSOR'&&(job.status==='PROCESSING'||job.status==='REJECTED')&&<section className="pj-panel"><h2><Factory/>가공 결과 작성</h2>{job.rejectionReason&&<p className="pj-warning">브랜드 수정 요청 사유: {job.rejectionReason}</p>}
       {rows.map((row,index)=><fieldset className="pj-output" key={index}>

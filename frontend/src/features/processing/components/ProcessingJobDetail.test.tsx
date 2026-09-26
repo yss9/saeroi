@@ -473,10 +473,12 @@ test('발송된 소재는 수령 한 번으로 가공 결과 작성까지 간다
   expect(screen.queryByRole('button', { name: '가공 시작' })).not.toBeInTheDocument()
 })
 
-test('수령 뒤 가공 시작 서명만 끊긴 작업은 그 자리에서 이어서 서명한다', () => {
+test('수령 뒤 가공 시작 기록만 빠진 작업은 버튼 없이 곧바로 가공을 시작한다', () => {
   renderDetail({ role: 'PROCESSOR', job: { status: 'RECEIVED', chainJobId: 11 } })
+  const flow = mocks.useProcessingJob()
 
-  expect(screen.getByText('소재 수령은 기록됐지만 가공 시작 서명이 끝나지 않았어요. 서명하면 바로 가공 결과를 작성할 수 있어요.')).toBeInTheDocument()
-  expect(screen.getByRole('button', { name: '가공 시작 서명 다시 하기' })).toBeInTheDocument()
+  expect(screen.getByText('가공을 시작하고 있어요. 잠시 후 가공 결과를 작성할 수 있어요.')).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: /가공 시작/ })).not.toBeInTheDocument()
+  expect(flow.start.mutate).toHaveBeenCalledOnce()
 })
 

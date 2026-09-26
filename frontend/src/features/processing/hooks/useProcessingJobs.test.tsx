@@ -20,7 +20,7 @@ import { useProcessingJob } from './useProcessingJobs.ts'
 
 const contract = vi.hoisted(() => ({
   acceptProcessingJob: vi.fn(), getProcessingChainStatus: vi.fn(),
-  createProcessingJob: vi.fn(), confirmProcessingReceipt: vi.fn(), startProcessingOnChain: vi.fn(),
+  createProcessingJob: vi.fn(), confirmProcessingReceipt: vi.fn(), startProcessingOnChain: vi.fn(), submitProcessingResultOnChain: vi.fn(),
   getProcessingBrandLockId: vi.fn(), readProcessingEventValues: vi.fn(),
 }))
 vi.mock('../services/processingContractService.ts', async (importOriginal) => {
@@ -32,21 +32,28 @@ vi.mock('../services/processingContractService.ts', async (importOriginal) => {
     createProcessingJob: contract.createProcessingJob,
     confirmProcessingReceipt: contract.confirmProcessingReceipt,
     startProcessingOnChain: contract.startProcessingOnChain,
+    submitProcessingResultOnChain: contract.submitProcessingResultOnChain,
     getProcessingBrandLockId: contract.getProcessingBrandLockId,
     readProcessingEventValues: contract.readProcessingEventValues,
   }
 })
 
-const api = vi.hoisted(() => ({ detail: vi.fn(), chainPreparation: vi.fn(), accept: vi.fn(), list: vi.fn(), linkChain: vi.fn(), receive: vi.fn(), start: vi.fn() }))
+const api = vi.hoisted(() => ({ detail: vi.fn(), chainPreparation: vi.fn(), accept: vi.fn(), list: vi.fn(), linkChain: vi.fn(), receive: vi.fn(), start: vi.fn(), challenge: vi.fn(), submitResult: vi.fn() }))
 vi.mock('../api/processingJobApi.ts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../api/processingJobApi.ts')>()
-  return { ...actual, processingJobApi: { ...actual.processingJobApi, detail: api.detail, chainPreparation: api.chainPreparation, accept: api.accept, list: api.list, linkChain: api.linkChain, receive: api.receive, start: api.start } }
+  return { ...actual, processingJobApi: { ...actual.processingJobApi, detail: api.detail, chainPreparation: api.chainPreparation, accept: api.accept, list: api.list, linkChain: api.linkChain, receive: api.receive, start: api.start, challenge: api.challenge, submitResult: api.submitResult } }
 })
 
 const requestApi = vi.hoisted(() => ({ detail: vi.fn() }))
 vi.mock('../api/processingRequestApi.ts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../api/processingRequestApi.ts')>()
   return { ...actual, processingRequestApi: { ...actual.processingRequestApi, detail: requestApi.detail } }
+})
+
+const wallet = vi.hoisted(() => ({ signMessage: vi.fn() }))
+vi.mock('../../wallet/services/walletService.ts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../wallet/services/walletService.ts')>()
+  return { ...actual, signMessage: wallet.signMessage }
 })
 
 const evidenceApi = vi.hoisted(() => ({ getEvidence: vi.fn() }))
@@ -150,55 +157,89 @@ describe('useProcessingJob accept 재시도', () => {
 })
 
 /*
-  수령하면 곧바로 가공 결과 작성으로 간다 — "가공 시작" 을 따로 누르지 않는다. 컨트랙트는
-  수령(RECEIVED)과 가공 시작(PROCESSING)을 나눠 받으므로 서명은 둘이지만, 가공업체가 누르는
-  버튼은 하나다.
-*/
-describe('useProcessingJob 수령', () => {
-  function renderShippedJob() {
-    api.detail.mockResolvedValue(job({ status: 'SHIPPED' }))
-    api.chainPreparation.mockResolvedValue({
-      jobId: 41, chainJobId: 11, status: 'SHIPPED', brandWallet: '0x1111111111111111111111111111111111111111',
-      processorWallet: '0x2222222222222222222222222222222222222222', inputTokenId: 1, inputQuantity: 1_000, processTypes: ['CLEANING'],
-    })
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
-    function wrapper({ children }: { children: ReactNode }) {
-      return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    }
-    return renderHook(() => useProcessingJob(41), { wrapper })
-  }
+  **가공 시작 버튼은 없다.** 수령하면 곧바로 가공 결과 작성으로 간다. 서명은 수령 한 번이고,
+  서버는 이어서 가공 중(PROCESSING)으로 기록한다 — 서버의 가공 시작은 서명을 요구하지 않는다.
 
-  it('수령 서명·기록에 이어 가공 시작 서명·기록까지 한 번에 한다', async () => {
-    let chainState: number = PROCESSING_CHAIN_STATUS.SHIPPED
-    contract.getProcessingChainStatus.mockImplementation(() => Promise.resolve(chainState))
-    contract.confirmProcessingReceipt.mockImplementation(() => { chainState = PROCESSING_CHAIN_STATUS.RECEIVED; return Promise.resolve({ wait: () => Promise.resolve({ status: 1, hash: '0xabc', blockNumber: 1 }) }) })
-    contract.startProcessingOnChain.mockImplementation(() => { chainState = PROCESSING_CHAIN_STATUS.PROCESSING; return Promise.resolve(txReceipt()) })
+  컨트랙트는 결과 제출 전에 PROCESSING 을 요구하므로 체인의 startProcessing 은 없앨 수 없다.
+  대신 결과 제출 서명 바로 앞에서, 체인이 아직 수령(RECEIVED) 상태일 때만 함께 보낸다.
+*/
+function renderJob(status: ProcessingJobDetail['status'], overrides: Partial<ProcessingJobDetail> = {}) {
+  api.detail.mockResolvedValue(job({ status, ...overrides }))
+  api.chainPreparation.mockResolvedValue({
+    jobId: 41, chainJobId: 11, status, brandWallet: '0x1111111111111111111111111111111111111111',
+    processorWallet: '0x2222222222222222222222222222222222222222', inputTokenId: 1, inputQuantity: 1_000, processTypes: ['CLEANING'],
+  })
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+  function wrapper({ children }: { children: ReactNode }) {
+    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  }
+  return renderHook(() => useProcessingJob(41), { wrapper })
+}
+
+describe('useProcessingJob 수령', () => {
+  it('수령 서명 한 번 뒤에 서버가 곧바로 가공 중으로 기록한다', async () => {
+    contract.getProcessingChainStatus.mockResolvedValue(PROCESSING_CHAIN_STATUS.SHIPPED)
+    contract.confirmProcessingReceipt.mockResolvedValue({ wait: () => Promise.resolve({ status: 1, hash: '0xabc', blockNumber: 1 }) })
     api.receive.mockResolvedValue(job({ status: 'RECEIVED' }))
     api.start.mockResolvedValue(job({ status: 'PROCESSING' }))
-    const { result } = renderShippedJob()
+    const { result } = renderJob('SHIPPED')
     await waitFor(() => expect(result.current.chainPreparation.isSuccess).toBe(true))
 
     await result.current.receive.mutateAsync()
 
     expect(contract.confirmProcessingReceipt).toHaveBeenCalledWith(11)
     expect(api.receive).toHaveBeenCalledWith(41, { txHash: '0xabc' })
-    expect(contract.startProcessingOnChain).toHaveBeenCalledWith(11)
     expect(api.start).toHaveBeenCalledWith(41)
-    // 기록이 서명보다 앞서면 안 된다 — 서버는 수령 영수증을 읽어 소재 잔액을 옮긴다.
-    expect(api.receive.mock.invocationCallOrder[0]).toBeLessThan(contract.startProcessingOnChain.mock.invocationCallOrder[0])
+    expect(api.receive.mock.invocationCallOrder[0]).toBeLessThan(api.start.mock.invocationCallOrder[0])
+    // 수령할 때 두 번째 서명 창을 띄우지 않는다.
+    expect(contract.startProcessingOnChain).not.toHaveBeenCalled()
   })
 
-  it('가공 시작 서명이 끊겨도 수령 기록은 남는다', async () => {
-    contract.getProcessingChainStatus.mockResolvedValueOnce(PROCESSING_CHAIN_STATUS.SHIPPED).mockResolvedValue(PROCESSING_CHAIN_STATUS.RECEIVED)
-    contract.confirmProcessingReceipt.mockResolvedValue(txReceipt())
-    contract.startProcessingOnChain.mockRejectedValue(new Error('user rejected action'))
-    api.receive.mockResolvedValue(job({ status: 'RECEIVED' }))
-    const { result } = renderShippedJob()
+  it('가공 시작 기록은 서명 없이 서버만 부른다', async () => {
+    api.start.mockResolvedValue(job({ status: 'PROCESSING' }))
+    const { result } = renderJob('RECEIVED')
     await waitFor(() => expect(result.current.chainPreparation.isSuccess).toBe(true))
 
-    await expect(result.current.receive.mutateAsync()).rejects.toThrow('user rejected action')
+    await result.current.start.mutateAsync()
 
-    expect(api.receive).toHaveBeenCalledOnce()
-    expect(api.start).not.toHaveBeenCalled()
+    expect(api.start).toHaveBeenCalledWith(41)
+    expect(contract.startProcessingOnChain).not.toHaveBeenCalled()
   })
 })
+
+describe('useProcessingJob 결과 제출', () => {
+  function prepareSubmit(chainState: number) {
+    const output = { outputId: 5, materialId: null, materialType: 'DENIM', grade: 'A', gradeReason: '양호', name: 'denim', quantity: 900 }
+    contract.getProcessingChainStatus.mockResolvedValue(chainState)
+    contract.startProcessingOnChain.mockResolvedValue(txReceipt())
+    contract.submitProcessingResultOnChain.mockResolvedValue(txReceipt())
+    evidenceApi.getEvidence.mockResolvedValue({ files: [{ fileHash: '0x' + 'e'.repeat(64) }], summary: [] })
+    api.challenge.mockResolvedValue({ challengeId: 3, message: 'sign me' })
+    wallet.signMessage.mockResolvedValue('0xsig')
+    api.submitResult.mockResolvedValue(job({ status: 'RESULT_SUBMITTED' }))
+    return renderJob('PROCESSING', { resultRevision: 1, outputs: [output] as ProcessingJobDetail['outputs'] })
+  }
+
+  it('체인이 아직 수령 상태면 결과 제출 서명 앞에서 가공 시작을 함께 보낸다', async () => {
+    const { result } = prepareSubmit(PROCESSING_CHAIN_STATUS.RECEIVED)
+    await waitFor(() => expect(result.current.detail.isSuccess && result.current.chainPreparation.isSuccess).toBe(true))
+
+    await result.current.submit.mutateAsync()
+
+    expect(contract.startProcessingOnChain).toHaveBeenCalledWith(11)
+    expect(contract.startProcessingOnChain.mock.invocationCallOrder[0])
+      .toBeLessThan(contract.submitProcessingResultOnChain.mock.invocationCallOrder[0])
+    expect(api.submitResult).toHaveBeenCalledWith(41, 3, '0xsig')
+  })
+
+  it('체인이 이미 가공 중이면 가공 시작을 다시 보내지 않는다', async () => {
+    const { result } = prepareSubmit(PROCESSING_CHAIN_STATUS.PROCESSING)
+    await waitFor(() => expect(result.current.detail.isSuccess && result.current.chainPreparation.isSuccess).toBe(true))
+
+    await result.current.submit.mutateAsync()
+
+    expect(contract.startProcessingOnChain).not.toHaveBeenCalled()
+    expect(contract.submitProcessingResultOnChain).toHaveBeenCalledOnce()
+  })
+})
+
