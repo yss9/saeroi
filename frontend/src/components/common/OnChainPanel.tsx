@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { env } from '../../config/env.ts'
+import { useSwitchChainNotice, useWallet } from '../../features/wallet/hooks/useWallet.ts'
 import type { ChainLinkStatus } from '../../hooks/useOnChainLink.ts'
 import type { AppError } from '../../utils/errors.ts'
 import { Button } from './Button.tsx'
@@ -25,6 +26,11 @@ export interface OnChainPanelProps {
   blockedReason?: string
   status: ChainLinkStatus
   hash: string | null
+  /** MetaMask에서 서명한 계정과 실제 배포 대상을 사용자가 대조할 수 있게 표시한다. */
+  walletAddress?: string | null
+  chainId?: string | null
+  contractAddress?: string | null
+  blockNumber?: number | null
   error: AppError | null
   isBusy: boolean
   isRejected: boolean
@@ -51,7 +57,6 @@ export function OnChainPanel({
   ready,
   blockedReason,
   status,
-  hash,
   error,
   isBusy,
   isRejected,
@@ -61,12 +66,34 @@ export function OnChainPanel({
 }: OnChainPanelProps) {
   const done = onChainId !== null
 
+  // **시키려면 수단을 함께 준다.**
+  //
+  // 예전에는 "SSAFY 네트워크로 전환해 주세요" 라고 적기만 했다. 전환 버튼은 회사 정보
+  // 화면에만 있어서, 사용자는 안내를 읽고도 이 화면에서 할 수 있는 일이 없었다.
+  //
+  // 들어서자마자 자동으로 띄우지는 않는다. 무엇에 대한 요청인지 모른 채 지갑 팝업을
+  // 만나면 일단 거절하게 되고, 거절한 뒤에는 다시 띄울 근거가 없다. 누를 자리를 여기
+  // 두는 것으로 충분하다 — 전환 자체는 앱이 한다(등록돼 있지 않으면 추가까지).
+  // **`wallet.wrongChain` 을 그대로 쓰지 않는다.** 그것은 chainId 를 읽은 뒤에만 참이라,
+  // 지갑은 붙었는데 체인을 아직 못 읽은 구간에서 거짓이 된다. 반면 이 패널을 쓰는 쪽은
+  // `chainId === 기대값` 이 아니면 전부 "전환해 주세요" 를 띄운다 — 그래서 그 구간에서
+  // 문구만 뜨고 누를 것이 없었다. 판정 기준을 부모와 같게 맞춘다.
+  const wallet = useWallet()
+  const { message: switchMessage, report } = useSwitchChainNotice()
+  // 기대 체인이 설정돼 있지 않으면 어디로 바꾸라 할지도 없다 — 그때는 두지 않는다.
+  const needsChainSwitch =
+    !done &&
+    actionable &&
+    wallet.address !== null &&
+    env.besuChainIdHex !== null &&
+    wallet.chainId !== env.besuChainIdHex
+
   return (
     <section className="on-chain-panel">
       <header className="on-chain-panel__header">
         <h3>{title}</h3>
         <span className={`on-chain-panel__badge ${done ? 'is-done' : ''}`}>
-          {done ? `온체인 #${onChainId}` : '미등록'}
+          {done ? '기록 완료' : '기록 필요'}
         </span>
       </header>
 
@@ -82,24 +109,32 @@ export function OnChainPanel({
             </p>
           )}
 
+          {needsChainSwitch && (
+            <div className="on-chain-panel__switch">
+              <Button variant="secondary" onClick={() => void wallet.switchChain().then(report)}>
+                연결 환경 변경
+              </Button>
+              {switchMessage && <span className="on-chain-panel__hint">{switchMessage}</span>}
+            </div>
+          )}
+
           <div className="on-chain-panel__actions">
             <Button onClick={onSign} disabled={!ready || isBusy} loading={isBusy}>
               {actionLabel}
             </Button>
             {/* 단계마다 사용자가 기다려야 하는 이유가 다르다. 그냥 스피너만 돌리면
                 지갑을 봐야 하는지 기다리면 되는지 알 수 없다. */}
-            {status === 'SIGNING' && <span className="on-chain-panel__hint">지갑에서 서명해 주세요</span>}
-            {status === 'PENDING' && <span className="on-chain-panel__hint">블록 확정을 기다리는 중…</span>}
-            {status === 'LINKING' && <span className="on-chain-panel__hint">결과를 기록하는 중…</span>}
+            {status === 'SIGNING' && <span className="on-chain-panel__hint">지갑에서 요청을 확인해 주세요</span>}
+            {status === 'PENDING' && <span className="on-chain-panel__hint">이력을 저장하는 중…</span>}
+            {status === 'LINKING' && <span className="on-chain-panel__hint">저장 결과를 확인하는 중…</span>}
           </div>
 
           {/* 서명 거부는 오류가 아니라 사용자의 선택이다. 붉은 배너를 띄우면 고장으로 읽힌다. */}
-          {isRejected && <p className="on-chain-panel__hint">서명을 취소했습니다. 다시 시도할 수 있습니다.</p>}
+          {isRejected && <p className="on-chain-panel__hint">요청을 취소했습니다. 다시 시도할 수 있습니다.</p>}
           {error && !isRejected && <ErrorMessage error={error} />}
         </>
       )}
 
-      {hash && <TransactionHash hash={hash} />}
     </section>
   )
 }
@@ -116,14 +151,14 @@ export function TransactionHash({ hash }: { hash: string }) {
   if (!env.besuExplorerUrl) {
     return (
       <p className="on-chain-panel__hash" title={hash}>
-        tx {short}
+        기록 번호 {short}
       </p>
     )
   }
 
   return (
     <p className="on-chain-panel__hash">
-      tx{' '}
+      기록 번호{' '}
       <a
         href={`${env.besuExplorerUrl}/tx/${hash}`}
         target="_blank"

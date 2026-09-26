@@ -38,6 +38,13 @@ npm run dev
 
 기본 접속 주소는 `http://localhost:5173`입니다.
 
+## Docker 이미지 빌드
+
+`docker/Dockerfile`은 `VITE_*` 값을 빌드 시점 `--build-arg`로 받아 번들에 인라인한다.
+Jenkins가 `.env`의 `VITE_*` 줄을 그대로 `--build-arg`로 넘기므로, **`.env.example`에 `VITE_*` 키를
+추가하면 `docker/Dockerfile`의 `ARG` 목록에도 반드시 같은 이름을 추가해야 한다.** 선언이 없으면
+Docker가 경고만 내고 값을 조용히 버려 빈 문자열로 빌드된다.
+
 ## 명령어
 
 ```bash

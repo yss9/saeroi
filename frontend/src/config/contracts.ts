@@ -12,6 +12,8 @@ import { MARKETPLACE_ABI } from './abi/marketplace.abi.ts'
 import { MATERIAL_TOKEN_ABI } from './abi/materialToken.abi.ts'
 import { PROCESSING_REGISTRY_ABI } from './abi/processingRegistry.abi.ts'
 import { PRODUCTION_REGISTRY_ABI } from './abi/productionRegistry.abi.ts'
+import { PREDICTION_POINT_ABI } from './abi/predictionPoint.abi.ts'
+import { PREDICTION_MARKET_ABI } from './abi/predictionMarket.abi.ts'
 
 /** 주소 형식이 아니면 null. 잘못된 설정이 런타임까지 흘러가지 않게 여기서 거른다. */
 function contractAddress(value: string | undefined): string | null {
@@ -21,7 +23,7 @@ function contractAddress(value: string | undefined): string | null {
 }
 
 /**
- * 배포된 컨트랙트는 네 개다.
+ * 기본 공급망 컨트랙트 네 개와 예측시장 컨트랙트 두 개를 관리한다.
  *
  * | 컨트랙트 | 담당 도메인 |
  * | --- | --- |
@@ -39,6 +41,8 @@ export const contracts = {
   marketplace: contractAddress(import.meta.env.VITE_MARKETPLACE_CONTRACT_ADDRESS),
   processingRegistry: contractAddress(import.meta.env.VITE_PROCESSING_CONTRACT_ADDRESS),
   productionRegistry: contractAddress(import.meta.env.VITE_PRODUCTION_CONTRACT_ADDRESS),
+  predictionPoint: contractAddress(import.meta.env.VITE_PREDICTION_POINT_CONTRACT_ADDRESS),
+  predictionMarket: contractAddress(import.meta.env.VITE_PREDICTION_MARKET_CONTRACT_ADDRESS),
 } as const
 
 export type ContractName = keyof typeof contracts
@@ -48,6 +52,8 @@ export const abis: Record<ContractName, InterfaceAbi> = {
   marketplace: MARKETPLACE_ABI as unknown as InterfaceAbi,
   processingRegistry: PROCESSING_REGISTRY_ABI as unknown as InterfaceAbi,
   productionRegistry: PRODUCTION_REGISTRY_ABI as unknown as InterfaceAbi,
+  predictionPoint: PREDICTION_POINT_ABI as unknown as InterfaceAbi,
+  predictionMarket: PREDICTION_MARKET_ABI as unknown as InterfaceAbi,
 }
 
 /**

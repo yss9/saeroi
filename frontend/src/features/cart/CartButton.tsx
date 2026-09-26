@@ -1,0 +1,40 @@
+import { ArrowRight, ShoppingBag } from '@phosphor-icons/react'
+import { useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '../auth/hooks/useAuth.ts'
+import { cartErrorMessage, useCartChange } from './useCart.ts'
+import './cart-action.css'
+
+export function CartButton({ productId, name, className, text, disabled = false, returnPath, toggleOnSuccess = false }: {
+  productId: number; name: string; className?: string; text?: string; disabled?: boolean; returnPath?: string
+  /** 담은 뒤 버튼 자체가 "장바구니로 이동"으로 바뀌어 그 버튼으로 바로 이동한다.
+   *  기본값 false 는 기존 화면(상품 상세 등)의 반복 담기 흐름을 그대로 둔다. */
+  toggleOnSuccess?: boolean
+}) {
+  const { isAuthenticated, role } = useAuth()
+  const action = useCartChange()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const [notice, setNotice] = useState('')
+  const added = toggleOnSuccess && action.isSuccess
+  function click() {
+    if (added) { navigate('/cart'); return }
+    if (!isAuthenticated) navigate('/login', { state: { from: { pathname: returnPath ?? `${location.pathname}${location.search}${location.hash}` } } })
+    else if (role !== 'CONSUMER') setNotice('장바구니는 소비자 계정에서 이용할 수 있습니다.')
+    else { setNotice(''); action.changeCart({ kind: 'add', productModelId: productId, quantity: 1 }) }
+  }
+  const label = added ? '장바구니로 이동' : (text ?? `${name} 장바구니 담기`)
+  return <>
+    <button type="button" className={className} aria-label={label} disabled={(disabled && !added) || action.pending} onClick={click}>
+      {added ? <ArrowRight size={22} aria-hidden="true" /> : <ShoppingBag size={22} aria-hidden="true" />}
+      {text && (added ? '장바구니로 이동' : text)}
+    </button>
+    {(notice || action.isError) && <span className="cart-action__notice" role="alert">{notice || cartErrorMessage(action.error)}</span>}
+    {!toggleOnSuccess && action.isSuccess && (
+      <span className="cart-action__notice cart-action__notice--success" role="status">
+        <span>장바구니에 담았습니다.</span>
+        <Link to="/cart">장바구니 보기</Link>
+      </span>
+    )}
+  </>
+}

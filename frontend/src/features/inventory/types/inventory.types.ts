@@ -1,3 +1,5 @@
+import type { ProcessType, ProcessingJobStatus } from '../../processing/types/processing.types.ts'
+
 // Inventory(보유 소재) 도메인 타입.
 // Backend `material_balance` / `material_lock` 에 대응한다.
 
@@ -63,8 +65,29 @@ export interface InventoryItem {
   available: number
   /** 이 값이 언제 기준인지. 온체인 잔액 Projection 동기화 전에는 특히 중요하다 */
   syncedAt: string
+  /**
+   * **혈통을 따라 누적된 가공 종류.** 가공을 거치지 않았으면 빈 배열이다 (`null` 이 아니다).
+   *
+   * 세척한 소재를 다시 해체로 보내면 그 산출물은 둘 다 담는다 — 서버가 부모를 거슬러
+   * 모아 준다(`MaterialProcessHistoryResolver`). 화면이 이어 붙이던 표는 이 값으로 대체됐다.
+   */
+  completedProcessTypes: ProcessType[]
 }
 
 // TODO(6번/Material 담당): 잠금 내역 조회 타입을 추가한다.
 // 선행: GET /materials/{materialId}/locks — 아직 Jira 티켓이 없다 (MR !94 요청 4번).
 // 그게 없으면 잠긴 수량은 보여도 "왜 잠겼는지" 를 못 보여준다.
+
+/** Processor가 물리적으로 배송받거나 가공 중인 소재. 토큰 소유자는 Brand로 유지된다. */
+export interface ProcessingCustodyMaterial {
+  jobId: number
+  jobCode: string
+  materialId: number
+  materialCode: string
+  materialName: string
+  materialType: string
+  quantity: number
+  status: ProcessingJobStatus
+  shippedAt: string
+  receivedAt: string | null
+}

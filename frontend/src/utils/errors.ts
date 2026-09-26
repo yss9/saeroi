@@ -42,6 +42,8 @@ export interface AppError {
   validationErrors: ValidationError[]
   /** 디버깅용 원본. 로깅에만 쓰고 화면에 출력하지 않는다. */
   cause: unknown
+  /** 업무 오류 응답의 data. 화면에서 코드별로 검증한 뒤 사용한다. */
+  details?: unknown
 }
 
 /** 기본 문구. Backend 가 message 를 주면 그쪽이 우선한다. */
@@ -50,9 +52,9 @@ const DEFAULT_MESSAGE: Record<ErrorKind, string> = {
   NETWORK_ERROR: '서버에 연결할 수 없습니다. 네트워크를 확인해 주세요.',
   WALLET_NOT_FOUND: 'MetaMask가 설치되어 있지 않습니다.',
   WALLET_DISCONNECTED: '지갑이 연결되어 있지 않습니다.',
-  SIGNATURE_REJECTED: '서명을 취소했습니다.',
-  WRONG_NETWORK: '지원하지 않는 네트워크입니다. 네트워크를 전환해 주세요.',
-  TRANSACTION_FAILED: '트랜잭션이 실패했습니다.',
+  SIGNATURE_REJECTED: '요청을 취소했습니다.',
+  WRONG_NETWORK: '현재 지갑 연결 환경에서는 사용할 수 없습니다. 연결 환경을 변경해 주세요.',
+  TRANSACTION_FAILED: '이력을 저장하지 못했습니다.',
   UNKNOWN: '알 수 없는 오류가 발생했습니다.',
 }
 
@@ -67,6 +69,7 @@ export function createAppError(
     status: overrides.status ?? null,
     validationErrors: overrides.validationErrors ?? [],
     cause: overrides.cause ?? null,
+    details: overrides.details ?? null,
   }
 }
 

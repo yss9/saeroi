@@ -6,7 +6,7 @@
 //   2) **택배사 없는 운송장** — 서버가 거절하는 조합이라 제출 후에야 알게 되면 헛수고다.
 //   3) **확인 없는 발송** — 발송하면 취소가 막힌다. 되돌릴 수 없다.
 //
-// 모킹 경계는 API 모듈 하나다 (InventoryTable.test 와 같은 방식).
+// 모킹 경계는 API 모듈 하나다 (InventoryList.test 와 같은 방식).
 // vitest 에 globals 가 없어 cleanup 을 직접 부른다.
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -21,6 +21,20 @@ const api = vi.hoisted(() => ({ shipTrade: vi.fn(), cancelTrade: vi.fn() }))
 vi.mock('../api/shipTrade.ts', () => ({ shipTrade: api.shipTrade }))
 // 취소는 결제 흐름과 같은 API 모듈을 쓴다 (usePayment.cancel 과 한 함수를 공유한다).
 vi.mock('../api/paymentApi.ts', () => ({ cancelTrade: api.cancelTrade }))
+
+// 온체인 서명은 지갑이 필요하다. 여기서 확인하려는 것은 "서명을 시켰는가" 이지
+// 서명 자체가 아니므로 훅 경계에서 자른다.
+const chain = vi.hoisted(() => ({ ship: vi.fn(), receive: vi.fn(), cancel: vi.fn() }))
+vi.mock('../hooks/useTradeChainAction.ts', () => ({
+  useTradeChainAction: () => ({
+    ...chain,
+    status: 'IDLE',
+    hash: null,
+    error: null,
+    isBusy: false,
+    isRejected: false,
+  }),
+}))
 
 function trade(overrides: Partial<Trade> = {}): Trade {
   return {
@@ -203,6 +217,33 @@ describe('ShipmentPanel', () => {
       expect(api.cancelTrade).toHaveBeenCalledWith(7, '')
     })
 
+    // **서버만 취소하면 체인의 잔량이 되돌아오지 않는다.**
+    //
+    // createOrder 가 판매 글의 remainingQuantity 를 깎아 두었고, 서버는 취소하면서 그
+    // 수량을 되돌린다(PaymentService.restoreListingQuantity). 체인은 cancelOrder 를
+    // 서명해야만 되돌아온다. 놓치면 두 잔량이 어긋나, 다음 구매자가 화면에 보이는
+    // 잔량을 전부 사려 할 때 서버는 통과하고 체인만 되돌려진다.
+    it('온체인 주문이 있으면 체인의 주문도 함께 취소한다', async () => {
+      const user = renderPanel(trade({ chainTradeId: 42 }))
+
+      await user.click(screen.getByRole('button', { name: '거래 취소' }))
+      const [, confirm] = screen.getAllByRole('button', { name: '거래 취소' })
+      await user.click(confirm)
+
+      expect(chain.cancel).toHaveBeenCalledWith(42)
+    })
+
+    it('온체인 주문이 없으면 체인 서명을 요구하지 않는다', async () => {
+      // 지갑 팝업을 띄울 이유가 없다 — 취소할 온체인 주문 자체가 없다.
+      const user = renderPanel(trade({ chainTradeId: null }))
+
+      await user.click(screen.getByRole('button', { name: '거래 취소' }))
+      const [, confirm] = screen.getAllByRole('button', { name: '거래 취소' })
+      await user.click(confirm)
+
+      expect(chain.cancel).not.toHaveBeenCalled()
+    })
+
     it('적은 사유를 함께 보낸다', async () => {
       const user = renderPanel()
 
@@ -219,7 +260,11 @@ describe('ShipmentPanel', () => {
       const user = renderPanel()
 
       await user.click(screen.getByRole('button', { name: '거래 취소' }))
-      await user.type(screen.getByLabelText(/취소 사유/), 'x'.repeat(256))
+      // type() 이 아니라 paste() 다. 256자를 한 자씩 입력하면 키 입력마다 리렌더가 일어나
+      // 2.7초가 걸리고, 전체 스위트를 돌릴 때 5초 제한을 넘어 간헐적으로 실패했다.
+      // 검증 대상은 "길이가 넘으면 막는다" 이고 붙여넣기도 같은 경로를 지난다.
+      await user.click(screen.getByLabelText(/취소 사유/))
+      await user.paste('x'.repeat(256))
 
       expect(screen.getByRole('alert')).toHaveTextContent('255자를 넘을 수 없습니다')
       const [, confirm] = screen.getAllByRole('button', { name: '거래 취소' })
@@ -280,5 +325,80 @@ describe('ShipmentPanel', () => {
     await user.click(screen.getByRole('button', { name: '발송 확정' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('운영자에게 알려 주세요')
+  })
+})
+
+/**
+ * 배송지는 <b>읽어서 옮겨 적는 값</b>이다.
+ *
+ * 택배사 화면이나 송장에 그대로 넣는 주소라, 눈으로 읽어 다시 치면 그 자리에서 오타가
+ * 난다. 오타 난 주소는 그대로 배송 사고가 된다.
+ */
+/** 배송지가 있는 거래. 기본 픽스처는 `shipping: null` 이라 주소 칸 자체가 없다. */
+function withAddress() {
+  return trade({
+    shipping: {
+      receiverName: '브랜드 B 자재팀',
+      receiverPhone: '010-0000-0000',
+      zipCode: '06236',
+      address: '서울 강남구 테헤란로 1',
+      addressDetail: '3층',
+      carrier: null,
+      trackingNumber: null,
+      shippedAt: null,
+      deliveredAt: null,
+    },
+  })
+}
+
+describe('배송지 복사', () => {
+  it('우편번호와 상세 주소까지 한 번에 복사한다', async () => {
+    renderPanel(withAddress())
+    const user = userEvent.setup()
+
+    // **setup() 뒤에 깐다.** userEvent 가 자체 클립보드 스텁을 navigator 에 심으므로,
+    // 먼저 깔면 그것이 우리 목을 덮어쓴다. jsdom 의 clipboard 는 getter 라
+    // 대입이 아니라 defineProperty 로 갈아 끼운다.
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+
+    await user.click(screen.getByRole('button', { name: /주소 복사/ }))
+
+    // 주소만 복사하면 우편번호와 상세 주소를 따로 옮겨 적어야 한다 — 두 번 일하게 된다.
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining('(06236)'))
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining('서울 강남구 테헤란로 1'))
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining('3층'))
+  })
+
+  it('복사했다는 사실을 알린다', async () => {
+    // 아무 반응이 없으면 눌렸는지 알 수 없어 한 번 더 누른다.
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: vi.fn().mockResolvedValue(undefined) },
+      configurable: true,
+    })
+
+    renderPanel(withAddress())
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /주소 복사/ }))
+
+    expect(await screen.findByRole('button', { name: /복사됨/ })).toBeInTheDocument()
+  })
+})
+
+/**
+ * 서버는 택배사 없는 운송장을 거절한다(`TRADE_CARRIER_REQUIRED`). 그 규칙을 제출 <b>전에</b>
+ * 알려 주면 한 번 헛수고할 일이 없다.
+ */
+describe('입력 규칙 안내', () => {
+  it('제출하기 전에 택배사 규칙을 보여준다', () => {
+    renderPanel()
+
+    expect(screen.getByText(/운송장 번호만 적고 택배사를 비우면/)).toBeInTheDocument()
+  })
+
+  it('되돌릴 수 없다는 사실을 버튼 앞에 알린다', () => {
+    renderPanel()
+
+    expect(screen.getByText('발송을 확정하면 되돌릴 수 없습니다.')).toBeInTheDocument()
   })
 })

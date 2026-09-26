@@ -1,5 +1,7 @@
-import { CaretDown, InstagramLogo, YoutubeLogo } from '@phosphor-icons/react'
+import { ArrowRight } from '@phosphor-icons/react'
 import { useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
+import logoUrl from '../../../assets/saeroi-logo-vector.svg'
 import { footerNavigation } from '../content.ts'
 
 type NewsletterFeedback =
@@ -32,66 +34,70 @@ export function Footer() {
 
   return (
     <footer id="about" className="site-footer">
-      <div className="site-footer__intro">
-        <a className="site-footer__logo" href="/" aria-label="SAEROI 홈">
-          <img src="/img/logo.png" alt="" />
-        </a>
-        <p>쓰임을 다한 소재에 새로운 가치를 더합니다.</p>
-        <div className="site-footer__socials" aria-label="소셜 미디어">
-          <a href="#instagram" aria-label="SAEROI 인스타그램"><InstagramLogo aria-hidden="true" /></a>
-          <a href="#youtube" aria-label="SAEROI 유튜브"><YoutubeLogo aria-hidden="true" /></a>
+      <div className="site-footer__top">
+        <div className="site-footer__intro">
+          <Link className="site-footer__logo" to="/" aria-label="SAEROI 홈">
+            <img src={logoUrl} alt="" />
+          </Link>
+          <p>쓰임을 다한 소재에서<br />다음의 가치를 발견합니다.</p>
         </div>
+
+        <nav className="site-footer__navigation" aria-label="푸터 메뉴">
+          {footerNavigation.map((group) => (
+            <div key={group.title}>
+              <h2>{group.title}</h2>
+              {group.links.map((link) => link.href.startsWith('/') ? (
+                <Link key={link.label} to={link.href}>{link.label}</Link>
+              ) : (
+                <a key={link.label} href={link.href}>{link.label}</a>
+              ))}
+            </div>
+          ))}
+        </nav>
       </div>
 
-      <nav className="site-footer__navigation" aria-label="푸터 메뉴">
-        {footerNavigation.map((group) => (
-          <div key={group.title}>
-            <h2>{group.title}</h2>
-            {group.links.map((link) => (
-              <a key={link.label} href={link.href}>{link.label}</a>
-            ))}
-          </div>
-        ))}
-      </nav>
-
       <div className="site-footer__newsletter">
-        <h2>새로운 소식을 받아보세요</h2>
-        <p>신규 브랜드와 순환 소재 이야기를 가장 먼저 전해드립니다.</p>
+        <div>
+          <p>NEWSLETTER</p>
+          <h2>새로운 쓰임을 가장 먼저 만나보세요.</h2>
+        </div>
         <form noValidate onSubmit={handleSubmit}>
           <label htmlFor="newsletter-email">이메일 주소</label>
-          <div>
-            <input
-              id="newsletter-email"
-              name="email"
-              type="email"
-              value={email}
-              placeholder="이메일 주소"
-              aria-invalid={feedback?.type === 'error'}
-              aria-describedby={feedback ? 'newsletter-feedback' : undefined}
-              onChange={(event) => {
-                setEmail(event.target.value)
-                setFeedback(null)
-              }}
-            />
-            <button type="submit">구독하기</button>
-          </div>
+          <input
+            id="newsletter-email"
+            name="email"
+            type="email"
+            value={email}
+            placeholder="EMAIL ADDRESS"
+            aria-invalid={feedback?.type === 'error'}
+            aria-describedby={feedback ? 'newsletter-feedback' : undefined}
+            onChange={(event) => {
+              setEmail(event.target.value)
+              setFeedback(null)
+            }}
+          />
+          <button type="submit" aria-label="구독하기"><ArrowRight aria-hidden="true" /></button>
         </form>
-        {feedback?.type === 'error' && <p className="site-footer__feedback site-footer__feedback--error" id="newsletter-feedback" role="alert">{feedback.message}</p>}
-        {feedback?.type === 'success' && <p className="site-footer__feedback site-footer__feedback--success" id="newsletter-feedback" role="status">{feedback.message}</p>}
+        {feedback?.type === 'error' && (
+          <p className="site-footer__feedback site-footer__feedback--error" id="newsletter-feedback" role="alert">
+            {feedback.message}
+          </p>
+        )}
+        {feedback?.type === 'success' && (
+          <p className="site-footer__feedback site-footer__feedback--success" id="newsletter-feedback" role="status">
+            {feedback.message}
+          </p>
+        )}
       </div>
 
       <div className="site-footer__bottom">
-        <p className="site-footer__copyright">© 2026 SAEROI. 모든 권리 보유.</p>
+        <p>© 2026 SAEROI</p>
         <nav aria-label="법적 고지">
-          <a href="#terms">서비스 약관</a>
-          <a href="#privacy">개인정보 처리방침</a>
-          <a href="#shipping">배송 및 반품</a>
-          <a href="#faq">FAQ</a>
-          <a href="#support">문의하기</a>
+          <Link to="/terms">이용약관</Link>
+          <Link to="/privacy">개인정보처리방침</Link>
+          <Link to="/faq">FAQ</Link>
         </nav>
-        <button type="button" aria-label="국가 및 통화 선택">
-          한국어 (KR) <CaretDown aria-hidden="true" />
-        </button>
+        <span>SEOUL · KR</span>
       </div>
     </footer>
   )

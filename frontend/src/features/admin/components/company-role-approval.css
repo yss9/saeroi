@@ -1,0 +1,20 @@
+.admin-role { padding: 24px 28px 36px; max-width: 1240px; margin: 0 auto; }
+.admin-role__header { display: flex; justify-content: space-between; gap: 16px; align-items: center; margin-bottom: 18px; }
+.admin-role__header h1 { margin: 0; font-size: 2rem; line-height: 1.2; letter-spacing: -.03em; }
+.admin-role__count { padding: 7px 12px; border-radius: 999px; background: #edf6ef; color: #256a43; font-weight: 700; white-space: nowrap; }
+.admin-role__list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.admin-role__card { padding: 16px 18px; border: 1px solid #dce5df; border-radius: 16px; background: #fff; box-shadow: 0 6px 18px rgb(26 54 39 / 6%); }
+.admin-role__summary { display: flex; justify-content: space-between; gap: 16px; }
+.admin-role__summary h2 { margin: 5px 0 2px; }.admin-role__summary p { margin: 0; color: #69746d; }
+.admin-role__summary dl { margin: 0; min-width: 220px; }.admin-role__summary dl div { display: grid; grid-template-columns: 56px 1fr; gap: 8px; margin-bottom: 4px; }
+.admin-role__summary dt { color: #78837c; }.admin-role__summary dd { margin: 0; overflow-wrap: anywhere; }
+.admin-role__status { display: inline-flex; align-items: center; gap: 5px; font-size: .78rem; font-weight: 800; }
+.admin-role__status--approved { color: #187844; }.admin-role__status--rejected { color: #b23a3a; }.admin-role__status--pending, .admin-role__status--waiting_wallet { color: #9a6b10; }
+.admin-role__wallet { display: flex; gap: 8px; align-items: center; margin: 12px 0 8px; padding: 9px 12px; border-radius: 10px; background: #f5f8f6; }
+.admin-role__wallet div { display: grid; gap: 2px; }.admin-role__wallet span { color: #718077; font-size: .78rem; }.admin-role__wallet code { color: #1f3d2c; }
+.admin-role__transactions { margin: 0 0 12px; color: #27764a; font-size: .86rem; }
+.admin-role__actions { display: flex; justify-content: flex-end; gap: 8px; }.admin-role__actions button { min-height: 36px; padding: 0 13px; border-radius: 9px; font: inherit; font-weight: 700; cursor: pointer; }
+.admin-role__actions button:disabled { cursor: not-allowed; opacity: .5; }.admin-role__reject { border: 1px solid #d7ded9; background: #fff; color: #59645d; }.admin-role__approve { border: 0; background: #236e45; color: #fff; }
+.admin-role__state { padding: 28px; text-align: center; color: #69746d; }
+@media (max-width: 1040px) { .admin-role__list { grid-template-columns: 1fr; } }
+@media (max-width: 720px) { .admin-role { padding: 20px 16px 32px; } .admin-role__header, .admin-role__summary { flex-direction: column; align-items: flex-start; } .admin-role__summary dl { min-width: 0; } }

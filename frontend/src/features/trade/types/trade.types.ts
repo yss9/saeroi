@@ -37,8 +37,14 @@ export const TRADE_STATUS_LABEL: Record<TradeStatus, string> = {
   CANCELED: '거래 취소',
 }
 
-/** 구매자가 다음에 할 수 있는 행동이 있는 단계인지. 목록에서 강조 표시에 쓴다. */
-export const BUYER_ACTION_REQUIRED: readonly TradeStatus[] = ['CREATED', 'SHIPPED']
+/**
+ * 구매자가 다음에 할 수 있는 행동이 있는 단계인지. 목록에서 강조 표시에 쓴다.
+ *
+ * **배송 중은 넣지 않는다.** 물건이 오는 동안 구매자가 할 수 있는 일은 없고, 수령 확인은
+ * 실물을 받은 뒤의 일이다 — 배송 중인 줄마다 "확인 필요" 가 붙으면 정작 결제가 남은 건이
+ * 묻힌다.
+ */
+export const BUYER_ACTION_REQUIRED: readonly TradeStatus[] = ['CREATED']
 
 /** 판매자가 다음에 할 수 있는 행동이 있는 단계인지. */
 export const SELLER_ACTION_REQUIRED: readonly TradeStatus[] = ['PAID']
@@ -51,6 +57,21 @@ export const SELLER_ACTION_REQUIRED: readonly TradeStatus[] = ['PAID']
  * 지금 화면이 실제로 쓰는 값이다.
  */
 export type PaymentMethod = 'MOCK' | 'KAKAO_PAY'
+
+/**
+ * 결제 수단 이름.
+ *
+ * `MOCK` 은 PG 연동 전 경로다. "카카오페이" 로 적으면 실제로 결제된 것처럼 읽히므로
+ * 값을 그대로 구분한다.
+ *
+ * <b>아직 `PaymentPanel` 은 이 상수를 쓰지 않는다.</b> 같은 두 값을 인라인 삼항으로
+ * 들고 있다 — 그 파일은 구매자(브랜드) 화면이라 담당이 다르다. 그쪽을 손볼 때 여기로
+ * 모으면 된다. 지금 옮기지 않는 이유는 남의 화면을 말없이 바꾸지 않기 위해서다.
+ */
+export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
+  KAKAO_PAY: '카카오페이',
+  MOCK: '테스트 결제',
+}
 
 /**
  * 거래 한 건. 목록과 상세가 같은 모양이다.

@@ -6,7 +6,9 @@
 //
 // 수량은 전부 **gram 정수**, 금액은 **원** 이다 (정책 03·08절).
 
-import type { MaterialGrade, MaterialRootOrigin, MaterialType } from '../../material/types/material.types.ts'
+import type { MaterialGrade, MaterialRootOrigin, MaterialType,
+  MaterialGenerationType,
+} from '../../material/types/material.types.ts'
 
 /** `material_listing.status` */
 export type ListingStatus = 'ON_SALE' | 'SOLD_OUT' | 'CANCELED'
@@ -41,6 +43,13 @@ export interface Listing {
   materialDescription: string | null
   materialType: MaterialType
   rootOrigin: MaterialRootOrigin
+  /**
+   * 이 소재가 어떻게 생겼는가 — 최초 등록 / 가공 산출물 / 생산 부산물.
+   *
+   * **`rootOrigin` 과 함께 두 축을 이룬다.** "폐기물 + 가공 산출물" 과 "폐기물 + 최초 등록"
+   * 은 구매자에게 다른 물건이다 — 앞은 이미 한 번 손이 간 소재고 뒤는 원물이다.
+   */
+  generationType: MaterialGenerationType
   grade: MaterialGrade | null
   sellerId: number
   sellerName: string
@@ -85,7 +94,10 @@ export type QuantityUnit = 'G' | 'KG'
  */
 export interface ListingFilters {
   /** 판매자 필터. Supplier Market 이 내 판매글만 보는 데 쓴다 */
+  generationType?: MaterialGenerationType
   sellerId?: number
+  /** 소재 상세 화면이 "이 소재가 지금 판매 중인가" 를 물을 때 쓴다 (S15P21E104-438/439) */
+  materialId?: number
   materialType?: MaterialType
   rootOrigin?: MaterialRootOrigin
   grade?: MaterialGrade

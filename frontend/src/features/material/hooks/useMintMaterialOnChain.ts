@@ -1,10 +1,10 @@
-import { useCallback } from 'react'
+import { useCallback, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { linkMaterialOnChain } from '../../../services/blockchain/chainLinkApi.ts'
 import { useOnChainLink } from '../../../hooks/useOnChainLink.ts'
 import { inventoryKeys } from '../../inventory/api/inventoryKeys.ts'
 import { materialKeys } from '../api/materialKeys.ts'
-import { mintMaterial } from '../services/materialContractService.ts'
+import { findMintedMaterial, mintMaterial } from '../services/materialContractService.ts'
 import type { MaterialRootOrigin } from '../types/material.types.ts'
 
 export interface MintOnChainParams {
@@ -32,6 +32,10 @@ export interface MintOnChainParams {
 export function useMintMaterialOnChain() {
   const queryClient = useQueryClient()
 
+  // 서명 전 대조에 쓸 값. mint 를 부를 때와 **같은 지갑·같은 metadataUri** 여야 하므로
+  // 호출 시점에 받아 둔다 (아래 mint 가 채운다).
+  const probe = useRef<{ to: string; metadataUri: string } | null>(null)
+
   const link = useOnChainLink({
     contract: 'materialToken',
     eventName: 'MaterialMinted',
@@ -41,13 +45,22 @@ export function useMintMaterialOnChain() {
       void queryClient.invalidateQueries({ queryKey: materialKeys.all })
       void queryClient.invalidateQueries({ queryKey: inventoryKeys.all })
     },
+    // 이미 발행된 소재면 서명을 건너뛰고 서버 기록만 이어서 한다.
+    // 새로고침으로 세션 안의 영수증을 잃은 뒤에도 토큰이 하나 더 생기지 않게 한다.
+    findExisting: async () => {
+      const current = probe.current
+      if (current === null) return null
+      return findMintedMaterial(current.to, current.metadataUri)
+    },
   })
 
   const mint = useCallback(
-    ({ materialId, to, amount, rootOrigin, metadataUri, evidenceHash }: MintOnChainParams) =>
-      link.run(materialId, () =>
+    ({ materialId, to, amount, rootOrigin, metadataUri, evidenceHash }: MintOnChainParams) => {
+      probe.current = { to, metadataUri }
+      return link.run(materialId, () =>
         mintMaterial({ to, amount, rootOrigin, metadataUri, evidenceHash }),
-      ),
+      )
+    },
     [link],
   )
 

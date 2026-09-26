@@ -1,0 +1,212 @@
+/* 관리자 블록체인 검증 대시보드.
+   왼쪽: 사슬로 이어진 블록 타워 · 오른쪽: 해시로 다시 읽은 온체인 원본.
+
+   색은 두 갈래로만 쓴다 — UI 강조는 오렌지, 체인 시각화는 블루와 아이보리다.
+   오렌지가 세 단인 이유는 하나로는 대비를 못 맞추기 때문이다: 흰 글씨를 얹는 칸(버튼)은
+   #c2551f 에서 4.6:1, 아이보리 위의 작은 글씨는 #b34a18 에서 5.1:1 이고, 가장 밝은
+   #e4712f 는 흰 글씨든 작은 글씨든 대비가 모자라 그래픽(점·띠·막대)에만 쓴다. */
+
+.chain-lab {
+  --chain-ink: #1e1c19; --chain-ink-soft: #6b6862;
+  --chain-ground: #f3f0e7; --chain-row: #f7f5ef; --chain-line: #e3dfd4;
+  --chain-blue: #216a9f; --chain-blue-bright: #2c7cb5; --chain-blue-mid: #1f6496; --chain-blue-dark: #17496f; --chain-blue-deep: #143f60; --chain-blue-soft: #a9cde6;
+  --chain-ivory: #efe7d4; --chain-ivory-warm: #f5eedc;
+  --chain-orange: #b34a18; --chain-orange-strong: #c2551f; --chain-orange-bright: #e4712f; --chain-orange-soft: #fff1e9;
+
+  /* 블록 한 칸의 치수. 앞면 + 깊이 = 바깥 상자이고, 고리와 칸 간격도 여기서 나온다.
+     세 값이 어긋나면 위/측면이 앞면에서 떨어지므로 항상 같이 고친다. */
+  --chain-face: 120px; --chain-depth: 24px; --chain-box: 144px;
+  --chain-tie: 26px; --chain-bridge: 40px;
+
+  display: grid; grid-template-columns: minmax(0, 624px) minmax(0, 1fr); gap: 20px; align-items: start;
+  width: min(1600px, 100%); margin: 0 auto; padding: 24px 28px 36px; color: var(--chain-ink);
+}
+.chain-lab__kicker { color: var(--chain-orange); font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+
+/* ── 헤더 ─────────────────────────────────────────────── */
+.chain-lab__hero { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.chain-lab__hero h1 { margin: 0; font-size: 2rem; line-height: 1.2; letter-spacing: -.03em; }
+.chain-lab__hero-side { display: flex; align-items: center; gap: 12px; }
+.chain-lab__monitor-toggle { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 9px 16px; border: 1px solid #d8d3c6; border-radius: 999px; background: #fff; color: #3a3733; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+.chain-lab__monitor-toggle svg { width: 15px; height: 15px; }
+
+.chain-lab__stream { display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border: 1px solid var(--chain-line); border-radius: 999px; background: #fff; font-size: 14px; font-weight: 800; letter-spacing: .06em; }
+.chain-lab__stream small { color: var(--chain-ink-soft); font-size: 13px; font-weight: 600; letter-spacing: 0; }
+.chain-lab__stream.is-live i { width: 10px; height: 10px; border-radius: 50%; background: var(--chain-orange-bright); animation: chain-breathe 1.8s ease-in-out infinite; }
+.chain-lab__stream.is-retrying { border-color: #f0dcb4; background: #fdf4e3; color: #8f5a14; }
+.chain-lab__stream.is-paused { border-color: var(--chain-line); background: var(--chain-ground); color: var(--chain-ink-soft); }
+
+/* ── 블록 타워 ────────────────────────────────────────── */
+.chain-lab__train { grid-column: 1; display: grid; gap: 14px; padding: 20px; border: 1px solid var(--chain-line); border-radius: 20px; background: #fff; }
+.chain-lab__train-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+.chain-lab__train-head h2 { margin: 0; font-size: 20px; letter-spacing: -.02em; }
+.chain-lab__train-title { display: grid; gap: 10px; }
+
+.chain-lab__head-block { display: flex; align-items: baseline; gap: 10px; margin: 0; }
+.chain-lab__head-block strong { color: var(--chain-blue-dark); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 30px; font-weight: 600; letter-spacing: -.02em; animation: chain-flash .5s ease-out; }
+.chain-lab__head-block small { color: var(--chain-ink-soft); font-size: 13px; }
+
+.chain-lab__monitor-error { display: flex; align-items: center; gap: 9px; margin: 0; padding: 12px 15px; border-radius: 11px; background: #fdf4e3; color: #8f5a14; font-size: 13px; }
+.chain-lab__monitor-error svg { flex: none; width: 17px; height: 17px; }
+
+.chain-lab__yard { overflow-x: auto; box-sizing: border-box; padding: 18px 20px 14px; border-radius: 16px; background: var(--chain-ground); }
+.chain-lab__stack-wait { display: flex; align-items: center; justify-content: center; gap: 9px; margin: 0; padding: 40px 0; color: var(--chain-ink-soft); font-size: 13px; }
+.chain-lab__stack-wait svg { width: 18px; height: 18px; }
+
+/* 다음 블록이 앉을 빈 자리. 타워 맨 위에 두면 "여기로 하나 더 올라온다" 가 그림으로 보인다. */
+.chain-lab__next { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; width: var(--chain-face); height: 40px; box-sizing: border-box; margin: 0 0 14px; border: 2px dashed #e09a6b; border-radius: 8px; color: var(--chain-orange); font-size: 11px; font-weight: 800; }
+.chain-lab__next code { font-size: 11px; font-weight: 400; }
+
+/* 블록은 3개마다 옆 칸으로 넘어간다(liveMetrics.layoutStack 이 자리를 잡는다).
+   세로로만 쌓으면 일곱 칸에 1200px 를 넘어가 한 화면에 안 들어온다. */
+.chain-lab__stack { display: grid; grid-template-rows: repeat(3, var(--chain-box)); column-gap: var(--chain-bridge); row-gap: var(--chain-tie); margin: 0; padding: 0; list-style: none; }
+.chain-lab__stack > li { position: relative; width: var(--chain-box); height: var(--chain-box); }
+
+/* 정육면체는 이미지가 아니라 눕힌 사각형 세 장이다 — 위 면(아이보리), 측면(딥 블루),
+   앞면(블루). clip-path 로 자르면 꼭짓점이 각지고 radius 를 못 먹으므로 skew 로 눕힌다.
+   세 면이 만나는 안쪽 꼭짓점만 radius 0 이고, 바깥 실루엣만 둥글다. */
+.chain-lab__brick { position: absolute; inset: 0; }
+.chain-lab__brick::before,
+.chain-lab__brick::after { content: ''; position: absolute; z-index: 1; }
+.chain-lab__brick::before { top: 0; left: 0; width: var(--chain-face); height: var(--chain-depth); border-radius: 6px 6px 0 6px; background: var(--chain-ivory); transform: skewX(-45deg); transform-origin: bottom left; }
+.chain-lab__brick::after { top: var(--chain-depth); left: var(--chain-face); width: var(--chain-depth); height: var(--chain-face); border-radius: 0 6px 6px 6px; background: var(--chain-blue-deep); transform: skewY(-45deg); transform-origin: top left; }
+.chain-lab__brick-face { position: absolute; top: var(--chain-depth); left: 0; display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; width: var(--chain-face); height: var(--chain-face); box-sizing: border-box; padding: 14px; border-radius: 8px 0 8px 8px; background: var(--chain-blue); box-shadow: inset 0 1px 0 rgb(255 255 255 / 16%); }
+
+.chain-lab__brick.is-latest { animation: chain-drop .5s cubic-bezier(.32, .72, .4, 1); filter: drop-shadow(0 10px 16px rgb(23 73 111 / 24%)); }
+.chain-lab__brick.is-latest::before { background: var(--chain-ivory-warm); }
+.chain-lab__brick.is-latest .chain-lab__brick-face { background: var(--chain-blue-bright); box-shadow: inset 0 1px 0 rgb(255 255 255 / 22%), inset 4px 0 0 var(--chain-orange-bright); }
+
+.chain-lab__brick strong { color: #fff; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
+/* 막대 길이가 "전체 N건" 을 대신한다 — 화면에 있는 블록 중 가장 바쁜 블록이 100% 다. */
+.chain-lab__brick-meter { overflow: hidden; width: 92px; height: 5px; border-radius: 999px; background: rgb(8 38 60 / 42%); }
+.chain-lab__brick-meter i { display: block; height: 100%; border-radius: inherit; background: var(--chain-blue-soft); transition: width .35s ease-out; }
+.chain-lab__brick.is-latest .chain-lab__brick-meter i { background: var(--chain-ivory-warm); }
+.chain-lab__brick-ours { flex: none; padding: 4px 9px; border-radius: 999px; background: var(--chain-orange-soft); color: var(--chain-orange); font-size: 11px; font-weight: 800; }
+
+/* 접힌 구간은 얇은 슬랩 한 장이다. 번호 범위를 남겨 두어야 그 사이에도 블록이
+   있었다는 사실이 유지된다 — 빼 버리면 사슬 그림 자체가 거짓이 된다.
+   한 칸(144px)을 그대로 차지하고 위아래를 사슬 줄로 이어, 옆 칸으로 건너가는
+   고리가 어느 칸에서든 같은 높이에 놓이게 한다. */
+.chain-lab__gap { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: stretch; }
+.chain-lab__gap > i { flex-grow: 1; width: 2px; min-height: 0; margin-left: calc(var(--chain-face) / 2 - 1px); background: var(--chain-blue-dark); }
+.chain-lab__slab { position: relative; flex: none; height: calc(var(--chain-depth) * 2); }
+.chain-lab__slab::before,
+.chain-lab__slab::after { content: ''; position: absolute; z-index: 1; }
+.chain-lab__slab::before { top: 0; left: 0; width: var(--chain-face); height: var(--chain-depth); border-radius: 5px 5px 0 5px; background: #e5decc; transform: skewX(-45deg); transform-origin: bottom left; }
+.chain-lab__slab::after { top: var(--chain-depth); left: var(--chain-face); width: var(--chain-depth); height: var(--chain-depth); border-radius: 0 5px 5px 5px; background: #b8b2a1; transform: skewY(-45deg); transform-origin: top left; }
+.chain-lab__slab-face { position: absolute; top: var(--chain-depth); left: 0; display: flex; overflow: hidden; align-items: center; justify-content: center; width: var(--chain-face); height: var(--chain-depth); margin: 0; box-sizing: border-box; padding: 0 6px; border-radius: 5px 0 5px 5px; background: #d5cfbd; color: var(--chain-ink-soft); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 10px; }
+
+/* parentHash 고리. 블록끼리 맞붙여 쌓으면 "연결" 이 보일 자리가 없어 26px 를 띄우고
+   그 사이에 맞물린 고리 두 개를 그린다. 칸을 건너가는 자리에서는 같은 고리를 눕힌다. */
+.chain-lab__tie { position: absolute; }
+.chain-lab__tie::before,
+.chain-lab__tie::after { content: ''; position: absolute; box-sizing: border-box; border: 2.4px solid var(--chain-blue-dark); border-radius: 999px; }
+.chain-lab__tie.is-down { top: var(--chain-box); left: 0; width: var(--chain-face); height: var(--chain-tie); }
+.chain-lab__tie.is-down::before,
+.chain-lab__tie.is-down::after { left: 50%; width: 9px; height: 14px; margin-left: -4.5px; }
+.chain-lab__tie.is-down::before { top: 0; }
+.chain-lab__tie.is-down::after { top: 9px; }
+.chain-lab__tie.is-across { top: calc(50% + var(--chain-depth) / 2); left: var(--chain-box); width: var(--chain-bridge); height: 18px; transform: translateY(-50%); }
+.chain-lab__tie.is-across::before,
+.chain-lab__tie.is-across::after { top: 50%; width: 17px; height: 9px; margin-top: -4.5px; }
+.chain-lab__tie.is-across::before { left: 5px; }
+.chain-lab__tie.is-across::after { left: 18px; }
+
+.chain-lab__cadence { display: flex; align-items: center; gap: 14px; }
+.chain-lab__cadence small { flex: none; color: var(--chain-ink-soft); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; }
+.chain-lab__progress { overflow: hidden; flex-grow: 1; height: 8px; border-radius: 999px; background: #eae6da; }
+.chain-lab__progress i { display: block; width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--chain-blue-bright), var(--chain-orange-bright)); animation-name: chain-progress; animation-timing-function: linear; animation-fill-mode: forwards; }
+.chain-lab__progress.is-overdue i { background: linear-gradient(90deg, #a9803c, #e9b26a); }
+
+/* ── 오른쪽 ───────────────────────────────────────────── */
+.chain-lab__side { display: grid; gap: 14px; align-content: start; min-width: 0; }
+
+.chain-lab__search { display: grid; gap: 8px; padding: 18px 20px; border: 1px solid var(--chain-line); border-radius: 16px; background: #fff; }
+.chain-lab__search label { color: #3a3733; font-size: 14px; font-weight: 700; }
+.chain-lab__search > div { display: flex; gap: 10px; }
+.chain-lab__search input { flex-grow: 1; min-width: 0; min-height: 42px; padding: 10px 13px; border: 1px solid #d8d3c6; border-radius: 10px; background: #fdfcf9; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 14px; }
+.chain-lab__search input:focus { outline: 3px solid rgb(194 85 31 / 18%); border-color: var(--chain-orange-strong); }
+.chain-lab__search button { display: inline-flex; flex: none; align-items: center; gap: 8px; min-height: 42px; padding: 10px 18px; border: 0; border-radius: 10px; background: var(--chain-orange-strong); color: #fff; font: inherit; font-size: 14px; font-weight: 800; cursor: pointer; }
+.chain-lab__search button:disabled { background: #cbc5b8; cursor: not-allowed; }
+.chain-lab__search button svg { width: 16px; height: 16px; }
+
+.chain-lab__error { display: flex; align-items: center; gap: 9px; padding: 13px 16px; border-radius: 13px; background: #fdecea; color: #9c3734; font-size: 13px; }
+.chain-lab__error svg { flex: none; width: 19px; height: 19px; }
+
+/* ── 온체인 원본 ──────────────────────────────────────── */
+.chain-lab__evidence { display: grid; gap: 12px; padding: 18px 20px; border: 1px solid var(--chain-line); border-radius: 16px; background: #fff; }
+.chain-lab__evidence[aria-busy="true"] { opacity: .55; transition: opacity .2s ease-out; }
+.chain-lab__evidence > header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.chain-lab__evidence > header strong { font-size: 19px; }
+.chain-lab__evidence-badges { display: flex; flex: none; align-items: center; gap: 8px; }
+.chain-lab__status { padding: 6px 13px; border-radius: 999px; font-size: 12px; font-weight: 800; letter-spacing: .06em; }
+/* 상태는 강조색(오렌지)으로 올리지 않는다 — "최신 블록" 과 "성공" 이 같은 색이면 구분이 사라진다.
+   대신 기존 연두(#1d6b40 on #eaf7ef)보다 짙게 잡아 6.6:1 을 확보했다. */
+.chain-lab__status.is-good { background: #e8f1eb; color: #15603a; }
+.chain-lab__status.is-bad { background: #fdecea; color: #9c3734; }
+.chain-lab__latency { padding: 6px 12px; border-radius: 999px; background: var(--chain-ground); color: var(--chain-ink-soft); font-size: 12px; font-weight: 800; }
+
+.chain-lab__evidence dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; margin: 0; }
+.chain-lab__evidence dl > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; padding: 9px 12px; border-radius: 9px; background: var(--chain-row); }
+.chain-lab__evidence dl > div.is-wide { grid-column: 1 / -1; }
+.chain-lab__evidence dt { flex: none; color: var(--chain-ink-soft); font-size: 13px; }
+.chain-lab__evidence dd { overflow: hidden; margin: 0; color: var(--chain-blue-dark); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.chain-lab__more { justify-self: start; padding: 0; border: 0; background: transparent; color: var(--chain-orange); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+
+.chain-lab__empty { display: grid; justify-items: center; gap: 8px; padding: 24px 18px; border: 1px solid var(--chain-line); border-radius: 16px; background: #fff; color: var(--chain-ink-soft); font-size: 14px; }
+.chain-lab__empty svg { width: 24px; height: 24px; color: var(--chain-orange-bright); }
+
+/* ── 실시간 피드 ──────────────────────────────────────── */
+.chain-lab__feed { display: grid; padding: 15px 18px 6px; border: 1px solid var(--chain-line); border-radius: 16px; background: #fff; }
+.chain-lab__feed-head { padding-bottom: 12px; font-size: 15px; font-weight: 700; }
+.chain-lab__feed > button { display: grid; grid-template-columns: 76px minmax(0, 1fr) 100px; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 8px 2px; border: 0; border-top: 1px solid #f0ede4; background: transparent; font: inherit; text-align: left; cursor: pointer; animation: chain-row-in .3s ease-out; }
+.chain-lab__feed > button:hover { background: var(--chain-row); }
+.chain-lab__tx-kind { padding: 5px 9px; border-radius: 999px; background: var(--chain-ground); color: var(--chain-ink-soft); font-size: 12px; font-weight: 800; text-align: center; }
+.chain-lab__tx-kind.is-ours { background: var(--chain-orange-soft); color: var(--chain-orange); }
+.chain-lab__tx-main { display: grid; gap: 3px; min-width: 0; }
+.chain-lab__tx-main code { overflow: hidden; color: var(--chain-blue-dark); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.chain-lab__tx-main small { overflow: hidden; color: var(--chain-ink-soft); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.chain-lab__tx-block { display: grid; gap: 2px; color: var(--chain-ink-soft); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; text-align: right; }
+.chain-lab__tx-block small { color: #8f8a7c; font-family: inherit; font-size: 12px; }
+.chain-lab__feed-empty { margin: 0; padding: 22px 4px; border-top: 1px solid #f0ede4; color: var(--chain-ink-soft); font-size: 13px; }
+
+@keyframes chain-breathe { 50% { opacity: .3; transform: scale(.86); } }
+/* 새 블록은 위에서 떨어져 툭 내려앉는다. 반동을 두 번 주는 이유는 한 번만 주면
+   튕기는 게 아니라 미끄러져 멈춘 것처럼 보이기 때문이다. */
+@keyframes chain-drop {
+  0% { opacity: 0; transform: translateY(-190px); }
+  55% { opacity: 1; transform: translateY(0); }
+  70% { transform: translateY(-13px); }
+  85% { transform: translateY(0); }
+  92% { transform: translateY(-4px); }
+  100% { transform: translateY(0); }
+}
+@keyframes chain-row-in { from { opacity: 0; transform: translateY(-5px); } }
+@keyframes chain-flash { from { color: var(--chain-orange-bright); } }
+@keyframes chain-progress { from { width: 0; } to { width: 100%; } }
+
+/* 모션을 줄인 환경에서는 움직임을 전부 끈다. 진행 바가 전달하던 정보는 그 옆 문구
+   ("평균 1.9초 · 2초 경과")가 그대로 말하므로 숨겨도 잃는 것이 없다. */
+@media (prefers-reduced-motion: reduce) {
+  .chain-lab__progress { display: none; }
+  .chain-lab__stream.is-live i, .chain-lab__brick.is-latest, .chain-lab__feed > button, .chain-lab__head-block strong { animation: none; }
+  .chain-lab__brick-meter i, .chain-lab__evidence { transition: none; }
+}
+
+@media (max-width: 1240px) {
+  .chain-lab { grid-template-columns: minmax(0, 1fr); }
+  .chain-lab__evidence dl { grid-template-columns: 1fr; }
+  .chain-lab__evidence dl > div.is-wide { grid-column: auto; }
+}
+
+@media (max-width: 720px) {
+  .chain-lab { padding: 20px 16px 32px; gap: 18px; }
+  .chain-lab__train { padding: 18px 16px; }
+  .chain-lab__train-head { flex-direction: column; align-items: flex-start; }
+  .chain-lab__yard { padding: 16px 14px 12px; }
+  .chain-lab__cadence { flex-wrap: wrap; }
+  .chain-lab__cadence small { flex: 1 0 100%; }
+  .chain-lab__search > div { flex-direction: column; }
+  .chain-lab__feed > button { grid-template-columns: 76px minmax(0, 1fr); }
+  .chain-lab__tx-block { display: none; }
+}

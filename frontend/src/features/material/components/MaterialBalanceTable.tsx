@@ -1,4 +1,5 @@
 import { EmptyState, ErrorMessage, Loading } from '../../../components/common/index.ts'
+import { useAuth } from '../../auth/hooks/useAuth.ts'
 import { shortenAddress } from '../../../utils/address.ts'
 import { formatKg } from '../../../utils/quantity.ts'
 import { useMaterialBalances } from '../hooks/useMaterialBalances.ts'
@@ -23,6 +24,9 @@ export interface MaterialBalanceTableProps {
  */
 export function MaterialBalanceTable({ materialId }: MaterialBalanceTableProps) {
   const { data, isPending, isError, error, refetch } = useMaterialBalances(materialId)
+  // 보유자는 지갑 주소로만 적힌다. 주소는 사람이 외우는 값이 아니라서, 표시가 없으면
+  // 내가 산 수량을 확인하러 온 사람이 어느 줄을 봐야 하는지 알 수 없다.
+  const { user } = useAuth()
 
   if (isPending) return <Loading variant="skeleton" rows={2} label="보유 현황을 불러오는 중" />
   if (isError) return <ErrorMessage error={error} onRetry={() => void refetch()} />
@@ -32,38 +36,45 @@ export function MaterialBalanceTable({ materialId }: MaterialBalanceTableProps) 
         title="보유자가 없습니다"
         // "아직 아무도 안 가졌다" 와 "동기화가 안 됐다" 는 다른 상황이다.
         // 지금은 후자일 가능성이 높아 그 사실을 숨기지 않는다.
-        description="온체인 잔액 동기화가 아직 반영되지 않았을 수 있습니다."
+        description="최근 수량 변경이 아직 반영되지 않았을 수 있습니다."
       />
     )
   }
 
   return (
-    <table className="material-balance-table">
-      <caption>보유자별 잔량</caption>
-      <thead>
-        <tr>
-          <th scope="col">보유자</th>
-          <th scope="col">보유 수량</th>
-          <th scope="col">잠긴 수량</th>
-          <th scope="col">판매 가능량</th>
-          <th scope="col">기준 시각</th>
-        </tr>
-      </thead>
-      <tbody>
-        {data.map((balance) => (
-          <tr key={balance.ownerId}>
-            <td>{shortenAddress(balance.walletAddress)}</td>
-            <td>{formatKg(balance.quantity)}</td>
-            <td>{formatKg(balance.lockedQuantity)}</td>
-            {/* 음수를 그대로 보여준다. Math.max(0, ...) 로 감추지 않는다. */}
-            <td>{formatKg(balance.available)}</td>
-            <td>
-              <time dateTime={balance.syncedAt}>{formatSyncedAt(balance.syncedAt)}</time>
-            </td>
+    <div className="ui-table-scroll">
+      <table className="ui-table material-balance-table">
+        <caption className="ui-visually-hidden">보유자별 잔량</caption>
+        <thead>
+          <tr>
+            <th scope="col" className="is-tight">보유자</th>
+            <th scope="col" className="is-numeric">보유 수량</th>
+            <th scope="col" className="is-numeric">잠긴 수량</th>
+            <th scope="col" className="is-numeric">판매 가능량</th>
+            <th scope="col" className="is-tight">기준 시각</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {data.map((balance) => (
+            <tr key={balance.ownerId}>
+              <td>
+                {shortenAddress(balance.walletAddress)}{' '}
+                {user?.id === balance.ownerId && (
+                  <span className="ui-badge ui-badge--info">나</span>
+                )}
+              </td>
+              <td className="is-numeric">{formatKg(balance.quantity)}</td>
+              <td className="is-numeric">{formatKg(balance.lockedQuantity)}</td>
+              {/* 음수를 그대로 보여준다. Math.max(0, ...) 로 감추지 않는다. */}
+              <td className="is-numeric">{formatKg(balance.available)}</td>
+              <td className="is-tight">
+                <time dateTime={balance.syncedAt}>{formatSyncedAt(balance.syncedAt)}</time>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }
 

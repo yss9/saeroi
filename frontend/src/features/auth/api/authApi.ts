@@ -12,6 +12,17 @@ import { apiClient } from '../../../services/apiClient.ts'
 import type { LoginRequest, LoginResponse } from '../types/auth.types.ts'
 
 export async function login(payload: LoginRequest): Promise<LoginResponse> {
-  const { data } = await apiClient.post<LoginResponse>('/v1/auth/login', payload)
+  const { data } = await apiClient.post<LoginResponse>('/v1/auth/login', payload, {
+    skipAuth: true,
+    skipTokenRefresh: true,
+  })
   return data
+}
+
+/** 현재 브라우저의 Refresh Token을 무효화하고 HttpOnly 쿠키를 삭제한다. */
+export async function logout(): Promise<void> {
+  await apiClient.post('/v1/auth/logout', undefined, {
+    skipAuth: true,
+    skipTokenRefresh: true,
+  })
 }

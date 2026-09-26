@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
+import { Link } from 'react-router-dom'
 import {
   Button,
   ErrorMessage,
@@ -7,22 +8,50 @@ import {
   Input,
   Select,
 } from '../../../components/common/index.ts'
-import { formatWon } from '../../../utils/quantity.ts'
+import { replaceProductImages } from '../api/replaceProductImages.ts'
+import { uploadProductImage } from '../api/uploadProductImage.ts'
 import { useCreateProductModel } from '../hooks/useCreateProductModel.ts'
+import { useUpdateProductModel } from '../hooks/useUpdateProductModel.ts'
 import { useUploadProductImage } from '../hooks/useUploadProductImage.ts'
 import {
   PRODUCT_CATEGORIES,
   PRODUCT_CATEGORY_LABEL,
   PRODUCT_IMAGE_CONTENT_TYPES,
   PRODUCT_IMAGE_MAX_BYTES,
+  PRODUCT_IMAGES_MAX,
   type ProductCategory,
+  type ProductImageRef,
   type ProductModel,
 } from '../types/product.types.ts'
 import './product.css'
 
 export interface ProductFormProps {
+  /**
+   * 고칠 제품. 없으면 등록 폼이다.
+   *
+   * 등록과 수정이 한 컴포넌트인 이유 — 필드 구성과 검증 규칙이 같다. 화면을 나누면
+   * 판매가 상한이나 제품명 길이 같은 규칙이 한쪽에만 붙는 일이 생긴다.
+   */
+  product?: ProductModel
   onCreated?: (product: ProductModel) => void
+  onUpdated?: (product: ProductModel) => void
+  /**
+   * 폼 칸들 뒤에 끼워 넣을 자리.
+   *
+   * 제품 등록 화면이 여기에 "어느 배치로 만들었나" 를 넣는다. 생산은 다른 기능이라 이
+   * 컴포넌트가 직접 알지 않고 화면이 조합한다 — 대신 자리는 폼 안이어야 한다. 폼 밖에
+   * 두면 등록 버튼을 누르기 전에 채워야 하는 값인지가 흐려진다.
+   */
+  extraFields?: ReactNode
 }
+
+/**
+ * 판매가 상한.
+ *
+ * 서버는 0 이상만 검사하지만, 이 값을 넘으면 **카카오페이가 결제를 거부한다.** 그 사실이
+ * 결제창에서 502 로만 드러나 사용자는 이유를 알 수 없다 — 입력 단계에서 막는다.
+ */
+const MAX_PRICE = 2_147_483_647
 
 /** 폼 값. 대표 이미지는 파일이 아니라 **업로드로 받은 저장 키**를 들고 있다. */
 interface ProductFormValues {
@@ -50,28 +79,143 @@ interface ProductFormValues {
  * ⚠️ 등록하지 않고 떠나면 올라간 파일은 아무도 가리키지 않는 채로 남는다. 서버에 삭제 API
  * 가 없어 화면이 되돌릴 수 없고, 정리는 서버 배치의 몫이다.
  */
-export function ProductForm({ onCreated }: ProductFormProps) {
+export function ProductForm({
+  product,
+  onCreated,
+  onUpdated,
+  extraFields,
+}: ProductFormProps) {
+  const isEdit = product !== undefined
+
   const {
     register,
     handleSubmit,
     reset,
-    formState: { errors },
+    formState: { errors, dirtyFields },
   } = useForm<ProductFormValues>({
-    defaultValues: { name: '', category: '', description: '' },
+    defaultValues: product
+      ? {
+          name: product.name,
+          category: product.category,
+          price: product.price,
+          description: product.description,
+        }
+      : { name: '', category: '', description: '' },
   })
 
   const upload = useUploadProductImage()
   const create = useCreateProductModel()
+  const update = useUpdateProductModel()
 
   // 방금 고른 파일의 미리보기. 서버를 거치지 않는다 — 조회 경로가 인증을 요구해서
   // `<img src>` 로는 안 보이고, 사용자가 고른 파일은 브라우저가 이미 갖고 있다.
   const [preview, setPreview] = useState<{ url: string; name: string } | null>(null)
+
+  /*
+    **등록에서는 사진을 여러 장 받는다.** 상세 화면이 갤러리를 보여주고, 그중 한 장이
+    대표다 — 대표만 받으면 브랜드가 각도·디테일 컷을 올릴 곳이 없다.
+
+    수정에서는 지금까지처럼 한 장만 바꾼다. 이미 걸린 갤러리를 불러와 고치는 일은 이
+    폼이 아니라 갤러리 화면의 몫이다.
+  */
+  const [gallery, setGallery] = useState<GalleryImage[]>([])
+  const [mainId, setMainId] = useState<string | null>(null)
+  // 제품은 만들어졌는데 갤러리 저장만 실패한 경우. 다시 시도할 수 있게 들고 있는다.
+  const [galleryError, setGalleryError] = useState<unknown>(null)
+  const [created, setCreated] = useState<ProductModel | null>(null)
+  const [savingGallery, setSavingGallery] = useState(false)
+
+  const mainKey = gallery.find((image) => image.id === mainId)?.storageKey ?? null
+  const uploadingGallery = gallery.some((image) => image.storageKey === null && image.error === null)
 
   // blob URL 은 명시적으로 해제해야 메모리에서 사라진다. 외부 시스템(브라우저 URL 저장소)
   // 과의 동기화라 useEffect 가 맞는 자리다.
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview.url) }, [preview])
 
   const storageKey = upload.data?.storageKey ?? null
+
+  /**
+   * 고른 파일을 갤러리에 담고 곧바로 올린다.
+   *
+   * **한 장씩 따로 올린다.** 서버의 업로드 경로가 한 장짜리이고, 그래야 한 장이 실패해도
+   * 나머지가 남는다 — 실패한 자리만 지우고 다시 고르면 된다.
+   */
+  async function addGalleryFiles(files: File[]) {
+    const room = PRODUCT_IMAGES_MAX - gallery.length
+    const accepted = files
+      // 형식은 서버도 거절하지만(PRODUCT_IMAGE_TYPE_NOT_ALLOWED) 보내기 전에 막는다.
+      .filter((file) => PRODUCT_IMAGE_CONTENT_TYPES.includes(file.type))
+      .slice(0, Math.max(room, 0))
+    if (accepted.length === 0) return
+
+    const added: GalleryImage[] = accepted.map((file) => ({
+      id: `${file.name}-${file.size}-${crypto.randomUUID()}`,
+      name: file.name,
+      previewUrl: URL.createObjectURL(file),
+      storageKey: null,
+      error: null,
+    }))
+    setGallery((current) => [...current, ...added])
+    // 대표는 첫 장이 기본이다. 한 장만 올리는 사람에게 고르는 일을 시키지 않는다.
+    setMainId((current) => current ?? added[0].id)
+
+    await Promise.all(
+      added.map(async (image, index) => {
+        try {
+          const uploaded = await uploadProductImage(accepted[index])
+          setGallery((current) =>
+            current.map((item) =>
+              item.id === image.id ? { ...item, storageKey: uploaded.storageKey } : item,
+            ),
+          )
+        } catch (error) {
+          setGallery((current) =>
+            current.map((item) => (item.id === image.id ? { ...item, error } : item)),
+          )
+        }
+      }),
+    )
+  }
+
+  function removeGalleryImage(id: string) {
+    setGallery((current) => {
+      const next = current.filter((image) => image.id !== id)
+      // 대표를 지웠으면 남은 첫 장이 대표가 된다 — 대표 없는 갤러리는 등록할 수 없다.
+      setMainId((main) => (main === id ? (next[0]?.id ?? null) : main))
+      return next
+    })
+  }
+
+  /**
+   * 갤러리를 서버에 건다. 제품이 만들어진 뒤에만 할 수 있다 — 사진이 붙을 제품 번호가
+   * 그때 생긴다.
+   *
+   * 대표를 맨 앞에 둔다. 서버가 배열 순서를 그대로 자리(sort_order)로 쓴다.
+   */
+  async function saveGallery(productModelId: number): Promise<boolean> {
+    const stored = gallery.filter((image) => image.storageKey !== null)
+    const images: ProductImageRef[] = [
+      ...stored
+        .filter((image) => image.id === mainId)
+        .map((image) => ({ storageKey: image.storageKey as string, type: 'MAIN' as const })),
+      ...stored
+        .filter((image) => image.id !== mainId)
+        .map((image) => ({ storageKey: image.storageKey as string, type: 'ANGLE' as const })),
+    ]
+    if (images.length <= 1) return true // 대표 한 장은 제품의 thumbnailUrl 이 이미 들고 있다
+
+    setSavingGallery(true)
+    try {
+      await replaceProductImages(productModelId, images)
+      setGalleryError(null)
+      return true
+    } catch (error) {
+      setGalleryError(error)
+      return false
+    } finally {
+      setSavingGallery(false)
+    }
+  }
 
   function selectFile(files: File[]) {
     const file = files[0]
@@ -89,9 +233,45 @@ export function ProductForm({ onCreated }: ProductFormProps) {
     upload.mutate(file)
   }
 
+  /**
+   * 무엇이 바뀌었는가 (수정 모드).
+   *
+   * **안 고친 필드는 아예 보내지 않는다.** 서버가 부분 수정이라, 원래 값을 다시 보내면
+   * 결과는 같지만 "무엇을 고쳤는지" 가 요청에서 사라진다. 아무것도 안 바뀌었으면 서버가
+   * 400 을 주므로 버튼도 잠근다.
+   */
+  const hasChanges =
+    storageKey !== null ||
+    Boolean(dirtyFields.name) ||
+    Boolean(dirtyFields.price) ||
+    Boolean(dirtyFields.description)
+
   const onSubmit = handleSubmit((values) => {
+    if (isEdit) {
+      if (!hasChanges) return
+      update.mutate(
+        {
+          productModelId: product.productModelId,
+          request: {
+            ...(dirtyFields.name ? { name: values.name } : {}),
+            ...(dirtyFields.price ? { price: values.price } : {}),
+            ...(dirtyFields.description ? { description: values.description } : {}),
+            ...(storageKey !== null ? { thumbnailUrl: storageKey } : {}),
+          },
+        },
+        {
+          onSuccess: (updated) => {
+            setPreview(null)
+            upload.reset()
+            onUpdated?.(updated)
+          },
+        },
+      )
+      return
+    }
+
     // 이미지가 없으면 서버가 400 을 준다. 버튼을 잠가 두었지만 방어로 한 번 더 본다.
-    if (storageKey === null || values.category === '') return
+    if (mainKey === null || values.category === '') return
 
     create.mutate(
       {
@@ -99,21 +279,43 @@ export function ProductForm({ onCreated }: ProductFormProps) {
         category: values.category,
         price: values.price,
         description: values.description.trim(),
-        thumbnailUrl: storageKey,
+        // 대표 사진이 제품의 대표 이미지다. 나머지는 갤러리로 따로 건다.
+        thumbnailUrl: mainKey,
       },
       {
-        onSuccess: (product) => {
+        onSuccess: async (product) => {
+          setCreated(product)
+          /*
+            갤러리 저장이 실패해도 제품은 이미 만들어졌다. 그 사실을 감추고 창을 닫으면
+            사진이 한 장만 걸린 이유를 알 수 없다 — 열어 둔 채로 다시 시도하게 한다.
+          */
+          if (!(await saveGallery(product.productModelId))) return
           reset()
-          setPreview(null)
-          upload.reset()
+          setGallery([])
+          setMainId(null)
+          setCreated(null)
           onCreated?.(product)
         },
       },
     )
   })
 
+  /** 갤러리만 실패한 상태에서 다시 보낸다. 제품을 또 만들지 않는다. */
+  async function retryGallery() {
+    if (created === null) return
+    if (!(await saveGallery(created.productModelId))) return
+    reset()
+    setGallery([])
+    setMainId(null)
+    const product = created
+    setCreated(null)
+    onCreated?.(product)
+  }
+
   return (
     <form onSubmit={onSubmit} noValidate className="product-form">
+      {/* 왼쪽은 적는 값, 오른쪽은 고르는 이미지. 한 줄로 쌓으면 화면이 넓어도 폰처럼 길다. */}
+      <div className="product-form__fields">
       <Input
         label="제품명"
         placeholder="예: 업사이클 데님 토트백"
@@ -132,8 +334,16 @@ export function ProductForm({ onCreated }: ProductFormProps) {
           label: PRODUCT_CATEGORY_LABEL[category],
         }))}
         error={errors.category?.message}
+        // 카테고리는 바꿀 수 없다. 이미 그 분류로 팔린 제품의 이력이 흔들린다 —
+        // 서버도 수정 요청에서 이 필드를 받지 않는다.
+        disabled={isEdit}
         {...register('category', { required: '카테고리를 선택해 주세요.' })}
       />
+
+      {/* 비활성 입력만 두면 "왜 안 눌리지" 가 된다. */}
+      {isEdit && (
+        <p className="product-form__hint">카테고리는 등록 후 바꿀 수 없습니다.</p>
+      )}
 
       <Input
         label="판매가 (원)"
@@ -143,6 +353,11 @@ export function ProductForm({ onCreated }: ProductFormProps) {
           required: '판매가를 입력해 주세요.',
           valueAsNumber: true,
           min: { value: 0, message: '판매가는 0원 이상이어야 합니다.' },
+          // 서버는 막지 않지만 이 값을 넘으면 카카오페이가 결제를 거부한다.
+          max: {
+            value: MAX_PRICE,
+            message: '판매가는 2,147,483,647원을 넘을 수 없습니다. 결제가 거부됩니다.',
+          },
           // 서버가 소수를 조용히 버리지 않고 정수로 강제한다. 화면에서 먼저 막아
           // "129,000.5원을 넣었는데 129,000원으로 등록됨" 을 없앤다.
           validate: (value) =>
@@ -169,33 +384,180 @@ export function ProductForm({ onCreated }: ProductFormProps) {
         )}
       </div>
 
-      <ThumbnailField
-        preview={preview}
-        isUploading={upload.isPending}
-        uploadError={upload.isError ? upload.error : null}
-        uploaded={storageKey !== null}
-        onSelect={selectFile}
-      />
 
+        {extraFields}
+      </div>
+
+      {isEdit ? (
+        <ThumbnailField
+          preview={preview}
+          isUploading={upload.isPending}
+          uploadError={upload.isError ? upload.error : null}
+          uploaded={storageKey !== null}
+          onSelect={selectFile}
+          // 수정할 때는 이미지를 고르지 않아도 된다. 안 고르면 쓰던 이미지가 그대로 남는다.
+          optional
+        />
+      ) : (
+        <GalleryField
+          images={gallery}
+          mainId={mainId}
+          onAdd={(files) => void addGalleryFiles(files)}
+          onRemove={removeGalleryImage}
+          onChooseMain={setMainId}
+        />
+      )}
+
+      <div className="product-form__actions">
       {create.isError && <ErrorMessage error={create.error} />}
+      {update.isError && <ErrorMessage error={update.error} />}
 
-      {/* 이미지가 올라가기 전에는 제출할 수 없다 — 서버가 thumbnailUrl 을 필수로 받는다. */}
-      <Button type="submit" loading={create.isPending} disabled={storageKey === null} fullWidth>
-        제품 등록
-      </Button>
+      {/* 제품은 등록됐고 사진 목록만 남았다. 무엇이 됐고 무엇이 안 됐는지 그대로 적는다. */}
+      {galleryError !== null && (
+        <>
+          <ErrorMessage error={galleryError} />
+          <p className="product-form__note">
+            제품은 등록되었습니다. 추가 사진만 저장하지 못했습니다.{' '}
+            <button type="button" className="product-form__retry" onClick={() => void retryGallery()}>
+              사진 다시 저장
+            </button>
+          </p>
+        </>
+      )}
 
-      {/* 등록해도 바로 팔리지 않는다. 이 말을 빼면 사용자는 마켓에서 자기 제품을 찾다가
-          없다고 생각한다. */}
-      <p className="product-form__note">
-        등록하면 <strong>판매 준비(DRAFT)</strong> 상태로 저장됩니다. 생산으로 개체가 만들어진
-        뒤 판매를 시작할 수 있습니다.
-      </p>
+      {isEdit ? (
+        // 아무것도 바뀌지 않았으면 서버가 400 을 준다. 눌러 보고 알게 하지 않는다.
+        <Button type="submit" loading={update.isPending} disabled={!hasChanges}>
+          수정 저장
+        </Button>
+      ) : (
+        /* 이미지가 올라가기 전에는 제출할 수 없다 — 서버가 thumbnailUrl 을 필수로 받는다. */
+        <Button
+          type="submit"
+          loading={create.isPending || savingGallery}
+          disabled={mainKey === null || uploadingGallery || created !== null}
+        >
+          제품 등록
+        </Button>
+      )}
+
+      {/* 등록 화면에는 안내를 두지 않는다 — 등록 뒤 할 일은 아래 배치 연결이 직접 말한다. */}
+      {isEdit && (
+        <p className="product-form__note">
+          판매 중에도 가격을 바꿀 수 있습니다. <strong>이미 결제된 주문은 영향받지
+          않습니다</strong> — 주문 시점 단가가 그대로 남습니다.
+        </p>
+      )}
+      </div>
     </form>
   )
 }
 
+/** 아직 서버에 붙지 않은, 고른 사진 한 장. */
+interface GalleryImage {
+  /** 화면에서만 쓰는 구분자. 같은 파일을 두 번 고를 수 있어 이름으로는 갈리지 않는다 */
+  id: string
+  name: string
+  /** 브라우저가 들고 있는 미리보기. 조회 경로가 인증을 요구해 서버 주소는 못 쓴다 */
+  previewUrl: string
+  /** 업로드가 끝나면 채워진다. 이 값이 서버로 나간다 */
+  storageKey: string | null
+  error: unknown
+}
+
 /**
- * 대표 이미지.
+ * 제품 사진 (등록).
+ *
+ * **여러 장을 받고 그중 하나를 대표로 고른다.** 대표는 목록·마켓에 걸리는 한 장이고
+ * (`thumbnailUrl`), 나머지는 상세 갤러리가 된다 — 서버도 갤러리에 대표를 한 장만 허용한다.
+ *
+ * 고르는 즉시 한 장씩 올린다. 한 장이 실패해도 나머지는 남고, 실패한 자리만 지우고 다시
+ * 고르면 된다.
+ */
+function GalleryField({
+  images,
+  mainId,
+  onAdd,
+  onRemove,
+  onChooseMain,
+}: {
+  images: readonly GalleryImage[]
+  mainId: string | null
+  onAdd: (files: File[]) => void
+  onRemove: (id: string) => void
+  onChooseMain: (id: string) => void
+}) {
+  const full = images.length >= PRODUCT_IMAGES_MAX
+  const failed = images.find((image) => image.error !== null)
+
+  return (
+    <div className="product-form__image">
+      <FileUploader
+        label="제품 사진"
+        accept={PRODUCT_IMAGE_CONTENT_TYPES.join(',')}
+        maxSizeBytes={PRODUCT_IMAGE_MAX_BYTES}
+        multiple
+        maxFiles={PRODUCT_IMAGES_MAX}
+        disabled={full}
+        onChange={onAdd}
+      />
+
+      {images.length > 0 && (
+        <ul className="product-gallery">
+          {images.map((image) => (
+            <li
+              key={image.id}
+              className={
+                image.id === mainId ? 'product-gallery__item is-main' : 'product-gallery__item'
+              }
+            >
+              <img src={image.previewUrl} alt={`${image.name} 미리보기`} />
+
+              {/* 올라가는 중과 실패를 사진 위에 적는다 — 어느 장이 문제인지가 곧 답이다. */}
+              {image.storageKey === null && image.error === null && (
+                <span className="product-gallery__state">올리는 중…</span>
+              )}
+              {image.error !== null && (
+                <span className="product-gallery__state product-gallery__state--error">
+                  실패
+                </span>
+              )}
+
+              <div className="product-gallery__actions">
+                {/* 대표는 하나뿐이라 라디오다. 체크박스로 두면 둘을 고를 수 있게 보인다. */}
+                <label>
+                  <input
+                    type="radio"
+                    name="product-main-image"
+                    checked={image.id === mainId}
+                    disabled={image.storageKey === null}
+                    onChange={() => onChooseMain(image.id)}
+                  />
+                  대표
+                </label>
+                <button type="button" onClick={() => onRemove(image.id)}>
+                  삭제
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* 올리지 못한 장이 있으면 이유를 적는다 — "실패" 딱지만으로는 무엇을 고쳐야 할지 모른다. */}
+      {failed !== undefined && <ErrorMessage error={failed.error} />}
+
+      <p className="product-form__hint">
+        JPG · PNG · WebP, {PRODUCT_IMAGE_MAX_BYTES / 1024 / 1024}MB 이하.{' '}
+        최대 {PRODUCT_IMAGES_MAX}장까지 올릴 수 있고, <strong>대표로 고른 한 장</strong>이
+        목록과 마켓에 걸립니다.
+      </p>
+    </div>
+  )
+}
+
+/**
+ * 대표 이미지 (수정).
  *
  * 파일을 고르는 즉시 업로드하므로 상태가 셋이다 — 올리는 중 / 올라감 / 실패.
  * 사용자가 "이 사진으로 등록된다" 를 확신할 수 있어야 하므로 세 경우를 모두 말한다.
@@ -206,12 +568,15 @@ function ThumbnailField({
   uploadError,
   uploaded,
   onSelect,
+  optional = false,
 }: {
   preview: { url: string; name: string } | null
   isUploading: boolean
   uploadError: unknown
   uploaded: boolean
   onSelect: (files: File[]) => void
+  /** 수정 모드. 고르지 않으면 쓰던 이미지가 그대로 남는다 */
+  optional?: boolean
 }) {
   return (
     <div className="product-form__thumbnail">
@@ -238,33 +603,41 @@ function ThumbnailField({
       {uploadError !== null && <ErrorMessage error={uploadError} />}
 
       <p className="product-form__hint">
-        JPG · PNG · WebP, {PRODUCT_IMAGE_MAX_BYTES / 1024 / 1024}MB 이하. 대표 이미지는
-        필수입니다.
+        JPG · PNG · WebP, {PRODUCT_IMAGE_MAX_BYTES / 1024 / 1024}MB 이하.{' '}
+        {optional ? '고르지 않으면 지금 이미지가 그대로 남습니다.' : '대표 이미지는 필수입니다.'}
       </p>
     </div>
   )
 }
 
-/** 등록 결과 요약. 폼 밖에서 쓰라고 내보낸다 (페이지가 등록 후 화면을 정한다). */
+/**
+ * 등록 결과 요약. 폼 밖에서 쓰라고 내보낸다 (페이지가 등록 후 화면을 정한다).
+ *
+ * **초록 상자를 걷어냈다.** 이 서비스의 색은 파랑이고, 초록은 공통 성공색이라 이 줄만
+ * 다른 서비스에서 떨어져 나온 것처럼 보였다.
+ *
+ * **값을 다시 적지 않는다.** 카테고리·판매가·수량은 방금 제 손으로 넣은 값이라 읽을 이유가
+ * 없고, 등록을 마친 사람이 하려는 일은 하나다 — "쇼핑몰에서 어떻게 보이나" 를 보는 것.
+ */
 export function ProductCreatedSummary({ product }: { product: ProductModel }) {
   return (
     <div className="product-form__created" role="status">
-      <p className="product-form__created-title">{product.name} 등록이 완료되었습니다.</p>
-      <dl>
-        <div>
-          <dt>카테고리</dt>
-          <dd>{PRODUCT_CATEGORY_LABEL[product.category]}</dd>
-        </div>
-        <div>
-          <dt>판매가</dt>
-          <dd>{formatWon(product.price)}</dd>
-        </div>
-        <div>
-          <dt>판매 가능 수량</dt>
-          {/* 등록 직후에는 언제나 0 이다. 제품 모델은 설계도이고 팔 물건은 생산에서 나온다. */}
-          <dd>{product.stockQuantity}개</dd>
-        </div>
-      </dl>
+      <p className="product-form__created-title">
+        {product.status === 'ON_SALE'
+          ? `${product.name} 을(를) 쇼핑몰에 올렸습니다.`
+          : `${product.name} 등록이 완료되었습니다.`}
+      </p>
+
+      {/*
+        소비자가 보는 그 화면으로 보낸다. 아직 판매 전이면 그 사실도 그 화면이 말한다 —
+        여기서 미리 적으면 같은 말이 두 곳에서 어긋난다.
+      */}
+      <Link
+        className="ui-button ui-button--primary ui-button--sm product-form__created-link"
+        to={`/products/${product.productModelId}`}
+      >
+        쇼핑몰에서 보기
+      </Link>
     </div>
   )
 }

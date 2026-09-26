@@ -75,7 +75,7 @@ useEffect(() => { setMaterialsInStore(data) }, [data])
 
 | Store | 담는 것 |
 | --- | --- |
-| `authStore` | `user`, `accessToken`, `isAuthenticated` |
+| `authStore` | `user`, `accessToken`, `isAuthenticated` (Refresh Token은 HttpOnly 쿠키) |
 | `walletStore` | `address`, `chainId`, `isConnected` |
 | `uiStore` | 사이드바 열림 여부, 전역 Modal |
 
@@ -117,7 +117,7 @@ Page → Feature Component → Custom Hook → TanStack Query → Feature API �
 
 - Component에서 `axios`를 직접 import하지 않습니다.
 - API URL을 Component에 하드코딩하지 않습니다. Base URL은 `config/env.ts` 한 곳입니다.
-- `apiClient`가 하는 일: 토큰 주입, `ApiResponse` 봉투 제거, 401 처리, `AppError` 정규화.
+- `apiClient`가 하는 일: 토큰 주입, `ApiResponse` 봉투 제거, 401 재발급·재시도, `AppError` 정규화.
   덕분에 Feature API 함수는 알맹이 타입만 다루면 됩니다.
 
 ### Query Key 규칙
@@ -167,6 +167,10 @@ Page → Feature Hook → Contract Service → contractFactory → walletService
 - Component에서 `new ethers.Contract(...)`를 쓰지 마세요.
 - 주소·ABI는 `config/contracts.ts`에서만 읽습니다. 하드코딩 금지.
 - ABI/주소의 Source of Truth는 `blockchain/master` 브랜치입니다.
+- 쓰기 트랜잭션은 Hardhat 개인키가 아니라 브라우저의 MetaMask signer가 직접 서명합니다.
+- `VITE_BESU_CHAIN_ID`와 현재 지갑 체인이 다르면 `contractFactory`가 전송 전에 차단합니다.
+- 확정 후 화면에는 서명 지갑·Chain ID·컨트랙트·블록 번호·tx hash를 표시합니다.
+- Docker의 `VITE_*` ARG 이름은 `.env.example` 및 `config/contracts.ts`와 반드시 같아야 합니다.
 
 ### Transaction 상태
 
@@ -218,9 +222,9 @@ IDLE → SIGNING → PENDING → CONFIRMED
 
 | 구역 | 예 |
 | --- | --- |
-| Public | `/`, `/login`, `/materials`, `/marketplace`, `/products` |
-| **Public (비회원 필수)** | `/passport/:productId` |
-| Protected | `/inventory`, `/trades` |
+| Public | `/`, `/login`, `/materials`, `/marketplace` |
+| **Public (비회원 필수)** | `/qr/:qrToken` |
+| Protected | `/inventory`, `/trades/:tradeId`, `/business/products`, `/business/products/:productId` |
 | Role별 | `/supplier/*`, `/brand/*`, `/processor/*`, `/admin/*` |
 | 안내 | `/403` (권한 없음), `*` (없는 경로) |
 
@@ -249,11 +253,43 @@ Role 판정의 출처는 `useAuth()`(= `authStore`) 하나입니다. JWT를 따�
 > 프론트에서 가드를 빠뜨리면 사용자 경험이 나빠지지만,
 > **Backend에서 인가를 빠뜨리면 데이터가 샙니다.**
 
-> ### `/passport/:productId`는 Public Route입니다
+> ### `/qr/:qrToken`는 Public Route입니다
 > 소비자가 제품 QR을 찍고 바로 들어오는 진입점입니다.
 > 로그인이나 지갑 연결을 요구하면 서비스의 목적 자체가 무너집니다.
 > **절대 `ProtectedRoute` 안으로 옮기지 마세요.**
+>
+> `:productId`가 아니라 `:qrToken`입니다(S15P21E104-136). productId는 순번이라
+> URL을 하나씩 바꿔가며 남의 제품 이력을 볼 수 있습니다 — qrToken이 추측 불가능한
+> 값이라 이 경로의 유일한 접근 통제입니다 (Backend §6-3, 2026-09-08).
 > 이 화면이 부르는 API도 인증을 요구하면 안 됩니다.
+
+### Role별 메뉴 노출은 `routes.tsx`에서 파생합니다
+
+메뉴 항목에 `roles: ['SUPPLIER']` 같은 조건을 직접 쓰지 마세요.
+어떤 역할이 어떤 화면에 들어갈 수 있는지는 이미 `routes.tsx`의 `RoleGuard allow`에
+적혀 있습니다. 메뉴에 같은 정책을 한 번 더 쓰면 한쪽만 고쳤을 때
+**"메뉴는 보이는데 누르면 `/403`"** 또는 **"권한은 있는데 메뉴가 없다"**가 조용히 생깁니다.
+
+| 파일 | 역할 |
+| --- | --- |
+| `app/router/routes.tsx` | **정본.** 어떤 경로에 어떤 Role이 들어가는가 |
+| `app/router/routeAccess.ts` | 위 트리를 훑어 경로 → `public` / `auth` / `role(allow)` 로 파생 |
+| `app/navigation/navigationMenu.ts` | 메뉴 항목 정의. **`label` `to` `Icon` 뿐 — 역할 조건이 없습니다** |
+| `app/navigation/useVisibleMenu.ts` | 현재 사용자가 들어갈 수 있는 항목만 남김 |
+
+- 새 메뉴는 `navigationMenu.ts`에 `to`만 추가하면 됩니다. 노출 조건은 그 경로의 가드가 정합니다.
+- `RoleGuard`가 없는 Protected 경로(`/inventory`, `/trades/:tradeId`)는 **로그인만 하면 역할 무관**입니다.
+  메뉴 쪽에서 역할로 좁히지 마세요 — 좁혀야 한다면 `routes.tsx`의 가드를 고칩니다.
+  구매 내역(`/trades`)이 그렇게 옮겨진 예입니다: 서버의 수령 확인이 `hasRole('BRAND')`라
+  SUPPLIER·PROCESSOR는 구매를 끝낼 수 없고 목록이 언제나 비어 있었습니다. 메뉴에서 지우지
+  않고 `routes.tsx`의 BRAND 구역으로 옮겨, 메뉴가 그 결과를 파생하게 했습니다.
+- `ADMIN`을 만능으로 두지 않습니다. 권한 Matrix에서 ADMIN은 도메인 기능에 허용이 없고
+  (지갑을 가질 수 없어 서명 흐름에 들어가지 못합니다) `routes.tsx`의 `allow`에도 없습니다.
+- 역할 판정 중(`isAuthenticated && role === null`)에는 링크를 그리지 않고 `aria-busy`만 둡니다.
+  `RoleGuard`가 같은 상태를 `Loading`으로 처리하는 것과 같은 이유입니다.
+
+> **메뉴를 숨기는 것도 보안이 아닙니다.** 숨겨도 URL을 직접 입력하면 그 경로로 이동합니다.
+> 거기서 막는 것은 `RoleGuard`(UX)와 서버 인가(실제 경계)입니다.
 
 ## 10. 타입 규칙
 

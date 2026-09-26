@@ -472,6 +472,68 @@
   margin: 0 0 18px;
 }
 
+/* 개인·사업자 가입이 같은 주소 검색을 쓴다. 한쪽만 손대면 같은 입력이 두 모양이 된다. */
+.business-signup__address-search,
+.consumer-signup__address-search {
+  position: relative;
+}
+
+.business-signup__address-search .ui-field__control,
+.consumer-signup__address-search .ui-field__control {
+  padding-right: 112px;
+}
+
+.business-signup__address-search > button,
+.consumer-signup__address-search > button {
+  position: absolute;
+  top: 29px;
+  right: 6px;
+  display: inline-flex;
+  min-width: 100px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 11px;
+  border: 1px solid rgb(33 106 159 / 0.24);
+  border-radius: 8px;
+  background: rgb(33 106 159 / 0.08);
+  color: var(--auth-blue-dark);
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.business-signup__address-search > button:hover,
+.consumer-signup__address-search > button:hover {
+  background: rgb(33 106 159 / 0.14);
+}
+
+.business-signup__address-search > button:disabled,
+.consumer-signup__address-search > button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.business-signup__address-search > button:focus-visible,
+.consumer-signup__address-search > button:focus-visible {
+  outline: 3px solid rgb(33 106 159 / 0.22);
+  outline-offset: 2px;
+}
+
+.business-signup__address-search > button svg,
+.consumer-signup__address-search > button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.business-signup__address-error,
+.consumer-signup__address-error {
+  margin: -7px 0 16px;
+  color: var(--ui-color-danger);
+  font-size: 0.8rem;
+}
+
 .signup-complete {
   display: flex;
   flex-direction: column;
@@ -654,4 +716,323 @@
   .signup-complete__actions {
     grid-template-columns: 1fr;
   }
+}
+
+/* 2026 auth refresh — 인증 화면 전체에 하나의 타이포·필드·카드 규칙을 적용한다. */
+.auth-entry {
+  --auth-blue: #315f92;
+  --auth-blue-dark: #18263c;
+  --auth-orange: #e98952;
+  --auth-orange-dark: #d66f37;
+  --auth-cream: #f8f7f3;
+  --auth-ink: #18263c;
+  background:
+    linear-gradient(135deg, rgb(49 95 146 / 0.035), transparent 42%),
+    linear-gradient(315deg, rgb(233 137 82 / 0.04), transparent 38%),
+    #f8f7f3;
+  font-family: "Pretendard", "Noto Sans KR", system-ui, sans-serif;
+}
+
+.auth-entry__header {
+  width: min(1180px, calc(100% - 56px));
+  min-height: 82px;
+  border-color: rgb(24 38 60 / 0.1);
+}
+
+.auth-entry__logo { width: 112px; }
+
+.auth-entry__home-link {
+  gap: 9px;
+  color: #596476;
+  font-family: "Manrope", "Pretendard", sans-serif;
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+}
+
+.auth-entry__home-link:hover { color: var(--auth-orange-dark); }
+
+.auth-entry__main { padding: clamp(42px, 6vw, 82px) 24px; }
+
+.auth-entry__panel {
+  width: min(100%, 560px);
+  padding: clamp(36px, 5vw, 58px);
+  border-color: rgb(24 38 60 / 0.12);
+  border-radius: 16px;
+  background: rgb(255 255 255 / 0.92);
+  box-shadow: 0 24px 64px rgb(24 38 60 / 0.07);
+}
+
+.auth-entry__panel--wide { width: min(100%, 1040px); }
+
+.auth-entry__panel--compact {
+  width: min(100%, 610px);
+  padding-top: 46px;
+  padding-bottom: 46px;
+}
+
+.auth-entry__panel--compact .auth-entry__intro { margin-bottom: 24px; }
+
+.auth-entry__panel--compact .auth-entry__intro h1 {
+  font-size: clamp(2rem, 3.8vw, 2.7rem);
+  white-space: nowrap;
+}
+
+.auth-entry__intro {
+  max-width: 720px;
+  margin: 0 auto 40px;
+  word-break: keep-all;
+}
+
+.auth-entry__eyebrow {
+  margin-bottom: 12px;
+  font-family: "Manrope", "Pretendard", sans-serif;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+}
+
+.auth-entry__intro h1 {
+  color: var(--auth-ink);
+  font-family: "Manrope", "Pretendard", sans-serif;
+  font-size: clamp(2.25rem, 5vw, 3.4rem);
+  font-weight: 500;
+  line-height: 1.12;
+  letter-spacing: -0.045em;
+}
+
+.auth-entry__intro > p:last-child {
+  margin-top: 16px;
+  color: #697281;
+  font-size: 0.92rem;
+}
+
+.auth-entry-form { gap: 2px; }
+.auth-entry-form .ui-field { margin-bottom: 17px; gap: 7px; }
+.auth-entry-form .ui-field__label {
+  min-height: 20px;
+  color: #283548;
+  font-size: 0.82rem;
+  font-weight: 650;
+  line-height: 20px;
+}
+
+.auth-entry-form .ui-field__control {
+  min-width: 0;
+  min-height: 52px;
+  padding: 0 15px;
+  border-color: #d9dce1;
+  border-radius: 7px;
+  color: var(--auth-ink);
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+.auth-entry-form .ui-field__control::placeholder { color: #9097a1; opacity: 1; }
+.auth-entry-form .ui-field__control[readonly] { background: #fafafa; }
+.auth-entry-form .ui-field__hint,
+.auth-entry-form .ui-field__error { font-size: 0.75rem; line-height: 1.5; }
+
+.auth-entry-form .ui-button--primary {
+  min-height: 52px;
+  margin-top: 7px;
+  border-radius: 7px;
+  background: var(--auth-ink);
+  color: #fff;
+  font-size: 0.88rem;
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.auth-entry-form .ui-button--primary:hover:not(:disabled) {
+  background: var(--auth-orange-dark);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.auth-entry__switch { margin-top: 25px; color: #697281; font-size: 0.84rem; }
+
+.auth-type-list { gap: 18px; }
+
+.auth-type-card {
+  position: relative;
+  min-height: 275px;
+  padding: 30px;
+  overflow: hidden;
+  border-color: #d9dce1;
+  border-radius: 12px;
+}
+
+.auth-type-card::after {
+  position: absolute;
+  right: -30px;
+  bottom: -44px;
+  width: 130px;
+  height: 130px;
+  border: 1px solid rgb(49 95 146 / 0.08);
+  border-radius: 50%;
+  content: "";
+}
+
+.auth-type-card:hover {
+  border-color: rgb(49 95 146 / 0.55);
+  box-shadow: 0 16px 38px rgb(24 38 60 / 0.08);
+}
+
+.auth-type-card__icon {
+  width: 38px;
+  height: 38px;
+  margin-bottom: 24px;
+  border-bottom: 2px solid var(--auth-orange);
+  border-radius: 0;
+  background: transparent;
+}
+
+.auth-type-card h2 { color: var(--auth-ink); font-size: 1.25rem; font-weight: 650; }
+.auth-type-card p { max-width: 330px; color: #697281; font-size: 0.86rem; word-break: keep-all; }
+.auth-type-card ul { margin: 18px 0 24px; padding: 0; font-size: 0.8rem; list-style: none; }
+.auth-type-card li::before { margin-right: 8px; color: var(--auth-orange-dark); content: "—"; }
+.auth-type-card__action { z-index: 1; color: var(--auth-blue); font-size: 0.81rem; font-weight: 700; }
+
+.auth-entry__footer {
+  color: #9299a3;
+  font-family: "Manrope", sans-serif;
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+}
+
+.consumer-signup__form-wrap { width: min(100%, 760px); }
+.consumer-signup__grid { gap: 18px; }
+.consumer-signup__password-field { min-width: 0; }
+.consumer-signup__password-toggle { top: 34px; border-radius: 6px; }
+
+.consumer-signup__agreements {
+  margin: 9px 0 21px;
+  padding: 19px 20px;
+  border-color: #d9dce1;
+  border-radius: 9px;
+}
+
+.consumer-signup__agreements legend { font-size: 0.83rem; }
+.consumer-signup__agreements label { font-size: 0.82rem; }
+.consumer-signup__agreements input { width: 16px; height: 16px; accent-color: var(--auth-ink); }
+
+.business-signup__roles { margin-bottom: 32px; }
+.business-signup__roles > legend,
+.business-signup__section h2 { color: var(--auth-ink); font-size: 0.97rem; font-weight: 750; }
+.business-signup__roles > p { color: #697281; font-size: 0.8rem; }
+.business-signup__role-list { gap: 12px; }
+
+.business-signup__role {
+  display: grid;
+  min-height: 132px;
+  grid-template-columns: 34px 1fr;
+  grid-template-rows: auto auto;
+  align-content: center;
+  column-gap: 12px;
+  padding: 20px;
+  overflow: hidden;
+  border-color: #d9dce1;
+  border-radius: 9px;
+  text-align: left;
+}
+
+.business-signup__role:hover,
+.business-signup__role--selected {
+  border-color: var(--auth-blue);
+  background: rgb(49 95 146 / 0.035);
+  box-shadow: inset 0 0 0 1px rgb(49 95 146 / 0.08);
+}
+
+.business-signup__role--selected::after {
+  position: absolute;
+  top: 1px;
+  left: 50%;
+  width: 32px;
+  height: 3px;
+  border-radius: 0 0 2px 2px;
+  background: var(--auth-orange);
+  content: "";
+  transform: translateX(-50%);
+}
+
+.business-signup__role svg {
+  position: static;
+  grid-row: 1 / 3;
+  align-self: center;
+  width: 25px;
+  height: 25px;
+  margin: 0;
+  transform: none;
+}
+
+.business-signup__role strong { align-self: end; font-size: 0.86rem; }
+.business-signup__role span { align-self: start; margin-top: 4px; color: #697281; font-size: 0.73rem; word-break: keep-all; }
+.business-signup__section { margin-bottom: 25px; padding-top: 27px; }
+
+.business-signup__address-search,
+.consumer-signup__address-search { min-width: 0; }
+
+.business-signup__address-search .ui-field__control,
+.consumer-signup__address-search .ui-field__control { padding-right: 105px; text-overflow: ellipsis; }
+
+.business-signup__address-search > button,
+.consumer-signup__address-search > button {
+  top: 27px;
+  right: 0;
+  min-width: 94px;
+  height: 52px;
+  padding: 0 10px;
+  border: 0;
+  border-left: 1px solid #d9dce1;
+  border-radius: 0 7px 7px 0;
+  background: transparent;
+  color: var(--auth-blue);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.business-signup__address-search > button:hover,
+.consumer-signup__address-search > button:hover { background: transparent; color: var(--auth-orange-dark); }
+
+.signup-complete__check {
+  width: 68px;
+  height: 68px;
+  margin-bottom: 21px;
+  border: 1px solid rgb(49 95 146 / 0.18);
+  background: #f5f7fa;
+}
+
+.signup-complete__check svg { width: 28px; height: 28px; }
+.signup-complete__account { border-color: #d9dce1; background: transparent; color: var(--auth-ink); font-size: 0.78rem; }
+.signup-complete__description { color: #697281; font-size: 0.9rem; word-break: keep-all; }
+.signup-complete__wallet-note { padding: 17px 18px; border: 0; border-left: 3px solid var(--auth-orange); border-radius: 0; background: #f6f6f5; }
+.signup-complete__wallet-note strong { color: var(--auth-ink); font-size: 0.82rem; }
+.signup-complete__wallet-note p { color: #697281; font-size: 0.8rem; }
+.signup-complete__actions { gap: 10px; margin-top: 28px; }
+.signup-complete__button { border-radius: 7px; font-size: 0.84rem; }
+.signup-complete__button--primary { background: var(--auth-ink); color: #fff; }
+.signup-complete__button--primary:hover { background: var(--auth-orange-dark); }
+
+@media (max-width: 760px) {
+  .auth-entry__header { width: min(100% - 32px, 1180px); min-height: 68px; }
+  .auth-entry__logo { width: 94px; }
+  .auth-entry__home-link { font-size: 0.68rem; }
+  .auth-entry__main { padding: 30px 14px; place-items: start center; }
+  .auth-entry__panel { padding: 34px 22px; border-radius: 12px; }
+  .auth-entry__intro { margin-bottom: 30px; }
+  .auth-entry__intro h1 { font-size: clamp(2rem, 11vw, 2.65rem); }
+  .auth-entry__intro > p:last-child { font-size: 0.86rem; }
+  .auth-entry__panel--compact { padding-top: 34px; padding-bottom: 34px; }
+  .auth-entry__panel--compact .auth-entry__intro h1 { font-size: clamp(1.7rem, 8.5vw, 2.2rem); }
+  .auth-type-card { min-height: 245px; padding: 25px; }
+  .business-signup__role { min-height: 94px; padding: 17px 18px; }
+}
+
+@media (max-width: 420px) {
+  .auth-entry__home-link { gap: 5px; letter-spacing: 0.04em; }
+  .auth-entry__panel { padding-right: 18px; padding-left: 18px; }
+  .business-signup__address-search .ui-field__control,
+  .consumer-signup__address-search .ui-field__control { padding-right: 92px; }
+  .business-signup__address-search > button,
+  .consumer-signup__address-search > button { min-width: 82px; padding: 0 7px; }
 }

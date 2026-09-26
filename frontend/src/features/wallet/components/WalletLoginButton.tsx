@@ -27,7 +27,7 @@ const LOGIN_ERROR_TEXT: Record<string, string> = {
     '지갑 로그인은 공급업체·브랜드·가공업체 계정만 사용할 수 있습니다. 이메일로 로그인해 주세요.',
   NONCE_EXPIRED: '인증 유효 시간이 지났습니다. 다시 시도해 주세요.',
   NONCE_ALREADY_USED: '이미 사용된 인증입니다. 다시 시도해 주세요.',
-  SIGNATURE_MISMATCH: '서명이 지갑 주소와 일치하지 않습니다. 계정을 확인해 주세요.',
+  SIGNATURE_MISMATCH: '지갑 확인 결과가 계정과 일치하지 않습니다. 연결된 계정을 확인해 주세요.',
 }
 
 function loginErrorText(error: AppError): string {
@@ -45,7 +45,7 @@ export function WalletLoginButton({ onSuccess }: WalletLoginButtonProps) {
 
   // 연결 전에는 비활성 버튼 대신 안내만 보여준다. 다음에 무엇을 해야 하는지가 분명하다.
   if (!isConnected) {
-    return <p className="wallet__note">지갑을 연결하면 서명으로 로그인할 수 있습니다.</p>
+    return <p className="wallet__note">지갑을 연결하면 간편하게 로그인할 수 있습니다.</p>
   }
 
   const handleClick = () => {
@@ -57,7 +57,7 @@ export function WalletLoginButton({ onSuccess }: WalletLoginButtonProps) {
   return (
     <div className="wallet">
       <Button onClick={handleClick} loading={isPending} fullWidth>
-        {isPending ? '지갑 서명 요청 중…' : '지갑으로 로그인'}
+        {isPending ? '지갑에서 요청 확인 중…' : '지갑으로 로그인'}
       </Button>
 
       {error &&

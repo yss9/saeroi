@@ -1,60 +1,80 @@
 import {
-  Buildings,
-  List,
   MagnifyingGlass,
-  ShieldCheck,
   ShoppingBag,
   SignIn,
   SignOut,
   UserCircle,
   UserPlus,
-  X,
 } from '@phosphor-icons/react'
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import logoUrl from '../../../assets/saeroi-logo-vector.svg'
+import { ROLE_HOME_MENU_ITEMS } from '../../../app/navigation/navigationMenu.ts'
+import { useVisibleMenu } from '../../../app/navigation/useVisibleMenu.ts'
 import { useAuth } from '../../../features/auth/hooks/useAuth.ts'
+import { useLogout } from '../../../features/auth/hooks/useLogout.ts'
+import { BUSINESS_ROLES } from '../../../features/company/types/companyAccount.types.ts'
 import { useShop } from '../../../features/shop/ShopContext.tsx'
 import type { UserRole } from '../../../types/role.types.ts'
 
+// 소비자 페이지 공통 내비게이션. 목적지 페이지와 함께 공개 링크를 활성화한다.
 const navigation = [
-  { label: '신상품', href: '#curated-picks' },
-  { label: '브랜드', href: '#featured-brands' },
-  { label: '지속가능성', href: '#trust' },
-  { label: '스토리', href: '#about' },
+  { label: 'SHOP', homeHref: '/shop', route: '/shop' },
+  { label: 'BRANDS', homeHref: '/brands', route: '/brands' },
+  { label: 'ABOUT', homeHref: '/about', route: '/about' },
 ]
 
-const businessRoles: readonly UserRole[] = ['SUPPLIER', 'BRAND', 'PROCESSOR']
+const predictionNavigation = {
+  label: 'PREDICTION',
+  homeHref: '/predictions',
+  route: '/predictions',
+}
 
-function getAccountLink(role: UserRole) {
-  if (role === 'CONSUMER') return { label: '마이페이지', to: '/mypage', icon: UserCircle }
-  if (role === 'ADMIN') return { label: '관리자 페이지', to: '/admin', icon: ShieldCheck }
-  return { label: '회사 대시보드', to: '/company/account', icon: Buildings }
+interface HeaderProps {
+  isLogoVisible: boolean
+  scrollToneViewportRatio?: number
+  // 랜딩 페이지의 휠 페이지네이션처럼 실제 document 스크롤이 없는 화면에서는
+  // window.scrollY 감지 대신 호출부가 톤을 직접 넘긴다. undefined면 기존 스크롤 감지를 쓴다.
+  forceScrolled?: boolean
 }
 
 function getAccountTypeLabel(role: UserRole) {
-  if (role === 'CONSUMER') return '개인회원'
+  if (role === 'CONSUMER') return ''
   if (role === 'ADMIN') return '관리자'
-  if (businessRoles.includes(role)) return '사업자회원'
+  if ((BUSINESS_ROLES as readonly UserRole[]).includes(role)) return '사업자회원'
   return ''
 }
 
-export function Header() {
+export function Header({ isLogoVisible, scrollToneViewportRatio, forceScrolled }: HeaderProps) {
   const { cartCount } = useShop()
-  const { user, isAuthenticated, signOut } = useAuth()
+  const { user, isAuthenticated } = useAuth()
+  const logout = useLogout()
   const navigate = useNavigate()
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const location = useLocation()
   const [isAccountOpen, setIsAccountOpen] = useState(false)
+  const [scrollTone, setScrollTone] = useState(false)
   const accountRef = useRef<HTMLDivElement>(null)
   const accountTriggerRef = useRef<HTMLButtonElement>(null)
-  const menuTriggerRef = useRef<HTMLButtonElement>(null)
-  const shouldRestoreMenuFocusRef = useRef(false)
+  const isScrolled = forceScrolled ?? scrollTone
 
   useEffect(() => {
-    if (!isMenuOpen && shouldRestoreMenuFocusRef.current) {
-      shouldRestoreMenuFocusRef.current = false
-      menuTriggerRef.current?.focus()
+    if (forceScrolled !== undefined) return
+
+    function updateHeaderTone() {
+      const threshold = scrollToneViewportRatio
+        ? window.innerHeight * scrollToneViewportRatio
+        : 32
+      setScrollTone(window.scrollY > threshold)
     }
-  }, [isMenuOpen])
+
+    updateHeaderTone()
+    window.addEventListener('scroll', updateHeaderTone, { passive: true })
+    window.addEventListener('resize', updateHeaderTone)
+    return () => {
+      window.removeEventListener('scroll', updateHeaderTone)
+      window.removeEventListener('resize', updateHeaderTone)
+    }
+  }, [scrollToneViewportRatio, forceScrolled])
 
   useEffect(() => {
     if (!isAccountOpen) return
@@ -81,40 +101,59 @@ export function Header() {
     }
   }, [isAccountOpen])
 
-  function closeMobileMenuFromLink() {
-    shouldRestoreMenuFocusRef.current = true
-    setIsMenuOpen(false)
-  }
-
   function toggleAccountMenu() {
-    setIsMenuOpen(false)
     setIsAccountOpen((isOpen) => !isOpen)
   }
 
   function handleSignOut() {
-    signOut()
-    setIsAccountOpen(false)
-    navigate('/', { replace: true })
+    logout.mutate(undefined, {
+      onSuccess: () => {
+        setIsAccountOpen(false)
+        navigate('/', { replace: true })
+      },
+    })
   }
 
-  const accountLink = user ? getAccountLink(user.role) : null
+  function handleCartEntry() {
+    navigate('/cart')
+  }
+
+  // 역할별 "내 홈" 링크. 어느 역할이 어디로 가는지를 이 파일이 정하지 않는다 —
+  // routes.tsx 의 RoleGuard 가 정하고 useVisibleMenu 가 걸러 준다. 그래서
+  // /mypage 나 /admin 의 allow 가 바뀌면 여기 손대지 않아도 따라온다.
+  const { items: accountItems, isResolving: isRoleResolving } = useVisibleMenu(ROLE_HOME_MENU_ITEMS)
+  const accountLink = accountItems[0] ?? null
+  const primaryNavigation = user?.role === 'CONSUMER'
+    ? [...navigation, predictionNavigation]
+    : navigation
 
   return (
-    <header className="site-header">
-      <a className="site-header__logo" href="/" aria-label="SAEROI 홈">
-        <img src="/img/logo.png" alt="" />
-      </a>
+    <header className={`site-header${isScrolled ? ' site-header--scrolled' : ''}${isLogoVisible ? ' site-header--logo-visible' : ''}`}>
+      {/* 일반 <a href="/">는 basename(/test/)을 무시하고 도메인 루트로 풀 네비게이션한다 —
+          test 스택에서는 이게 운영 메인으로 튀어나가는 것으로 드러난다. Link 로 바꿔야
+          basename 이 자동으로 반영된다. */}
+      <Link
+        className="site-header__logo"
+        to="/"
+        aria-label="SAEROI 홈"
+        aria-hidden={!isLogoVisible}
+        tabIndex={isLogoVisible ? undefined : -1}
+      >
+        <img src={logoUrl} alt="" />
+      </Link>
 
       <nav className="site-header__navigation" aria-label="주요 메뉴">
-        {navigation.map((item) => (
-          <a key={item.label} href={item.href}>{item.label}</a>
+        {primaryNavigation.map((item) => location.pathname === '/' && item.homeHref.startsWith('#') ? (
+          <a key={item.label} href={item.homeHref}>{item.label}</a>
+        ) : (
+          <Link key={item.label} to={item.route}>{item.label}</Link>
         ))}
       </nav>
 
       <div className="site-header__actions">
-        <button type="button" aria-label="상품 검색">
+        <Link to="/search" aria-label="상품 검색">
           <MagnifyingGlass aria-hidden="true" />
-        </button>
+        </Link>
 
         <div className="site-header__account" ref={accountRef}>
           <button
@@ -128,36 +167,40 @@ export function Header() {
             <UserCircle aria-hidden="true" />
           </button>
           {isAccountOpen && (
-            <div id="account-popover" className="site-header__account-popover">
-              {isAuthenticated && user && accountLink ? (
+            <div id="account-popover" className="site-header__account-popover" aria-busy={isRoleResolving}>
+              {isRoleResolving ? (
+                // 로그인은 됐지만 역할을 아직 모르는 구간. 여기서 비회원 안내를 그리면
+                // 로그인한 사용자에게 "로그인" 버튼이 잠깐 보였다가 바뀐다.
+                <div className="site-header__account-summary">
+                  <strong>계정 정보를 확인하는 중입니다.</strong>
+                </div>
+              ) : isAuthenticated && user && accountLink ? (
                 <>
                   <div className="site-header__account-summary">
                     <strong>{user.name}</strong>
-                    <span>{getAccountTypeLabel(user.role)}</span>
+                    {getAccountTypeLabel(user.role) && <span>{getAccountTypeLabel(user.role)}</span>}
                   </div>
                   <Link
                     className="site-header__account-link"
                     to={accountLink.to}
                     onClick={() => setIsAccountOpen(false)}
                   >
-                    <accountLink.icon aria-hidden="true" />
+                    <accountLink.Icon aria-hidden="true" />
                     {accountLink.label}
                   </Link>
                   <button
                     className="site-header__account-link site-header__account-link--muted"
                     type="button"
+                    disabled={logout.isPending}
                     onClick={handleSignOut}
                   >
                     <SignOut aria-hidden="true" />
-                    로그아웃
+                    {logout.isPending ? '로그아웃 중…' : '로그아웃'}
                   </button>
+                  {logout.error ? <p role="alert">{logout.error.message}</p> : null}
                 </>
               ) : (
                 <>
-                  <div className="site-header__account-summary">
-                    <strong>SAEROI에 오신 것을 환영합니다.</strong>
-                    <span>로그인하고 새로이의 서비스를 이용해 보세요.</span>
-                  </div>
                   <Link
                     className="site-header__account-link site-header__account-link--primary"
                     to="/login"
@@ -180,39 +223,19 @@ export function Header() {
           )}
         </div>
 
-        <a className="site-header__cart" href="#cart" aria-label={`장바구니, 상품 ${cartCount}개`}>
-          <ShoppingBag aria-hidden="true" />
-          <span className="site-header__cart-count" aria-hidden="true">{cartCount}</span>
-        </a>
-
         <button
-          ref={menuTriggerRef}
-          className="site-header__menu-button"
+          className="site-header__cart"
           type="button"
-          aria-label={isMenuOpen ? '메뉴 닫기' : '메뉴 열기'}
-          aria-expanded={isMenuOpen}
-          aria-controls="mobile-navigation"
-          onClick={() => {
-            setIsAccountOpen(false)
-            setIsMenuOpen((isOpen) => !isOpen)
-          }}
+          aria-label={`장바구니, 상품 ${cartCount}개`}
+          onClick={handleCartEntry}
         >
-          {isMenuOpen ? <X aria-hidden="true" /> : <List aria-hidden="true" />}
+          <ShoppingBag aria-hidden="true" />
+          {cartCount > 0 ? (
+            <span className="site-header__cart-count" aria-hidden="true">{cartCount > 99 ? '99+' : cartCount}</span>
+          ) : null}
         </button>
-      </div>
 
-      <nav
-        id="mobile-navigation"
-        className="site-header__mobile-navigation"
-        aria-label="모바일 메뉴"
-        hidden={!isMenuOpen}
-      >
-        {navigation.map((item) => (
-          <a key={item.label} href={item.href} onClick={closeMobileMenuFromLink}>
-            {item.label}
-          </a>
-        ))}
-      </nav>
+      </div>
     </header>
   )
 }

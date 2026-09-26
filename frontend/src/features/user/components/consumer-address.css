@@ -1,0 +1,116 @@
+/* 배송지 주소록. 소비자 마이페이지 안에서 쓰인다. */
+
+/* 관리 화면 머리말. 마이페이지 카드 안에 들어가므로 여백만 맞춘다. */
+.consumer-address-page__lead {
+  margin: 0 0 1rem;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.address-book {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+}
+
+.address-book__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.address-book__title {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+/* 한계에 닿으면 버튼 자리에 이유가 들어온다 — 눌러 보고 알게 하지 않는다. */
+.address-book__limit {
+  margin: 0;
+  max-width: 32rem;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: #8a4b0b;
+}
+
+.address-book__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+}
+
+.address-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px 24px;
+  padding: 24px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+}
+
+.address-card__head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.address-card__alias { font-size: 15px; font-weight: 600; }
+.address-card__receiver { grid-column: 1; margin: 0; font-size: 13px; line-height: 1.7; color: var(--muted); }
+
+.address-card__address {
+  grid-column: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-style: normal;
+  font-size: 14px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+/* 동작은 아래로 몰아 둔다. 카드 높이가 달라도 버튼 줄은 같은 자리에 온다. */
+.address-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  grid-column: 2;
+  grid-row: 1 / 4;
+  align-self: center;
+  justify-content: flex-end;
+}
+
+/* ── 입력 폼 ─────────────────────────────────────────── */
+
+.address-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  max-width: 40rem;
+}
+
+.address-form__row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+
+.address-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+@media (max-width: 680px) {
+  .address-card { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .address-card__head { flex-wrap: wrap; }
+  .address-card__actions { grid-column: 1; grid-row: auto; justify-content: flex-start; padding-top: 6px; }
+}

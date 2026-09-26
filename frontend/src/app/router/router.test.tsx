@@ -1,7 +1,9 @@
 import { cleanup, render, screen } from '@testing-library/react'
+import type { AxiosResponse } from 'axios'
 import { createMemoryRouter, MemoryRouter, RouterProvider, useRoutes } from 'react-router-dom'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAuthStore } from '../../stores/authStore.ts'
+import { apiClient } from '../../services/apiClient.ts'
 import type { UserRole } from '../../types/role.types.ts'
 import { AppProviders } from '../providers/AppProviders.tsx'
 import { routes } from './routes.tsx'
@@ -30,16 +32,25 @@ function renderRoute(path: string) {
 function signInAs(role: UserRole) {
   useAuthStore
     .getState()
-    .signIn({ id: 1, email: 'a@b.c', name: '테스터', role, walletAddress: null }, 'test-token')
+    .signIn(
+      { id: 1, email: 'a@b.c', name: '테스터', role, walletAddress: null },
+      'test-token',
+    )
 }
 
 beforeEach(() => {
   localStorage.clear()
   useAuthStore.setState({ user: null, accessToken: null, isAuthenticated: false })
+  vi.spyOn(apiClient, 'get').mockImplementation(async (url) => ({
+    data: url === '/v1/companies/me'
+      ? { companyName: '테스트 브랜드', roleApprovalStatus: 'APPROVED' }
+      : [],
+  } as AxiosResponse))
 })
 
 afterEach(() => {
   cleanup()
+  vi.restoreAllMocks()
   useAuthStore.setState({ user: null, accessToken: null, isAuthenticated: false })
   localStorage.clear()
 })
@@ -47,9 +58,21 @@ afterEach(() => {
 describe('application router', () => {
   it('renders the SAEROI landing page at the root route', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/'] })
-    render(<RouterProvider router={router} />)
+    render(
+      <AppProviders>
+        <RouterProvider router={router} />
+      </AppProviders>,
+    )
 
-    expect(screen.getByRole('heading', { name: '지속 가능한 가치를 만드는 브랜드' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'WASTE IS NOT THE END.' })).toBeInTheDocument()
+  })
+
+  it('renders the public ABOUT page without authentication', () => {
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
+    renderRoute('/about')
+
+    expect(screen.getByRole('heading', { name: 'WHO WE ARE' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'EVERY MATERIAL LEAVES A TRACE.' })).toBeInTheDocument()
   })
 
   // 라우트 정의에 실제로 가드가 걸려 있는지 확인한다. RoleGuard 단위 테스트는
@@ -76,4 +99,22 @@ describe('application router', () => {
 
     expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeInTheDocument()
   })
+
+  it('Brand가 자신의 가공 요청 내역 경로에 접근한다', async () => {
+    signInAs('BRAND')
+    renderRoute('/brand/processing/requests')
+
+    expect(await screen.findByRole('heading', { name: '가공 요청 내역' })).toBeInTheDocument()
+  })
+
+  it.each(['/brand/processing', '/brand/processing/requests', '/brand/production'])(
+    '%s에서 공통 Header와 Sidebar를 한 번만 렌더링한다',
+    (path) => {
+      signInAs('BRAND')
+      const { container } = renderRoute(path)
+
+      expect(container.querySelectorAll('.company-dashboard__header')).toHaveLength(1)
+      expect(container.querySelectorAll('.company-dashboard__sidebar')).toHaveLength(1)
+    },
+  )
 })

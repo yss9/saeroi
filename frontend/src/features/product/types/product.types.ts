@@ -98,6 +98,32 @@ export interface CreateProductModelRequest {
  * `hash` 는 기록된 바이트의 SHA-256 이다. 같은 사진을 다시 올렸는지 판단할 수 있지만
  * 지금 화면은 쓰지 않는다.
  */
+/**
+ * 상세 갤러리에 걸리는 사진의 성격. `product_image.image_type` ENUM 과 같다.
+ *
+ * **대표(`MAIN`)는 갤러리에 한 장뿐이다** — 서버가 둘 이상이면
+ * `PRODUCT_IMAGE_MAIN_NOT_UNIQUE` 로 거절한다.
+ */
+export type ProductImageType = 'MAIN' | 'ANGLE' | 'DETAIL' | 'CONTEXT'
+
+/** 갤러리를 교체할 때 보내는 한 장. 순서는 배열의 순서다. */
+export interface ProductImageRef {
+  storageKey: string
+  type: ProductImageType
+}
+
+/** 서버가 돌려주는 갤러리 한 장. */
+export interface ProductImageItem {
+  productImageId: number
+  /** 이미지 바이트를 주는 경로. 인증이 필요해 `<img src>` 로 바로 걸 수 없다 */
+  url: string
+  type: ProductImageType
+  sortOrder: number
+}
+
+/** 제품 하나가 가질 수 있는 사진 수 (`ProductModelImageService.MAX_IMAGES_PER_MODEL`). */
+export const PRODUCT_IMAGES_MAX = 10
+
 export interface ProductImageUpload {
   storageKey: string
   originalFilename: string
@@ -106,6 +132,38 @@ export interface ProductImageUpload {
   size: number
   hash: string
 }
+
+/**
+ * 마켓 제품 목록 필터 (`GET /v1/product-models`).
+ *
+ * **아무것도 주지 않으면 "판매 중인 제품 전체, 최신순, 첫 페이지" 다.** 서버가 기본값을
+ * `ON_SALE` 로 접는다 — `DRAFT` 는 브랜드가 준비 중인 제품이라 마켓에 뜨면 안 된다.
+ * 브랜드 본인 목록은 `GET /me` 가 따로 있고 그쪽이 `DRAFT` 를 포함한다.
+ *
+ * 전 필드가 선택이고 서버가 잘못된 값에 400 을 던지지 않는다 — 목록 조회는 기본값으로
+ * 접는 편이 낫다는 판단이다 (판매 글 목록과 같다).
+ *
+ * ⚠️ **재고 0 인 제품이 목록에 온다.** 다 팔린 제품은 `SOLD_OUT` 으로 전환되어야 하지만
+ * 그 전환은 주문 처리가 하고 그 코드가 아직 없다. 화면이 `stockQuantity` 를 보고 품절로
+ * 표시해야 한다 — 숨기면 브랜드는 자기 제품이 사라진 이유를 알 수 없다.
+ */
+export interface ProductModelFilters {
+  /** 생략하면 서버가 `ON_SALE` 로 접는다 */
+  status?: ProductModelStatus
+  category?: ProductCategory
+  brandId?: number
+  /** 0-based */
+  page?: number
+  /** 기본 12, 최대 100 */
+  size?: number
+}
+
+/**
+ * 판매 상태 변경 동작 (`ProductModelStatusRequest.Action`).
+ *
+ * **상태가 아니라 동작이다.** `SOLD_OUT` 을 지정할 수 없고, `DISCONTINUE` 는 되돌릴 수 없다.
+ */
+export type ProductStatusAction = 'ON_SALE' | 'DISCONTINUE'
 
 /** 서버가 받는 이미지 형식. 이 밖의 형식은 `PRODUCT_IMAGE_TYPE_NOT_ALLOWED` 로 거절된다. */
 export const PRODUCT_IMAGE_CONTENT_TYPES: readonly string[] = [

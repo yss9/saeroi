@@ -1,44 +1,106 @@
-// Traceability / QR Passport 도메인 타입.
-// Backend `material_lineage`, `blockchain_transaction`, `evidence_file` 에 대응한다.
+import type { MaterialType } from '../../material/types/material.types.ts'
 
-/** `material_lineage.relation_type` — 소재가 다음 소재로 이어진 경위 */
-export type LineageRelationType = 'PROCESSING' | 'PRODUCTION_SCRAP'
+export type { MaterialType } from '../../material/types/material.types.ts'
 
-/** `blockchain_transaction.status` — 온체인/오프체인 불일치 구간을 표현한다 */
 export type BlockchainTxStatus = 'PENDING' | 'SUCCESS' | 'FAILED'
+export type PassportItemStatus = 'IN_STOCK' | 'RESERVED' | 'SOLD'
+export type JourneyStageType = 'SOURCE' | 'COLLECTION' | 'PROCESSING' | 'BRAND' | 'DELIVERY'
+export type JourneyStageStatus = 'COMPLETED' | 'CURRENT' | 'PENDING'
 
-/** `blockchain_transaction.reference_type` */
-export type TxReferenceType = 'MATERIAL' | 'TRADE' | 'PROCESSING' | 'PRODUCTION' | 'DISPUTE'
+export type CompanyRole = 'SUPPLIER' | 'PROCESSOR' | 'BRAND' | 'CONSUMER' | 'ADMIN'
 
-/** `evidence_file.evidence_type` */
-export type EvidenceType =
-  | 'BEFORE_PHOTO'
-  | 'AFTER_PHOTO'
-  | 'WEIGHT_SLIP'
-  | 'INVOICE'
-  | 'PROCESS_PHOTO'
-  | 'ETC'
-
-/** Material Journey 타임라인의 한 단계. */
-export interface JourneyStep {
-  /** 단계 종류 — 소재 등록 / 거래 / 가공 / 생산 */
-  referenceType: TxReferenceType
-  title: string
-  occurredAt: string
-  /** 온체인 트랜잭션 해시. 아직 기록 전이면 null */
-  txHash: string | null
-  txStatus: BlockchainTxStatus | null
-  /** 증빙 원본 해시. 무결성 검증에 쓴다 */
-  evidenceHash: string | null
+export interface PassportProduct {
+  name: string
+  brandName: string | null
+  category: 'BAG' | 'WALLET' | 'CLOTHING' | 'ACCESSORY' | 'HOME' | 'ETC'
+  description: string
+  imageUrl: string
 }
 
-/** QR Passport 공개 조회 응답. 로그인 없이 접근 가능한 데이터만 담는다. */
+export interface JourneyStage {
+  stage: JourneyStageType
+  sequence: number
+  status: JourneyStageStatus
+  nodeIds: string[]
+  edgeIds: string[]
+}
+
+export interface JourneyMaterial {
+  name: string
+  materialType: MaterialType
+  rootOrigin: 'VIRGIN' | 'WASTE'
+  batchQuantityGrams: number
+}
+
+export interface BlockchainProof {
+  referenceType: 'MATERIAL' | 'TRADE' | 'PROCESSING' | 'PRODUCTION'
+  chainId: number
+  contractAddress: string
+  functionName: string
+  txHash: string
+  blockNumber: number | null
+  status: BlockchainTxStatus
+  confirmedAt: string | null
+}
+
+export interface EvidenceCount {
+  evidenceType:
+    | 'BEFORE_PHOTO'
+    | 'AFTER_PHOTO'
+    | 'WEIGHT_SLIP'
+    | 'INVOICE'
+    | 'PROCESS_PHOTO'
+    | 'ETC'
+  count: number
+}
+
+export interface JourneyNode {
+  nodeId: string
+  stage: JourneyStageType
+  companyName: string | null
+  companyRole: CompanyRole | null
+  locationName: string | null
+  latitude: number | null
+  longitude: number | null
+  startedAt: string | null
+  completedAt: string | null
+  status: string
+  description: string | null
+  processTypes: string[]
+  materials: JourneyMaterial[]
+  blockchainProofs: BlockchainProof[]
+  evidenceSummary: EvidenceCount[]
+}
+
+export interface JourneyEdge {
+  edgeId: string
+  fromNodeId: string
+  toNodeId: string
+  stage: JourneyStageType
+  materialName: string | null
+  materialType: MaterialType | null
+  shippedAt: string | null
+  receivedAt: string | null
+  status: JourneyStageStatus
+}
+
+export interface ProductJourney {
+  stages: JourneyStage[]
+  nodes: JourneyNode[]
+  edges: JourneyEdge[]
+  materialComposition: Array<{ fiberType: string; percentage: number }>
+  upcycleRatio: number
+  blockchainVerified: boolean
+  truncated: boolean
+  message: string | null
+}
+
 export interface ProductPassport {
-  productId: number
-  productName: string
-  brandName: string
-  producedAt: string
-  steps: JourneyStep[]
+  itemCode: string
+  serialNumber: number
+  itemStatus: PassportItemStatus
+  issuedAt: string
+  product: PassportProduct
+  traceabilityAvailable: boolean
+  journey: ProductJourney | null
 }
-
-// TODO(6번/Traceability 담당): 온체인 검증 결과 타입을 추가한다.

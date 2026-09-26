@@ -18,7 +18,6 @@ export interface CompanyAccountData {
   companyPhone: string | null
   companyAddress: string | null
   status: UserStatus | null
-  walletAddress: string | null
 }
 
 export function isBusinessUserRole(role: string): role is BusinessUserRole {

@@ -9,7 +9,8 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import userEvent from '@testing-library/user-event'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createAppError, ERROR_KIND } from '../../../utils/errors.ts'
 import type { MaterialLineage, MaterialLineageNode } from '../types/material.types.ts'
@@ -51,9 +52,14 @@ function renderTree(materialId: number | null = 2) {
     <QueryClientProvider client={queryClient}>
       <MemoryRouter>
         <MaterialLineageTree materialId={materialId} />
+        <output aria-label="현재 경로">{<LocationPath />}</output>
       </MemoryRouter>
     </QueryClientProvider>,
   )
+}
+
+function LocationPath() {
+  return useLocation().pathname
 }
 
 beforeEach(() => {
@@ -183,6 +189,18 @@ describe('세대 구성', () => {
 })
 
 describe('링크', () => {
+  it('다른 소재 카드의 빈 영역을 클릭하면 해당 소재 상세로 이동한다', async () => {
+    const user = userEvent.setup()
+    api.getMaterialLineage.mockResolvedValue(lineage())
+    renderTree()
+
+    const card = (await screen.findByText('MAT-000001')).closest('article')
+    if (card === null) throw new Error('소재 이력 카드를 찾을 수 없습니다.')
+    await user.click(card)
+
+    expect(screen.getByLabelText('현재 경로')).toHaveTextContent('/materials/1')
+  })
+
   it('다른 소재는 상세로 이동하는 링크다', async () => {
     api.getMaterialLineage.mockResolvedValue(lineage())
     renderTree()

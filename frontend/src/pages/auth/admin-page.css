@@ -1,0 +1,90 @@
+/* 관리자 패널이 각자 폭과 여백을 관리하므로 공통 .page 여백을 중복 적용하지 않는다. */
+.admin-page {
+  max-width: none;
+  padding: 0;
+}
+
+.admin-page > section {
+  margin-top: 0;
+}
+
+.admin-page__wallet {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 0 auto 24px;
+  padding: 18px 24px;
+  max-width: 1180px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface, #fff);
+}
+
+.admin-page__wallet strong {
+  color: var(--ink);
+}
+
+.admin-page__wallet p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.admin-page__wallet .wallet {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+}
+
+.admin-page__wallet .wallet__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-page__wallet .wallet__address {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 700;
+}
+
+.admin-page__wallet .wallet__button {
+  border: 1px solid var(--ink);
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: var(--ink);
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-page__wallet .wallet__button--ghost {
+  background: transparent;
+  color: var(--ink);
+}
+
+.admin-page__wallet .wallet__note {
+  margin: 0;
+  text-align: right;
+}
+
+.admin-page__wallet .wallet__note--muted {
+  color: var(--muted);
+}
+
+@media (max-width: 700px) {
+  .admin-page__wallet {
+    flex-direction: column;
+    margin: 0 16px 16px;
+  }
+
+  .admin-page__wallet .wallet {
+    justify-items: start;
+  }
+
+  .admin-page__wallet .wallet__note {
+    text-align: left;
+  }
+}

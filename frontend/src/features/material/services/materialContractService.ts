@@ -14,7 +14,10 @@ import {
   type BurnReasonOnChain,
   type RootOriginOnChain,
 } from '../../../config/abi/onchainEnums.ts'
+import { env } from '../../../config/env.ts'
 import { getReadContract, getWriteContract } from '../../../services/blockchain/contractFactory.ts'
+import { requireOnChainRole } from '../../../services/blockchain/onChainRole.ts'
+import type { ChainLinkPayload } from '../../../services/blockchain/chainLinkApi.ts'
 import type { MaterialRootOrigin } from '../types/material.types.ts'
 
 /** 도메인 문자열 → 컨트랙트가 받는 uint8. */
@@ -52,6 +55,9 @@ export async function mintMaterial({
   evidenceHash,
 }: MintMaterialParams): Promise<ContractTransactionResponse> {
   const contract = await getWriteContract('materialToken')
+  // mintMaterial 은 onlyRole(SUPPLIER_ROLE) 이다 (MaterialToken.sol:257).
+  // 권한이 없으면 발행이 통째로 되돌려지므로, 서명 팝업을 띄우기 전에 알려 준다.
+  await requireOnChainRole('SUPPLIER_ROLE')
   return contract.mintMaterial(
     to,
     amount,
@@ -59,6 +65,60 @@ export async function mintMaterial({
     metadataUri,
     evidenceHash,
   ) as Promise<ContractTransactionResponse>
+}
+
+/**
+ * 이 소재가 <b>이미 발행돼 있는지</b> 체인에서 찾는다.
+ *
+ * <b>왜 필요한가</b> — 발행은 두 번의 쓰기다. 지갑 서명(mint)과 그 결과를 서버에 알리는
+ * 요청(link). 서명은 끝났는데 link 가 실패하면 체인에는 토큰이 있고 DB 는 모르는 상태가
+ * 된다. {@code useOnChainLink} 가 그 영수증을 ref 에 붙들어 두지만 <b>ref 는 메모리라
+ * 새로고침하면 사라진다.</b> 그러면 다음 시도가 mint 부터 다시 보내 토큰이 하나 더 생기고,
+ * 되돌릴 수 없다. 2026-09-08 에 tokenId 2 가 그렇게 고아로 남았다.
+ *
+ * 그래서 서명 전에 체인에 묻는다. 체인이 정본이므로 여기서 찾으면 mint 를 보내지 않고
+ * 서버 기록만 이어서 하면 된다.
+ *
+ * <b>{@code metadataUri} 가 대조 키다.</b> 발행 시 `saeroi://material/MAT-000014` 형태로
+ * material_code 를 실어 보내므로(MaterialForm), 그 문자열이 그대로 소재를 가리킨다.
+ * 이벤트에서는 인덱싱되지 않은 값이라 필터로 좁힐 수 없어, 인덱싱된 {@code operator}
+ * (= 서명한 지갑)로 먼저 줄이고 나머지는 코드에서 비교한다.
+ *
+ * 못 찾으면 {@code null}. <b>조회가 실패해도 던지지 않고 {@code null} 을 준다</b> —
+ * RPC 가 흔들릴 때 발행 자체를 막으면 정상 사용자가 아무것도 못 하게 된다. 그때는
+ * 이 가드가 없던 예전과 같은 상태로 돌아갈 뿐이다.
+ */
+export async function findMintedMaterial(
+  registrar: string,
+  metadataUri: string,
+): Promise<ChainLinkPayload | null> {
+  try {
+    const contract = getReadContract('materialToken')
+    // **제네시스부터 훑지 않는다.** 컨트랙트가 배포된 블록부터 본다 — 그 앞에는 이
+    // 컨트랙트의 로그가 존재할 수 없다. 0 부터 조회하면 SSAFY 체인에서 33초가 걸리고
+    // (2026-09-11 실측, 블록 1,122만) 그 시간이 통째로 **서명 팝업 앞을 막는다.**
+    // 같은 질의가 배포 블록부터면 455ms 다.
+    const events = await contract.queryFilter(
+      contract.filters.MaterialMinted(registrar, null, null),
+      env.chainFromBlock,
+      'latest',
+    )
+
+    // 같은 소재를 두 번 발행했다면(이 가드가 없던 시절에 생긴 고아) 가장 오래된 것을
+    // 정본으로 삼는다. 뒤의 것을 고르면 앞의 토큰이 영구히 가리켜지지 않는다.
+    for (const event of events) {
+      if (!('args' in event) || event.args === undefined) continue
+      if (event.args.metadataUri !== metadataUri) continue
+      return {
+        onChainId: Number(event.args.tokenId as bigint),
+        txHash: event.transactionHash,
+        blockNumber: event.blockNumber,
+      }
+    }
+    return null
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -129,6 +189,13 @@ export async function getOnChainBalance(
   return { total, locked, available }
 }
 
+/** 발행 시 {@code materialInfo}에 영구 저장된 권위 있는 증빙 해시를 읽는다. */
+export async function getOnChainMaterialEvidenceHash(tokenId: number): Promise<string> {
+  const contract = getReadContract('materialToken')
+  const info = await contract.materialInfo(tokenId) as { evidenceHash: string }
+  return info.evidenceHash
+}
+
 /**
  * 증빙 해시가 온체인 기록과 일치하는지 확인한다.
  * QR Passport 의 "증빙 무결성 확인" 이 이 함수를 쓴다.
@@ -141,4 +208,19 @@ export async function getOnChainBalance(
 export async function verifyEvidence(tokenId: number, hash: string): Promise<boolean> {
   const contract = getReadContract('materialToken')
   return contract.verifyEvidence(tokenId, hash) as Promise<boolean>
+}
+
+/**
+ * 출처 검증(`verifySource`). 최초 등록 SUPPLIER 가 "이 출처가 사실이다" 라고
+ * 서명하는 독립 행위다 — mint 와 달리 새로 채번되는 값이 없다
+ * (`docs/superpowers/specs/2026-09-07-material-verification-state.md`).
+ */
+export async function verifySource(
+  tokenId: number,
+  evidenceHash: string,
+): Promise<ContractTransactionResponse> {
+  const contract = await getWriteContract('materialToken')
+  // mintMaterial 과 같은 이유로 미리 확인한다 — revert 를 서명 팝업 뒤에서 보게 하지 않는다.
+  await requireOnChainRole('SUPPLIER_ROLE')
+  return contract.verifySource(tokenId, evidenceHash) as Promise<ContractTransactionResponse>
 }
