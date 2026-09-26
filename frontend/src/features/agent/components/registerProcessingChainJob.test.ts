@@ -23,7 +23,7 @@ vi.mock('../../wallet/services/walletService.ts', async (importOriginal) => ({
   getBrowserProvider: () => ({ waitForTransaction: wallet.waitForTransaction }),
 }))
 
-import { registerProcessingChainJob } from './AgentChat.tsx'
+import { registerProcessingChainJob } from './registerProcessingChainJob.ts'
 
 const JOB_ID = 12
 const KEY = `processing-chain-create:${JOB_ID}`

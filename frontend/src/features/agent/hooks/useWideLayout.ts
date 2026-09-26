@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useSyncExternalStore } from 'react'
 
 /**
  * 대화창이 <b>두 단</b>으로 그려지는 폭인가.
@@ -15,20 +15,22 @@ import { useEffect, useState } from 'react'
  */
 const TWO_COLUMN_MIN_WIDTH = '(min-width: 781px)'
 
+/**
+ * 창 크기를 바꾸는 도중에도 맞아야 한다. 카드가 한쪽에만 있어야 하므로 어긋난 순간 담당자는
+ * 눌러야 할 것을 못 찾는다. 미디어 쿼리를 외부 상태로 구독한다 — effect 안에서 상태를 맞추면
+ * 첫 그림이 한 번 더 그려진다.
+ */
 export function useWideLayout(): boolean {
-  const [wide, setWide] = useState(() => matches())
+  return useSyncExternalStore(subscribe, matches, () => false)
+}
 
-  useEffect(() => {
-    // 창 크기를 바꾸는 도중에도 맞아야 한다. 카드가 한쪽에만 있어야 하므로 어긋난 순간
-    // 담당자는 눌러야 할 것을 못 찾는다.
-    const query = window.matchMedia(TWO_COLUMN_MIN_WIDTH)
-    const onChange = (event: MediaQueryListEvent) => setWide(event.matches)
-    query.addEventListener('change', onChange)
-    setWide(query.matches)
-    return () => query.removeEventListener('change', onChange)
-  }, [])
-
-  return wide
+function subscribe(onChange: () => void): () => void {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return () => {}
+  }
+  const query = window.matchMedia(TWO_COLUMN_MIN_WIDTH)
+  query.addEventListener('change', onChange)
+  return () => query.removeEventListener('change', onChange)
 }
 
 function matches(): boolean {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { timelineOf } from './AgentChat.tsx'
+import { timelineOf } from './agentTimeline.ts'
 import type { ConversationDetail } from '../types/agent.types.ts'
 
 /**
