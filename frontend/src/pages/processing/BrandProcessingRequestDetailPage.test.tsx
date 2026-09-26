@@ -8,6 +8,8 @@ import { useAuthStore } from '../../stores/authStore.ts'
 import { BrandProcessingRequestDetailPage } from './BrandProcessingRequestDetailPage.tsx'
 
 vi.mock('../../services/apiClient.ts', () => ({ apiClient: { get: vi.fn(), post: vi.fn(), patch: vi.fn() } }))
+const chain = vi.hoisted(() => ({ register: vi.fn() }))
+vi.mock('../../features/processing/services/registerProcessingChainJob.ts', () => ({ registerProcessingChainJob: chain.register }))
 
 // 백엔드가 견적 단계를 들어냈다. 요청은 만들어지는 순간 작업(processing_job)과 결제
 // 기한을 함께 얻고, GET /processing-requests/{id}/quotes 는 사라졌다. 그래서 이 화면이
@@ -101,6 +103,7 @@ function renderPage(path = '/brand/processing/requests/17') {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  chain.register.mockResolvedValue('0xabc')
   useAuthStore.setState({
     user: { id: 3, email: 'brand@test.com', name: '새로이 브랜드', role: 'BRAND', walletAddress: null },
     accessToken: 'token',
@@ -175,6 +178,9 @@ test('생성된 Job에서 결제를 준비하고 Mock 승인까지 진행한다'
 
   expect(apiClient.post).toHaveBeenCalledWith('/processing-jobs/91/payment/confirm', { pgToken: 'MOCK-PG-TOKEN' })
   expect(await screen.findByText('가공비 결제가 완료되었습니다.')).toBeInTheDocument()
+  // 시연 결제도 결제가 확정되면 곧바로 온체인 등록 서명을 요청한다.
+  expect(await screen.findByText('가공업체가 수락하면 소재를 보낼 수 있어요.')).toBeInTheDocument()
+  expect(chain.register).toHaveBeenCalledWith(91)
 })
 
 test('결제 실패 후 다시 들어와도 기존 미결제 Job에서 결제를 재시도한다', async () => {
@@ -196,12 +202,12 @@ test('결제 실패 후 다시 들어와도 기존 미결제 Job에서 결제를
 // 결제 다음 차례는 **브랜드**다. 가공사의 수락이 곧 온체인 서명이므로, 서명할 대상(job)이
 // 체인에 먼저 있어야 한다 — 그 등록은 브랜드 지갑만 할 수 있다. 여기서 "수락 대기" 라고만
 // 말하면 양쪽이 서로를 기다리다 기한이 지나 자동 거절되고 환불된다.
-test('결제한 뒤에는 브랜드를 온체인 등록으로 안내한다', async () => {
+test('결제 직후 등록 서명이 끝나지 않았으면 브랜드를 등록 서명으로 안내한다', async () => {
   mockBackend([paidJob])
 
   renderPage()
 
-  expect(await screen.findByRole('link', { name: '온체인 작업 등록하기' }))
+  expect(await screen.findByRole('link', { name: '등록 서명 마저 하기' }))
     .toHaveAttribute('href', '/processing/jobs/91')
   expect(screen.getByText('온체인 등록 대기')).toBeInTheDocument()
   expect(screen.queryByText('수락 대기')).not.toBeInTheDocument()
@@ -221,7 +227,7 @@ test('온체인 등록까지 끝난 뒤에는 가공사의 수락을 기다린�
   renderPage()
 
   expect(await screen.findByText('수락 대기')).toBeInTheDocument()
-  expect(screen.queryByRole('link', { name: '온체인 작업 등록하기' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('link', { name: '등록 서명 마저 하기' })).not.toBeInTheDocument()
   expect(screen.queryByText('온체인 등록 대기')).not.toBeInTheDocument()
   expect(screen.queryByRole('link', { name: '소재 발송하기' })).not.toBeInTheDocument()
 })

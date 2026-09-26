@@ -123,8 +123,8 @@ export function BrandProcessingRequestDetail({ requestId }: Props) {
       */}
       {job?.status === 'PAID' && job.chainJobId === null && (
         <div className="br-detail__job-link">
-          <span>결제가 끝났습니다. 소재를 온체인 가공 작업에 잠가야 가공사가 수락할 수 있습니다.</span>
-          <Link to={`/processing/jobs/${job.jobId}`}>온체인 작업 등록하기</Link>
+          <span>결제 뒤 가공 작업 등록 서명이 끝나지 않았습니다. 서명해야 가공사가 수락할 수 있습니다.</span>
+          <Link to={`/processing/jobs/${job.jobId}`}>등록 서명 마저 하기</Link>
         </div>
       )}
 

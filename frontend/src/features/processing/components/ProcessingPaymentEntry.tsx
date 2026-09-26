@@ -2,7 +2,9 @@ import { CheckCircle, Clock, CreditCard } from '@phosphor-icons/react'
 import { Link } from 'react-router-dom'
 import { isAppError } from '../../../utils/errors.ts'
 import type { ProcessingJob } from '../api/processingRequestApi.ts'
+import { useProcessingChainRegistration } from '../hooks/useProcessingChainRegistration.ts'
 import { useProcessingPayment } from '../hooks/useProcessingPayment.ts'
+import { ProcessingChainRegistrationStatus } from './ProcessingChainRegistrationStatus.tsx'
 import { formatDateTime } from '../utils/processingTime.ts'
 
 const won = (value: number) => `${value.toLocaleString('ko-KR')}원`
@@ -13,9 +15,10 @@ type PayableProcessingJob = Pick<ProcessingJob, 'jobId' | 'jobCode' | 'fee' | 'p
 
 export function ProcessingPaymentEntry({ job }: { job: PayableProcessingJob }) {
   const payment = useProcessingPayment()
+  const registration = useProcessingChainRegistration(payment.phase === 'SUCCEEDED' && payment.paidJob ? payment.paidJob.jobId : null)
 
   if (payment.phase === 'SUCCEEDED' && payment.paidJob) {
-    return <div className="br-payment br-payment--success" role="status"><CheckCircle aria-hidden="true" /><div><strong>가공비 결제가 완료되었습니다.</strong><span>{won(payment.paidJob.paymentAmount)} · 가공사가 수락하면 소재를 보낼 수 있어요.</span><Link to={`/processing/jobs/${payment.paidJob.jobId}`}>가공 작업 보기</Link></div></div>
+    return <div className="br-payment br-payment--success" role="status"><CheckCircle aria-hidden="true" /><div><strong>가공비 결제가 완료되었습니다.</strong><span>{won(payment.paidJob.paymentAmount)}</span><ProcessingChainRegistrationStatus phase={registration.phase} error={registration.error} onRetry={() => void registration.retry()}/><Link to={`/processing/jobs/${payment.paidJob.jobId}`}>가공 작업 보기</Link></div></div>
   }
 
   return (

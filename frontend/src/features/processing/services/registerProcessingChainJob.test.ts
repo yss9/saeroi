@@ -13,8 +13,8 @@ const wallet = vi.hoisted(() => ({
   waitForTransaction: vi.fn(),
 }))
 
-vi.mock('../../processing/api/processingJobApi.ts', () => ({ processingJobApi: api }))
-vi.mock('../../processing/services/processingContractService.ts', async (importOriginal) => ({
+vi.mock('../api/processingJobApi.ts', () => ({ processingJobApi: api }))
+vi.mock('./processingContractService.ts', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   ...chain,
 }))
