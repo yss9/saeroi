@@ -377,6 +377,26 @@ class S3FileStorageServiceTests {
                 .isEqualTo(FileStorageErrorCode.FILE_STORAGE_FAILED);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "../../etc/passwd",
+        "/leading-slash.jpg",
+        "/api/v1/public/product-models/54/thumbnail",
+        "back\\slash.jpg",
+        "line\nbreak.jpg"
+    })
+    void existsAnswersFalseForKeysThisStoreCouldNeverHaveMade(String key) {
+        // 저장소에 묻지도 않고 false 여야 한다. MinIO 는 이런 키를 NoSuchKey 가 아닌 오류로
+        // 거절해서, 그대로 두면 잘못된 입력이 500 이 됐다 (2026-09-21 확인). 로컬 구현과
+        // 답이 갈리던 자리이기도 하다.
+        //
+        // headFailure 를 걸어 두는 것이 요점이다 — 짧게 끊지 않고 저장소를 부르면
+        // 이 오류에 걸려 예외가 나므로, 통과한다는 것 자체가 부르지 않았다는 증거다.
+        s3.headFailure = FakeS3Client.serviceError("InvalidArgument");
+
+        assertThat(storage().exists(key)).isFalse();
+    }
+
     // ── 취소는 저장 실패가 아니다 ────────────────────────────
 
     @Test

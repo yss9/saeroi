@@ -5,6 +5,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -22,12 +24,16 @@ import com.ssafy.upcycle.user.entity.UserWallet;
 import com.ssafy.upcycle.user.repository.CompanyProfileRepository;
 import com.ssafy.upcycle.user.repository.UserRepository;
 import com.ssafy.upcycle.user.repository.UserWalletRepository;
+import com.ssafy.upcycle.user.geolocation.AddressGeocoder;
+import com.ssafy.upcycle.user.geolocation.GeoCoordinates;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -36,6 +42,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 /**
  * <b>Role 별로 자기 여정을 끝까지 걸을 수 있는가.</b>
@@ -62,6 +69,7 @@ import org.springframework.test.web.servlet.MvcResult;
  */
 @SpringBootTest
 @AutoConfigureMockMvc
+@Tag("slow")
 @DisplayName("Role 별 사용자 여정")
 class RoleJourneyTests {
 
@@ -74,6 +82,8 @@ class RoleJourneyTests {
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
     @Autowired private JwtTokenService jwtTokenService;
+
+    @MockitoBean private AddressGeocoder addressGeocoder;
 
     @Autowired private UserRepository userRepository;
     @Autowired private UserWalletRepository walletRepository;
@@ -104,6 +114,8 @@ class RoleJourneyTests {
     @BeforeEach
     void setUp() throws Exception {
         clean();
+        when(addressGeocoder.geocode(anyString())).thenReturn(new GeoCoordinates(
+                new BigDecimal("37.5012345"), new BigDecimal("127.0123456")));
         supplier = signUpBusinessAndLogin("journey-supplier@test", UserRole.SUPPLIER, SUPPLIER_WALLET);
         brand = signUpBusinessAndLogin("journey-brand@test", UserRole.BRAND, BRAND_WALLET);
         processor = signUpBusinessAndLogin("journey-processor@test", UserRole.PROCESSOR, PROCESSOR_WALLET);
@@ -476,7 +488,10 @@ class RoleJourneyTests {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json(Map.of(
                                 "name", "소비자", "email", email,
-                                "phone", "010-0000-0009", "password", PASSWORD))))
+                                "phone", "010-0000-0009", "password", PASSWORD,
+                                "zipCode", "06236",
+                                "address", "서울특별시 강남구 테헤란로 212",
+                                "addressDetail", "5층"))))
                 .andExpect(status().isOk());
         return login(email);
     }

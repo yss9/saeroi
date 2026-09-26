@@ -82,6 +82,21 @@ public class TradeController {
      *
      * <p>구매자는 JWT {@code sub} 에서 얻는다. 금액도 서버가 계산한다 — 요청에
      * {@code totalPrice} 가 없는 이유다.
+     *
+     * <p><b>{@code BRAND} 만 구매할 수 있다.</b> 여기 {@code @PreAuthorize} 가 없다고 해서
+     * 아무나 살 수 있는 것이 아니다 — {@code TradeCommandService#requireBuyingCapableUser}
+     * 가 DB 의 현재 역할을 읽어 판정하고, {@code TRADE_ROLE_NOT_ALLOWED} 로 거절한다.
+     * 토큰의 역할 클레임은 발급 시점의 스냅샷이라 정지되거나 역할이 바뀐 계정이 만료 전까지
+     * 통과하므로, 되돌릴 수 없는 행위는 DB 를 다시 읽는다.
+     *
+     * <p>그래서 수령 확인({@code /receive/confirm}, {@code BRAND})과 목록이 어긋나지 않는다.
+     * 살 수 있는 역할과 끝낼 수 있는 역할이 다르면 결제까지 됐는데 수령이 막히는 거래가
+     * 생기고, 그 거래는 영원히 {@code SHIPPED} 로 남으며 판매자의 잠금도 풀리지 않는다 —
+     * {@code ship} 주석이 판매 쪽에서 경고하는 것과 같은 종류의 사고다.
+     *
+     * <p>제약의 근거는 정책이 아니라 <b>컨트랙트</b>다. 온체인
+     * {@code Marketplace.createOrder} 가 {@code BRAND_ROLE} 을 요구하므로, 여기서 넓게 열면
+     * DB 거래는 만들어졌는데 체인 주문만 실패한다.
      */
     @PostMapping
     public ApiResponse<TradeResponse> create(

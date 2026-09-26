@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.common.exception.ErrorCode;
 import com.ssafy.upcycle.common.jpa.config.JpaAuditingConfig;
+import com.ssafy.upcycle.material.service.MaterialEventRecorder;
 import com.ssafy.upcycle.trade.TradeErrorCode;
 import com.ssafy.upcycle.trade.dto.TradeShipRequest;
 import com.ssafy.upcycle.trade.dto.TradeShipResponse;
@@ -25,13 +26,18 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import({JpaAuditingConfig.class,
+        MaterialEventRecorder.class,
         TradeShipmentService.class,
         TradeShipmentServiceTests.FixedClockConfig.class})
 class TradeShipmentServiceTests {
+
+    @MockitoBean
+    private TradeNotificationService businessNotifications;
 
     private static final long SELLER_ID = 10L;
     private static final long BUYER_ID = 11L;
@@ -170,7 +176,7 @@ class TradeShipmentServiceTests {
     private MaterialTrade trade() {
         return MaterialTrade.create(
                 "TRD-000001", 1L, 2L, SELLER_ID, BUYER_ID,
-                SELLER_WALLET, BUYER_WALLET, 20_000L, 200_000L, PaymentMethod.MOCK);
+                SELLER_WALLET, BUYER_WALLET, 20_000L, 200_000L, PaymentMethod.MOCK, LocalDateTime.now().plusMinutes(30));
     }
 
     private TradeShipping shipping(Long tradeId) {

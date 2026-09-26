@@ -2,14 +2,26 @@ package com.ssafy.upcycle.user.entity;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 /**
  * 지갑 보유 가능 역할은 정책 문장이 아니라 이 테스트로 고정한다.
- * DB 에 CONSUMER 지갑을 막는 제약이 없으므로 이 판정이 유일한 경계다.
+ * 지갑 로그인 가능 여부와 이메일 로그인 후 연결 가능 여부를 따로 고정한다.
  */
 class UserRoleTests {
+
+    @ParameterizedTest
+    @EnumSource(value = UserRole.class, names = {"SUPPLIER", "BRAND", "PROCESSOR", "CONSUMER"})
+    void businessAndConsumerCanLinkWallet(UserRole role) {
+        assertThat(role.canLinkWallet()).isTrue();
+    }
+
+    @Test
+    void adminCannotLinkWallet() {
+        assertThat(UserRole.ADMIN.canLinkWallet()).isFalse();
+    }
 
     @ParameterizedTest
     @EnumSource(value = UserRole.class, names = {"SUPPLIER", "BRAND", "PROCESSOR"})

@@ -30,17 +30,65 @@ pipeline {
             steps { sh 'bash /home/ubuntu/deploy/scripts/gitlab-status.sh running' }
         }
 
+        // backend/develop 은 push 마다 도는 CI라 "slow" 태그(RoleJourneyTests·
+        // ProductionJourneyTests 처럼 여러 도메인을 순서대로 걷는 여정 테스트)를 뺀다.
+        // 그 밖의 브랜치(특히 backend/master — 실배포 직전)는 전체를 다 돈다.
         stage('Test') {
             steps {
+                script {
+                    env.TEST_EXCLUDED_GROUPS =
+                        (env.BRANCH_NAME == 'backend/develop') ? '-DexcludedGroups=slow' : ''
+                }
                 sh '''
                     chmod +x mvnw
-                    ./mvnw $MAVEN_ARGS test
+                    ./mvnw $MAVEN_ARGS test $TEST_EXCLUDED_GROUPS
                 '''
             }
             post {
                 always {
                     junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
                 }
+            }
+        }
+
+        // 마이그레이션이 schema.sql 이 선언한 목표 상태를 실제로 재현하는지 병합 전에
+        // 검증한다. db/migrations/*.sql 은 사람이 schema.sql 과 같이 손으로 맞춰 쓰는
+        // 파일이라 어긋날 수 있고, 지금까지는 그 어긋남이 배포 시점 Hibernate validate
+        // 크래시루프로만 드러났다 (deploy/master:docs/SCHEMA_INCIDENTS.md 2026-09-16 —
+        // 이 스테이지가 실제로 잡아낸 사고: status ENUM 이 CANCELED 값을 빠뜨린 채 병합됨).
+        // backend/master 는 develop 을 거쳐 이미 검증된 커밋만 받으므로 스킵한다.
+        stage('마이그레이션 스키마 대조') {
+            when { not { branch 'backend/master' } }
+            steps {
+                // Jenkins 의 GitLab 인증(gitlab-token)은 자신의 체크아웃 스텝에만 한시적으로
+                // 걸리고 이후 shell 스텝의 git 명령까지 이어지지 않는다 — verify-migrations.sh가
+                // 베이스라인 브랜치를 직접 fetch 하려면 자격증명을 명시적으로 실어줘야 한다.
+                withCredentials([usernamePassword(credentialsId: 'gitlab-token', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
+                    sh '''
+                        git config --local credential.helper "!f() { echo username=$GIT_USER; echo password=$GIT_PASS; }; f"
+                        bash scripts/verify-migrations.sh
+                    '''
+                }
+            }
+        }
+
+        // 상시 통합 테스트 스택(/test) 배포. backend/develop 병합마다 이미지를 :test 태그로
+        // 새로 빌드해 deploy 파트의 scripts/test-deploy.sh 로 넘긴다 — 운영(:latest, backend/master)
+        // 과는 완전히 분리된 태그·컨테이너(cft-backend)라 서로 섞이지 않는다.
+        // deploy-service.sh 계열과 같은 flock 락을 공유해 EC2 단일 Docker 데몬 위에서의
+        // 동시 배포/빌드 경합을 피한다 (2026-09-07 실사고 재발 방지).
+        stage('Test Deploy') {
+            when { branch 'backend/develop' }
+            steps {
+                // :test 하나만 찍으면 다음 빌드가 그 태그를 새 이미지로 옮기는 순간 지금 뜬 이미지가 태그를 전부
+                // 잃어, test-deploy.sh 의 롤백 판정("circular-fashion/<svc>:" 태그가 남은 이미지)에서 빠진다 —
+                // 실제로 backend/develop #137 까지 매 test 배포가 "롤백 대상 없음" 이었다 (2026-09-18 확인).
+                // frontend Jenkinsfile 과 같은 방식으로 :test-$BUILD_NUMBER 를 함께 찍는다. 쌓이는 번호 태그는
+                // deploy/master 의 scripts/prune-images.sh 크론이 서비스별 최신 5개만 남기고 정리한다.
+                sh 'docker build -f docker/Dockerfile -t $IMAGE:test -t $IMAGE:test-$BUILD_NUMBER .'
+                // 테스트 예측시장은 종료 뒤 실제 정산까지 검증해야 하므로 오라클을 켠 채 배포한다.
+                // 운영 배포는 별도 스테이지이며 이 값의 영향을 받지 않는다.
+                sh 'PREDICTION_ORACLE_ENABLED=true flock -w 900 /var/jenkins_home/cf-deploy.lock bash $DEPLOY_DIR/scripts/test-deploy.sh backend'
             }
         }
 

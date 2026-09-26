@@ -1,11 +1,5 @@
 package com.ssafy.upcycle.material.service;
 
-import com.ssafy.upcycle.common.exception.BusinessException;
-import com.ssafy.upcycle.material.MaterialErrorCode;
-import com.ssafy.upcycle.material.entity.MaterialBalance;
-import com.ssafy.upcycle.material.repository.MaterialBalanceRepository;
-import com.ssafy.upcycle.user.entity.UserWallet;
-import com.ssafy.upcycle.user.repository.UserWalletRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
@@ -31,8 +25,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class OffChainMaterialIssuer implements MaterialIssuer {
 
-    private final MaterialBalanceRepository balanceRepository;
-    private final UserWalletRepository walletRepository;
+    private final MaterialBalanceInitializer balanceInitializer;
 
     /**
      * 등록자의 활성 지갑으로 보유 행을 만든다.
@@ -47,11 +40,6 @@ public class OffChainMaterialIssuer implements MaterialIssuer {
      */
     @Override
     public void issue(Long materialId, Long ownerId, long quantity) {
-        String walletAddress = walletRepository
-                .findByUserIdAndActiveTrue(ownerId)
-                .map(UserWallet::getWalletAddress)
-                .orElseThrow(() -> new BusinessException(MaterialErrorCode.MATERIAL_WALLET_NOT_LINKED));
-
-        balanceRepository.save(MaterialBalance.of(materialId, ownerId, walletAddress, quantity));
+        balanceInitializer.open(materialId, ownerId, quantity);
     }
 }

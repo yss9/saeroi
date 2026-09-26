@@ -2,7 +2,10 @@ package com.ssafy.upcycle.trade.service;
 
 import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.material.entity.Material;
+import com.ssafy.upcycle.material.entity.MaterialEventReferenceType;
+import com.ssafy.upcycle.material.entity.MaterialEventType;
 import com.ssafy.upcycle.material.repository.MaterialRepository;
+import com.ssafy.upcycle.material.service.MaterialEventRecorder;
 import com.ssafy.upcycle.trade.TradeErrorCode;
 import com.ssafy.upcycle.trade.dto.PaymentReadyResponse;
 import com.ssafy.upcycle.trade.dto.TradeResponse;
@@ -54,12 +57,17 @@ import org.springframework.transaction.annotation.Transactional;
 public class PaymentService {
 
     private final MaterialTradeRepository tradeRepository;
+
+    /** 배치가 남기는 취소 사유. 사람이 적은 사유와 구분되어야 문의 때 원인을 바로 안다. */
+    private static final String EXPIRED_REASON = "결제 기한이 지나 자동 취소되었습니다.";
     private final ListingLockRepository listingLockRepository;
     private final MaterialRepository materialRepository;
     private final TradeResponseAssembler tradeResponseAssembler;
     private final PaymentGateway paymentGateway;
     private final KakaoPayProperties kakaoPayProperties;
     private final Clock clock;
+    private final MaterialEventRecorder eventRecorder;
+    private final TradeNotificationService businessNotifications;
 
     /**
      * 결제를 준비하고 사용자를 보낼 결제창 주소를 돌려준다. <b>구매자만 할 수 있다.</b>
@@ -134,6 +142,13 @@ public class PaymentService {
                 approval.approvedAmount(),
                 approval.approvedAt(),
                 paymentGateway.isLive() ? PaymentMethod.KAKAO_PAY : PaymentMethod.MOCK);
+        eventRecorder.record(
+                trade.getMaterialId(), MaterialEventType.TRADE_PAID, buyerId,
+                MaterialEventReferenceType.MATERIAL_TRADE, trade.getId(), null,
+                trade.getQuantity(), "소재 거래 결제 승인",
+                MaterialEventRecorder.key(
+                        MaterialEventType.TRADE_PAID, trade.getMaterialId(), trade.getId()));
+        businessNotifications.paid(trade);
         return tradeResponseAssembler.of(trade);
     }
 
@@ -171,7 +186,54 @@ public class PaymentService {
         trade.cancel(reason, LocalDateTime.now(clock));
         restoreListingQuantity(trade);
 
+        eventRecorder.record(
+                trade.getMaterialId(), MaterialEventType.TRADE_CANCELED, userId,
+                MaterialEventReferenceType.MATERIAL_TRADE, trade.getId(), null,
+                trade.getQuantity(), reason,
+                MaterialEventRecorder.key(
+                        MaterialEventType.TRADE_CANCELED, trade.getMaterialId(), trade.getId()));
+        businessNotifications.canceled(trade, userId);
+
         return tradeResponseAssembler.of(trade);
+    }
+
+    /**
+     * 결제 마감을 넘긴 거래를 정리한다. <b>배치 전용 진입점이다.</b>
+     *
+     * <p>{@link #cancel} 을 그대로 쓸 수 없다. 그쪽은 당사자인지 검사하는데 배치에는
+     * 사람이 없고, 시스템 계정을 지어내면 이력의 "누가 취소했는가" 가 거짓이 된다.
+     *
+     * <p><b>행을 잠그고 마감을 다시 확인한다.</b> 배치가 목록을 읽은 뒤 사용자가 그 사이에
+     * 결제를 마쳤을 수 있다. 상태만 보면 그 결제를 취소해 버린다.
+     *
+     * <p>환불은 하지 않는다 — {@code CREATED} 는 청구가 없는 상태이고, 마감을 넘긴 거래는
+     * 정의상 결제되지 않은 것이다.
+     *
+     * <p><b>체인의 예약은 여기서 못 푼다.</b> {@code cancelOrder} 가 당사자 서명을 요구해
+     * 서버가 대신할 수 없다. 서버 수량만 돌아오고 체인에는 예약이 남으므로, 구매자가
+     * 거래 상세에서 직접 해제해야 한다.
+     */
+    @Transactional
+    public void expire(Long tradeId) {
+        MaterialTrade trade = tradeRepository.findByIdForUpdate(tradeId)
+                .filter(found -> found.isPaymentExpiredAt(LocalDateTime.now(clock)))
+                .orElse(null);
+        if (trade == null) {
+            return;
+        }
+
+        trade.cancel(EXPIRED_REASON, LocalDateTime.now(clock));
+        restoreListingQuantity(trade);
+
+        // 이력의 주체는 구매자다. 그가 결제를 포기해서 생긴 취소이고, 시스템 계정을 만들면
+        // 나중에 이력을 읽는 사람이 없는 사용자를 찾게 된다.
+        eventRecorder.record(
+                trade.getMaterialId(), MaterialEventType.TRADE_CANCELED, trade.getBuyerId(),
+                MaterialEventReferenceType.MATERIAL_TRADE, trade.getId(), null,
+                trade.getQuantity(), EXPIRED_REASON,
+                MaterialEventRecorder.key(
+                        MaterialEventType.TRADE_CANCELED, trade.getMaterialId(), trade.getId()));
+        businessNotifications.canceled(trade, trade.getBuyerId());
     }
 
     /**

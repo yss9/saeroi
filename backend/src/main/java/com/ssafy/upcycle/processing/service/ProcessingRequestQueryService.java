@@ -14,6 +14,8 @@ import com.ssafy.upcycle.user.entity.UserRole;
 import com.ssafy.upcycle.user.repository.UserRepository;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -56,8 +58,8 @@ public class ProcessingRequestQueryService {
                 (String) first.get("material_name"), MaterialType.valueOf((String) first.get("material_type")),
                 ((Number) first.get("quantity")).longValue(), processTypes,
                 ProcessingRequestStatus.valueOf((String) first.get("status")),
-                ((java.sql.Timestamp) first.get("created_at")).toLocalDateTime(),
-                ((java.sql.Timestamp) first.get("expires_at")).toLocalDateTime());
+                localDateTime(first.get("created_at")),
+                localDateTime(first.get("expires_at")));
     }
 
     @Transactional(readOnly = true)
@@ -131,6 +133,13 @@ public class ProcessingRequestQueryService {
         } catch (NumberFormatException exception) {
             throw new BusinessException(PROCESSING_INVALID_QUERY);
         }
+    }
+
+    private static LocalDateTime localDateTime(Object value) {
+        if (value instanceof LocalDateTime localDateTime) return localDateTime;
+        if (value instanceof Timestamp timestamp) return timestamp.toLocalDateTime();
+        throw new IllegalStateException("Unsupported processing request timestamp value: "
+                + (value == null ? "null" : value.getClass().getName()));
     }
 
     private ItemBuilder mapItem(ResultSet rs) {

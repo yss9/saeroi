@@ -1,6 +1,7 @@
 package com.ssafy.upcycle.material.repository;
 
 import com.ssafy.upcycle.material.entity.MaterialLineage;
+import java.util.Collection;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -18,6 +19,15 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface MaterialLineageRepository extends JpaRepository<MaterialLineage, Long> {
 
     List<MaterialLineage> findAllByChildMaterialId(Long childMaterialId);
+
+    /**
+     * 여러 자식의 부모 간선을 한 번에 읽는다. 소재 목록의 가공 이력처럼 <b>여러 소재의 혈통을
+     * 동시에</b> 거슬러 올라갈 때 쓴다 — 소재마다 위 메서드를 부르면 세대마다 N+1 이 된다.
+     *
+     * <p>세대별로 한 번씩 부르는 것이 전제다. 재귀를 두지 않는다는 이 인터페이스의 방침은
+     * 그대로다.
+     */
+    List<MaterialLineage> findAllByChildMaterialIdIn(Collection<Long> childMaterialIds);
 
     List<MaterialLineage> findAllByParentMaterialId(Long parentMaterialId);
 }

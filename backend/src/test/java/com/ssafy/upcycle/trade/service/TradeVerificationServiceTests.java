@@ -96,6 +96,6 @@ class TradeVerificationServiceTests {
     private MaterialTrade trade(String tradeCode, long materialId) {
         return MaterialTrade.create(
                 tradeCode, 1L, materialId, 10L, 11L,
-                SELLER_WALLET, BUYER_WALLET, 20_000L, 200_000L, PaymentMethod.MOCK);
+                SELLER_WALLET, BUYER_WALLET, 20_000L, 200_000L, PaymentMethod.MOCK, LocalDateTime.now().plusMinutes(30));
     }
 }

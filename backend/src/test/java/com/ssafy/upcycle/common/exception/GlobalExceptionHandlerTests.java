@@ -179,6 +179,34 @@ class GlobalExceptionHandlerTests {
     }
 
     @Test
+    void handlesPathVariableTypeMismatchAsBadRequestNotServerError() throws Exception {
+        // /brands/{id} 처럼 Long 경로변수에 숫자로 못 바꾸는 값이 오면 500 이 아니라 400 이어야
+        // 한다. 이 방어가 없으면 permitAll 경로에서 인증 없이 ERROR 로그를 무한히 채울 수 있다.
+        mockMvc.perform(get("/test/type-mismatch/1e10"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.data").doesNotExist());
+    }
+
+    @Test
+    void handlesPathVariableOverflowAsBadRequest() throws Exception {
+        mockMvc.perform(get("/test/type-mismatch/99999999999999999999"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    void handlesUnsupportedMediaTypeAsFourFifteenNotServerError() throws Exception {
+        // JSON 을 기대하는 엔드포인트에 text/plain 이 오면 500 이 아니라 415 여야 한다.
+        mockMvc.perform(post("/test/validation")
+                        .contentType(MediaType.TEXT_PLAIN)
+                        .content("{\"name\":\"x\"}"))
+                .andExpect(status().isUnsupportedMediaType())
+                .andExpect(jsonPath("$.code").value("UNSUPPORTED_MEDIA_TYPE"))
+                .andExpect(jsonPath("$.data").doesNotExist());
+    }
+
+    @Test
     void handlesUnsupportedMethod() {
         HttpRequestMethodNotSupportedException exception =
                 new HttpRequestMethodNotSupportedException("PATCH", List.of("GET"));
@@ -211,6 +239,11 @@ class GlobalExceptionHandlerTests {
         @GetMapping("/business")
         ApiResponse<Void> business() {
             throw new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND);
+        }
+
+        @GetMapping("/type-mismatch/{id}")
+        ApiResponse<Void> typeMismatch(@org.springframework.web.bind.annotation.PathVariable Long id) {
+            return ApiResponse.success(null);
         }
 
         @GetMapping("/unexpected")

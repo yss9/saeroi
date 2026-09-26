@@ -3,6 +3,7 @@ package com.ssafy.upcycle.trade.repository;
 import com.ssafy.upcycle.trade.entity.MaterialTrade;
 import com.ssafy.upcycle.trade.entity.TradeStatus;
 import jakarta.persistence.LockModeType;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -24,6 +25,11 @@ public interface MaterialTradeRepository extends JpaRepository<MaterialTrade, Lo
 
     List<MaterialTrade> findAllByListingId(Long listingId);
 
+    /** 공개 Journey 가 현재 제품 브랜드로 들어온 소재의 마지막 이동을 찾을 때 쓴다. */
+    Optional<MaterialTrade>
+            findFirstByMaterialIdAndBuyerIdAndStatusOrderByReceivedAtDesc(
+                    Long materialId, Long buyerId, TradeStatus status);
+
     /**
      * 이 소재에 구매자가 서명한 거래가 있는지. 소재의 검증 단계 판정에 쓴다.
      *
@@ -42,4 +48,22 @@ public interface MaterialTradeRepository extends JpaRepository<MaterialTrade, Lo
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select trade from MaterialTrade trade where trade.id = :id")
     Optional<MaterialTrade> findByIdForUpdate(@Param("id") Long id);
+
+    /**
+     * 결제 마감을 넘긴 미결제 거래. 배치가 이 목록을 취소하며 판매 글 수량을 되돌린다.
+     *
+     * <p>이 정리가 없으면 결제창까지 가지 않고 이탈한 거래마다 수량이 영구히 잠긴다 —
+     * 남은 양을 전부 사려던 거래였다면 판매 글이 그대로 품절로 보인다.
+     *
+     * <p>{@code payment_deadline is not null} 을 함께 보는 이유는 이 컬럼이 나중에
+     * 생겼기 때문이다. 마이그레이션이 기존 CREATED 행에 마감을 소급해 넣지만, 그 뒤에도
+     * 어떤 경로로든 비어 있는 행이 생기면 배치가 건드리지 않아야 한다.
+     */
+    @Query("""
+            select trade from MaterialTrade trade
+            where trade.status = com.ssafy.upcycle.trade.entity.TradeStatus.CREATED
+              and trade.paymentDeadline is not null
+              and trade.paymentDeadline <= :at
+            """)
+    List<MaterialTrade> findExpiredUnpaid(@Param("at") LocalDateTime at);
 }

@@ -28,6 +28,10 @@ public enum MaterialErrorCode implements ErrorCode {
             "소재를 등록할 수 없는 계정입니다."),
     MATERIAL_QUANTITY_INVALID(
             HttpStatus.BAD_REQUEST, "MATERIAL_QUANTITY_INVALID", "수량이 올바르지 않습니다."),
+    MATERIAL_EVENT_QUERY_INVALID(
+            HttpStatus.BAD_REQUEST,
+            "MATERIAL_EVENT_QUERY_INVALID",
+            "소재 이력 조회 조건이 올바르지 않습니다."),
     MATERIAL_LINEAGE_MULTIPLE_PARENTS(
             HttpStatus.CONFLICT,
             "MATERIAL_LINEAGE_MULTIPLE_PARENTS",
@@ -61,7 +65,37 @@ public enum MaterialErrorCode implements ErrorCode {
     MATERIAL_WALLET_NOT_LINKED(
             HttpStatus.CONFLICT,
             "MATERIAL_WALLET_NOT_LINKED",
-            "지갑을 먼저 등록해야 소재를 등록할 수 있습니다.");
+            "지갑을 먼저 등록해야 소재를 등록할 수 있습니다."),
+
+    /**
+     * 온체인에 발행되지 않은(mint confirm 이 안 된) 소재를 출처 검증하려는 경우.
+     *
+     * <p>{@code verifySource(tokenId, ...)} 자체가 {@code tokenId} 를 요구하므로,
+     * mint 가 먼저 확정되지 않은 소재는 검증 대상이 될 수 없다.
+     */
+    MATERIAL_NOT_ON_CHAIN(
+            HttpStatus.CONFLICT,
+            "MATERIAL_NOT_ON_CHAIN",
+            "온체인에 발행되지 않은 소재는 출처 검증을 할 수 없습니다."),
+
+    /** 이미 verifySource 가 확정된 소재를 다시 확정하려는 경우. */
+    MATERIAL_SOURCE_ALREADY_VERIFIED(
+            HttpStatus.CONFLICT,
+            "MATERIAL_SOURCE_ALREADY_VERIFIED",
+            "이미 출처 검증이 완료된 소재입니다."),
+
+    /**
+     * 이미 <b>다른</b> 소재의 {@code verifySource} 확정에 쓰인 txHash 를 다시 제출한 경우.
+     *
+     * <p>같은 소재를 다시 확정하는 것은 이 코드가 아니라
+     * {@code MATERIAL_SOURCE_ALREADY_VERIFIED} 로 걸린다. 실제 블록체인 트랜잭션 해시는
+     * 한 번의 실행에만 대응하므로 서로 다른 소재가 같은 해시를 정당하게 공유할 시나리오는
+     * 없다 — 위조이거나 클라이언트 버그다.
+     */
+    MATERIAL_SOURCE_VERIFICATION_TX_HASH_REUSED(
+            HttpStatus.CONFLICT,
+            "MATERIAL_SOURCE_VERIFICATION_TX_HASH_REUSED",
+            "이미 다른 소재의 출처 검증에 사용된 트랜잭션입니다.");
 
     private final HttpStatus status;
     private final String code;

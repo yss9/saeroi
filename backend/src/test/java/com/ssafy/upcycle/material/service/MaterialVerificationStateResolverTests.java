@@ -3,6 +3,7 @@ package com.ssafy.upcycle.material.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.ssafy.upcycle.material.entity.MaterialVerificationState;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -17,7 +18,7 @@ class MaterialVerificationStateResolverTests {
 
     @Test
     void signedTradeRaisesTheMaterialToTransactionVerified() {
-        MaterialVerificationStateResolver resolver = resolverWith(true, false);
+        MaterialVerificationStateResolver resolver = resolverWith(false, true, false);
 
         assertThat(resolver.resolve(1L))
                 .isEqualTo(MaterialVerificationState.TRANSACTION_VERIFIED);
@@ -25,14 +26,14 @@ class MaterialVerificationStateResolverTests {
 
     @Test
     void onChainVerifySourceRaisesTheMaterialToSourceVerified() {
-        MaterialVerificationStateResolver resolver = resolverWith(false, true);
+        MaterialVerificationStateResolver resolver = resolverWith(false, false, true);
 
         assertThat(resolver.resolve(1L)).isEqualTo(MaterialVerificationState.SOURCE_VERIFIED);
     }
 
     @Test
     void materialWithNoEvidenceStaysRegistered() {
-        MaterialVerificationStateResolver resolver = resolverWith(false, false);
+        MaterialVerificationStateResolver resolver = resolverWith(false, false, false);
 
         assertThat(resolver.resolve(1L)).isEqualTo(MaterialVerificationState.REGISTERED);
     }
@@ -45,7 +46,7 @@ class MaterialVerificationStateResolverTests {
      */
     @Test
     void higherStageWinsWhenBothEvidencesExist() {
-        MaterialVerificationStateResolver resolver = resolverWith(true, true);
+        MaterialVerificationStateResolver resolver = resolverWith(false, true, true);
 
         assertThat(resolver.resolve(1L))
                 .isEqualTo(MaterialVerificationState.TRANSACTION_VERIFIED);
@@ -57,14 +58,15 @@ class MaterialVerificationStateResolverTests {
         Long[] askedTrade = new Long[1];
         Long[] askedChain = new Long[1];
         MaterialVerificationStateResolver resolver = new MaterialVerificationStateResolver(
+                materialId -> false,
                 materialId -> {
                     askedTrade[0] = materialId;
                     return false;
                 },
-                materialId -> {
+                blockchainVerificationStub(materialId -> {
                     askedChain[0] = materialId;
                     return false;
-                });
+                }));
 
         resolver.resolve(42L);
 
@@ -80,21 +82,46 @@ class MaterialVerificationStateResolverTests {
      * 누군가 판정할 수 없는 것을 판정하기 시작한 것이다.
      */
     @Test
-    void neverReportsStagesThatHaveNoEvidenceSource() {
+    void confirmedProcessingResultRaisesTheOutputToProcessingVerified() {
+        assertThat(resolverWith(true, true, true).resolve(1L))
+                .isEqualTo(MaterialVerificationState.PROCESSING_VERIFIED);
+    }
+
+    @Test
+    void neverReportsProductLinkedWithoutItsEvidenceSource() {
         for (boolean trade : new boolean[] {true, false}) {
             for (boolean chain : new boolean[] {true, false}) {
-                assertThat(resolverWith(trade, chain).resolve(1L))
+                assertThat(resolverWith(false, trade, chain).resolve(1L))
                         .as("trade=%s chain=%s", trade, chain)
-                        .isNotIn(
-                                MaterialVerificationState.PROCESSING_VERIFIED,
-                                MaterialVerificationState.PRODUCT_LINKED);
+                        .isNotEqualTo(MaterialVerificationState.PRODUCT_LINKED);
             }
         }
     }
 
     private MaterialVerificationStateResolver resolverWith(
-            boolean hasSignedTrade, boolean hasVerifiedSource) {
+            boolean hasConfirmedProcessing, boolean hasSignedTrade, boolean hasVerifiedSource) {
         return new MaterialVerificationStateResolver(
-                materialId -> hasSignedTrade, materialId -> hasVerifiedSource);
+                materialId -> hasConfirmedProcessing,
+                materialId -> hasSignedTrade, blockchainVerificationStub(materialId -> hasVerifiedSource));
+    }
+
+    /**
+     * {@link BlockchainVerification} 은 근거 조회({@code findSourceVerification})가
+     * 추가되면서 더 이상 단일 추상 메서드가 아니다 — 판정 사다리 테스트는
+     * {@code hasVerifiedSource} 만 스텁하면 되므로 근거 조회는 항상 빈 값으로 둔다.
+     */
+    private BlockchainVerification blockchainVerificationStub(
+            java.util.function.Function<Long, Boolean> hasVerifiedSource) {
+        return new BlockchainVerification() {
+            @Override
+            public boolean hasVerifiedSource(Long materialId) {
+                return hasVerifiedSource.apply(materialId);
+            }
+
+            @Override
+            public Optional<SourceVerificationEvidence> findSourceVerification(Long materialId) {
+                return Optional.empty();
+            }
+        };
     }
 }

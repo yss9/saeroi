@@ -71,7 +71,22 @@ public enum EvidenceErrorCode implements ErrorCode {
     EVIDENCE_ANCHORED_ON_CHAIN(
             HttpStatus.CONFLICT,
             "EVIDENCE_ANCHORED_ON_CHAIN",
-            "온체인에 기록된 증빙은 지울 수 없습니다.");
+            "온체인에 기록된 증빙은 지울 수 없습니다."),
+
+    /**
+     * 저장소 바이트를 다시 해시해 보니 업로드 시점에 기록한 {@code file_hash} 와 다르다.
+     *
+     * <p>{@code 500} 이다. 요청이 틀린 것도({@code 400}) 권한 문제도({@code 403}) 요청이
+     * 대상의 정상적인 상태와 충돌하는 것도({@code 409}, {@link #EVIDENCE_ANCHORED_ON_CHAIN}
+     * 참고) 아니다 — <b>우리가 기록한 것과 우리가 지금 갖고 있는 것이 다르다</b>는,
+     * 저장소든 디스크든 <b>서버 쪽에서 뭔가 깨졌다는 뜻</b>이다. {@code FILE_STORAGE_FAILED}
+     * 와 같은 성격이라 같은 상태 코드를 쓴다 — 재시도한다고 달라지지 않고, 사람이
+     * 원인(변조·손상)을 봐야 한다.
+     */
+    EVIDENCE_INTEGRITY_VIOLATION(
+            HttpStatus.INTERNAL_SERVER_ERROR,
+            "EVIDENCE_INTEGRITY_VIOLATION",
+            "증빙 파일이 저장된 이후 변조된 것으로 보여 내용을 내려줄 수 없습니다.");
 
     private final HttpStatus status;
     private final String code;

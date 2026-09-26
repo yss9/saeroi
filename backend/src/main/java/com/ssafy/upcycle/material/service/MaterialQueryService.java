@@ -4,13 +4,17 @@ import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.material.MaterialErrorCode;
 import com.ssafy.upcycle.material.dto.MaterialBalanceResponse;
 import com.ssafy.upcycle.material.dto.MaterialDetailResponse;
+import com.ssafy.upcycle.material.dto.MaterialVerificationResponse;
 import com.ssafy.upcycle.material.dto.MyMaterialResponse;
 import com.ssafy.upcycle.material.entity.Material;
+import com.ssafy.upcycle.material.entity.MaterialVerificationState;
 import com.ssafy.upcycle.material.repository.MaterialBalanceQueryRepository;
 import com.ssafy.upcycle.material.repository.MaterialCompositionRepository;
 import com.ssafy.upcycle.material.repository.MaterialBalanceRepository;
 import com.ssafy.upcycle.material.repository.MaterialRepository;
+import com.ssafy.upcycle.processing.entity.ProcessType;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,7 +34,9 @@ public class MaterialQueryService {
     private final MaterialBalanceRepository materialBalanceRepository;
     private final MaterialBalanceQueryRepository materialBalanceQueryRepository;
     private final MaterialVerificationStateResolver verificationStateResolver;
+    private final BlockchainVerification blockchainVerification;
     private final MaterialCompositionRepository materialCompositionRepository;
+    private final MaterialProcessHistoryResolver processHistoryResolver;
 
     /**
      * 소재 상세.
@@ -51,12 +57,31 @@ public class MaterialQueryService {
         Material material = materialRepository
                 .findById(materialId)
                 .orElseThrow(() -> new BusinessException(MaterialErrorCode.MATERIAL_NOT_FOUND));
+        MaterialVerificationState verificationState = verificationStateResolver.resolve(materialId);
         return MaterialDetailResponse.of(
                 material,
                 materialBalanceRepository.findAllByMaterialId(materialId),
                 materialCompositionRepository
                         .findByMaterialIdOrderByPercentageDescFiberTypeAsc(materialId),
-                verificationStateResolver.resolve(materialId));
+                processHistoryResolver.resolve(materialId),
+                verificationState,
+                verificationEvidence(materialId, verificationState));
+    }
+
+    /**
+     * {@code SOURCE_VERIFIED} 일 때만 근거를 채운다. 다른 단은 근거의 종류가 달라
+     * (거래 서명 등) {@link MaterialVerificationResponse} 의 모양(지갑·Tx 해시)이 맞지
+     * 않는다 — {@code null} 로 둔다.
+     */
+    private MaterialVerificationResponse verificationEvidence(
+            Long materialId, MaterialVerificationState state) {
+        if (state != MaterialVerificationState.SOURCE_VERIFIED) {
+            return null;
+        }
+        return blockchainVerification
+                .findSourceVerification(materialId)
+                .map(evidence -> MaterialVerificationResponse.of(state, evidence))
+                .orElse(null);
     }
 
     /**
@@ -84,6 +109,14 @@ public class MaterialQueryService {
      */
     @Transactional(readOnly = true)
     public List<MyMaterialResponse> findMyMaterials(Long ownerId) {
-        return materialBalanceQueryRepository.findMyMaterials(ownerId);
+        List<MyMaterialResponse> held = materialBalanceQueryRepository.findMyMaterials(ownerId);
+        // 목록 전체를 한 번에 넘긴다. 소재마다 불러 혈통을 올라가면
+        // 세대마다 쿼리가 목록 길이만큼 늘어난다.
+        Map<Long, List<ProcessType>> processTypes = processHistoryResolver.resolveAll(
+                held.stream().map(MyMaterialResponse::materialId).toList());
+        return held.stream()
+                .map(row -> row.withCompletedProcessTypes(
+                        processTypes.getOrDefault(row.materialId(), List.of())))
+                .toList();
     }
 }

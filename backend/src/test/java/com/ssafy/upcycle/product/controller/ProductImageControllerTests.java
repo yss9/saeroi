@@ -15,13 +15,15 @@ import com.ssafy.upcycle.common.storage.FileStorageService;
 import com.ssafy.upcycle.user.entity.User;
 import com.ssafy.upcycle.user.entity.UserRole;
 import com.ssafy.upcycle.user.repository.UserRepository;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import javax.imageio.ImageIO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -54,7 +56,22 @@ class ProductImageControllerTests {
 
     private static final String UPLOAD_PATH = "/api/v1/product-images";
     private static final String MODEL_PATH = "/api/v1/product-models";
-    private static final byte[] JPEG = "photo-bytes".getBytes(StandardCharsets.UTF_8);
+    /**
+     * 실제로 디코딩 가능한 최소 JPEG. 썸네일 생성이 Thumbnailator 로 진짜 디코딩을
+     * 시도하므로, 임의의 바이트열은 더 이상 "jpeg 인 척"으로 통과하지 않는다.
+     */
+    private static final byte[] JPEG = realJpeg();
+
+    private static byte[] realJpeg() {
+        try {
+            BufferedImage image = new BufferedImage(2, 2, BufferedImage.TYPE_INT_RGB);
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            ImageIO.write(image, "jpeg", out);
+            return out.toByteArray();
+        } catch (IOException e) {
+            throw new IllegalStateException("테스트용 JPEG 를 만들 수 없다", e);
+        }
+    }
 
     /**
      * 저장 루트를 임시 디렉터리로 돌린다. 기본값이 {@code /app/files} 라 그대로 두면
@@ -136,10 +153,11 @@ class ProductImageControllerTests {
 
     @Test
     void uploadsAJpegAndReturnsItsStorageKey() throws Exception {
+        // 응답의 storageKey·size·hash 는 원본이 아니라 목록용으로 생성된 썸네일 기준이다
+        // — 등록 요청의 thumbnailUrl 에 그대로 들어가는 것이 이 썸네일 키이기 때문이다.
         String response = upload(brandToken, jpeg())
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.contentType").value("image/jpeg"))
-                .andExpect(jsonPath("$.data.size").value(JPEG.length))
                 // 해시는 0x + 64자다. 온체인 비교 형식과 같다.
                 .andExpect(jsonPath("$.data.hash").value(startsWith("0x")))
                 .andReturn()
@@ -205,7 +223,10 @@ class ProductImageControllerTests {
                 .getResponse()
                 .getContentAsByteArray();
 
-        assertThat(served).isEqualTo(JPEG);
+        // 등록된 thumbnailUrl 은 업로드 원본이 아니라 그때 생성된 썸네일의 키다 — 서빙되는
+        // 바이트도 원본과 같지 않고, 리사이즈를 거친 유효한 JPEG 여야 한다.
+        assertThat(served).isNotEmpty();
+        assertThat(ImageIO.read(new java.io.ByteArrayInputStream(served))).isNotNull();
     }
 
     @Test

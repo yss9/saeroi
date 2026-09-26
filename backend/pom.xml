@@ -21,6 +21,7 @@
         <aws.sdk.version>2.29.52</aws.sdk.version>
         <java.version>21</java.version>
         <querydsl.version>5.1.0</querydsl.version>
+        <zxing.version>3.5.3</zxing.version>
         <web3j.version>4.12.3</web3j.version>
     </properties>
 
@@ -89,14 +90,38 @@
             <scope>provided</scope>
         </dependency>
         <!--
-            지갑 서명 검증(ecrecover)에만 쓴다. web3j:core 가 아니라 crypto 모듈만 넣는다 —
-            노드 RPC 클라이언트는 필요 없고, secp256k1 복구와 EIP-191 프리픽스 처리만 있으면 된다.
-            BouncyCastle 이 전이 의존으로 딸려 온다.
+            crypto 는 지갑 서명 검증(ecrecover)에 사용한다. core 는 관리자의 사업자 승인 시
+            배포 지갑으로 AccessControl.grantRole 트랜잭션을 서명·전송하는 데 사용한다.
         -->
         <dependency>
             <groupId>org.web3j</groupId>
             <artifactId>crypto</artifactId>
             <version>${web3j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.web3j</groupId>
+            <artifactId>core</artifactId>
+            <version>${web3j.version}</version>
+        </dependency>
+        <!--
+            제품 QR 이미지 생성에만 쓴다. core 가 인코딩을, javase 가 BitMatrix 를 PNG 로
+            옮기는 일을 맡는다 — 스캔(디코딩)은 사용자의 휴대폰 카메라가 하므로 서버에는
+            필요 없지만, 만든 QR 이 실제로 읽히는지 확인하는 테스트가 core 의 디코더를 쓴다.
+        -->
+        <dependency>
+            <groupId>com.google.zxing</groupId>
+            <artifactId>core</artifactId>
+            <version>${zxing.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.zxing</groupId>
+            <artifactId>javase</artifactId>
+            <version>${zxing.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>net.coobird</groupId>
+            <artifactId>thumbnailator</artifactId>
+            <version>[0.4, 0.5)</version>
         </dependency>
         <dependency>
             <groupId>com.mysql</groupId>

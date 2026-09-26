@@ -7,6 +7,7 @@ import com.ssafy.upcycle.evidence.entity.EvidenceReferenceType;
 import com.ssafy.upcycle.material.entity.Material;
 import com.ssafy.upcycle.material.repository.MaterialBalanceRepository;
 import com.ssafy.upcycle.material.repository.MaterialRepository;
+import com.ssafy.upcycle.processing.repository.ProcessingJobRepository;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -55,11 +56,26 @@ public class EvidenceAccessPolicy {
 
     private final MaterialRepository materialRepository;
     private final MaterialBalanceRepository materialBalanceRepository;
+    private final ProcessingJobRepository processingJobRepository;
 
-    /** 조회 권한. 통과하지 못하면 {@code 403}. */
+    /**
+     * 조회 권한. 통과하지 못하면 {@code 403}.
+     *
+     * <p><b>사진류는 관계를 묻지 않는다</b> ({@link EvidenceType#isPubliclyViewablePhoto}).
+     * 마켓플레이스를 구경하는 쪽은 아직 등록자도 보유자도 아니라, 이 예외가 없으면 사진
+     * 없이 사라고 하는 셈이 된다. 계근표·거래명세서 같은 문서는 이 예외에 들지 않아
+     * 여전히 관계가 있어야 한다.
+     */
     public void requireReadable(Long requesterId, EvidenceFile evidence) {
         if (isUploader(requesterId, evidence)) {
             return;
+        }
+        if (evidence.getEvidenceType().isPubliclyViewablePhoto()) {
+            return;
+        }
+        if (evidence.getReferenceType() == EvidenceReferenceType.PROCESSING_JOB) {
+            if (isProcessingParty(requesterId, evidence.getReferenceId())) return;
+            throw new BusinessException(EvidenceErrorCode.EVIDENCE_ACCESS_FORBIDDEN);
         }
         if (!isRelated(requesterId, requireCheckableMaterial(evidence))) {
             throw new BusinessException(EvidenceErrorCode.EVIDENCE_ACCESS_FORBIDDEN);
@@ -92,6 +108,9 @@ public class EvidenceAccessPolicy {
             List<EvidenceFile> evidence) {
         if (evidence.stream().anyMatch(file -> isUploader(requesterId, file))) {
             return true;
+        }
+        if (referenceType == EvidenceReferenceType.PROCESSING_JOB) {
+            return isProcessingParty(requesterId, referenceId);
         }
         return findCheckableMaterial(referenceType, referenceId)
                 .filter(material -> isRelated(requesterId, material))
@@ -131,6 +150,8 @@ public class EvidenceAccessPolicy {
         if (isUploader(requesterId, evidence)) {
             return;
         }
+        if (evidence.getReferenceType() == EvidenceReferenceType.PROCESSING_JOB)
+            throw new BusinessException(EvidenceErrorCode.EVIDENCE_DELETE_FORBIDDEN);
         Material material = requireCheckableMaterial(evidence);
         if (!isRegistrant(requesterId, material)) {
             throw new BusinessException(EvidenceErrorCode.EVIDENCE_DELETE_FORBIDDEN);
@@ -165,5 +186,11 @@ public class EvidenceAccessPolicy {
 
     private static boolean isRegistrant(Long requesterId, Material material) {
         return material.getRegistrantId().equals(requesterId);
+    }
+
+    private boolean isProcessingParty(Long requesterId, Long jobId) {
+        return processingJobRepository.findById(jobId)
+                .filter(job -> requesterId.equals(job.getBrandId()) || requesterId.equals(job.getProcessorId()))
+                .isPresent();
     }
 }

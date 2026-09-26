@@ -74,10 +74,24 @@ CREATE TABLE company_profile (
     zip_code VARCHAR(20) NOT NULL,
     address VARCHAR(255) NOT NULL,
     address_detail VARCHAR(255) NULL,
+    latitude DECIMAL(10,7) NULL,
+    longitude DECIMAL(10,7) NULL,
     introduction TEXT NULL,
     logo_url VARCHAR(500) NULL,
+    role_approval_status ENUM('PENDING', 'APPROVED', 'REJECTED') NOT NULL DEFAULT 'PENDING',
+    role_approved_wallet VARCHAR(42) NULL,
+    role_approval_tx_hashes TEXT NULL,
+    role_reviewed_at DATETIME NULL,
+    role_reviewed_by BIGINT NULL,
     CONSTRAINT pk_company_profile PRIMARY KEY (user_id),
-    CONSTRAINT fk_company_profile_user FOREIGN KEY (user_id) REFERENCES users (id)
+    CONSTRAINT fk_company_profile_user FOREIGN KEY (user_id) REFERENCES users (id),
+    CONSTRAINT fk_company_profile_role_reviewer FOREIGN KEY (role_reviewed_by) REFERENCES users (id),
+    CONSTRAINT chk_company_profile_latitude
+        CHECK (latitude IS NULL OR latitude BETWEEN -90 AND 90),
+    CONSTRAINT chk_company_profile_longitude
+        CHECK (longitude IS NULL OR longitude BETWEEN -180 AND 180),
+    CONSTRAINT chk_company_profile_coordinates_pair
+        CHECK ((latitude IS NULL) = (longitude IS NULL))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE consumer_address (
@@ -131,8 +145,8 @@ CREATE TABLE processor_capability (
         'SURFACE_FINISHING',
         'REMANUFACTURING'
     ) NOT NULL,
-    min_quantity BIGINT NOT NULL,
-    max_quantity BIGINT NOT NULL,
+    daily_capacity BIGINT NOT NULL,
+    price_per_kg BIGINT NOT NULL,
     CONSTRAINT pk_processor_capability PRIMARY KEY (id),
     CONSTRAINT uk_processor_capability UNIQUE (
         processor_profile_id,
@@ -141,21 +155,9 @@ CREATE TABLE processor_capability (
     ),
     CONSTRAINT fk_processor_capability_profile FOREIGN KEY (processor_profile_id)
         REFERENCES processor_profile (user_id),
-    CONSTRAINT chk_processor_capability_quantity CHECK (
-        min_quantity >= 0 AND max_quantity >= min_quantity
+    CONSTRAINT chk_processor_capability_terms CHECK (
+        daily_capacity > 0 AND price_per_kg >= 0
     )
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-CREATE TABLE processor_lead_time (
-    id BIGINT NOT NULL AUTO_INCREMENT,
-    processor_profile_id BIGINT NOT NULL,
-    max_quantity BIGINT NOT NULL,
-    lead_days INT NOT NULL,
-    CONSTRAINT pk_processor_lead_time PRIMARY KEY (id),
-    CONSTRAINT fk_processor_lead_time_profile FOREIGN KEY (processor_profile_id)
-        REFERENCES processor_profile (user_id),
-    CONSTRAINT chk_processor_lead_time_values CHECK (max_quantity > 0 AND lead_days > 0),
-    INDEX idx_processor_lead_time_profile (processor_profile_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Material ------------------------------------------------------------------
@@ -265,6 +267,34 @@ CREATE TABLE material_lineage (
     INDEX idx_material_lineage_parent (parent_material_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- Material event journal. 기존 도메인 테이블을 대체하지 않는 append-only 조회·감사 기록이다.
+CREATE TABLE material_event (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    material_id BIGINT NOT NULL,
+    event_type VARCHAR(60) NOT NULL,
+    actor_id BIGINT NULL,
+    reference_type VARCHAR(40) NULL,
+    reference_id BIGINT NULL,
+    related_material_id BIGINT NULL,
+    quantity BIGINT NULL,
+    detail VARCHAR(500) NULL,
+    idempotency_key VARCHAR(150) NOT NULL,
+    occurred_at DATETIME NOT NULL,
+    CONSTRAINT pk_material_event PRIMARY KEY (id),
+    CONSTRAINT uk_material_event_idempotency UNIQUE (idempotency_key),
+    CONSTRAINT fk_material_event_material FOREIGN KEY (material_id) REFERENCES material (id),
+    CONSTRAINT fk_material_event_actor FOREIGN KEY (actor_id) REFERENCES users (id),
+    CONSTRAINT fk_material_event_related_material
+        FOREIGN KEY (related_material_id) REFERENCES material (id),
+    CONSTRAINT chk_material_event_quantity CHECK (quantity IS NULL OR quantity >= 0),
+    CONSTRAINT chk_material_event_reference CHECK (
+        (reference_type IS NULL AND reference_id IS NULL)
+        OR (reference_type IS NOT NULL AND reference_id IS NOT NULL)
+    ),
+    INDEX idx_material_event_timeline (material_id, occurred_at, id),
+    INDEX idx_material_event_reference (reference_type, reference_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 CREATE TABLE material_composition (
     id BIGINT NOT NULL AUTO_INCREMENT,
     material_id BIGINT NOT NULL,
@@ -297,6 +327,7 @@ CREATE TABLE evidence_file (
         'BEFORE_PHOTO',
         'AFTER_PHOTO',
         'WEIGHT_SLIP',
+        'WEIGHT_PHOTO',
         'INVOICE',
         'PROCESS_PHOTO',
         'ETC'
@@ -327,7 +358,7 @@ CREATE TABLE processing_request (
     request_code VARCHAR(30) NOT NULL,
     brand_id BIGINT NOT NULL,
     processor_id BIGINT NOT NULL,
-    status ENUM('QUOTING', 'SELECTED', 'CANCELED', 'REJECTED', 'EXPIRED') NOT NULL DEFAULT 'QUOTING',
+    status ENUM('REQUESTED', 'ACCEPTED', 'CANCELED', 'REJECTED', 'EXPIRED') NOT NULL DEFAULT 'REQUESTED',
     expires_at DATETIME NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT pk_processing_request PRIMARY KEY (id),
@@ -377,34 +408,15 @@ CREATE TABLE processing_request_type (
     CONSTRAINT chk_processing_request_type_sequence CHECK (sequence_no > 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE processing_quote (
-    id BIGINT NOT NULL AUTO_INCREMENT,
-    processing_request_id BIGINT NOT NULL,
-    processor_id BIGINT NOT NULL,
-    price BIGINT NOT NULL,
-    lead_days INT NOT NULL,
-    memo TEXT NULL,
-    status ENUM('SUBMITTED', 'SELECTED', 'REJECTED', 'EXPIRED') NOT NULL DEFAULT 'SUBMITTED',
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT pk_processing_quote PRIMARY KEY (id),
-    CONSTRAINT uk_processing_quote_request_processor UNIQUE (processing_request_id, processor_id),
-    CONSTRAINT fk_processing_quote_request FOREIGN KEY (processing_request_id)
-        REFERENCES processing_request (id),
-    CONSTRAINT fk_processing_quote_processor FOREIGN KEY (processor_id) REFERENCES users (id),
-    CONSTRAINT chk_processing_quote_values CHECK (price >= 0 AND lead_days > 0),
-    INDEX idx_processing_quote_request_status (processing_request_id, status),
-    INDEX idx_processing_quote_processor (processor_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
 CREATE TABLE processing_job (
     id BIGINT NOT NULL AUTO_INCREMENT,
     job_code VARCHAR(30) NOT NULL,
     processing_request_id BIGINT NOT NULL,
-    processing_quote_id BIGINT NOT NULL,
     brand_id BIGINT NOT NULL,
     processor_id BIGINT NOT NULL,
     brand_wallet VARCHAR(42) NOT NULL,
     processor_wallet VARCHAR(42) NOT NULL,
+    chain_job_id BIGINT NULL,
     fee BIGINT NOT NULL,
     loss_quantity BIGINT NOT NULL DEFAULT 0,
     evidence_hash CHAR(66) NULL,
@@ -415,27 +427,57 @@ CREATE TABLE processing_job (
     status ENUM(
         'CREATED',
         'PAID',
+        'ACCEPTED',
         'SHIPPED',
         'RECEIVED',
         'PROCESSING',
         'RESULT_SUBMITTED',
+        'RETURN_SHIPPED',
         'CONFIRMED',
         'REJECTED',
-        'EXPIRED'
+        'DECLINED',
+        'EXPIRED',
+        'CANCELED'
     ) NOT NULL DEFAULT 'CREATED',
     payment_expires_at DATETIME NOT NULL,
-    processor_submitted_at DATETIME NULL,
-    brand_reviewed_at DATETIME NULL,
+    accept_expires_at DATETIME NULL,
+    accepted_at DATETIME NULL,
+    declined_at DATETIME NULL,
+    decline_reason VARCHAR(500) NULL,
+    refunded_at DATETIME NULL,
+    carrier VARCHAR(50) NULL,
+    tracking_number VARCHAR(100) NULL,
+    receive_tx_hash CHAR(66) NULL,
+    receive_block_number BIGINT NULL,
+    return_carrier VARCHAR(50) NULL,
+    return_tracking_number VARCHAR(100) NULL,
+    return_shipping_evidence_hash CHAR(66) NULL,
+    return_ship_tx_hash CHAR(66) NULL,
+    return_ship_block_number BIGINT NULL,
+    return_receive_tx_hash CHAR(66) NULL,
+    return_receive_block_number BIGINT NULL,
+    result_revision INT NOT NULL DEFAULT 0,
+    rejection_reason VARCHAR(500) NULL,
+    result_submit_signature VARCHAR(132) NULL,
+    approval_signature VARCHAR(132) NULL,
+    rejection_signature VARCHAR(132) NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     shipped_at DATETIME NULL,
     received_at DATETIME NULL,
+    started_at DATETIME NULL,
+    result_drafted_at DATETIME NULL,
+    result_submitted_at DATETIME NULL,
+    rejected_at DATETIME NULL,
+    return_shipped_at DATETIME NULL,
     completed_at DATETIME NULL,
     CONSTRAINT pk_processing_job PRIMARY KEY (id),
     CONSTRAINT uk_processing_job_code UNIQUE (job_code),
-    CONSTRAINT uk_processing_job_quote UNIQUE (processing_quote_id),
+    CONSTRAINT uk_processing_job_chain UNIQUE (chain_job_id),
+    CONSTRAINT uk_processing_job_receive_tx UNIQUE (receive_tx_hash),
+    CONSTRAINT uk_processing_job_return_ship_tx UNIQUE (return_ship_tx_hash),
+    CONSTRAINT uk_processing_job_return_receive_tx UNIQUE (return_receive_tx_hash),
     CONSTRAINT fk_processing_job_request FOREIGN KEY (processing_request_id)
         REFERENCES processing_request (id),
-    CONSTRAINT fk_processing_job_quote FOREIGN KEY (processing_quote_id) REFERENCES processing_quote (id),
     CONSTRAINT fk_processing_job_brand FOREIGN KEY (brand_id) REFERENCES users (id),
     CONSTRAINT fk_processing_job_processor FOREIGN KEY (processor_id) REFERENCES users (id),
     CONSTRAINT chk_processing_job_amounts CHECK (
@@ -444,7 +486,8 @@ CREATE TABLE processing_job (
     CONSTRAINT chk_processing_job_parties CHECK (brand_id <> processor_id),
     INDEX idx_processing_job_processor_status (processor_id, status),
     INDEX idx_processing_job_brand_status (brand_id, status),
-    INDEX idx_processing_job_status_payment_expiry (status, payment_expires_at)
+    INDEX idx_processing_job_status_payment_expiry (status, payment_expires_at),
+    INDEX idx_processing_job_status_accept_expiry (status, accept_expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE processing_input (
@@ -452,12 +495,14 @@ CREATE TABLE processing_input (
     processing_job_id BIGINT NOT NULL,
     material_id BIGINT NOT NULL,
     quantity BIGINT NOT NULL,
-    material_lock_id BIGINT NOT NULL,
+    brand_material_lock_id BIGINT NOT NULL,
+    processor_material_lock_id BIGINT NULL,
     CONSTRAINT pk_processing_input PRIMARY KEY (id),
     CONSTRAINT uk_processing_input_job_input UNIQUE (processing_job_id, id),
     CONSTRAINT fk_processing_input_job FOREIGN KEY (processing_job_id) REFERENCES processing_job (id),
     CONSTRAINT fk_processing_input_material FOREIGN KEY (material_id) REFERENCES material (id),
-    CONSTRAINT fk_processing_input_lock FOREIGN KEY (material_lock_id) REFERENCES material_lock (id),
+    CONSTRAINT fk_processing_input_brand_lock FOREIGN KEY (brand_material_lock_id) REFERENCES material_lock (id),
+    CONSTRAINT fk_processing_input_processor_lock FOREIGN KEY (processor_material_lock_id) REFERENCES material_lock (id),
     CONSTRAINT chk_processing_input_quantity CHECK (quantity > 0),
     INDEX idx_processing_input_job (processing_job_id),
     INDEX idx_processing_input_material (material_id)
@@ -470,16 +515,38 @@ CREATE TABLE processing_output (
     output_material_id BIGINT NULL,
     material_type VARCHAR(50) NOT NULL,
     grade VARCHAR(50) NOT NULL,
+    grade_reason VARCHAR(500) NOT NULL,
     name VARCHAR(200) NOT NULL,
     quantity BIGINT NOT NULL,
     CONSTRAINT pk_processing_output PRIMARY KEY (id),
     CONSTRAINT fk_processing_output_job_input FOREIGN KEY (processing_job_id, processing_input_id)
         REFERENCES processing_input (processing_job_id, id),
     CONSTRAINT fk_processing_output_material FOREIGN KEY (output_material_id) REFERENCES material (id),
-    CONSTRAINT chk_processing_output_quantity CHECK (quantity >= 0),
+    CONSTRAINT chk_processing_output_quantity CHECK (quantity > 0),
     INDEX idx_processing_output_job_input (processing_job_id, processing_input_id),
     INDEX idx_processing_output_input (processing_input_id),
     INDEX idx_processing_output_material (output_material_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE processing_signature_challenge (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    processing_job_id BIGINT NOT NULL,
+    actor_id BIGINT NOT NULL,
+    action ENUM('RESULT_SUBMIT', 'APPROVE', 'REJECT') NOT NULL,
+    wallet_address VARCHAR(42) NOT NULL,
+    chain_id BIGINT NOT NULL,
+    result_revision INT NOT NULL,
+    payload_hash CHAR(64) NOT NULL,
+    nonce CHAR(32) NOT NULL,
+    message TEXT NOT NULL,
+    expires_at DATETIME NOT NULL,
+    used_at DATETIME NULL,
+    CONSTRAINT pk_processing_signature_challenge PRIMARY KEY (id),
+    CONSTRAINT fk_processing_signature_job FOREIGN KEY (processing_job_id) REFERENCES processing_job (id),
+    CONSTRAINT fk_processing_signature_actor FOREIGN KEY (actor_id) REFERENCES users (id),
+    CONSTRAINT chk_processing_signature_chain CHECK (chain_id > 0),
+    CONSTRAINT chk_processing_signature_revision CHECK (result_revision > 0),
+    INDEX idx_processing_signature_job_actor_action (processing_job_id, actor_id, action, used_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Product model / Production ------------------------------------------------
@@ -488,6 +555,9 @@ CREATE TABLE product_model (
     id BIGINT NOT NULL AUTO_INCREMENT,
     name VARCHAR(200) NOT NULL,
     category VARCHAR(50) NOT NULL,
+    -- 소비자 SHOP 의 2단 메뉴. CLOTHING·BAG 에만 있고 나머지 분류와 하위 분류가 생기기
+    -- 전에 등록된 제품은 NULL 이다 (ProductSubcategory 주석 참고).
+    subcategory VARCHAR(50) NULL,
     brand_id BIGINT NOT NULL,
     price BIGINT NOT NULL,
     description TEXT NOT NULL,
@@ -497,14 +567,84 @@ CREATE TABLE product_model (
     CONSTRAINT pk_product_model PRIMARY KEY (id),
     CONSTRAINT fk_product_model_brand FOREIGN KEY (brand_id) REFERENCES users (id),
     CONSTRAINT chk_product_model_price CHECK (price >= 0),
-    INDEX idx_product_model_brand_status (brand_id, status)
+    INDEX idx_product_model_brand_status (brand_id, status),
+    -- 소비자 공개 목록은 언제나 status='ON_SALE' 로 시작해 분류로 좁힌다.
+    -- 기존 인덱스는 brand_id 가 앞에 있어 브랜드를 고르지 않는 SHOP 질의에는 쓰이지 않는다.
+    INDEX idx_product_model_status_category (status, category, subcategory)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE product_image (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    product_model_id BIGINT NOT NULL,
+    -- FileStorageService 가 돌려준 저장 키. 화면에 붙일 주소가 아니다 —
+    -- 바이트는 /api/v1/(public/)product-models/{id}/images/{imageId} 가 흘린다.
+    -- product_model.thumbnail_url 과 같은 성격의 값이라 길이도 같다.
+    storage_key VARCHAR(500) NOT NULL,
+    image_type ENUM('MAIN', 'ANGLE', 'DETAIL', 'CONTEXT') NOT NULL,
+    -- 갤러리 안에서의 자리. 0 부터 빈틈없이 이어진다 (교체 요청 배열의 순서).
+    sort_order INT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT pk_product_image PRIMARY KEY (id),
+    -- 같은 제품의 두 사진이 같은 자리를 차지하면 어느 쪽이 먼저인지 답이 없다.
+    -- 이 키가 제품별 조회 정렬도 함께 받친다.
+    CONSTRAINT uk_product_image_model_order UNIQUE (product_model_id, sort_order),
+    CONSTRAINT fk_product_image_model FOREIGN KEY (product_model_id) REFERENCES product_model (id),
+    CONSTRAINT chk_product_image_sort_order CHECK (sort_order >= 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE consumer_wishlist (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    product_model_id BIGINT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT pk_consumer_wishlist PRIMARY KEY (id),
+    -- 같은 상품을 두 번 담을 수 없다. 조회해 보고 넣는 것만으로는 같은 순간 들어온 두
+    -- 요청이 함께 통과한다 - 하트 버튼은 연타되고 재시도도 흔해서 실제로 겹친다.
+    -- 이 키가 "내가 찜했나" 조회와 찜 해제도 함께 받친다.
+    CONSTRAINT uk_consumer_wishlist_user_product UNIQUE (user_id, product_model_id),
+    CONSTRAINT fk_consumer_wishlist_user FOREIGN KEY (user_id) REFERENCES users (id),
+    -- 찜이 가리키는 동안에는 상품 행을 지울 수 없다. 이 저장소에 상품 삭제 경로는 없고
+    -- 단종은 status 로 처리하지만, 운영에서 손으로 지우는 것까지 여기서 막는다.
+    CONSTRAINT fk_consumer_wishlist_product FOREIGN KEY (product_model_id)
+        REFERENCES product_model (id),
+    -- 목록은 user_id 로 좁혀 담은 순서의 역순으로 읽는다. 위 유니크 키는 두 번째 열이
+    -- product_model_id 라 그 정렬을 받치지 못한다.
+    INDEX idx_consumer_wishlist_user (user_id, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE consumer_cart_item (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    product_model_id BIGINT NOT NULL,
+    quantity INT NOT NULL,
+    -- 이 항목을 마지막으로 담을 때 사용자가 본 가격. 결제 기준이 아니라 "담아 둔 사이에
+    -- 값이 바뀌었다" 를 알리기 위한 값이다 (ConsumerCartItem.addedPrice 주석).
+    added_price BIGINT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT pk_consumer_cart_item PRIMARY KEY (id),
+    -- 같은 상품이 두 행이 되면 목록에 같은 상품이 두 줄로 보인다. 조회 후 삽입만으로는
+    -- 동시 요청이 함께 통과한다. 이 키가 목록 범위 스캔과 항목 조회·수정·삭제도 받친다.
+    CONSTRAINT uk_consumer_cart_item_user_product UNIQUE (user_id, product_model_id),
+    CONSTRAINT fk_consumer_cart_item_user FOREIGN KEY (user_id) REFERENCES users (id),
+    -- 담긴 동안에는 상품 행을 지울 수 없다. 찜과 같은 이유다.
+    CONSTRAINT fk_consumer_cart_item_product FOREIGN KEY (product_model_id)
+        REFERENCES product_model (id),
+    CONSTRAINT chk_consumer_cart_item_quantity CHECK (quantity > 0),
+    CONSTRAINT chk_consumer_cart_item_price CHECK (added_price >= 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE production_batch (
     id BIGINT NOT NULL AUTO_INCREMENT,
+    -- ProductionRegistry.createBatch 가 채번한 번호. 이후 submitPlanAndLock ·
+    -- confirmProduction · linkProductItems 가 모두 이 값을 인자로 받는다.
+    -- 서버가 들고 있지 않으면 화면이 네 단계 내내 그 번호를 붙들고 있어야 하고,
+    -- 새로고침 한 번에 잃어버린다 (material.token_id · listing.chain_listing_id 와 같은 자리).
+    chain_batch_id BIGINT NULL,
     batch_code VARCHAR(20) NOT NULL,
     batch_name VARCHAR(200) NOT NULL,
-    product_model_id BIGINT NOT NULL,
+    -- 배치를 여는 시점에는 비어 있을 수 있다 — 소재를 고르기 전에 무엇을 만들지부터
+    -- 확정하라고 강제할 이유가 없다. 확정 전에는 반드시 채워지며, 그 검사는 서비스가 한다.
+    product_model_id BIGINT NULL,
     produced_quantity INT NOT NULL,
     producer_id BIGINT NOT NULL,
     producer_wallet VARCHAR(42) NOT NULL,
@@ -519,6 +659,7 @@ CREATE TABLE production_batch (
     confirmed_at DATETIME NULL,
     CONSTRAINT pk_production_batch PRIMARY KEY (id),
     CONSTRAINT uk_production_batch_code UNIQUE (batch_code),
+    CONSTRAINT uk_production_batch_chain_id UNIQUE (chain_batch_id),
     CONSTRAINT fk_production_batch_model FOREIGN KEY (product_model_id) REFERENCES product_model (id),
     CONSTRAINT fk_production_batch_producer FOREIGN KEY (producer_id) REFERENCES users (id),
     CONSTRAINT chk_production_batch_quantities CHECK (
@@ -576,10 +717,17 @@ CREATE TABLE production_output (
 CREATE TABLE product_item (
     id BIGINT NOT NULL AUTO_INCREMENT,
     production_batch_id BIGINT NOT NULL,
-    product_model_id BIGINT NOT NULL,
+    -- 확정 직후에는 비어 있을 수 있다 — 브랜드는 생산을 끝낸 뒤에 그 결과물에
+    -- 제품 정보를 붙인다. 비어 있는 동안은 어느 모델의 재고로도 세지지 않는다.
+    product_model_id BIGINT NULL,
     serial_number INT NOT NULL,
     item_code VARCHAR(50) NOT NULL,
     qr_token CHAR(32) NOT NULL,
+    -- S15P21E104-141: 최초 생성된 QR PNG의 FileStorageService 저장 키. 요청마다 새로
+    -- 렌더링하지 않고 한 번 저장한 이미지를 재사용한다. NULL이면 아직 저장된 적 없음(다음
+    -- 조회 시점에 채워진다) — 기본 크기(DEFAULT_SIZE) 렌더만 캐시하고, 커스텀 size 요청은
+    -- 캐시하지 않는다(크기별로 키가 갈리면 캐시 무효화 로직이 따로 필요해진다).
+    qr_image_key VARCHAR(255) NULL,
     status ENUM('IN_STOCK', 'RESERVED', 'SOLD') NOT NULL DEFAULT 'IN_STOCK',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT pk_product_item PRIMARY KEY (id),
@@ -592,11 +740,36 @@ CREATE TABLE product_item (
     INDEX idx_product_item_model_status (product_model_id, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+CREATE TABLE product_order_group (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    group_code VARCHAR(30) NOT NULL,
+    buyer_id BIGINT NOT NULL,
+    -- 묶음에 속한 주문들의 금액 합. 결제창에 청구하는 금액이 이 값이다.
+    total_price BIGINT NOT NULL,
+    status ENUM('CREATED', 'PAID') NOT NULL DEFAULT 'CREATED',
+    -- 결제는 묶음 단위로 한 번만 한다. 주문마다 결제하면 브랜드가 셋인 장바구니에서
+    -- 결제창이 세 번 뜬다. product_order 의 같은 이름 컬럼들은 단일 주문 경로가 계속 쓴다.
+    payment_method ENUM('MOCK', 'KAKAO_PAY') NOT NULL,
+    payment_reference VARCHAR(100) NULL,
+    payment_amount BIGINT NOT NULL DEFAULT 0,
+    payment_deadline DATETIME NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    paid_at DATETIME NULL,
+    CONSTRAINT pk_product_order_group PRIMARY KEY (id),
+    CONSTRAINT uk_product_order_group_code UNIQUE (group_code),
+    CONSTRAINT fk_product_order_group_buyer FOREIGN KEY (buyer_id) REFERENCES users (id),
+    CONSTRAINT chk_product_order_group_amounts CHECK (total_price >= 0 AND payment_amount >= 0),
+    INDEX idx_product_order_group_buyer (buyer_id, status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 CREATE TABLE product_order (
     id BIGINT NOT NULL AUTO_INCREMENT,
     order_code VARCHAR(30) NOT NULL,
     buyer_id BIGINT NOT NULL,
     brand_id BIGINT NOT NULL,
+    -- 한 번의 결제로 함께 만들어진 주문들을 묶는다. 단일 주문(상품 상세의 "바로 구매")은
+    -- NULL 이고 자기 결제 컬럼을 그대로 쓴다 - 그 경로를 건드리지 않기 위한 설계다.
+    order_group_id BIGINT NULL,
     total_price BIGINT NOT NULL,
     status ENUM('CREATED', 'PAID', 'SHIPPED', 'DELIVERED') NOT NULL DEFAULT 'CREATED',
     payment_method ENUM('MOCK', 'KAKAO_PAY') NOT NULL,
@@ -612,8 +785,12 @@ CREATE TABLE product_order (
     CONSTRAINT fk_product_order_buyer FOREIGN KEY (buyer_id) REFERENCES users (id),
     CONSTRAINT fk_product_order_brand FOREIGN KEY (brand_id) REFERENCES users (id),
     CONSTRAINT chk_product_order_amounts CHECK (total_price >= 0 AND payment_amount >= 0),
+    CONSTRAINT fk_product_order_group FOREIGN KEY (order_group_id)
+        REFERENCES product_order_group (id),
     INDEX idx_product_order_buyer_status (buyer_id, status),
-    INDEX idx_product_order_brand_status (brand_id, status)
+    INDEX idx_product_order_brand_status (brand_id, status),
+    -- 묶음에 속한 주문을 한 번에 읽는 경로. 결제 승인과 묶음 취소가 쓴다.
+    INDEX idx_product_order_group (order_group_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE product_order_item (
@@ -658,6 +835,7 @@ CREATE TABLE canceled_product_order (
     payment_reference VARCHAR(100) NULL,
     cancel_reason VARCHAR(255) NULL,
     original_created_at DATETIME NOT NULL,
+    original_paid_at DATETIME NULL,
     canceled_at DATETIME NOT NULL,
     CONSTRAINT pk_canceled_product_order PRIMARY KEY (id),
     CONSTRAINT uk_canceled_product_order_original UNIQUE (original_order_id),
@@ -684,6 +862,109 @@ CREATE TABLE canceled_product_order_item (
         REFERENCES product_model (id),
     CONSTRAINT chk_canceled_product_order_item_price CHECK (price >= 0),
     INDEX idx_canceled_product_order_item_order (canceled_product_order_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Consumer inquiry (1:1 문의) --------------------------------------------------
+--
+-- product_order_id 는 선택이고(ETC 유형은 없어도 된다) FK 를 걸지 않는다 — 주문을
+-- 취소하면 product_order 행 자체가 지워지고 canceled_product_order 로 옮겨지는데
+-- (해당 테이블 주석 참고), FK 를 걸면 그 주문에 대한 문의가 하나라도 있으면 취소가
+-- 막힌다. target_label 이 등록 시점 상품명 스냅샷이라 원본 주문이 사라져도 "무엇에
+-- 대한 문의였는지"는 그대로 남는다.
+-- answer 는 이 프로젝트에 관리자/CS 도메인이 없어 API 로 채울 방법이 아직 없다 —
+-- 값이 없으면 항상 "답변 대기" 다.
+CREATE TABLE consumer_inquiry (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    type VARCHAR(30) NOT NULL,
+    product_order_id BIGINT NULL,
+    target_label VARCHAR(255) NULL,
+    content VARCHAR(2000) NOT NULL,
+    answer VARCHAR(2000) NULL,
+    answered_at DATETIME NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT pk_consumer_inquiry PRIMARY KEY (id),
+    CONSTRAINT fk_consumer_inquiry_user FOREIGN KEY (user_id) REFERENCES users (id),
+    INDEX idx_consumer_inquiry_user (user_id, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Prediction market ---------------------------------------------------------
+
+CREATE TABLE prediction_market (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    chain_market_id BIGINT NOT NULL,
+    production_batch_id BIGINT NOT NULL,
+    chain_batch_id BIGINT NOT NULL,
+    product_model_id BIGINT NOT NULL,
+    product_name VARCHAR(200) NOT NULL,
+    product_thumbnail_url VARCHAR(500) NULL,
+    brand_id BIGINT NOT NULL,
+    brand_wallet VARCHAR(42) NOT NULL,
+    unit_price BIGINT NOT NULL,
+    production_quantity INT NOT NULL,
+    betting_ends_at DATETIME NOT NULL,
+    sales_starts_at DATETIME NOT NULL,
+    sales_ends_at DATETIME NOT NULL,
+    status ENUM('OPEN', 'RESOLVING', 'RESOLVED', 'CANCELED') NOT NULL,
+    sold_quantity INT NULL,
+    winning_bucket_index INT NULL,
+    result_hash CHAR(66) NULL,
+    creation_tx_hash CHAR(66) NOT NULL,
+    resolution_tx_hash CHAR(66) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    resolved_at DATETIME NULL,
+    CONSTRAINT pk_prediction_market PRIMARY KEY (id),
+    CONSTRAINT uk_prediction_market_chain UNIQUE (chain_market_id),
+    CONSTRAINT uk_prediction_market_batch UNIQUE (production_batch_id),
+    CONSTRAINT uk_prediction_market_chain_batch UNIQUE (chain_batch_id),
+    CONSTRAINT fk_prediction_market_batch FOREIGN KEY (production_batch_id) REFERENCES production_batch (id),
+    CONSTRAINT fk_prediction_market_model FOREIGN KEY (product_model_id) REFERENCES product_model (id),
+    CONSTRAINT fk_prediction_market_brand FOREIGN KEY (brand_id) REFERENCES users (id),
+    CONSTRAINT chk_prediction_market_values CHECK (unit_price >= 0 AND production_quantity > 0),
+    INDEX idx_prediction_market_status_end (status, sales_ends_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE prediction_bucket (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    market_id BIGINT NOT NULL,
+    bucket_index INT NOT NULL,
+    lower_bound INT NOT NULL,
+    upper_bound INT NOT NULL,
+    CONSTRAINT pk_prediction_bucket PRIMARY KEY (id),
+    CONSTRAINT uk_prediction_bucket_market_index UNIQUE (market_id, bucket_index),
+    CONSTRAINT fk_prediction_bucket_market FOREIGN KEY (market_id) REFERENCES prediction_market (id),
+    CONSTRAINT chk_prediction_bucket_range CHECK (bucket_index >= 0 AND lower_bound >= 0 AND upper_bound >= lower_bound),
+    INDEX idx_prediction_bucket_market (market_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE prediction_response (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    market_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    wallet_address VARCHAR(42) NOT NULL,
+    bucket_index INT NOT NULL,
+    stake_amount VARCHAR(78) NOT NULL,
+    reason_code ENUM('DESIGN', 'PRICE', 'BRAND', 'SUSTAINABILITY', 'PRACTICALITY', 'TREND', 'OTHER') NOT NULL,
+    reason_text VARCHAR(500) NULL,
+    bet_tx_hash CHAR(66) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT pk_prediction_response PRIMARY KEY (id),
+    CONSTRAINT uk_prediction_response_market_user UNIQUE (market_id, user_id),
+    CONSTRAINT uk_prediction_response_tx UNIQUE (bet_tx_hash),
+    CONSTRAINT fk_prediction_response_market FOREIGN KEY (market_id) REFERENCES prediction_market (id),
+    CONSTRAINT fk_prediction_response_user FOREIGN KEY (user_id) REFERENCES users (id),
+    INDEX idx_prediction_response_market_bucket (market_id, bucket_index)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE prediction_point_grant (
+    user_id BIGINT NOT NULL,
+    wallet_address VARCHAR(42) NOT NULL,
+    amount VARCHAR(78) NOT NULL,
+    tx_hash CHAR(66) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT pk_prediction_point_grant PRIMARY KEY (user_id),
+    CONSTRAINT uk_prediction_point_grant_tx UNIQUE (tx_hash),
+    CONSTRAINT fk_prediction_point_grant_user FOREIGN KEY (user_id) REFERENCES users (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Marketplace / Trade -------------------------------------------------------
@@ -729,6 +1010,9 @@ CREATE TABLE material_trade (
     payment_method ENUM('MOCK', 'KAKAO_PAY') NOT NULL,
     payment_reference VARCHAR(100) NULL,
     payment_amount BIGINT NOT NULL DEFAULT 0,
+    -- 결제 마감. 수량은 결제가 아니라 구매 신청 시점에 깎이므로(reduceAvailable), 결제하지
+    -- 않고 이탈한 거래를 배치가 정리하지 않으면 그 수량이 영원히 잠긴다.
+    payment_deadline DATETIME NULL,
     status ENUM(
         'CREATED',
         'PAID',
@@ -808,4 +1092,25 @@ CREATE TABLE blockchain_transaction (
     INDEX idx_blockchain_transaction_reference (reference_type, reference_id),
     INDEX idx_blockchain_transaction_status (status),
     INDEX idx_blockchain_transaction_hash (tx_hash)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- User notification ---------------------------------------------------------
+
+CREATE TABLE user_notification (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    recipient_id BIGINT NOT NULL,
+    type VARCHAR(60) NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    message VARCHAR(500) NOT NULL,
+    target_path VARCHAR(500) NOT NULL,
+    reference_type VARCHAR(40) NOT NULL,
+    reference_id BIGINT NOT NULL,
+    idempotency_key VARCHAR(150) NOT NULL,
+    read_at DATETIME NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT pk_user_notification PRIMARY KEY (id),
+    CONSTRAINT uk_user_notification_idempotency UNIQUE (idempotency_key),
+    CONSTRAINT fk_user_notification_recipient FOREIGN KEY (recipient_id) REFERENCES users (id),
+    INDEX idx_user_notification_recipient_created (recipient_id, created_at, id),
+    INDEX idx_user_notification_recipient_read (recipient_id, read_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

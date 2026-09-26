@@ -4,14 +4,20 @@ import com.ssafy.upcycle.blockchain.dto.ChainLinkRequest;
 import com.ssafy.upcycle.common.response.ApiResponse;
 import com.ssafy.upcycle.material.dto.MaterialBalanceResponse;
 import com.ssafy.upcycle.material.dto.MaterialDetailResponse;
+import com.ssafy.upcycle.material.dto.MaterialEventResponse;
+import com.ssafy.upcycle.material.dto.MaterialJourneyResponse;
 import com.ssafy.upcycle.material.dto.MaterialLineageResponse;
 import com.ssafy.upcycle.material.dto.MaterialRegisterRequest;
 import com.ssafy.upcycle.material.dto.MaterialRegisterResponse;
+import com.ssafy.upcycle.material.dto.MaterialSourceVerificationRequest;
 import com.ssafy.upcycle.material.dto.MyMaterialResponse;
 import com.ssafy.upcycle.material.service.MaterialChainLinkService;
+import com.ssafy.upcycle.material.service.MaterialEventQueryService;
+import com.ssafy.upcycle.material.service.MaterialJourneyQueryService;
 import com.ssafy.upcycle.material.service.MaterialLineageQueryService;
 import com.ssafy.upcycle.material.service.MaterialQueryService;
 import com.ssafy.upcycle.material.service.MaterialRegistrationService;
+import com.ssafy.upcycle.material.service.MaterialSourceVerificationService;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +28,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -51,6 +58,9 @@ public class MaterialController {
     private final MaterialQueryService materialQueryService;
     private final MaterialLineageQueryService materialLineageQueryService;
     private final MaterialChainLinkService materialChainLinkService;
+    private final MaterialSourceVerificationService materialSourceVerificationService;
+    private final MaterialEventQueryService materialEventQueryService;
+    private final MaterialJourneyQueryService materialJourneyQueryService;
 
     /**
      * 소재 등록. {@code SUPPLIER}·{@code BRAND} 만 가능하다.
@@ -68,8 +78,8 @@ public class MaterialController {
      * 소재 상세. <b>인증만 요구하고 역할은 보지 않는다</b> — 소재 정보는 추적성이 목적이라
      * 누가 보든 같은 값이어야 한다.
      *
-     * <p>응답의 {@code verificationState} 는 항상 {@code REGISTERED} 다. 판정 근거가 DB 에
-     * 없어서이며 소재의 사실이 아니다 — {@link MaterialDetailResponse} 주석 참고.
+     * <p>{@code verificationState} 는 조회 시점에 계산된다 — 판정 범위는
+     * {@link MaterialDetailResponse} 주석 참고.
      */
     @GetMapping("/{materialId}")
     public ApiResponse<MaterialDetailResponse> findDetail(@PathVariable Long materialId) {
@@ -121,6 +131,28 @@ public class MaterialController {
         return ApiResponse.success(materialLineageQueryService.findLineage(materialId));
     }
 
+    /** Material에 발생한 사건을 오래된 순서부터 조회한다. */
+    @GetMapping("/{materialId}/events")
+    public ApiResponse<MaterialEventResponse.Page> findEvents(
+            @PathVariable Long materialId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        return ApiResponse.success(materialEventQueryService.findEvents(materialId, page, size));
+    }
+
+    /**
+     * Material Journey Timeline. {@code /events} 의 원시 로그에 단계 분류·행위자 표시명·
+     * 지갑·온체인 해시를 얹은 화면용 조립본이다 (S15P21E104-73).
+     *
+     * <p>혈통 그래프({@code /lineage})와는 다른 것을 보여준다 — 저쪽은 "이 소재가 어느
+     * 소재에서 나왔고 어느 소재로 이어졌는가"(공간), 이쪽은 "이 소재에 무슨 일이 있었는가"
+     * (시간)다. 화면은 둘을 나란히 둔다.
+     */
+    @GetMapping("/{materialId}/journey")
+    public ApiResponse<MaterialJourneyResponse> findJourney(@PathVariable Long materialId) {
+        return ApiResponse.success(materialJourneyQueryService.findJourney(materialId));
+    }
+
     /**
      * JWT {@code sub} 는 {@code JwtTokenService} 가 {@code String.valueOf(user.getId())} 로 넣는다.
      * 형식이 깨진 토큰은 여기 오기 전에 {@code JwtDecoder} 가 거부하므로 파싱 실패는 예상하지 않는다.
@@ -144,6 +176,26 @@ public class MaterialController {
             @PathVariable Long materialId,
             @Valid @RequestBody ChainLinkRequest request) {
         materialChainLinkService.link(userId(jwt), materialId, request);
+        return ApiResponse.success(null);
+    }
+
+    /**
+     * 출처 검증 확정을 연결한다. <b>등록자 본인만</b> 부를 수 있다.
+     *
+     * <p>화면이 지갑으로 {@code MaterialToken.verifySource(tokenId, evidenceHash)} 를 보내고
+     * 영수증을 받은 뒤 그 결과(Tx 해시)를 여기로 알려 준다. mint 확정과 달리 새로 채번되는
+     * 값이 없어 {@code onChainId} 를 받지 않는다 — {@link MaterialSourceVerificationRequest}
+     * 주석 참고.
+     *
+     * <p>이 호출은 {@code material} 을 바꾸지 않는다. {@code SOURCE_VERIFIED} 전환은
+     * {@code MaterialVerificationStateResolver} 가 다음 조회부터 계산해 낸다.
+     */
+    @PostMapping("/{materialId}/source-verification")
+    public ApiResponse<Void> confirmSourceVerification(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long materialId,
+            @Valid @RequestBody MaterialSourceVerificationRequest request) {
+        materialSourceVerificationService.confirm(userId(jwt), materialId, request);
         return ApiResponse.success(null);
     }
 }

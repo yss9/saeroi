@@ -183,6 +183,64 @@ public class Material {
     }
 
     /**
+     * 생산에서 나온 자투리를 소재로 되살린다. Production 확정만 부른다.
+     *
+     * <p><b>부모에서 복사하는 값이 셋이다</b> — {@code material_type}, {@code root_origin},
+     * {@code grade}. 특히 {@code root_origin} 은 도메인 규칙이 *"자식 생성 시 부모에서 그대로
+     * 복사"* 라고 못 박았고, {@link com.ssafy.upcycle.material.service.MaterialLineageRegistrar}
+     * 가 그 상속을 검사한다. 호출부가 값을 넘기게 두면 폐데님에서 나온 자투리를 VIRGIN 으로
+     * 올릴 수 있고, 그러면 업사이클 비율이 거짓이 된다.
+     *
+     * <p>{@code generation_type} 은 {@link MaterialGenerationType#PRODUCTION_SCRAP} 으로
+     * 고정한다 — 자투리라는 사실은 만들어진 경로에서 나오지, 요청이 정하는 값이 아니다.
+     *
+     * @param parent 이 자투리가 나온 투입 소재
+     */
+    public static Material produceScrap(
+            String materialCode, Material parent, long totalQuantity, Long registrantId) {
+        if (parent == null) {
+            throw new IllegalArgumentException("Production scrap parent must not be null");
+        }
+        if (totalQuantity <= 0) {
+            throw new IllegalArgumentException("Production scrap quantity must be positive");
+        }
+        return new Material(
+                materialCode,
+                parent.getMaterialType(),
+                parent.getRootOrigin(),
+                MaterialGenerationType.PRODUCTION_SCRAP,
+                parent.getName() + " 자투리",
+                null,
+                parent.getGrade(),
+                totalQuantity,
+                null,
+                null,
+                registrantId);
+    }
+
+    /** Processing 승인으로 부모 소재에서 파생된 새 소재를 만든다. */
+    public static Material produceProcessed(
+            String materialCode,
+            Material parent,
+            MaterialType materialType,
+            String name,
+            String grade,
+            long totalQuantity,
+            Long registrantId) {
+        if (parent == null) throw new IllegalArgumentException("Processing parent must not be null");
+        if (totalQuantity <= 0) throw new IllegalArgumentException("Processed quantity must be positive");
+        return new Material(materialCode, materialType, parent.getRootOrigin(),
+                MaterialGenerationType.PROCESSED, name, null, grade, totalQuantity,
+                null, null, registrantId);
+    }
+
+    /** 이전 가공 결과 서비스와의 호환용 팩토리. */
+    public static Material process(String materialCode, Material parent, MaterialType materialType,
+            String name, String grade, long totalQuantity, Long registrantId) {
+        return produceProcessed(materialCode, parent, materialType, name, grade, totalQuantity, registrantId);
+    }
+
+    /**
      * 공급자가 플랫폼에 소재를 최초로 올리는 경로.
      *
      * <p>{@code generation_type} 은 {@link MaterialGenerationType#INITIAL} 로 고정한다.

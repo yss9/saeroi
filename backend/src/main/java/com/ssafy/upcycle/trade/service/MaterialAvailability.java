@@ -2,6 +2,7 @@ package com.ssafy.upcycle.trade.service;
 
 import com.ssafy.upcycle.material.entity.MaterialLock;
 import com.ssafy.upcycle.material.entity.MaterialLockStatus;
+import com.ssafy.upcycle.material.service.MaterialAvailabilityPolicy;
 import com.ssafy.upcycle.material.repository.MaterialBalanceRepository;
 import com.ssafy.upcycle.material.repository.MaterialLockRepository;
 import java.time.Clock;
@@ -80,22 +81,14 @@ public class MaterialAvailability {
     /**
      * 만료되지 않은 ACTIVE 잠금의 합.
      *
-     * <p><b>만료 판정이 {@code MaterialBalanceQueryRepository#activeLockedAmount} 와 같아야
-     * 한다.</b> 그쪽은 SQL 로 {@code expires_at IS NULL OR expires_at > now} 를 쓰고 여기는
-     * {@code MaterialLock#isExpiredAt} 을 쓴다 — 지금 두 식은 동일하다.
-     *
-     * <p>만료된 잠금을 빼는 근거는 도메인 규칙이다 — {@code EXPIRED} 는
-     * *"전환 전이라도 available 계산에서 제외"*. 상태를 전환해 주는 배치가 없어서 만료된
-     * 잠금이 DB 에는 {@code ACTIVE} 로 남아 있고, 이 조건이 없으면 이미 끝난 잠금이 사용
-     * 가능 수량을 계속 깎는다.
+     * <p><b>판정은 {@link MaterialAvailabilityPolicy} 가 한다.</b> 어떤 잠금을 세고 만료를
+     * 어떻게 다루는지는 도메인 규칙이고, 그 규칙이 호출부마다 복사되면 잠금 정책이 바뀔 때
+     * 한쪽만 고치게 된다. 여기 남는 것은 <b>읽는 방식</b>뿐이다 — 판매 등록은 잠금 없는
+     * 읽기로 충분하고, 생산 투입은 같은 규칙을 비관적 잠금 읽기 위에 얹는다.
      */
     private long lockedQuantity(Long materialId, Long ownerId) {
-        LocalDateTime now = LocalDateTime.now(clock);
         List<MaterialLock> locks = lockRepository.findAllByMaterialIdAndOwnerIdAndStatus(
                 materialId, ownerId, MaterialLockStatus.ACTIVE);
-        return locks.stream()
-                .filter(lock -> !lock.isExpiredAt(now))
-                .mapToLong(MaterialLock::getAmount)
-                .sum();
+        return MaterialAvailabilityPolicy.lockedQuantity(locks, LocalDateTime.now(clock));
     }
 }

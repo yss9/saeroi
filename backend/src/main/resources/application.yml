@@ -11,6 +11,10 @@
 #      DB_URL / DB_USERNAME / DB_PASSWORD / JWT_SECRET / KAKAOPAY_SECRET_KEY ...
 #
 spring:
+  main:
+    # 시연 이미지를 java.awt 로 그린다. Boot 기본값이 true 지만, 헤드리스가 아니면
+    # 서버 환경에서 그래픽 장치를 찾다 실패하므로 명시해 둔다.
+    headless: true
   servlet:
     multipart:
       # ⚠️ 기본값은 파일 1MB · 요청 10MB 다. 그대로 두면 휴대폰 사진(3~8MB)이
@@ -40,6 +44,36 @@ spring:
       hibernate:
         format_sql: true
 app:
+  ai:
+    # 저울 사진 분석용 내부 AI 서비스. 브라우저는 이 주소를 직접 호출하지 않는다.
+    base-url: ${AI_SERVER_BASE_URL:http://localhost:8000}
+    connect-timeout: ${AI_CONNECT_TIMEOUT:PT2S}
+    read-timeout: ${AI_READ_TIMEOUT:PT30S}
+  demo-catalog:
+    # 시연 환경에서만 명시적으로 켠다. 기본값 false라 운영·일반 개발 DB에는
+    # 시연 브랜드와 상품이 자동으로 들어가지 않는다.
+    enabled: ${DEMO_PRODUCT_SEED_ENABLED:false}
+    # 각 시연 상품에 처음 한 번 생성할 실제 product_item 수량.
+    # 재기동할 때 SOLD 재고를 다시 채우지는 않는다.
+    stock-per-product: ${DEMO_PRODUCT_STOCK_PER_PRODUCT:10}
+    # 진짜 상품 사진이 놓인 디렉터리. {image-dir}/{데모 키}/01-main.webp 형태로 읽는다.
+    # 기본값을 두지 않는 것이 중요하다 - 기본 경로를 두면 그 폴더가 우연히 존재하는
+    # 환경에서 의도하지 않은 사진이 시연 상품에 붙고, 로컬마다 경로가 달라 어차피
+    # 아무에게도 맞지 않는다. 비어 있으면 임시 이미지를 만들어 쓴다.
+    image-dir: ${DEMO_PRODUCT_IMAGE_DIR:}
+    # 시연 상품 이미지를 무조건 다시 올린다. 평상시에는 false 여야 한다.
+    # 진짜 사진을 v2 로 교체할 때, 그리고 임시 이미지 규격을 바꿨을 때 한 번 켠다
+    # (규격이 바뀌면 이미 올라간 임시 이미지가 진짜 사진으로 오판되어 영영 교체되지
+    #  않는다 - DemoPlaceholderImageFactory 주석 참고).
+    image-refresh: ${DEMO_PRODUCT_IMAGE_REFRESH:false}
+  geocoding:
+    kakao:
+      # 주소를 WGS84 좌표로 변환할 카카오 REST API 키. 키가 없으면
+      # 좌표 없는 새 업체가 저장되지 않도록 업체 가입·주소 변경을 거절한다.
+      rest-api-key: ${KAKAO_REST_API_KEY:}
+      base-url: ${KAKAO_GEOCODING_BASE_URL:https://dapi.kakao.com}
+      # 기존 company_profile의 NULL 좌표를 기동 시 보완할 때만 임시로 true.
+      backfill-enabled: ${COMPANY_GEOLOCATION_BACKFILL_ENABLED:false}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
   security:
@@ -57,6 +91,29 @@ app:
       base-url: ${KAKAOPAY_BASE_URL:https://open-api.kakaopay.com}
       # 결제창에서 돌아올 프론트 주소. {tradeId} 는 거래별로 치환된다.
       return-url: ${KAKAOPAY_RETURN_URL:http://localhost:5173/trades/{tradeId}/payment/return}
+      # 가공비 결제는 거래 결제와 승인 API가 다르므로 별도의 복귀 화면을 사용한다.
+      processing-return-url: ${KAKAOPAY_PROCESSING_RETURN_URL:http://localhost:5173/processing/jobs/{jobId}/payment/callback}
+      # 제품 주문(소비자)의 복귀 주소. 소비자는 거래 상세 화면을 열 수 없어 라우트가 다르다.
+      #
+      # 비워 두면 위 return-url 에서 도메인과 basename(예: /test)을 가져와
+      # /orders/{orderId}/payment/return 을 만든다. 배포가 이 변수를 따로 넘기지 않아도
+      # 동작하게 하려는 것이다 — 상수 기본값(localhost)으로 조용히 떨어지면 카카오페이가
+      # approval_url 을 거부해 결제가 통째로 실패하고, 화면에는 "결제 처리 중 오류" 만 뜬다.
+      product-order-return-url: ${KAKAOPAY_PRODUCT_ORDER_RETURN_URL:}
+      # 장바구니 주문(묶음)의 복귀 주소. 브랜드별 주문 여러 건을 한 화면에 보여 주므로
+      # 단일 주문과 라우트가 다르다. 비워 두면 같은 방식으로 /order-groups/{orderGroupId}/payment/return
+      # 을 만든다.
+      product-order-group-return-url: ${KAKAOPAY_PRODUCT_ORDER_GROUP_RETURN_URL:}
+  qr:
+    # QR 이 담을 Passport 주소. 뒤에 /{qrToken} 이 붙는다.
+    #
+    # ⚠️ 프론트의 Passport 라우트와 반드시 같아야 한다. 어긋나면 인쇄되어 제품에 붙어 나간
+    #    QR 이 전부 죽는데, 그건 되돌릴 수 없다 — 그래서 비어 있으면 기동을 실패시킨다.
+    #
+    #    현재 그 라우트는 /qr/:qrToken 이므로 배포값은 https://<배포도메인>/qr 이다.
+    #    (백엔드의 공개 조회 경로 /api/v1/qr/{qrToken} 과는 다른 것이다 — 이 값은 사람이
+    #     브라우저로 여는 화면 주소이지 API 주소가 아니다.)
+    base-url: ${QR_BASE_URL:}
   blockchain:
     # 배포된 컨트랙트 좌표. 정본은 blockchain/deployments/ssafy.json 이다.
     #
@@ -66,8 +123,25 @@ app:
     # ⚠️ 프론트의 VITE_*_CONTRACT_ADDRESS 와 같은 배포분이어야 한다 —
     #    어긋나면 화면은 새 컨트랙트에 서명하는데 서버는 옛 주소로 기록한다.
     chain-id: ${BESU_CHAIN_ID:31221}
+    rpc-url: ${BESU_RPC_URL:}
     material-token-address: ${MATERIAL_TOKEN_ADDRESS:}
     marketplace-address: ${MARKETPLACE_ADDRESS:}
+    processing-registry-address: ${PROCESSING_REGISTRY_ADDRESS:}
+    # 생산 배치 기록용 레지스트리. 이 주소만 비어 있어도 소재·거래 기록은 계속 동작한다 —
+    # 나중에 붙는 컨트랙트가 앞선 기능을 멈추게 하지 않는다.
+    production-registry-address: ${PRODUCTION_REGISTRY_ADDRESS:}
+    # 관리자 대시보드 SSE의 원본. HTTP RPC를 짧게 폴링하고 새 블록만 fan-out한다.
+    live-initial-delay-ms: ${BLOCKCHAIN_LIVE_INITIAL_DELAY_MS:2000}
+    live-poll-ms: ${BLOCKCHAIN_LIVE_POLL_MS:2500}
+  prediction:
+    chain-id: ${PREDICTION_CHAIN_ID:31221}
+    rpc-url: ${PREDICTION_RPC_URL:${BESU_RPC_URL:}}
+    market-address: ${PREDICTION_MARKET_ADDRESS:}
+    token-address: ${PREDICTION_POINT_ADDRESS:}
+    # MARKET_CREATOR_ROLE, ORACLE_ROLE, PredictionPoint.MINTER_ROLE을 가진 운영 주소의 키.
+    operator-private-key: ${PREDICTION_OPERATOR_PRIVATE_KEY:}
+    welcome-point-amount: ${PREDICTION_WELCOME_POINT_AMOUNT:1000000000000000000000}
+    oracle-enabled: ${PREDICTION_ORACLE_ENABLED:false}
   material:
     # 소재 최초 발행을 어디가 정본으로 하는가.
     #
@@ -78,6 +152,12 @@ app:
     # "운영인데 설정이 빠져 조용히 오프체인으로 돌았다" 가 가장 나쁘다.
     on-chain: ${MATERIAL_ON_CHAIN:false}
   auth:
+    refresh-token:
+      # Access Token은 짧게 유지하고 이 기간 동안 재발급해 사용자의 로그인 상태를 연장한다.
+      ttl: ${JWT_REFRESH_TOKEN_TTL:P14D}
+      # 운영에서는 HTTPS에서만 전송한다. HTTP 로컬 개발만 명시적으로 false로 덮어쓴다.
+      cookie-secure: ${REFRESH_TOKEN_COOKIE_SECURE:true}
+      cookie-same-site: ${REFRESH_TOKEN_COOKIE_SAME_SITE:Strict}
     wallet:
       # 지갑 서명용 1회용 nonce 유효 시간. 사용자가 MetaMask 팝업을 확인하는 데 걸리는
       # 시간보다 넉넉하되, 탈취된 nonce 가 살아 있는 창은 짧아야 한다.

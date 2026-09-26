@@ -1,5 +1,8 @@
 package com.ssafy.upcycle.material.service;
 
+import java.time.LocalDateTime;
+import java.util.Optional;
+
 /**
  * 소재가 온체인에서 출처 검증을 받았는지 묻는 창구.
  *
@@ -27,4 +30,21 @@ public interface BlockchainVerification {
      * 검증을 화면에 표시하게 되고, 추적성 화면에서 그건 되돌릴 수 없는 거짓이 된다.
      */
     boolean hasVerifiedSource(Long materialId);
+
+    /**
+     * {@code hasVerifiedSource} 가 {@code true} 일 때 Blockchain Proof 화면(누가·언제·
+     * 어느 Tx)이 필요로 하는 근거를 함께 내려준다.
+     *
+     * <p>둘로 나눈 이유는 판정({@code resolve})과 근거 조회가 호출 빈도가 다르기
+     * 때문이다 — 목록에서는 상태만 필요하고, 상세 화면만 근거까지 그린다.
+     */
+    Optional<SourceVerificationEvidence> findSourceVerification(Long materialId);
+
+    /**
+     * {@code blockchain_transaction} 한 행에서 뽑은 근거. 이 레코드가 blockchain 패키지의
+     * 엔티티를 직접 노출하지 않는 이유는 {@link BlockchainVerification} 이 그 자체다 —
+     * material 이 blockchain 엔티티를 알면 참조가 양방향으로 열린다.
+     */
+    record SourceVerificationEvidence(String signerWallet, String txHash, LocalDateTime confirmedAt) {
+    }
 }

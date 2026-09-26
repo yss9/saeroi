@@ -89,7 +89,7 @@ class ProductOrderRepositoryTests {
     void expiredUnpaidOrdersAreFound() {
         orderRepository.save(order("ORD-000001"));
         ProductOrder paid = orderRepository.save(order("ORD-000002"));
-        paid.markPaid("T1234", 89_000L, NOW);
+        paid.markPaid("T1234", 89_000L, NOW, PaymentMethod.MOCK);
         entityManager.flush();
         entityManager.clear();
 

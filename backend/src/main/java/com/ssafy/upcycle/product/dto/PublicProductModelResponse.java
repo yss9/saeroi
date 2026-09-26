@@ -1,0 +1,140 @@
+package com.ssafy.upcycle.product.dto;
+
+import com.ssafy.upcycle.product.entity.ProductCategory;
+import com.ssafy.upcycle.product.entity.ProductImage;
+import com.ssafy.upcycle.product.entity.ProductModel;
+import com.ssafy.upcycle.product.entity.ProductModelStatus;
+import com.ssafy.upcycle.product.entity.ProductSubcategory;
+import java.time.LocalDateTime;
+import java.util.List;
+
+/**
+ * 소비자 쇼핑몰에 공개하는 판매 상품 정보.
+ *
+ * <p>사진이 둘로 나뉜다. {@code thumbnailUrl} 은 <b>언제나 있는 한 장</b>이고 목록 카드가
+ * 쓴다. {@code images} 는 상세 화면이 넘겨 보는 갤러리이고 <b>비어 있을 수 있다</b> —
+ * 브랜드가 아직 여러 장을 걸지 않은 제품이 그렇다. 화면은 갤러리가 비면 대표 사진 한
+ * 장으로 물러서면 된다.
+ *
+ * <p>갤러리를 목록 응답에서도 채우는 것은 같은 응답 모양을 두 곳에서 쓰기 때문이다.
+ * 상세에만 채우면 목록의 {@code images} 가 "없다" 인지 "안 실었다" 인지 구분되지 않는다.
+ * 질의는 페이지당 한 번이라 제품 수와 무관하다.
+ *
+ * <p><b>{@code journeyUrl} 은 상세에서만 채워진다.</b> 재고 개체 하나를 골라 그 QR Passport
+ * 주소를 예시로 보여 주는 값이라, 목록 카드마다 채우면 스크롤 한 번에 카드 수만큼 개체를
+ * 조회하게 된다({@link com.ssafy.upcycle.product.service.PublicProductCatalogService} 참고).
+ * 재고가 없으면 {@code null} 이다 — 보여줄 개체가 없다.
+ */
+public record PublicProductModelResponse(
+        Long productModelId,
+        String name,
+        ProductCategory category,
+        ProductSubcategory subcategory,
+        Long brandId,
+        String brandName,
+        long price,
+        String description,
+        String thumbnailUrl,
+        ProductModelStatus status,
+        long stockQuantity,
+        List<ProductImageResponse> images,
+        LocalDateTime createdAt,
+        String journeyUrl) {
+
+    private static final String PUBLIC_THUMBNAIL_PATH =
+            "/api/v1/public/product-models/%d/thumbnail";
+
+    /** 로그인한 사용자만 보는 화면이 쓰는 주소. 판매 상태와 무관하게 열린다. */
+    private static final String MANAGEMENT_THUMBNAIL_PATH =
+            "/api/v1/product-models/%d/thumbnail";
+
+    public static PublicProductModelResponse of(
+            ProductModel model,
+            String brandName,
+            long stockQuantity,
+            List<ProductImage> images) {
+        return of(model, brandName, stockQuantity, images, false);
+    }
+
+    /**
+     * 로그인한 사용자만 보는 화면이 쓸 모양. 이미지 주소가 인증 경로다.
+     *
+     * <p>공개 이미지 경로는 판매 중인 상품만 열려 있다. 찜 목록처럼 <b>공개 조건을 벗어난
+     * 상품이 남는 화면</b>은 그 주소를 쓰면 사진이 깨진다. 값은 같고 주소만 다르므로 화면은
+     * 같은 카드 컴포넌트를 쓴다.
+     */
+    public static PublicProductModelResponse ofAuthenticated(
+            ProductModel model,
+            String brandName,
+            long stockQuantity,
+            List<ProductImage> images) {
+        return of(model, brandName, stockQuantity, images, true);
+    }
+
+    private static PublicProductModelResponse of(
+            ProductModel model,
+            String brandName,
+            long stockQuantity,
+            List<ProductImage> images,
+            boolean authenticatedImages) {
+        return new PublicProductModelResponse(
+                model.getId(),
+                model.getName(),
+                model.getCategory(),
+                model.getSubcategory(),
+                model.getBrandId(),
+                brandName,
+                model.getPrice(),
+                model.getDescription(),
+                thumbnailUrl(model, authenticatedImages),
+                model.getStatus(),
+                stockQuantity,
+                images.stream()
+                        .map(image -> authenticatedImages
+                                ? ProductImageResponse.managementOf(image)
+                                : ProductImageResponse.publicOf(image))
+                        .toList(),
+                model.getCreatedAt(),
+                null);
+    }
+
+    /** 상세 조회에서만 붙인다. 목록 카드는 이 값을 채우지 않는다 — 클래스 설명 참고. */
+    public PublicProductModelResponse withJourneyUrl(String journeyUrl) {
+        return new PublicProductModelResponse(
+                productModelId(),
+                name(),
+                category(),
+                subcategory(),
+                brandId(),
+                brandName(),
+                price(),
+                description(),
+                thumbnailUrl(),
+                status(),
+                stockQuantity(),
+                images(),
+                createdAt(),
+                journeyUrl);
+    }
+
+    private static String thumbnailUrl(ProductModel model, boolean authenticatedImages) {
+        if (authenticatedImages) {
+            return MANAGEMENT_THUMBNAIL_PATH.formatted(model.getId());
+        }
+        return publicThumbnailUrl(model);
+    }
+
+    private static String publicThumbnailUrl(ProductModel model) {
+        String thumbnailUrl = model.getThumbnailUrl();
+        // 데모 상품은 프론트에 이미 포함된 공개 정적 이미지를 쓴다. 브랜드가 업로드한
+        // 이미지는 저장 키라 이 접두어를 가질 수 없고 기존 공개 썸네일 API를 그대로 쓴다.
+        //
+        // 이 분기는 데모 상품 이미지가 FileStorageService 로 옮겨지면 사라진다. 지금
+        // 지우면 이미 시드된 상품들의 대표 이미지가 통째로 깨진다 — 그 상품들의
+        // thumbnail_url 은 저장 키가 아니라 프론트 정적 경로다.
+        if (thumbnailUrl.startsWith("/images/landing/")) {
+            return thumbnailUrl;
+        }
+        return PUBLIC_THUMBNAIL_PATH.formatted(model.getId());
+    }
+}

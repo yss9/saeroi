@@ -5,6 +5,9 @@ import com.ssafy.upcycle.blockchain.dto.ChainLinkRequest;
 import com.ssafy.upcycle.blockchain.entity.BlockchainReferenceType;
 import com.ssafy.upcycle.blockchain.service.ChainTransactionRecorder;
 import com.ssafy.upcycle.common.exception.BusinessException;
+import com.ssafy.upcycle.material.entity.MaterialEventReferenceType;
+import com.ssafy.upcycle.material.entity.MaterialEventType;
+import com.ssafy.upcycle.material.service.MaterialEventRecorder;
 import com.ssafy.upcycle.trade.TradeErrorCode;
 import com.ssafy.upcycle.trade.entity.MaterialListing;
 import com.ssafy.upcycle.trade.entity.MaterialTrade;
@@ -39,6 +42,7 @@ public class TradeChainLinkService {
     private final MaterialListingRepository listingRepository;
     private final MaterialTradeRepository tradeRepository;
     private final ChainTransactionRecorder recorder;
+    private final MaterialEventRecorder eventRecorder;
 
     /** 판매 글의 온체인 번호를 연결한다. <b>판매자 본인만</b> 할 수 있다. */
     @Transactional
@@ -65,8 +69,19 @@ public class TradeChainLinkService {
                 // 앞단이므로 TRADE 로 묶는다. reference_id 로 어느 판매 글인지는 남는다.
                 BlockchainReferenceType.TRADE,
                 listingId,
-                request.txHash(),
-                request.blockNumber());
+                request.txHash());
+        eventRecorder.record(
+                listing.getMaterialId(),
+                MaterialEventType.MARKETPLACE_LISTING_LINKED_ON_CHAIN,
+                sellerId,
+                MaterialEventReferenceType.MATERIAL_LISTING,
+                listingId,
+                null,
+                listing.getTotalQuantity(),
+                "마켓 판매 등록 온체인 확정",
+                MaterialEventRecorder.key(
+                        MaterialEventType.MARKETPLACE_LISTING_LINKED_ON_CHAIN,
+                        listing.getMaterialId(), listingId));
     }
 
     /** 거래의 온체인 주문 번호를 연결한다. <b>구매자 본인만</b> 할 수 있다. */
@@ -91,7 +106,13 @@ public class TradeChainLinkService {
                 "createOrder",
                 BlockchainReferenceType.TRADE,
                 tradeId,
-                request.txHash(),
-                request.blockNumber());
+                request.txHash());
+        eventRecorder.record(
+                trade.getMaterialId(), MaterialEventType.TRADE_LINKED_ON_CHAIN, buyerId,
+                MaterialEventReferenceType.MATERIAL_TRADE, tradeId, null, trade.getQuantity(),
+                "소재 거래 온체인 주문 확정",
+                MaterialEventRecorder.key(
+                        MaterialEventType.TRADE_LINKED_ON_CHAIN,
+                        trade.getMaterialId(), tradeId));
     }
 }

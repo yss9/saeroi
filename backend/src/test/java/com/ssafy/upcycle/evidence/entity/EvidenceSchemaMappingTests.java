@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Stream;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -41,6 +42,11 @@ import org.junit.jupiter.params.provider.MethodSource;
  * 으로 올린 것이 "송장" 으로 읽히고, 증빙은 되돌릴 수 없는 기록이다.
  */
 class EvidenceSchemaMappingTests {
+
+    @Test
+    void recognizesWeightPhotoAsAnEvidenceType() {
+        assertThat(EvidenceType.valueOf("WEIGHT_PHOTO")).isEqualTo(EvidenceType.WEIGHT_PHOTO);
+    }
 
     @ParameterizedTest
     @MethodSource("evidenceDomainEntities")

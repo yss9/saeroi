@@ -14,13 +14,18 @@ import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.common.security.jwt.JwtTokenService;
 import com.ssafy.upcycle.material.entity.Material;
 import com.ssafy.upcycle.material.entity.MaterialBalance;
+import com.ssafy.upcycle.material.entity.MaterialEventType;
 import com.ssafy.upcycle.material.entity.MaterialLock;
 import com.ssafy.upcycle.material.entity.MaterialLockStatus;
 import com.ssafy.upcycle.material.entity.MaterialRootOrigin;
 import com.ssafy.upcycle.material.entity.MaterialType;
 import com.ssafy.upcycle.material.repository.MaterialBalanceRepository;
+import com.ssafy.upcycle.material.repository.MaterialEventRepository;
 import com.ssafy.upcycle.material.repository.MaterialLockRepository;
 import com.ssafy.upcycle.material.repository.MaterialRepository;
+import com.ssafy.upcycle.material.service.MaterialEventRecorder;
+import com.ssafy.upcycle.notification.entity.NotificationType;
+import com.ssafy.upcycle.notification.repository.UserNotificationRepository;
 import com.ssafy.upcycle.trade.entity.ListingStatus;
 import com.ssafy.upcycle.trade.entity.MaterialListing;
 import com.ssafy.upcycle.trade.entity.MaterialTrade;
@@ -38,6 +43,7 @@ import com.ssafy.upcycle.trade.repository.MaterialTradeRepository;
 import com.ssafy.upcycle.trade.repository.TradeShippingRepository;
 import com.ssafy.upcycle.trade.service.PaymentService;
 import com.ssafy.upcycle.trade.service.TradeResponseAssembler;
+import com.ssafy.upcycle.trade.service.TradeNotificationService;
 import com.ssafy.upcycle.user.entity.User;
 import com.ssafy.upcycle.user.entity.UserRole;
 import com.ssafy.upcycle.user.entity.UserWallet;
@@ -56,6 +62,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
@@ -128,11 +135,23 @@ class MarketplaceApiTests {
     @Autowired
     private Clock clock;
 
+    @Autowired
+    private MaterialEventRecorder materialEventRecorder;
+
+    @Autowired
+    private MaterialEventRepository materialEventRepository;
+
+    @Autowired
+    private UserNotificationRepository notificationRepository;
+
+    @Autowired
+    private TradeNotificationService tradeNotificationService;
+
     private User seller;
     private User buyer;
     private Material material;
     private Material cotton;
-    private Material leather;
+    private Material silk;
     private String sellerToken;
     private String buyerToken;
 
@@ -177,11 +196,11 @@ class MarketplaceApiTests {
         balanceRepository.save(MaterialBalance.of(
                 cotton.getId(), seller.getId(), SELLER_WALLET, OWNED_QUANTITY));
 
-        leather = materialRepository.save(Material.register(
+        silk = materialRepository.save(Material.register(
                 "MAT-900003",
-                MaterialType.LEATHER,
+                MaterialType.SILK,
                 MaterialRootOrigin.VIRGIN,
-                "미사용 소가죽",
+                "미사용 실크",
                 "재고 소진분",
                 "A",
                 OWNED_QUANTITY,
@@ -189,7 +208,7 @@ class MarketplaceApiTests {
                 null,
                 seller.getId()));
         balanceRepository.save(MaterialBalance.of(
-                leather.getId(), seller.getId(), SELLER_WALLET, OWNED_QUANTITY));
+                silk.getId(), seller.getId(), SELLER_WALLET, OWNED_QUANTITY));
 
         sellerToken = tokenFor(seller);
         buyerToken = tokenFor(buyer);
@@ -414,6 +433,25 @@ class MarketplaceApiTests {
     }
 
     @Test
+    void filtersByMaterialId() throws Exception {
+        // 소재 상세 화면이 "이 소재가 지금 판매 중인가" 를 묻는 경로다 (-438).
+        registerListing(20_000L);
+
+        mockMvc.perform(get("/api/v1/listings")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
+                        .param("materialId", String.valueOf(material.getId())))
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].materialId").value(material.getId()));
+
+        // 판매 글이 없는 소재는 빈 목록이다 — 완료 조건이 명시한 값이다.
+        mockMvc.perform(get("/api/v1/listings")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
+                        .param("materialId", String.valueOf(cotton.getId())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(0));
+    }
+
+    @Test
     void capsThePageSize() throws Exception {
         // size=100000 한 번으로 전체 테이블을 끌어오지 못해야 한다.
         registerListing(20_000L);
@@ -446,6 +484,55 @@ class MarketplaceApiTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content.length()").value(3))
                 .andExpect(jsonPath("$.data.totalElements").value(3));
+    }
+
+    /**
+     * 생성 유형은 <b>출처와 독립된 축</b>이다 (화면 설계서 B03).
+     *
+     * <p>세 소재 모두 {@code INITIAL} 이다 — {@code Material.register} 가 최초 등록으로
+     * 고정하기 때문이다. 그래서 {@code INITIAL} 로 걸면 전부, {@code PROCESSED} 로 걸면
+     * 하나도 남지 않아야 한다. 값을 무시하고 있으면 두 번째 기대가 깨진다.
+     */
+    @Test
+    void filtersByGenerationType() throws Exception {
+        registerThreeListings();
+
+        mockMvc.perform(get("/api/v1/listings")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
+                        .param("generationType", "INITIAL"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(3));
+
+        mockMvc.perform(get("/api/v1/listings")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
+                        .param("generationType", "PROCESSED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(0));
+    }
+
+    /** 두 축을 함께 걸면 교집합이다. 한쪽이 무시되면 개수가 달라진다. */
+    @Test
+    void combinesRootOriginAndGenerationType() throws Exception {
+        registerThreeListings();
+
+        // 폐기물이면서 최초 등록 — 데님·폐면 둘. 가죽은 VIRGIN 이라 빠진다.
+        mockMvc.perform(get("/api/v1/listings")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
+                        .param("rootOrigin", "WASTE")
+                        .param("generationType", "INITIAL"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(2));
+    }
+
+    /** 목록 응답이 생성 유형을 함께 내려준다 — 화면이 배지로 그린다. */
+    @Test
+    void exposesGenerationTypeInTheResponse() throws Exception {
+        registerListing(10_000L);
+
+        mockMvc.perform(get("/api/v1/listings")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].generationType").value("INITIAL"));
     }
 
     @Test
@@ -752,6 +839,61 @@ class MarketplaceApiTests {
                 .andExpect(jsonPath("$.data.status").value("PAID"))
                 .andExpect(jsonPath("$.data.paymentAmount").value(42_000))
                 .andExpect(jsonPath("$.data.paidAt").isNotEmpty());
+        assertThat(materialEventRepository.findAllByMaterialIdOrderByOccurredAtAscIdAsc(
+                        material.getId(), PageRequest.of(0, 10)).getContent())
+                .extracting(event -> event.getEventType())
+                .containsExactly(
+                        MaterialEventType.MARKETPLACE_LISTED,
+                        MaterialEventType.TRADE_CREATED,
+                        MaterialEventType.TRADE_PAID);
+    }
+
+    @Test
+    void notifiesCounterpartiesAcrossTheTradeLifecycle() throws Exception {
+        Long listingId = registerListing(20_000L);
+        Long tradeId = jsonLong(purchase(listingId, 3_000L), "tradeId");
+        payFor(tradeId);
+        mockMvc.perform(patch("/api/v1/trades/" + tradeId + "/ship")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + sellerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"carrier\":\"CJ대한통운\",\"trackingNumber\":\"123456789012\"}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/trades/" + tradeId + "/receive/confirm")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken))
+                .andExpect(status().isOk());
+
+        assertThat(notificationRepository
+                .findAllByRecipientIdOrderByCreatedAtDescIdDesc(
+                        seller.getId(), PageRequest.of(0, 20))
+                .getContent())
+                .extracting(notification -> notification.getType())
+                .containsExactly(
+                        NotificationType.TRADE_RECEIVED,
+                        NotificationType.TRADE_PAID,
+                        NotificationType.TRADE_CREATED);
+        assertThat(notificationRepository
+                .findAllByRecipientIdOrderByCreatedAtDescIdDesc(
+                        buyer.getId(), PageRequest.of(0, 20))
+                .getContent())
+                .extracting(notification -> notification.getType())
+                .containsExactly(NotificationType.TRADE_SHIPPED);
+    }
+
+    @Test
+    void sellerCancellationNotifiesTheBuyer() throws Exception {
+        Long listingId = registerListing(20_000L);
+        Long tradeId = jsonLong(purchase(listingId, 3_000L), "tradeId");
+
+        mockMvc.perform(post("/api/v1/trades/" + tradeId + "/cancel")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + sellerToken))
+                .andExpect(status().isOk());
+
+        assertThat(notificationRepository
+                .findAllByRecipientIdOrderByCreatedAtDescIdDesc(
+                        buyer.getId(), PageRequest.of(0, 20))
+                .getContent())
+                .extracting(notification -> notification.getType())
+                .containsExactly(NotificationType.TRADE_CANCELED);
     }
 
     @Test
@@ -785,7 +927,9 @@ class MarketplaceApiTests {
                 tradeResponseAssembler,
                 new WrongAmountGateway(),
                 kakaoPayProperties,
-                clock);
+                clock,
+                materialEventRecorder,
+                tradeNotificationService);
 
         assertThatThrownBy(() -> service.approve(buyer.getId(), tradeId, "TOKEN"))
                 .isInstanceOf(BusinessException.class)
@@ -1162,7 +1306,7 @@ class MarketplaceApiTests {
     private void registerThreeListings() throws Exception {
         registerListing(10_000L);
         createdListingId(listingRequestFor(cotton.getId(), 10_000L, 4_200L));
-        createdListingId(listingRequestFor(leather.getId(), 10_000L, 52_000L));
+        createdListingId(listingRequestFor(silk.getId(), 10_000L, 52_000L));
     }
 
     private Map<String, Object> listingRequestFor(Long materialId, long quantity, long pricePerKg) {
@@ -1244,6 +1388,8 @@ class MarketplaceApiTests {
     }
 
     private void clean() {
+        notificationRepository.deleteAll();
+        materialEventRepository.deleteAll();
         tradeRepository.deleteAll();
         listingRepository.deleteAll();
         lockRepository.deleteAll();
