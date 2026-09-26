@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 import { MagnifyingGlass } from '@phosphor-icons/react'
 import { Button, ErrorMessage, Input } from '../../../components/common/index.ts'
@@ -6,9 +6,11 @@ import { openKakaoPostcode } from '../../../utils/kakaoPostcode.ts'
 import { QuantityInput } from '../../../components/common/QuantityInput.tsx'
 import { calculateTotalPrice, formatKg, formatWon, gramToKg, kgToGram } from '../../../utils/quantity.ts'
 import type { Listing } from '../../marketplace/types/marketplace.types.ts'
+import { useCompanyProfile } from '../../company/hooks/useCompanyProfile.ts'
 import { useCreateTrade } from '../hooks/useCreateTrade.ts'
 import { useTradeOnChain } from '../hooks/useTradeOnChain.ts'
 import type { CreateTradeRequest, Trade } from '../types/trade.types.ts'
+import { useAuthStore } from '../../../stores/authStore.ts'
 import './trade.css'
 
 export interface PurchaseFormProps {
@@ -46,7 +48,8 @@ export function PurchaseForm({ listing, onCreated }: PurchaseFormProps) {
     handleSubmit,
     setValue,
     setFocus,
-    formState: { errors },
+    getValues,
+    formState: { errors, dirtyFields },
   } = useForm<PurchaseFormValues>({
     defaultValues: {
       quantityKg: null,
@@ -57,6 +60,29 @@ export function PurchaseForm({ listing, onCreated }: PurchaseFormProps) {
       addressDetail: '',
     },
   })
+
+  const isBrand = useAuthStore((state) => state.user?.role === 'BRAND')
+  const { profile } = useCompanyProfile(isBrand)
+
+  // 구매 배송지는 보통 업체의 기본 배송지와 같다. 다만 사용자가 다른 곳으로 받도록
+  // 이미 수정했다면, 늦게 도착한 프로필 응답이 그 선택을 덮어쓰면 안 된다.
+  useEffect(() => {
+    if (!profile) return
+
+    const companyDefaults = [
+      ['receiverName', profile.representativeName],
+      ['receiverPhone', profile.companyPhone],
+      ['zipCode', profile.zipCode],
+      ['address', profile.address],
+      ['addressDetail', profile.addressDetail ?? ''],
+    ] as const
+
+    for (const [field, value] of companyDefaults) {
+      if (!dirtyFields[field] && !getValues(field) && value) {
+        setValue(field, value)
+      }
+    }
+  }, [dirtyFields, getValues, profile, setValue])
 
   const [addressSearchError, setAddressSearchError] = useState('')
   const [isSearchingAddress, setIsSearchingAddress] = useState(false)
