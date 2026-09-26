@@ -389,20 +389,30 @@ class PassportControllerTests {
                 120_000,
                 PaymentMethod.MOCK, LocalDateTime.now().plusMinutes(30));
         trade.markPaid("trade-payment-1", 120_000, tradedAt, PaymentMethod.MOCK);
+        // 브랜드 수령 뒤에야 가공사로 발송할 수 있다. 가공 작업은 9월 8일 10:02에
+        // 발송되므로, 이 거래의 수령은 그보다 앞선 시각이어야 Brand 수령 단계로 이어진다.
         trade.ship(tradedAt.plusDays(1));
-        trade.confirmReceipt(tradedAt.plusDays(2));
-        trade.markBuyerSigned(tradedAt.plusDays(2));
-        trade.complete(tradedAt.plusDays(2));
+        trade.confirmReceipt(tradedAt.plusDays(1).plusMinutes(30));
+        trade.markBuyerSigned(tradedAt.plusDays(1).plusMinutes(30));
+        trade.complete(tradedAt.plusDays(1).plusMinutes(30));
         materialTradeRepository.save(trade);
 
         mockMvc.perform(get(PATH + "/{qrToken}", item.getQrToken()))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.journey.stages[1].nodeIds[0]")
+                        .value("collection-brand-1"))
                 .andExpect(jsonPath("$.data.journey.edges[0].fromNodeId").value("source-1"))
+                .andExpect(jsonPath("$.data.journey.edges[0].toNodeId")
+                        .value("collection-brand-1"))
                 .andExpect(jsonPath("$.data.journey.edges[0].shippedAt")
                         .value("2026-09-08T09:00:00"))
                 .andExpect(jsonPath("$.data.journey.edges[0].receivedAt")
-                        .value("2026-09-09T09:00:00"))
+                        .value("2026-09-08T09:30:00"))
                 .andExpect(jsonPath("$.data.journey.edges[0].status").value("COMPLETED"))
+                .andExpect(jsonPath("$.data.journey.edges[1].fromNodeId")
+                        .value("collection-brand-1"))
+                .andExpect(jsonPath("$.data.journey.edges[1].toNodeId")
+                        .value("processing-1"))
                 // 거래 금액·수량·거래 번호는 이동선에 따라나오지 않는다.
                 .andExpect(jsonPath("$.data.journey.edges[0].totalPrice").doesNotExist())
                 .andExpect(jsonPath("$.data.journey.edges[0].tradeCode").doesNotExist());
