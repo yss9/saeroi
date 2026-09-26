@@ -14,7 +14,9 @@ import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { CompanyProfile } from '../../company/api/getCompanyProfile.ts'
 import type { Listing } from '../../marketplace/types/marketplace.types.ts'
+import { useAuthStore } from '../../../stores/authStore.ts'
 import { PurchaseForm } from './PurchaseForm.tsx'
 
 const api = vi.hoisted(() => ({ createTrade: vi.fn() }))
@@ -30,6 +32,11 @@ vi.mock('../api/createTrade.ts', () => api)
  */
 const postcode = vi.hoisted(() => ({ openKakaoPostcode: vi.fn() }))
 vi.mock('../../../utils/kakaoPostcode.ts', () => postcode)
+
+// 업체 프로필 조회는 HTTP 경계만 대체한다. 폼의 실제 React Hook Form 상태와 렌더 결과를
+// 검증하기 위해서는 PurchaseForm 자체를 그대로 렌더한다.
+const companyProfile = vi.hoisted(() => ({ useCompanyProfile: vi.fn() }))
+vi.mock('../../company/hooks/useCompanyProfile.ts', () => companyProfile)
 
 const LISTING: Listing = {
   listingId: 1,
@@ -51,26 +58,46 @@ const LISTING: Listing = {
   createdAt: '2026-09-01T00:00:00.000Z',
 }
 
+const BRAND_PROFILE: CompanyProfile = {
+  userId: 7,
+  companyName: '새로이 브랜드',
+  businessNumber: '123-45-67890',
+  representativeName: '김새로이',
+  companyPhone: '02-1234-5678',
+  zipCode: '04781',
+  address: '서울 성동구 성수일로 89',
+  addressDetail: '3층',
+  introduction: null,
+  logoUrl: null,
+  role: 'BRAND',
+  status: 'ACTIVE',
+}
+
 function renderForm(listing: Listing = LISTING) {
   // 테스트마다 새 QueryClient 를 쓴다. 캐시가 테스트 사이에 새면 순서에 따라 결과가 달라진다.
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
-  return render(
+  const tree = () => (
     <QueryClientProvider client={client}>
       <MemoryRouter>
         <PurchaseForm listing={listing} />
       </MemoryRouter>
-    </QueryClientProvider>,
+    </QueryClientProvider>
   )
+  const view = render(tree())
+  return { ...view, rerenderForm: () => view.rerender(tree()) }
 }
 
 beforeEach(() => {
   api.createTrade.mockResolvedValue({ tradeId: 42 })
+  companyProfile.useCompanyProfile.mockReturnValue({ profile: null })
+  useAuthStore.setState({ user: null, accessToken: null, isAuthenticated: false })
 })
 afterEach(() => {
   cleanup()
   vi.resetAllMocks()
+  useAuthStore.setState({ user: null, accessToken: null, isAuthenticated: false })
 })
 
 /** 배송지를 모두 채운다. 이 폼은 배송지가 없으면 요청을 보내지 않는다. */
@@ -87,6 +114,66 @@ async function fillAddress(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('PurchaseForm', () => {
+  // 업체 프로필을 불러오는 코드가 빠지거나 필드 매핑이 달라지면, 구매자가 배송 정보를
+  // 매번 다시 입력하게 된다. 대표자·전화번호·전체 주소가 실제 입력값으로 보이는지 확인한다.
+  it('브랜드 업체 정보로 수취인과 배송지를 처음 채운다', async () => {
+    useAuthStore.setState({
+      user: {
+        id: 7,
+        email: 'brand@example.com',
+        name: '김새로이',
+        role: 'BRAND',
+        walletAddress: null,
+      },
+      accessToken: 'access-token',
+      isAuthenticated: true,
+    })
+    companyProfile.useCompanyProfile.mockReturnValue({ profile: BRAND_PROFILE })
+
+    renderForm()
+
+    expect(await screen.findByDisplayValue('김새로이')).toHaveAccessibleName('수취인')
+    expect(screen.getByLabelText('연락처')).toHaveValue('02-1234-5678')
+    expect(screen.getByLabelText('우편번호')).toHaveValue('04781')
+    expect(screen.getByLabelText('주소')).toHaveValue('서울 성동구 성수일로 89')
+    expect(screen.getByLabelText('상세 주소')).toHaveValue('3층')
+  })
+
+  it('사용자가 수정한 배송지는 늦게 조회된 업체 정보로 덮어쓰지 않는다', async () => {
+    const user = userEvent.setup()
+    useAuthStore.setState({
+      user: {
+        id: 7,
+        email: 'brand@example.com',
+        name: '김새로이',
+        role: 'BRAND',
+        walletAddress: null,
+      },
+      accessToken: 'access-token',
+      isAuthenticated: true,
+    })
+    const view = renderForm()
+
+    await user.type(screen.getByLabelText('수취인'), '현장 담당자')
+    await user.type(screen.getByLabelText('연락처'), '010-9999-9999')
+    await user.type(screen.getByLabelText('상세 주소'), '1층 하역장')
+    postcode.openKakaoPostcode.mockImplementationOnce(
+      async (onComplete: (s: { zonecode: string; address: string }) => void) => {
+        onComplete({ zonecode: '48058', address: '부산 해운대구 센텀중앙로 55' })
+      },
+    )
+    await user.click(screen.getByRole('button', { name: '주소 검색' }))
+
+    companyProfile.useCompanyProfile.mockReturnValue({ profile: BRAND_PROFILE })
+    view.rerenderForm()
+
+    expect(screen.getByLabelText('수취인')).toHaveValue('현장 담당자')
+    expect(screen.getByLabelText('연락처')).toHaveValue('010-9999-9999')
+    expect(screen.getByLabelText('우편번호')).toHaveValue('48058')
+    expect(screen.getByLabelText('주소')).toHaveValue('부산 해운대구 센텀중앙로 55')
+    expect(screen.getByLabelText('상세 주소')).toHaveValue('1층 하역장')
+  })
+
   it('수량을 입력하기 전에는 구매할 수 없다', () => {
     renderForm()
     expect(screen.getByRole('button', { name: '구매 요청' })).toBeDisabled()
