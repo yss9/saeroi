@@ -4,7 +4,7 @@ import { MagnifyingGlass } from '@phosphor-icons/react'
 import { Button, ErrorMessage, Input } from '../../../components/common/index.ts'
 import { openKakaoPostcode } from '../../../utils/kakaoPostcode.ts'
 import { QuantityInput } from '../../../components/common/QuantityInput.tsx'
-import { calculateTotalPrice, formatKg, formatWon, kgToGram } from '../../../utils/quantity.ts'
+import { calculateTotalPrice, formatKg, formatWon, gramToKg, kgToGram } from '../../../utils/quantity.ts'
 import type { Listing } from '../../marketplace/types/marketplace.types.ts'
 import { useCreateTrade } from '../hooks/useCreateTrade.ts'
 import { useTradeOnChain } from '../hooks/useTradeOnChain.ts'
@@ -233,7 +233,7 @@ export function PurchaseForm({ listing, onCreated }: PurchaseFormProps) {
                 value={field.value}
                 onChange={field.onChange}
                 min={0}
-                max={listing.availableQuantity / 1000}
+                max={gramToKg(listing.availableQuantity)}
                 disabled={listing.status !== 'ON_SALE'}
                 error={
                   exceedsAvailable

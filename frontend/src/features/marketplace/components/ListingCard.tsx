@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { StatusBadge } from '../../../components/common/index.ts'
 import { EvidenceThumbnailImage } from '../../evidence/components/EvidenceThumbnailImage.tsx'
 import type { EvidenceThumbnail } from '../../evidence/types/evidence.types.ts'
-import { formatKg, formatWon } from '../../../utils/quantity.ts'
+import { calculateTotalPrice, formatKg, formatWon } from '../../../utils/quantity.ts'
 import { useClickNavigation } from '../../../utils/useClickNavigation.ts'
 import {
   GENERATION_TYPE_LABEL,
@@ -52,7 +52,10 @@ export function ListingCard({ listing, actions, viewer = 'buyer', thumbnail }: L
   const availableRatio =
     listing.totalQuantity > 0 ? listing.availableQuantity / listing.totalQuantity : 0
   // 남은 양을 다 샀을 때의 금액. 단가만으로는 이 판매글이 얼마짜리인지 감이 오지 않는다.
-  const lotAmount = Math.round((listing.pricePerKg * listing.availableQuantity) / 1000)
+  //
+  // **계산은 calculateTotalPrice 로만 한다.** 여기서 따로 곱하면 반올림 방향이 달라진다 —
+  // 정본은 버림인데 이 줄은 반올림이어서, 결제창에서 보는 금액과 1원 어긋날 수 있었다.
+  const lotAmount = calculateTotalPrice(listing.availableQuantity, listing.pricePerKg)
 
   return (
     <article

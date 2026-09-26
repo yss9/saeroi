@@ -8,6 +8,7 @@ import {
   type StatusTone,
 } from '../../../components/common/index.ts'
 import { formatKg } from '../../../utils/quantity.ts'
+import { useCancelProductionBatch } from '../hooks/useCancelProductionBatch.ts'
 import { useConfirmProductionBatch } from '../hooks/useConfirmProductionBatch.ts'
 import { useProductionBatch } from '../hooks/useProductionBatch.ts'
 import type { ProductionBatch, ProductionBatchStatus } from '../types/production.types.ts'
@@ -183,9 +184,11 @@ function BatchSummary({ batch }: { batch: ProductionBatch }) {
  */
 function ConfirmSection({ batch }: { batch: ProductionBatch }) {
   const confirm = useConfirmProductionBatch(batch.productionBatchId)
+  const cancel = useCancelProductionBatch(batch.productionBatchId)
 
   const productUsed = batch.inputs.reduce((total, input) => total + input.productUsedQuantity, 0)
   const ready = batch.inputs.length > 0 && productUsed > 0
+  const locked = batch.inputs.reduce((total, input) => total + input.inputQuantity, 0)
 
   return (
     /*
@@ -202,11 +205,35 @@ function ConfirmSection({ batch }: { batch: ProductionBatch }) {
         만들어집니다. <strong>되돌릴 수 없습니다.</strong>
       </p>
 
+      {/*
+        **그만두는 길을 같은 자리에 둔다.** 투입한 소재는 잠겨 있어 다른 배치에도 판매 글에도
+        쓸 수 없고, 그 잠금에는 만료가 없다. 확정만 놓아두면 마음이 바뀐 담당자에게 남는 길이
+        "원하지 않는 제품을 확정한다" 뿐이다 — 그건 되돌릴 수 없는 쪽으로 미는 것이다.
+      */}
+      {locked > 0 && (
+        <p className="batch-detail__effects">
+          취소하면 투입해 둔 {formatKg(locked)}의 잠금이 풀려 다시 쓸 수 있습니다.
+        </p>
+      )}
+
       {confirm.isError && <ErrorMessage error={confirm.error} />}
+      {cancel.isError && <ErrorMessage error={cancel.error} />}
 
       {/* 마지막 동작은 오른쪽 끝이다 — 위의 설명을 읽고 내려온 눈이 마치는 자리. */}
       <div className="batch-detail__confirm">
-        <Button onClick={() => confirm.mutate()} disabled={!ready} loading={confirm.isPending}>
+        <Button
+          variant="secondary"
+          onClick={() => cancel.mutate()}
+          loading={cancel.isPending}
+          disabled={confirm.isPending}
+        >
+          배치 취소
+        </Button>
+        <Button
+          onClick={() => confirm.mutate()}
+          disabled={!ready || cancel.isPending}
+          loading={confirm.isPending}
+        >
           생산 확정
         </Button>
       </div>

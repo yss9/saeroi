@@ -24,6 +24,7 @@ import {
   STAGE_ORDER,
   stageIndex,
 } from '../utils/journeyStages.ts'
+import { formatKg } from '../../../utils/quantity.ts'
 import type {
   BlockchainProof,
   JourneyEdge,
@@ -64,10 +65,9 @@ function formatDate(value: string | null): string {
   }).format(new Date(value))
 }
 
-function formatQuantity(grams: number): string {
-  if (grams >= 1000) return `${new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 1 }).format(grams / 1000)} kg`
-  return `${new Intl.NumberFormat('ko-KR').format(grams)} g`
-}
+// 자체 포맷터를 두지 않는다. 화면마다 단위가 달라지면(여기는 1kg 미만을 g 로 보여줬다)
+// 같은 수량이 화면에 따라 다르게 읽힌다.
+const formatQuantity = formatKg
 
 const REFERENCE_TYPE_LABEL: Record<BlockchainProof['referenceType'], string> = {
   MATERIAL: '소재 발행',

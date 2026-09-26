@@ -100,6 +100,26 @@ export async function confirmProductionBatch(batchId: number): Promise<Productio
 }
 
 /**
+ * 배치 취소 — `POST /v1/production-batches/{batchId}/cancel`
+ *
+ * **묶인 소재를 풀어 주는 유일한 길이다.** 배치에 소재를 투입하면 그만큼 잠금이 걸리는데
+ * 그 잠금에는 만료가 없다 — 기한이 지나 풀리면 확정 시점에 소재가 사라진 배치가 되기
+ * 때문이다. 그래서 진행하지 않을 배치를 그냥 두면 그 소재를 다른 배치에도, 판매 글에도
+ * 쓸 수 없다. 판매 등록이 같은 가용량 계산을 쓴다.
+ *
+ * 투입 행은 지워지지 않는다 — "이런 소재를 넣으려다 그만뒀다" 도 이력이다.
+ *
+ * 거절 조건: 이미 확정된 배치(`PRODUCTION_BATCH_NOT_EDITABLE`). 소재는 이미 소비됐고
+ * 개체에는 번호가 붙었으므로, 그걸 되돌리는 일은 취소가 아니라 별도의 보정이다.
+ */
+export async function cancelProductionBatch(batchId: number): Promise<ProductionBatch> {
+  const { data } = await apiClient.post<ProductionBatch>(
+    `/v1/production-batches/${batchId}/cancel`,
+  )
+  return data
+}
+
+/**
  * 확정으로 만들어진 제품 개체 — `GET /v1/production-batches/{batchId}/items`
  *
  * **QR 라벨 인쇄를 위한 조회다.** 응답의 `qrToken` 이 비회원 공개 경로(`/qr/{token}`)의
