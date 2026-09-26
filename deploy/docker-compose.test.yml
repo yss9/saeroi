@@ -99,13 +99,39 @@ services:
       BESU_CHAIN_ID: ${BESU_CHAIN_ID:-}
       BLOCKCHAIN_SERVICE_PRIVATE_KEY: ${BLOCKCHAIN_SERVICE_PRIVATE_KEY:-}
       # 2026-09-11 정정: PAYMENT_TOKEN_ADDRESS/ESCROW_ADDRESS 는 backend 가 읽는 이름이
-      # 아니었다(죽은 키) — 실제는 MARKETPLACE_ADDRESS/PRODUCTION_REGISTRY_ADDRESS.
+      # 아니었다(죽은 키) — 실제는 MARKETPLACE_ADDRESS/PROCESSING_REGISTRY_ADDRESS/
+      # PRODUCTION_REGISTRY_ADDRESS.
       # docker-compose.yml 의 같은 주석 참고. 운영과 같은 값을 재사용한다.
       MATERIAL_TOKEN_ADDRESS: ${MATERIAL_TOKEN_ADDRESS:-}
       MARKETPLACE_ADDRESS: ${MARKETPLACE_ADDRESS:-}
+      PROCESSING_REGISTRY_ADDRESS: ${PROCESSING_REGISTRY_ADDRESS:-}
       PRODUCTION_REGISTRY_ADDRESS: ${PRODUCTION_REGISTRY_ADDRESS:-}
+      # 판매량 예측시장 (backend/develop 2026-09-17, application.yml 의 app.prediction.*). 주소 정본은
+      # blockchain/develop:deployments/ssafy.json 의 predictionPoint / predictionMarket. 비어 있으면
+      # 예측시장 엔드포인트만 BLOCKCHAIN_NOT_CONFIGURED 로 거절되고 나머지 기능은 영향 없다.
+      # PREDICTION_OPERATOR_PRIVATE_KEY 는 MARKET_CREATOR/ORACLE/MINTER role 을 가진 운영 계정 키 —
+      # 서버 서명 키(BLOCKCHAIN_SERVICE_PRIVATE_KEY)와 같은 계정인지는 컨트랙트 배포자가 정한다.
+      # 절대 VITE_ 로 내보내지 말 것. RPC/체인은 비우면 BESU_* 값을 그대로 따른다(yml 기본값).
+      PREDICTION_CHAIN_ID: ${PREDICTION_CHAIN_ID:-${BESU_CHAIN_ID:-31221}}
+      PREDICTION_RPC_URL: ${PREDICTION_RPC_URL:-${BESU_RPC_URL:-}}
+      PREDICTION_MARKET_ADDRESS: ${PREDICTION_MARKET_ADDRESS:-}
+      PREDICTION_POINT_ADDRESS: ${PREDICTION_POINT_ADDRESS:-}
+      PREDICTION_OPERATOR_PRIVATE_KEY: ${PREDICTION_OPERATOR_PRIVATE_KEY:-}
+      PREDICTION_ORACLE_ENABLED: ${PREDICTION_ORACLE_ENABLED:-false}
+      # 데모 상품 시더. 기본 false — test 스택에서만 명시적으로 켠다(운영에는 절대 넣지 않는다).
+      # 켜면 데모 브랜드 4곳·상품 48개가 생성되고, DEMO_PRODUCT_IMAGE_DIR 아래
+      # {데모 키}/01-main.{webp|png|jpg|jpeg} 사진을 붙인다(DemoProductImageDirectory 참고).
+      # 기존에 팀원들이 등록한 상품·데이터는 건드리지 않고, 재기동해도 중복 생성되지 않는다.
+      DEMO_PRODUCT_SEED_ENABLED: ${DEMO_PRODUCT_SEED_ENABLED:-false}
+      # 컨테이너 내부 경로. 아래 volumes 의 bind mount 대상과 반드시 같아야 한다.
+      DEMO_PRODUCT_IMAGE_DIR: ${DEMO_PRODUCT_IMAGE_DIR:-}
     volumes:
       - test-file-storage:/app/files
+      # 진짜 데모 상품 사진. EC2 호스트의 ${DEMO_PRODUCT_IMAGE_HOST_DIR} 아래 48개
+      # {데모 키}/01-main.png 폴더 구조를 읽기전용으로 그대로 컨테이너에 넣는다.
+      # 경로가 없으면 docker가 빈 디렉터리를 만들어 마운트한다 — DEMO_PRODUCT_SEED_ENABLED가
+      # false일 때는 어차피 안 읽히므로 무해하다.
+      - ${DEMO_PRODUCT_IMAGE_HOST_DIR:-/home/ubuntu/demo-product-images}:/app/demo-images:ro
     depends_on:
       mysql:
         condition: service_healthy

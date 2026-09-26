@@ -38,6 +38,7 @@ GIT_CONVENTION에 따라 develop / feat 하위 브랜치 없이 이 브랜치에
 │   ├── restore-mysql.sh       # 덤프로 복구
 │   ├── install-backup-cron.sh # 백업 cron 등록 (멱등)
 │   ├── prune-images.sh        # 떠도는 이미지·빌드 캐시 정리 (cron 04:20, 24h 보다 오래된 것만)
+│   │                          #   + 서비스별 `:test-N` 태그를 최신 5개만 남기고 untag (2026-09-18 — 73개 누적 실측)
 │   │                          #   ⚠️ 배포 경로에서 부르지 않는다 — 다른 파트의 빌드를 깨뜨렸다
 │   ├── install-prune-cron.sh  # prune cron 등록 (멱등)
 │   ├── pull-backups.sh        # 덤프를 EC2 밖(작업용 PC)으로 반출 — 로컬에서 실행
@@ -142,6 +143,9 @@ bash scripts/health-check.sh
 bash scripts/check-schema.sh          # 없는 테이블·컬럼 + 컬럼 타입·NULL 허용 불일치 보고 (읽기만 함)
 bash scripts/check-schema.sh --ddl    # 적용할 DDL 출력
 SCHEMA_REF=origin/backend/master bash scripts/check-schema.sh   # 기준 브랜치 지정
+# deploy-service.sh(운영 배포)는 기준을 origin/backend/master 로 고정해서 부른다 (2026-09-18) —
+# 배포하는 이미지가 backend/master 이므로. 손으로 돌리는 기본값은 여전히 develop 이라
+# "다음 승격 때 무엇이 부족한가" 를 미리 보는 용도로 쓰면 된다.
 # 대조 범위: 테이블 존재 / 컬럼 존재 / 컬럼 타입 / 컬럼 NULL 허용 여부(2026-09-17 추가
 # — production_batch.product_model_id 가 NOT NULL로 남아 있던 실사고로 추가함).
 # DEFAULT·인덱스는 일부러 보지 않는다 (거짓 양성이 많고 validate 도 보지 않는다).
@@ -175,19 +179,31 @@ bash scripts/test-down.sh        # 종료 (기본 볼륨 보존, TEST_DOWN_VOLUM
 | test 백엔드 헬스 | https://j15e104.p.ssafy.io/test/api/health |
 
 **backend 배포 전 스키마 preflight (test 전용, 자동)**: `test-deploy.sh backend`는 `cft-mysql`을
-`origin/backend/develop`의 `schema.sql` 기준으로 대조(`check-schema.sh`)한 뒤 배포합니다.
-불일치가 있으면 `db/migrations/*.sql` 중 아직 적용 안 된 파일(`cft-mysql`의
-`deploy_migrations_applied` 테이블로 추적)을 mysqldump 백업 후 **`ALTER` 포함 여부와
-무관하게** 전부 자동 적용합니다 — backend Jenkinsfile의 병합 전 CI 게이트
-(`scripts/verify-migrations.sh`, backend 레포 소유)가 그 마이그레이션이 `schema.sql`
-목표 상태를 정확히 재현함을 이미 검증했기 때문입니다. 적용 안 된 마이그레이션이 없는데도
-불일치가 남으면(예: `schema.sql`을 마이그레이션 없이 손으로 고친 경우) 자동 적용하지
+`origin/backend/develop`의 `schema.sql` 기준으로 대조(`check-schema.sh`)하는 동시에,
+`db/migrations/*.sql` 중 아직 적용 안 된 파일(`cft-mysql`의 `deploy_migrations_applied`
+테이블로 추적)이 있는지도 항상 먼저 계산합니다. **스키마 불일치 또는 미적용 마이그레이션
+파일 존재, 둘 중 하나만 참이어도** mysqldump 백업 후 **`ALTER` 포함 여부와 무관하게** 전부
+자동 적용합니다 — backend Jenkinsfile의 병합 전 CI 게이트(`scripts/verify-migrations.sh`,
+backend 레포 소유)가 그 마이그레이션이 `schema.sql` 목표 상태를 정확히 재현함을 이미
+검증했기 때문입니다. (2026-09-19 이전에는 스키마 불일치일 때만 미적용 파일을 찾았는데,
+컬럼 구조는 그대로 두고 값만 옮기는 UPDATE 전용 마이그레이션은 `schema.sql` 대조에
+애초에 안 걸려 게이트가 안 열렸다 — `material_type` enum 재정렬 마이그레이션이 `cft-mysql`에
+조용히 안 걸려 조회 API가 500을 낸 실사고로 발견.) 적용 안 된 마이그레이션이 없는데도
+스키마 불일치가 남으면(예: `schema.sql`을 마이그레이션 없이 손으로 고친 경우) 자동 적용하지
 않고 배포를 막습니다 — 이 경우 위 "backend 배포 전에 반드시" 절차대로 사람이 직접
 확인해야 합니다. 운영 배포(`deploy-service.sh`)에는 이 자동 적용이 없습니다 — 운영은
 여전히 사람이 보고 결정합니다.
 
 각 파트 Jenkinsfile의 `<파트>/develop` 스테이지가 이미지를 `:test` 태그로 빌드해 push하고,
-SSH로 `scripts/test-deploy.sh <service>`를 호출하는 구조입니다. `blockchain`은 이미지 빌드
+SSH로 `scripts/test-deploy.sh <service>`를 호출하는 구조입니다. 이미지는 `:test` 와 함께
+`:test-<빌드번호>` 태그를 같이 받습니다 — 다음 빌드가 `:test` 를 가져가도 직전 이미지가 태그를 잃지
+않아야 `test-deploy.sh` 가 헬스체크 실패 시 되돌릴 대상을 찾습니다(2026-09-18 실제 드릴: 깨진 이미지를
+`:test` 로 올리자 25초 만에 이전 이미지로 자동 복구). 번호 태그는 `prune-images.sh` 크론이 서비스별
+최신 5개만 남깁니다. 자동 마이그레이션 전 백업은 호스트 `~/backups/mysql/*-test-*-before-auto-migration.sql.gz`
+에 남습니다(Jenkins 컨테이너 안에서 실행돼도 호스트 경로에 쓴다).
+
+`/test/api/v1/auth/` 에도 운영 `/api/v1/auth/` 와 같은 nginx rate limit(IP 당 분당 10회, 버스트 20, 429 JSON)이
+걸려 있습니다 — 운영과 같은 조건을 재현하려는 것이므로 부하 스크립트로 test 로그인 API 를 연타하면 429 를 받습니다. `blockchain`은 이미지 빌드
 대상이 아니므로(컨트랙트는 수동 배포) test 스택에도 포함되지 않습니다.
 
 ## 주의사항

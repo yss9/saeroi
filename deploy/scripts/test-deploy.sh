@@ -71,56 +71,74 @@ fi
 #      않기로 했다 — 2026-09-07). 운영(deploy-service.sh)에는 자동 적용을 넣지 않는다 —
 #      check-schema.sh 자체 원칙("사람이 보고 결정")은 운영에서 그대로 유지한다.
 if [ "$SERVICE" = "backend" ]; then
-    if ! MYSQL_CONTAINER=cft-mysql MYSQL_ENV_FILE=.env.test bash scripts/check-schema.sh; then
-        echo "INFO: 스키마 불일치 발견 — 아직 적용 안 된 마이그레이션을 자동 적용합니다."
-        echo "      (병합 전 CI 게이트가 이미 검증했으므로 test 환경에 한해 ALTER 포함 전부 적용)"
+    DB_NAME="$(sed -n 's/^MYSQL_DATABASE=//p' .env.test | head -1)"
+    ROOT_PW="$(sed -n 's/^MYSQL_ROOT_PASSWORD=//p' .env.test | head -1)"
+    [ -n "$DB_NAME" ] && [ -n "$ROOT_PW" ] || { echo "FAIL: .env.test 에 MYSQL_DATABASE/MYSQL_ROOT_PASSWORD 가 없다"; exit 1; }
 
-        DB_NAME="$(sed -n 's/^MYSQL_DATABASE=//p' .env.test | head -1)"
-        ROOT_PW="$(sed -n 's/^MYSQL_ROOT_PASSWORD=//p' .env.test | head -1)"
-        [ -n "$DB_NAME" ] && [ -n "$ROOT_PW" ] || { echo "FAIL: .env.test 에 MYSQL_DATABASE/MYSQL_ROOT_PASSWORD 가 없다"; exit 1; }
+    docker exec -e MYSQL_PWD="$ROOT_PW" cft-mysql mysql -uroot "$DB_NAME" -e \
+        "CREATE TABLE IF NOT EXISTS deploy_migrations_applied (
+            filename VARCHAR(255) PRIMARY KEY,
+            applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )"
 
-        docker exec -e MYSQL_PWD="$ROOT_PW" cft-mysql mysql -uroot "$DB_NAME" -e \
-            "CREATE TABLE IF NOT EXISTS deploy_migrations_applied (
-                filename VARCHAR(255) PRIMARY KEY,
-                applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-            )"
-
-        # 2026-09-17 실사고: 아래 `git ls-tree`/`git show` 가 여기 checkout(~/deploy)의
-        # **로컬에 캐시된** origin/backend/develop ref 를 그대로 읽었다. check-schema.sh
-        # 는 :ro 마운트 문제(위 2026-09-16 실사고 주석) 때문에 이미 임시 bare repo 로
-        # 매번 새로 fetch 하도록 고쳐져 있었는데, 이 블록은 그 처리가 없어 최신 스키마
-        # (fresh fetch 결과)와 마이그레이션 파일 목록(stale 캐시)이 서로 다른 시점을
-        # 봤다 — 방금 머지된 마이그레이션 파일이 안 보여 "적용 안 된 파일이 없다"는
-        # 오탐 FAIL 이 났다. check-schema.sh 와 같은 임시 bare repo fetch 를 그대로 쓴다.
-        ORIGIN_URL="$(git config --get remote.origin.url)"
-        MIG_TMP_GIT="$(mktemp -d)"
-        git init -q --bare "$MIG_TMP_GIT"
-        MIG_FETCH_OK=0
-        for attempt in 1 2 3; do
-            if git --git-dir="$MIG_TMP_GIT" fetch -q "$ORIGIN_URL" backend/develop 2>/dev/null; then
-                MIG_FETCH_OK=1
-                break
-            fi
-            [ "$attempt" -lt 3 ] && sleep 2
-        done
-        if [ "$MIG_FETCH_OK" -ne 1 ]; then
-            rm -rf "$MIG_TMP_GIT"
-            echo "FAIL: origin 에서 backend/develop 를 3회 재시도해도 fetch 하지 못했다 — 네트워크/GitLab 확인 후 재시도할 것."
-            exit 1
+    # 2026-09-17 실사고: 아래 `git ls-tree`/`git show` 가 여기 checkout(~/deploy)의
+    # **로컬에 캐시된** origin/backend/develop ref 를 그대로 읽었다. check-schema.sh
+    # 는 :ro 마운트 문제(위 2026-09-16 실사고 주석) 때문에 이미 임시 bare repo 로
+    # 매번 새로 fetch 하도록 고쳐져 있었는데, 이 블록은 그 처리가 없어 최신 스키마
+    # (fresh fetch 결과)와 마이그레이션 파일 목록(stale 캐시)이 서로 다른 시점을
+    # 봤다 — 방금 머지된 마이그레이션 파일이 안 보여 "적용 안 된 파일이 없다"는
+    # 오탐 FAIL 이 났다. check-schema.sh 와 같은 임시 bare repo fetch 를 그대로 쓴다.
+    #
+    # 2026-09-19 실사고: 이 NEW_FILES 계산은 예전엔 "스키마 불일치일 때만" 돌았다.
+    # 그런데 material_type enum 재정렬 마이그레이션(2026-09-18)처럼 컬럼 구조는
+    # 그대로 두고 데이터(UPDATE)만 옮기는 파일은 schema.sql 대조에 애초에 안 걸린다
+    # — check-schema.sh 는 테이블/컬럼/타입/NULL 허용만 보지 값은 보지 않는다. 그래서
+    # 스키마는 "일치"로 나오고 게이트가 열리지 않아 그 마이그레이션이 조용히 스킵됐고,
+    # 남아있던 구 enum 값을 JPA 가 읽는 순간 IllegalArgumentException 으로 500 이 났다
+    # (cft-mysql, material/processing_output/processor_lead_time/processor_capability
+    # 네 테이블). 그래서 이제 NEW_FILES 계산을 스키마 대조와 무관하게 항상 먼저 하고,
+    # "스키마 불일치" 또는 "미적용 마이그레이션 파일 존재" 둘 중 하나만 참이어도 게이트를 연다.
+    ORIGIN_URL="$(git config --get remote.origin.url)"
+    MIG_TMP_GIT="$(mktemp -d)"
+    git init -q --bare "$MIG_TMP_GIT"
+    MIG_FETCH_OK=0
+    for attempt in 1 2 3; do
+        if git --git-dir="$MIG_TMP_GIT" fetch -q "$ORIGIN_URL" backend/develop 2>/dev/null; then
+            MIG_FETCH_OK=1
+            break
         fi
-        trap 'rm -rf "$MIG_TMP_GIT"' EXIT
+        [ "$attempt" -lt 3 ] && sleep 2
+    done
+    if [ "$MIG_FETCH_OK" -ne 1 ]; then
+        rm -rf "$MIG_TMP_GIT"
+        echo "FAIL: origin 에서 backend/develop 를 3회 재시도해도 fetch 하지 못했다 — 네트워크/GitLab 확인 후 재시도할 것."
+        exit 1
+    fi
+    trap 'rm -rf "$MIG_TMP_GIT"' EXIT
 
-        MIGRATIONS_DIR="src/main/resources/db/migrations"
-        APPLIED=" $(docker exec -e MYSQL_PWD="$ROOT_PW" cft-mysql mysql -uroot -N "$DB_NAME" \
-            -e 'SELECT filename FROM deploy_migrations_applied' | tr '\n' ' ') "
-        NEW_FILES=()
-        for mf in $(git --git-dir="$MIG_TMP_GIT" ls-tree -r FETCH_HEAD --name-only -- "$MIGRATIONS_DIR" 2>/dev/null | sort); do
-            base="$(basename "$mf")"
-            case "$APPLIED" in
-                *" $base "*) ;;
-                *) NEW_FILES+=("$mf") ;;
-            esac
-        done
+    MIGRATIONS_DIR="src/main/resources/db/migrations"
+    APPLIED=" $(docker exec -e MYSQL_PWD="$ROOT_PW" cft-mysql mysql -uroot -N "$DB_NAME" \
+        -e 'SELECT filename FROM deploy_migrations_applied' | tr '\n' ' ') "
+    NEW_FILES=()
+    for mf in $(git --git-dir="$MIG_TMP_GIT" ls-tree -r FETCH_HEAD --name-only -- "$MIGRATIONS_DIR" 2>/dev/null | sort); do
+        base="$(basename "$mf")"
+        case "$APPLIED" in
+            *" $base "*) ;;
+            *) NEW_FILES+=("$mf") ;;
+        esac
+    done
+
+    SCHEMA_OK=1
+    MYSQL_CONTAINER=cft-mysql MYSQL_ENV_FILE=.env.test bash scripts/check-schema.sh || SCHEMA_OK=0
+
+    if [ "$SCHEMA_OK" -eq 0 ] || [ ${#NEW_FILES[@]} -gt 0 ]; then
+        if [ "$SCHEMA_OK" -eq 0 ]; then
+            echo "INFO: 스키마 불일치 발견 — 아직 적용 안 된 마이그레이션을 자동 적용합니다."
+        else
+            echo "INFO: 스키마는 일치하지만 미적용 마이그레이션 파일이 있습니다 — 자동 적용합니다."
+            echo "      (데이터만 옮기는 UPDATE 전용 마이그레이션은 schema.sql 대조로 못 잡는다)"
+        fi
+        echo "      (병합 전 CI 게이트가 이미 검증했으므로 test 환경에 한해 ALTER 포함 전부 적용)"
 
         if [ ${#NEW_FILES[@]} -eq 0 ]; then
             echo "FAIL: 적용 안 된 마이그레이션 파일이 없는데도 스키마가 다릅니다."
@@ -130,12 +148,34 @@ if [ "$SERVICE" = "backend" ]; then
             exit 1
         fi
 
-        mkdir -p "$HOME/backups/mysql"
+        # 백업은 **호스트의** ~/backups/mysql 에 남겨야 한다 (backup-mysql.sh 와 같은 자리).
+        # 2026-09-18 발견: 이 스크립트는 Jenkins(cf-jenkins) 컨테이너 안에서 실행되는데, 그 안의
+        # $HOME(/root) 은 어떤 볼륨에도 물려 있지 않다 — 자동 적용 전 백업 5개가 전부 컨테이너
+        # 파일시스템(/root/backups)에만 쌓여 있었고 컨테이너를 재생성하면 통째로 사라진다.
+        # ~/deploy 는 :ro 마운트라 거기에도 쓸 수 없다. docker.sock 은 있으므로, 호스트 경로를
+        # bind 한 일회성 컨테이너로 파이프를 넘겨 호스트에 직접 쓴다 (경로는 데몬=호스트 기준으로
+        # 해석된다). 쓰는 주체는 EC2 사용자(ubuntu, uid 1000)로 맞춘다 — root 로 쓰면 사람이 여는
+        # 것도, 보관 정리도 Permission denied 가 된다(2026-09-18 probe 로 확인). 디렉터리는
+        # backup-mysql.sh 가 이미 만들어 두므로 컨테이너 경로에서는 mkdir 하지 않는다.
+        # 호스트에서 직접 돌릴 때는 그냥 파일로 쓴다.
+        BACKUP_HOST_DIR="${TEST_MYSQL_BACKUP_DIR:-/home/ubuntu/backups/mysql}"
         STAMP="$(date '+%Y%m%d-%H%M%S')"
-        BACKUP_TARGET="$HOME/backups/mysql/${DB_NAME}-test-${STAMP}-before-auto-migration.sql.gz"
-        docker exec -e MYSQL_PWD="$ROOT_PW" cft-mysql \
-            mysqldump -uroot --single-transaction --routines --triggers "$DB_NAME" \
-            | gzip > "$BACKUP_TARGET"
+        BACKUP_NAME="${DB_NAME}-test-${STAMP}-before-auto-migration.sql.gz"
+        BACKUP_TARGET="$BACKUP_HOST_DIR/$BACKUP_NAME"
+        if [ -f /.dockerenv ]; then
+            docker exec -e MYSQL_PWD="$ROOT_PW" cft-mysql \
+                mysqldump -uroot --single-transaction --routines --triggers "$DB_NAME" \
+                | gzip \
+                | docker run --rm -i --user "${TEST_MYSQL_BACKUP_OWNER:-1000:1000}" \
+                    -v "$BACKUP_HOST_DIR:/out" alpine:3.20 \
+                    sh -c "cat > /out/$BACKUP_NAME && chmod 600 /out/$BACKUP_NAME"
+        else
+            mkdir -p "$BACKUP_HOST_DIR"
+            docker exec -e MYSQL_PWD="$ROOT_PW" cft-mysql \
+                mysqldump -uroot --single-transaction --routines --triggers "$DB_NAME" \
+                | gzip > "$BACKUP_TARGET"
+            chmod 600 "$BACKUP_TARGET"
+        fi
         echo "INFO: 자동 적용 전 백업: $BACKUP_TARGET"
 
         for mf in "${NEW_FILES[@]}"; do
