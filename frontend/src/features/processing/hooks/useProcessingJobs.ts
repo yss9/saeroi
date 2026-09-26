@@ -194,19 +194,36 @@ export function useProcessingJob(jobId: number) {
     (ProcessingChainService.receive). 서명이 체인에 들어간 뒤 서버 호출이 실패하면 화면은 해시를
     잃고, 다시 서명하려 하면 체인이 이미 수령된 작업이라 되돌린다. 그래서 체인이 이미 수령을
     지났으면 해시 없이 보내고, 서버가 체인에서 그 서명 거래를 찾아 똑같이 검증한 뒤 기록한다.
+
+    **수령하면 곧바로 가공을 시작한다.** 가공업체가 "가공 시작" 을 따로 누르지 않고 바로 결과
+    작성으로 간다. 컨트랙트는 RECEIVED 와 PROCESSING 을 나눠 받으므로 서명은 둘이지만 버튼은
+    하나다. 순서는 수령 서명 → 수령 기록 → 시작 서명 → 시작 기록 — 시작 서명이 끊겨도 수령
+    기록은 남고, 작업 상세의 "가공 시작" 이 그 자리에서 이어 받는다.
   */
+  async function receiveOnly(id: number) {
+    if (await chainAlreadyPassed(id, 'RECEIVED')) {
+      return processingJobApi.receive(jobId, {})
+    }
+    const receipt = await confirmed(confirmProcessingReceipt(id))
+    return processingJobApi.receive(jobId, {
+      txHash: receipt.hash,
+    })
+  }
+  async function startOnly(id: number) {
+    if (!(await chainAlreadyPassed(id, 'PROCESSING'))) {
+      await confirmed(startProcessingOnChain(id))
+    }
+    return processingJobApi.start(jobId)
+  }
   const receive = useMutation({
     mutationFn: async () => {
       const id = requireChainJob()
-      if (await chainAlreadyPassed(id, 'RECEIVED')) {
-        return processingJobApi.receive(jobId, {})
-      }
-      const receipt = await confirmed(confirmProcessingReceipt(id))
-      return processingJobApi.receive(jobId, {
-        txHash: receipt.hash,
-      })
+      await receiveOnly(id)
+      return startOnly(id)
     },
     onSuccess: refresh,
+    // 시작 서명만 끊긴 경우에도 수령은 기록됐다 — 화면이 RECEIVED 로 바뀌어야 이어서 누를 수 있다.
+    onError: refresh,
   })
   /*
     가공 시작. **여기서 실제로 막혔다.**
@@ -217,13 +234,7 @@ export function useProcessingJob(jobId: number) {
     오류만 났다. 체인 작업 18·19 가 그 상태로 멈춰 있었다.
   */
   const start = useMutation({
-    mutationFn: async () => {
-      const id = requireChainJob()
-      if (!(await chainAlreadyPassed(id, 'PROCESSING'))) {
-        await confirmed(startProcessingOnChain(id))
-      }
-      return processingJobApi.start(jobId)
-    },
+    mutationFn: async () => startOnly(requireChainJob()),
     onSuccess: refresh,
   })
   const saveResult = useMutation({

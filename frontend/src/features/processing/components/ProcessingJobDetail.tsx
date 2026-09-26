@@ -114,7 +114,7 @@ function ProcessingJobDetailContent({ jobId, job, request, role, flow }: {
       만들어진 행을 위해 서버 linkJob 이 일부러 남겨 둔 ACCEPTED 허용이, 이것이
       없으면 눌러 볼 방법이 없는 규칙으로 남는다.
     */}
-    {role==='BRAND'&&(job.status==='PAID'||job.status==='ACCEPTED')&&!job.chainJobId&&<section className="pj-panel pj-action"><div><p>결제가 끝났습니다. 가공업체가 수락할 수 있도록 입력 소재를 온체인 가공 작업에 잠급니다.</p><p className="pj-help">가공업체가 거절하거나 기한 내에 답하지 않으면 이 잠금을 직접 해제해야 합니다.</p></div><button disabled={pending} onClick={()=>flow.initializeChain.mutate()}>MetaMask로 온체인 작업 등록</button></section>}
+    {role==='BRAND'&&(job.status==='PAID'||job.status==='ACCEPTED')&&!job.chainJobId&&<section className="pj-panel pj-action"><div><p>결제 뒤 가공 작업 등록 서명이 끝나지 않았습니다. 서명하면 투입 소재가 잠기고 가공업체가 수락할 수 있습니다.</p><p className="pj-help">가공업체가 거절하거나 기한 내에 답하지 않으면 이 잠금을 직접 해제해야 합니다.</p></div><button disabled={pending} onClick={()=>flow.initializeChain.mutate()}>가공 작업 등록 서명 다시 하기</button></section>}
 
     {role==='PROCESSOR'&&job.status==='PAID'&&!job.chainJobId&&<section className="pj-panel pj-action"><p>브랜드가 온체인 작업을 등록하면 수락할 수 있습니다.</p></section>}
 
@@ -155,8 +155,8 @@ function ProcessingJobDetailContent({ jobId, job, request, role, flow }: {
       이미 풀렸는데 눌러서 되돌아가는 쪽이 낫다.
     */}
     {role==='BRAND'&&chainLockHeld&&<section className="pj-panel pj-action"><div><p>이 작업은 끝났지만 온체인 잠금이 남아 있습니다. 해제하기 전까지 해당 수량은 다시 쓸 수 없습니다.</p>{(flow.chainStatus?.isError||flow.chainPreparation?.isError)&&<p className="pj-help">체인 상태를 불러오지 못했습니다. 이미 해제됐을 수도 있으니 먼저 새로고침해 보세요.</p>}</div><button disabled={pending} onClick={()=>flow.releaseChainLock.mutate()}>MetaMask로 온체인 잠금 해제</button></section>}
-    {role==='PROCESSOR'&&job.status==='SHIPPED'&&<section className="pj-panel pj-action"><p>소재가 도착했다면 수령을 확인해 주세요.</p><button disabled={pending} onClick={()=>flow.receive.mutate()}>소재 수령 처리</button></section>}
-    {role==='PROCESSOR'&&job.status==='RECEIVED'&&<section className="pj-panel pj-action"><p>투입 소재와 작업 조건을 확인한 뒤 가공을 시작합니다.</p><button disabled={pending} onClick={()=>flow.start.mutate()}>가공 시작</button></section>}
+    {role==='PROCESSOR'&&job.status==='SHIPPED'&&<section className="pj-panel pj-action"><p>소재가 도착했다면 수령을 확인해 주세요. 수령하면 바로 가공 결과를 작성할 수 있어요.</p><button disabled={pending} onClick={()=>flow.receive.mutate()}>소재 수령 처리</button></section>}
+    {role==='PROCESSOR'&&job.status==='RECEIVED'&&<section className="pj-panel pj-action"><p>소재 수령은 기록됐지만 가공 시작 서명이 끝나지 않았어요. 서명하면 바로 가공 결과를 작성할 수 있어요.</p><button disabled={pending} onClick={()=>flow.start.mutate()}>가공 시작 서명 다시 하기</button></section>}
 
     {role==='PROCESSOR'&&(job.status==='PROCESSING'||job.status==='REJECTED')&&<section className="pj-panel"><h2><Factory/>가공 결과 작성</h2>{job.rejectionReason&&<p className="pj-warning">브랜드 수정 요청 사유: {job.rejectionReason}</p>}
       {rows.map((row,index)=><fieldset className="pj-output" key={index}>

@@ -281,10 +281,10 @@ test('반환 발송 폼을 작업 카드 안에 중첩 카드 없이 표시한�
   expect(container.querySelector('.pj-panel .pj-shipment-form')).toBeInTheDocument()
 })
 
-test('결제 직후에는 브랜드가 온체인 등록을 먼저 한다', () => {
+test('결제 직후 등록 서명이 끝나지 않았으면 브랜드가 작업 상세에서 이어서 서명한다', () => {
   renderDetail({ role: 'BRAND', job: { status: 'PAID', chainJobId: null } })
 
-  expect(screen.getByRole('button', { name: 'MetaMask로 온체인 작업 등록' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: '가공 작업 등록 서명 다시 하기' })).toBeInTheDocument()
   // chainReleaseRequired 가 false 인데도 role==='BRAND' 만으로 해제 패널이 뜨면 잡아낸다.
   expect(screen.queryByRole('button', { name: 'MetaMask로 온체인 잠금 해제' })).not.toBeInTheDocument()
 })
@@ -380,7 +380,7 @@ test('뮤테이션 실패는 체인 조회 실패와 달리 전역 배너에 뜬
 test('구 순서로 수락된 작업(ACCEPTED·체인 없음)도 브랜드가 온체인에 올릴 수 있다', () => {
   renderDetail({ role: 'BRAND', job: { status: 'ACCEPTED', chainJobId: null } })
 
-  expect(screen.getByRole('button', { name: 'MetaMask로 온체인 작업 등록' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: '가공 작업 등록 서명 다시 하기' })).toBeInTheDocument()
   // 다음 단계는 하나뿐이어야 한다. 등록 패널과 발송 폼이 함께 뜨면 브랜드는 서로
   // 배타적인 두 버튼 중 하나를 고르게 되고, 발송 쪽은 체인에 작업이 없어 되돌아간다.
   expect(screen.queryByRole('button', { name: '소재 발송 처리' })).not.toBeInTheDocument()
@@ -459,3 +459,24 @@ test('온체인에 올리기 전에 거절된 작업은 잠금까지 모두 풀�
   expect(screen.getByText(/잠긴 소재 수량도 풀렸습니다/)).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'MetaMask로 온체인 잠금 해제' })).not.toBeInTheDocument()
 })
+
+// 수령 버튼 하나로 가공 시작까지 간다 — 수령한 뒤 "가공 시작" 을 또 누르게 하지 않는다.
+test('발송된 소재는 수령 한 번으로 가공 결과 작성까지 간다고 안내한다', async () => {
+  const user = userEvent.setup()
+  renderDetail({ role: 'PROCESSOR', job: { status: 'SHIPPED', chainJobId: 11 } })
+  const flow = mocks.useProcessingJob()
+
+  expect(screen.getByText('소재가 도착했다면 수령을 확인해 주세요. 수령하면 바로 가공 결과를 작성할 수 있어요.')).toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: '소재 수령 처리' }))
+
+  expect(flow.receive.mutate).toHaveBeenCalledOnce()
+  expect(screen.queryByRole('button', { name: '가공 시작' })).not.toBeInTheDocument()
+})
+
+test('수령 뒤 가공 시작 서명만 끊긴 작업은 그 자리에서 이어서 서명한다', () => {
+  renderDetail({ role: 'PROCESSOR', job: { status: 'RECEIVED', chainJobId: 11 } })
+
+  expect(screen.getByText('소재 수령은 기록됐지만 가공 시작 서명이 끝나지 않았어요. 서명하면 바로 가공 결과를 작성할 수 있어요.')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: '가공 시작 서명 다시 하기' })).toBeInTheDocument()
+})
+
