@@ -24,6 +24,8 @@ public record KakaoPayProperties(
         String cid,
         String secretKey,
         String returnUrl,
+        String productOrderReturnUrl,
+        String productOrderGroupReturnUrl,
         java.time.Duration timeout) {
 
     private static final String DEFAULT_BASE_URL = "https://open-api.kakaopay.com";
@@ -34,13 +36,66 @@ public record KakaoPayProperties(
     private static final String DEFAULT_RETURN_URL =
             "http://localhost:5173/trades/{tradeId}/payment/return";
 
+    private static final String DEFAULT_PRODUCT_ORDER_RETURN_URL =
+            "http://localhost:5173/orders/{orderId}/payment/return";
+
+    private static final String DEFAULT_PRODUCT_ORDER_GROUP_RETURN_URL =
+            "http://localhost:5173/order-groups/{orderGroupId}/payment/return";
+
+    /** {@link #returnUrl} 에서 잘라 낼 지점. 이 앞이 프론트의 기준 주소다. */
+    private static final String TRADE_PATH_MARKER = "/trades/";
+
+    /** 기준 주소 뒤에 붙일 제품 주문 복귀 경로. */
+    private static final String PRODUCT_ORDER_PATH = "/orders/{orderId}/payment/return";
+
+    /** 기준 주소 뒤에 붙일 주문 묶음 복귀 경로. */
+    private static final String PRODUCT_ORDER_GROUP_PATH =
+            "/order-groups/{orderGroupId}/payment/return";
+
     private static final java.time.Duration DEFAULT_TIMEOUT = java.time.Duration.ofSeconds(10);
 
     public KakaoPayProperties {
         baseUrl = orDefault(baseUrl, DEFAULT_BASE_URL);
         cid = orDefault(cid, TEST_CID);
         returnUrl = orDefault(returnUrl, DEFAULT_RETURN_URL);
+        // returnUrl 이 먼저 확정되어야 한다 — 제품 주문 복귀 주소를 그것에서 끌어내기 때문이다.
+        productOrderReturnUrl =
+                orDefault(productOrderReturnUrl, derived(returnUrl, PRODUCT_ORDER_PATH,
+                        DEFAULT_PRODUCT_ORDER_RETURN_URL));
+        productOrderGroupReturnUrl =
+                orDefault(productOrderGroupReturnUrl, derived(returnUrl, PRODUCT_ORDER_GROUP_PATH,
+                        DEFAULT_PRODUCT_ORDER_GROUP_RETURN_URL));
         timeout = timeout == null ? DEFAULT_TIMEOUT : timeout;
+    }
+
+    /**
+     * 제품 주문 복귀 주소를 <b>거래 복귀 주소에서 끌어낸다.</b>
+     *
+     * <p>둘은 같은 프론트의 서로 다른 라우트라 도메인과 basename(예: {@code /test})이 언제나
+     * 같다. 그래서 따로 설정하지 않아도 {@code KAKAOPAY_RETURN_URL} 하나만 맞으면 이 값도
+     * 맞는다.
+     *
+     * <pre>
+     *   https://j15e104.p.ssafy.io/test/trades/{tradeId}/payment/return
+     *   →  https://j15e104.p.ssafy.io/test/orders/{orderId}/payment/return
+     * </pre>
+     *
+     * <p><b>왜 상수 기본값을 그대로 두지 않는가.</b> 그 값은 {@code localhost:5173} 이고,
+     * 배포 환경이 새 환경변수를 넘겨주지 않으면 <b>조용히</b> 그쪽으로 떨어진다. 카카오페이는
+     * 그런 {@code approval_url} 을 거부하므로 결제가 통째로 실패하는데, 화면에는 "결제 처리 중
+     * 오류" 만 뜨고 원인은 서버 로그를 봐야 안다. 이 프로젝트는 같은 함정을 이미 한 번 밟았다
+     * ({@code docs/INFRA_SETUP.md} 의 2026-09-11 항목).
+     *
+     * <p>거래 주소가 {@code /trades/} 를 담지 않는 형태면 끌어낼 근거가 없어 상수로 물러난다.
+     * 그 경우는 누군가 주소 규칙 자체를 바꾼 것이므로 이 값도 함께 지정해야 한다 — 기동을
+     * 막지는 않는다. 여기서 실패시키면 제품 주문과 무관한 소재 거래 배포까지 함께 멈춘다.
+     */
+    private static String derived(String tradeReturnUrl, String path, String fallback) {
+        int marker = tradeReturnUrl.lastIndexOf(TRADE_PATH_MARKER);
+        if (marker < 0) {
+            return fallback;
+        }
+        return tradeReturnUrl.substring(0, marker) + path;
     }
 
     /** 실제 PG 를 붙일 수 있는 상태인가. */
@@ -57,6 +112,30 @@ public record KakaoPayProperties(
      */
     public String returnUrlFor(Long tradeId) {
         return returnUrl.replace("{tradeId}", String.valueOf(tradeId));
+    }
+
+    /**
+     * 제품 주문의 복귀 주소. 소재 거래와 <b>화면이 다르므로</b> 경로도 달라야 한다 —
+     * 소비자는 거래 상세 화면을 열 수 없다.
+     *
+     * <p>{@link #returnUrl} 하나를 나눠 쓰지 않고 별도 설정을 두는 이유는, 두 흐름의 복귀
+     * 화면이 서로 다른 라우트이기 때문이다. 한 값에 {@code {tradeId\}} 와
+     * {@code {orderId\}} 를 섞어 넣으면 한쪽이 치환되지 않은 채로 결제창에 넘어간다.
+     */
+    public String productOrderReturnUrlFor(Long orderId) {
+        return productOrderReturnUrl.replace("{orderId}", String.valueOf(orderId));
+    }
+
+    /**
+     * 주문 묶음의 복귀 주소. 단일 주문과 <b>화면이 다르다</b> — 묶음은 브랜드별 주문 여러
+     * 건을 한 화면에 보여 준다.
+     *
+     * <p>단일 주문과 같은 방식으로 거래 복귀 주소에서 도메인과 basename 을 끌어온다.
+     * {@code KAKAOPAY_RETURN_URL} 하나만 맞으면 이 값도 맞는다.
+     */
+    public String productOrderGroupReturnUrlFor(Long orderGroupId) {
+        return productOrderGroupReturnUrl.replace(
+                "{orderGroupId}", String.valueOf(orderGroupId));
     }
 
     private static String orDefault(String value, String fallback) {

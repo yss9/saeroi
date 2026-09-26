@@ -131,7 +131,10 @@ public class MaterialBalanceQueryRepository {
                             quantity,
                             lockedAmount,
                             quantity - lockedAmount,
-                            row.get(materialBalance.syncedAt));
+                            row.get(materialBalance.syncedAt),
+                            // 가공 이력은 혈통에서 나온다. 이 쿼리는 잔량만 본다 —
+                            // MaterialQueryService 가 몰아서 채운다.
+                            List.of());
                 })
                 .toList();
     }

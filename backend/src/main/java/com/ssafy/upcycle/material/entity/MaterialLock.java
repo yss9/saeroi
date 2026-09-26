@@ -160,6 +160,29 @@ public class MaterialLock {
     }
 
     /**
+     * 온체인 잠금 번호를 연결한다.
+     *
+     * <p>DB 잠금과 온체인 {@code MaterialLock} 은 <b>따로 만들어진다</b> — 서버가 DB 행을
+     * 만들고, 화면이 지갑으로 {@code createMaterialLock} 을 보낸다. 그 둘을 잇는 값이
+     * {@code chain_lock_id} 이고, 이것이 없으면 <b>어느 온체인 잠금이 이 투입에 대응하는지
+     * 서버가 알 수 없다.</b> 소각({@code consumeLockedMaterial})이 온체인 {@code lockId} 를
+     * 인자로 받으므로, 소비를 체인과 맞추려면 반드시 필요하다.
+     *
+     * <p>한 번만 연결한다. 이미 붙은 번호를 바꾸는 것은 다른 온체인 잠금을 이 투입의 것으로
+     * 둔갑시키는 것과 같다 — {@link #assignReference} 가 같은 이유로 같은 검사를 한다.
+     */
+    public void linkChainLock(Long chainLockId) {
+        if (this.chainLockId != null) {
+            throw new IllegalStateException(
+                    "Material lock is already linked to chain lock " + this.chainLockId);
+        }
+        if (chainLockId == null || chainLockId <= 0) {
+            throw new IllegalArgumentException("Chain lock id must be positive");
+        }
+        this.chainLockId = chainLockId;
+    }
+
+    /**
      * 저장으로 확정된 참조 대상의 id 를 채운다.
      *
      * <p>{@link #PENDING_REFERENCE_ID} 로 만들어 둔 잠금에만 쓸 수 있다. 이미 실제 대상을

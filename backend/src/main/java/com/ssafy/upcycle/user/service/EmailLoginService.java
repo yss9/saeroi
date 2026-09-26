@@ -1,15 +1,12 @@
 package com.ssafy.upcycle.user.service;
 
 import com.ssafy.upcycle.common.exception.BusinessException;
-import com.ssafy.upcycle.common.security.jwt.AccessToken;
-import com.ssafy.upcycle.common.security.jwt.JwtTokenService;
 import com.ssafy.upcycle.user.EmailAuthErrorCode;
 import com.ssafy.upcycle.user.dto.EmailLoginRequest;
 import com.ssafy.upcycle.user.dto.EmailLoginResponse;
 import com.ssafy.upcycle.user.dto.UserSummaryResponse;
 import com.ssafy.upcycle.user.entity.User;
 import com.ssafy.upcycle.user.repository.UserRepository;
-import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -24,20 +21,20 @@ public class EmailLoginService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JwtTokenService jwtTokenService;
+    private final RefreshTokenService refreshTokenService;
     private final String dummyPasswordHash;
 
     public EmailLoginService(
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
-            JwtTokenService jwtTokenService) {
+            RefreshTokenService refreshTokenService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
-        this.jwtTokenService = jwtTokenService;
+        this.refreshTokenService = refreshTokenService;
         this.dummyPasswordHash = passwordEncoder.encode(DUMMY_PASSWORD);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public EmailLoginResponse login(EmailLoginRequest request) {
         String email = normalizeEmail(request.email());
         Optional<User> foundUser = userRepository.findByEmail(email);
@@ -52,9 +49,9 @@ public class EmailLoginService {
             throw new BusinessException(EmailAuthErrorCode.USER_SUSPENDED);
         }
 
-        AccessToken token = jwtTokenService.issueAccessToken(
-                String.valueOf(user.getId()), List.of(user.getRole().name()));
-        return new EmailLoginResponse(token.value(), UserSummaryResponse.from(user));
+        IssuedTokenPair tokens = refreshTokenService.issueFor(user);
+        return new EmailLoginResponse(
+                tokens.accessToken(), tokens.refreshToken(), UserSummaryResponse.from(user));
     }
 
     private String normalizeEmail(String email) {

@@ -78,6 +78,21 @@ public enum TradeErrorCode implements ErrorCode {
             HttpStatus.CONFLICT, "PAYMENT_STATE_INVALID", "지금 상태에서는 처리할 수 없습니다."),
     PAYMENT_NOT_PREPARED(
             HttpStatus.CONFLICT, "PAYMENT_NOT_PREPARED", "결제를 먼저 시작해야 합니다."),
+    /**
+     * 사용자가 결제창 인증을 마치지 않았다 (카카오 {@code -701}).
+     *
+     * <p><b>502 로 두면 안 된다.</b> 결제창을 닫거나 뒤로 가면 매번 나는 아주 흔한 경우인데
+     * 502 는 "우리 인프라가 고장났다" 는 뜻이라, 오류 대시보드가 사용자 이탈로 가득 차
+     * 진짜 장애를 덮는다. 사용자도 "결제 처리 중 오류" 만 보고는 무엇을 해야 할지 모른다
+     * (2026-09-21 확인).
+     *
+     * <p>409 인 이유는 요청 자체는 멀쩡하고 <b>상태</b>가 아직 아니기 때문이다 —
+     * {@code PAYMENT_NOT_PREPARED}·{@code PAYMENT_STATE_INVALID} 와 같은 부류다.
+     */
+    PAYMENT_NOT_AUTHENTICATED(
+            HttpStatus.CONFLICT,
+            "PAYMENT_NOT_AUTHENTICATED",
+            "결제 인증이 완료되지 않았습니다. 결제를 다시 진행해 주세요."),
     PAYMENT_GATEWAY_FAILED(
             HttpStatus.BAD_GATEWAY, "PAYMENT_GATEWAY_FAILED", "결제 처리 중 오류가 발생했습니다."),
 

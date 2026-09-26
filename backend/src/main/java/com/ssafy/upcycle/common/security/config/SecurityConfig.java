@@ -54,6 +54,22 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         // 배포 파이프라인(scripts/health-check.sh)이 인증 없이 호출한다.
                         .requestMatchers(HttpMethod.GET, "/api/health").permitAll()
+                        // QR Passport 공개 조회 (FR-051, §6-3 2026-09-08). qrToken 자체가
+                        // 추측 불가능한 값이라 접근 통제 역할을 한다 — 로그인을 요구하면
+                        // 비회원이 QR 을 찍고 들어오는 진입점이 무너진다.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/qr/**").permitAll()
+                        // 소비자 쇼핑몰의 판매 중 상품 카탈로그와 브랜드 카탈로그. 기존
+                        // 상품 관리·업체 정보 API는 인증 상태로 남겨 DRAFT·등록·수정·
+                        // 상태 변경 경로, 사업자 정보와 분리한다.
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/public/product-models",
+                                "/api/v1/public/product-models/**",
+                                "/api/v1/public/brands",
+                                "/api/v1/public/brands/**",
+                                "/api/v1/prediction-markets",
+                                "/api/v1/prediction-markets/*")
+                        .permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(authorityConverter))
@@ -75,6 +91,7 @@ public class SecurityConfig {
                 .toList());
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+        configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/api/**", configuration);

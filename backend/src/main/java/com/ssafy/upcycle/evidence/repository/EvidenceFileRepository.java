@@ -2,6 +2,8 @@ package com.ssafy.upcycle.evidence.repository;
 
 import com.ssafy.upcycle.evidence.entity.EvidenceFile;
 import com.ssafy.upcycle.evidence.entity.EvidenceReferenceType;
+import com.ssafy.upcycle.evidence.entity.EvidenceType;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -37,4 +39,19 @@ public interface EvidenceFileRepository extends JpaRepository<EvidenceFile, Long
      * 넣어 두면 빼먹을 자리가 없다.
      */
     Optional<EvidenceFile> findByIdAndDeletedAtIsNull(Long id);
+
+    long countByReferenceTypeAndReferenceIdAndDeletedAtIsNull(
+            EvidenceReferenceType referenceType, Long referenceId);
+
+    /**
+     * 여러 대상의 공개 가능한 사진류 증빙을 한 번에 읽는다 (마켓플레이스 썸네일,
+     * S15P21E104-438/439 연장). 대상마다 여러 건이 나올 수 있으므로 <b>대상 하나당 첫
+     * 건만 고르는 것은 호출부의 몫</b>이다 — 정렬을 {@code uploadedAt·id} 오름차순으로
+     * 고정해 두면 호출부가 대상별로 처음 만난 행을 취하기만 하면 된다.
+     */
+    List<EvidenceFile>
+            findByReferenceTypeAndReferenceIdInAndEvidenceTypeInAndDeletedAtIsNullOrderByReferenceIdAscUploadedAtAscIdAsc(
+                    EvidenceReferenceType referenceType,
+                    Collection<Long> referenceIds,
+                    Collection<EvidenceType> evidenceTypes);
 }

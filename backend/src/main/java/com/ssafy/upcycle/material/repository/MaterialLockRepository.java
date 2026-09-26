@@ -18,6 +18,11 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface MaterialLockRepository extends JpaRepository<MaterialLock, Long> {
 
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select l from MaterialLock l where l.id = :id")
+    java.util.Optional<MaterialLock> findByIdForUpdate(
+            @org.springframework.data.repository.query.Param("id") Long id);
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @org.springframework.data.jpa.repository.Query("select l from MaterialLock l where l.materialId = :materialId "
             + "and l.ownerId = :ownerId and l.status = com.ssafy.upcycle.material.entity.MaterialLockStatus.ACTIVE order by l.id")
     List<MaterialLock> findActiveForUpdate(

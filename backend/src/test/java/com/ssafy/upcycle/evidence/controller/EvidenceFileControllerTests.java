@@ -150,13 +150,18 @@ class EvidenceFileControllerTests {
     }
 
     private Long uploadEvidence() {
+        return uploadEvidence(EvidenceType.BEFORE_PHOTO);
+    }
+
+    /** 종류를 고를 수 있는 버전 — 사진류/문서류 접근 판정이 종류에 따라 갈리는 테스트에 쓴다. */
+    private Long uploadEvidence(EvidenceType evidenceType) {
         EvidenceFileResponse uploaded = uploadService
                 .upload(
                         uploaderId,
                         new EvidenceUploadRequest(
                                 EvidenceReferenceType.MATERIAL,
                                 materialId,
-                                EvidenceType.BEFORE_PHOTO),
+                                evidenceType),
                         List.of(new MockMultipartFile("files", "before.jpg", "image/jpeg", JPEG)))
                 .get(0);
         return uploaded.evidenceFileId();
@@ -191,15 +196,32 @@ class EvidenceFileControllerTests {
                 .andExpect(status().isUnauthorized());
     }
 
+    /**
+     * 문서류(계근표·거래명세서)는 여전히 관계가 있어야 한다 — 거래 상대·중량·단가가
+     * 찍혀 있어서다.
+     */
     @Test
     void refusesAThirdPartyWithTheSharedEnvelope() throws Exception {
-        Long evidenceFileId = uploadEvidence();
+        Long evidenceFileId = uploadEvidence(EvidenceType.WEIGHT_SLIP);
 
         mockMvc.perform(get("/api/evidence/" + evidenceFileId + "/content")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + strangerToken))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("EVIDENCE_ACCESS_FORBIDDEN"));
+    }
+
+    /**
+     * 사진류는 관계 없는 제3자에게도 열려 있다 — 마켓플레이스를 구경하는 구매자가
+     * 사진 없이 사라고 할 수는 없다 (`EvidenceAccessPolicy` 의 사진류 예외).
+     */
+    @Test
+    void allowsAThirdPartyToReadAPublicPhoto() throws Exception {
+        Long evidenceFileId = uploadEvidence(EvidenceType.BEFORE_PHOTO);
+
+        mockMvc.perform(get("/api/evidence/" + evidenceFileId + "/content")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + strangerToken))
+                .andExpect(status().isOk());
     }
 
     @Test

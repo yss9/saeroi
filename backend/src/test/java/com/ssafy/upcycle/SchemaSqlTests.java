@@ -20,37 +20,47 @@ class SchemaSqlTests {
 
     private static final Set<String> EXPECTED_TABLES = Set.of(
             "users",
+            "user_notification",
             "user_wallet",
             "wallet_nonce",
             "company_profile",
             "consumer_address",
+            "consumer_wishlist",
+            "consumer_cart_item",
             "refresh_token",
             "processor_profile",
             "processor_capability",
-            "processor_lead_time",
             "material",
             "material_balance",
             "material_lock",
             "material_lineage",
+            "material_event",
             "material_composition",
             "evidence_file",
             "processing_request",
             "processing_request_input",
             "processing_request_type",
-            "processing_quote",
             "processing_job",
             "processing_input",
             "processing_output",
+            "processing_signature_challenge",
             "product_model",
+            "product_image",
             "production_batch",
             "production_input",
             "production_output",
             "product_item",
+            "product_order_group",
             "product_order",
             "product_order_item",
             "product_shipping",
             "canceled_product_order",
             "canceled_product_order_item",
+            "consumer_inquiry",
+            "prediction_market",
+            "prediction_bucket",
+            "prediction_response",
+            "prediction_point_grant",
             "material_listing",
             "material_trade",
             "trade_shipping",
@@ -72,8 +82,13 @@ class SchemaSqlTests {
                     .contains("token_id", "chain_id", "contract_address", "evidence_hash", "manifest_url")
                     .doesNotContain("verification_state");
             assertThat(readColumns(connection, "processing_job"))
-                    .contains("brand_reviewed_at", "manifest_url", "payment_method", "payment_amount")
+                    .contains("result_revision", "result_submitted_at", "approval_signature",
+                            "rejection_reason", "manifest_url", "payment_method", "payment_amount",
+                            "return_shipping_evidence_hash")
                     .doesNotContain("brand_approved_at", "brand_rejected_at");
+            assertThat(readColumns(connection, "processing_input"))
+                    .contains("brand_material_lock_id", "processor_material_lock_id")
+                    .doesNotContain("material_lock_id");
             assertThat(readColumns(connection, "trade_shipping")).containsExactlyInAnyOrder(
                     "id",
                     "trade_id",
@@ -159,20 +174,13 @@ class SchemaSqlTests {
                     (2, 'REQ-000002', 1, 2, '2099-01-01 00:00:00')
                 """);
         statement.executeUpdate("""
-                INSERT INTO processing_quote (
-                    id, processing_request_id, processor_id, price, lead_days
-                ) VALUES
-                    (1, 1, 2, 1000, 1),
-                    (2, 2, 2, 1000, 1)
-                """);
-        statement.executeUpdate("""
                 INSERT INTO processing_job (
-                    id, job_code, processing_request_id, processing_quote_id,
+                    id, job_code, processing_request_id,
                     brand_id, processor_id, brand_wallet, processor_wallet,
                     fee, payment_method, payment_amount, payment_expires_at
                 ) VALUES
-                    (1, 'JOB-000001', 1, 1, 1, 2, '0xbrand', '0xprocessor', 1000, 'MOCK', 1000, '2099-01-01 00:15:00'),
-                    (2, 'JOB-000002', 2, 2, 1, 2, '0xbrand', '0xprocessor', 1000, 'MOCK', 1000, '2099-01-01 00:15:00')
+                    (1, 'JOB-000001', 1, 1, 2, '0xbrand', '0xprocessor', 1000, 'MOCK', 1000, '2099-01-01 00:15:00'),
+                    (2, 'JOB-000002', 2, 1, 2, '0xbrand', '0xprocessor', 1000, 'MOCK', 1000, '2099-01-01 00:15:00')
                 """);
         statement.executeUpdate("""
                 INSERT INTO material_lock (
@@ -183,7 +191,7 @@ class SchemaSqlTests {
                 """);
         statement.executeUpdate("""
                 INSERT INTO processing_input (
-                    id, processing_job_id, material_id, quantity, material_lock_id
+                    id, processing_job_id, material_id, quantity, brand_material_lock_id
                 ) VALUES
                     (1, 1, 1, 100, 1),
                     (2, 2, 1, 100, 2)

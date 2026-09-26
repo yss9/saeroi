@@ -5,6 +5,8 @@ import com.ssafy.upcycle.material.MaterialErrorCode;
 import com.ssafy.upcycle.material.entity.Material;
 import com.ssafy.upcycle.material.entity.MaterialLineage;
 import com.ssafy.upcycle.material.entity.MaterialLineageRelationType;
+import com.ssafy.upcycle.material.entity.MaterialEventReferenceType;
+import com.ssafy.upcycle.material.entity.MaterialEventType;
 import com.ssafy.upcycle.material.repository.MaterialLineageRepository;
 import com.ssafy.upcycle.material.repository.MaterialRepository;
 import java.util.List;
@@ -47,6 +49,7 @@ public class MaterialLineageRegistrar {
 
     private final MaterialRepository materialRepository;
     private final MaterialLineageRepository materialLineageRepository;
+    private final MaterialEventRecorder eventRecorder;
 
     /**
      * 자식 소재에 부모를 잇는다.
@@ -69,8 +72,37 @@ public class MaterialLineageRegistrar {
         requireSingleParent(childMaterialId, parentMaterialId, referenceId);
         requireInheritedRootOrigin(child, parent);
 
-        return materialLineageRepository.save(
+        MaterialLineage lineage = materialLineageRepository.save(
                 MaterialLineage.of(childMaterialId, parentMaterialId, relationType, referenceId));
+        MaterialEventReferenceType referenceType = relationType == MaterialLineageRelationType.PROCESSING
+                ? MaterialEventReferenceType.PROCESSING_JOB
+                : MaterialEventReferenceType.PRODUCTION_BATCH;
+        eventRecorder.record(
+                childMaterialId,
+                MaterialEventType.MATERIAL_DERIVED,
+                child.getRegistrantId(),
+                referenceType,
+                referenceId,
+                parentMaterialId,
+                child.getTotalQuantity(),
+                "부모 소재에서 파생",
+                MaterialEventRecorder.key(
+                        MaterialEventType.MATERIAL_DERIVED, childMaterialId, referenceId));
+        eventRecorder.record(
+                parentMaterialId,
+                MaterialEventType.CHILD_MATERIAL_CREATED,
+                child.getRegistrantId(),
+                referenceType,
+                referenceId,
+                childMaterialId,
+                child.getTotalQuantity(),
+                "자식 소재 생성",
+                MaterialEventRecorder.key(
+                        MaterialEventType.CHILD_MATERIAL_CREATED,
+                        parentMaterialId,
+                        referenceId,
+                        childMaterialId));
+        return lineage;
     }
 
     private Material require(Long materialId) {

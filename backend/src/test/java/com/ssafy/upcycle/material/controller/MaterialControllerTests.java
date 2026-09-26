@@ -270,7 +270,7 @@ class MaterialControllerTests {
     @Test
     void rejectsAnUnknownMaterialType() throws Exception {
         Map<String, Object> request = validRequest();
-        request.put("materialType", "SILK");
+        request.put("materialType", "LEATHER");
 
         expectBadRequest(request);
     }

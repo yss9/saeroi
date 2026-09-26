@@ -23,6 +23,32 @@ spring:
     password: 여기에_MySQL_비밀번호
 
 app:
+  demo-catalog:
+    # 홈·SHOP 시연 상품이 필요한 로컬 환경에서만 true.
+    # 운영 환경의 기본값은 false이며, 반복 기동해도 같은 상품이 중복 생성되지 않는다.
+    enabled: false
+    stock-per-product: 10
+
+  geocoding:
+    kakao:
+      # Kakao Developers 앱의 REST API 키. JavaScript 키가 아니다.
+      rest-api-key: 여기에_카카오_REST_API_키
+      # 기존 업체 좌표 backfill이 필요한 한 번만 true로 기동 후 다시 false.
+      backfill-enabled: false
+
+  qr:
+    # 필수. 비어 있으면 기동하지 않는다 — 잘못된 주소로 인쇄된 QR 은 되돌릴 수 없다.
+    #
+    # ⚠️ 접두어가 프론트 Passport 라우트와 같아야 한다. 지금 그 라우트는 /qr/:qrToken 이다.
+    #    배포에서는 https://<배포도메인>/qr 이어야 하며, 여기가 어긋나면 인쇄되어 제품에
+    #    붙어 나간 QR 이 전부 죽는다 — 회수 말고는 고칠 방법이 없다.
+    base-url: http://localhost:5173/qr
+
+  auth:
+    refresh-token:
+      # 로컬 HTTP에서만 false. 운영 환경은 반드시 true로 유지한다.
+      cookie-secure: false
+
   security:
     jwt:
       # Base64 로 인코딩된 32바이트 이상이어야 한다. 아니면 부팅이 실패한다
@@ -50,3 +76,11 @@ app:
       # (TC0ONETIME 은 카카오가 공개한 테스트 가맹점이라 실제 청구가 없다).
       # 비밀값이 아니다.
       cid: TC0ONETIME
+
+      # 가공비 결제 후 돌아올 프론트 주소. 로컬 프론트 포트를 바꾼 경우에만 수정한다.
+      processing-return-url: http://localhost:5173/processing/jobs/{jobId}/payment/callback
+
+      # 제품 주문(소비자) 복귀 주소는 적지 않아도 된다. 비워 두면 return-url 에서
+      # 도메인과 basename 을 그대로 가져와 /orders/{orderId}/payment/return 으로 만든다.
+      # 두 라우트가 갈라진 경우에만 여기에 직접 적는다.
+      # product-order-return-url: http://localhost:5173/orders/{orderId}/payment/return

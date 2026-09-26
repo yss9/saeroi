@@ -71,7 +71,14 @@ class UserSchemaMappingTests {
     }
 
     private static Stream<Class<?>> userDomainEntities() {
-        return Stream.of(User.class, CompanyProfile.class, UserWallet.class, WalletNonce.class);
+        return Stream.of(
+                User.class,
+                CompanyProfile.class,
+                UserWallet.class,
+                WalletNonce.class,
+                RefreshToken.class,
+                ConsumerWishlist.class,
+                ConsumerCartItem.class);
     }
 
     private static Stream<Arguments> userEnumColumns() {

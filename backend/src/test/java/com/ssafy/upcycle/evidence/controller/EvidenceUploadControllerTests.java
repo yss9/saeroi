@@ -185,6 +185,17 @@ class EvidenceUploadControllerTests {
     }
 
     @Test
+    void acceptsWeightPhotoEvidenceTypeFromMultipartForm() throws Exception {
+        mockMvc.perform(upload("WEIGHT_PHOTO").file(jpeg("weight-photo.jpg")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].evidenceType").value("WEIGHT_PHOTO"));
+
+        assertThat(evidenceFileRepository.findAll()).hasSize(1);
+        assertThat(filesOnDisk()).isEqualTo(1);
+    }
+
+    @Test
     void storesEveryFileOfAMultiFileRequest() throws Exception {
         mockMvc.perform(upload()
                         .file(jpeg("a.jpg"))
@@ -467,10 +478,14 @@ class EvidenceUploadControllerTests {
     // ── 도우미 ──────────────────────────────────────────────
 
     private MockMultipartHttpServletRequestBuilder upload() {
+        return upload("BEFORE_PHOTO");
+    }
+
+    private MockMultipartHttpServletRequestBuilder upload(String evidenceType) {
         MockMultipartHttpServletRequestBuilder request = multipart("/api/evidence");
         request.param("referenceType", "MATERIAL")
                 .param("referenceId", String.valueOf(materialId))
-                .param("evidenceType", "BEFORE_PHOTO")
+                .param("evidenceType", evidenceType)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
         return request;
     }

@@ -22,7 +22,7 @@ public class ProcessingRequestExpiryWorker {
     @Scheduled(fixedDelayString = "${app.processing.expiry.interval-ms:60000}")
     public void expireDueRequests() {
         for (var request : requests.findTop100ByStatusAndExpiresAtLessThanEqualOrderById(
-                ProcessingRequestStatus.QUOTING, LocalDateTime.now(clock))) {
+                ProcessingRequestStatus.REQUESTED, LocalDateTime.now(clock))) {
             try {
                 // A separate transaction per request; one failure does not roll back the batch.
                 service.expire(request.getId());

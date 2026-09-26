@@ -98,16 +98,20 @@ class WalletControllerTests {
     }
 
     @Test
-    void rejectsAConsumerAccount() throws Exception {
+    void allowsAConsumerAccountForPredictionMarket() throws Exception {
         User consumer = userRepository.save(
                 User.register("consumer@example.com", "{noop}x", "소비자", "010-1111-1111", UserRole.CONSUMER));
+        String token = tokenFor(consumer);
 
         mockMvc.perform(post("/api/v1/wallets/nonce")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor(consumer))
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(nonceBody(address)))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("WALLET_ROLE_NOT_ALLOWED"));
+                .andExpect(status().isOk());
+
+        registerWallet(token, address);
+        assertThat(userWalletRepository.findByUserIdAndActiveTrue(consumer.getId()))
+                .get().extracting(UserWallet::isVerified).isEqualTo(true);
     }
 
     // ── 등록 ────────────────────────────────────────────────

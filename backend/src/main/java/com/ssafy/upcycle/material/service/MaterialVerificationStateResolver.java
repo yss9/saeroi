@@ -20,19 +20,14 @@ import org.springframework.stereotype.Component;
  *
  * <pre>
  *   PRODUCT_LINKED        production_input + 배치 CONFIRMED     엔티티 없음
- *   PROCESSING_VERIFIED   processing_job.brand_reviewed_at      엔티티 없음
+ *   PROCESSING_VERIFIED   processing_output + processing_job.brand_reviewed_at
  *   TRANSACTION_VERIFIED  material_trade.buyer_signed_at        판정함
  *   SOURCE_VERIFIED       blockchain_transaction verifySource    판정함
  *   REGISTERED            그 외                                  판정함
  * </pre>
  *
- * <p>남은 두 단은 스키마에는 근거 컬럼이 있는데(`processing_job.brand_reviewed_at`,
- * `production_batch.status`) 아직 <b>엔티티가 없다</b> — processing 은 견적 요청까지만,
- * production 은 패키지만 들어와 있다. 그 도메인이 합류할 때 {@link TradeVerification} ·
- * {@link BlockchainVerification} 과 같은 창구를 하나씩 늘려 자기 단을 <b>위에</b> 얹는다.
- *
- * <p>그럼에도 <b>오늘 기준으로는 결과가 정확하다.</b> 승인·확정 기록을 남길 흐름 자체가
- * 없으므로 어떤 소재도 위 두 단계에 도달할 수 없다. 낮게 보고하는 일이 생기지 않는다.
+ * <p>Processing은 {@link ProcessingVerification} 창구로 승인된 산출물을 판정한다.
+ * 남은 {@code PRODUCT_LINKED} 단은 production 조회 창구가 합류할 때 가장 위에 추가한다.
  *
  * <h2>왜 SOURCE_VERIFIED 만 온체인을 보는가</h2>
  *
@@ -44,10 +39,14 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class MaterialVerificationStateResolver {
 
+    private final ProcessingVerification processingVerification;
     private final TradeVerification tradeVerification;
     private final BlockchainVerification blockchainVerification;
 
     public MaterialVerificationState resolve(Long materialId) {
+        if (processingVerification.hasConfirmedProcessingResult(materialId)) {
+            return MaterialVerificationState.PROCESSING_VERIFIED;
+        }
         if (tradeVerification.hasBuyerSignedTrade(materialId)) {
             return MaterialVerificationState.TRANSACTION_VERIFIED;
         }

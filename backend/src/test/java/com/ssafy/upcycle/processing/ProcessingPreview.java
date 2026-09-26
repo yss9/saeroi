@@ -47,9 +47,9 @@ public class ProcessingPreview {
         Material cotton = materials.save(Material.register("MAT-DEMO-002",MaterialType.COTTON,MaterialRootOrigin.WASTE,
                 "재사용 면 원단",null,"B",15000,null,null,brand.getId()));
         balances.save(MaterialBalance.of(cotton.getId(),brand.getId(),wallet,15000));
-        seedProcessor(users,jdbc,"recycle@preview.test","리뉴 텍스타일","서울 성동구",1000,100000,3);
-        seedProcessor(users,jdbc,"green@preview.test","그린 루프 팩토리","경기 성남시",5000,50000,5);
-        seedProcessor(users,jdbc,"atelier@preview.test","다시 공방","부산 사상구",500,10000,7);
+        seedProcessor(users,jdbc,"recycle@preview.test","리뉴 텍스타일","서울 성동구",10000,1200,3);
+        seedProcessor(users,jdbc,"green@preview.test","그린 루프 팩토리","경기 성남시",5000,900,5);
+        seedProcessor(users,jdbc,"atelier@preview.test","다시 공방","부산 사상구",2000,1500,7);
         String token = context.getBean(JwtTokenService.class).issueAccessToken(brand.getId().toString(),List.of("BRAND")).value();
         String state = context.getBean(ObjectMapper.class).writeValueAsString(Map.of("state",Map.of(
                 "user",Map.of("id",brand.getId(),"name",brand.getName(),"email",brand.getEmail(),"role","BRAND","walletAddress",wallet),
@@ -74,14 +74,18 @@ public class ProcessingPreview {
         System.out.println("Processing preview ready. Open frontend /processing-preview.html. In-memory data resets on restart.");
     }
 
+    /**
+     * 가공사를 한 곳 심는다.
+     *
+     * <p>예전에는 수량 구간과 소요일 표를 따로 심었지만, 지금은 하루 처리량과
+     * kg 당 단가 둘이면 된다 — 소요일은 ⌈수량 ÷ 하루 처리량⌉ 으로 나온다.
+     */
     private static void seedProcessor(UserRepository users,JdbcTemplate jdbc,String email,String name,String region,
-            long min,long max,int days) {
+            long dailyCapacity,long pricePerKg,int unused) {
         Long id=users.save(User.register(email,"{noop}unused",name,"010-0000-0000",UserRole.PROCESSOR)).getId();
         jdbc.update("insert into processor_profile(user_id,region) values (?,?)",id,region);
         for (String material:List.of("DENIM","COTTON")) for (String purpose:List.of("CLEANING","DISASSEMBLY","CUTTING")) {
-            jdbc.update("insert into processor_capability(processor_profile_id,material_type,process_type,min_quantity,max_quantity) values (?,?,?,?,?)",id,material,purpose,min,max);
+            jdbc.update("insert into processor_capability(processor_profile_id,material_type,process_type,daily_capacity,price_per_kg) values (?,?,?,?,?)",id,material,purpose,dailyCapacity,pricePerKg);
         }
-        jdbc.update("insert into processor_lead_time(processor_profile_id,max_quantity,lead_days) values (?,?,?)",id,10000,days);
-        if (max > 10000) jdbc.update("insert into processor_lead_time(processor_profile_id,max_quantity,lead_days) values (?,?,?)",id,max,days+3);
     }
 }

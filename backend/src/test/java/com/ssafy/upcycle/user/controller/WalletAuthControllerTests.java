@@ -101,12 +101,13 @@ class WalletAuthControllerTests {
         JsonNode issued = issueNonce();
         String body = verifyBody(issued);
 
-        String response = mockMvc.perform(post("/api/v1/auth/wallet/verify")
+        var result = mockMvc.perform(post("/api/v1/auth/wallet/verify")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.data.refreshToken").doesNotExist())
                 .andExpect(jsonPath("$.data.user.id").value(userId))
                 .andExpect(jsonPath("$.data.user.email").value("supplier@example.com"))
                 .andExpect(jsonPath("$.data.user.name").value("공급자"))
@@ -115,11 +116,13 @@ class WalletAuthControllerTests {
                 .andExpect(jsonPath("$.data.user.status").value("ACTIVE"))
                 .andExpect(jsonPath("$.data.user.createdAt").isNotEmpty())
                 .andExpect(jsonPath("$.data.user.password").doesNotExist())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
+                .andReturn();
 
+        String response = result.getResponse().getContentAsString();
         assertThat(response).doesNotContain("{noop}x");
+        assertThat(result.getResponse().getHeader("Set-Cookie"))
+                .startsWith("refresh_token=")
+                .contains("Path=/api/v1/auth", "Max-Age=1209600", "Secure", "HttpOnly", "SameSite=Strict");
     }
 
     @Test

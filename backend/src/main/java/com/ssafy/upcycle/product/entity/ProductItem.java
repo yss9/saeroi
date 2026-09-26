@@ -58,8 +58,19 @@ public class ProductItem {
     @Column(name = "production_batch_id", nullable = false)
     private Long productionBatchId;
 
-    /** 조회 편의를 위해 함께 들고 있다. 배치를 거치지 않고 모델별 재고를 셀 수 있다. */
-    @Column(name = "product_model_id", nullable = false)
+    /**
+     * 조회 편의를 위해 함께 들고 있다. 배치를 거치지 않고 모델별 재고를 셀 수 있다.
+     *
+     * <p><b>생산 확정 직후에는 비어 있을 수 있다.</b> 브랜드의 실제 순서가 "생산을 끝내고
+     * → 그 결과물에 제품 정보를 붙인다" 라, 확정 전에 무엇을 만들었는지부터 정하라고 강제할
+     * 이유가 없다. 비어 있는 동안 이 개체는 <b>어느 모델의 재고로도 세지지 않고</b>
+     * ({@code countByProductModelIdAndStatus} 가 모델 id 로 찾는다) 팔리지도 않는다.
+     *
+     * <p>다만 <b>QR 여권은 이 값 없이 보여줄 것이 없다</b> — 여권은 "이 제품은 무엇이고
+     * 어떤 소재로 만들어졌는가" 를 말하는 화면이다. 그 구간에 스캔하면
+     * {@code PassportQueryService} 가 "아직 준비되지 않았다" 로 답한다.
+     */
+    @Column(name = "product_model_id")
     private Long productModelId;
 
     /** 배치 안에서의 순번. 1 부터 시작한다. */
@@ -73,6 +84,13 @@ public class ProductItem {
     /** QR 주소에 들어가는 추측 불가 랜덤값. id 를 쓰면 남의 이력을 열람할 수 있다. */
     @Column(name = "qr_token", nullable = false, columnDefinition = "CHAR(32)", unique = true)
     private String qrToken;
+
+    /**
+     * 기본 크기 QR PNG 를 처음 만든 뒤 저장한 {@link com.ssafy.upcycle.common.storage.FileStorageService}
+     * 키. 아직 한 번도 만들어지지 않았으면 {@code null} — 그 시점에 처음 렌더링하고 채운다.
+     */
+    @Column(name = "qr_image_key")
+    private String qrImageKey;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
@@ -89,7 +107,8 @@ public class ProductItem {
             String itemCode,
             String qrToken) {
         this.productionBatchId = requireNonNull(productionBatchId, "production batch id");
-        this.productModelId = requireNonNull(productModelId, "product model id");
+        // 확정 시점에는 없어도 된다. 나중에 attachProductModel 로 채운다.
+        this.productModelId = productModelId;
         if (serialNumber <= 0) {
             throw new IllegalArgumentException("Product item serial number must be positive");
         }
@@ -127,9 +146,37 @@ public class ProductItem {
         this.status = ProductItemStatus.RESERVED;
     }
 
-    /** 주문이 취소되어 다시 팔 수 있게 된다. */
+    /**
+     * 생산이 끝난 개체에 제품을 붙인다. <b>한 번만 된다.</b>
+     *
+     * <p>바꿀 수 없게 막는 것이 핵심이다 — 개체가 팔린 뒤에 제품이 바뀌면 그 주문이 산 것과
+     * 재고가 가리키는 제품이 달라지고, 이미 인쇄된 QR 이 가리키는 여권도 다른 제품을 말하게
+     * 된다. 바꾸려면 개체를 새로 만드는 수밖에 없다.
+     */
+    public void attachProductModel(Long productModelId) {
+        if (this.productModelId != null) {
+            throw new IllegalStateException(
+                    "Product item already belongs to product model " + this.productModelId);
+        }
+        this.productModelId = requireNonNull(productModelId, "product model id");
+    }
+
+    /** 결제 전 주문이 취소되어 다시 팔 수 있게 된다. */
     public void release() {
         requireStatus(ProductItemStatus.RESERVED, "release");
+        this.status = ProductItemStatus.IN_STOCK;
+    }
+
+    /**
+     * 주문이 취소되어 재고로 돌아간다. <b>결제가 끝난 개체도 돌아올 수 있다.</b>
+     *
+     * <p>{@link #release} 와 달리 {@code SOLD} 를 받는 것이 이 메서드의 이유다. 결제된 주문도
+     * 발송 전까지는 취소되고, 그때 환불이 먼저 끝난 뒤 이 개체가 다시 팔릴 수 있어야 한다.
+     * 취소 순서와 환불 보장은 {@code ProductOrderPaymentService#cancel} 이 책임진다.
+     *
+     * <p>이미 재고면 아무 일도 하지 않는다 — 취소 정리가 두 번 들어와도 같은 결과여야 한다.
+     */
+    public void returnToStock() {
         this.status = ProductItemStatus.IN_STOCK;
     }
 
@@ -141,6 +188,20 @@ public class ProductItem {
 
     public boolean isInStock() {
         return this.status == ProductItemStatus.IN_STOCK;
+    }
+
+    /**
+     * 처음 렌더링한 기본 크기 QR PNG 를 저장한 뒤 그 키를 기록한다.
+     *
+     * <p>이미 키가 있으면 덮어쓰지 않는다 — 같은 토큰으로 다시 그려도 PNG 바이트는 항상
+     * 같으므로 재저장할 이유가 없고, 호출부(<code>ProductionBatchService</code>)가 먼저
+     * {@link #getQrImageKey()} 로 캐시 적중 여부를 본 뒤에만 이 메서드를 부른다.
+     */
+    public void attachQrImage(String storageKey) {
+        if (storageKey == null || storageKey.isBlank()) {
+            throw new IllegalArgumentException("QR image storage key must not be blank");
+        }
+        this.qrImageKey = storageKey;
     }
 
     private void requireStatus(ProductItemStatus expected, String action) {

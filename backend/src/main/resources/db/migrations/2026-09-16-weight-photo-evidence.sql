@@ -1,0 +1,5 @@
+ALTER TABLE evidence_file
+    MODIFY COLUMN evidence_type ENUM(
+        'BEFORE_PHOTO','AFTER_PHOTO','WEIGHT_SLIP','WEIGHT_PHOTO',
+        'INVOICE','PROCESS_PHOTO','ETC'
+    ) NOT NULL;

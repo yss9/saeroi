@@ -15,14 +15,35 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  */
 @ConfigurationProperties(prefix = "app.blockchain")
 public record BlockchainProperties(
-        Long chainId, String materialTokenAddress, String marketplaceAddress) {
+        Long chainId,
+        String rpcUrl,
+        String materialTokenAddress,
+        String marketplaceAddress,
+        String processingRegistryAddress,
+        String productionRegistryAddress) {
 
-    /** 주소가 하나라도 비어 있으면 온체인 기록을 받지 않는다. */
+    /**
+     * 소재·마켓 주소가 하나라도 비어 있으면 온체인 기록을 받지 않는다.
+     *
+     * <p><b>생산 레지스트리 주소는 여기 넣지 않는다.</b> 넣으면 그 주소가 비어 있을 때
+     * 소재 발행과 거래 기록까지 함께 막힌다 — 배포 순서상 나중에 붙는 컨트랙트가 앞선
+     * 기능을 멈추게 하는 것은 맞지 않다. 생산 경로만
+     * {@link #hasProductionRegistry()} 로 따로 확인한다.
+     */
     public boolean isConfigured() {
         return chainId != null && chainId > 0
                 && hasAddress(materialTokenAddress)
                 && hasAddress(marketplaceAddress);
     }
+
+    /** 생산 기록을 받을 수 있는가. 레지스트리 주소가 따로 필요하다. */
+    public boolean hasProductionRegistry() {
+        return hasAddress(productionRegistryAddress);
+    }
+
+    public boolean hasProcessingRegistry() { return hasAddress(processingRegistryAddress); }
+
+    public boolean hasRpcUrl() { return rpcUrl != null && !rpcUrl.isBlank(); }
 
     private static boolean hasAddress(String address) {
         return address != null && address.length() == 42 && address.startsWith("0x");

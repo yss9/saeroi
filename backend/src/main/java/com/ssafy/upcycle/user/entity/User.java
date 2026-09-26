@@ -116,6 +116,34 @@ public class User {
         this.status = UserStatus.SUSPENDED;
     }
 
+    /**
+     * 대표자명·연락처를 갱신한다.
+     *
+     * <p>사업자회원의 경우 이 값은 가입 시 {@code SignupService.registerBusiness} 가
+     * {@code representativeName}/{@code companyPhone} 으로 받아 채운 값이다
+     * ({@code CompanyProfileService} 참고) — {@code name}/{@code phone} 이 "회사명"이 아니라
+     * "대표자 정보"인 이유다.
+     */
+    public void updateContact(String name, String phone) {
+        this.name = requireText(name, "name", NAME_MAX_LENGTH);
+        this.phone = requireText(phone, "phone", PHONE_MAX_LENGTH);
+    }
+
+    /**
+     * 비밀번호를 바꾼다.
+     *
+     * <p><b>이미 인코딩된 값만 받는다.</b> 평문을 넘기면 그 문자열이 그대로 해시 자리에
+     * 저장되고, 그 계정은 <b>아무 비밀번호로도 로그인되지 않는 상태</b>가 된다 —
+     * {@code PasswordEncoder.matches} 가 접두어 없는 문자열을 해시로 해석하지 못하기
+     * 때문이다. 인코딩은 {@code PasswordChangeService} 가 한다.
+     *
+     * <p>비밀번호를 바꾸는 통로는 이것 하나다. 필드를 직접 만지는 코드가 생기면 인코딩을
+     * 건너뛰는 경로도 함께 생긴다.
+     */
+    public void changePassword(String encodedPassword) {
+        this.password = requireText(encodedPassword, "password", PASSWORD_MAX_LENGTH);
+    }
+
     private static <T> T requireNonNull(T value, String field) {
         if (value == null) {
             throw new IllegalArgumentException("User " + field + " must not be null");

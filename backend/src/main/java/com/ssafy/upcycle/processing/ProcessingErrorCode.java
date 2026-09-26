@@ -4,6 +4,10 @@ import com.ssafy.upcycle.common.exception.ErrorCode;
 import org.springframework.http.HttpStatus;
 
 public enum ProcessingErrorCode implements ErrorCode {
+    PROCESSOR_PROFILE_FORBIDDEN(HttpStatus.FORBIDDEN, "가공업체 계정만 업체 정보를 등록하거나 조회할 수 있습니다."),
+    PROCESSOR_PROFILE_NOT_FOUND(HttpStatus.NOT_FOUND, "등록된 가공업체 프로필을 찾을 수 없습니다."),
+    PROCESSOR_PROFILE_IMAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "등록된 가공업체 대표 이미지를 찾을 수 없습니다."),
+    PROCESSOR_CAPABILITIES_INVALID(HttpStatus.BAD_REQUEST, "하루 처리량과 kg 당 단가를 확인해 주세요. 같은 소재·공정 조합은 한 번만 등록할 수 있습니다."),
     PROCESSING_FORBIDDEN(HttpStatus.FORBIDDEN, "해당 가공 요청을 처리할 권한이 없습니다."),
     PROCESSING_MATERIAL_NOT_FOUND(HttpStatus.NOT_FOUND, "사용 가능한 소재를 찾을 수 없습니다."),
     PROCESSING_PROCESSOR_NOT_FOUND(HttpStatus.NOT_FOUND, "활성 가공업체를 찾을 수 없습니다."),
@@ -13,14 +17,20 @@ public enum ProcessingErrorCode implements ErrorCode {
     PROCESSING_INSUFFICIENT_BALANCE(HttpStatus.CONFLICT, "활성 Lock을 제외한 소재 보유 수량이 부족합니다."),
     PROCESSING_REQUEST_NOT_FOUND(HttpStatus.NOT_FOUND, "가공 요청을 찾을 수 없습니다."),
     PROCESSING_INVALID_STATE(HttpStatus.CONFLICT, "현재 상태에서는 가공 요청을 변경할 수 없습니다."),
-    PROCESSING_QUOTE_NOT_FOUND(HttpStatus.NOT_FOUND, "가공 견적을 찾을 수 없습니다."),
-    PROCESSING_QUOTE_ALREADY_EXISTS(HttpStatus.CONFLICT, "이 요청에는 이미 견적을 제출했습니다."),
-    PROCESSING_INVALID_QUOTE(HttpStatus.BAD_REQUEST, "견적 가격은 0 이상의 정수, 작업 기간은 양의 정수여야 합니다."),
     PROCESSING_JOB_NOT_FOUND(HttpStatus.NOT_FOUND, "가공 작업을 찾을 수 없습니다."),
+    PROCESSING_CHAIN_NOT_LINKED(HttpStatus.CONFLICT, "온체인 작업 등록을 먼저 완료해야 소재를 발송할 수 있습니다."),
     PROCESSING_WALLET_NOT_FOUND(HttpStatus.CONFLICT, "Brand와 Processor 모두 활성 지갑이 필요합니다."),
     PROCESSING_PAYMENT_NOT_PREPARED(HttpStatus.CONFLICT, "결제 준비가 필요합니다."),
     PROCESSING_PAYMENT_EXPIRED(HttpStatus.CONFLICT, "결제 가능 시간이 만료되었습니다."),
-    PROCESSING_PAYMENT_AMOUNT_MISMATCH(HttpStatus.CONFLICT, "승인 금액이 견적 금액과 일치하지 않습니다.");
+    PROCESSING_PAYMENT_AMOUNT_MISMATCH(HttpStatus.CONFLICT, "승인 금액이 견적 금액과 일치하지 않습니다."),
+    PROCESSING_RESULT_INVALID(HttpStatus.BAD_REQUEST, "산출 수량 합계와 Loss 합계가 투입 수량과 일치해야 합니다."),
+    PROCESSING_EVIDENCE_REQUIRED(HttpStatus.CONFLICT, "가공 결과 제출 전 증빙 파일을 한 개 이상 등록해 주세요."),
+    PROCESSING_SIGNATURE_CHALLENGE_NOT_FOUND(HttpStatus.NOT_FOUND, "유효한 서명 요청을 찾을 수 없습니다."),
+    PROCESSING_SIGNATURE_CHALLENGE_INVALID(HttpStatus.CONFLICT, "서명 요청이 만료되었거나 현재 작업 내용과 일치하지 않습니다."),
+    PROCESSING_SIGNATURE_MISMATCH(HttpStatus.UNAUTHORIZED, "MetaMask 서명자가 작업 지갑과 일치하지 않습니다."),
+    PROCESSING_OUTPUT_INVALID(HttpStatus.BAD_REQUEST, "가공 산출물의 항목과 수량을 확인해 주세요."),
+    PROCESSING_LOCK_NOT_ACTIVE(HttpStatus.CONFLICT, "가공에 예약된 소재 잠금을 사용할 수 없습니다."),
+    PROCESSING_BALANCE_INVALID(HttpStatus.CONFLICT, "가공 투입 소재의 보유 수량이 부족합니다.");
 
     private final HttpStatus status;
     private final String message;

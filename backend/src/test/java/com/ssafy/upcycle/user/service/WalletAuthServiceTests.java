@@ -210,6 +210,7 @@ class WalletAuthServiceTests {
         WalletLoginResponse response = walletAuthService.verify(verifyRequest(issued, KEY_PAIR));
 
         assertThat(response.accessToken()).isNotBlank();
+        assertThat(response.refreshToken()).isNotBlank();
         assertThat(response.user().email()).isEqualTo("supplier@example.com");
         assertThat(response.user().role()).isEqualTo(UserRole.SUPPLIER);
     }

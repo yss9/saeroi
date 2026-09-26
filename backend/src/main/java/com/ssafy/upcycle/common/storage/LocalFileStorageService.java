@@ -145,6 +145,11 @@ public class LocalFileStorageService implements FileStorageService {
 
     @Override
     public boolean exists(String storageKey) {
+        // 모양이 틀린 키는 resolveExisting 이 루트 이탈로 막아 500 을 내던 자리다.
+        // 이탈을 막는 것은 맞지만, 그 답은 "서버 오류" 가 아니라 "그런 파일 없음" 이다.
+        if (!FileStorageService.isWellFormedStorageKey(storageKey)) {
+            return false;
+        }
         return Files.isRegularFile(resolveExisting(storageKey));
     }
 

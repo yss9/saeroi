@@ -469,6 +469,32 @@ Epic `-10`(Material Passport / Traceability) 과 `-11`(QR) 에 관련 티켓이 
 
 **담당**: Product/QR. 기획 확인은 끝났다(비회원 조회 필요).
 
+**2026-09-09 부분 구현** (`-154`/`-105`/`-136`, MR 대기): `GET /api/v1/qr/{qrToken}`
+(`passport` 패키지, `PassportController`)를 `SecurityConfig` permitAll 에 추가했다.
+경로는 `/qr/{qrToken}` 이 아니라 `/api/v1/qr/{qrToken}` 이다 — CORS 설정이
+`/api/**` 에만 등록돼 있어(`SecurityConfig.corsConfigurationSource`), 그 밖에 두면
+브라우저에서 막힌다. §5-api.md 의 표기(무버전)와 실제 컨트롤러 관례(`/api/v1/...`)가
+다른데, 여기서는 최근 추가된 컨트롤러(`product-models`, `listings` 등)를 따라 `/v1` 을
+붙였다.
+
+**응답은 제품 신원까지만이다.** `itemCode`·`serialNumber`·`itemStatus`·제품
+이름/카테고리/설명/썸네일. **소재 혈통은 아직 없다** (`traceabilityAvailable: false`
+고정) — `production` 패키지가 `package-info.java` 뿐이라 `product_item` 에서
+소재까지 조인할 경로가 없다. Production 도메인(생산 배치·투입·산출 엔티티)이 생기면
+`PassportQueryService` 를 확장해서 채운다. 그 전까지 이 필드가 계약을 어기지 않고
+그대로 `false → 채워진 값` 으로 바뀔 수 있게 미리 넣어 두었다.
+
+`productItemId`·`productModelId`(둘 다 순번)는 응답에 없다 — qrToken 을 우회해
+인증 경로를 순서대로 훑을 실마리를 주지 않기 위해서다. `brandId`·`price` 도 뺐다
+(§6-3 항목 2, "거래 정보").
+
+`thumbnailUrl`(저장 키 문자열)도 뺐다 — 뒤늦게 발견한 것인데, 저장 키 자체가
+`FileReference(type, id)` 의 `id`(브랜드 내부 id)를 경로에 담고 있어서 문자열로 내려주면
+방금 뺀 `brandId` 가 다른 필드 안에 그대로 새는 셈이었다. 대신 이미지는
+`GET /api/v1/qr/{qrToken}/thumbnail` 로 직접 받는다 — 제품 상세가 저장 키를 안 받고
+`productModelId` 로 이미지를 받는 것과 같은 이유(`ProductImageController` 참고)를 공개
+경로에도 그대로 적용했다.
+
 ### 6-4. `CONSUMER` 가 B2B 소재 정보를 볼 수 있어야 하는가 — ✅ 결정 (2026-09-08, 공병우)
 
 `GET /api/materials/**` 와 `GET /api/v1/listings` 는 현재 `AUTH` 다.

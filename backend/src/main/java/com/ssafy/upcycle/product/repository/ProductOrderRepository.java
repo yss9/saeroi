@@ -6,6 +6,8 @@ import jakarta.persistence.LockModeType;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -19,9 +21,30 @@ public interface ProductOrderRepository extends JpaRepository<ProductOrder, Long
 
     Optional<ProductOrder> findByOrderCode(String orderCode);
 
+    /**
+     * 한 묶음에 속한 주문 전부. 묶음 결제 승인과 묶음 취소가 쓴다.
+     *
+     * <p>{@code idx_product_order_group} 이 받친다. 단일 주문은 {@code order_group_id} 가
+     * {@code null} 이라 어떤 묶음에도 딸려 나오지 않는다.
+     */
+    List<ProductOrder> findAllByOrderGroupIdOrderByIdAsc(Long orderGroupId);
+
     List<ProductOrder> findAllByBuyerIdAndStatus(Long buyerId, ProductOrderStatus status);
 
     List<ProductOrder> findAllByBrandIdAndStatus(Long brandId, ProductOrderStatus status);
+
+    /** 브랜드에게 들어온 주문 목록. 발송할 건을 찾는 화면이 읽는다. */
+    Page<ProductOrder> findAllByBrandId(Long brandId, Pageable pageable);
+
+    Page<ProductOrder> findAllByBrandIdAndStatus(
+            Long brandId, ProductOrderStatus status, Pageable pageable);
+
+    Page<ProductOrder> findAllByBuyerId(Long buyerId, Pageable pageable);
+
+    Page<ProductOrder> findAllByBuyerIdAndStatus(
+            Long buyerId, ProductOrderStatus status, Pageable pageable);
+
+    long countByBuyerIdAndStatus(Long buyerId, ProductOrderStatus status);
 
     /**
      * 결제 마감을 넘긴 미결제 주문. 배치가 이 목록을 정리하며 잡아 둔 개체를 재고로 되돌린다.

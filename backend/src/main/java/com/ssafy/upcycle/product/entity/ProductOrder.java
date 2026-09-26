@@ -39,7 +39,20 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @EntityListeners(AuditingEntityListener.class)
 public class ProductOrder {
 
-    private static final int ORDER_CODE_MAX_LENGTH = 30;
+    /**
+     * {@code order_code} 컬럼 길이. {@code ProductOrderCodeGenerator} 가 참조한다 —
+     * 두 곳에 숫자를 두면 한쪽만 바뀔 때 조용히 길이가 어긋난다.
+     */
+    public static final int ORDER_CODE_MAX_LENGTH = 30;
+
+    /**
+     * INSERT 를 통과시키기 위한 임시 코드의 접두어.
+     *
+     * <p>{@code order_code} 가 NOT NULL UNIQUE 라 INSERT 시점에 값이 있어야 하는데,
+     * 사람이 읽는 주문번호는 AUTO_INCREMENT 로 확정된 id 에서 만든다.
+     * {@code MaterialCodeGenerator} 와 같은 2단계다.
+     */
+    public static final String TEMPORARY_CODE_PREFIX = "TMP-";
     private static final int PAYMENT_REFERENCE_MAX_LENGTH = 100;
 
     @Id
@@ -56,6 +69,16 @@ public class ProductOrder {
     /** 파는 브랜드. 한 주문은 한 브랜드의 제품만 담는다. */
     @Column(name = "brand_id", nullable = false)
     private Long brandId;
+
+    /**
+     * 한 번의 결제로 함께 만들어진 주문들의 묶음. <b>단일 주문은 {@code null} 이다.</b>
+     *
+     * <p>{@code null} 이면 이 주문이 자기 결제 컬럼({@code paymentReference} 등)을 쓴다 —
+     * 상품 상세의 "바로 구매" 가 그 경로다. 값이 있으면 결제는 묶음이 한 번에 하고 이 주문의
+     * 결제 컬럼은 쓰이지 않는다 ({@link ProductOrderGroup} 문서 참고).
+     */
+    @Column(name = "order_group_id")
+    private Long orderGroupId;
 
     /** 주문 시점 총액 (원). 모델 가격이 나중에 바뀌어도 이 값은 그대로다. */
     @Column(name = "total_price", nullable = false)
@@ -137,8 +160,62 @@ public class ProductOrder {
                 orderCode, buyerId, brandId, totalPrice, paymentMethod, paymentDeadline);
     }
 
-    /** 결제가 승인되었다. */
-    public void markPaid(String paymentReference, long paymentAmount, LocalDateTime paidAt) {
+    /**
+     * 이 주문을 결제 묶음에 넣는다.
+     *
+     * <p>주문을 만든 직후 한 번만 부른다 — 묶음이 먼저 저장되어야 그 id 를 알 수 있어서
+     * 생성자로 받지 않는다. 한 번 묶인 주문이 다른 묶음으로 옮겨 가는 일은 없다: 결제가
+     * 이미 그 묶음 단위로 이뤄지므로 옮기면 청구와 주문이 어긋난다.
+     */
+    public void assignOrderGroup(Long orderGroupId) {
+        if (this.orderGroupId != null) {
+            throw new IllegalStateException(
+                    "Product order is already in a group: " + this.orderGroupId);
+        }
+        this.orderGroupId = requireNonNull(orderGroupId, "order group id");
+    }
+
+    /**
+     * 임시 코드를 확정된 주문번호로 교체한다.
+     *
+     * <p><b>이미 정식 코드가 붙은 주문은 거부한다.</b> 주문번호는 고객이 문의할 때
+     * 대는 식별자라, 나중에 바뀌면 고객이 적어 둔 번호로는 아무것도 찾지 못한다.
+     */
+    public void assignCode(String orderCode) {
+        if (!this.orderCode.startsWith(TEMPORARY_CODE_PREFIX)) {
+            throw new IllegalStateException(
+                    "Product order code is already assigned: " + this.orderCode);
+        }
+        this.orderCode = requireText(orderCode, "order code", ORDER_CODE_MAX_LENGTH);
+    }
+
+    /**
+     * 결제창을 열기 전에 PG 가 준 {@code tid} 를 적어 둔다. <b>아직 청구되지 않았다.</b>
+     *
+     * <p>사용자가 결제창에서 돌아왔을 때 서버가 이 값을 알고 있어야 승인을 요청할 수 있다.
+     * 화면이 다시 보내게 하면 남의 결제를 승인시키는 입구가 된다.
+     *
+     * <p>덮어쓰기를 허용한다 — 결제창을 닫고 다시 여는 것은 정상 행동이고, 승인되지 않은
+     * 이전 tid 는 PG 쪽에서 만료된다.
+     */
+    public void preparePayment(String paymentReference) {
+        requireStatus(ProductOrderStatus.CREATED, "prepare payment for");
+        this.paymentReference =
+                requireText(paymentReference, "payment reference", PAYMENT_REFERENCE_MAX_LENGTH);
+    }
+
+    /**
+     * 결제가 승인되었다.
+     *
+     * <p>{@code paymentMethod} 를 여기서 다시 적는 이유는, 주문 생성 시점의 값은 <b>희망</b>일
+     * 뿐이기 때문이다. 실제로 어느 게이트웨이가 붙는지는 설정이 정하고
+     * ({@code PaymentGatewayConfig}), 청구한 쪽을 기록해야 나중에 정산에서 대조할 수 있다.
+     */
+    public void markPaid(
+            String paymentReference,
+            long paymentAmount,
+            LocalDateTime paidAt,
+            PaymentMethod paymentMethod) {
         requireStatus(ProductOrderStatus.CREATED, "pay");
         if (paymentAmount < 0) {
             throw new IllegalArgumentException("Product order payment amount must not be negative");
@@ -146,6 +223,7 @@ public class ProductOrder {
         this.paymentReference = paymentReference;
         this.paymentAmount = paymentAmount;
         this.paidAt = requireTimestamp(paidAt);
+        this.paymentMethod = requireNonNull(paymentMethod, "payment method");
         this.status = ProductOrderStatus.PAID;
     }
 
