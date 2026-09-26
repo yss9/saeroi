@@ -126,6 +126,47 @@ class KakaoPayPropertiesTests {
                 .isEqualTo("https://j15e104.p.ssafy.io/test/trades/3/payment/return");
     }
 
+    // ── 대화창 복귀 주소 ────────────────────────────────────
+
+    @Test
+    void theAgentUrlFollowsTheTradeUrlWithoutBeingConfigured() {
+        // 배포가 KAKAOPAY_RETURN_URL 하나만 넘겨도 대화 안에서 시작한 결제가 돌아와야 한다.
+        KakaoPayProperties properties = properties(
+                "https://j15e104.p.ssafy.io/trades/{tradeId}/payment/return", null);
+
+        assertThat(properties.agentReturnUrlFor(12L))
+                .isEqualTo("https://j15e104.p.ssafy.io/agent/payment/callback?tradeId=12");
+    }
+
+    @Test
+    void theAgentUrlKeepsTheFrontendBasename() {
+        KakaoPayProperties properties = properties(
+                "https://j15e104.p.ssafy.io/test/trades/{tradeId}/payment/return", null);
+
+        assertThat(properties.agentReturnUrlFor(12L))
+                .isEqualTo("https://j15e104.p.ssafy.io/test/agent/payment/callback?tradeId=12");
+    }
+
+    @Test
+    void theAgentUrlIsNotTheTradeDetailPage() {
+        // 거래 상세로 보내면 대화창이 다른 화면으로 바뀐다. 대화 안에서 결제까지 끝내는
+        // 것이 이 기능의 요점이라, 두 주소가 같아지는 순간 기능이 무너진다.
+        KakaoPayProperties properties = properties(
+                "https://j15e104.p.ssafy.io/trades/{tradeId}/payment/return", null);
+
+        assertThat(properties.agentReturnUrlFor(12L))
+                .isNotEqualTo(properties.returnUrlFor(12L))
+                .contains("/agent/");
+    }
+
+    @Test
+    void theAgentUrlFallsBackToTheDevServerLocally() {
+        KakaoPayProperties properties = properties(null, null);
+
+        assertThat(properties.agentReturnUrlFor(12L))
+                .isEqualTo("http://localhost:5173/agent/payment/callback?tradeId=12");
+    }
+
     // ── helpers ─────────────────────────────────────────────
 
     private KakaoPayProperties properties(String returnUrl, String productOrderReturnUrl) {
@@ -136,6 +177,6 @@ class KakaoPayPropertiesTests {
             String returnUrl, String productOrderReturnUrl, String productOrderGroupReturnUrl) {
         return new KakaoPayProperties(
                 null, null, SECRET, returnUrl, productOrderReturnUrl, productOrderGroupReturnUrl,
-                Duration.ofSeconds(10));
+                null, Duration.ofSeconds(10));
     }
 }

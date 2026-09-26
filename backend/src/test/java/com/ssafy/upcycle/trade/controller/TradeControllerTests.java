@@ -111,6 +111,9 @@ class TradeControllerTests {
                 "TRD-000001", listing.getId(), materialId, seller.getId(), buyer.getId(),
                 SELLER_WALLET, BUYER_WALLET, 20_000L, 200_000L, PaymentMethod.MOCK, LocalDateTime.now().plusMinutes(30)));
         trade.markPaid("T1234", 200_000L, LocalDateTime.now(), PaymentMethod.MOCK);
+        // 발송의 선행 조건이다. 컨트랙트의 markShipped(orderId) 는 그 번호 없이는 부를 수도
+        // 없어서, 서버가 먼저 나가면 체인이 모르는 거래가 발송·수령까지 끝나 버린다.
+        trade.assignChainTradeId(42L);
         shippingRepository.save(TradeShipping.of(
                 trade.getId(), "김구매", "010-1111-1111", "04766", "서울시 성동구", "101동"));
     }
@@ -270,6 +273,7 @@ class TradeControllerTests {
                 .andExpect(jsonPath("$.data.status").value("COMPLETED"))
                 .andExpect(jsonPath("$.data.transferredQuantity").value(20000))
                 .andExpect(jsonPath("$.data.buyerQuantity").value(20000))
+                // 확정은 체인에 수령이 남은 뒤에만 되므로, 이 값이 있다는 것은 서명이 있었다는 뜻이다.
                 .andExpect(jsonPath("$.data.buyerSignedAt").isNotEmpty())
                 // 판매자 재고는 이 거래와 무관하다. 구매자에게 내려가면 안 된다
                 .andExpect(jsonPath("$.data.sellerQuantity").doesNotExist());
@@ -315,10 +319,18 @@ class TradeControllerTests {
     }
 
     /**
-     * 수령 확인이 소재의 검증 단계를 실제로 끌어올리는지 끝에서 끝까지 확인한다.
+     * 수령 확정이 검증 단계를 끌어올린다.
      *
-     * <p>서비스 단위 테스트로는 판정 로직만 보게 되어, 조회 경로가 그 값을 실제로 내려보내는지가
-     * 빠진다. 응답이 여전히 REGISTERED 로 굳어 있어도 아무도 모른다.
+     * <p>판정 근거는 {@code buyer_signed_at} 이고, <b>확정은 체인에 수령이 남은 뒤에만
+     * 통과한다</b>({@code TradeReceiptService#requireChainReceipt}). 그래서 확정됐다는 것은
+     * 지갑 서명이 실제로 있었다는 뜻이고, 이 시점에 검증으로 올리는 것이 사실에 맞는다.
+     *
+     * <p>예전에는 순서가 반대라 확정이 서명 없이 그 값을 채웠다. 그래서 서버는 "서명
+     * 끝났다" 고 판단해 수령 서명 카드를 띄우지 않았고, 소재는 체인에서 판매자 잠금에
+     * 그대로 남아 나중에 가공으로 보낼 때 insufficient material 로 거절당했다.
+     *
+     * <p>이 테스트는 체인 설정이 없는 환경에서 돈다. 그때는 어긋날 대상이 없어 선행 조건을
+     * 건너뛰므로 확정이 통과한다.
      */
     @Test
     void receiptRaisesTheMaterialToTransactionVerified() throws Exception {

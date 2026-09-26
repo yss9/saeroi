@@ -5,7 +5,7 @@ import com.ssafy.upcycle.prediction.PredictionErrorCode;
 import com.ssafy.upcycle.prediction.config.PredictionProperties;
 import java.math.BigInteger;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.util.List;
 import org.springframework.stereotype.Component;
 import org.web3j.abi.FunctionEncoder;
@@ -26,6 +26,7 @@ import org.web3j.utils.Numeric;
 @Component
 public class Web3jPredictionChainGateway implements PredictionChainGateway {
     private static final BigInteger GAS_LIMIT = BigInteger.valueOf(1_500_000);
+    private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Seoul");
     private static final String MARKET_CREATED_TOPIC = Hash.sha3String("MarketCreated(uint256,uint256,uint256,address,uint256,uint256,uint64,uint64,uint64)");
     private static final String BET_PLACED_TOPIC = Hash.sha3String("BetPlaced(uint256,address,uint256,uint256)");
     private final PredictionProperties properties;
@@ -47,6 +48,11 @@ public class Web3jPredictionChainGateway implements PredictionChainGateway {
 
     @Override public String submitResult(long marketId,int sold,String hash){
         Function function=new Function("submitResult",List.of(new Uint256(BigInteger.valueOf(marketId)),new Uint256(BigInteger.valueOf(sold)),new org.web3j.abi.datatypes.generated.Bytes32(Numeric.hexStringToByteArray(hash))),List.of());
+        return send(properties.marketAddress(),function).getTransactionHash();
+    }
+
+    @Override public String cancelMarket(long marketId){
+        Function function=new Function("cancelMarket",List.of(new Uint256(BigInteger.valueOf(marketId))),List.of());
         return send(properties.marketAddress(),function).getTransactionHash();
     }
 
@@ -92,7 +98,7 @@ public class Web3jPredictionChainGateway implements PredictionChainGateway {
     }
 
     private void requireReadable(){if(!properties.isReadable()) throw new BusinessException(PredictionErrorCode.NOT_CONFIGURED);}
-    private static BigInteger epoch(LocalDateTime value){return BigInteger.valueOf(value.toEpochSecond(ZoneOffset.UTC));}
+    static BigInteger epoch(LocalDateTime value){return BigInteger.valueOf(value.atZone(BUSINESS_ZONE).toEpochSecond());}
     private static String topicAddress(String topic){String hex=Numeric.cleanHexPrefix(topic);return "0x"+hex.substring(hex.length()-40);}
     private static BusinessException failed(){return new BusinessException(PredictionErrorCode.CHAIN_TRANSACTION_FAILED);}
 }

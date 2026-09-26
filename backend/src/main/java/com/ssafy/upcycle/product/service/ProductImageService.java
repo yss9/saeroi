@@ -10,11 +10,16 @@ import com.ssafy.upcycle.product.ProductErrorCode;
 import com.ssafy.upcycle.product.dto.ProductImageUploadResponse;
 import com.ssafy.upcycle.product.entity.ProductModel;
 import com.ssafy.upcycle.product.repository.ProductModelRepository;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Locale;
 import java.util.Set;
+import javax.imageio.ImageIO;
 import lombok.RequiredArgsConstructor;
+import net.coobird.thumbnailator.Thumbnails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -60,7 +65,7 @@ public class ProductImageService {
     private final ProductSellerPolicy sellerPolicy;
 
     /**
-     * 제품 이미지를 올린다.
+     * 제품 이미지를 올린다. 동시에 목록용 썸네일(400px)을 생성·저장한다.
      *
      * @param brandId JWT {@code sub} 에서 온 사용자 id. 저장 경로에 들어가므로 요청 바디로
      *     받지 않는다 — 받으면 남의 폴더에 파일을 쓸 수 있다
@@ -69,8 +74,14 @@ public class ProductImageService {
         sellerPolicy.requireSeller(brandId);
         requireUploadableImage(file);
 
-        StoredFile stored = store(new FileReference(REFERENCE_TYPE, brandId), file);
-        return ProductImageUploadResponse.from(stored);
+        FileReference reference = new FileReference(REFERENCE_TYPE, brandId);
+        StoredFile originalStored = store(reference, file);
+
+        // 썸네일 생성 및 저장
+        StoredFile thumbnailStored = generateAndStoreThumbnail(reference, file);
+
+        // 프론트엔드가 받는 키는 썸네일 키 (목록용)
+        return ProductImageUploadResponse.from(thumbnailStored);
     }
 
     /**
@@ -109,6 +120,38 @@ public class ProductImageService {
         if (!fileStorageService.exists(storageKey)) {
             throw new BusinessException(ProductErrorCode.PRODUCT_THUMBNAIL_NOT_STORED);
         }
+    }
+
+    /**
+     * 목록 카드용 썸네일(폭 400px)을 만들어 별도 키로 저장한다.
+     *
+     * <p>{@code declared content-type} 이 jpeg/png/webp 라고 해서 바이트가 실제로 그
+     * 형식이라는 보장은 없다 ({@link #requireUploadableImage} 는 헤더만 본다). Thumbnailator
+     * 는 실제로 디코딩을 시도하므로, 여기서 그 사실이 드러난다 — {@code IOException} 뿐
+     * 아니라 {@code UnsupportedFormatException} 같은 unchecked 예외도 던진다. 둘 다 잡지
+     * 않으면 이미지가 아닌 바이트를 jpeg 라 우기는 요청이 500 으로 터진다.
+     */
+    private StoredFile generateAndStoreThumbnail(FileReference reference, MultipartFile file) {
+        byte[] thumbnailBytes;
+        try (InputStream originalStream = file.getInputStream()) {
+            ByteArrayOutputStream thumbnailOutput = new ByteArrayOutputStream();
+            Thumbnails.of(originalStream)
+                    .width(400)
+                    .outputQuality(0.75)
+                    .outputFormat("jpeg")
+                    .toOutputStream(thumbnailOutput);
+            thumbnailBytes = thumbnailOutput.toByteArray();
+        } catch (IOException | RuntimeException unreadableImage) {
+            throw new BusinessException(ProductErrorCode.PRODUCT_IMAGE_TYPE_NOT_ALLOWED);
+        }
+
+        String thumbnailFileName = "thumb_" + file.getOriginalFilename();
+        return fileStorageService.store(
+                reference,
+                thumbnailFileName,
+                "image/jpeg",
+                new ByteArrayInputStream(thumbnailBytes),
+                thumbnailBytes.length);
     }
 
     private StoredFile store(FileReference reference, MultipartFile file) {

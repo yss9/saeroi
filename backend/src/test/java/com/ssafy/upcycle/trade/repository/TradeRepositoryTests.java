@@ -96,7 +96,8 @@ class TradeRepositoryTests {
         MaterialTrade saved = tradeRepository.save(trade("TRD-000001", 11L));
         saved.markPaid("T1234", 200_000L, NOW, PaymentMethod.MOCK);
         saved.ship(NOW.plusDays(1));
-        saved.confirmReceipt(NOW.plusDays(3), NOW.plusDays(3));
+        saved.confirmReceipt(NOW.plusDays(3));
+        saved.markBuyerSigned(NOW.plusDays(3));
         saved.complete(NOW.plusDays(3));
         entityManager.flush();
         entityManager.clear();

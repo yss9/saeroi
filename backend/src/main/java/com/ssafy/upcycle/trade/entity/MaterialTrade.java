@@ -261,16 +261,43 @@ public class MaterialTrade {
     }
 
     /**
-     * 구매자가 수령을 확인하고 Wallet 으로 서명했다. 2-Track 의 확정 지점이다.
+     * 구매자가 물건을 받았다고 확인했다.
+     *
+     * <p><b>{@code buyer_signed_at} 은 여기서 채우지 않는다.</b> 예전에는 수령 시각과 같은
+     * 값을 함께 넣었는데, 그러면 지갑 서명을 한 번도 하지 않은 거래가 "서명됨" 으로 남는다.
+     * 그 값은 거래 검증의 유일한 근거이고({@code TradeVerificationService}), 판매 글의
+     * {@code TRANSACTION_VERIFIED} 표시도 이것을 본다 — 거짓으로 채우면 그 아래 판정이
+     * 모두 오염된다.
+     *
+     * <p>실제로 그렇게 새어 나갔다. 서버가 DB 의 이 값을 보고 "서명이 끝났다" 고 판단해
+     * 수령 서명 카드를 아예 띄우지 않았고, 체인에서는 소재가 판매자 잠금에 그대로 남았다.
+     * 나중에 그 소재를 가공에 보내려 할 때 컨트랙트가 insufficient material 로 거절해서야
+     * 드러났다.
+     *
+     * <p>서명은 {@link #markBuyerSigned} 가 따로 받는다.
      *
      * <p>보유량 이전과 잠금 소비는 여기서 하지 않는다. 다른 테이블이라 한 메서드로 묶을 수
      * 없고, 같은 트랜잭션 안에서 함께 처리하는 것이 호출부의 책임이다.
      */
-    public void confirmReceipt(LocalDateTime receivedAt, LocalDateTime buyerSignedAt) {
+    public void confirmReceipt(LocalDateTime receivedAt) {
         requireStatus(TradeStatus.SHIPPED, "confirm receipt of");
         this.receivedAt = requireTimestamp(receivedAt);
-        this.buyerSignedAt = requireTimestamp(buyerSignedAt);
         this.status = TradeStatus.RECEIVED;
+    }
+
+    /**
+     * 구매자가 수령을 <b>체인에</b> 기록했다. 2-Track 의 확정 지점이다.
+     *
+     * <p>이 값이 채워진 거래만 검증된 거래다. 그래서 서명이 실제로 체인에 남았을 때만
+     * 부른다 — 화면이 보낸 해시를 믿지 않고 체인을 읽어 확인한 뒤에.
+     *
+     * <p>이미 채워져 있으면 그대로 둔다. 같은 서명을 두 번 보고해도 첫 시각이 정본이다.
+     */
+    public void markBuyerSigned(LocalDateTime signedAt) {
+        if (this.buyerSignedAt != null) {
+            return;
+        }
+        this.buyerSignedAt = requireTimestamp(signedAt);
     }
 
     /** 보유량 이전까지 끝나 거래가 확정된다. */

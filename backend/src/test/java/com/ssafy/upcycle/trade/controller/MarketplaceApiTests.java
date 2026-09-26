@@ -1354,6 +1354,16 @@ class MarketplaceApiTests {
     }
 
     /** 준비 → 승인 두 단계를 한 번에. 결제 이후 상태가 필요한 테스트가 쓴다. */
+    /**
+     * 결제하고 <b>온체인 주문까지 연결한다.</b>
+     *
+     * <p>발송의 선행 조건이라 함께 둔다. 컨트랙트의 {@code markShipped(orderId)} 는 그 번호
+     * 없이는 부를 수도 없어서, 서버만 앞서 나가면 체인이 모르는 거래가 발송·수령까지
+     * 끝나 버린다 — 실제로 그렇게 새어 나가 소재를 가공에 보낼 때 insufficient material
+     * 로 거절당했다.
+     *
+     * <p>연결 없이 발송하는 경우는 {@code TradeShipmentServiceTests} 가 따로 본다.
+     */
     private void payFor(Long tradeId) throws Exception {
         readyPayment(tradeId);
         mockMvc.perform(post("/api/v1/trades/" + tradeId + "/payment/approve")
@@ -1361,6 +1371,17 @@ class MarketplaceApiTests {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(approveRequest())))
                 .andExpect(status().isOk());
+        linkChainOrder(tradeId);
+    }
+
+    /** 온체인 주문 번호를 붙인다. 화면이 서명 뒤 하는 일을 테스트에서 대신한다. */
+    private void linkChainOrder(Long tradeId) {
+        tradeRepository.findById(tradeId).ifPresent(trade -> {
+            if (trade.getChainTradeId() == null) {
+                trade.assignChainTradeId(tradeId + 1000L);
+                tradeRepository.save(trade);
+            }
+        });
     }
 
     private void readyPayment(Long tradeId) throws Exception {

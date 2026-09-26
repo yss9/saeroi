@@ -15,4 +15,6 @@ public interface PredictionMarketRepository extends JpaRepository<PredictionMark
     List<PredictionMarket> findAllByOrderByCreatedAtDesc();
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     List<PredictionMarket> findAllByStatusAndSalesEndsAtBefore(PredictionMarketStatus status, LocalDateTime at);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<PredictionMarket> findWithLockById(Long id);
 }

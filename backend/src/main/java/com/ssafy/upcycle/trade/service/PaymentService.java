@@ -82,6 +82,17 @@ public class PaymentService {
      */
     @Transactional
     public PaymentReadyResponse ready(Long buyerId, Long tradeId) {
+        return ready(buyerId, tradeId, false);
+    }
+
+    /**
+     * 결제를 준비한다.
+     *
+     * @param fromAgent 대화형 에이전트에서 시작했는가. 복귀 주소가 달라진다 — 거래 상세로
+     *     보내면 대화창이 다른 화면으로 바뀌어, 대화 안에서 끝낸다는 전제가 깨진다
+     */
+    @Transactional
+    public PaymentReadyResponse ready(Long buyerId, Long tradeId, boolean fromAgent) {
         MaterialTrade trade = findTrade(tradeId);
         requireBuyer(trade, buyerId);
         requireStatus(trade, TradeStatus.CREATED);
@@ -91,7 +102,9 @@ public class PaymentService {
                 String.valueOf(trade.getBuyerId()),
                 itemNameOf(trade),
                 trade.getTotalPrice(),
-                kakaoPayProperties.returnUrlFor(trade.getId())));
+                fromAgent
+                        ? kakaoPayProperties.agentReturnUrlFor(trade.getId())
+                        : kakaoPayProperties.returnUrlFor(trade.getId())));
 
         trade.preparePayment(ready.tid());
         return new PaymentReadyResponse(

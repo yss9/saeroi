@@ -36,6 +36,14 @@ spring:
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      # Boot 기본값은 10이다. 이 앱에는 작다 — 웹 요청 외에 결제 만료·가공 만료·주문 만료·
+      # 예측 오라클까지 @Scheduled 워커 4개가 같은 풀을 쓴다.
+      #
+      # 대화형 에이전트가 이 값에 특히 민감하다. 한 턴에서 LLM 응답을 기다리는 동안에는
+      # 커넥션을 쥐지 않도록 트랜잭션을 쪼개 두었지만(AgentTurnStore), 풀이 얕으면 그
+      # 여유가 금방 사라진다.
+      maximum-pool-size: ${DB_POOL_SIZE:20}
   jpa:
     open-in-view: false
     hibernate:
@@ -49,6 +57,46 @@ app:
     base-url: ${AI_SERVER_BASE_URL:http://localhost:8000}
     connect-timeout: ${AI_CONNECT_TIMEOUT:PT2S}
     read-timeout: ${AI_READ_TIMEOUT:PT30S}
+  agent:
+    # BRAND 대화형 에이전트가 쓰는 LLM.
+    #
+    # GMS(SSAFY Gen AI Management System)는 원본 API 호스트를 경로에 끼워넣는
+    # 패스스루 프록시다. Anthropic 모델은 **OpenAI 호환이 아니라 Anthropic Messages API**
+    # 를 그대로 쓴다 — base-url 뒤에 /v1/messages 가 붙고 x-api-key 로 인증한다.
+    #
+    # api-key 가 비면 기동은 하되 에이전트만 503 을 낸다. 필수로 만들지 않는 이유는
+    # 이 키 하나 때문에 소재 등록·결제까지 못 뜨게 할 이유가 없어서다.
+    # anthropic | openai. 비우면 모델 이름에서 추론한다(claude-* → anthropic).
+    # GMS 는 통합 규격이 아니라 각 공급자의 원래 API 를 그대로 패스스루한다.
+    provider: ${AGENT_LLM_PROVIDER:}
+    # 비우면 provider 에 맞춰 자동으로 만들어진다.
+    base-url: ${AGENT_LLM_BASE_URL:}
+    api-key: ${AGENT_LLM_API_KEY:}
+    # 개발 기본값은 싼 모델이다. 크레딧이 토큰당 차감이라 대화 테스트가 곧 비용이다.
+    # 시연에는 claude-sonnet-4-6 으로 올린다.
+    model: ${AGENT_LLM_MODEL:claude-haiku-4-5-20251001}
+    max-output-tokens: ${AGENT_MAX_OUTPUT_TOKENS:2048}
+    # gpt-5 계열(추론 모델)에서만 쓰인다. minimal 이 아니면 추론이 위 출력 예산을 전부
+    # 먹고 답변이 빈 채로 돌아온다 — 실측으로 확인했다. 추론을 켜려면 이 값과
+    # max-output-tokens 를 함께 올린다. 추론 토큰은 출력으로 과금되고 gpt-5-mini 는
+    # 출력이 입력의 8배다(0.02 vs 0.0025).
+    reasoning-effort: ${AGENT_REASONING_EFFORT:minimal}
+    # Sonnet 4.6 은 adaptive thinking 을 지원하지만 Haiku 4.5 는 거부한다(400).
+    # 모델을 올릴 때 함께 켠다. thinking 토큰은 출력 토큰이라 5배 비싸다.
+    thinking: ${AGENT_LLM_THINKING:false}
+    # 시스템 프롬프트와 tool 명세를 캐싱한다. tool 루프가 한 턴에 같은 접두사를 최대
+    # 4번 재전송하므로 절약폭이 크다. GMS 가 cache_control 을 통과시키지 않아 400 이 나면
+    # false 로 되돌린다.
+    prompt-cache: ${AGENT_LLM_PROMPT_CACHE:true}
+    # 한 번의 사용자 발화에서 허용할 tool 왕복 횟수. 이 값만큼 LLM 호출도 늘어나
+    # 크레딧에 직접 영향을 준다. 8 이면 한 발화에 최대 9 회다.
+    max-tool-iterations: ${AGENT_MAX_TOOL_ITERATIONS:4}
+    connect-timeout: ${AGENT_CONNECT_TIMEOUT:PT5S}
+    # OCR(30초)보다 길다. 긴 시스템 프롬프트 + 대화 이력이면 생성에 수십 초가 걸린다.
+    read-timeout: ${AGENT_READ_TIMEOUT:PT60S}
+    # 확인 카드의 유효 기간. 지나면 담당자가 눌러도 실행되지 않는다 — 그 사이 재고나
+    # 가격이 바뀌었을 수 있기 때문이다.
+    action-ttl: ${AGENT_ACTION_TTL:PT6H}
   demo-catalog:
     # 시연 환경에서만 명시적으로 켠다. 기본값 false라 운영·일반 개발 DB에는
     # 시연 브랜드와 상품이 자동으로 들어가지 않는다.
@@ -93,6 +141,9 @@ app:
       return-url: ${KAKAOPAY_RETURN_URL:http://localhost:5173/trades/{tradeId}/payment/return}
       # 가공비 결제는 거래 결제와 승인 API가 다르므로 별도의 복귀 화면을 사용한다.
       processing-return-url: ${KAKAOPAY_PROCESSING_RETURN_URL:http://localhost:5173/processing/jobs/{jobId}/payment/callback}
+      # 브랜드 AI 대화창에서 가공비를 결제했을 때의 복귀 화면. 결제 결과를 대화에 알리고 /agent 로 돌아간다.
+      # 배포에서 넘기지 않으면 localhost 로 돌아가 결제 뒤 화면이 뜨지 않는다 — 서버마다 반드시 넘긴다.
+      processing-agent-return-url: ${KAKAOPAY_PROCESSING_AGENT_RETURN_URL:http://localhost:5173/agent/processing/payment/callback?jobId={jobId}}
       # 제품 주문(소비자)의 복귀 주소. 소비자는 거래 상세 화면을 열 수 없어 라우트가 다르다.
       #
       # 비워 두면 위 return-url 에서 도메인과 basename(예: /test)을 가져와
@@ -130,6 +181,9 @@ app:
     # 생산 배치 기록용 레지스트리. 이 주소만 비어 있어도 소재·거래 기록은 계속 동작한다 —
     # 나중에 붙는 컨트랙트가 앞선 기능을 멈추게 하지 않는다.
     production-registry-address: ${PRODUCTION_REGISTRY_ADDRESS:}
+    # 관리자 대시보드 SSE의 원본. HTTP RPC를 짧게 폴링하고 새 블록만 fan-out한다.
+    live-initial-delay-ms: ${BLOCKCHAIN_LIVE_INITIAL_DELAY_MS:2000}
+    live-poll-ms: ${BLOCKCHAIN_LIVE_POLL_MS:2500}
   prediction:
     chain-id: ${PREDICTION_CHAIN_ID:31221}
     rpc-url: ${PREDICTION_RPC_URL:${BESU_RPC_URL:}}
