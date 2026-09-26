@@ -40,6 +40,7 @@ import { ConsumerRecentlyViewedPage } from '../../pages/mypage/ConsumerRecentlyV
 import { ConsumerReviewsPage } from '../../pages/mypage/ConsumerReviewsPage.tsx'
 import { ConsumerWishlistPage } from '../../pages/mypage/ConsumerWishlistPage.tsx'
 import { PredictionMarketPage } from '../../pages/prediction/PredictionMarketPage.tsx'
+import { BrandPredictionInsightsPage } from '../../pages/prediction/BrandPredictionInsightsPage.tsx'
 import { ProductOrderReturnPage } from '../../pages/mypage/ProductOrderReturnPage.tsx'
 import { BrandProcessingPage } from '../../pages/processing/BrandProcessingPage.tsx'
 import { BrandProcessingRequestDetailPage } from '../../pages/processing/BrandProcessingRequestDetailPage.tsx'
@@ -284,6 +285,7 @@ const appRoutes: RouteObject[] = [
           { path: '/brand/products/new', element: <ProductRegisterPage /> },
           // 내 제품 관리(판매 시작·중단). 업무 목록(/business/products)과 달리 DRAFT 를 포함한다.
           { path: '/brand/products', element: <BrandProductPage /> },
+          { path: '/brand/predictions', element: <BrandPredictionInsightsPage /> },
           // 제품 수정. 목록에서 눌러 들어가는 화면이라 사이드바에는 두지 않는다.
           { path: '/brand/products/:productModelId/edit', element: <ProductEditPage /> },
           // 들어온 주문의 발송 처리. 제품 관리와 나눈다 — 그쪽은 "무엇을 파는가" 이고
