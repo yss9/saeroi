@@ -18,6 +18,13 @@ RUN pip install --no-cache-dir --prefix=/install/deps -r requirements.txt
 FROM python:3.12-slim
 WORKDIR /app
 
+# rapidocr 가 opencv 를 쓰는데, slim 이미지에는 그 공유 라이브러리가 없어
+# import 단계에서 libGL.so.1 을 못 찾고 죽는다. 런타임 전용이라 build 스테이지가 아닌
+# 여기에 넣는다.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends libgl1 libglib2.0-0 \
+ && rm -rf /var/lib/apt/lists/*
+
 ENV TZ=Asia/Seoul \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
