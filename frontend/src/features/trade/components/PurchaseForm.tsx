@@ -1,9 +1,15 @@
+import { useState } from 'react'
 import { Controller, useForm, useWatch } from 'react-hook-form'
+import { MagnifyingGlass } from '@phosphor-icons/react'
 import { Button, ErrorMessage, Input } from '../../../components/common/index.ts'
+import { openKakaoPostcode } from '../../../utils/kakaoPostcode.ts'
 import { QuantityInput } from '../../../components/common/QuantityInput.tsx'
 import { calculateTotalPrice, formatKg, formatWon, kgToGram } from '../../../utils/quantity.ts'
 import type { Listing } from '../../marketplace/types/marketplace.types.ts'
 import { useCreateTrade } from '../hooks/useCreateTrade.ts'
+import { useTradeOnChain } from '../hooks/useTradeOnChain.ts'
+import type { CreateTradeRequest, Trade } from '../types/trade.types.ts'
+import './trade.css'
 
 export interface PurchaseFormProps {
   listing: Listing
@@ -38,6 +44,8 @@ export function PurchaseForm({ listing, onCreated }: PurchaseFormProps) {
     control,
     register,
     handleSubmit,
+    setValue,
+    setFocus,
     formState: { errors },
   } = useForm<PurchaseFormValues>({
     defaultValues: {
@@ -50,7 +58,39 @@ export function PurchaseForm({ listing, onCreated }: PurchaseFormProps) {
     },
   })
 
-  const { mutate, isPending, isError, error } = useCreateTrade()
+  const [addressSearchError, setAddressSearchError] = useState('')
+  const [isSearchingAddress, setIsSearchingAddress] = useState(false)
+
+  /**
+   * 주소는 <b>검색으로만</b> 채운다. 가입·배송지 화면과 같은 판단이다 — 이 값이 택배
+   * 송장에 인쇄되므로 오타가 그대로 배송 사고가 되고, 우편번호와 주소가 서로 다른 곳을
+   * 가리켜도 폼은 그것을 알 수 없다.
+   *
+   * 이 화면만 직접 타이핑으로 남아 있었다. 소재를 사는 브랜드가 다른 화면과 다른 방식으로
+   * 주소를 넣게 되고, 그쪽에서 걸러지던 실수가 여기서는 그대로 통과했다.
+   */
+  async function searchAddress() {
+    setAddressSearchError('')
+    setIsSearchingAddress(true)
+    try {
+      await openKakaoPostcode(({ zonecode, address: found }) => {
+        setValue('zipCode', zonecode, { shouldDirty: true, shouldValidate: true })
+        setValue('address', found, { shouldDirty: true, shouldValidate: true })
+        setFocus('addressDetail')
+      })
+    } catch {
+      setAddressSearchError('주소 검색을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.')
+    } finally {
+      setIsSearchingAddress(false)
+    }
+  }
+
+  const { mutateAsync, isPending, isError, error } = useCreateTrade()
+  const chain = useTradeOnChain()
+  const [pendingTrade, setPendingTrade] = useState<{
+    created: Trade
+    request: CreateTradeRequest
+  } | null>(null)
 
   // 입력 중인 수량으로 금액을 미리 보여준다. watch() 대신 useWatch() 를 쓰는 이유는
   // ListingForm 과 같다 — watch() 가 돌려주는 함수는 렌더마다 새로 만들어진다.
@@ -66,10 +106,10 @@ export function PurchaseForm({ listing, onCreated }: PurchaseFormProps) {
 
   const canSubmit = !isEmpty && !exceedsAvailable && listing.status === 'ON_SALE'
 
-  const onSubmit = handleSubmit((values) => {
+  const onSubmit = handleSubmit(async (values) => {
     if (!canSubmit) return
-    mutate(
-      {
+    try {
+      const request: CreateTradeRequest = pendingTrade?.request ?? {
         listingId: listing.listingId,
         // 단위를 함께 보낸다. 서버가 gram 으로 환산하므로 여기서 이미 gram 인 값에는 'G' 다.
         quantity: quantityGram,
@@ -84,45 +124,29 @@ export function PurchaseForm({ listing, onCreated }: PurchaseFormProps) {
         address: values.address.trim(),
         // 상세 주소만 선택이다. 빈 값은 필드째 뺀다 — 공백을 주소의 일부로 저장할 이유가 없다.
         ...(values.addressDetail.trim() ? { addressDetail: values.addressDetail.trim() } : {}),
-      },
-      { onSuccess: (trade) => onCreated?.(trade.tradeId) },
-    )
+      }
+      const created = pendingTrade?.created ?? (await mutateAsync(request))
+      if (pendingTrade === null) setPendingTrade({ created, request })
+
+      const chainListingId = listing.chainListingId
+      if (chainListingId === null) {
+        onCreated?.(created.tradeId)
+        return
+      }
+
+      // 서버가 확정한 gram 수량으로 주문한다. 연결까지 끝났을 때만 상세로 이동한다.
+      const linked = await chain.order(created.tradeId, chainListingId, created.quantity)
+      if (linked) {
+        setPendingTrade(null)
+        onCreated?.(created.tradeId)
+      }
+    } catch {
+      // API와 지갑 오류는 각 훅의 오류 상태로 화면에 표시한다.
+    }
   })
 
   return (
     <form onSubmit={onSubmit} noValidate className="purchase-form">
-      <Controller
-        control={control}
-        name="quantityKg"
-        render={({ field }) => (
-          <QuantityInput
-            label="구매 수량"
-            unit="KG"
-            value={field.value}
-            onChange={field.onChange}
-            min={0}
-            max={listing.availableQuantity / 1000}
-            disabled={listing.status !== 'ON_SALE'}
-            error={
-              exceedsAvailable
-                ? `판매 가능 수량(${formatKg(listing.availableQuantity)})을 넘었습니다.`
-                : undefined
-            }
-          />
-        )}
-      />
-
-      <dl className="purchase-form__summary">
-        <div>
-          <dt>kg당 단가</dt>
-          <dd>{formatWon(listing.pricePerKg)}</dd>
-        </div>
-        <div>
-          <dt>결제 예정 금액</dt>
-          <dd className="purchase-form__total">{formatWon(previewTotal)}</dd>
-        </div>
-      </dl>
-
       {/* 길이 제한은 서버 검증과 같은 값이다. 여기서 막지 않으면 다 입력하고 제출한
           뒤에야 400 을 본다. */}
       <fieldset className="purchase-form__shipping">
@@ -151,27 +175,44 @@ export function PurchaseForm({ listing, onCreated }: PurchaseFormProps) {
 
         <Input
           label="우편번호"
+          inputMode="numeric"
           autoComplete="postal-code"
+          placeholder="06236"
+          readOnly
           error={errors.zipCode?.message}
-          {...register('zipCode', {
-            required: '우편번호를 입력해 주세요.',
-            maxLength: { value: 20, message: '우편번호는 20자를 넘을 수 없습니다.' },
-          })}
+          {...register('zipCode', { required: '주소 검색으로 우편번호를 채워 주세요.' })}
         />
 
-        <Input
-          label="주소"
-          autoComplete="street-address"
-          error={errors.address?.message}
-          {...register('address', {
-            required: '주소를 입력해 주세요.',
-            maxLength: { value: 255, message: '주소는 255자를 넘을 수 없습니다.' },
-          })}
-        />
+        <div className="purchase-form__address-search">
+          <Input
+            label="주소"
+            autoComplete="street-address"
+            placeholder="주소 검색을 이용해 주세요."
+            readOnly
+            error={errors.address?.message}
+            {...register('address', {
+              required: '주소를 검색해 주세요.',
+              maxLength: { value: 255, message: '주소는 255자를 넘을 수 없습니다.' },
+            })}
+          />
+          <button type="button" onClick={() => void searchAddress()} disabled={isSearchingAddress}>
+            <MagnifyingGlass aria-hidden="true" />
+            {isSearchingAddress ? '불러오는 중' : '주소 검색'}
+          </button>
+        </div>
 
+        {/* 두 칸이 읽기 전용이라, 검색이 실패하면 손으로 메울 방법이 없다. */}
+        {addressSearchError ? (
+          <p className="purchase-form__address-error" role="alert">
+            {addressSearchError}
+          </p>
+        ) : null}
+
+        {/* 선택이라는 사실은 칸 안에서 말한다 — 칸 밑에 한 줄을 더 쓰면 그 줄 때문에
+            옆 칸들과 높이가 어긋난다. */}
         <Input
           label="상세 주소"
-          hint="선택 입력입니다."
+          placeholder="선택 입력"
           error={errors.addressDetail?.message}
           {...register('addressDetail', {
             maxLength: { value: 255, message: '상세 주소는 255자를 넘을 수 없습니다.' },
@@ -179,17 +220,65 @@ export function PurchaseForm({ listing, onCreated }: PurchaseFormProps) {
         />
       </fieldset>
 
-      {/* 구매 요청과 결제는 별개다. 요청 시점에 수량이 예약되고, 결제는 그다음이다.
-          이 순서를 모르면 "결제도 안 했는데 왜 수량이 줄었지" 로 읽힌다. */}
-      <p className="purchase-form__note">
-        구매를 요청하면 해당 수량이 예약되고, 이어서 결제를 진행합니다.
-      </p>
+      {/* 얼마나 살지 · 얼마인지 · 요청 버튼. 셋을 한 칸에 이어 붙여 배송지와 위를 맞춘다. */}
+      <div className="purchase-form__order">
+        <div className="purchase-form__quantity">
+          <Controller
+            control={control}
+            name="quantityKg"
+            render={({ field }) => (
+              <QuantityInput
+                label="구매 수량"
+                unit="KG"
+                value={field.value}
+                onChange={field.onChange}
+                min={0}
+                max={listing.availableQuantity / 1000}
+                disabled={listing.status !== 'ON_SALE'}
+                error={
+                  exceedsAvailable
+                    ? `판매 가능 수량(${formatKg(listing.availableQuantity)})을 넘었습니다.`
+                    : undefined
+                }
+              />
+            )}
+          />
+        </div>
 
-      {isError && <ErrorMessage error={error} />}
+        <dl className="purchase-form__summary">
+          <div>
+            <dt>kg당 단가</dt>
+            <dd>{formatWon(listing.pricePerKg)}</dd>
+          </div>
+          <div>
+            <dt>결제 예정 금액</dt>
+            <dd className="purchase-form__total">{formatWon(previewTotal)}</dd>
+          </div>
+        </dl>
 
-      <Button type="submit" disabled={!canSubmit} loading={isPending} fullWidth>
-        {listing.status === 'ON_SALE' ? '구매 요청' : '판매가 종료된 소재입니다'}
-      </Button>
+        {isError && <ErrorMessage error={error} />}
+
+        {chain.error && !chain.isRejected && <ErrorMessage error={chain.error} />}
+
+        <Button
+          type="submit"
+          disabled={!canSubmit}
+          loading={isPending || chain.isBusy}
+          fullWidth
+        >
+          {chain.status === 'SIGNING'
+            ? '지갑에서 요청을 확인해 주세요'
+            : chain.status === 'PENDING'
+              ? '거래 이력을 저장하는 중…'
+              : chain.status === 'LINKING'
+                ? '저장 결과를 확인하는 중…'
+                : listing.status === 'ON_SALE'
+                  ? pendingTrade
+                    ? '구매 요청 완료하기'
+                    : '구매 요청'
+                  : '판매가 종료된 소재입니다'}
+        </Button>
+      </div>
     </form>
   )
 }

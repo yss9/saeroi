@@ -9,10 +9,8 @@
 //   그것은 이미 정의된 "등록됐지만 아직 온체인에 없음" 상태다
 //   (MaterialRegistrationService 주석). 나중에 그 행만 골라 다시 서명하면 된다.
 //
-// **왜 execute 의 반환값을 쓰지 않는가**
-//   useBlockchainTransaction.execute 는 Promise<void> 이고 receipt 를 state 로만 알린다.
-//   await 직후에 transaction.receipt 를 읽으면 이번 렌더의 옛 값이라 언제나 null 이다.
-//   그래서 onConfirmed 콜백에서 이어 붙이고, 어느 대상에 붙일지는 ref 로 넘긴다.
+// 트랜잭션 영수증과 서버 연결 작업을 모두 기다린 뒤 결과를 돌려준다. 화면은 true일 때만
+// 이동하므로, 서버 연결이 실패하면 같은 화면에서 이미 확정된 영수증으로 연결만 재시도한다.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ContractTransactionReceipt, ContractTransactionResponse } from 'ethers'
@@ -35,18 +33,33 @@ export interface UseOnChainLinkOptions {
   /** 꺼낸 번호를 서버에 알리는 함수. */
   link: (targetId: number, payload: ChainLinkPayload) => Promise<void>
   onLinked?: (onChainId: number) => void
+  /**
+   * 서명하기 <b>전에</b> 체인에서 "이미 만들어져 있는지" 찾아보는 함수. 선택이다.
+   *
+   * <b>왜 필요한가</b> — 아래 {@code pendingLink} 는 서명은 끝났고 서버 기록만 실패한
+   * 경우를 ref 로 붙들어 두지만, ref 는 메모리라 <b>새로고침하면 사라진다.</b> 그러면
+   * 다음 시도가 다시 서명부터 보내 같은 것이 체인에 하나 더 생긴다. 되돌릴 수 없다.
+   *
+   * 체인이 정본이므로, 찾으면 서명을 건너뛰고 서버 기록만 이어서 한다.
+   *
+   * 못 찾거나 조회에 실패하면 {@code null} 을 주기로 한다 — 던지면 RPC 가 흔들릴 때
+   * 정상 사용자가 아무것도 못 하게 된다.
+   */
+  findExisting?: (targetId: number) => Promise<ChainLinkPayload | null>
 }
 
 export interface UseOnChainLinkResult {
   status: ChainLinkStatus
   hash: string | null
+  /** 영수증이 확정된 블록. 사용자가 지갑/익스플로러 기록과 대조할 때 쓴다. */
+  blockNumber: number | null
   error: AppError | null
   /** SIGNING·PENDING·LINKING — 버튼을 잠글 때 쓴다. */
   isBusy: boolean
   /** 사용자가 서명을 취소했다. 에러 배너 대신 조용히 넘기고 싶을 때 구분한다. */
   isRejected: boolean
-  /** 서명 → 확정 → 서버 기록. **던지지 않는다** — 결과는 상태로만 알린다. */
-  run: (targetId: number, send: () => Promise<ContractTransactionResponse>) => Promise<void>
+  /** 서명 → 확정 → 서버 기록. 세 단계가 모두 끝나면 true다. */
+  run: (targetId: number, send: () => Promise<ContractTransactionResponse>) => Promise<boolean>
   reset: () => void
 }
 
@@ -55,13 +68,19 @@ type LinkPhase = { status: 'IDLE' | 'LINKING' | 'LINKED'; error: AppError | null
 const IDLE: LinkPhase = { status: 'IDLE', error: null }
 
 export function useOnChainLink(options: UseOnChainLinkOptions): UseOnChainLinkResult {
-  const { contract, eventName, argName, link, onLinked } = options
+  const { contract, eventName, argName, link, onLinked, findExisting } = options
 
   // 서버 기록 구간은 트랜잭션 훅이 모르므로 따로 든다.
   const [phase, setPhase] = useState<LinkPhase>(IDLE)
 
   // 확정 콜백은 run 의 인자를 볼 수 없다. 대상 id 를 ref 로 건네준다.
   const targetId = useRef<number | null>(null)
+  const linked = useRef(false)
+  const pendingLink = useRef<{
+    targetId: number
+    onChainId: number
+    payload: ChainLinkPayload
+  } | null>(null)
 
   // 콜백이 매 렌더 새로 만들어져도 훅이 다시 만들어지지 않게 ref 로 든다
   // (useBlockchainTransaction 이 내부에서 하는 것과 같은 이유).
@@ -69,10 +88,10 @@ export function useOnChainLink(options: UseOnChainLinkOptions): UseOnChainLinkRe
   // 갱신을 effect 안에서 하는 이유도 같다: 렌더 중에 ref 를 쓰면 React 가 렌더를 버리고
   // 다시 실행했을 때(Concurrent 렌더) 커밋되지 않은 값이 남는다. 여기서 쓰는 값은
   // 모두 await 이후에 읽히므로 커밋 이후 시점이면 충분하다.
-  const latest = useRef({ contract, eventName, argName, link, onLinked })
+  const latest = useRef({ contract, eventName, argName, link, onLinked, findExisting })
   useEffect(() => {
-    latest.current = { contract, eventName, argName, link, onLinked }
-  }, [contract, eventName, argName, link, onLinked])
+    latest.current = { contract, eventName, argName, link, onLinked, findExisting }
+  }, [contract, eventName, argName, link, onLinked, findExisting])
 
   const handleConfirmed = useCallback(async (receipt: ContractTransactionReceipt) => {
     const { contract, eventName, argName, link, onLinked } = latest.current
@@ -88,19 +107,26 @@ export function useOnChainLink(options: UseOnChainLinkOptions): UseOnChainLinkRe
       setPhase({
         status: 'IDLE',
         error: createAppError(ERROR_KIND.TRANSACTION_FAILED, {
-          message: `${eventName} 이벤트를 찾지 못했습니다. 배포된 컨트랙트와 ABI 가 다를 수 있습니다.`,
+          message: '저장 결과를 확인하지 못했습니다. 관리자에게 문의해 주세요.',
         }),
       })
       return
     }
 
+    const payload: ChainLinkPayload = {
+      onChainId: Number(onChainId),
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber ?? undefined,
+    }
+
+    // 체인 기록은 이미 확정됐다. 서버 연결이 실패해도 이 값을 보관해야 다음 클릭에서
+    // mint/createOrder를 다시 보내지 않고 서버 연결만 안전하게 재시도할 수 있다.
+    pendingLink.current = { targetId: id, onChainId: Number(onChainId), payload }
     setPhase({ status: 'LINKING', error: null })
     try {
-      await link(id, {
-        onChainId: Number(onChainId),
-        txHash: receipt.hash,
-        blockNumber: receipt.blockNumber ?? undefined,
-      })
+      await link(id, payload)
+      pendingLink.current = null
+      linked.current = true
       setPhase({ status: 'LINKED', error: null })
       onLinked?.(Number(onChainId))
     } catch (error) {
@@ -109,9 +135,9 @@ export function useOnChainLink(options: UseOnChainLinkOptions): UseOnChainLinkRe
       setPhase({
         status: 'IDLE',
         error: isAppError(error)
-          ? { ...error, message: `온체인 등록은 끝났지만 서버 기록에 실패했습니다. ${error.message}` }
+          ? { ...error, message: `이력은 저장되었지만 서비스에 반영하지 못했습니다. ${error.message}` }
           : createAppError(ERROR_KIND.UNKNOWN, {
-              message: '온체인 등록은 끝났지만 서버 기록에 실패했습니다.',
+              message: '이력은 저장되었지만 서비스에 반영하지 못했습니다.',
               cause: error,
             }),
       })
@@ -119,9 +145,8 @@ export function useOnChainLink(options: UseOnChainLinkOptions): UseOnChainLinkRe
   }, [])
 
   const transaction = useBlockchainTransaction({
-    onConfirmed: (receipt) => {
-      void handleConfirmed(receipt)
-    },
+    // Promise를 그대로 반환해야 execute가 서버 연결 완료까지 기다린다.
+    onConfirmed: handleConfirmed,
   })
 
   const run = useCallback(
@@ -139,21 +164,70 @@ export function useOnChainLink(options: UseOnChainLinkOptions): UseOnChainLinkRe
         setPhase({
           status: 'IDLE',
           error: createAppError(ERROR_KIND.UNKNOWN, {
-            message: '대상을 특정할 수 없어 서명을 시작하지 않았습니다. 새로고침 후 다시 시도해 주세요.',
+            message: '기록할 대상을 확인할 수 없습니다. 새로고침 후 다시 시도해 주세요.',
           }),
         })
-        return
+        return false
+      }
+
+      // **체인에 이미 있으면 서명하지 않는다.**
+      //
+      // pendingLink 는 새로고침을 견디지 못한다(ref = 메모리). 그래서 그것에만 의존하면
+      // 서버 기록이 실패한 뒤 새로고침한 사용자가 다시 서명하게 되고, 같은 것이 체인에
+      // 하나 더 생긴다. 체인이 정본이므로 먼저 물어본다.
+      //
+      // pendingLink 보다 먼저 보는 이유: 둘 다 같은 결론을 주지만, 체인 조회가 더
+      // 믿을 만하다. 같은 세션 안이라면 pendingLink 가 곧바로 답을 주므로 왕복도 아깝지
+      // 않다 — 아래 분기에서 잡힌다.
+      const recovery =
+        pendingLink.current?.targetId === id
+          ? pendingLink.current
+          : await (async () => {
+              const found = await latest.current.findExisting?.(id)
+              return found === null || found === undefined
+                ? null
+                : { targetId: id, onChainId: found.onChainId, payload: found }
+            })()
+
+      if (recovery?.targetId === id) {
+        setPhase({ status: 'LINKING', error: null })
+        try {
+          await latest.current.link(id, recovery.payload)
+          pendingLink.current = null
+          linked.current = true
+          setPhase({ status: 'LINKED', error: null })
+          latest.current.onLinked?.(recovery.onChainId)
+          return true
+        } catch (error) {
+          setPhase({
+            status: 'IDLE',
+            error: isAppError(error)
+              ? {
+                  ...error,
+                  message: `이력은 저장되었지만 서비스에 반영하지 못했습니다. ${error.message}`,
+                }
+              : createAppError(ERROR_KIND.UNKNOWN, {
+                  message: '이력은 저장되었지만 서비스에 반영하지 못했습니다.',
+                  cause: error,
+                }),
+          })
+          return false
+        }
       }
 
       targetId.current = id
+      linked.current = false
       setPhase(IDLE)
-      await transaction.execute(send)
+      const receipt = await transaction.execute(send)
+      return receipt !== null && linked.current
     },
     [transaction],
   )
 
   const reset = useCallback(() => {
     targetId.current = null
+    linked.current = false
+    pendingLink.current = null
     setPhase(IDLE)
     transaction.reset()
   }, [transaction])
@@ -161,6 +235,7 @@ export function useOnChainLink(options: UseOnChainLinkOptions): UseOnChainLinkRe
   return {
     status: phase.status === 'IDLE' ? transaction.status : phase.status,
     hash: transaction.hash,
+    blockNumber: transaction.receipt?.blockNumber ?? null,
     error: phase.error ?? transaction.error,
     isBusy: transaction.isBusy || phase.status === 'LINKING',
     isRejected: transaction.isRejected,

@@ -1,5 +1,5 @@
-import { ProcessorRequestList } from '../../features/processing/components/ProcessorRequestList.tsx'
+import { ProcessorWorkList } from '../../features/processing/components/ProcessorWorkList.tsx'
 
 export function ProcessingPage() {
-  return <ProcessorRequestList />
+  return <ProcessorWorkList />
 }

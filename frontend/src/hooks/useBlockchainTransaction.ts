@@ -49,13 +49,13 @@ export type SendTransaction = () => Promise<ContractTransactionResponse>
 export interface UseBlockchainTransactionOptions {
   /** 몇 개의 확인 블록을 기다릴지. 기본 1. */
   confirmations?: number
-  onConfirmed?: (receipt: ContractTransactionReceipt) => void
+  onConfirmed?: (receipt: ContractTransactionReceipt) => void | Promise<void>
   onFailed?: (error: AppError) => void
 }
 
 export interface UseBlockchainTransactionResult extends TransactionState {
-  /** 트랜잭션 실행. 던지지 않고 상태로만 결과를 알린다. */
-  execute: (send: SendTransaction) => Promise<void>
+  /** 트랜잭션 실행. 성공 영수증을 돌려주고 실패하면 null이다. */
+  execute: (send: SendTransaction) => Promise<ContractTransactionReceipt | null>
   reset: () => void
   /** SIGNING 또는 PENDING — 버튼을 잠글 때 쓴다. */
   isBusy: boolean
@@ -92,7 +92,7 @@ export function useBlockchainTransaction(
 
   const execute = useCallback(
     async (send: SendTransaction) => {
-      if (running.current) return
+      if (running.current) return null
       running.current = true
       setState({ ...INITIAL_STATE, status: 'SIGNING' })
 
@@ -107,7 +107,7 @@ export function useBlockchainTransaction(
         if (!receipt) {
           throw {
             kind: ERROR_KIND.TRANSACTION_FAILED,
-            message: '트랜잭션이 취소되거나 대체되었습니다.',
+            message: '요청이 완료되지 않았습니다. 다시 시도해 주세요.',
             code: null,
             status: null,
             validationErrors: [],
@@ -119,7 +119,7 @@ export function useBlockchainTransaction(
         if (receipt.status === 0) {
           throw {
             kind: ERROR_KIND.TRANSACTION_FAILED,
-            message: '트랜잭션이 체인에서 되돌려졌습니다.',
+            message: '이력 저장이 거절되었습니다. 입력 내용과 권한을 확인해 주세요.',
             code: null,
             status: null,
             validationErrors: [],
@@ -128,13 +128,16 @@ export function useBlockchainTransaction(
         }
 
         setState({ status: 'CONFIRMED', hash: receipt.hash, receipt, error: null })
-        callbacks.current.onConfirmed?.(receipt)
+        // 후속 서버 연결이 있다면 그것까지 끝나야 호출부가 안전하게 화면을 이동할 수 있다.
+        await callbacks.current.onConfirmed?.(receipt)
+        return receipt
       } catch (raw) {
         // 서명 거부(4001)든 RPC 실패든 여기서 AppError 로 통일한다.
         // 화면은 error.kind 만 보면 되고 ethers 내부 형태를 알 필요가 없다.
         const error = isAppError(raw) ? raw : toWalletError(raw)
         setState((prev) => ({ ...prev, status: 'FAILED', error }))
         callbacks.current.onFailed?.(error)
+        return null
       } finally {
         running.current = false
       }

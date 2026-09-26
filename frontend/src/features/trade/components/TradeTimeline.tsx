@@ -57,7 +57,18 @@ export function TradeTimeline({ trade, viewer }: TradeTimelineProps) {
         {steps.map((step) => (
           <li
             key={step.key}
-            className={`trade-timeline__step trade-timeline__step--${step.state.toLowerCase()}`}
+            className={[
+              'trade-timeline__step',
+              `trade-timeline__step--${step.state.toLowerCase()}`,
+              // 지금 차례가 <b>보는 사람 자신</b>인가. 표시는 화면이 정하고 여기서는
+              // 사실만 붙인다 — "여기까지 왔다" 와 "당신이 할 차례다" 는 다른 말이라,
+              // 손댈 수 없는 단계까지 재촉하는 표시를 받으면 안 된다.
+              step.state === 'CURRENT' && viewer && step.actor === viewer
+                ? 'trade-timeline__step--mine'
+                : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
             // 진행 중인 단계를 보조기술에도 알린다. 색과 굵기만으로 구분하면
             // 화면을 못 보는 사용자에게는 네 항목이 똑같이 읽힌다.
             aria-current={step.state === 'CURRENT' ? 'step' : undefined}
@@ -78,19 +89,12 @@ export function TradeTimeline({ trade, viewer }: TradeTimelineProps) {
         ))}
       </ol>
 
-      {/* 취소된 거래. 시각은 항상 있고 사유는 사람이 적었을 때만 있다 —
-          사유 없는 취소가 정상 경로라 "사유 없음" 같은 빈 자리를 만들지 않는다. */}
-      {isCanceled && (
-        <div className="trade-timeline__canceled" role="status">
-          <p>
-            이 거래는 취소되었습니다
-            {trade.canceledAt !== null && ` · ${formatTradeDateTime(trade.canceledAt)}`}. 취소
-            이후 단계는 진행되지 않습니다.
-          </p>
-          {trade.cancelReason && (
-            <p className="trade-timeline__cancel-reason">사유: {trade.cancelReason}</p>
-          )}
-        </div>
+      {/* 취소 사유는 사람이 적었을 때만 있다 — 사유 없는 취소가 정상 경로라 "사유 없음"
+          같은 빈 자리를 만들지 않는다. 취소 시각은 위 첫 단계 옆에 붙는다. */}
+      {isCanceled && trade.cancelReason && (
+        <p className="trade-timeline__cancel-reason" role="status">
+          취소 사유: {trade.cancelReason}
+        </p>
       )}
 
       {/* 지금 누구를 기다리는지. 상태 배지만으로는 "내가 뭘 해야 하나" 에 답하지 못한다. */}
@@ -125,9 +129,13 @@ function buildSteps(trade: Trade): Step[] {
   const definitions: Omit<Step, 'state'>[] = [
     {
       key: 'created',
-      label: '구매 요청',
+      label: canceled ? '구매 요청 · 취소' : '구매 요청',
       at: trade.createdAt,
-      detail: formatKg(trade.quantity),
+      // 취소는 어느 단계에서 났는지 상태가 말해 주지 않는다. 그래서 시각만 첫 줄에 붙여
+      // "언제 끝났는가" 를 남긴다 — 따로 문단을 두면 같은 말이 두 번이다.
+      detail: canceled && trade.canceledAt !== null
+        ? `${formatKg(trade.quantity)} · ${formatTradeDateTime(trade.canceledAt)} 취소`
+        : formatKg(trade.quantity),
       actor: 'BUYER',
     },
     { key: 'paid', label: '결제 완료', at: trade.paidAt, actor: 'BUYER' },
@@ -203,7 +211,7 @@ function invoiceOf(trade: Trade): string | null {
  */
 function signatureNote(trade: Trade): string | null {
   if (trade.buyerSignedAt === null || trade.buyerSignedAt === trade.receivedAt) return null
-  return `지갑 서명 ${formatTradeDateTime(trade.buyerSignedAt)}`
+  return `수령 확인 ${formatTradeDateTime(trade.buyerSignedAt)}`
 }
 
 /** 지금 이 단계를 누가 해야 하는지, 보는 사람 기준으로 말한다. */

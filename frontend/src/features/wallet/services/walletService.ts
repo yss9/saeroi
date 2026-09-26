@@ -169,6 +169,33 @@ export function toWalletError(error: unknown) {
         cause: error,
       })
     default:
-      return createAppError(ERROR_KIND.UNKNOWN, { cause: error })
+      return createAppError(ERROR_KIND.UNKNOWN, {
+        // 컨트랙트가 거절한 이유를 살려 낸다.
+        //
+        // require 문의 문자열은 ethers 가 `reason` 으로 꺼내 준다
+        // ("Marketplace: insufficient available balance" 처럼 무엇이 틀렸는지 그대로 말한다).
+        // 그걸 버리고 "알 수 없는 오류" 만 보여 주면 사용자도 개발자도 다음에 무엇을
+        // 해야 하는지 알 수 없다 — 서버 로그에도 안 남는다(트랜잭션이 서버를 거치지 않는다).
+        message: revertReason(error) ?? undefined,
+        cause: error,
+      })
   }
+}
+
+/**
+ * 컨트랙트 revert 사유. 없으면 null.
+ *
+ * ethers v6 는 겹겹이 감싸서 던지므로 여러 자리를 본다 — `reason` 은 require 문자열,
+ * `shortMessage` 는 사람이 읽을 수 있는 요약이다.
+ */
+function revertReason(error: unknown): string | null {
+  if (typeof error !== 'object' || error === null) return null
+  const candidate = error as { reason?: unknown; shortMessage?: unknown }
+  if (typeof candidate.reason === 'string' && candidate.reason.length > 0) {
+    return candidate.reason
+  }
+  if (typeof candidate.shortMessage === 'string' && candidate.shortMessage.length > 0) {
+    return candidate.shortMessage
+  }
+  return null
 }

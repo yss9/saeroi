@@ -9,14 +9,18 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import userEvent from '@testing-library/user-event'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type {
   MaterialBalance,
   MaterialDetail,
   MaterialLineage,
 } from '../../features/material/types/material.types.ts'
+import type { Listing } from '../../features/marketplace/types/marketplace.types.ts'
+import type { PageResponse } from '../../types/api.types.ts'
 import { createAppError, ERROR_KIND } from '../../utils/errors.ts'
+import { useAuthStore } from '../../stores/authStore.ts'
 import { MaterialDetailPage } from './MaterialDetailPage.tsx'
 
 const api = vi.hoisted(() => ({
@@ -25,6 +29,8 @@ const api = vi.hoisted(() => ({
   getMaterialLineage: vi.fn(),
   // 증빙 블록이 EvidenceUpload 로 위임되면서 이 페이지가 네 번째 엔드포인트를 쓴다.
   getEvidence: vi.fn(),
+  // 판매 정보 블록은 ListingList → useListings → getListings 를 그대로 쓴다.
+  getListings: vi.fn(),
 }))
 vi.mock('../../features/material/api/getMaterial.ts', () => ({
   getMaterial: api.getMaterial,
@@ -38,12 +44,14 @@ vi.mock('../../features/material/api/getMaterialLineage.ts', () => ({
 vi.mock('../../features/evidence/api/getEvidence.ts', () => ({
   getEvidence: api.getEvidence,
 }))
+vi.mock('../../features/marketplace/api/getListings.ts', () => ({
+  getListings: api.getListings,
+}))
 
 function detail(overrides: Partial<MaterialDetail> = {}): MaterialDetail {
   return {
     // 서버는 상세에서 materialId 로 준다. id 는 목록 쪽 이름이라 둘 다 채워 둔다 —
     // 화면이 잘못된 쪽을 읽으면 여기서 드러나야 한다.
-    id: 12,
     materialId: 12,
     materialCode: 'MAT-000012',
     materialType: 'DENIM',
@@ -51,6 +59,7 @@ function detail(overrides: Partial<MaterialDetail> = {}): MaterialDetail {
     rootOrigin: 'WASTE',
     generationType: 'INITIAL',
     verificationState: 'REGISTERED',
+    verification: null,
     status: 'ACTIVE',
     totalQuantity: 20_500,
     grade: 'B',
@@ -90,6 +99,34 @@ const EMPTY_LINEAGE: MaterialLineage = {
   message: null,
 }
 
+function emptyListingPage(): PageResponse<Listing> {
+  return { content: [], page: 0, size: 12, totalElements: 0, totalPages: 0, hasNext: false }
+}
+
+function listingPage(listing: Partial<Listing> = {}): PageResponse<Listing> {
+  const full: Listing = {
+    listingId: 501,
+    chainListingId: null,
+    materialId: 12,
+    materialCode: 'MAT-000012',
+    materialName: '수거 데님 원단',
+    materialDescription: null,
+    materialType: 'DENIM',
+    rootOrigin: 'WASTE',
+    generationType: 'INITIAL',
+    grade: 'B',
+    sellerId: 3,
+    sellerName: '공급자',
+    totalQuantity: 20_500,
+    availableQuantity: 12_000,
+    pricePerKg: 14_000,
+    status: 'ON_SALE',
+    createdAt: '2026-09-08T10:00:00',
+    ...listing,
+  }
+  return { content: [full], page: 0, size: 12, totalElements: 1, totalPages: 1, hasNext: false }
+}
+
 function renderPage(path = '/materials/12') {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
@@ -97,10 +134,27 @@ function renderPage(path = '/materials/12') {
       <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route path="/materials/:materialId" element={<MaterialDetailPage />} />
+          {/* 실제 SupplierMarketPage 대신 도착 경로만 확인하는 자리표시자 —
+              이 테스트가 확인할 것은 이동 경로지 판매 등록 화면 자체가 아니다. */}
+          <Route path="/supplier/listings" element={<LocationProbe />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   )
+}
+
+/** 팔기 버튼은 라우터가 정한 판매 등록 권한을 따른다 — 역할을 심어 두고 본다. */
+function signInAs(role: 'SUPPLIER' | 'BRAND') {
+  useAuthStore.setState({
+    user: { id: 7, name: '테스트', email: 'test@saeroi.test', role, walletAddress: null },
+    accessToken: 'token',
+    isAuthenticated: true,
+  })
+}
+
+function LocationProbe() {
+  const location = useLocation()
+  return <output aria-label="현재 경로">{location.pathname + location.search}</output>
 }
 
 beforeEach(() => {
@@ -111,9 +165,13 @@ beforeEach(() => {
   // 증빙 0건은 `summary` 가 빈 배열인 것으로 표현된다 — 이 페이지 테스트는 증빙
   // 내용을 보지 않으므로 가장 단순한 "0건" 응답을 쓴다.
   api.getEvidence.mockReset().mockResolvedValue({ visibility: 'FULL', files: [], summary: [] })
+  api.getListings.mockReset().mockResolvedValue(emptyListingPage())
 })
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  useAuthStore.setState({ user: null, accessToken: null, isAuthenticated: false })
+})
 
 describe('소재 정보', () => {
   it('이름·코드·기본 정보를 보여준다', async () => {
@@ -133,7 +191,10 @@ describe('소재 정보', () => {
     api.getMaterial.mockResolvedValue(detail({ totalQuantity: 20_500 }))
     renderPage()
 
-    expect(await screen.findByText('20.5 kg')).toBeInTheDocument()
+    // dt/dd 짝으로 본다. 아래 보유자 표도 같은 수량을 kg 로 그리므로, 문자열만
+    // 찾으면 어느 자리의 값인지 구분되지 않는다.
+    const term = await screen.findByText('총 수량')
+    expect(term.nextElementSibling).toHaveTextContent('20.5 kg')
   })
 
   it('등급이 없으면 미지정으로 보여준다', async () => {
@@ -160,38 +221,7 @@ describe('소재 정보', () => {
   })
 })
 
-describe('근거 없는 값을 확정으로 보여주지 않는다', () => {
-  it('verificationState 로 검증 배지를 그리지 않는다', async () => {
-    // 서버는 항상 REGISTERED 를 준다 — 컬럼도 판정 근거(signed_at)도 스키마에 없다.
-    // 배지를 그리면 실제로 검증된 소재도 "등록만 됨" 으로 보인다.
-    api.getMaterial.mockResolvedValue(detail({ verificationState: 'REGISTERED' }))
-    renderPage()
-
-    await screen.findByText('MAT-000012')
-    expect(screen.queryByText('등록됨')).not.toBeInTheDocument()
-    expect(screen.getByText('검증 단계 표시 준비 중')).toBeInTheDocument()
-  })
-
-  it('tokenId 가 null 이면 미등록으로 보여주고 Token ID 를 그리지 않는다', async () => {
-    // 0 이나 빈칸으로 그리면 발행된 것처럼 읽힌다. 발행 버튼은 등록자 본인에게만
-    // 보이므로(MaterialMintPanel 이 판정한다) 여기서는 배지만 확인한다.
-    api.getMaterial.mockResolvedValue(detail({ tokenId: null }))
-    renderPage()
-
-    expect(await screen.findByText('미등록')).toBeInTheDocument()
-    expect(screen.queryByText('Token ID')).not.toBeInTheDocument()
-  })
-
-  it('tokenId 가 있으면 온체인 정보를 보여준다', async () => {
-    api.getMaterial.mockResolvedValue(detail({ tokenId: 77, chainId: 1337 }))
-    renderPage()
-
-    expect(await screen.findByText('77')).toBeInTheDocument()
-    expect(screen.getByText('1337')).toBeInTheDocument()
-    expect(screen.queryByText('미등록')).not.toBeInTheDocument()
-    expect(screen.getByText('온체인 #77')).toBeInTheDocument()
-  })
-
+describe('증빙', () => {
   it('증빙은 EvidenceUpload 에 위임하고 소재 id 로 조회한다', async () => {
     api.getMaterial.mockResolvedValue(detail())
     renderPage()
@@ -212,15 +242,64 @@ describe('근거 없는 값을 확정으로 보여주지 않는다', () => {
     expect(screen.queryByText(manifestHash)).not.toBeInTheDocument()
   })
 
-  it('아직 없는 블록은 자리만 두고 이유를 밝힌다', async () => {
-    // 티켓이 요구한 7블록 중 판매 정보는 조회 API 가 없다. 빈 자리를 말없이 두면
-    // 사용자는 고장으로 읽는다.
+})
+
+describe('판매 정보 (S15P21E104-438/439)', () => {
+  it('소재 id 로 소재별 판매 목록을 조회한다', async () => {
     api.getMaterial.mockResolvedValue(detail())
+    renderPage()
+
+    await waitFor(() =>
+      expect(api.getListings).toHaveBeenCalledWith(
+        expect.objectContaining({ materialId: 12 }),
+      ),
+    )
+  })
+
+  it('판매 중인 글이 없으면 판매 중이 아니라고 알린다', async () => {
+    api.getMaterial.mockResolvedValue(detail())
+    api.getListings.mockResolvedValue(emptyListingPage())
     renderPage()
 
     await screen.findByText('MAT-000012')
     expect(screen.getByRole('heading', { name: '판매 정보' })).toBeInTheDocument()
-    expect(screen.getByText('판매 정보 준비 중')).toBeInTheDocument()
+    expect(await screen.findByText('판매 중이 아닙니다')).toBeInTheDocument()
+  })
+
+  it('판매 중이면 단가·수량을 보여주고 marketplace 상세로 이동할 수 있다', async () => {
+    api.getMaterial.mockResolvedValue(detail())
+    api.getListings.mockResolvedValue(listingPage())
+    renderPage()
+
+    // 단가와 단위를 다른 태그로 나눠 그린다(숫자를 크게, 단위를 작게).
+    expect(await screen.findByText(/14,000원/)).toBeInTheDocument()
+    const link = screen.getByRole('link', { name: '수거 데님 원단' })
+    expect(link).toHaveAttribute('href', '/marketplace/501')
+  })
+})
+
+describe('보유 소재 팔기', () => {
+  it('공급업체는 그 소재를 미리 고른 채 판매 등록 화면으로 간다', async () => {
+    const user = userEvent.setup()
+    signInAs('SUPPLIER')
+    api.getMaterial.mockResolvedValue(detail())
+    renderPage()
+
+    const button = await screen.findByRole('button', { name: '보유 소재 팔기' })
+    await user.click(button)
+
+    expect(screen.getByLabelText('현재 경로')).toHaveTextContent('/supplier/listings?materialId=12')
+  })
+
+  // 판매 등록은 공급업체의 화면이라 브랜드가 누르면 /403 으로 튕긴다 — 브랜드는 소재를
+  // 사서 쓰는 쪽이다. 누를 수 없는 버튼을 내주지 않는다.
+  it('브랜드에게는 팔기 버튼을 내주지 않는다', async () => {
+    signInAs('BRAND')
+    api.getMaterial.mockResolvedValue(detail())
+    renderPage()
+
+    await screen.findByText('MAT-000012')
+    expect(screen.queryByRole('button', { name: '보유 소재 팔기' })).not.toBeInTheDocument()
   })
 })
 
@@ -324,28 +403,22 @@ describe('블록 조합', () => {
     renderPage()
 
     await screen.findByText('MAT-000012')
-    for (const name of [
-      '소재 정보',
-      '구성',
-      '온체인',
-      '보유 현황',
-      '소재 이력',
-      '증빙',
-      '검증 상태',
-      '판매 정보',
-    ]) {
+    for (const name of ['소재 정보', '구성', '보유 현황', '증빙', '판매 정보']) {
       expect(screen.getByRole('heading', { name })).toBeInTheDocument()
+    }
+
+    // 온체인·소재 이력·진행 상황·검증 상태는 이 화면에서 뺐다. 보유 소재를 확인하러 온
+    // 사람이 쓰지 않는 값이라 소재 정보가 그만큼 아래로 밀려 있었다.
+    for (const name of ['온체인', '소재 이력', '진행 상황', '검증 상태']) {
+      expect(screen.queryByRole('heading', { name })).not.toBeInTheDocument()
     }
   })
 
-  it('보유 현황과 이력은 각자 조회한다', async () => {
+  it('보유 현황은 따로 조회한다', async () => {
     api.getMaterial.mockResolvedValue(detail())
     renderPage()
 
-    await waitFor(() => {
-      expect(api.getMaterialBalances).toHaveBeenCalledWith(12)
-      expect(api.getMaterialLineage).toHaveBeenCalledWith(12)
-    })
+    await waitFor(() => expect(api.getMaterialBalances).toHaveBeenCalledWith(12))
   })
 
   it('한 블록이 실패해도 나머지는 살아 있다', async () => {
@@ -389,4 +462,47 @@ describe('페이지 상태', () => {
       expect(api.getMaterial).not.toHaveBeenCalled()
     },
   )
+})
+
+/*
+  총 수량은 "이 소재가 세상에 얼마나 있는가" 이고, 내 보유량은 "그중 내가 얼마를
+  가졌는가" 다. 거래는 소재 행을 복제하지 않고 잔량만 옮기므로 둘은 거의 항상 다르다 —
+  0.5kg 을 산 사람에게 총 15kg 만 보여주면 자기가 산 양이 사라진 것처럼 읽힌다.
+*/
+describe('내 보유량', () => {
+  it('내가 가진 수량을 총 수량과 나란히 보여준다', async () => {
+    signInAs('BRAND')
+    api.getMaterial.mockResolvedValue(detail({ totalQuantity: 15_000 }))
+    api.getMaterialBalances.mockResolvedValue([
+      BALANCE,
+      { ...BALANCE, ownerId: 7, quantity: 500, lockedQuantity: 0, available: 500 },
+    ])
+    renderPage()
+
+    // dt/dd 짝으로 본다. 표에도 같은 수량이 나오므로 문자열만 찾으면 어느 자리의
+    // 값인지 구분되지 않는다.
+    const term = await screen.findByText('내 보유량')
+    expect(term.nextElementSibling).toHaveTextContent('0.5 kg')
+    expect(await screen.findByText('15 kg')).toBeInTheDocument()
+  })
+
+  it('가지지 않은 소재에는 내 보유량을 적지 않는다', async () => {
+    // 없는 값을 "0 kg" 으로 적으면 가졌다가 다 쓴 것처럼 읽힌다. 줄 자체를 그리지 않는다.
+    signInAs('BRAND')
+    api.getMaterial.mockResolvedValue(detail())
+    api.getMaterialBalances.mockResolvedValue([BALANCE])
+    renderPage()
+
+    expect(await screen.findByText('수거 데님 원단')).toBeInTheDocument()
+    expect(screen.queryByText('내 보유량')).not.toBeInTheDocument()
+  })
+
+  it('로그인하지 않았으면 내 보유량을 묻지 않는다', async () => {
+    api.getMaterial.mockResolvedValue(detail())
+    api.getMaterialBalances.mockResolvedValue([{ ...BALANCE, ownerId: 7 }])
+    renderPage()
+
+    expect(await screen.findByText('수거 데님 원단')).toBeInTheDocument()
+    expect(screen.queryByText('내 보유량')).not.toBeInTheDocument()
+  })
 })

@@ -2,6 +2,20 @@
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <!--
+      공급업체 콘솔 화면의 서체. Inter 는 본문, JetBrains Mono 는 소재 코드·거래 번호·
+      수량처럼 자리를 맞춰 읽는 값에 쓴다.
+
+      **전역 기본 서체를 바꾸지 않는다.** 적용 범위는 `.sup` 안쪽뿐이라(supplier-console.css)
+      헤더·사이드바와 다른 역할의 화면은 그대로다. 여기서 받아 두기만 한다.
+    -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>새로이</title>
   </head>

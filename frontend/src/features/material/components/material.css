@@ -1,0 +1,229 @@
+/*
+ * Material 도메인 화면 스타일.
+ *
+ * 공통 컴포넌트(ui-*)를 재정의하지 않는다. 여기 있는 것은 이 도메인에만 있는 표현뿐이다.
+ * 클래스 접두사로 소유를 구분한다 — 남의 영역 이름을 쓰지 않는다.
+ */
+
+/*
+ * 소재 등록 폼 — 짧은 선택지를 한 줄에 묶는다.
+ *
+ * Select/Input 하나하나가 기본으로 폭 100%(.ui-field)라, 값 몇 글자짜리 선택지도
+ * 줄 하나를 다 차지해 폼이 필요 이상으로 길어졌다. Input/Select 는 className 을
+ * 받지 않아(공용 컴포넌트 보호) 그리드는 부모에 건다 — 자식(.ui-field)은 그대로
+ * 두고 부모의 grid-template-columns 가 배치를 정한다.
+ */
+.material-form__row {
+  display: grid;
+  gap: 0 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+}
+
+/* "소재 등록" 제출 버튼만 판매 등록 폼(.listing-form)과 같은 파란색으로 맞춘다.
+   Button 컴포넌트는 className 을 안 받으므로(공용 컴포넌트 보호) 조상 스코프로
+   문다 — 다른 화면의 기본 버튼(초록)은 그대로 둔다. */
+.material-form .ui-button--primary {
+  background: #216a9f;
+}
+.material-form .ui-button--primary:hover:not(:disabled) {
+  background: color-mix(in srgb, #216a9f 85%, black);
+}
+
+/* 섬유 종류 · 비율 · 삭제 버튼. 버튼은 라벨이 없어 짧으므로 폭을 고정해 둔다 —
+   auto-fit 에 맡기면 다른 칸과 똑같이 늘어나 버튼만 헐렁해진다. */
+.material-form__composition-row {
+  display: grid;
+  gap: 0 1rem;
+  grid-template-columns: minmax(9rem, 1fr) minmax(7rem, 1fr) auto;
+  align-items: end;
+  margin-bottom: 1rem;
+}
+
+/* "구성 (선택)" — 브라우저 기본 <fieldset>/<legend> 테두리·글꼴을 그대로 뒀더니
+   나머지 입력칸(.ui-field, 공용 Input/Select)과 선 두께·모서리·글자 크기가 달라
+   이 구획만 튀어 보였다. 공통 카드 톤(--ui-color-border · --ui-radius)에 맞춘다. */
+.material-form__composition {
+  margin: 0 0 1rem;
+  padding: 1rem 1.125rem 1.25rem;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius);
+}
+.material-form__composition > legend {
+  padding: 0 0.4rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ui-color-text);
+}
+.material-form__composition-total {
+  margin: 0 0 1rem;
+  font-size: 0.875rem;
+  color: var(--ui-color-muted);
+}
+/* 개별 비율은 하나하나 100%를 안 넘어도(예: 60% + 60%) 합계는 넘을 수 있다.
+   그때는 등록 버튼도 막지만(disabled), 왜 막혔는지 여기서 먼저 알려준다. */
+.material-form__composition-total--error {
+  font-weight: 600;
+  color: var(--ui-color-danger);
+}
+
+/*
+ * 지갑 없이 등록을 시도했을 때의 안내.
+ *
+ * 오류가 아니라 <b>할 일 안내</b>라 danger 가 아닌 warning 으로 둔다. 사용자가 뭘
+ * 잘못한 게 아니라 순서가 남아 있는 것이고, 빨간색은 "등록이 실패했다" 로 읽힌다.
+ */
+.material-form__wallet-required {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin: 1rem 0;
+  padding: 1rem 1.125rem;
+  border: 1px solid var(--ui-color-warning);
+  border-left-width: 4px;
+  border-radius: var(--ui-radius);
+  background: var(--ui-color-surface);
+  color: var(--ui-color-text);
+}
+
+.material-form__wallet-required p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* 두 번째 문단은 "왜 또 연결해야 하는가" 를 설명하는 보조 설명이다. */
+.material-form__wallet-required p + p {
+  color: var(--ui-color-muted);
+  font-size: 0.9375rem;
+}
+
+.material-form__wallet-required code {
+  padding: 0.0625rem 0.3125rem;
+  border-radius: 0.25rem;
+  background: var(--ui-color-bg);
+  font-size: 0.875em;
+}
+
+/*
+ * 온체인 발행 진행 표시.
+ *
+ * warning 이 아니라 primary 를 쓴다 — 사용자가 뭘 기다려야 하는 정상 진행 상태이지,
+ * 주의를 요구하는 상황이 아니다.
+ */
+.material-form__mint-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 1rem 0;
+  padding: 1rem 1.125rem;
+  border: 1px solid var(--ui-color-primary);
+  border-radius: var(--ui-radius);
+  background: var(--ui-color-primary-soft);
+}
+
+.material-form__mint-progress p {
+  margin: 0;
+  color: var(--ui-color-text);
+  line-height: 1.6;
+}
+
+.material-form__mint-progress progress {
+  width: 100%;
+  height: 0.5rem;
+}
+
+.material-form__mint-progress span {
+  font-size: 0.875rem;
+  color: var(--ui-color-muted);
+}
+
+/* 저울 사진 인식 — 폼 안에서 독립된 보조 입력 단계로 읽히게 카드로 묶는다. */
+.weight-recognition {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 1.125rem;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-color-surface);
+}
+
+.weight-recognition__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.weight-recognition__heading h3,
+.weight-recognition__heading p,
+.weight-recognition__result p,
+.weight-recognition__alert p {
+  margin: 0;
+}
+
+.weight-recognition__heading p,
+.weight-recognition__hint,
+.weight-recognition__result > p:not(.weight-recognition__weight) {
+  color: var(--ui-color-muted);
+  font-size: 0.875rem;
+}
+
+.weight-recognition__file-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.weight-recognition__file-input {
+  width: 100%;
+}
+
+.weight-recognition__hint {
+  margin: -0.5rem 0 0;
+}
+
+.weight-recognition__preview {
+  display: block;
+  width: min(100%, 30rem);
+  max-height: 18rem;
+  border-radius: var(--ui-radius);
+  object-fit: contain;
+  background: var(--ui-color-bg);
+}
+
+.weight-recognition__status,
+.weight-recognition__result,
+.weight-recognition__alert {
+  padding: 0.875rem 1rem;
+  border-radius: var(--ui-radius);
+  line-height: 1.6;
+}
+
+.weight-recognition__status,
+.weight-recognition__result {
+  border: 1px solid var(--ui-color-primary);
+  background: var(--ui-color-primary-soft);
+}
+
+.weight-recognition__result {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.weight-recognition__result--warning {
+  border-color: var(--ui-color-warning);
+  background: var(--ui-color-surface);
+}
+
+.weight-recognition__weight {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.weight-recognition__alert {
+  border: 1px solid var(--ui-color-danger);
+  background: var(--ui-color-surface);
+  color: var(--ui-color-danger);
+}

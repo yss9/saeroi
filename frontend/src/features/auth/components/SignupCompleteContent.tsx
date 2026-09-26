@@ -1,4 +1,4 @@
-import { CheckCircle, Storefront, User } from '@phosphor-icons/react'
+import { Buildings, UserCircle } from '@phosphor-icons/react'
 import { Link } from 'react-router-dom'
 
 export type SignupAccountType = 'consumer' | 'business'
@@ -10,13 +10,13 @@ interface SignupCompleteContentProps {
 const accountCopy = {
   consumer: {
     label: '개인회원',
-    description: '로그인하고 업사이클 제품 쇼핑과 주문 관리를 시작해 보세요.',
-    Icon: User,
+    description: '로그인하고 SAEROI를 둘러보세요.',
+    Icon: UserCircle,
   },
   business: {
     label: '사업자회원',
-    description: '로그인하면 선택한 업체 유형에 맞는 업무 공간을 이용할 수 있습니다.',
-    Icon: Storefront,
+    description: '로그인 후 기업 계정 설정을 이어갈 수 있어요.',
+    Icon: Buildings,
   },
 } as const
 
@@ -26,10 +26,6 @@ export function SignupCompleteContent({ accountType }: SignupCompleteContentProp
 
   return (
     <div className="signup-complete">
-      <span className="signup-complete__check" aria-hidden="true">
-        <CheckCircle weight="fill" />
-      </span>
-
       {content && AccountIcon ? (
         <div className="signup-complete__account">
           <AccountIcon aria-hidden="true" />
@@ -38,13 +34,13 @@ export function SignupCompleteContent({ accountType }: SignupCompleteContentProp
       ) : null}
 
       <p className="signup-complete__description">
-        {content?.description ?? '로그인하고 SAEROI의 서비스를 시작해 보세요.'}
+        {content?.description ?? '로그인하고 SAEROI를 시작해 보세요.'}
       </p>
 
       {accountType === 'business' ? (
         <aside className="signup-complete__wallet-note">
           <strong>지갑 연결 안내</strong>
-          <p>지갑 연결은 로그인 후 마이페이지에서 진행해주세요.</p>
+          <p>로그인 후 마이페이지에서 지갑을 등록해 주세요. 관리자 승인이 완료되면 파트너 기능을 사용할 수 있습니다.</p>
         </aside>
       ) : null}
 
@@ -53,7 +49,7 @@ export function SignupCompleteContent({ accountType }: SignupCompleteContentProp
           로그인하기
         </Link>
         <Link className="signup-complete__button signup-complete__button--secondary" to="/">
-          쇼핑몰 홈으로
+          홈으로 이동
         </Link>
       </div>
     </div>

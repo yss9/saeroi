@@ -12,9 +12,9 @@
 .receipt-panel {
   max-width: 28rem;
   padding: 1.25rem;
-  border: 1px solid #ddd9cd;
+  border: 1px solid var(--ui-color-border);
   border-radius: 8px;
-  background: #fff;
+  background: var(--ui-color-surface);
 }
 
 .shipment-panel__header,
@@ -48,7 +48,7 @@
 .shipment-panel__summary dt,
 .receipt-panel__summary dt,
 .shipment-panel__result dt,
-.receipt-panel__result dt { color: #6b7280; font-size: 0.875rem; }
+.receipt-panel__result dt { color: var(--ui-color-muted); font-size: 0.875rem; }
 .shipment-panel__summary dd,
 .receipt-panel__summary dd,
 .shipment-panel__result dd,
@@ -59,7 +59,7 @@
 .receipt-panel__result {
   padding: 0.85rem 1rem;
   border-radius: 6px;
-  background: #f4f2ec;
+  background: var(--ui-color-bg);
 }
 
 /* 배송지. 주소는 길어서 좌우로 늘어놓으면 줄바꿈이 지저분해진다 — 위아래로 쌓는다. */
@@ -70,29 +70,29 @@
   margin: 0 0 1.15rem;
   padding: 0.85rem 1rem;
   border-radius: 6px;
-  background: #f4f2ec;
+  background: var(--ui-color-bg);
   font-size: 0.9rem;
 }
-.shipment-panel__address dt { color: #6b7280; font-size: 0.78rem; }
+.shipment-panel__address dt { color: var(--ui-color-muted); font-size: 0.78rem; }
 .shipment-panel__address dd { margin: 0.2rem 0 0; }
 
 .shipment-panel__note,
 .receipt-panel__note {
   margin: 0 0 1rem;
   font-size: 0.875rem;
-  color: #6b7280;
+  color: var(--ui-color-muted);
 }
-.shipment-panel__note--warning { color: #b54708; }
+.shipment-panel__note--warning { color: var(--ui-color-warning); }
 
 /* 되돌릴 수 없는 동작 바로 앞의 경고. 색만으로 구분하지 않고 테두리도 준다. */
 .receipt-panel__warning {
   margin: 0 0 1rem;
   padding: 0.85rem 1rem;
-  border: 1px solid #f3c88a;
+  border: 1px solid var(--ui-color-warning);
   border-radius: 6px;
-  background: #fdf6ec;
+  background: var(--ui-color-primary-soft);
   font-size: 0.875rem;
-  color: #8a4b0b;
+  color: var(--ui-color-warning);
 }
 
 .shipment-panel__form { display: flex; flex-direction: column; gap: 0.35rem; }
@@ -114,13 +114,17 @@
 
 /* ── 거래 진행 타임라인 ──────────────────────────────── */
 
+/*
+  상자는 화면(팝업) 폭을 그대로 쓴다. 고정 폭(28rem)으로 두면 옆의 카드들만 넓고 이
+  상자만 좁아, 오른쪽이 통째로 빈 자리로 남았다.
+*/
 .trade-timeline {
-  max-width: 28rem;
+  width: 100%;
   margin: 0 0 1.5rem;
   padding: 1.15rem 1.25rem 1.25rem;
-  border: 1px solid #ddd9cd;
+  border: 1px solid var(--ui-color-border);
   border-radius: 8px;
-  background: #fff;
+  background: var(--ui-color-surface);
 }
 
 .trade-timeline__steps {
@@ -145,7 +149,7 @@
   top: 1.1rem;
   bottom: 0;
   width: 1px;
-  background: #ddd9cd;
+  background: var(--ui-color-border);
 }
 .trade-timeline__step:last-child::before { display: none; }
 
@@ -154,49 +158,49 @@
   width: 0.7rem;
   height: 0.7rem;
   margin-top: 0.3rem;
-  border: 2px solid #ddd9cd;
+  border: 2px solid var(--ui-color-border);
   border-radius: 50%;
-  background: #fff;
+  background: var(--ui-color-surface);
 }
 
 .trade-timeline__body { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
-.trade-timeline__label { font-size: 0.92rem; color: #6b7280; }
+.trade-timeline__label { font-size: 0.92rem; color: var(--ui-color-muted); }
 .trade-timeline__at {
   font-size: 0.8rem;
-  color: #9ca3af;
+  color: var(--ui-color-muted);
   font-variant-numeric: tabular-nums;
 }
 .trade-timeline__detail {
   font-size: 0.78rem;
-  color: #6b7280;
+  color: var(--ui-color-muted);
   overflow-wrap: anywhere;
 }
 
 /* 끝난 단계. 색만으로 구분하지 않는다 — 굵기도 함께 바꿔 색을 구분하기 어려운
    사용자에게도 진행된 단계가 드러난다. */
 .trade-timeline__step--done .trade-timeline__marker {
-  border-color: #1f6f4a;
-  background: #1f6f4a;
+  border-color: var(--ui-color-primary);
+  background: var(--ui-color-primary);
 }
-.trade-timeline__step--done .trade-timeline__label { color: #172033; font-weight: 600; }
-.trade-timeline__step--done .trade-timeline__at { color: #6b7280; }
+.trade-timeline__step--done .trade-timeline__label { color: var(--ui-color-text); font-weight: 600; }
+.trade-timeline__step--done .trade-timeline__at { color: var(--ui-color-muted); }
 
 /* 진행 중인 단계. 링을 둘러 지금 여기라는 것을 드러낸다. */
 .trade-timeline__step--current .trade-timeline__marker {
-  border-color: #1f6f4a;
-  background: #fff;
+  border-color: var(--ui-color-primary);
+  background: var(--ui-color-surface);
   box-shadow: 0 0 0 3px rgba(31, 111, 74, 0.16);
 }
-.trade-timeline__step--current .trade-timeline__label { color: #172033; font-weight: 700; }
-.trade-timeline__step--current .trade-timeline__at { color: #1f6f4a; font-weight: 600; }
+.trade-timeline__step--current .trade-timeline__label { color: var(--ui-color-text); font-weight: 700; }
+.trade-timeline__step--current .trade-timeline__at { color: var(--ui-color-primary); font-weight: 600; }
 
 /* 취소로 멈춘 단계. 대기와 달라 보여야 한다 — 기다리면 진행될 것처럼 읽히면 안 된다. */
 .trade-timeline__step--stopped .trade-timeline__marker {
   border-style: dashed;
-  border-color: #c9c4b6;
+  border-color: var(--ui-color-border-strong);
 }
 .trade-timeline__step--stopped .trade-timeline__label,
-.trade-timeline__step--stopped .trade-timeline__at { color: #b1aca0; }
+.trade-timeline__step--stopped .trade-timeline__at { color: var(--ui-color-muted); }
 
 .trade-timeline__next,
 .trade-timeline__canceled {
@@ -205,8 +209,8 @@
   border-radius: 6px;
   font-size: 0.85rem;
 }
-.trade-timeline__next { background: #f4f2ec; color: #172033; }
-.trade-timeline__canceled { background: #fdf6ec; color: #8a4b0b; }
+.trade-timeline__next { background: var(--ui-color-bg); color: var(--ui-color-text); }
+.trade-timeline__canceled { background: var(--ui-color-primary-soft); color: var(--ui-color-warning); }
 
 /* ── 거래 취소 ───────────────────────────────────────── */
 
@@ -226,19 +230,19 @@
   font-size: 0.85rem;
   font-weight: 600;
 }
-.cancel-form__optional { font-weight: 400; color: #6b7280; }
+.cancel-form__optional { font-weight: 400; color: var(--ui-color-muted); }
 .cancel-form__textarea {
   width: 100%;
   padding: 0.6rem 0.7rem;
-  border: 1px solid #d8d5cb;
+  border: 1px solid var(--ui-color-border);
   border-radius: 6px;
-  background: #fff;
+  background: var(--ui-color-surface);
   resize: vertical;
 }
-.cancel-form__textarea:focus-visible { outline: 2px solid #1f6f4a; outline-offset: 1px; }
-.cancel-form__textarea[aria-invalid="true"] { border-color: #b42318; }
-.cancel-form__hint { margin: 0.35rem 0 0; font-size: 0.78rem; color: #6b7280; }
-.cancel-form__hint--error { color: #b42318; }
+.cancel-form__textarea:focus-visible { outline: 2px solid var(--ui-color-primary); outline-offset: 1px; }
+.cancel-form__textarea[aria-invalid="true"] { border-color: var(--ui-color-danger); }
+.cancel-form__hint { margin: 0.35rem 0 0; font-size: 0.78rem; color: var(--ui-color-muted); }
+.cancel-form__hint--error { color: var(--ui-color-danger); }
 
 .trade-timeline__canceled p { margin: 0; }
 .trade-timeline__cancel-reason {
@@ -246,4 +250,102 @@
   font-size: 0.82rem;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+/*
+ * 구매 폼의 주소 검색.
+ *
+ * 우편번호·주소 두 칸은 readOnly 라 검색 버튼이 유일한 입력 수단이다. 그래서 버튼을
+ * 입력칸 안쪽 오른쪽에 겹쳐 둔다 — 따로 떨어뜨리면 "읽기 전용 칸"과 "그 칸을 채우는
+ * 버튼"의 관계가 보이지 않는다. 가입 화면(auth-entry.css)과 같은 배치이며, 색만
+ * 이 도메인의 ui-* 토큰으로 맞춘다.
+ */
+.purchase-form__address-search {
+  position: relative;
+}
+
+.purchase-form__address-search .ui-field__control {
+  padding-right: 112px;
+}
+
+.purchase-form__address-search > button {
+  position: absolute;
+  top: 29px;
+  right: 6px;
+  display: inline-flex;
+  min-width: 100px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 11px;
+  border: 1px solid var(--ui-color-border-strong);
+  border-radius: 8px;
+  background: var(--ui-color-primary-soft);
+  color: var(--ui-color-primary);
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.purchase-form__address-search > button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* 두 칸이 읽기 전용이라, 검색이 실패하면 손으로 메울 방법이 없다 — 눈에 띄어야 한다. */
+.purchase-form__address-error {
+  margin-top: 0.35rem;
+  color: var(--ui-color-danger);
+  font-size: 0.82rem;
+}
+
+/* ── 거래 상세 ───────────────────────────────────────────
+   목록에서는 팝업으로, 주소로 들어오면 한 페이지로 같은 본문을 쓴다.
+   ────────────────────────────────────────────────────── */
+.trade-detail { display: flex; flex-direction: column; gap: 1rem; }
+
+/* 모달 제목("거래 상세")과 같은 검정이면 둘이 한 덩어리로 읽힌다. 이쪽은 내용이므로
+   색과 크기로 갈라 둔다. */
+.trade-detail__title {
+  margin: 0;
+  color: #216a9f;
+  font-size: 1.3rem;
+  letter-spacing: -0.02em;
+}
+
+/* 결제·발송 패널이 들어가 기본 모달 폭(32rem)으로는 값들이 서로를 민다. */
+.ui-modal:has(.trade-detail) { max-width: min(46rem, 94vw); }
+
+/* 단계·결제·수령이 세로로 이어져 화면보다 길어진다 — 창을 넘기지 않고 안에서 굴린다. */
+.ui-modal:has(.trade-detail) .ui-modal__body {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+/* 모달 안에서는 패널이 폭을 다 쓴다. 28rem 으로 묶어 두면 오른쪽이 비어 보인다. */
+.ui-modal .payment-panel,
+.ui-modal .receipt-panel,
+.ui-modal .shipment-panel { max-width: none; }
+
+/* ── 온체인 예약 해제 ─────────────────────────────────────
+   서버는 취소됐는데 체인에 예약이 남은 거래에만 나온다. 평소에는 없는 칸이라 눈에
+   걸리되, 오류는 아니므로 붉은색은 쓰지 않는다 — 사용자가 잘못한 것이 아니다. */
+
+.trade-chain-release {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--ui-color-border);
+  border-radius: 8px;
+  background: var(--ui-color-surface);
+}
+
+.trade-chain-release__note {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: var(--ui-color-muted);
 }

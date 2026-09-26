@@ -5,6 +5,7 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { queryClient } from '../services/queryClient.ts'
 import type { UserRole } from '../types/role.types.ts'
 
 export interface AuthUser {
@@ -23,6 +24,12 @@ interface AuthState {
   isAuthenticated: boolean
 
   signIn: (user: AuthUser, accessToken: string) => void
+  /** 재발급을 시작한 세션과 일치할 때만 Access Token을 교체한다. */
+  refreshAccessToken: (
+    expectedUserId: number,
+    expectedAccessToken: string,
+    accessToken: string,
+  ) => boolean
   signOut: () => void
   /** 프로필 일부만 갱신 (예: 지갑 연결 직후 walletAddress 반영) */
   patchUser: (patch: Partial<AuthUser>) => void
@@ -30,14 +37,31 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       accessToken: null,
       isAuthenticated: false,
 
-      signIn: (user, accessToken) => set({ user, accessToken, isAuthenticated: true }),
+      signIn: (user, accessToken) => {
+        queryClient.clear()
+        set({ user, accessToken, isAuthenticated: true })
+      },
 
-      signOut: () => set({ user: null, accessToken: null, isAuthenticated: false }),
+      refreshAccessToken: (expectedUserId, expectedAccessToken, accessToken) => {
+        const current = get()
+        // 재발급 중 사용자가 로그아웃하거나 다른 계정으로 로그인한 경우
+        // 늦게 도착한 응답으로 새 세션을 덮어쓰지 않는다.
+        if (current.user?.id !== expectedUserId || current.accessToken !== expectedAccessToken) {
+          return false
+        }
+        set({ accessToken, isAuthenticated: true })
+        return true
+      },
+
+      signOut: () => {
+        queryClient.clear()
+        set({ user: null, accessToken: null, isAuthenticated: false })
+      },
 
       patchUser: (patch) =>
         set((state) => (state.user ? { user: { ...state.user, ...patch } } : state)),
@@ -46,9 +70,24 @@ export const useAuthStore = create<AuthState>()(
       name: 'saeroi.auth',
       // isAuthenticated 는 저장하지 않는다 — user/token 에서 파생되는 값이라
       // 따로 저장하면 셋이 어긋날 수 있다. 복원 후 아래에서 다시 계산한다.
-      partialize: (state) => ({ user: state.user, accessToken: state.accessToken }),
+      partialize: (state) => ({
+        user: state.user,
+        accessToken: state.accessToken,
+      }),
+      version: 1,
+      // 쿠키 방식 전환 전에 저장된 Refresh Token을 localStorage에서 제거한다.
+      migrate: (persistedState) => {
+        const state = persistedState as Partial<Pick<AuthState, 'user' | 'accessToken'>>
+        return { user: state.user ?? null, accessToken: state.accessToken ?? null }
+      },
       onRehydrateStorage: () => (state) => {
-        if (state) state.isAuthenticated = Boolean(state.accessToken && state.user)
+        if (!state) return
+        const hasCompleteSession = Boolean(state.user && state.accessToken)
+        state.isAuthenticated = hasCompleteSession
+        if (!hasCompleteSession) {
+          state.user = null
+          state.accessToken = null
+        }
       },
     },
   ),
@@ -57,9 +96,7 @@ export const useAuthStore = create<AuthState>()(
 /**
  * React 밖(axios 인터셉터 등)에서 현재 토큰을 읽는다.
  *
- * TODO(보안): 지금은 localStorage 에 토큰을 둔다. XSS 에 노출되는 방식이므로,
- * Backend 가 httpOnly 쿠키 + Refresh Token 을 지원하면 그쪽으로 옮긴다.
- * (backend schema 에 refresh_token 테이블이 이미 잡혀 있다.)
+ * Refresh Token은 Backend가 HttpOnly 쿠키로 관리하므로 JavaScript에서 읽지 않는다.
  */
 export function getAccessToken(): string | null {
   return useAuthStore.getState().accessToken

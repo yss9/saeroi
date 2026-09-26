@@ -1,12 +1,16 @@
 import { useState } from 'react'
 import {
   Button,
+  ConfirmModal,
   EmptyState,
   ErrorMessage,
   FileUploader,
+  LocalFilePreview,
   Loading,
+  Modal,
   Select,
 } from '../../../components/common/index.ts'
+import { useDeleteEvidence } from '../hooks/useDeleteEvidence.ts'
 import { useEvidence } from '../hooks/useEvidence.ts'
 import { useUploadEvidence } from '../hooks/useUploadEvidence.ts'
 import {
@@ -15,25 +19,38 @@ import {
   EVIDENCE_MAX_FILE_SIZE,
   EVIDENCE_TYPE_LABEL,
   MATERIAL_EVIDENCE_TYPES,
+  PROCESSING_EVIDENCE_TYPES,
+  type EvidenceFile,
   type EvidenceReferenceType,
   type EvidenceType,
 } from '../types/evidence.types.ts'
+import { EvidencePreview } from './EvidencePreview.tsx'
+import './evidence.css'
 
 export interface EvidenceUploadProps {
   referenceType: EvidenceReferenceType
   referenceId: number | null
   /** 업로드 UI 를 감추고 목록만 보여준다. 남의 소재를 볼 때 쓴다 */
   readOnly?: boolean
+  /** 가공 결과처럼 증빙 종류별 파일 선택 칸을 동시에 보여준다. */
+  uploadMode?: 'select' | 'type-grid'
 }
 
 /**
  * 증빙 업로드 + 목록. S15P21E104-165.
  *
- * <h2>증빙은 지울 수 없다</h2>
+ * <h2>삭제는 소프트 삭제이고, 판정은 서버가 한다</h2>
  *
- * <p>파일 해시가 온체인에 기록되므로 잘못 올린 것을 되돌릴 방법이 없다. 그래서 이 화면은
- * <b>올리기 전에 무엇이 올라가는지 보여주고, 올린 뒤에는 지우기를 제안하지 않는다.</b>
- * 삭제 버튼을 두면 사용자는 되돌릴 수 있다고 믿는다.
+ * <p>`DELETE /api/evidence/{id}` 는 행을 지우지 않고 `deletedAt` 만 채운다 — `fileHash` 가
+ * 나중에 온체인 manifest 에서 발견되면 무엇의 해시인지 알 수 있어야 하기 때문이다
+ * ({@code EvidenceDeletionService} 주석). 그래서 <b>이 화면은 누가 지울 수 있는지 다시
+ * 판단하지 않는다</b> — 업로더·소재 등록자가 아니면 403(`EVIDENCE_DELETE_FORBIDDEN`),
+ * 이미 온체인에 고정됐으면 409(`EVIDENCE_ANCHORED_ON_CHAIN`)를 서버가 돌려주고, 화면은
+ * 그 에러 메시지를 그대로 보여준다.
+ *
+ * <p>올리기 전에 무엇이 올라가는지 보여주는 이유는 여전히 유효하다 — 지울 수 있는 경우도
+ * 있지만 <b>항상 지울 수 있는 것은 아니므로</b>, 잘못 고른 파일을 업로드 전에 걸러내는
+ * 편이 여전히 최선이다.
  *
  * <h2>목록은 보는 사람에 따라 범위가 다르다 (S15P21E104-286 §6-1)</h2>
  *
@@ -57,84 +74,132 @@ export interface EvidenceUploadProps {
  * 올라가는 중이라고 생각한다. 앞에서 막으면 <b>고르는 순간</b> 이유를 알 수 있다.
  * 그리고 목록이 서버와 어긋나면 조용히 실패하므로 값을 한곳
  * ({@code evidence.types.ts})에서만 정의한다.
+ *
+ * <p><b>검증 자체는 이 컴포넌트가 하지 않는다</b> — 형식·크기·개수와 거절 문구는
+ * 공통 {@code FileUploader} 가 맡는다 (S15P21E104-253). 도메인이 하는 일은 정책 값을
+ * 넘기는 것뿐이다. 여기서 다시 세면 같은 규칙이 두 곳에 생긴다.
+ *
+ * <h2>미리보기는 두 번 나온다</h2>
+ *
+ * <ul>
+ *   <li><b>올리기 전</b> — 고른 파일을 브라우저가 가진 바이트로 그린다
+ *       ({@code LocalFilePreview}). 증빙은 되돌릴 수 없으니 무엇이 올라가는지 눈으로
+ *       확인할 기회가 있어야 한다</li>
+ *   <li><b>올린 뒤</b> — 서버 파일을 {@code EvidencePreview} 가 그린다. 눌러야 받는다
+ *       (파일 10개 × 10MB 를 목록만 그리면서 내려받지 않는다)</li>
+ * </ul>
+ *
+ * <p>둘 다 {@code <img src={contentPath}>} 가 아니다 — 조회 경로가 Authorization 헤더를
+ * 요구해서 브라우저가 스스로 보내는 요청은 401 을 받는다
+ * ({@code api/getEvidenceContent.ts} 주석).
  */
-export function EvidenceUpload({ referenceType, referenceId, readOnly }: EvidenceUploadProps) {
+export function EvidenceUpload({
+  referenceType,
+  referenceId,
+  readOnly,
+  uploadMode = 'select',
+}: EvidenceUploadProps) {
   const [evidenceType, setEvidenceType] = useState<EvidenceType>('BEFORE_PHOTO')
   const [selected, setSelected] = useState<File[]>([])
-  const [tooMany, setTooMany] = useState(false)
+  const [selectedByType, setSelectedByType] = useState<Partial<Record<EvidenceType, File[]>>>({})
+  const [uploadingType, setUploadingType] = useState<EvidenceType | null>(null)
+  // 올리는 칸은 창으로 연다. 목록 위에 늘 펼쳐 두면 증빙을 보러 온 사람이 매번 지나친다.
+  const [adding, setAdding] = useState(false)
+  // 지우려는 파일 하나만 든다 — 확인 모달은 한 번에 하나만 뜬다.
+  const [pendingDelete, setPendingDelete] = useState<EvidenceFile | null>(null)
 
   const list = useEvidence(referenceType, referenceId)
   const upload = useUploadEvidence()
+  const remove = useDeleteEvidence()
 
   if (referenceId === null) return <ErrorMessage error="잘못된 주소입니다." />
 
-  const submit = () => {
-    if (selected.length === 0) return
+  const submit = (type: EvidenceType, files: File[], clear: () => void) => {
+    if (files.length === 0) return
+    setUploadingType(type)
     upload.mutate(
-      { referenceType, referenceId, evidenceType, files: selected },
+      { referenceType, referenceId, evidenceType: type, files },
       {
-        // 성공했을 때만 선택을 비운다. 실패한 채로 비우면 사용자가 파일을 다시
-        // 골라야 하는데, 무엇을 골랐는지는 이미 화면에서 사라진 상태다.
-        onSuccess: () => setSelected([]),
+        onSuccess: clear,
+        onSettled: () => setUploadingType(null),
       },
     )
   }
 
   return (
     <div className="evidence">
-      {!readOnly && (
-        <div className="evidence__form">
-          <Select
-            label="증빙 종류"
-            options={MATERIAL_EVIDENCE_TYPES.map((value) => ({
-              value,
-              label: EVIDENCE_TYPE_LABEL[value],
-            }))}
-            value={evidenceType}
-            onChange={(event) => setEvidenceType(event.target.value as EvidenceType)}
-          />
-
-          <FileUploader
-            label={`파일 선택 (최대 ${EVIDENCE_MAX_FILES}개, 개당 10MB)`}
-            accept={EVIDENCE_ACCEPT}
-            multiple
-            maxSizeBytes={EVIDENCE_MAX_FILE_SIZE}
-            disabled={upload.isPending}
-            onChange={(files) => {
-              // 개수 초과를 조용히 잘라내지 않는다. 잘라내면 사용자는 10개를 골랐는데
-              // 몇 개가 왜 빠졌는지 모른다.
-              setTooMany(files.length > EVIDENCE_MAX_FILES)
-              setSelected(files.length > EVIDENCE_MAX_FILES ? [] : files)
-            }}
-          />
-
-          {tooMany && (
-            <p role="alert">
-              한 번에 {EVIDENCE_MAX_FILES}개까지 올릴 수 있습니다. 나눠서 올려 주세요.
-            </p>
-          )}
-
-          {selected.length > 0 && (
-            <>
-              {/*
-                올리기 전에 목록을 보여준다. 증빙은 되돌릴 수 없으므로 무엇이 올라가는지
-                확인할 기회가 있어야 한다.
-              */}
-              <ul aria-label="올릴 파일">
-                {selected.map((file) => (
-                  <li key={`${file.name}-${file.size}`}>{file.name}</li>
-                ))}
-              </ul>
-              <Button type="button" onClick={submit} loading={upload.isPending}>
-                증빙 {selected.length}개 올리기
-              </Button>
-            </>
-          )}
-
-          {upload.isError && <ErrorMessage error={upload.error} />}
+      {/*
+        **올리는 칸은 창으로 연다.** 종류와 파일 칸이 목록 위에 늘 펼쳐져 있으면 증빙을
+        보러 온 사람도 그 폼을 지나쳐야 하고, 여기서 올리는 일은 가끔이다. 여러 종류를
+        한꺼번에 받는 가공(type-grid)은 그 자체가 할 일 목록이라 펼친 채 둔다.
+      */}
+      {!readOnly && uploadMode === 'select' && (
+        <div className="evidence__add">
+          <Button onClick={() => setAdding(true)}>증빙 등록</Button>
         </div>
       )}
 
+      {!readOnly && uploadMode === 'type-grid' && (
+        <div className="evidence__form">
+            <div className="evidence__type-grid">
+              {PROCESSING_EVIDENCE_TYPES.map((type) => {
+                const files = selectedByType[type] ?? []
+                const label = EVIDENCE_TYPE_LABEL[type]
+                return (
+                  <section className="evidence__type-card" key={type} aria-labelledby={`evidence-type-${type}`}>
+                    <h4 id={`evidence-type-${type}`}>{label}</h4>
+                    <FileUploader
+                      label={`${label} 파일 선택`}
+                      hint="사진 또는 PDF, 파일당 10MB"
+                      accept={EVIDENCE_ACCEPT}
+                      multiple
+                      maxSizeBytes={EVIDENCE_MAX_FILE_SIZE}
+                      maxFiles={EVIDENCE_MAX_FILES}
+                      uploading={upload.isPending && uploadingType === type}
+                      progress={uploadingType === type ? upload.progress : null}
+                      onChange={(nextFiles) =>
+                        setSelectedByType((current) => ({ ...current, [type]: nextFiles }))
+                      }
+                    />
+                    {files.length > 0 && (
+                      <>
+                        <SelectedFiles files={files} label={`${label} 올릴 파일`} />
+                        <Button
+                          type="button"
+                          disabled={upload.isPending}
+                          loading={upload.isPending && uploadingType === type}
+                          onClick={() =>
+                            submit(type, files, () =>
+                              setSelectedByType((current) => ({ ...current, [type]: [] })),
+                            )
+                          }
+                        >
+                          {label} {files.length}개 올리기
+                        </Button>
+                      </>
+                    )}
+                  </section>
+                )
+              })}
+            </div>
+
+          {upload.isError && uploadMode === 'type-grid' && <ErrorMessage error={upload.error} />}
+        </div>
+      )}
+
+        {upload.isSuccess && upload.data.length > 0 && (
+          <div className="evidence__result" role="status">
+            <p>증빙 {upload.data.length}개를 올렸습니다.</p>
+            <ul aria-label="업로드 결과">
+              {upload.data.map((file) => (
+                <li key={file.evidenceFileId}>
+                  {EVIDENCE_TYPE_LABEL[file.evidenceType]}
+                  <span className="evidence__hash">{file.fileHash}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       {list.isPending ? (
         <Loading variant="skeleton" rows={2} label="증빙을 불러오는 중" />
       ) : list.isError ? (
@@ -177,16 +242,32 @@ export function EvidenceUpload({ referenceType, referenceId, readOnly }: Evidenc
                     파일 이름(storageKey)이 아니라 해시를 보여준다. storageKey 는 URL 이
                     아니라 저장소 경로라 <img src> 에 넣으면 깨진 이미지가 되고, 해시는
                     온체인에 올라간 값이라 사용자가 대조할 수 있다.
-
-                    파일을 되돌려주는 엔드포인트는 이제 있다 (contentPath →
-                    GET /api/evidence/{id}/content). 다만 미리보기 UI 는 별도 작업이라
-                    이 브랜치에서 만들지 않는다 — 그래서 아직 "준비 중" 이라고 말한다.
                   */}
-                  <p className="evidence__hash">{file.fileHash}</p>
                   <p>
                     <time dateTime={file.uploadedAt}>{formatDateTime(file.uploadedAt)}</time>
-                    {' · 미리보기 준비 중'}
                   </p>
+                  {/*
+                    미리보기는 여기까지 온 파일에만 붙는다. visibility 가 FULL 이 아니면
+                    서버가 evidenceFileId · contentPath 를 아예 주지 않으므로 이 분기에
+                    들어올 수 없다.
+                  */}
+                  <EvidencePreview file={file} />
+                  {/*
+                    누가 지울 수 있는지는 서버가 판정한다 (업로더·소재 등록자만, 온체인
+                    고정 전까지). 여기서 다시 가리면 보유자에게는 안 보였다가 서버 정책이
+                    바뀌면 화면이 따라가지 못한다 — 버튼은 항상 보여주고 거절은 에러
+                    메시지로 알린다.
+                  */}
+                  {!readOnly && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setPendingDelete(file)}
+                    >
+                      삭제
+                    </Button>
+                  )}
                 </li>
               ))}
             </ul>
@@ -194,16 +275,122 @@ export function EvidenceUpload({ referenceType, referenceId, readOnly }: Evidenc
             // 가려진 것은 없는 것이 아니다. 개수는 위 요약에 이미 나와 있으니 여기서는
             // 무엇이 왜 안 보이는지만 말한다. EmptyState 를 쓰면 "증빙 없음" 이 된다.
             <p className="evidence__masked">
-              증빙이 등록되어 있지만 파일 정보는 보이지 않습니다. 파일 이름·해시·업로더는
+              증빙이 등록되어 있지만 파일 정보는 보이지 않습니다. 파일 정보와 업로더는
               업로더와 소재 등록자, 현재 보유자에게만 공개됩니다.
             </p>
           )}
         </>
       )}
+
+      {remove.isError && <ErrorMessage error={remove.error} />}
+
+      {/* 창 하나에 종류와 파일이 같이 있다 — 둘은 한 번에 정하는 값이다. */}
+      {/*
+        열려 있을 때만 마운트한다. 닫힌 `<dialog>` 도 DOM 에 남아 닫기 버튼("×") 같은
+        마크업이 문서에 들어간다 — 이 컴포넌트를 끼는 화면의 "그 문구가 없어야 한다" 류
+        단언과 부딪힌다 (아래 삭제 확인 모달과 같은 이유다).
+      */}
+      {!readOnly && uploadMode === 'select' && adding && (
+      <Modal
+        open={adding}
+        title="증빙 등록"
+        dismissible={!upload.isPending}
+        onClose={() => {
+          setSelected([])
+          upload.reset()
+          setAdding(false)
+        }}
+      >
+        <div className="evidence__form-row">
+          <Select
+            label="증빙 종류"
+            options={MATERIAL_EVIDENCE_TYPES.map((value) => ({
+              value,
+              label: EVIDENCE_TYPE_LABEL[value],
+            }))}
+            value={evidenceType}
+            onChange={(event) => setEvidenceType(event.target.value as EvidenceType)}
+          />
+          <FileUploader
+            label="파일 선택"
+            hint={`사진(jpg·png·webp)과 pdf 를 최대 ${EVIDENCE_MAX_FILES}개, 개당 10MB 까지 올릴 수 있습니다.`}
+            accept={EVIDENCE_ACCEPT}
+            multiple
+            maxSizeBytes={EVIDENCE_MAX_FILE_SIZE}
+            maxFiles={EVIDENCE_MAX_FILES}
+            uploading={upload.isPending}
+            progress={upload.progress}
+            // 고른 파일 목록은 여기 한 곳에서만 그린다. 밖에서 또 그리면 같은 파일 이름이
+            // 두 줄로 보인다.
+            showPreview
+            onChange={setSelected}
+          />
+        </div>
+
+        {upload.isError && <ErrorMessage error={upload.error} />}
+
+        <div className="evidence__form-actions">
+          {/* 파일을 고르기 전에는 보낼 것이 없다. */}
+          <Button
+            type="button"
+            disabled={selected.length === 0}
+            loading={upload.isPending}
+            onClick={() =>
+              submit(evidenceType, selected, () => {
+                setSelected([])
+                setAdding(false)
+              })
+            }
+          >
+            {selected.length > 0 ? `증빙 ${selected.length}개 올리기` : '증빙 올리기'}
+          </Button>
+        </div>
+      </Modal>
+      )}
+
+      {/*
+        열려 있을 때만 마운트한다. `<dialog>` 는 항상 DOM 에 있으면 닫혀 있어도
+        닫기 버튼("×") 같은 마크업이 문서에 남는다 — 이 화면이 끼는 다른 페이지의
+        "이 문구가 없어야 한다" 류 단언과 부딪힌다.
+      */}
+      {pendingDelete && (
+  
+
+      <ConfirmModal
+          open
+          title="증빙을 지울까요?"
+          message={`${EVIDENCE_TYPE_LABEL[pendingDelete.evidenceType]} 파일을 지웁니다. 이미 이력에 포함된 증빙은 지울 수 없습니다.`}
+          // 파일 목록의 트리거 버튼과 이름이 같으면("삭제") 테스트도 사용자도 어느 쪽을
+          // 눌렀는지 구분할 수 없다. 모달의 확인 버튼은 "지우기" 로 갈라 둔다.
+          confirmLabel="지우기"
+          destructive
+          loading={remove.isPending}
+          onConfirm={() => {
+            remove.mutate(
+              { evidenceFileId: pendingDelete.evidenceFileId, referenceType, referenceId },
+              { onSettled: () => setPendingDelete(null) },
+            )
+          }}
+          onClose={() => setPendingDelete(null)}
+        />
+      )}
     </div>
   )
 }
 
+function SelectedFiles({ files, label }: { files: File[]; label: string }) {
+  return (
+    <ul className="evidence__selected" aria-label={label}>
+      {files.map((file, index) => (
+        // 같은 이름·크기의 파일을 두 번 고를 수 있으므로 순서까지 붙여 키를 유일하게 만든다.
+        <li key={`${file.name}-${file.size}-${index}`}>
+          <LocalFilePreview file={file} />
+          <span>{file.name}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
 function formatDateTime(value: string): string {
   const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) return value

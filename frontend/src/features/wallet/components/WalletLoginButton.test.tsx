@@ -146,7 +146,7 @@ describe('연결 전 게이팅', () => {
   it('지갑이 연결되어 있지 않으면 로그인 버튼 대신 안내만 보여준다', () => {
     renderWithClient(<WalletLoginButton />)
 
-    expect(screen.getByText('지갑을 연결하면 서명으로 로그인할 수 있습니다.')).toBeInTheDocument()
+    expect(screen.getByText('지갑을 연결하면 간편하게 로그인할 수 있습니다.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '지갑으로 로그인' })).not.toBeInTheDocument()
   })
 })
@@ -212,7 +212,7 @@ describe('성공 흐름', () => {
     renderWithClient(<WalletLoginButton />)
     await userEvent.click(screen.getByRole('button', { name: '지갑으로 로그인' }))
 
-    const pending = await screen.findByRole('button', { name: '지갑 서명 요청 중…' })
+    const pending = await screen.findByRole('button', { name: '지갑에서 요청 확인 중…' })
     expect(pending).toBeDisabled()
 
     release!(nonceResponse())
@@ -255,7 +255,7 @@ describe('실패 흐름', () => {
     renderWithClient(<WalletLoginButton />)
     await userEvent.click(screen.getByRole('button', { name: '지갑으로 로그인' }))
 
-    expect(await screen.findByText('서명을 취소했습니다.')).toBeInTheDocument()
+    expect(await screen.findByText('요청을 취소했습니다.')).toBeInTheDocument()
     // 오류가 아니라 정상 흐름이므로 role="alert" 로 띄우지 않는다.
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     expect(api.verifyWalletSignature).not.toHaveBeenCalled()

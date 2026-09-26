@@ -177,7 +177,8 @@ describe('TradeTimeline', () => {
       expect(step('발송').className).toContain('--stopped')
       expect(step('수령 확인').className).toContain('--stopped')
       expect(within(step('발송')).getByText('진행되지 않음')).toBeInTheDocument()
-      expect(screen.getByRole('status')).toHaveTextContent('취소되었습니다')
+      // 취소는 첫 줄의 이름이 말한다. 따로 문단을 두면 같은 말이 두 번이다.
+      expect(step('구매 요청 · 취소')).toBeInTheDocument()
     })
 
     it('취소 전에 끝난 결제는 그대로 남긴다', () => {
@@ -188,7 +189,7 @@ describe('TradeTimeline', () => {
       expect(within(step('결제 완료')).getByText(localized(PAID_AT))).toBeInTheDocument()
     })
 
-    it('취소 시각과 사유를 함께 보여준다', () => {
+    it('취소 시각은 첫 단계 옆에, 사유는 아래에 적는다', () => {
       renderTimeline(
         trade({
           status: 'CANCELED',
@@ -197,9 +198,11 @@ describe('TradeTimeline', () => {
         }),
       )
 
-      const notice = screen.getByRole('status')
-      expect(notice).toHaveTextContent(localized('2026-09-02T15:00:00'))
-      expect(notice).toHaveTextContent('사유: 재고 부족으로 발송이 어렵습니다')
+      // 수량 옆에 취소 시각이 붙는다.
+      expect(step('구매 요청 · 취소')).toHaveTextContent(/12 kg · .+취소/)
+      expect(screen.getByRole('status')).toHaveTextContent(
+        '취소 사유: 재고 부족으로 발송이 어렵습니다',
+      )
     })
 
     // 사유 없는 취소가 정상 경로다. "사유 없음" 같은 빈 자리를 만들면 뭔가 누락된
@@ -207,13 +210,12 @@ describe('TradeTimeline', () => {
     it('사유가 없으면 사유 줄을 만들지 않는다', () => {
       renderTimeline(trade({ status: 'CANCELED', canceledAt: '2026-09-02T15:00:00' }))
 
-      expect(screen.getByRole('status')).not.toHaveTextContent('사유')
+      expect(screen.queryByRole('status')).not.toBeInTheDocument()
     })
 
     it('다음 할 일을 안내하지 않는다', () => {
       renderTimeline(trade({ status: 'CANCELED' }), 'SELLER')
 
-      expect(screen.getByRole('status')).toHaveTextContent('취소되었습니다')
       expect(screen.queryByText(/기다리는 중/)).not.toBeInTheDocument()
     })
   })
@@ -258,5 +260,50 @@ describe('TradeTimeline', () => {
     expect(step('수령 확인').className).toContain('--current')
     // 값이 없는 것과 0 을 구분한다.
     expect(within(step('결제 완료')).getByText('-')).toBeInTheDocument()
+  })
+})
+
+/**
+ * 「지금 내 차례」 표시.
+ *
+ * <b>「여기까지 왔다」와 「당신이 할 차례다」는 다른 말이다.</b> CURRENT 는 거래가 어디쯤
+ * 왔는지만 가리킨다 — 배송 중인 거래의 CURRENT 는 구매자의 수령 확인이다. 그것까지
+ * 내 차례로 표시하면 판매자에게 손댈 수 없는 일을 재촉하게 되고, 매번 표시가 붙으면
+ * 곧 아무 뜻도 없어진다.
+ *
+ * 화면(콘솔)은 이 표시에 파동을 준다. 표시를 붙이는 판단만 여기서 못박는다.
+ */
+describe('지금 내 차례', () => {
+  it('결제된 거래는 판매자 차례다', () => {
+    render(<TradeTimeline trade={trade({ status: 'PAID', paidAt: '2026-09-02T10:00:00' })} viewer="SELLER" />)
+
+    const step = document.querySelector('.trade-timeline__step--mine')
+    expect(step).not.toBeNull()
+    expect(within(step as HTMLElement).getByText('발송')).toBeInTheDocument()
+  })
+
+  it('같은 거래가 구매자에게는 내 차례가 아니다', () => {
+    render(<TradeTimeline trade={trade({ status: 'PAID', paidAt: '2026-09-02T10:00:00' })} viewer="BUYER" />)
+
+    expect(document.querySelector('.trade-timeline__step--mine')).toBeNull()
+  })
+
+  it('배송 중인 거래는 판매자 차례가 아니다', () => {
+    // CURRENT 는 구매자의 수령 확인이다. 판매자는 기다리는 것 말고 할 일이 없다.
+    render(
+      <TradeTimeline
+        trade={trade({ status: 'SHIPPED', paidAt: '2026-09-02T10:00:00', shippedAt: '2026-09-03T10:00:00' })}
+        viewer="SELLER"
+      />,
+    )
+
+    expect(document.querySelector('.trade-timeline__step--mine')).toBeNull()
+  })
+
+  it('보는 사람을 모르면 아무 표시도 하지 않는다', () => {
+    // 당사자가 아닌 사람에게는 viewer 가 없다.
+    render(<TradeTimeline trade={trade({ status: 'PAID', paidAt: '2026-09-02T10:00:00' })} />)
+
+    expect(document.querySelector('.trade-timeline__step--mine')).toBeNull()
   })
 })

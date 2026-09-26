@@ -1,0 +1,42 @@
+.admin-market { display: grid; gap: 16px; width: min(1180px, 100%); margin: 0 auto; padding: 24px 28px 36px; }
+.admin-market__header { display: flex; justify-content: space-between; gap: 16px; align-items: center; }
+.admin-market__header h1 { margin: 0; color: #172033; font-size: 2rem; line-height: 1.2; letter-spacing: -.03em; }
+.admin-market__count { flex: none; padding: 7px 12px; border-radius: 999px; background: #edf6f0; color: #276847; font-weight: 750; }
+.admin-market__form { display: grid; gap: 14px; padding: 18px 20px; border: 1px solid #dce5df; border-radius: 16px; background: #fff; box-shadow: 0 8px 24px rgb(24 65 43 / 7%); }
+.admin-market__form label { display: grid; gap: 6px; color: #26372e; font-weight: 700; }
+.admin-market__form input, .admin-market__form select { min-width: 0; padding: 10px 12px; border: 1px solid #c8d5cc; border-radius: 9px; background: #fff; font: inherit; }
+.admin-market__form input:focus, .admin-market__form select:focus { outline: 3px solid rgb(50 126 84 / 14%); border-color: #327e54; }
+.admin-market__form small { color: #758078; font-weight: 450; line-height: 1.5; }
+.admin-market__field-error { color: #a33b3b !important; }
+.admin-market__batch-summary { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: -6px; padding: 9px 12px; border-radius: 9px; background: #f4f7f5; color: #53665b; font-size: 14px; }
+.admin-market__batch-summary strong { color: #253b2f; }
+.admin-market__dates { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.admin-market__preview { display: flex; flex-wrap: wrap; gap: 6px; min-height: 28px; }
+.admin-market__preview span { padding: 5px 9px; border-radius: 7px; background: #f0f5f2; color: #315f47; font-size: 13px; font-weight: 700; }
+.admin-market__form button { justify-self: start; padding: 10px 17px; border: 0; border-radius: 9px; background: #2c704d; color: #fff; font: inherit; font-weight: 800; cursor: pointer; }
+.admin-market__form button:disabled { cursor: not-allowed; opacity: .5; }
+.admin-market__success { display: flex; flex-wrap: wrap; gap: 8px 16px; padding: 16px 18px; border-radius: 12px; background: #eaf7ef; color: #226743; }
+.admin-market__success span { margin-left: auto; color: #587164; }
+.admin-market__list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 10px; }
+.admin-market__list h2, .admin-market__list > .admin-market__hint { grid-column: 1 / -1; }
+.admin-market__list h2 { margin: 0; font-size: 18px; }
+.admin-market__list article { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 13px; border: 1px solid #e1e7e3; border-radius: 10px; background: #fff; }
+.admin-market__list article div { display: grid; gap: 4px; }
+.admin-market__list article div span { color: #758078; font-size: 13px; }
+.admin-market__status { padding: 6px 9px; border-radius: 999px; background: #eef1ef; font-size: 12px; font-weight: 800; }
+.admin-market__status--open { background: #e8f6ed; color: #237047; }
+@media (max-width: 760px) { .admin-market { padding: 20px 16px 32px; } .admin-market__header { flex-direction: column; align-items: flex-start; } .admin-market__dates, .admin-market__list { grid-template-columns: 1fr; } .admin-market__success span { margin-left: 0; width: 100%; } }
+
+.admin-market__hint { margin: -2px 0 0; color: #758078; font-size: 13px; line-height: 1.45; }
+.admin-market__list article { flex-wrap: wrap; }
+.admin-market__list article div { flex-grow: 1; }
+.admin-market__cancel { padding: 8px 13px; border: 1px solid #d9b4b0; border-radius: 9px; background: #fff; color: #9c3f38; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.admin-market__cancel:disabled { cursor: not-allowed; opacity: .5; }
+.admin-market__confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; padding: 11px 13px; border-radius: 10px; background: #fff3f1; }
+.admin-market__confirm span { flex-grow: 1; color: #8d3a34; font-size: 12px; }
+.admin-market__confirm button { padding: 8px 13px; border: 1px solid #ccd5cf; border-radius: 9px; background: #fff; color: #627068; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.admin-market__confirm button:disabled { cursor: not-allowed; opacity: .5; }
+.admin-market__cancel-confirm { border-color: transparent !important; background: #a8403a !important; color: #fff !important; }
+.admin-market__status--canceled { background: #f6ecea; color: #8d3a34; }
+.admin-market__status--resolved { background: #eaf1fa; color: #2f5a8c; }
+.admin-market__status--resolving { background: #fdf3e3; color: #8a6524; }

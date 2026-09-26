@@ -14,7 +14,6 @@ const company: CompanyAccountData = {
   companyPhone: '02-1234-5678',
   companyAddress: '서울특별시 강남구 테헤란로 212',
   status: 'ACTIVE',
-  walletAddress: null,
 }
 
 afterEach(cleanup)
@@ -32,7 +31,7 @@ function renderView(children: ReactNode) {
 
 describe('CompanyAccountView', () => {
   it('renders company identity and registered business information', () => {
-    renderView(<CompanyAccountView state={{ status: 'ready', data: company }} />)
+    renderView(<CompanyAccountView state={{ status: 'ready', data: company }} walletState={{ status: 'ready', registeredAddress: null }} />)
 
     expect(screen.getByRole('heading', { name: '회사 정보', level: 1 })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '새로이 브랜드' })).toBeInTheDocument()
@@ -40,10 +39,12 @@ describe('CompanyAccountView', () => {
     expect(screen.getByText('123-45-67890')).toBeInTheDocument()
     expect(screen.getByText('김새로')).toBeInTheDocument()
     expect(screen.getByText('활성 계정')).toBeInTheDocument()
+    expect(screen.queryByText('가입 시 등록한 회사 기본 정보입니다.')).not.toBeInTheDocument()
+    expect(screen.queryByText('회사 계정의 연락 및 위치 정보입니다.')).not.toBeInTheDocument()
   })
 
   it('shows wallet registration entry and a registered address', () => {
-    const { rerender } = renderView(<CompanyAccountView state={{ status: 'ready', data: company }} />)
+    const { rerender } = renderView(<CompanyAccountView state={{ status: 'ready', data: company }} walletState={{ status: 'ready', registeredAddress: null }} />)
 
     expect(screen.getByText('아직 연결된 지갑이 없습니다.')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'MetaMask 설치하기' })).toHaveAttribute(
@@ -53,15 +54,16 @@ describe('CompanyAccountView', () => {
 
     rerender(
       <CompanyAccountView
-        state={{ status: 'ready', data: { ...company, walletAddress: '0x1234567890abcdef' } }}
+        state={{ status: 'ready', data: company }}
+        walletState={{ status: 'ready', registeredAddress: '0x1234567890abcdef' }}
       />,
     )
-    expect(screen.getByText('0x1234567890abcdef')).toBeInTheDocument()
-    expect(screen.getByText('연결된 지갑')).toBeInTheDocument()
+    expect(screen.getByText('0x1234…cdef')).toHaveAttribute('title', '0x1234567890abcdef')
+    expect(screen.getByText('연결됨')).toBeInTheDocument()
   })
 
   it('renders an error state when company account data is unavailable', () => {
-    renderView(<CompanyAccountView state={{ status: 'error', error: new Error('조회 실패') }} />)
+    renderView(<CompanyAccountView state={{ status: 'error', error: new Error('조회 실패') }} walletState={{ status: 'ready', registeredAddress: null }} />)
 
     expect(screen.getByRole('alert')).toHaveTextContent('조회 실패')
   })

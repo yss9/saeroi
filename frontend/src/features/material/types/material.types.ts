@@ -40,7 +40,6 @@ export type MaterialStatus = 'ACTIVE' | 'DEPLETED'
 
 /** 목록 카드에 필요한 만큼만. 상세는 MaterialDetail 을 쓴다. */
 export interface MaterialSummary {
-  id: number
   materialCode: string
   materialType: MaterialType
   name: string
@@ -53,20 +52,37 @@ export interface MaterialSummary {
 }
 
 /**
+ * Blockchain Proof 화면(누가·언제·어느 Tx)이 그리는 근거 (S15P21E104-182).
+ *
+ * `verification` 이 `null` 이면 근거가 아직 없다는 뜻이다 — 빈 객체를 내려주지 않는
+ * 이유는 화면이 "값이 있는데 비어 있음" 과 "아직 없음" 을 구분해야 하기 때문이다
+ * (`docs/superpowers/specs/2026-09-07-material-verification-state.md`).
+ *
+ * 지금은 `state`가 `SOURCE_VERIFIED` 일 때만 채워진다. 다른 단(`TRANSACTION_VERIFIED`
+ * 등)은 근거가 온체인 Tx 가 아니라 거래 서명이라 이 모양(지갑·Tx 해시)이 맞지 않는다.
+ */
+export interface MaterialVerification {
+  state: MaterialVerificationState
+  signerWallet: string
+  signedAt: string
+  txHash: string
+}
+
+/**
  * `GET /api/materials/{materialId}` 응답.
  *
- * ⚠️ **`verificationState` 를 신뢰하지 말 것.** 서버가 항상 `'REGISTERED'` 를 준다.
- * `material` 테이블에 그 컬럼이 없고 파생 판정 근거(`signed_at`)도 스키마에 없어서다.
- * 소재의 사실이 아니라 구현의 한계이며, 이 값으로 검증 배지를 그리면
- * **실제로 검증된 소재도 "등록만 됨" 으로 보인다.**
+ * `verificationState` 는 조회 시점에 계산된 값이다 — 지금 판정되는 단계는
+ * `REGISTERED` · `SOURCE_VERIFIED` · `TRANSACTION_VERIFIED` 셋이다. `verification` 은
+ * `SOURCE_VERIFIED` 일 때만 근거를 담고, 그 외에는 `null` 이다(위 `MaterialVerification`
+ * 주석 참고).
  *
- * `tokenId`·`chainId`·`contractAddress` 가 `null` 인 것은 정상이다 — mint 결과를
- * 기록하는 confirm 엔드포인트가 아직 없다. **`tokenId === null` 이 "등록됐지만
- * 온체인에 없음" 의 유일한 신호다.**
+ * `tokenId`·`chainId`·`contractAddress` 가 `null` 인 것은 정상이다 — mint 확정 전
+ * 소재의 상태다. **`tokenId === null` 이 "등록됐지만 온체인에 없음" 의 유일한 신호다.**
  *
  * `evidenceHash`·`manifestUrl` 도 증빙 등록 경로가 없어 당분간 `null` 이다.
  */
 export interface MaterialDetail extends MaterialSummary {
+  verification: MaterialVerification | null
   /**
    * ⚠️ **상세 응답의 식별자는 `id` 가 아니라 `materialId` 다.**
    *
@@ -75,8 +91,10 @@ export interface MaterialDetail extends MaterialSummary {
    * 컴파일은 통과하고 런타임에 `undefined` 가 되어 `/api/materials/undefined/chain` 같은
    * 요청이 나간다 (2026-09-08 온체인 발행에서 실제로 그렇게 500 이 났다).
    *
-   * `id` 를 지우지 않는 이유는 목록(`getMaterials`)이 아직 목이고 그쪽이 `id` 를 쓰기
-   * 때문이다. 목록 API 가 붙을 때 두 이름을 한쪽으로 맞춘다.
+   * 그래서 `id` 를 **없앴다.** 예전에는 목 데이터로 돌던 소재 목록이 `id` 를 써서
+   * 남겨 뒀는데, 그 화면을 걷어내면서 읽는 곳이 하나도 없어졌다. 서버가 주지도 않는
+   * 필드를 `number` 로 선언해 두면 `data.id` 가 컴파일을 통과한 뒤 런타임에
+   * `undefined` 가 되는 위 사고를 다시 부를 뿐이다.
    */
   materialId: number
   description: string | null
@@ -145,13 +163,68 @@ export interface MaterialLineage {
   message: string | null
 }
 
-/** 목록 조회 필터. Query Key 에 그대로 들어가므로 직렬화 가능해야 한다. */
-export interface MaterialListFilters {
-  materialType?: string
-  rootOrigin?: MaterialRootOrigin
-  status?: MaterialStatus
-  page?: number
-  size?: number
+/** Journey Timeline이 사건을 묶는 4단계 (S15P21E104-70). 저장되지 않고 서버가 조회 시 파생한다. */
+export type MaterialJourneyStage = 'SOURCE' | 'TRANSACTION' | 'PROCESSING' | 'PRODUCT_LINK'
+
+export const MATERIAL_JOURNEY_STAGE_LABEL: Record<MaterialJourneyStage, string> = {
+  SOURCE: '출처',
+  TRANSACTION: '거래',
+  PROCESSING: '가공',
+  PRODUCT_LINK: '제품 연결',
+}
+
+/**
+ * 이벤트 종류별 한글 표시. 서버 enum이 40종에 가까워 여기서는 화면에 실제로 흔히
+ * 나오는 것만 사람이 읽는 문구로 바꾸고, 나머지는 타입 문자열을 그대로 보여준다 —
+ * 새 이벤트 종류가 추가돼도 화면이 깨지지 않는 편이 라벨을 매번 맞추는 것보다 낫다.
+ */
+export const MATERIAL_EVENT_TYPE_LABEL: Partial<Record<string, string>> = {
+  MATERIAL_HISTORY_IMPORTED: '이력 소재 등록',
+  MATERIAL_REGISTERED: '소재 등록',
+  MATERIAL_DERIVED: '소재 파생',
+  CHILD_MATERIAL_CREATED: '파생 소재 생성',
+  MATERIAL_MINTED: '소재 이력 저장',
+  SOURCE_VERIFIED: '출처 확인 완료',
+  EVIDENCE_ATTACHED: '증빙 첨부',
+  EVIDENCE_DELETED: '증빙 삭제',
+  MARKETPLACE_LISTED: '판매 등록',
+  MARKETPLACE_LISTING_CANCELED: '판매 취소',
+  MARKETPLACE_LISTING_LINKED_ON_CHAIN: '판매 이력 기록',
+  TRADE_CREATED: '구매 요청',
+  TRADE_PAID: '결제 완료',
+  TRADE_CANCELED: '거래 취소',
+  TRADE_LINKED_ON_CHAIN: '거래 이력 기록',
+  TRADE_SHIPPED: '발송',
+  TRADE_RECEIVED: '수령 확인',
+  OWNERSHIP_TRANSFERRED: '소유권 이전',
+  PROCESSING_REQUESTED: '가공 요청',
+  PROCESSING_QUOTE_SELECTED: '견적 선택',
+  PROCESSING_MATERIAL_SHIPPED: '가공 소재 발송',
+  PROCESSING_MATERIAL_RECEIVED: '가공 소재 수령',
+  PROCESSING_STARTED: '가공 시작',
+  PROCESSING_RESULT_SUBMITTED: '가공 결과 제출',
+  PROCESSING_RESULT_APPROVED: '가공 결과 승인',
+  PROCESSING_RESULT_CONFIRMED: '가공 결과 확정',
+  PROCESSING_RESULT_REJECTED: '가공 결과 수정 요청',
+  PRODUCTION_INPUT_RESERVED: '생산 투입',
+  PRODUCTION_INPUT_REMOVED: '생산 투입 해제',
+  MATERIAL_CONSUMED: '소재 소비',
+}
+
+export interface MaterialJourneyEntry {
+  eventType: string
+  stage: MaterialJourneyStage
+  actorWallet: string | null
+  actorName: string | null
+  quantity: number | null
+  timestamp: string
+  txHash: string | null
+  detail: string | null
+}
+
+export interface MaterialJourney {
+  materialId: number
+  events: MaterialJourneyEntry[]
 }
 
 /**
@@ -329,14 +402,15 @@ export const ROOT_ORIGIN_LABEL: Record<MaterialRootOrigin, string> = {
   WASTE: '폐기물',
 }
 
-/** `material.material_type` — 정책 v3 부록에서 7종으로 확정 */
+/** `material.material_type` — 실제 취급하는 섬유 7종 + 기타(분류 안 되는 소재용) */
 export type MaterialType =
-  | 'DENIM'
   | 'COTTON'
-  | 'LEATHER'
-  | 'LINING'
-  | 'METAL'
-  | 'MIXED'
+  | 'COTTON_MIXED'
+  | 'DENIM'
+  | 'POLYESTER'
+  | 'SILK'
+  | 'VISCOSE'
+  | 'WOOL'
   | 'ETC'
 
 /**
@@ -346,6 +420,34 @@ export type MaterialType =
  * null 을 허용하며 검증된 값으로 취급하지 않는다.
  */
 export type MaterialGrade = 'A' | 'B' | 'C'
+
+/**
+ * 소재 종류 라벨.
+ *
+ * ⚠️ 이 표가 없어서 `ListingFilterBar` 와 `MaterialForm` 이 각자 같은 목록을 들고
+ * 있었다. 종류가 하나 늘 때 두 곳을 고쳐야 하고, 빠뜨리면 한쪽 화면에만 나타난다.
+ */
+export const MATERIAL_TYPE_LABEL: Record<MaterialType, string> = {
+  COTTON: '면',
+  COTTON_MIXED: '혼방(면)',
+  DENIM: '데님',
+  POLYESTER: '폴리에스터',
+  SILK: '실크',
+  VISCOSE: '비스코스',
+  WOOL: '울',
+  ETC: '기타',
+}
+
+/**
+ * 생성 유형 라벨. **출처와 함께 두 축을 이룬다** (화면 설계서 B03 · S05).
+ *
+ * "폐기물 · 최초 등록" 은 원물이고 "폐기물 · 가공 산출물" 은 이미 한 번 손이 간 소재다.
+ */
+export const GENERATION_TYPE_LABEL: Record<MaterialGenerationType, string> = {
+  INITIAL: '최초 등록',
+  PROCESSED: '가공 산출물',
+  PRODUCTION_SCRAP: '생산 부산물',
+}
 
 export const GRADE_LABEL: Record<MaterialGrade, string> = {
   A: 'A · 오염·손상 없음',

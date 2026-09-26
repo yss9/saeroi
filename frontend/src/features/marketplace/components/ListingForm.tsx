@@ -1,7 +1,11 @@
+import { useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { Button, ErrorMessage, Input } from '../../../components/common/index.ts'
 import { calculateTotalPrice, formatKg, formatWon, kgToGram } from '../../../utils/quantity.ts'
+import { useMaterial } from '../../material/hooks/useMaterial.ts'
 import { useCreateListing } from '../hooks/useCreateListing.ts'
+import { useListingOnChain } from '../hooks/useListingOnChain.ts'
+import type { CreateListingRequest, Listing } from '../types/marketplace.types.ts'
 
 export interface ListingFormProps {
   /** 판매할 소재 */
@@ -43,7 +47,7 @@ export function ListingForm({
     formState: { errors },
   } = useForm<ListingFormValues>()
 
-  const { mutate, isPending, isError, error } = useCreateListing()
+  const { mutateAsync, isPending, isError, error } = useCreateListing()
 
   // 입력 중인 값으로 총액을 미리 보여준다. 확정 금액이 아니라 미리보기다 —
   // 실제 금액은 서버가 Listing 의 단가로 계산한다.
@@ -57,23 +61,43 @@ export function ListingForm({
 
   const availableKg = availableQuantity / 1000
 
-  const onSubmit = handleSubmit((values) => {
-    mutate(
-      {
+  // 온체인 등록에 필요한 tokenId. 소재가 아직 발행되지 않았으면 null 이고, 그때는
+  // 서버 등록만 하고 끝낸다 — 판매 자체를 막을 이유는 없다.
+  const material = useMaterial(materialId)
+  const tokenId = material.data?.tokenId ?? null
+  const chain = useListingOnChain()
+  const [pendingListing, setPendingListing] = useState<{
+    created: Listing
+    request: CreateListingRequest
+  } | null>(null)
+
+  const onSubmit = handleSubmit(async (values) => {
+    try {
+      const request: CreateListingRequest = pendingListing?.request ?? {
         materialId,
         // kg 을 gram 으로 바꿔 'G' 로 보낸다. kgToGram 이 Math.round 를 쓰는 것이
         // 중요하다 — 20.3 * 1000 은 20299.999... 라 그냥 곱하면 1g 이 사라진다.
         quantity: kgToGram(values.quantityKg),
         unit: 'G',
         pricePerKg: values.pricePerKg,
-      },
-      {
-        onSuccess: (created) => {
-          reset()
-          onCreated?.(created.listingId)
-        },
-      },
-    )
+      }
+      const created = pendingListing?.created ?? (await mutateAsync(request))
+      if (pendingListing === null) setPendingListing({ created, request })
+
+      if (tokenId === null) {
+        onCreated?.(created.listingId)
+        return
+      }
+
+      const linked = await chain.register(created.listingId, tokenId, request.quantity)
+      if (linked) {
+        setPendingListing(null)
+        reset()
+        onCreated?.(created.listingId)
+      }
+    } catch {
+      // API와 지갑 오류는 각 훅의 오류 상태로 화면에 표시한다.
+    }
   })
 
   return (
@@ -122,10 +146,32 @@ export function ListingForm({
       )}
 
       {isError && <ErrorMessage error={error} />}
+      {chain.error && !chain.isRejected && <ErrorMessage error={chain.error} />}
+      {chain.isRejected && (
+        <p className="listing-form__preview">
+          판매 등록은 끝났지만 이력 기록은 완료되지 않았습니다. 판매글 상세에서 다시 할 수 있습니다.
+        </p>
+      )}
 
-      <Button type="submit" loading={isPending} fullWidth>
-        판매 등록
+      {/* 어느 단계인지 말해 준다 — 지갑을 봐야 하는지 기다리면 되는지가 다르다. */}
+      <Button type="submit" loading={isPending || chain.isBusy} fullWidth>
+        {chain.status === 'SIGNING'
+          ? '지갑에서 요청을 확인해 주세요'
+          : chain.status === 'PENDING'
+            ? '판매 이력을 저장하는 중…'
+            : chain.status === 'LINKING'
+              ? '저장 결과를 확인하는 중…'
+              : pendingListing
+                ? '판매 등록 완료하기'
+                : '판매 등록'}
       </Button>
+
+      {tokenId === null && (
+        <p className="listing-form__preview">
+          소재 이력이 아직 저장되지 않았습니다. 소재 상세에서 이력을 저장한 뒤
+          판매글 상세에서 판매 이력 기록을 완료할 수 있습니다.
+        </p>
+      )}
     </form>
   )
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Copy, Warning } from '@phosphor-icons/react'
 import { useForm, useWatch } from 'react-hook-form'
 import {
   Button,
@@ -6,13 +7,12 @@ import {
   ErrorMessage,
   Input,
   Modal,
-  StatusBadge,
 } from '../../../components/common/index.ts'
 import type { AppError } from '../../../utils/errors.ts'
-import { formatKg } from '../../../utils/quantity.ts'
 import { formatTradeDateTime } from '../utils/tradeDateTime.ts'
 import { useCancelTrade } from '../hooks/useCancelTrade.ts'
 import { useShipTrade } from '../hooks/useShipTrade.ts'
+import { useTradeChainAction } from '../hooks/useTradeChainAction.ts'
 import {
   TRADE_STATUS_LABEL,
   type ShipTradeRequest,
@@ -20,6 +20,7 @@ import {
   type TradeShipResult,
 } from '../types/trade.types.ts'
 import './trade.css'
+import { CARRIERS } from '../../../utils/carriers.ts'
 
 export interface ShipmentPanelProps {
   trade: Trade
@@ -38,6 +39,7 @@ export interface ShipmentPanelProps {
  * 송장은 선택이다 — 직접 수령이나 화물처럼 송장이 없는 전달 방식이 있다. 다만 운송장만
  * 입력하면 조회할 방법이 없어 서버가 거절하므로(`TRADE_CARRIER_REQUIRED`) 여기서 먼저 막는다.
  */
+
 export function ShipmentPanel({ trade }: ShipmentPanelProps) {
   const {
     control,
@@ -47,6 +49,7 @@ export function ShipmentPanel({ trade }: ShipmentPanelProps) {
   } = useForm<ShipTradeRequest>({ defaultValues: { carrier: '', trackingNumber: '' } })
 
   const { mutate, isPending, isError, isSuccess, error, data } = useShipTrade(trade.tradeId)
+  const chain = useTradeChainAction(trade.tradeId)
 
   // 확인 단계에서 들고 있을 입력값. 확인 모달을 닫으면 버린다.
   const [pending, setPending] = useState<ShipTradeRequest | null>(null)
@@ -72,24 +75,20 @@ export function ShipmentPanel({ trade }: ShipmentPanelProps) {
 
   return (
     <section className="shipment-panel">
+      {/* 머리와 본문을 1px 선으로 가른다 — 그림자 대신 선으로 층을 만드는 것이 이
+          콘솔의 규칙이고, 훑을 때 어디가 제목이고 어디가 내용인지 기준이 된다. */}
       <header className="shipment-panel__header">
-        <h2>발송</h2>
-        <StatusBadge tone={shipped ? 'success' : 'neutral'}>
-          {TRADE_STATUS_LABEL[trade.status]}
-        </StatusBadge>
+        <h2>{shipped ? '발송 완료' : trade.status === 'PAID' ? '발송하기' : '발송'}</h2>
+        <span className={`console-badge ${trade.status === 'PAID' ? 'console-badge--wait' : 'console-badge--flat'}`}>
+          {trade.status === 'PAID' ? '발송 필요' : TRADE_STATUS_LABEL[trade.status]}
+        </span>
       </header>
 
-      <dl className="shipment-panel__summary">
-        <div>
-          <dt>구매자</dt>
-          <dd>{trade.buyerName}</dd>
-        </div>
-        <div>
-          <dt>발송 수량</dt>
-          <dd>{formatKg(trade.quantity)}</dd>
-        </div>
-      </dl>
-
+      {/*
+        구매자와 수량을 여기서 또 적지 않는다. 상세 화면 오른쪽 요약이 이미 들고 있어서,
+        같은 값이 한 화면에 두 번 나오면 채워진 것이 아니라 부풀린 것처럼 읽힌다.
+        이 패널이 맡는 것은 <b>보내는 데 필요한 것</b> — 배송지와 송장이다.
+      */}
       <ShippingAddress trade={trade} />
 
       {trade.status === 'CREATED' && (
@@ -104,15 +103,26 @@ export function ShipmentPanel({ trade }: ShipmentPanelProps) {
 
       {trade.status === 'PAID' && !isSuccess && (
         <form onSubmit={onSubmit} noValidate className="shipment-panel__form">
+          {/*
+            <b>고르게 하되 가두지 않는다.</b> 목록에 없는 택배사나 화물 업체를 쓰는 경우가
+            있어 select 로 바꾸면 그때 아무것도 적을 수 없다. datalist 는 자주 쓰는 것을
+            제안만 하고 직접 입력을 막지 않는다.
+          */}
           <Input
             label="택배사"
             placeholder="예: CJ대한통운"
             hint="직접 전달이라 송장이 없으면 비워 두세요."
+            list="shipment-carriers"
             error={errors.carrier?.message}
             {...register('carrier', {
               maxLength: { value: 50, message: '택배사는 50자를 넘을 수 없습니다.' },
             })}
           />
+          <datalist id="shipment-carriers">
+            {CARRIERS.map((name) => (
+              <option key={name} value={name} />
+            ))}
+          </datalist>
 
           <Input
             label="운송장 번호"
@@ -129,10 +139,26 @@ export function ShipmentPanel({ trade }: ShipmentPanelProps) {
             })}
           />
 
+          {/*
+            <b>규칙을 제출 전에 알린다.</b> 예전에는 운송장만 적고 누른 뒤에야 오류로
+            알았다. 서버도 같은 조합을 거절하는데(TRADE_CARRIER_REQUIRED), 왜 막히는지를
+            먼저 말해 주면 한 번 헛수고할 일이 없다.
+          */}
+          <p className="shipment-panel__rule">
+            <Warning aria-hidden="true" weight="fill" />
+            운송장 번호만 적고 택배사를 비우면 조회가 되지 않아 등록되지 않습니다.
+          </p>
+
           {/* 문구만 바꾸고 code·kind 는 그대로 넘긴다 — ErrorMessage 는 AppError 를
               그대로 다룰 수 있고, 나중에 kind 로 분기할 여지도 남는다. */}
           {isError && <ErrorMessage error={{ ...error, message: shipErrorMessage(error) }} />}
 
+          {/*
+            시안에는 버튼이 하나("발송 확정")지만 우리는 확인 모달을 한 번 더 거친다.
+            둘 다 "발송 확정" 이면 같은 이름의 버튼이 한 화면에 둘 생긴다 — 누른 뒤에도
+            같은 글자가 다시 떠서 눌리지 않은 것처럼 읽힌다. 시작은 "처리", 확인은 "확정".
+          */}
+          <p className="shipment-panel__warn">발송을 확정하면 되돌릴 수 없습니다.</p>
           <Button type="submit" loading={isPending} fullWidth>
             발송 처리
           </Button>
@@ -151,7 +177,17 @@ export function ShipmentPanel({ trade }: ShipmentPanelProps) {
         loading={isPending}
         onConfirm={() => {
           if (pending === null) return
-          mutate(pending, { onSettled: () => setPending(null) })
+          mutate(pending, {
+            // **발송이 기록되면 바로 체인 서명으로 이어간다.**
+            //
+            // 버튼을 나눠 뒀을 때 두 번째를 잊으면 체인의 주문은 CREATED 로 남아,
+            // 구매자가 온체인 수령 확인을 부를 수 없다 — confirmReceipt 가 SHIPPED 를
+            // 요구한다. 실패하면 아래 패널에서 다시 시도할 수 있다.
+            onSuccess: () => {
+              if (trade.chainTradeId !== null) void chain.ship(trade.chainTradeId)
+            },
+            onSettled: () => setPending(null),
+          })
         }}
         onClose={() => setPending(null)}
       />
@@ -178,6 +214,7 @@ function CancelSection({ trade }: { trade: Trade }) {
   // React Hook Form 을 끌어올 이유가 없다 (ARCHITECTURE §3 의 "폼이 많은 화면" 이 아니다).
   const [reason, setReason] = useState('')
   const { mutate, isPending, isError, error } = useCancelTrade(trade.tradeId)
+  const chain = useTradeChainAction(trade.tradeId)
 
   const tooLong = reason.length > CANCEL_REASON_MAX
 
@@ -211,7 +248,23 @@ function CancelSection({ trade }: { trade: Trade }) {
               variant="danger"
               loading={isPending}
               disabled={tooLong}
-              onClick={() => mutate({ reason }, { onSuccess: () => setOpen(false) })}
+              onClick={() =>
+                mutate(
+                  { reason },
+                  {
+                    // **서버 취소가 끝나면 체인의 주문도 취소해야 한다.**
+                    //
+                    // createOrder 가 판매 글의 remainingQuantity 를 깎아 두었다. 서버는
+                    // 취소하면서 그 수량을 되돌리는데 체인은 그대로라, 두 잔량이 어긋난다.
+                    // 그 뒤 다음 구매자가 화면에 보이는 잔량을 전부 사면 서버는 통과하고
+                    // 체인만 되돌려진다 — "10kg 남았는데 10kg 사면 부족" 이 그것이다.
+                    onSuccess: () => {
+                      if (trade.chainTradeId !== null) void chain.cancel(trade.chainTradeId)
+                      setOpen(false)
+                    },
+                  },
+                )
+              }
             >
               거래 취소
             </Button>
@@ -306,22 +359,65 @@ function ShippingAddress({ trade }: { trade: Trade }) {
     )
   }
 
+  const full = `(${shipping.zipCode}) ${shipping.address}${shipping.addressDetail ? ` ${shipping.addressDetail}` : ''}`
+
   return (
-    <dl className="shipment-panel__address">
-      <div>
-        <dt>수취인</dt>
-        <dd>
-          {shipping.receiverName} · {shipping.receiverPhone}
-        </dd>
-      </div>
-      <div>
-        <dt>주소</dt>
-        <dd>
-          ({shipping.zipCode}) {shipping.address}
-          {shipping.addressDetail ? ` ${shipping.addressDetail}` : ''}
-        </dd>
-      </div>
-    </dl>
+    <section className="shipment-panel__address">
+      <header>
+        <span>배송지</span>
+        {/*
+          <b>주소를 손으로 옮겨 적게 두지 않는다.</b> 택배사 화면이나 송장에 그대로
+          붙여 넣는 값이라, 눈으로 읽어 다시 치면 그 자리에서 오타가 난다.
+        */}
+        <CopyButton value={full} label="주소 복사" />
+      </header>
+
+      <dl>
+        <div>
+          <dt>수취인</dt>
+          <dd>
+            {shipping.receiverName} <span aria-hidden="true">·</span>{' '}
+            <span className="console__num">{shipping.receiverPhone}</span>
+          </dd>
+        </div>
+        <div>
+          <dt>주소</dt>
+          <dd>
+            <span className="console__num">({shipping.zipCode})</span> {shipping.address}
+            {shipping.addressDetail ? ` ${shipping.addressDetail}` : ''}
+          </dd>
+        </div>
+      </dl>
+    </section>
+  )
+}
+
+/**
+ * 값을 클립보드로 옮기는 작은 버튼.
+ *
+ * 눌렀다는 사실을 문구로 바꿔 알린다 — 아무 반응이 없으면 눌렸는지 알 수 없어 한 번 더
+ * 누르게 된다. 클립보드 접근이 막힌 환경(비보안 컨텍스트)에서는 조용히 넘긴다.
+ */
+function CopyButton({ value, label }: { value: string; label: string }) {
+  const [copied, setCopied] = useState(false)
+
+  return (
+    <button
+      type="button"
+      className="shipment-panel__copy"
+      onClick={() => {
+        void navigator.clipboard
+          ?.writeText(value)
+          .then(() => {
+            setCopied(true)
+            setTimeout(() => setCopied(false), 1800)
+          })
+          .catch(() => {})
+      }}
+    >
+      <Copy aria-hidden="true" />
+      {copied ? '복사됨' : label}
+    </button>
   )
 }
 
@@ -361,7 +457,7 @@ function ShippedReceipt({
       {trade.status === 'SHIPPED' && (
         <p className="shipment-panel__note">
           구매자의 수령 확인을 기다리는 중입니다. 수령이 확인되면 소유권이 이전되고 이 수량의
-          판매 잠금이 해제됩니다.
+          예약된 판매 수량이 다시 판매 가능해집니다.
         </p>
       )}
     </>

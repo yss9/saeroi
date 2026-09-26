@@ -1,12 +1,35 @@
 import { useForm } from 'react-hook-form'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Button, ErrorMessage, Input } from '../../components/common/index.ts'
+import { canAccess, getLocationAccess } from '../../app/router/routeAccess.ts'
 import { AuthLayout } from '../../features/auth/components/AuthLayout.tsx'
 import { useLogin } from '../../features/auth/hooks/useLogin.ts'
 import type { LoginRequest } from '../../features/auth/types/auth.types.ts'
+import { getRoleHomePath } from '../../features/auth/utils/roleHomePath.ts'
+import { isBusinessUserRole } from '../../features/company/types/companyAccount.types.ts'
 
 interface LocationState {
   from?: { pathname: string }
+}
+
+/**
+ * 로그인 뒤에 갈 곳.
+ *
+ * **사업자는 언제나 회사 정보다.** 보던 화면으로 되돌리는 것이 친절해 보이지만, 사업자가
+ * 로그인 화면을 만나는 경우는 대개 세션이 끊긴 때다 — 그때 되돌아간 화면은 방금 실패한
+ * 요청을 다시 부르고, 사용자는 자기가 어디에 있었는지보다 무엇을 할 차례인지를 먼저 봐야
+ * 한다. 사이드바가 모든 업무를 들고 있어 한 번 더 누르는 비용도 작다.
+ *
+ * **소비자는 되돌린다.** 랜딩에서 "쇼핑" 을 눌렀다가 로그인으로 넘어온 경우가 그것이고
+ * (`Header` · `ShopShowcase` 가 그 자리를 `state.from` 으로 넘긴다), 되돌리지 않으면
+ * 사려던 물건을 다시 찾아야 한다.
+ */
+function landingPath(role: Parameters<typeof getRoleHomePath>[0], from?: string): string {
+  const home = getRoleHomePath(role)
+  if (isBusinessUserRole(role) || !from || from === '/403') return home
+
+  const access = getLocationAccess(from)
+  return access && canAccess(access, { isAuthenticated: true, role }) ? from : home
 }
 
 export function LoginPage() {
@@ -20,18 +43,19 @@ export function LoginPage() {
     formState: { errors },
   } = useForm<LoginRequest>()
 
-  // ProtectedRoute 가 넘겨준 원래 목적지. 없으면 홈으로.
-  const from = (location.state as LocationState | null)?.from?.pathname ?? '/'
+  const from = (location.state as LocationState | null)?.from?.pathname
 
   const onSubmit = handleSubmit((values) => {
-    mutate(values, { onSuccess: () => navigate(from, { replace: true }) })
+    mutate(values, {
+      onSuccess: ({ user }) => navigate(landingPath(user.role, from), { replace: true }),
+    })
   })
 
   return (
     <AuthLayout
-      eyebrow="WELCOME BACK"
-      title="다시 만나 반가워요"
-      description="SAEROI 계정으로 로그인하고 나의 순환 소비를 이어가세요."
+      eyebrow="LOGIN SAEROI"
+      title="WELCOME BACK"
+      description="로그인하고 이어서 둘러보세요."
     >
       <form className="auth-entry-form" onSubmit={onSubmit} noValidate>
         <Input

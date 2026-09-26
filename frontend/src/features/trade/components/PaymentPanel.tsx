@@ -117,7 +117,12 @@ export function PaymentPanel({ trade }: PaymentPanelProps) {
       {payment.phase === 'AWAITING_PG' && payment.live === false && (
         <div className="payment-panel__mock">
           <p>결제 키가 설정되지 않아 결제창이 열리지 않습니다. 실제로 청구되지 않습니다.</p>
-          <Button variant="secondary" size="sm" onClick={() => void payment.approve(trade.tradeId)}>
+          <Button
+            variant="secondary"
+            size="sm"
+            loading={payment.isBusy}
+            onClick={() => void payment.approve(trade.tradeId)}
+          >
             결제 완료로 처리 (시연)
           </Button>
         </div>

@@ -11,7 +11,12 @@ export function BusinessSignupPage() {
 
   function submitSignup(values: BusinessSignupSubmitValues) {
     mutate(values, {
-      onSuccess: () => navigate('/signup/complete', { state: { accountType: 'business' } }),
+      onSuccess: () => navigate('/signup/complete', {
+          // 가입은 끝났다. replace 를 쓰지 않으면 뒤로 가기가 채워진 가입 폼으로
+          // 돌아가고, 다시 제출하면 "이미 가입된 이메일" 오류만 본다.
+          replace: true,
+          state: { accountType: 'business' },
+        }),
     })
   }
 
@@ -19,7 +24,7 @@ export function BusinessSignupPage() {
     <AuthLayout
       eyebrow="BUSINESS ACCOUNT"
       title="사업자회원 가입"
-      description="업체 유형과 회사 정보를 등록하고 SAEROI의 순환 소재 생태계에 참여해 보세요."
+      description="기업 정보와 이용할 업무 유형을 입력해 주세요."
       wide
     >
       <div className="consumer-signup__form-wrap">

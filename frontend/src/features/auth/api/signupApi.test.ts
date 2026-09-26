@@ -31,6 +31,10 @@ describe('signup API', () => {
       name: ' 홍길동 ',
       email: ' member@saeroi.test ',
       phone: ' 010-1234-5678 ',
+      // 주소는 제품을 받을 곳이다. 검색으로 채워지지만 상세 주소는 사람이 적어 공백이 붙는다.
+      zipCode: ' 06236 ',
+      address: ' 서울특별시 강남구 테헤란로 212 ',
+      addressDetail: ' 3층 ',
       password: 'Password!1',
       agreeTerms: true,
       agreePrivacy: true,
@@ -39,10 +43,14 @@ describe('signup API', () => {
 
     await expect(signupConsumer(values)).resolves.toEqual(RESPONSE)
 
+    // 동의 여부는 보내지 않는다 — 서버가 받지 않는 값이다.
     expect(post).toHaveBeenCalledWith('/v1/auth/signup/consumer', {
       name: '홍길동',
       email: 'member@saeroi.test',
       phone: '010-1234-5678',
+      zipCode: '06236',
+      address: '서울특별시 강남구 테헤란로 212',
+      addressDetail: '3층',
       password: 'Password!1',
     })
   })
