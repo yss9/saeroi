@@ -107,7 +107,7 @@ export function useOnChainLink(options: UseOnChainLinkOptions): UseOnChainLinkRe
       setPhase({
         status: 'IDLE',
         error: createAppError(ERROR_KIND.TRANSACTION_FAILED, {
-          message: `${eventName} 이벤트를 찾지 못했습니다. 배포된 컨트랙트와 ABI 가 다를 수 있습니다.`,
+          message: '저장 결과를 확인하지 못했습니다. 관리자에게 문의해 주세요.',
         }),
       })
       return
@@ -135,9 +135,9 @@ export function useOnChainLink(options: UseOnChainLinkOptions): UseOnChainLinkRe
       setPhase({
         status: 'IDLE',
         error: isAppError(error)
-          ? { ...error, message: `온체인 등록은 끝났지만 서버 기록에 실패했습니다. ${error.message}` }
+          ? { ...error, message: `이력은 저장되었지만 서비스에 반영하지 못했습니다. ${error.message}` }
           : createAppError(ERROR_KIND.UNKNOWN, {
-              message: '온체인 등록은 끝났지만 서버 기록에 실패했습니다.',
+              message: '이력은 저장되었지만 서비스에 반영하지 못했습니다.',
               cause: error,
             }),
       })
@@ -164,7 +164,7 @@ export function useOnChainLink(options: UseOnChainLinkOptions): UseOnChainLinkRe
         setPhase({
           status: 'IDLE',
           error: createAppError(ERROR_KIND.UNKNOWN, {
-            message: '대상을 특정할 수 없어 서명을 시작하지 않았습니다. 새로고침 후 다시 시도해 주세요.',
+            message: '기록할 대상을 확인할 수 없습니다. 새로고침 후 다시 시도해 주세요.',
           }),
         })
         return false
@@ -204,10 +204,10 @@ export function useOnChainLink(options: UseOnChainLinkOptions): UseOnChainLinkRe
             error: isAppError(error)
               ? {
                   ...error,
-                  message: `온체인 등록은 끝났지만 서버 기록에 실패했습니다. ${error.message}`,
+                  message: `이력은 저장되었지만 서비스에 반영하지 못했습니다. ${error.message}`,
                 }
               : createAppError(ERROR_KIND.UNKNOWN, {
-                  message: '온체인 등록은 끝났지만 서버 기록에 실패했습니다.',
+                  message: '이력은 저장되었지만 서비스에 반영하지 못했습니다.',
                   cause: error,
                 }),
           })

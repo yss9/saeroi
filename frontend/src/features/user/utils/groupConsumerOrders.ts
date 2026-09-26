@@ -21,6 +21,13 @@ export interface ConsumerOrderGroup {
   items: ConsumerRecentOrder[]
 }
 
+export interface ConsumerOrderBundle {
+  key: string
+  orderGroupId?: number | null
+  orderGroupCode?: string | null
+  orders: ConsumerOrderGroup[]
+}
+
 export function groupConsumerOrders(orders: readonly ConsumerRecentOrder[]): ConsumerOrderGroup[] {
   const groups = new Map<number, ConsumerOrderGroup>()
   for (const item of orders) {
@@ -42,4 +49,26 @@ export function groupConsumerOrders(orders: readonly ConsumerRecentOrder[]): Con
     group.items.push(item)
   }
   return [...groups.values()]
+}
+
+/** 결제는 묶음 단위, 배송은 브랜드 주문 단위로 다룰 수 있도록 주문들을 한 번 더 묶는다. */
+export function bundleConsumerOrders(
+  groups: readonly ConsumerOrderGroup[],
+): ConsumerOrderBundle[] {
+  const bundles = new Map<string, ConsumerOrderBundle>()
+  for (const group of groups) {
+    const key = group.orderGroupId != null ? `group:${group.orderGroupId}` : `order:${group.orderId}`
+    let bundle = bundles.get(key)
+    if (!bundle) {
+      bundle = {
+        key,
+        orderGroupId: group.orderGroupId,
+        orderGroupCode: group.orderGroupCode,
+        orders: [],
+      }
+      bundles.set(key, bundle)
+    }
+    bundle.orders.push(group)
+  }
+  return [...bundles.values()]
 }

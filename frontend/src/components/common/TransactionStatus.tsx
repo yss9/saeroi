@@ -17,10 +17,18 @@ const TONE: Record<TransactionState['status'], StatusTone> = {
 
 const MESSAGE: Record<TransactionState['status'], string> = {
   IDLE: '',
-  SIGNING: 'MetaMask에서 서명을 완료해 주세요.',
-  PENDING: '트랜잭션이 블록에 기록되기를 기다리는 중입니다.',
-  CONFIRMED: '블록체인에 기록되었습니다.',
-  FAILED: '트랜잭션을 완료하지 못했습니다.',
+  SIGNING: '지갑에서 요청을 확인해 주세요.',
+  PENDING: '이력을 저장하는 중입니다.',
+  CONFIRMED: '이력이 저장되었습니다.',
+  FAILED: '이력을 저장하지 못했습니다.',
+}
+
+const STATUS_LABEL: Record<TransactionState['status'], string> = {
+  IDLE: '',
+  SIGNING: '확인 중',
+  PENDING: '저장 중',
+  CONFIRMED: '저장 완료',
+  FAILED: '저장 실패',
 }
 
 /**
@@ -31,33 +39,18 @@ const MESSAGE: Record<TransactionState['status'], string> = {
  */
 export function TransactionStatus({
   status,
-  hash,
   error,
-  explorerBaseUrl,
 }: TransactionStatusProps) {
   if (status === 'IDLE') return null
 
   return (
     <div className="ui-tx" role="status" aria-live="polite">
-      <StatusBadge tone={TONE[status]}>{status}</StatusBadge>
+      <StatusBadge tone={TONE[status]}>{STATUS_LABEL[status]}</StatusBadge>
 
       <p className="ui-tx__message">{status === 'FAILED' && error ? error.message : MESSAGE[status]}</p>
 
       {status === 'SIGNING' || status === 'PENDING' ? <Loading label={MESSAGE[status]} /> : null}
 
-      {/* 해시는 PENDING 부터 존재한다. 실패해도 해시가 있으면 보여준다 —
-          사용자가 익스플로러에서 원인을 확인할 수 있어야 한다. */}
-      {hash && (
-        <p className="ui-tx__hash">
-          {explorerBaseUrl ? (
-            <a href={`${explorerBaseUrl}/tx/${hash}`} target="_blank" rel="noreferrer noopener">
-              {hash}
-            </a>
-          ) : (
-            hash
-          )}
-        </p>
-      )}
     </div>
   )
 }

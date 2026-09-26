@@ -26,13 +26,11 @@ export async function loadPredictionChainState(
   market: PredictionMarket,
   walletAddress: string,
 ): Promise<PredictionChainState> {
-  const point = getReadContract('predictionPoint')
   const prediction = getReadContract('predictionMarket')
   const chainMarket = await prediction.getMarket(market.chainMarketId)
   const winningBucket = Number(chainMarket.winningBucket)
   const resolved = Number(chainMarket.status) === 2
-  const [balance, userStake, claimed, userWinningStake, winningPool] = await Promise.all([
-    point.balanceOf(walletAddress) as Promise<bigint>,
+  const [userStake, claimed, userWinningStake, winningPool] = await Promise.all([
     prediction.userTotalStake(market.chainMarketId, walletAddress) as Promise<bigint>,
     prediction.claimed(market.chainMarketId, walletAddress) as Promise<boolean>,
     resolved
@@ -43,7 +41,7 @@ export async function loadPredictionChainState(
       : Promise.resolve(0n),
   ])
   return {
-    balance, userStake, claimed, userWinningStake, winningPool,
+    userStake, claimed, userWinningStake, winningPool,
     totalPool: chainMarket.totalPool as bigint,
     refundOnly: Boolean(chainMarket.refundOnly),
   }
@@ -53,7 +51,7 @@ export async function approveAndPlacePredictionBet(
   market: PredictionMarket, bucketIndex: number, pointAmount: string,
 ): Promise<{ transactionHash: string; stakeAmount: string }> {
   const marketAddress = contracts.predictionMarket
-  if (!marketAddress) throw new Error('PredictionMarket 컨트랙트 주소가 설정되지 않았습니다.')
+  if (!marketAddress) throw new Error('예측시장 기능을 사용할 수 없습니다. 관리자에게 문의해 주세요.')
   const amount = parseUnits(pointAmount, DECIMALS)
   if (amount <= 0n) throw new Error('예측 포인트는 0보다 커야 합니다.')
 

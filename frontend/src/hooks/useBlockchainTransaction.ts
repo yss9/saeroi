@@ -107,7 +107,7 @@ export function useBlockchainTransaction(
         if (!receipt) {
           throw {
             kind: ERROR_KIND.TRANSACTION_FAILED,
-            message: '트랜잭션이 취소되거나 대체되었습니다.',
+            message: '요청이 완료되지 않았습니다. 다시 시도해 주세요.',
             code: null,
             status: null,
             validationErrors: [],
@@ -119,7 +119,7 @@ export function useBlockchainTransaction(
         if (receipt.status === 0) {
           throw {
             kind: ERROR_KIND.TRANSACTION_FAILED,
-            message: '트랜잭션이 체인에서 되돌려졌습니다.',
+            message: '이력 저장이 거절되었습니다. 입력 내용과 권한을 확인해 주세요.',
             code: null,
             status: null,
             validationErrors: [],

@@ -34,7 +34,7 @@ export function ListingChainCancelButton({ listing }: { listing: Listing }) {
   return (
     <div className="listing-chain-cancel">
       <p className="listing-chain-cancel__note">
-        체인에는 이 판매 글의 잠금이 아직 남아 있어 같은 소재를 다시 팔 수 없습니다.
+        이 판매 글에 예약된 수량이 아직 남아 있어 같은 소재를 다시 팔 수 없습니다.
       </p>
       <Button
         variant="secondary"
@@ -46,9 +46,9 @@ export function ListingChainCancelButton({ listing }: { listing: Listing }) {
         loading={chain.isBusy}
         disabled={chain.isBusy}
       >
-        온체인 잠금 해제
+        판매 가능 수량 복구
       </Button>
-      {chain.isRejected && <p className="listing-chain-cancel__note">서명을 취소했습니다.</p>}
+      {chain.isRejected && <p className="listing-chain-cancel__note">요청을 취소했습니다.</p>}
       {chain.error && !chain.isRejected && <ErrorMessage error={chain.error} />}
     </div>
   )

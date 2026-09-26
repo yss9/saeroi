@@ -8,6 +8,7 @@ import {
   type StatusTone,
 } from '../../../components/common/index.ts'
 import { formatKg } from '../../../utils/quantity.ts'
+import { useCancelProductionBatch } from '../hooks/useCancelProductionBatch.ts'
 import { useConfirmProductionBatch } from '../hooks/useConfirmProductionBatch.ts'
 import { useProductionBatch } from '../hooks/useProductionBatch.ts'
 import type { ProductionBatch, ProductionBatchStatus } from '../types/production.types.ts'
@@ -22,7 +23,7 @@ export interface ProductionBatchDetailProps {
 
 const STATUS_LABEL: Record<ProductionBatchStatus, string> = {
   DRAFT: '작성 중',
-  SIGNING: '서명 중',
+  SIGNING: '확인 중',
   CONFIRMED: '확정',
   FAILED: '실패',
   CANCELED: '취소',
@@ -76,7 +77,7 @@ export function ProductionBatchDetail({ batchId }: ProductionBatchDetailProps) {
       {/* 온체인 기록. 확정 전에는 못 하는 이유를 패널이 직접 적는다 — 투입이 더
           바뀔 수 있어 확정 전에 체인에 남기면 그 내용과 어긋난다. */}
       <section className="batch-detail__section">
-        <h2>온체인 기록</h2>
+        <h2>생산 이력</h2>
         <ProductionChainPanel batch={data} />
       </section>
 
@@ -183,9 +184,11 @@ function BatchSummary({ batch }: { batch: ProductionBatch }) {
  */
 function ConfirmSection({ batch }: { batch: ProductionBatch }) {
   const confirm = useConfirmProductionBatch(batch.productionBatchId)
+  const cancel = useCancelProductionBatch(batch.productionBatchId)
 
   const productUsed = batch.inputs.reduce((total, input) => total + input.productUsedQuantity, 0)
   const ready = batch.inputs.length > 0 && productUsed > 0
+  const locked = batch.inputs.reduce((total, input) => total + input.inputQuantity, 0)
 
   return (
     /*
@@ -202,11 +205,35 @@ function ConfirmSection({ batch }: { batch: ProductionBatch }) {
         만들어집니다. <strong>되돌릴 수 없습니다.</strong>
       </p>
 
+      {/*
+        **그만두는 길을 같은 자리에 둔다.** 투입한 소재는 잠겨 있어 다른 배치에도 판매 글에도
+        쓸 수 없고, 그 잠금에는 만료가 없다. 확정만 놓아두면 마음이 바뀐 담당자에게 남는 길이
+        "원하지 않는 제품을 확정한다" 뿐이다 — 그건 되돌릴 수 없는 쪽으로 미는 것이다.
+      */}
+      {locked > 0 && (
+        <p className="batch-detail__effects">
+          취소하면 투입해 둔 {formatKg(locked)}의 잠금이 풀려 다시 쓸 수 있습니다.
+        </p>
+      )}
+
       {confirm.isError && <ErrorMessage error={confirm.error} />}
+      {cancel.isError && <ErrorMessage error={cancel.error} />}
 
       {/* 마지막 동작은 오른쪽 끝이다 — 위의 설명을 읽고 내려온 눈이 마치는 자리. */}
       <div className="batch-detail__confirm">
-        <Button onClick={() => confirm.mutate()} disabled={!ready} loading={confirm.isPending}>
+        <Button
+          variant="secondary"
+          onClick={() => cancel.mutate()}
+          loading={cancel.isPending}
+          disabled={confirm.isPending}
+        >
+          배치 취소
+        </Button>
+        <Button
+          onClick={() => confirm.mutate()}
+          disabled={!ready || cancel.isPending}
+          loading={confirm.isPending}
+        >
           생산 확정
         </Button>
       </div>
@@ -247,13 +274,13 @@ function ConfirmedResult({ batch }: { batch: ProductionBatch }) {
       */}
       {batch.productModelId === null ? (
         <p className="batch-detail__note">
-          제품 개체가 만들어졌습니다.{' '}
+          생산 제품이 등록되었습니다.{' '}
           <Link to="/brand/products/new">제품 등록</Link>에서 이 생산을 골라 제품을 붙이면
           판매할 수 있습니다.
         </p>
       ) : (
         <p className="batch-detail__note">
-          제품 개체가 만들어졌습니다.{' '}
+          생산 제품이 등록되었습니다.{' '}
           <Link to="/brand/products">내 제품에서 판매를 시작</Link>할 수 있습니다.
         </p>
       )}

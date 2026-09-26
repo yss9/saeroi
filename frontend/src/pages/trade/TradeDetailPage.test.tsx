@@ -218,7 +218,7 @@ describe('본문 갈래', () => {
     renderDetail()
 
     await screen.findByRole('heading', { name: '세척된 폐데님' })
-    expect(screen.queryByText('구매 온체인 기록')).not.toBeInTheDocument()
+    expect(screen.queryByText('거래 이력 기록')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '수령 확인' })).not.toBeInTheDocument()
   })
 })

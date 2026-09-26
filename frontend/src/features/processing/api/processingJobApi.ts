@@ -28,7 +28,8 @@ export interface ProcessingChainPreparation {
   inputTokenId:number; inputQuantity:number; processTypes:ProcessType[]
 }
 export interface ResultDraftInput {
-  outputs:Array<{ materialType:MaterialType; grade:MaterialGrade; gradeReason:string; name:string; quantity:number }>
+  /** 소재 종류는 보내지 않는다 — 서버가 투입 소재에서 파생한다. */
+  outputs:Array<{ grade:MaterialGrade; gradeReason:string; name:string; quantity:number }>
 }
 export interface SignatureChallenge {
   challengeId:number; action:ProcessingSignatureAction; walletAddress:string; nonce:string; message:string; expiresAt:string
@@ -62,13 +63,15 @@ export const processingJobApi={
    */
   decline:async(jobId:number,reason:string)=>(await apiClient.patch<ProcessingJobDetail>(`${root}/${jobId}/reject`,{reason})).data,
   ship:async(jobId:number,input:{carrier?:string;trackingNumber?:string})=>(await apiClient.patch<ProcessingJobDetail>(`${root}/${jobId}/ship`,input)).data,
-  receive:async(jobId:number,input:{txHash:string})=>(await apiClient.patch<ProcessingJobDetail>(`${root}/${jobId}/receive`,input)).data,
+  // 해시를 비워 보내면 서버가 체인에서 그 서명 거래를 찾는다 — 서명은 됐는데 서버 호출이 실패해
+  // 해시를 잃은 경우다(ProcessingChainService.signedTx).
+  receive:async(jobId:number,input:{txHash?:string})=>(await apiClient.patch<ProcessingJobDetail>(`${root}/${jobId}/receive`,input)).data,
   start:async(jobId:number)=>(await apiClient.patch<ProcessingJobDetail>(`${root}/${jobId}/start`)).data,
   saveResult:async(jobId:number,input:ResultDraftInput)=>(await apiClient.post<ProcessingJobDetail>(`${root}/${jobId}/results`,input)).data,
   challenge:async(jobId:number,action:ProcessingSignatureAction,rejectionReason?:string)=>(await apiClient.post<SignatureChallenge>(`${root}/${jobId}/signature-challenge`,{action,rejectionReason})).data,
   submitResult:async(jobId:number,challengeId:number,signature:string)=>(await apiClient.post<ProcessingJobDetail>(`${root}/${jobId}/results/submit`,{challengeId,signature})).data,
   reject:async(jobId:number,challengeId:number,signature:string,reason:string)=>(await apiClient.post<ProcessingJobDetail>(`${root}/${jobId}/reject`,{challengeId,signature,reason})).data,
   shipReturn:async(jobId:number,input:{carrier?:string;trackingNumber?:string;evidenceFileId:number;txHash:string})=>(await apiClient.patch<ProcessingJobDetail>(`${root}/${jobId}/return/ship`,input)).data,
-  receiveReturn:async(jobId:number,input:{txHash:string})=>(await apiClient.post<ProcessingJobDetail>(`${root}/${jobId}/return/receive`,input)).data,
+  receiveReturn:async(jobId:number,input:{txHash?:string})=>(await apiClient.post<ProcessingJobDetail>(`${root}/${jobId}/return/receive`,input)).data,
   returnRejected:async(jobId:number,input:{carrier?:string;trackingNumber?:string;evidenceFileId:number;txHash:string})=>(await apiClient.post<ProcessingJobDetail>(`${root}/${jobId}/return/rejected`,input)).data,
 }

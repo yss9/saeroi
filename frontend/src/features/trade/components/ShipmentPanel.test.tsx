@@ -10,7 +10,7 @@
 // vitest 에 globals 가 없어 cleanup 을 직접 부른다.
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createAppError, ERROR_KIND } from '../../../utils/errors.ts'
@@ -40,7 +40,9 @@ function trade(overrides: Partial<Trade> = {}): Trade {
   return {
     tradeId: 7,
     tradeCode: 'TRD-000007',
-    chainTradeId: null,
+    // **발송의 선행 조건이다.** 서명이 먼저이고, 서명할 주문 번호가 없으면 발송 폼이
+    // 열리지 않는다 — 그 경우는 아래 전용 테스트가 따로 본다.
+    chainTradeId: 42,
     listingId: 3,
     materialId: 1,
     materialCode: 'MAT-000001',
@@ -99,6 +101,8 @@ function renderPanel(value: Trade = trade()) {
 beforeEach(() => {
   api.shipTrade.mockResolvedValue(SHIPPED)
   api.cancelTrade.mockResolvedValue(trade({ status: 'CANCELED' }))
+  // 서명이 먼저이므로 ship 은 프라미스를 돌려줘야 한다 — 서명이 끝난 뒤에야 발송이 기록된다.
+  chain.ship.mockResolvedValue(undefined)
 })
 afterEach(() => {
   cleanup()
@@ -400,5 +404,45 @@ describe('입력 규칙 안내', () => {
     renderPanel()
 
     expect(screen.getByText('발송을 확정하면 되돌릴 수 없습니다.')).toBeInTheDocument()
+  })
+})
+
+/**
+ * 온체인 서명이 발송보다 먼저다.
+ *
+ * 예전에는 반대였다. 그래서 판매자가 서명 창을 끄면 DB 는 SHIPPED 인데 체인은 CREATED 로
+ * 남았고, 그러면 구매자가 수령 서명을 할 수 없다 — 컨트랙트의 confirmReceipt 는 체인이
+ * SHIPPED 일 때만 받는다. 거래가 그 자리에서 멈춘다.
+ *
+ * 그 앞 단계인 주문 서명은 더 나빴다. 놓치면 온체인 기록 창구가 영구히 닫혀, DB 와 체인의
+ * 소재 수량이 영영 어긋난 채로 굳었다.
+ */
+describe('발송과 온체인 서명', () => {
+  it('온체인 주문이 없으면 발송 폼을 열지 않고 이유를 말한다', () => {
+    renderPanel(trade({ status: 'PAID', chainTradeId: null }))
+
+    expect(screen.getByText(/블록체인에 기록되지 않았습니다/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '발송 처리' })).not.toBeInTheDocument()
+  })
+
+  it('서명이 끝난 뒤에 발송을 기록한다', async () => {
+    const user = renderPanel(trade({ status: 'PAID', chainTradeId: 42 }))
+
+    await user.click(screen.getByRole('button', { name: '발송 처리' }))
+    await user.click(screen.getByRole('button', { name: '발송 확정' }))
+
+    await waitFor(() => expect(chain.ship).toHaveBeenCalledWith(42))
+    await waitFor(() => expect(api.shipTrade).toHaveBeenCalled())
+  })
+
+  it('서명이 실패하면 발송을 기록하지 않는다', async () => {
+    chain.ship.mockRejectedValue(new Error('user rejected'))
+    const user = renderPanel(trade({ status: 'PAID', chainTradeId: 42 }))
+
+    await user.click(screen.getByRole('button', { name: '발송 처리' }))
+    await user.click(screen.getByRole('button', { name: '발송 확정' }))
+
+    await waitFor(() => expect(chain.ship).toHaveBeenCalled())
+    expect(api.shipTrade).not.toHaveBeenCalled()
   })
 })

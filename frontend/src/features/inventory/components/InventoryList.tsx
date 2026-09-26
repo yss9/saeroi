@@ -74,7 +74,7 @@ export function InventoryList() {
         title="보유한 소재가 없습니다"
         description={
           canRegister
-            ? '소재를 등록하면 Material Token이 발행되고 보유 수량이 여기 표시됩니다.'
+            ? '소재를 등록하면 보유 수량을 여기에서 확인할 수 있습니다.'
             : '소재를 사들이거나 가공을 마치면 보유 수량이 여기 표시됩니다.'
         }
         {...(canRegister

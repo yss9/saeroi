@@ -235,7 +235,6 @@ test('산출물 입력 의미를 라벨로 안내하고 선택한 등급과 판�
 
   expect(mocks.saveResult).toHaveBeenCalledWith({
     outputs: [{
-      materialType: 'DENIM',
       name: '재생 데님 원단',
       grade: 'B',
       gradeReason: '표면에 경미한 오염이 남아 있음',
@@ -244,6 +243,27 @@ test('산출물 입력 의미를 라벨로 안내하고 선택한 등급과 판�
   })
 })
 
+/*
+  산출물의 소재 종류는 가공사가 고를 값이 아니다 — 데님을 맡겼는데 면사가 나올 수는 없다.
+  가공은 섬유를 정제하고 모양을 바꿀 뿐 종류를 바꾸지 않는다. 화면은 투입 소재의 종류를
+  보여 주기만 하고 보내지 않는다. 서버가 투입 소재에서 파생하므로 보낼 이유도 없다.
+*/
+test('산출 소재 종류는 투입 소재를 그대로 따르고 고를 수 없다', async () => {
+  const user = userEvent.setup()
+  render(<MemoryRouter><ProcessingJobDetail jobId={17} /></MemoryRouter>)
+
+  const shown = screen.getByLabelText('산출물 1 소재 종류')
+  expect(shown).toHaveTextContent('데님')
+  expect(shown.tagName).not.toBe('SELECT')
+
+  await user.type(screen.getByLabelText('산출물 1 소재명'), '재생 데님 원단')
+  await user.type(screen.getByLabelText('산출물 1 등급 판정 사유'), '오염과 손상이 없음')
+  await user.type(screen.getByLabelText('산출물 1 산출 수량(g)'), '650')
+  await user.click(screen.getByRole('button', { name: '결과 임시 저장' }))
+
+  const [payload] = mocks.saveResult.mock.calls[0]
+  expect(payload.outputs[0]).not.toHaveProperty('materialType')
+})
 test('반환 발송 폼을 작업 카드 안에 중첩 카드 없이 표시한다', () => {
   const flow = mocks.useProcessingJob()
   mocks.useProcessingJob.mockReturnValue({
@@ -363,7 +383,7 @@ test('구 순서로 수락된 작업(ACCEPTED·체인 없음)도 브랜드가 �
   expect(screen.getByRole('button', { name: 'MetaMask로 온체인 작업 등록' })).toBeInTheDocument()
   // 다음 단계는 하나뿐이어야 한다. 등록 패널과 발송 폼이 함께 뜨면 브랜드는 서로
   // 배타적인 두 버튼 중 하나를 고르게 되고, 발송 쪽은 체인에 작업이 없어 되돌아간다.
-  expect(screen.queryByRole('button', { name: 'MetaMask 확인 후 발송 처리' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: '소재 발송 처리' })).not.toBeInTheDocument()
 })
 
 // ── F4 · 발송 폼의 체인 게이트 ────────────────────────────────────────────────
@@ -378,7 +398,7 @@ test('체인이 아직 REQUESTED 면 발송 폼 대신 수락을 기다린다고
     chainStatusCode: PROCESSING_CHAIN_STATUS.REQUESTED,
   })
 
-  expect(screen.queryByRole('button', { name: 'MetaMask 확인 후 발송 처리' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: '소재 발송 처리' })).not.toBeInTheDocument()
   expect(screen.getByText('가공업체의 온체인 작업 수락을 기다리고 있습니다.')).toBeInTheDocument()
 })
 
@@ -389,7 +409,7 @@ test('체인이 수락(ACCEPTED)됐으면 발송 폼을 연다', () => {
     chainStatusCode: PROCESSING_CHAIN_STATUS.ACCEPTED,
   })
 
-  expect(screen.getByRole('button', { name: 'MetaMask 확인 후 발송 처리' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: '소재 발송 처리' })).toBeInTheDocument()
 })
 
 // 게이트는 "확실한 증거가 있을 때만 접는다" 는 같은 원칙을 따른다. 체인 조회가 아직
@@ -402,7 +422,7 @@ test('체인 상태를 아직 모르면(NONE) 발송 폼을 감추지 않는다'
     chainStatusCode: PROCESSING_CHAIN_STATUS.NONE,
   })
 
-  expect(screen.getByRole('button', { name: 'MetaMask 확인 후 발송 처리' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: '소재 발송 처리' })).toBeInTheDocument()
 })
 
 // ── F6 · 잠금에 대한 정직한 문구 ──────────────────────────────────────────────

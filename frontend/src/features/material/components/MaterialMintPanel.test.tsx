@@ -127,7 +127,7 @@ describe('MaterialMintPanel', () => {
     const user = userEvent.setup()
     render(<MaterialMintPanel material={material} />)
 
-    await user.click(screen.getByRole('button', { name: '온체인 발행' }))
+    await user.click(screen.getByRole('button', { name: '소재 이력 저장' }))
 
     expect(mocks.mint).toHaveBeenCalledWith(expect.objectContaining({
       evidenceHash: `0x${'12'.repeat(32)}`,
@@ -148,7 +148,7 @@ describe('MaterialMintPanel', () => {
 
     render(<MaterialMintPanel material={material} />)
 
-    expect(screen.getByRole('button', { name: '온체인 발행' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '소재 이력 저장' })).toBeDisabled()
     expect(screen.getByText(/저울 사진 증빙이 여러 개/)).toBeInTheDocument()
     expect(mocks.mint).not.toHaveBeenCalled()
   })
@@ -157,10 +157,7 @@ describe('MaterialMintPanel', () => {
     const user = userEvent.setup()
     render(<MaterialMintPanel material={material} />)
 
-    expect(screen.getByText('SSAFY (31221)')).toBeInTheDocument()
-    expect(screen.getByText('0x053E6E…D4a63e')).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: '온체인 발행' }))
+    await user.click(screen.getByRole('button', { name: '소재 이력 저장' }))
 
     expect(mocks.mint).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -176,19 +173,18 @@ describe('MaterialMintPanel', () => {
     mocks.chainId = '0x7a69'
     render(<MaterialMintPanel material={material} />)
 
-    expect(screen.getByRole('button', { name: '온체인 발행' })).toBeDisabled()
-    expect(screen.getByText('MetaMask를 SSAFY 네트워크(31221)로 전환해 주세요.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '소재 이력 저장' })).toBeDisabled()
+    expect(screen.getByText('업무용 지갑 연결 환경으로 변경해 주세요.')).toBeInTheDocument()
   })
 
-  it('확정된 MetaMask 트랜잭션의 해시와 블록 번호를 표시한다', () => {
+  it('완료 후 원시 기록 정보는 사용자 화면에 표시하지 않는다', () => {
     mocks.mintState.status = 'LINKED'
     mocks.mintState.hash = `0x${'a'.repeat(64)}`
     mocks.mintState.blockNumber = 123_456
 
     render(<MaterialMintPanel material={material} />)
 
-    expect(screen.getByText('123,456')).toBeInTheDocument()
-    expect(screen.getByTitle(`0x${'a'.repeat(64)}`)).toBeInTheDocument()
-    expect(screen.getByText(/MetaMask 지갑이 직접 서명했습니다/)).toBeInTheDocument()
+    expect(screen.queryByText('123,456')).not.toBeInTheDocument()
+    expect(screen.queryByTitle(`0x${'a'.repeat(64)}`)).not.toBeInTheDocument()
   })
 })

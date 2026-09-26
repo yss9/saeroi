@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canAccess, getRouteAccess, getRouteAccessMap, isRoleResolving } from './routeAccess.ts'
+import { canAccess, getLocationAccess, getRouteAccess, getRouteAccessMap, isRoleResolving } from './routeAccess.ts'
 
 describe('routeAccess — routes.tsx 에서 파생한 접근 조건', () => {
   it('공개 경로는 비회원도 볼 수 있다', () => {
@@ -99,6 +99,13 @@ describe('routeAccess — routes.tsx 에서 파생한 접근 조건', () => {
     expect(getRouteAccess('/brand/products/new')).toEqual({ kind: 'role', allow: ['BRAND'] })
     expect(getRouteAccess('/processor/jobs')).toEqual({ kind: 'role', allow: ['PROCESSOR'] })
     expect(getRouteAccess('/admin')).toEqual({ kind: 'role', allow: ['ADMIN'] })
+    for (const path of [
+      '/admin/company-role-applications',
+      '/admin/prediction-markets',
+      '/admin/blockchain',
+    ]) {
+      expect(getRouteAccess(path), path).toEqual({ kind: 'role', allow: ['ADMIN'] })
+    }
   })
 
   it('정의되지 않은 경로는 undefined 다', () => {
@@ -106,6 +113,12 @@ describe('routeAccess — routes.tsx 에서 파생한 접근 조건', () => {
     // 와일드카드는 "존재하는 경로" 로 취급하지 않는다 — 메뉴 항목이 오타여도
     // * 에 걸려 통과하면 링크 깨짐을 놓친다.
     expect(getRouteAccess('*')).toBeUndefined()
+  })
+
+  it('실제 주소를 동적 라우트 패턴과 대조한다', () => {
+    expect(getLocationAccess('/products/31?from=cart')).toEqual({ kind: 'public' })
+    expect(getLocationAccess('/mypage/orders/72')).toEqual({ kind: 'role', allow: ['CONSUMER'] })
+    expect(getLocationAccess('/nope')).toBeUndefined()
   })
 
   // 인증됐지만 역할을 아직 모르는 구간. RoleGuard 가 같은 조합을 판정 보류로 다룬다.

@@ -1,16 +1,13 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Button, ErrorMessage, Loading } from '../../components/common/index.ts'
-import { useAuth } from '../../features/auth/hooks/useAuth.ts'
-import { useLogout } from '../../features/auth/hooks/useLogout.ts'
 import { grantPredictionWelcomePoint, savePredictionSurvey } from '../../features/prediction/api/predictionApi.ts'
 import { usePredictionChainState } from '../../features/prediction/hooks/usePredictionChainState.ts'
 import { predictionKeys, usePredictionMarkets } from '../../features/prediction/hooks/usePredictionMarkets.ts'
 import { predictionPointBalanceKey, usePredictionPointBalance } from '../../features/prediction/hooks/usePredictionPointBalance.ts'
 import { approveAndPlacePredictionBet, claimPrediction, formatPredictionPoint } from '../../features/prediction/services/predictionContractService.ts'
 import type { PredictionMarket, PredictionReasonCode } from '../../features/prediction/types/prediction.types.ts'
-import { ConsumerAccountLayout } from '../../features/user/components/ConsumerAccountLayout.tsx'
+import { ConsumerShopLayout } from '../../features/user/components/ConsumerAccountLayout.tsx'
 import { WalletRegistrationPanel } from '../../features/wallet/components/WalletRegistrationPanel.tsx'
 import { useMyWallets } from '../../features/wallet/hooks/useMyWallets.ts'
 import { useWallet } from '../../features/wallet/hooks/useWallet.ts'
@@ -28,12 +25,28 @@ function formatDate(value: string) {
   return new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
 }
 
+function formatPredictionProfit(value: bigint) {
+  return `${value > 0n ? '+' : ''}${formatPredictionPoint(value)}`
+}
+
+function PredictionResult({ soldQuantity, bucketIndex }: { soldQuantity: number; bucketIndex: number }) {
+  return (
+    <p
+      className="prediction-card__result"
+      aria-label={`최종 순판매량 ${soldQuantity}개, 당첨 구간 ${bucketIndex + 1}`}
+    >
+      최종 순판매량 <strong>{soldQuantity.toLocaleString()}</strong>개 · 당첨 구간 #{bucketIndex + 1}
+    </p>
+  )
+}
+
 function MarketCard({ market, walletAddress }: { market: PredictionMarket; walletAddress: string | null }) {
   const [bucket, setBucket] = useState(0)
   const [amount, setAmount] = useState('10')
   const [reasonCode, setReasonCode] = useState<PredictionReasonCode>('DESIGN')
   const [reasonText, setReasonText] = useState('')
   const [notice, setNotice] = useState<string | null>(null)
+  const [resultRevealed, setResultRevealed] = useState(false)
   const [now, setNow] = useState(0)
   useEffect(() => {
     const update = () => setNow(Date.now())
@@ -52,15 +65,15 @@ function MarketCard({ market, walletAddress }: { market: PredictionMarket; walle
       })
       return result
     },
-    onSuccess: (result) => {
-      setNotice(`예측과 선호 이유가 기록되었습니다. (${result.transactionHash.slice(0, 12)}…)`)
+    onSuccess: () => {
+      setNotice('예측과 선호 이유가 기록되었습니다.')
       void chain.refetch()
       void queryClient.invalidateQueries({ queryKey: predictionKeys.all })
     },
   })
   const claim = useMutation({
     mutationFn: () => claimPrediction(market),
-    onSuccess: (hash) => { setNotice(`보상 수령이 완료되었습니다. (${hash.slice(0, 12)}…)`); void chain.refetch() },
+    onSuccess: () => { setNotice('보상 수령이 완료되었습니다.'); void chain.refetch() },
   })
 
   const isOpen = market.status === 'OPEN' && now < new Date(market.bettingEndsAt).getTime()
@@ -68,6 +81,9 @@ function MarketCard({ market, walletAddress }: { market: PredictionMarket; walle
   const expected = state && state.winningPool > 0n
     ? state.totalPool * state.userWinningStake / state.winningPool
     : state?.refundOnly ? state.userStake : 0n
+  const profit = state && market.status === 'RESOLVED'
+    ? expected - state.userStake
+    : state && market.status === 'CANCELED' ? 0n : null
   const canClaim = Boolean(state && !state.claimed && state.userStake > 0n
     && (market.status === 'CANCELED' || market.status === 'RESOLVED')
     && (state.refundOnly || state.userWinningStake > 0n))
@@ -80,13 +96,21 @@ function MarketCard({ market, walletAddress }: { market: PredictionMarket; walle
       </div>
       <p>판매 집계: {formatDate(market.salesStartsAt)} ~ {formatDate(market.salesEndsAt)}</p>
       <p>예측 마감: {formatDate(market.bettingEndsAt)}</p>
-      {market.soldQuantity !== null ? <p className="prediction-card__result">최종 순판매량 {market.soldQuantity}개 · 당첨 구간 #{(market.winningBucketIndex ?? 0) + 1}</p> : null}
+      {market.soldQuantity !== null && !resultRevealed ? (
+        <Button variant="secondary" onClick={() => setResultRevealed(true)}>결과 확인하기</Button>
+      ) : null}
+      {market.soldQuantity !== null && resultRevealed ? (
+        <PredictionResult
+          key={`${market.id}-${market.soldQuantity}`}
+          soldQuantity={market.soldQuantity}
+          bucketIndex={market.winningBucketIndex ?? 0}
+        />
+      ) : null}
 
       {state ? (
         <div className="prediction-card__wallet-stats">
-          <span>보유 {formatPredictionPoint(state.balance)} PRED</span>
-          <span>내 예치 {formatPredictionPoint(state.userStake)} PRED</span>
-          <span>전체 풀 {formatPredictionPoint(state.totalPool)} PRED</span>
+          <span>참여 포인트 {formatPredictionPoint(state.userStake)}</span>
+          <span>내 수익 {profit === null ? '정산 전' : `${formatPredictionProfit(profit)} 포인트`}</span>
         </div>
       ) : null}
 
@@ -105,13 +129,13 @@ function MarketCard({ market, walletAddress }: { market: PredictionMarket; walle
             {REASONS.map((reason) => <option key={reason.value} value={reason.value}>{reason.label}</option>)}
           </select></label>
           <label>이유 설명<textarea value={reasonText} onChange={(event) => setReasonText(event.target.value)} maxLength={500} placeholder="디자인, 가격, 소재 등 판단 근거를 알려주세요." /></label>
-          <Button type="submit" loading={bet.isPending} disabled={!walletAddress}>approve 후 예측하기</Button>
+          <Button type="submit" loading={bet.isPending} disabled={!walletAddress}>예측 참여하기</Button>
           {bet.error ? <p className="prediction-error">{toErrorMessage(bet.error)}</p> : null}
         </form>
       ) : null}
 
       {canClaim ? <Button onClick={() => claim.mutate()} loading={claim.isPending}>
-        {state?.refundOnly ? '예치 포인트 환불받기' : `예상 보상 ${formatPredictionPoint(expected)} PRED 받기`}
+        {state?.refundOnly ? '참여 포인트 돌려받기' : `예상 보상 ${formatPredictionPoint(expected)} 포인트 받기`}
       </Button> : null}
       {state?.claimed ? <p className="prediction-success">보상 수령 완료</p> : null}
       {claim.error ? <p className="prediction-error">{toErrorMessage(claim.error)}</p> : null}
@@ -121,9 +145,6 @@ function MarketCard({ market, walletAddress }: { market: PredictionMarket; walle
 }
 
 export function PredictionMarketPage() {
-  const navigate = useNavigate()
-  const { user } = useAuth()
-  const logout = useLogout()
   const wallet = useWallet()
   const myWallets = useMyWallets()
   const markets = usePredictionMarkets()
@@ -141,17 +162,15 @@ export function PredictionMarketPage() {
   const welcomeAlreadyReceived = Boolean(welcome.data) || Boolean(welcome.error && toErrorMessage(welcome.error).includes('이미 지급'))
 
   return (
-    <ConsumerAccountLayout current="predictions" profile={user ? { name: user.name, email: user.email } : null}
-      onSignOut={() => logout.mutate(undefined, { onSuccess: () => navigate('/', { replace: true }) })}
-      signOutPending={logout.isPending} signOutError={logout.error}>
+    <ConsumerShopLayout>
+      <main className="consumer-mypage-main prediction-page">
       <section className="consumer-mypage-card prediction-intro">
-        <p className="consumer-section-heading__eyebrow">ON-CHAIN PREDICTION</p>
         <h2>판매량 예측시장</h2>
-        <p>생산량은 체인에 고정되고, 실제 결제·취소에서 계산한 순판매량으로 결과를 판정합니다.<br />선택한 이유는 브랜드의 선호도 분석에 익명 집계됩니다.</p>
+        <p>확정된 생산량과 실제 결제·취소에서 계산한 순판매량으로 결과를 판정합니다.<br />선택한 이유는 브랜드의 선호도 분석에 익명 집계됩니다.</p>
         <WalletRegistrationPanel registeredAddress={registeredAddress} />
         {usableWallet ? (
           <div className="prediction-card__wallet-stats">
-            <span>보유 {pointBalance.data !== undefined ? formatPredictionPoint(pointBalance.data) : '—'} PRED</span>
+            <span>보유 {pointBalance.data !== undefined ? formatPredictionPoint(pointBalance.data) : '—'} 포인트</span>
           </div>
         ) : null}
         {usableWallet ? <Button variant="secondary" onClick={() => welcome.mutate()} loading={welcome.isPending} disabled={welcomeAlreadyReceived}>{welcomeAlreadyReceived ? '참여 포인트 지급 완료' : '첫 참여 포인트 받기'}</Button> : null}
@@ -165,6 +184,7 @@ export function PredictionMarketPage() {
           {markets.data?.length === 0 ? <p>현재 열린 예측시장이 없습니다.</p> : null}
         </section>
       )}
-    </ConsumerAccountLayout>
+      </main>
+    </ConsumerShopLayout>
   )
 }

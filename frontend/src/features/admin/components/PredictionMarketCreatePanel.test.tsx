@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PredictionMarketCreatePanel } from './PredictionMarketCreatePanel.tsx'
 
 const adminApi = vi.hoisted(() => ({
+  cancelPredictionMarket: vi.fn(),
   createPredictionMarket: vi.fn(),
   getPredictionMarketEligibleBatches: vi.fn(),
 }))

@@ -65,22 +65,22 @@ export function MaterialSourceVerificationPanel({ material }: { material: Materi
     evidenceHash !== null
 
   const blockedReason = (() => {
-    if (material.tokenId === null) return '먼저 소재를 온체인에 발행해야 합니다.'
+    if (material.tokenId === null) return '먼저 소재 이력을 저장해 주세요.'
     if (address === null) return '지갑을 먼저 연결해 주세요.'
-    if (env.besuChainIdHex === null) return 'SSAFY 네트워크 Chain ID 설정이 필요합니다.'
+    if (env.besuChainIdHex === null) return '이력 확인 설정을 찾을 수 없습니다. 관리자에게 문의해 주세요.'
     if (!correctChain) {
-      return `MetaMask를 SSAFY 네트워크(${BigInt(env.besuChainIdHex).toString()})로 전환해 주세요.`
+      return '업무용 지갑 연결 환경으로 변경해 주세요.'
     }
-    if (contracts.materialToken === null) return 'MaterialToken 컨트랙트 주소 설정이 필요합니다.'
-    if (evidenceReadFailed) return '온체인 증빙 해시를 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.'
-    if (evidenceHash === null) return '온체인 증빙 해시를 확인하는 중입니다.'
+    if (contracts.materialToken === null) return '출처 확인 기능을 사용할 수 없습니다. 관리자에게 문의해 주세요.'
+    if (evidenceReadFailed) return '등록된 증빙을 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.'
+    if (evidenceHash === null) return '등록된 증빙을 확인하는 중입니다.'
     return undefined
   })()
 
   return (
     <OnChainPanel
-      title="출처 검증"
-      description="등록된 출처가 사실임을 지갑 서명으로 확정합니다."
+      title="출처 확인"
+      description="등록된 증빙과 소재 출처가 일치하는지 확인합니다."
       // OnChainPanel 은 `onChainId` 로 완료 여부를 판단한다. 이 단계에는 새로 채번되는
       // 번호가 없으므로 이미 검증됐다는 사실 자체를 그 자리에 대신 넣는다.
       onChainId={alreadyVerified ? material.tokenId : null}
@@ -96,7 +96,7 @@ export function MaterialSourceVerificationPanel({ material }: { material: Materi
       error={verify.error}
       isBusy={verify.isBusy}
       isRejected={verify.isRejected}
-      actionLabel="출처 검증 서명"
+      actionLabel="출처 확인"
       onSign={() => {
         if (!address || material.tokenId === null || evidenceHash === null) return
         void verify.verify({

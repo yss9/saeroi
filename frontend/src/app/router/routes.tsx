@@ -63,6 +63,9 @@ import { PaymentReturnPage } from '../../pages/trade/PaymentReturnPage.tsx'
 import { SupplierTradePage } from '../../pages/trade/SupplierTradePage.tsx'
 import { TradeDetailPage } from '../../pages/trade/TradeDetailPage.tsx'
 import { TradeListPage } from '../../pages/trade/TradeListPage.tsx'
+import AgentPage from '../../pages/agent/AgentPage.tsx'
+import AgentPaymentCallbackPage from '../../pages/agent/AgentPaymentCallbackPage.tsx'
+import AgentProcessingPaymentCallbackPage from '../../pages/agent/AgentProcessingPaymentCallbackPage.tsx'
 import { BrowseLayout } from './guards/BrowseLayout.tsx'
 import { ProtectedRoute } from './guards/ProtectedRoute.tsx'
 import { FORBIDDEN_PATH, RoleGuard } from './guards/RoleGuard.tsx'
@@ -125,6 +128,25 @@ const appRoutes: RouteObject[] = [
   // 값이라 이 경로의 유일한 접근 통제다 (§6-3, 2026-09-08).
   { path: '/qr/:qrToken', element: <PassportPage /> },
 
+  // ── AI 어시스턴트 ─────────────────────────────────────
+  //
+  // **사업자 셸 밖이다.** AgentLauncher 가 이름 있는 별도 창(width=460)으로 띄우므로
+  // 사이드바가 들어가면 좁은 창을 거의 다 차지한다. 담당자는 이 창을 기존 화면 옆에
+  // 두고 쓴다 — 에이전트가 말하는 내용을 화면에서 확인할 수 있어야 하기 때문이다.
+  //
+  // 로그인 여부는 RoleGuard 가 함께 본다 (미인증 /login, 역할 불일치 /403).
+  {
+    element: <RoleGuard allow={['BRAND']} />,
+    children: [
+      { path: '/agent', element: <AgentPage /> },
+      // 카카오페이 복귀 지점. 대화창 안에서 승인을 끝내고 다시 /agent 로 돌아간다 —
+      // 거래 상세로 보내면 대화가 다른 화면으로 바뀐다.
+      { path: '/agent/payment/callback', element: <AgentPaymentCallbackPage /> },
+      // 가공비 결제 복귀. 소재와 화면이 다른 이유는 승인하는 API 가 다르기 때문이다.
+      { path: '/agent/processing/payment/callback', element: <AgentProcessingPaymentCallbackPage /> },
+    ],
+  },
+
   // ── CONSUMER ─────────────────────────────────────────
   //
   // **사업자 셸 밖이다.** 소비자 계정 화면은 로고·쇼핑 메뉴·푸터를 스스로 갖고 있어
@@ -144,6 +166,7 @@ const appRoutes: RouteObject[] = [
       // 주문 상세보기. 목록 카드의 "주문 상세보기" 에서 들어온다 — 별도 API 없이 목록과
       // 같은 Query 캐시(useConsumerMyPage)에서 주문 번호로 찾아 쓴다.
       { path: '/mypage/orders/:orderId', element: <ConsumerOrderDetailPage /> },
+      { path: '/mypage/order-groups/:orderGroupId', element: <ConsumerOrderDetailPage grouped /> },
       // 배송지 관리. 마이페이지의 기본 배송지 카드에서 "편집" 으로 들어간다.
       { path: '/mypage/addresses', element: <ConsumerAddressPage /> },
       // 서버에 영구 저장된 소비자 찜 목록.
@@ -157,7 +180,7 @@ const appRoutes: RouteObject[] = [
       { path: '/mypage/inquiries/new', element: <ConsumerAskInquiryPage /> },
       { path: '/mypage/inquiries', element: <ConsumerInquiriesPage /> },
       { path: '/mypage/reviews', element: <ConsumerReviewsPage /> },
-      { path: '/mypage/predictions', element: <PredictionMarketPage /> },
+      { path: '/predictions', element: <PredictionMarketPage /> },
       { path: '/mypage/profile', element: <ConsumerProfilePage /> },
       // 카카오페이 결제창이 돌아오는 자리. 승인·취소·실패가 모두 이 주소로 오고
       // pg_token 유무로 갈린다.
@@ -293,7 +316,12 @@ const appRoutes: RouteObject[] = [
       // ── ADMIN ──
       {
         element: <RoleGuard allow={['ADMIN']} />,
-        children: [{ path: '/admin', element: <AdminPage /> }],
+        children: [
+          { path: '/admin', element: <Navigate to="/admin/company-role-applications" replace /> },
+          { path: '/admin/company-role-applications', element: <AdminPage section="applications" /> },
+          { path: '/admin/prediction-markets', element: <AdminPage section="prediction" /> },
+          { path: '/admin/blockchain', element: <AdminPage section="blockchain" /> },
+        ],
       },
     ],
   },

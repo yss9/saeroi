@@ -64,7 +64,7 @@ export function BusinessWalletStatus() {
                   : isError
                     ? '잠시 후 다시 확인해 주세요.'
                     : isRegistered
-                      ? '블록체인 기능을 사용할 수 있습니다.'
+                      ? '거래 이력 기록 기능을 사용할 수 있습니다.'
                       : '마이페이지에서 지갑을 연결해 주세요.'}
               </span>
             </div>

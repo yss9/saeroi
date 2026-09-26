@@ -993,3 +993,15 @@
     align-items: stretch;
   }
 }
+
+/* ── AI 어시스턴트 진입점 ─────────────────────────────────
+ *
+ * 필터 바 위에 오른쪽 정렬로 둔다. 소재를 찾기 시작하는 자리라 눈에 들어와야 하지만,
+ * 목록을 읽는 흐름 한가운데를 가로막으면 안 된다.
+ *
+ * 버튼 자체의 모양은 공용 .ui-button 이 갖는다 — 여기서는 자리만 잡는다. */
+.marketplace-agent-entry {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.75rem;
+}

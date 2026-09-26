@@ -18,7 +18,12 @@ import type {
   ConsumerRecentOrder,
 } from '../types/consumerMyPage.types.ts'
 import { formatDate } from '../utils/formatDate.ts'
-import { groupConsumerOrders, type ConsumerOrderGroup } from '../utils/groupConsumerOrders.ts'
+import {
+  bundleConsumerOrders,
+  groupConsumerOrders,
+  type ConsumerOrderBundle,
+  type ConsumerOrderGroup,
+} from '../utils/groupConsumerOrders.ts'
 import './consumer-mypage.css'
 
 const priceFormatter = new Intl.NumberFormat('ko-KR', {
@@ -40,32 +45,6 @@ const orderStatusMeta: Record<ConsumerOrderViewStatus, { label: string; tone: St
   DELIVERED: { label: '배송 완료', tone: 'success' },
 }
 
-interface ConsumerOrderBundle {
-  key: string
-  orderGroupId?: number | null
-  orderGroupCode?: string | null
-  orders: ConsumerOrderGroup[]
-}
-
-function bundleConsumerOrders(groups: readonly ConsumerOrderGroup[]): ConsumerOrderBundle[] {
-  const bundles = new Map<string, ConsumerOrderBundle>()
-  for (const group of groups) {
-    const key = group.orderGroupId != null ? `group:${group.orderGroupId}` : `order:${group.orderId}`
-    let bundle = bundles.get(key)
-    if (!bundle) {
-      bundle = {
-        key,
-        orderGroupId: group.orderGroupId,
-        orderGroupCode: group.orderGroupCode,
-        orders: [],
-      }
-      bundles.set(key, bundle)
-    }
-    bundle.orders.push(group)
-  }
-  return [...bundles.values()]
-}
-
 /**
  * 주문 내역.
  *
@@ -83,6 +62,7 @@ export function ConsumerOrderList({ orders }: { orders: readonly ConsumerRecentO
 
   const [pending, setPending] = useState<ConsumerOrderGroup | null>(null)
   const [shippingItem, setShippingItem] = useState<ConsumerRecentOrder | null>(null)
+  const [journeyNoticeOpen, setJourneyNoticeOpen] = useState(false)
 
   if (orders.length === 0) {
     return (
@@ -131,6 +111,7 @@ export function ConsumerOrderList({ orders }: { orders: readonly ConsumerRecentO
             confirmingOrderId={confirm.isPending ? confirm.variables : undefined}
             onConfirmDelivery={setPending}
             onShowShipping={setShippingItem}
+            onUnavailableJourney={() => setJourneyNoticeOpen(true)}
           />
         ))}
       </div>
@@ -149,6 +130,16 @@ export function ConsumerOrderList({ orders }: { orders: readonly ConsumerRecentO
       />
 
       <ShippingInfoModal item={shippingItem} onClose={() => setShippingItem(null)} />
+
+      <Modal
+        open={journeyNoticeOpen}
+        onClose={() => setJourneyNoticeOpen(false)}
+        title="PRODUCT JOURNEY"
+      >
+        <p className="consumer-order-item__journey-notice">
+          결제 완료 후 확인 가능합니다.
+        </p>
+      </Modal>
     </section>
   )
 }
@@ -164,11 +155,13 @@ function OrderBundleCard({
   confirmingOrderId,
   onConfirmDelivery,
   onShowShipping,
+  onUnavailableJourney,
 }: {
   bundle: ConsumerOrderBundle
   confirmingOrderId?: number
   onConfirmDelivery: (order: ConsumerOrderGroup) => void
   onShowShipping: (item: ConsumerRecentOrder) => void
+  onUnavailableJourney: () => void
 }) {
   const firstOrder = bundle.orders[0]
   const paymentOrder = bundle.orders.find((order) => order.status === 'PAYMENT_PENDING')
@@ -181,6 +174,14 @@ function OrderBundleCard({
         <div className="consumer-order-group__header-main">
           <time dateTime={firstOrder.orderedAt}>{formatDate(firstOrder.orderedAt, dateFormatter)}</time>
           <p className="consumer-order-group__reference">주문 번호 {orderReference}</p>
+          <Link
+            className="consumer-order-group__detail-link"
+            to={bundle.orderGroupId != null
+              ? `/mypage/order-groups/${bundle.orderGroupId}`
+              : `/mypage/orders/${firstOrder.orderId}`}
+          >
+            주문 상세보기 <ArrowRight aria-hidden="true" />
+          </Link>
         </div>
       </header>
 
@@ -190,25 +191,49 @@ function OrderBundleCard({
           const firstItem = order.items[0]
           return (
             <section className="consumer-order-group__brand-order" key={order.orderId} aria-label={`${firstItem.brandName} 주문`}>
-              <header className="consumer-order-group__brand-header">
-                <div className="consumer-order-group__brand-status">
-                  <p>{firstItem.brandName}</p>
-                  <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
-                </div>
-                <Link className="consumer-order-group__detail-link" to={`/mypage/orders/${order.orderId}`}>
-                  주문 상세보기 <ArrowRight aria-hidden="true" />
-                </Link>
-              </header>
-
               <div className="consumer-order-group__items">
-                {order.items.map((item) => <OrderItemCard key={item.id} item={item} />)}
+                {order.items.map((item, index) => (
+                  <div className="consumer-order-group__item-shell" key={item.id}>
+                    {index === 0 && (
+                      <header className="consumer-order-group__brand-header">
+                        <div className="consumer-order-group__brand-status">
+                          <p>{firstItem.brandName}</p>
+                          <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
+                        </div>
+                      </header>
+                    )}
+
+                    <OrderItemCard item={item} />
+
+                    <div className="consumer-order-group__item-actions">
+                      {item.journeyUrl ? (
+                        <a
+                          className="ui-button ui-button--secondary ui-button--sm ui-button--full consumer-order-item__passport"
+                          href={item.journeyUrl}
+                        >
+                          PRODUCT JOURNEY
+                        </a>
+                      ) : (
+                        <button
+                          className="ui-button ui-button--secondary ui-button--sm ui-button--full consumer-order-item__passport"
+                          type="button"
+                          onClick={onUnavailableJourney}
+                        >
+                          PRODUCT JOURNEY
+                        </button>
+                      )}
+                      <div className="consumer-order-group__shipping-action">
+                        <Button variant="secondary" size="sm" onClick={() => onShowShipping(item)}>
+                          배송조회 <ArrowRight aria-hidden="true" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
 
-              <footer className="consumer-order-group__brand-actions">
-                <Button variant="secondary" size="sm" onClick={() => onShowShipping(firstItem)}>
-                  배송조회 <ArrowRight aria-hidden="true" />
-                </Button>
-                {order.status === 'SHIPPING' && (
+              {order.status === 'SHIPPING' && (
+                <footer className="consumer-order-group__brand-actions">
                   <Button
                     size="sm"
                     loading={confirmingOrderId === order.orderId}
@@ -216,8 +241,8 @@ function OrderBundleCard({
                   >
                     배송 완료 확인
                   </Button>
-                )}
-              </footer>
+                </footer>
+              )}
             </section>
           )
         })}
@@ -260,11 +285,7 @@ function OrderBundleCard({
  * 운송장·배송지처럼 자세한 정보는 여기 다 늘어놓지 않는다 — "배송조회" 버튼을 눌러야
  * 뜨는 모달로 옮겼다.
  */
-function OrderItemCard({
-  item,
-}: {
-  item: ConsumerRecentOrder
-}) {
+function OrderItemCard({ item }: { item: ConsumerRecentOrder }) {
   return (
     <div className="consumer-order-item">
       <div className="consumer-order-item__body">
@@ -277,22 +298,8 @@ function OrderItemCard({
             <span> · {item.itemCount}개</span>
           </p>
         </div>
-
-        <div className="consumer-order-item__actions">
-          {item.journeyUrl ? (
-            // 버튼처럼 보여야 "배송조회" 와 나란히 1열로 정렬된다 — 실제로는 링크라 새
-            // 탭 열기·우클릭 복사 같은 링크 동작은 그대로 유지된다.
-            <a
-              className="ui-button ui-button--secondary ui-button--sm ui-button--full consumer-order-item__passport"
-              href={item.journeyUrl}
-            >
-              PRODUCT PASSPORT
-            </a>
-          ) : (
-            <span className="consumer-order-item__journey-disabled">결제 완료 후 확인 가능</span>
-          )}
-        </div>
       </div>
+
     </div>
   )
 }

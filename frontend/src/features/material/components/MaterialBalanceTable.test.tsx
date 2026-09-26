@@ -10,9 +10,10 @@
 // vitest 설정에 globals 가 없어 testing-library 자동 cleanup 이 등록되지 않는다.
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createAppError, ERROR_KIND } from '../../../utils/errors.ts'
+import { useAuthStore } from '../../../stores/authStore.ts'
 import type { MaterialBalance } from '../types/material.types.ts'
 import { MaterialBalanceTable } from './MaterialBalanceTable.tsx'
 
@@ -46,7 +47,10 @@ beforeEach(() => {
   api.getMaterialBalances.mockReset()
 })
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  useAuthStore.setState({ user: null, accessToken: null, isAuthenticated: false })
+})
 
 describe('단위 표시', () => {
   it('gram 을 kg 로 바꿔 보여준다', async () => {
@@ -123,7 +127,7 @@ describe('세 가지 상태', () => {
     api.getMaterialBalances.mockResolvedValue([])
     renderTable()
 
-    expect(await screen.findByText(/동기화가 아직 반영되지 않았을 수 있습니다/)).toBeInTheDocument()
+    expect(await screen.findByText(/최근 수량 변경이 아직 반영되지 않았을 수 있습니다/)).toBeInTheDocument()
   })
 
   it('실패하면 ErrorMessage 다 — EmptyState 가 아니다', async () => {
@@ -167,5 +171,42 @@ describe('요청 제어', () => {
     renderTable()
 
     await waitFor(() => expect(screen.getAllByRole('row')).toHaveLength(3)) // 헤더 1 + 본문 2
+  })
+})
+
+/*
+  표는 보유자를 지갑 주소로만 적는다. 주소는 사람이 외우는 값이 아니라서, 여러 보유자가
+  있으면 어느 줄이 내 것인지 읽어낼 수 없다 — 내가 산 수량을 확인하러 온 사람에게는
+  그 한 줄이 표의 전부다.
+*/
+describe('내 행', () => {
+  function signIn(id: number) {
+    useAuthStore.setState({
+      user: { id, name: '나', email: 'me@saeroi.test', role: 'BRAND', walletAddress: null },
+      accessToken: 'token',
+      isAuthenticated: true,
+    })
+  }
+
+  it('내 보유 행에만 표시를 단다', async () => {
+    signIn(2)
+    api.getMaterialBalances.mockResolvedValue([
+      balance({ ownerId: 1 }),
+      balance({ ownerId: 2, walletAddress: '0x1111111111111111111111111111111111111111' }),
+    ])
+    renderTable()
+
+    const rows = await screen.findAllByRole('row')
+    // rows[0] 은 헤더다.
+    expect(within(rows[2]).getByText('나')).toBeInTheDocument()
+    expect(within(rows[1]).queryByText('나')).not.toBeInTheDocument()
+  })
+
+  it('로그인하지 않았으면 어느 행에도 달지 않는다', async () => {
+    api.getMaterialBalances.mockResolvedValue([balance({ ownerId: 1 }), balance({ ownerId: 2 })])
+    renderTable()
+
+    await waitFor(() => expect(screen.getAllByRole('row')).toHaveLength(3))
+    expect(screen.queryByText('나')).not.toBeInTheDocument()
   })
 })

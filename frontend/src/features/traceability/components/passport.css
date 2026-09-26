@@ -269,7 +269,9 @@
   left: 50%;
   z-index: 0;
   height: 1px;
-  background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--stage-color) 58%, #fff) 0 4px, transparent 4px 8px);
+  /* 연결선은 상태와 무관하게 늘 중립이라 --stage-color를 거치지 않는다. 중립을 흰색에
+     섞으면 같은 값의 배경(--paper)에 묻혀 선이 사라진다. */
+  background: repeating-linear-gradient(90deg, var(--neutral-line) 0 4px, transparent 4px 8px);
   content: "";
 }
 
@@ -305,17 +307,21 @@
   place-items: center;
   width: 58px;
   height: 58px;
-  border: 5px solid #f8f5ee;
+  /* 원 하나 + 얇은 테두리 하나. 예전에는 두꺼운 배경색 링(5px)과 box-shadow 링이 겹쳐
+     이중 원으로 보였다. 전역 box-sizing: border-box라 테두리를 줄여도 58px 외곽과
+     연결선 위치(li::after의 top: 45px)는 그대로다. */
+  border: 1px solid var(--neutral-line);
   border-radius: 50%;
-  background: color-mix(in srgb, var(--stage-color) 16%, #fff);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--stage-color) 38%, transparent);
+  /* --paper로 주면 카드·페이지 배경과 같은 색이라 원이 사라진다. */
+  background: #fff;
   color: var(--stage-color);
-  transition: transform 200ms ease, background 200ms ease, box-shadow 200ms ease;
+  transition: transform 200ms ease, background 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
 }
 
 .journey-stepper button:hover .journey-stepper__icon,
 .journey-stepper button:focus-visible .journey-stepper__icon {
   transform: translateY(-2px);
+  border-color: var(--neutral-soft);
 }
 
 .journey-stepper button.is-active {
@@ -323,8 +329,11 @@
 }
 
 .journey-stepper button.is-active .journey-stepper__icon {
+  border-color: var(--stage-color);
   background: var(--stage-color);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--stage-color) 18%, transparent), 0 8px 20px color-mix(in srgb, var(--stage-color) 27%, transparent);
+  /* 링 + 글로우 두 겹이던 것을 그림자 하나로 줄인다. 선택된 단계를 가장 강하게 만드는
+     건 빛 번짐이 아니라 채워진 면과 흰 아이콘이다. */
+  box-shadow: 0 4px 14px rgb(9 46 70 / 14%);
   color: white;
 }
 
@@ -389,6 +398,17 @@
   font-weight: 750;
 }
 
+/*
+  두 뷰가 이 규칙 하나를 공유한다. 예전에는 Journey Map만 따로
+  `height: clamp(500px, 48vw, 650px)`를 썼는데, 두 뷰의 viewBox가 똑같이 1000×620이고
+  `preserveAspectRatio` 기본값이라 배율은 `min(박스폭/1000, 박스높이/620)`로 정해진다 —
+  박스 폭이 같으니 그려지는 배경 사각형 크기는 원래도 같았고, 다른 건 사각형 위아래에
+  남는 빈 띠(뷰포트에 따라 28~67px)뿐이었다. 그래서 뷰를 바꾸면 카드 높이가 최대
+  129px 달라지고 사각형이 그만큼 위아래로 튀었다. 높이를 지정하지 않으면 두 뷰 모두
+  viewBox 비율대로 높이를 잡아 빈 띠가 사라지고 전환할 때 아무것도 움직이지 않는다.
+  min-height는 좁은 데스크톱에서 캔버스가 납작해지는 걸 막는 하한이고, 두 뷰에 같은
+  값이라 띠가 생기더라도 대칭이고 서로 같다.
+*/
 .journey-canvas > svg {
   display: block;
   width: 100%;
@@ -428,28 +448,8 @@
   fill: #faf9f5;
 }
 
-.journey-flow-backdrop__stage rect {
-  fill: color-mix(in srgb, var(--stage-color) 13%, #fff);
-  stroke: color-mix(in srgb, var(--stage-color) 38%, transparent);
-}
-
-.journey-canvas--map > svg {
-  height: clamp(500px, 48vw, 650px);
-  max-height: 650px;
-}
-
-.journey-flow-backdrop__stage text {
-  fill: var(--stage-color);
-  font-size: 13px;
-  font-weight: 750;
-}
-
-.journey-flow-backdrop__icon {
-  color: var(--stage-color);
-}
-
 .journey-canvas__edge {
-  color: #aab6bf;
+  color: var(--neutral-line);
   opacity: 0.28;
   transition: opacity 200ms ease;
 }
@@ -540,28 +540,41 @@
 }
 
 .journey-node__halo {
-  fill: color-mix(in srgb, var(--node-color) 15%, transparent);
+  /* 반지름(r=34)은 JourneyExplorer의 MARKER_HALO_RADIUS와 짝이라 그대로 두고 투명도만
+     낮춘다 — r을 줄이면 마커 충돌 분산과 좌표 클램프가 어긋난다. */
+  fill: color-mix(in srgb, var(--node-color) 10%, transparent);
   opacity: 0;
   transform: scale(0.72);
   transition: opacity 180ms ease, transform 220ms ease;
 }
 
 .journey-node__body {
-  fill: color-mix(in srgb, var(--node-color) 83%, #fff);
-  stroke: white;
-  stroke-width: 4;
-  filter: drop-shadow(0 3px 5px rgba(31, 49, 62, 0.22));
-  transition: fill 180ms ease, transform 180ms ease;
+  fill: #fff;
+  stroke: var(--neutral-line);
+  stroke-width: 1.5;
+  filter: drop-shadow(0 2px 4px rgba(31, 49, 62, 0.1));
+  transition: fill 180ms ease, stroke 180ms ease, transform 180ms ease;
 }
 
-.journey-node.is-current .journey-node__body,
+/*
+  `is-current`는 "활성 단계의 노드"만이 아니라 그 단계 이동 간선에 걸린 노드까지
+  포함한다(JourneyExplorer의 connectedIds). 실제로 세어 보면 다섯 노드 중 넷까지
+  붙어서, 여기까지 전부 채우면 화면에 파란 덩어리가 넷이 되어 "선택된 하나가 가장
+  강하다"가 무너진다. 그래서 채우는 건 실제로 선택된 하나뿐이고 나머지는 파란 테두리로
+  한 단 낮춘다. 상태 판정 로직 자체는 그대로다.
+*/
+.journey-node.is-current .journey-node__body {
+  stroke: var(--node-color);
+}
+
 .journey-node.is-selected .journey-node__body {
   fill: var(--node-color);
+  stroke: var(--node-color);
 }
 
 .journey-node:hover .journey-node__body,
 .journey-node:focus-visible .journey-node__body {
-  transform: scale(1.08);
+  transform: scale(1.02);
 }
 
 .journey-node.is-selected .journey-node__halo {
@@ -570,15 +583,26 @@
   animation: journey-pulse 1.8s ease-in-out infinite;
 }
 
+/* 면이 흰색인 비활성 노드에 흰 아이콘을 그리면 아이콘이 통째로 사라진다 —
+   면이 채워지는 활성 상태에서만 흰색으로 뒤집는다. */
 .journey-node__icon {
-  color: white;
+  color: var(--neutral-ink);
   pointer-events: none;
+}
+
+.journey-node.is-current .journey-node__icon {
+  color: var(--node-color);
+}
+
+/* 면이 채워지는 건 선택된 하나뿐이라, 흰 아이콘으로 뒤집는 것도 여기뿐이다. */
+.journey-node.is-selected .journey-node__icon {
+  color: #fff;
 }
 
 .journey-node__stage-badge circle {
   fill: white;
   stroke: var(--node-color);
-  stroke-width: 2;
+  stroke-width: 1.5;
 }
 
 .journey-node__stage-badge text {
@@ -629,11 +653,13 @@
 .journey-canvas__legend i {
   display: block;
   width: 17px;
-  border-top: 2px dashed #aab6bf;
+  border-top: 2px dashed var(--neutral-line);
 }
 
+/* 이 페이지에는 about.css가 로드되지 않아 #216a9f가 --brand-blue(#1e6098)와 나란히
+   놓이면 한 화면에 미묘하게 다른 파랑이 둘이 된다. */
 .journey-canvas__legend i.is-active {
-  border-color: #216a9f;
+  border-color: var(--brand-blue);
 }
 
 .journey-detail {
@@ -658,8 +684,9 @@
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--stage-color) 15%, white);
-  color: var(--stage-color);
+  /* 상세 패널 헤더는 늘 선택된 단계다 — 스테퍼 활성 원과 같은 표현(채운 면 + 흰 아이콘). */
+  background: var(--stage-color);
+  color: #fff;
 }
 
 .journey-detail__header p,
@@ -1465,7 +1492,38 @@
 }
 
 /* Consumer palette only: map geometry, marker sizing and workspace stay unchanged. */
-.landing-page.passport { height: auto; min-height: 100vh; overflow: visible; color: var(--ink); background: var(--paper); }
+/*
+  따뜻한 중립 3색. 여정 화면에서 "지금 선택되지 않은 것"이 쓰는 색이고, landing.css가
+  주는 --brand-blue / --paper 계열을 대체하는 게 아니라 그 옆을 채운다 — 단계마다
+  다른 hue를 쓰던 자리를 이 중립 하나가 받는다. landing.css·about.css의 토큰 값은
+  다른 페이지가 함께 쓰므로 여기서 건드리지 않는다.
+*/
+.landing-page.passport {
+  --neutral-ink: #756f67;
+  --neutral-soft: #a79f93;
+  --neutral-line: #d8d2c8;
+  height: auto; min-height: 100vh; overflow: visible; color: var(--ink); background: var(--paper);
+}
+
+/*
+  단계 색은 단계가 아니라 **상태**가 정한다. 예전에는 JSX가 단계별 hue를 인라인
+  style로 --stage-color / --node-color / --edge-color에 주입했는데, 인라인이 CSS
+  규칙을 이기기 때문에 상태(활성·완료·비활성)로 색을 바꿀 방법이 없었고 다섯 단계가
+  각자 다른 hue를 흰색에 섞어 파스텔 무지개가 됐다. 주입을 걷어내고 같은 변수를
+  여기서 상태별로 정의한다 — 이 변수들을 읽는 기존 규칙 20여 개는 그대로 살아 있다.
+
+  --stage-color를 button이 아니라 li에 두는 이유는 단계 사이 점선 연결선
+  (.journey-stepper li::after)이 button 바깥이기 때문이다.
+*/
+.journey-stepper li { --stage-color: var(--neutral-ink); }
+.journey-stepper button.is-active { --stage-color: var(--brand-blue); }
+.journey-node { --node-color: var(--neutral-ink); }
+.journey-node.is-current,
+.journey-node.is-selected { --node-color: var(--brand-blue); }
+.journey-canvas__edge { --edge-color: var(--neutral-ink); }
+.journey-canvas__edge.is-active { --edge-color: var(--brand-blue); }
+/* 상세 패널은 언제나 "지금 선택된" 단계를 보여준다 — 비활성 상태가 없다. */
+.journey-detail { --stage-color: var(--brand-blue); }
 .passport button, .passport input, .passport select, .passport textarea { font-family: inherit; }
 .passport-brandbar { border-color: var(--line); background: var(--paper); backdrop-filter: none; }
 .passport-product, .passport .journey-canvas, .passport .journey-detail,
@@ -1491,7 +1549,6 @@
 .passport .journey-view-toggle button { color: var(--muted); }
 .passport .journey-view-toggle button.is-active { color: white; background: var(--brand-blue); box-shadow: none; }
 .passport .journey-view-toggle .journey-view-toggle__flow.is-active { color: var(--ink); background: var(--brand-orange); }
-.passport .journey-stepper__icon { border-color: var(--paper); }
 .passport .journey-detail__facts div, .passport .journey-detail__chips span { background: var(--paper-warm); color: var(--ink); }
 .passport .journey-detail__selector button { background: var(--paper); }
 .passport .journey-detail__proof-row { color: var(--brand-blue); background: var(--paper-warm); }

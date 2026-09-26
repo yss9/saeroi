@@ -2,6 +2,7 @@ import { useMemo, useState, type FormEvent } from 'react'
 import { ErrorMessage } from '../../../components/common/index.ts'
 import { usePredictionMarkets } from '../../prediction/hooks/usePredictionMarkets.ts'
 import {
+  useCancelPredictionMarket,
   useCreatePredictionMarket,
   usePredictionMarketEligibleBatches,
 } from '../hooks/useCreatePredictionMarket.ts'
@@ -22,6 +23,9 @@ function asServerDate(value: string): string {
 
 export function PredictionMarketCreatePanel() {
   const create = useCreatePredictionMarket()
+  const cancel = useCancelPredictionMarket()
+  /** 무효화 확인을 기다리는 시장. 한 번의 오조작으로 참여자 전원이 환불되는 것을 막는다. */
+  const [confirmingId, setConfirmingId] = useState<number | null>(null)
   const eligibleBatches = usePredictionMarketEligibleBatches()
   const markets = usePredictionMarkets()
   const [productionBatchId, setProductionBatchId] = useState('')
@@ -68,11 +72,7 @@ export function PredictionMarketCreatePanel() {
   return (
     <section className="admin-market" aria-labelledby="prediction-market-title">
       <header className="admin-market__header">
-        <div>
-          <p className="admin-market__eyebrow">SALES FORECAST</p>
-          <h1 id="prediction-market-title">예측시장 개설</h1>
-          <p>생산이 확정된 배치를 선택하고 베팅·판매 기간과 판매량 구간을 정합니다.</p>
-        </div>
+        <h1 id="prediction-market-title">예측시장 개설</h1>
         <span className="admin-market__count">개설 {markets.data?.length ?? 0}건</span>
       </header>
 
@@ -133,11 +133,42 @@ export function PredictionMarketCreatePanel() {
 
       {markets.data?.length ? <div className="admin-market__list">
         <h2>최근 개설 시장</h2>
+        <p className="admin-market__hint">
+          판매 기간이 끝나면 서버가 실제 판매 수량을 집계해 결과를 자동으로 확정합니다. 아래 버튼은
+          시장 자체를 없던 일로 돌릴 때만 씁니다.
+        </p>
         {markets.data.slice(0, 5).map((market) => <article key={market.id}>
           <div><strong>{market.productName}</strong><span>생산 배치 #{market.productionBatchId}</span></div>
           <span className={`admin-market__status admin-market__status--${market.status.toLowerCase()}`}>{market.status}</span>
+          {market.status === 'OPEN' ? (confirmingId === market.id ? (
+            <div className="admin-market__confirm" role="group" aria-label={`${market.productName} 무효화 확인`}>
+              <span>참여자 전원이 환불 대상이 됩니다. 되돌릴 수 없습니다.</span>
+              <button
+                type="button"
+                className="admin-market__cancel-confirm"
+                disabled={cancel.isPending}
+                onClick={() => cancel.mutate(market.id, { onSuccess: () => setConfirmingId(null) })}
+              >
+                {cancel.isPending ? '온체인 무효화 중…' : '무효화 실행'}
+              </button>
+              <button type="button" disabled={cancel.isPending} onClick={() => setConfirmingId(null)}>
+                그만두기
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="admin-market__cancel"
+              disabled={cancel.isPending}
+              onClick={() => setConfirmingId(market.id)}
+            >
+              무효화
+            </button>
+          )) : null}
         </article>)}
       </div> : null}
+
+      {cancel.error ? <ErrorMessage error={cancel.error} /> : null}
     </section>
   )
 }

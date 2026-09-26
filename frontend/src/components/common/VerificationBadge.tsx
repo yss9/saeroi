@@ -13,9 +13,9 @@ export type VerificationState =
 
 const LABEL: Record<VerificationState, string> = {
   REGISTERED: '등록됨',
-  SOURCE_VERIFIED: '출처 검증',
-  TRANSACTION_VERIFIED: '거래 검증',
-  PROCESSING_VERIFIED: '가공 검증',
+  SOURCE_VERIFIED: '출처 확인 완료',
+  TRANSACTION_VERIFIED: '거래 확인 완료',
+  PROCESSING_VERIFIED: '가공 확인 완료',
   PRODUCT_LINKED: '제품 연결',
 }
 

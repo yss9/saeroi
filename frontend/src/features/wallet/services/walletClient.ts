@@ -46,6 +46,8 @@ export interface WalletClient {
   restore(): Promise<void>
   /** 사용자 클릭에 반응해 연결한다. MetaMask 팝업이 뜬다. */
   connect(): Promise<void>
+  /** 이미 연결된 사이트에서 MetaMask 계정 선택 창을 다시 연다. */
+  selectAccount(): Promise<void>
   /**
    * 로컬 상태만 비운다.
    * dapp 이 지갑 연결을 강제로 끊는 표준 방법은 존재하지 않으므로,
@@ -195,6 +197,28 @@ export function createWalletClient(provider: EthereumProvider | null): WalletCli
       }
     },
 
+    async selectAccount() {
+      if (!provider) return
+      try {
+        // eth_accounts 권한을 다시 요청하면 MetaMask가 이 사이트에 허용할 계정을 사용자가
+        // 고를 수 있는 창을 연다. 주소 전환은 dapp이 아니라 지갑 소유자가 결정해야 한다.
+        await provider.request({
+          method: 'wallet_requestPermissions',
+          params: [{ eth_accounts: {} }],
+        })
+        const accounts = await provider.request({ method: 'eth_accounts' })
+        const address = firstAddress(accounts)
+        if (!address) {
+          emit({ status: 'disconnected', address: null, notice: 'failed' })
+          return
+        }
+        emit({ status: 'connected', address, chainId: await readChainId(), notice: null })
+      } catch (error) {
+        // 선택 취소는 현재 연결을 해제하지 않는다. 기존 주소는 유지하고 안내만 보여 준다.
+        emit({ notice: noticeFor(error) })
+      }
+    },
+
     disconnect() {
       emit({ status: 'disconnected', address: null, notice: null })
     },
@@ -234,4 +258,3 @@ export function createWalletClient(provider: EthereumProvider | null): WalletCli
     },
   }
 }
-

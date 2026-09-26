@@ -15,6 +15,7 @@ export interface UseWalletResult extends WalletState {
   /** 기대 체인 ID (16진수). 미설정이면 null. */
   expectedChainId: string | null
   connect: () => void
+  selectAccount: () => void
   disconnect: () => void
   switchChain: () => Promise<SwitchChainResult>
 }
@@ -50,6 +51,7 @@ export function useWallet(): UseWalletResult {
   }, [state.address, state.chainId, setWallet])
 
   const connect = useCallback(() => void client.connect(), [client])
+  const selectAccount = useCallback(() => void client.selectAccount(), [client])
   const disconnect = useCallback(() => client.disconnect(), [client])
   const switchChain = useCallback(
     () =>
@@ -67,6 +69,7 @@ export function useWallet(): UseWalletResult {
     wrongChain,
     expectedChainId: env.besuChainIdHex,
     connect,
+    selectAccount,
     disconnect,
     switchChain,
   }
@@ -82,13 +85,13 @@ export function useSwitchChainNotice() {
         setMessage(null)
         break
       case 'missing-rpc-url':
-        setMessage('네트워크 정보가 아직 설정되지 않았습니다. 관리자에게 문의하세요.')
+        setMessage('지갑 연결 환경이 아직 설정되지 않았습니다. 관리자에게 문의하세요.')
         break
       case 'rejected':
-        setMessage('네트워크 전환을 취소했습니다.')
+        setMessage('연결 환경 변경을 취소했습니다.')
         break
       default:
-        setMessage('네트워크를 전환하지 못했습니다.')
+        setMessage('연결 환경을 변경하지 못했습니다.')
     }
   }, [])
   return { message, report }

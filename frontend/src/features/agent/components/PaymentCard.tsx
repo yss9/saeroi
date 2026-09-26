@@ -1,0 +1,218 @@
+import { useState } from 'react'
+import { useCompleteAction } from '../hooks/useAgentConversation.ts'
+import { formatKg } from '../../../utils/quantity.ts'
+import type {
+  PendingAction,
+  ProcessingFeePayload,
+  PurchasePayload,
+} from '../types/agent.types.ts'
+
+/**
+ * 결제 확인 카드.
+ *
+ * <b>에이전트는 결제를 직접 하지 못한다.</b> 모델이 결제 tool 을 불러도 서버는 실행하지
+ * 않고 이 카드만 만든다. 담당자가 누른 뒤에야 거래가 생성되고 결제 세션이 열린다.
+ *
+ * 그래서 이 버튼을 누르는 순간 두 가지가 한 번에 일어난다 — 거래 생성과 결제 준비.
+ * 묶은 이유는 거래를 만들면 판매 잔여 수량이 즉시 줄어들기 때문이다. 거절하면 거래
+ * 자체가 만들어지지 않아 결제되지 않은 유령 거래가 남지 않는다.
+ */
+export function PaymentCard({ action }: { action: PendingAction }) {
+  const complete = useCompleteAction()
+  const [error, setError] = useState<string | null>(null)
+
+  const detail = parsePayload(action.payloadJson)
+
+  async function handlePay() {
+    setError(null)
+    try {
+      const updated = await complete.mutateAsync({ actionId: action.id })
+      // 서버가 거래를 만들고 결제 세션을 연다. 그 결과에서 결제창 주소를 꺼낸다.
+      const redirectUrl = findRedirectUrl(updated.actions, action.id)
+      if (redirectUrl) {
+        window.location.href = redirectUrl
+        return
+      }
+      setError('결제창 주소를 받지 못했습니다. 대화에서 다시 시도해 주세요.')
+    } catch {
+      // 도메인이 거절한 경우(재고 소진 등)는 서버가 대화에 이유를 남긴다.
+      setError('결제를 시작하지 못했습니다. 대화 내용을 확인해 주세요.')
+    }
+  }
+
+  const disabled = action.status !== 'PENDING' || complete.isPending
+
+  return (
+    <div className="agent-card agent-card--payment">
+      {/*
+        결제 카드는 소재 구매와 가공비 둘 다 쓴다. 제목과 항목이 같으면 담당자는 무엇에
+        돈을 내는지 카드만 보고 알 수 없다 — 두 결제는 금액대도 시점도 다르다.
+      */}
+      <p className="agent-card__title">
+        {action.toolName === 'pay_processing_fee' ? '가공비 결제' : '소재 구매 결제'}
+      </p>
+
+      <dl className="agent-card__detail">
+        {detail?.materialName && (
+          <>
+            <dt>소재</dt>
+            <dd>{detail.materialName}</dd>
+          </>
+        )}
+        {detail?.sellerName && (
+          <>
+            <dt>판매자</dt>
+            <dd>{detail.sellerName}</dd>
+          </>
+        )}
+        {(detail?.grade || detail?.originText || detail?.pricePerKg != null) && (
+          <>
+            <dt>판매 글</dt>
+            <dd>
+              {[
+                detail.grade && `${detail.grade}등급`,
+                detail.originText,
+                detail.pricePerKg != null && `kg당 ${detail.pricePerKg.toLocaleString()}원`,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </dd>
+          </>
+        )}
+        {detail?.quantityGram != null && (
+          <>
+            <dt>수량</dt>
+            <dd>{formatKg(detail.quantityGram)}</dd>
+          </>
+        )}
+        {detail?.totalPrice != null && (
+          <>
+            <dt>결제 금액</dt>
+            <dd>{detail.totalPrice.toLocaleString()} 원</dd>
+          </>
+        )}
+        {detail?.fee != null && (
+          <>
+            <dt>가공비</dt>
+            <dd>{detail.fee.toLocaleString()} 원</dd>
+          </>
+        )}
+        {/*
+          **배송지를 결제 전에 보인다.** 받는 분과 주소는 모델이 대화에서 받아 채운 값이다.
+          카드에 없으면 담당자는 어디로 배송되는지 확인하지 못한 채 결제하게 된다 — 모델이
+          기본 배송지를 조회하지 않고 지어내도 알아챌 자리가 없다.
+        */}
+        {detail?.receiverName && (
+          <>
+            <dt>받는 분</dt>
+            <dd>
+              {detail.receiverName}
+              {detail.receiverPhone ? ` · ${detail.receiverPhone}` : ''}
+            </dd>
+          </>
+        )}
+        {detail?.address && (
+          <>
+            <dt>배송지</dt>
+            <dd className="agent-card__address">
+              {[detail.zipCode && `(${detail.zipCode})`, detail.address, detail.addressDetail]
+                .filter(Boolean)
+                .join(' ')}
+            </dd>
+          </>
+        )}
+      </dl>
+
+      {/*
+        승인 전에는 인자를 그대로 보여준다. 모델이 쓴 요약이 아니라 실제 실행될 값이라야
+        담당자가 무엇에 동의하는지 정확히 안다.
+      */}
+      {!detail && <p className="agent-card__raw">{action.summary}</p>}
+
+      <StatusOrActions
+        action={action}
+        disabled={disabled}
+        busyLabel="결제창으로 이동 중…"
+        confirmLabel="결제하기"
+        onConfirm={handlePay}
+        isBusy={complete.isPending}
+      />
+
+      {error && <p className="agent-card__error">{error}</p>}
+    </div>
+  )
+}
+
+/** 카드가 이미 처리됐으면 상태만, 아니면 버튼을 보여준다. */
+export function StatusOrActions({
+  action,
+  disabled,
+  busyLabel,
+  confirmLabel,
+  onConfirm,
+  isBusy,
+  onReject,
+}: {
+  action: PendingAction
+  disabled: boolean
+  busyLabel: string
+  confirmLabel: string
+  onConfirm: () => void
+  isBusy: boolean
+  onReject?: () => void
+}) {
+  if (action.status === 'COMPLETED') {
+    return <p className="agent-card__status">완료되었습니다.</p>
+  }
+  if (action.status === 'REJECTED') {
+    return <p className="agent-card__status">취소했습니다.</p>
+  }
+  if (action.status === 'EXPIRED') {
+    return <p className="agent-card__status">기한이 지났습니다. 대화에서 다시 요청해 주세요.</p>
+  }
+  // 기한이 지난 것과 구분해서 말해야 한다. 이쪽은 다시 요청할 일이 아니라 이미 끝난 일이다.
+  if (action.status === 'STALE') {
+    return <p className="agent-card__status">이미 처리되어 더 할 일이 없습니다.</p>
+  }
+
+  return (
+    <div className="agent-card__actions">
+      <button type="button" onClick={onConfirm} disabled={disabled}>
+        {isBusy ? busyLabel : confirmLabel}
+      </button>
+      {onReject && (
+        <button type="button" className="agent-card__reject" onClick={onReject} disabled={disabled}>
+          취소
+        </button>
+      )}
+    </div>
+  )
+}
+
+function parsePayload(
+  payloadJson: string,
+): Partial<PurchasePayload & ProcessingFeePayload> | null {
+  try {
+    return JSON.parse(payloadJson) as Partial<PurchasePayload & ProcessingFeePayload>
+  } catch {
+    // 모델이 만든 인자라 형태가 어긋날 수 있다. 그때는 summary 를 그대로 보여준다.
+    return null
+  }
+}
+
+/**
+ * 완료 응답에서 이 카드의 결제창 주소를 찾는다.
+ *
+ * `payloadJson`(모델이 만든 인자)이 아니라 `resultJson`(서버가 실행한 결과)에서 읽는다 —
+ * 결제 세션은 승인 시점에 서버가 열기 때문이다.
+ */
+function findRedirectUrl(actions: PendingAction[], actionId: number): string | null {
+  const updated = actions.find((candidate) => candidate.id === actionId)
+  if (!updated?.resultJson) return null
+  try {
+    const result = JSON.parse(updated.resultJson) as { redirectUrl?: string }
+    return result.redirectUrl ?? null
+  } catch {
+    return null
+  }
+}

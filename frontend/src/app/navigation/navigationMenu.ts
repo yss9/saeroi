@@ -210,10 +210,12 @@ export const ROLE_HOME_MENU_ITEMS: readonly NavigationMenuItem[] = [
   { label: '마이페이지', to: '/company/account', Icon: Buildings },
 ]
 
-/** 사업자 셸 안에서 소비자·관리자에게 필요한 계정 메뉴 후보. */
+/** 사업자 셸 안에서 소비자·관리자에게 필요한 사이드바 메뉴 후보. */
 export const ACCOUNT_MENU_ITEMS: readonly NavigationMenuItem[] = [
   { label: '마이페이지', to: '/mypage', Icon: UserCircle },
-  { label: '관리자 페이지', to: '/admin', Icon: ShieldCheck },
+  { label: '사업자 가입 승인', to: '/admin/company-role-applications', Icon: IdentificationCard },
+  { label: '예측시장 개설', to: '/admin/prediction-markets', Icon: ClipboardText },
+  { label: '블록체인 검증', to: '/admin/blockchain', Icon: ShieldCheck },
 ]
 
 /** 메뉴 경로가 routes.tsx 에 실제로 있는지 검사하는 테스트용 전체 목록. */

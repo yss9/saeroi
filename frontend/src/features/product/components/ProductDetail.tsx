@@ -82,7 +82,7 @@ function StockNotice({ product }: { product: ProductModel }) {
   if (product.status === 'DRAFT') {
     return (
       <p className="product-detail__stock product-detail__stock--muted">
-        아직 판매를 시작하지 않은 제품입니다. 생산으로 개체가 만들어진 뒤 판매가 시작됩니다.
+        아직 판매를 시작하지 않은 제품입니다. 생산 제품이 등록된 뒤 판매가 시작됩니다.
       </p>
     )
   }

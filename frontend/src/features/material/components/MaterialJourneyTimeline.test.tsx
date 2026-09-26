@@ -66,7 +66,7 @@ describe('정렬', () => {
     const items = await screen.findAllByRole('listitem')
     expect(items.map((item) => item.textContent)).toEqual([
       expect.stringContaining('소재 등록'),
-      expect.stringContaining('출처 검증'),
+      expect.stringContaining('출처 확인 완료'),
       expect.stringContaining('판매 등록'),
     ])
   })

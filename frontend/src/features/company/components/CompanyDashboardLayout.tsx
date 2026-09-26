@@ -124,8 +124,10 @@ export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps
   }
 
 
+  // data-role 이 역할 테마를 고른다(company-dashboard.css). 로그인 전이거나 소비자·관리자면
+  // 속성이 붙지 않아 기본 테마가 그대로 남는다.
   return (
-    <div className="company-dashboard">
+    <div className="company-dashboard" data-role={user?.role}>
       <a className="company-dashboard__skip-link" href="#company-dashboard-content">본문으로 이동</a>
 
       <header className="company-dashboard__header">
@@ -241,7 +243,7 @@ export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps
         <main id="company-dashboard-content" className="company-dashboard__content">
           {isBusinessUser && roleApprovalStatus && roleApprovalStatus !== 'APPROVED' ? (
             <div className="company-dashboard__approval-notice" role="status">
-              <strong>{roleApprovalStatus === 'REJECTED' ? '사업자 역할 승인이 반려되었습니다.' : '사업자 역할 승인 대기 중입니다.'}</strong>
+              <strong>{roleApprovalStatus === 'REJECTED' ? '사업자 가입이 거절되었습니다.' : '사업자 가입 승인 대기 중입니다.'}</strong>
               <span>회사 정보와 지갑 연결을 확인해 주세요. 관리자 승인 완료 후 업무 메뉴가 열립니다.</span>
             </div>
           ) : null}

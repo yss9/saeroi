@@ -7,7 +7,7 @@ import type { CompanyRoleApprovalStatus } from '../types/companyRoleApproval.typ
 import './company-role-approval.css'
 
 const STATUS_LABEL: Record<CompanyRoleApprovalStatus, string> = {
-  WAITING_WALLET: '지갑 등록 대기', PENDING: '승인 대기', APPROVED: '승인 완료', REJECTED: '반려',
+  WAITING_WALLET: '지갑 등록 대기', PENDING: '승인 대기', APPROVED: '승인 완료', REJECTED: '가입 거절',
 }
 
 export function CompanyRoleApprovalPanel() {
@@ -22,7 +22,7 @@ export function CompanyRoleApprovalPanel() {
   return (
     <section className="admin-role" aria-labelledby="company-role-title">
       <header className="admin-role__header">
-        <div><p className="admin-role__eyebrow">BLOCKCHAIN ACCESS</p><h1 id="company-role-title">사업자 가입 승인</h1><p>빠진 온체인 역할이 있을 때만 MetaMask 서명이 뜹니다. 이미 부여된 역할은 다시 서명하지 않고 확인한 뒤 승인합니다.</p></div>
+        <h1 id="company-role-title">사업자 가입 승인</h1>
         <span className="admin-role__count">{applications.data?.length ?? 0}개 업체</span>
       </header>
 
@@ -37,11 +37,11 @@ export function CompanyRoleApprovalPanel() {
               </span>
               <h2>{application.companyName}</h2><p>{ROLE_LABEL[application.role]} · {application.businessNumber}</p>
             </div><dl><div><dt>대표자</dt><dd>{application.representativeName}</dd></div><div><dt>이메일</dt><dd>{application.email}</dd></div></dl></div>
-            <div className="admin-role__wallet"><Wallet aria-hidden="true" /><div><span>검증 지갑</span><code title={application.walletAddress ?? undefined}>{application.walletAddress ? shortenAddress(application.walletAddress) : '등록되지 않음'}</code></div></div>
-            {application.transactionHashes.length > 0 ? <p className="admin-role__transactions">온체인 반영 {application.transactionHashes.length}건 완료</p> : null}
+            <div className="admin-role__wallet"><Wallet aria-hidden="true" /><div><span>등록 지갑</span><code title={application.walletAddress ?? undefined}>{application.walletAddress ? shortenAddress(application.walletAddress) : '등록되지 않음'}</code></div></div>
+            {application.transactionHashes.length > 0 ? <p className="admin-role__transactions">권한 등록 {application.transactionHashes.length}건 완료</p> : null}
             <div className="admin-role__actions">
-              <button type="button" className="admin-role__reject" disabled={working || application.status === 'APPROVED'} onClick={() => reject.mutate(application.userId)}>반려</button>
-              <button type="button" className="admin-role__approve" disabled={working || !canApprove} onClick={() => approve.mutate(application)}>{working ? '온체인 권한 확인 중…' : application.status === 'APPROVED' ? '승인 완료' : '온체인 권한 확인 후 승인'}</button>
+              <button type="button" className="admin-role__reject" disabled={working || application.status === 'APPROVED'} onClick={() => reject.mutate(application.userId)}>가입 거절</button>
+              <button type="button" className="admin-role__approve" disabled={working || !canApprove} onClick={() => approve.mutate(application)}>{working ? '권한 등록 중…' : application.status === 'APPROVED' ? '승인 완료' : '권한 등록 후 승인'}</button>
             </div>
           </article>
         })}

@@ -133,7 +133,7 @@ export function BrandProcessingRequestDetail({ requestId }: Props) {
           {/* 소재 발송은 발송 서명까지 거친다. 그 단계는 작업 상세(useProcessingJobs)에만
               있다 — 여기서 다시 만들면 온체인 서명 없이 상태만 SHIPPED 로 바뀌는 두 번째
               발송 경로가 생긴다. */}
-          <span>가공사가 요청을 수락했습니다. 소재 발송은 작업 상세에서 온체인으로 진행합니다.</span>
+          <span>가공사가 요청을 수락했습니다. 작업 상세에서 소재를 발송해 주세요.</span>
           <Link to={`/processing/jobs/${job.jobId}`}>소재 발송하기</Link>
         </div>
       )}
