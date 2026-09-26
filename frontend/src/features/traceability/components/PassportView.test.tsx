@@ -176,7 +176,42 @@ describe('PassportView', () => {
     expect(screen.queryByText('검증된 업사이클 제품')).not.toBeInTheDocument()
   })
 
-  it('원단 등록·운송 단계에서는 여정 전체 지점을 미리 보여준다', async () => {
+  it('가공 전에 브랜드 수령 지점을 별도 단계로 보여준다', async () => {
+    const user = userEvent.setup()
+    const baseJourney = journey()
+    api.getPassport.mockResolvedValue(passport({
+      journey: {
+        ...baseJourney,
+        stages: baseJourney.stages.map((stage) => stage.stage === 'COLLECTION'
+          ? { ...stage, nodeIds: ['collection-brand'], edgeIds: ['supplier-to-brand'] }
+          : stage),
+        nodes: [
+          ...baseJourney.nodes,
+          node({
+            nodeId: 'collection-brand',
+            stage: 'COLLECTION',
+            companyName: 'ReWeave',
+            companyRole: 'BRAND',
+            description: '브랜드 소재 수령',
+            materials: [{ name: '폐데님 A', materialType: 'DENIM', rootOrigin: 'WASTE', batchQuantityGrams: 800 }],
+          }),
+        ],
+        edges: [
+          { edgeId: 'supplier-to-brand', fromNodeId: 'source-a', toNodeId: 'collection-brand', stage: 'COLLECTION', materialName: '폐데님 A', materialType: 'DENIM', shippedAt: '2026-09-02T00:00:00', receivedAt: '2026-09-03T00:00:00', status: 'COMPLETED' },
+          { edgeId: 'brand-to-process', fromNodeId: 'collection-brand', toNodeId: 'process-a', stage: 'PROCESSING', materialName: '폐데님 A', materialType: 'DENIM', shippedAt: '2026-09-04T00:00:00', receivedAt: '2026-09-05T00:00:00', status: 'COMPLETED' },
+        ],
+      },
+    }))
+    const { container } = renderView()
+
+    const collectionStep = await screen.findByRole('button', { name: /브랜드 수령 완료/ })
+    await user.click(collectionStep)
+    expect(container.querySelector('.journey-detail__body')).toHaveTextContent('ReWeave')
+    expect(container.querySelector('.journey-detail__body')).toHaveTextContent('브랜드 소재 수령')
+    expect(screen.getByText('1개의 수령·이동 기록')).toBeInTheDocument()
+  })
+
+  it('원단 등록·브랜드 수령 단계에서는 여정 전체 지점을 미리 보여준다', async () => {
     const user = userEvent.setup()
     const { container } = renderView()
     await screen.findByRole('heading', { name: 'RE:BAG' })
@@ -187,8 +222,8 @@ describe('PassportView', () => {
     expect(container.querySelector('[data-node-id="process-a"]')).toBeInTheDocument()
     expect(container.querySelector('[data-edge-id="brand-a"]')).toBeInTheDocument()
 
-    // 운송으로 옮겨도 마찬가지다.
-    await user.click(screen.getByRole('button', { name: /운송 완료/ }))
+    // 브랜드 수령으로 옮겨도 마찬가지다.
+    await user.click(screen.getByRole('button', { name: /브랜드 수령 완료/ }))
     expect(container.querySelector('[data-node-id="process-a"]')).toBeInTheDocument()
     expect(container.querySelector('[data-edge-id="brand-a"]')).toBeInTheDocument()
 
@@ -401,20 +436,19 @@ describe('PassportView', () => {
     expect(screen.getByRole('button', { name: '에코사이클' })).toHaveClass('is-active')
   })
 
-  it('운송 단계에 업체 노드를 만들지 않고 업체 사이 이동 기록만 보여준다', async () => {
+  it('거래 수령 기록이 없는 기존 운송 단계는 이동 기록만 보여준다', async () => {
     const user = userEvent.setup()
     const { container } = renderView()
     await screen.findByRole('heading', { name: 'RE:BAG' })
 
-    await user.click(screen.getByRole('button', { name: /운송 완료/ }))
-    expect(screen.getByText('2개의 이동 기록')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /브랜드 수령 완료/ }))
+    expect(screen.getByText('2개의 수령·이동 기록')).toBeInTheDocument()
     expect(container.querySelector('.journey-detail__selector')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^서울 원단 공급처$/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^그린텍스$/ })).not.toBeInTheDocument()
 
-    // 운송을 대신하는 가상의 업체를 만들지 않고 이동선 자체를 그 단계로 돌린다 —
-    // 백엔드가 이 단계의 nodeIds를 비워 내려주기 때문이다. 좌표 없는 노드가 빠지는
-    // Journey Map에서 세면 없는 게 당연해지므로, 모든 노드를 그리는 Flow View에서 센다.
+    // 거래가 없는 자가 보유 소재에는 브랜드 수령 노드를 지어내지 않는다. 좌표 없는 노드가
+    // 빠지는 Journey Map 대신, 모든 노드를 그리는 Flow View에서 없는 것을 확인한다.
     await user.click(screen.getByRole('button', { name: '흐름 보기' }))
     expect(container.querySelectorAll('[data-node-stage="COLLECTION"]')).toHaveLength(0)
   })

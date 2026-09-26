@@ -644,7 +644,10 @@ function JourneyDetailPanel({
       ) : null}
 
       {detailStage === 'COLLECTION'
-        ? <CollectionDetail edges={edges} journey={journey} />
+        ? <>
+            {selectedStageNode ? <NodeDetail node={selectedStageNode} /> : null}
+            <CollectionDetail edges={edges} journey={journey} />
+          </>
         : selectedStageNode
           ? <NodeDetail node={selectedStageNode} />
           : <p className="journey-detail__empty">등록된 단계 정보가 없습니다.</p>}
@@ -792,7 +795,7 @@ function CollectionDetail({
   if (edges.length === 0) return <p className="journey-detail__empty">등록된 이동 기록이 없습니다.</p>
   return (
     <section className="journey-detail__movements">
-      <h3>{edges.length}개의 이동 기록</h3>
+      <h3>{edges.length}개의 수령·이동 기록</h3>
       <ul>
         {edges.map((edge) => {
           const from = journey.nodes.find((node) => node.nodeId === edge.fromNodeId)
