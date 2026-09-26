@@ -1114,3 +1114,61 @@ CREATE TABLE user_notification (
     INDEX idx_user_notification_recipient_created (recipient_id, created_at, id),
     INDEX idx_user_notification_recipient_read (recipient_id, read_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- BRAND agent conversation ---------------------------------------------------
+--
+-- 대화형 에이전트의 세션·이력·대기 액션. phase/status/action_type 이 VARCHAR 인 이유와
+-- JSON 성격 컬럼이 TEXT 인 이유는 db/migrations/2026-09-18-brand-agent-conversation.sql 참고.
+
+CREATE TABLE agent_conversation (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    brand_user_id BIGINT NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    phase VARCHAR(40) NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    requirement_json TEXT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    active_brand_user_id BIGINT GENERATED ALWAYS AS (CASE WHEN status = 'ACTIVE' THEN brand_user_id ELSE NULL END),
+    CONSTRAINT pk_agent_conversation PRIMARY KEY (id),
+    CONSTRAINT uk_agent_conversation_active UNIQUE (active_brand_user_id),
+    CONSTRAINT fk_agent_conversation_brand FOREIGN KEY (brand_user_id) REFERENCES users (id),
+    INDEX idx_agent_conversation_brand (brand_user_id, updated_at, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE agent_message (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    conversation_id BIGINT NOT NULL,
+    role VARCHAR(20) NOT NULL,
+    sequence_no INT NOT NULL,
+    content TEXT NULL,
+    tool_name VARCHAR(100) NULL,
+    tool_call_id VARCHAR(100) NULL,
+    tool_payload_json TEXT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT pk_agent_message PRIMARY KEY (id),
+    CONSTRAINT uk_agent_message_sequence UNIQUE (conversation_id, sequence_no),
+    CONSTRAINT fk_agent_message_conversation FOREIGN KEY (conversation_id) REFERENCES agent_conversation (id),
+    INDEX idx_agent_message_conversation (conversation_id, sequence_no)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE agent_pending_action (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    conversation_id BIGINT NOT NULL,
+    message_id BIGINT NOT NULL,
+    action_type VARCHAR(40) NOT NULL,
+    tool_name VARCHAR(100) NOT NULL,
+    summary VARCHAR(500) NOT NULL,
+    payload_json TEXT NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    result_json TEXT NULL,
+    step_total INT NOT NULL DEFAULT 1,
+    step_done INT NOT NULL DEFAULT 0,
+    expires_at DATETIME NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT pk_agent_pending_action PRIMARY KEY (id),
+    CONSTRAINT fk_agent_pending_action_conversation FOREIGN KEY (conversation_id) REFERENCES agent_conversation (id),
+    CONSTRAINT fk_agent_pending_action_message FOREIGN KEY (message_id) REFERENCES agent_message (id),
+    INDEX idx_agent_pending_action_conversation (conversation_id, status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

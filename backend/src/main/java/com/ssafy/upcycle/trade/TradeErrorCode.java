@@ -101,6 +101,39 @@ public enum TradeErrorCode implements ErrorCode {
             HttpStatus.FORBIDDEN, "NOT_TRADE_SELLER", "판매자만 처리할 수 있는 거래입니다."),
     TRADE_NOT_SHIPPABLE(
             HttpStatus.BAD_REQUEST, "TRADE_NOT_SHIPPABLE", "결제가 완료된 거래만 발송할 수 있습니다."),
+    /**
+     * 온체인 주문 없이 발송하려 한 경우.
+     *
+     * <p>컨트랙트의 {@code markShipped(orderId)} 는 그 번호 없이는 부를 수도 없다. 서버만
+     * 앞서 나가면 DB 는 발송·수령까지 끝나는데 체인은 그 거래를 모르는 상태가 굳는다 —
+     * 그 소재를 나중에 가공에 보낼 때 insufficient material 로 거절당해서야 드러난다.
+     */
+    /**
+     * 체인에 수령이 남기 전에 DB 수령을 확정하려 한 경우.
+     *
+     * <p>가공이 이미 이 순서다 — 서명하고 그 영수증을 서버가 체인에서 확인한 뒤에야 소재를
+     * 발행한다({@code ProcessingChainService#receiveReturn}). 소재 거래만 반대여서, 서명을
+     * 끄면 DB 는 소유권을 옮겼는데 체인은 모르는 상태가 됐다.
+     */
+    TRADE_CHAIN_RECEIPT_REQUIRED(
+            HttpStatus.UNPROCESSABLE_ENTITY,
+            "TRADE_CHAIN_RECEIPT_REQUIRED",
+            "수령을 블록체인에 먼저 서명해야 합니다."),
+    /**
+     * 체인에 발송이 남기 전에 DB 발송을 기록하려 한 경우.
+     *
+     * <p>서명을 끄면 DB 는 SHIPPED 인데 체인은 CREATED 로 남는다. 그러면 구매자가 수령
+     * 서명을 할 수 없다 — 컨트랙트의 {@code confirmReceipt} 는 체인이 SHIPPED 일 때만
+     * 받는다. 판매자가 나중에 서명하면 풀리지만, 그동안 거래가 멈춘다.
+     */
+    TRADE_CHAIN_SHIPMENT_REQUIRED(
+            HttpStatus.UNPROCESSABLE_ENTITY,
+            "TRADE_CHAIN_SHIPMENT_REQUIRED",
+            "발송을 블록체인에 먼저 서명해야 합니다."),
+    TRADE_CHAIN_ORDER_REQUIRED(
+            HttpStatus.UNPROCESSABLE_ENTITY,
+            "TRADE_CHAIN_ORDER_REQUIRED",
+            "온체인 주문 기록이 끝난 뒤에 발송할 수 있습니다."),
     TRADE_ALREADY_SHIPPED(
             HttpStatus.CONFLICT, "TRADE_ALREADY_SHIPPED", "이미 발송 처리된 거래입니다."),
     TRADE_SHIPPING_NOT_FOUND(

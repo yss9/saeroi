@@ -1,5 +1,6 @@
 package com.ssafy.upcycle.trade.service;
 
+import com.ssafy.upcycle.blockchain.service.ChainOrderStatusReader;
 import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.material.entity.MaterialBalance;
 import com.ssafy.upcycle.material.entity.MaterialLock;
@@ -35,6 +36,11 @@ import org.springframework.transaction.annotation.Transactional;
  *   material_balance  판매자 차감 / 구매자 증가
  *   material_lock     거래 수량만큼 감소, 다 쓰면 CONSUMED
  * </pre>
+ *
+ * <p><b>서명이 먼저다.</b> 체인에 수령이 남아 있어야 이 메서드가 통과한다
+ * ({@link #requireChainReceipt}). 가공이 이미 그 순서이고, 반대로 두면 담당자가 서명 창을
+ * 끈 거래가 DB 만 앞서 나간 상태로 남는다 — 그 어긋남은 한참 뒤 그 소재를 가공에 보낼 때
+ * insufficient material 로 드러난다.
  */
 @Service
 @RequiredArgsConstructor
@@ -48,9 +54,10 @@ public class TradeReceiptService {
     private final Clock clock;
     private final MaterialEventRecorder eventRecorder;
     private final TradeNotificationService businessNotifications;
+    private final ChainOrderStatusReader chainOrders;
 
     /**
-     * 구매자가 수령을 확인하고 서명한다.
+     * 구매자가 수령을 확정한다. <b>체인에 수령이 먼저 남아 있어야 한다.</b>
      *
      * <p>거래 행을 비관적으로 잠그고 시작한다. 상태 검사만으로는 동시에 들어온 두 요청이
      * 같은 SHIPPED 를 읽는 것을 막지 못해 보유량이 두 배로 이전될 수 있다.
@@ -62,6 +69,7 @@ public class TradeReceiptService {
 
         requireBuyer(trade, buyerId);
         requireReceivable(trade);
+        requireChainReceipt(trade);
 
         TradeShipping shipping = tradeShippingRepository.findByTradeId(tradeId)
                 .orElseThrow(() -> new BusinessException(TradeErrorCode.TRADE_SHIPPING_NOT_FOUND));
@@ -75,7 +83,10 @@ public class TradeReceiptService {
                 TradeErrorCode.SELLER_BALANCE_INSUFFICIENT);
 
         LocalDateTime now = LocalDateTime.now(clock);
-        trade.confirmReceipt(now, now);
+        trade.confirmReceipt(now);
+        // 서명 시각은 requireChainReceipt 가 체인에서 확인한 뒤에만 여기 온다. 그래서
+        // 이 자리에서 채우는 것이 거짓이 아니다 — 체인에 수령이 남아 있다는 뜻이다.
+        trade.markBuyerSigned(now);
         shipping.markDelivered(now);
         lock.decreaseBy(trade.getQuantity(), now);
         sellerBalance.decrease(trade.getQuantity());
@@ -167,4 +178,34 @@ public class TradeReceiptService {
             throw new BusinessException(errorCode);
         }
     }
+
+    /**
+     * 체인에 수령이 남아 있는가. <b>서명이 먼저다.</b>
+     *
+     * <p>가공이 이미 이 순서다 — 서명하고 그 영수증을 서버가 체인에서 확인한 뒤에야 소재를
+     * 발행한다({@code ProcessingChainService#receiveReturn}). 소재 거래만 반대여서, 담당자가
+     * 수령 확인을 누른 뒤 서명 창을 끄면 DB 는 소유권을 옮겼는데 체인은 모르는 상태가 됐다.
+     * 그 어긋남은 한참 뒤 그 소재를 가공에 보낼 때 insufficient material 로 드러났다.
+     *
+     * <p><b>체인 조회가 흔들리면 막는다.</b> 통과시키면 어긋남이 생기고, 그건 나중에 되돌릴
+     * 수 없다. 막으면 담당자가 잠시 기다렸다 다시 누르면 된다 — 어느 쪽이 더 나쁜지가
+     * 분명하다.
+     *
+     * <p>다만 <b>체인을 아예 쓰지 않는 환경은 구분한다.</b> 설정이 비어 있으면 어긋날 대상이
+     * 없고, 그때까지 막으면 로컬·테스트에서 수령 확정이 통째로 불가능해진다.
+     */
+    private void requireChainReceipt(MaterialTrade trade) {
+        if (!chainOrders.canRead()) {
+            // 체인을 아예 쓰지 않는 환경이다(설정이 비어 있다). 어긋날 대상이 없으므로
+            // 막지 않는다 — 막으면 로컬·테스트에서 수령 확정이 통째로 불가능해진다.
+            return;
+        }
+        if (trade.getChainTradeId() == null) {
+            throw new BusinessException(TradeErrorCode.TRADE_CHAIN_ORDER_REQUIRED);
+        }
+        if (!chainOrders.alreadyReceived(trade.getChainTradeId())) {
+            throw new BusinessException(TradeErrorCode.TRADE_CHAIN_RECEIPT_REQUIRED);
+        }
+    }
+
 }

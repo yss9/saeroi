@@ -4,6 +4,7 @@ import static com.ssafy.upcycle.processing.ProcessingErrorCode.*;
 
 import com.ssafy.upcycle.blockchain.entity.BlockchainReferenceType;
 import com.ssafy.upcycle.blockchain.service.ChainTransactionRecorder;
+import com.ssafy.upcycle.blockchain.service.ProcessingChainTxFinder;
 import com.ssafy.upcycle.blockchain.service.ProcessingReceiptVerifier;
 import com.ssafy.upcycle.blockchain.service.ProcessingReceiptVerifier.Action;
 import com.ssafy.upcycle.blockchain.service.ProcessingReceiptVerifier.VerifiedReceipt;
@@ -25,6 +26,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -45,6 +47,7 @@ public class ProcessingChainService {
     private final ProcessingNotificationService businessNotifications;
     private final ChainTransactionRecorder recorder;
     private final ProcessingReceiptVerifier receiptVerifier;
+    private final ProcessingChainTxFinder txFinder;
     private final EvidenceFileRepository evidenceFiles;
     private final Clock clock;
 
@@ -57,7 +60,13 @@ public class ProcessingChainService {
         ProcessingInput input = requireInput(jobId);
         Material material = materials.findById(input.getMaterialId())
                 .orElseThrow(() -> new BusinessException(PROCESSING_MATERIAL_NOT_FOUND));
-        if (material.getTokenId() == null) throw new BusinessException(PROCESSING_INVALID_STATE);
+        // **원인을 말하는 코드로 던진다.** PROCESSING_INVALID_STATE 는 이 파일에서만 열 곳
+        // 넘게 쓰여 "현재 상태에서는 가공 요청을 변경할 수 없습니다" 하나로 뭉쳐 나간다.
+        // 자투리 500g 으로 가공을 맡겼다가 인계 서명에서 그 문구를 받은 담당자는 무엇이
+        // 잘못됐는지 알 수 없었다 — 이미 가공비를 결제하고 업체가 수락한 뒤였다.
+        if (material.getTokenId() == null) {
+            throw new BusinessException(PROCESSING_MATERIAL_NOT_ON_CHAIN);
+        }
         requests.findById(job.getProcessingRequestId())
                 .orElseThrow(() -> new BusinessException(PROCESSING_REQUEST_NOT_FOUND));
         return new ProcessingChainPreparationResponse(job.getId(), job.getChainJobId(), job.getStatus(),
@@ -84,13 +93,14 @@ public class ProcessingChainService {
     public ProcessingJobResponse receive(Long actorId, Long jobId, ProcessingReceiveConfirmRequest request) {
         ProcessingJob job = lockJob(jobId); requireProcessor(job, actorId);
         if (job.getReceiveTxHash() != null) {
-            if (job.getReceiveTxHash().equalsIgnoreCase(request.txHash())) return response(job);
+            if (sameOrMissing(job.getReceiveTxHash(), request.txHash())) return response(job);
             throw new BusinessException(PROCESSING_INVALID_STATE);
         }
         if (job.getChainJobId() == null || job.getStatus() != ProcessingJobStatus.SHIPPED)
             throw new BusinessException(PROCESSING_INVALID_STATE);
         ProcessingInput input = requireInput(jobId);
-        VerifiedReceipt receipt = receiptVerifier.verifyReceipt(request.txHash(), job.getChainJobId(),
+        String txHash = signedTx(request.txHash(), job, Action.RECEIVE);
+        VerifiedReceipt receipt = receiptVerifier.verifyReceipt(txHash, job.getChainJobId(),
                 job.getProcessorWallet(), Action.RECEIVE, null, 1);
         MaterialLock brandLock = exactActiveLock(input.getBrandMaterialLockId());
         if (!brandLock.getOwnerId().equals(job.getBrandId()) || !brandLock.getMaterialId().equals(input.getMaterialId()))
@@ -107,8 +117,8 @@ public class ProcessingChainService {
                 jobId, null));
         replacement.linkChainLock(receipt.processorLockId());
         input.linkProcessorLock(replacement.getId());
-        job.receiveOnChain(request.txHash(), receipt.blockNumber(), now);
-        record(actorId, "confirmReceipt", jobId, request.txHash());
+        job.receiveOnChain(txHash, receipt.blockNumber(), now);
+        record(actorId, "confirmReceipt", jobId, txHash);
         eventRecorder.record(input.getMaterialId(), MaterialEventType.OWNERSHIP_TRANSFERRED, actorId,
                 MaterialEventReferenceType.PROCESSING_JOB, jobId, null, input.getQuantity(),
                 "가공업체 수령 확인으로 입력 소재 소유권 이전",
@@ -137,14 +147,15 @@ public class ProcessingChainService {
     public ProcessingJobResponse receiveReturn(Long actorId, Long jobId, ProcessingReturnReceiveRequest request) {
         ProcessingJob job = lockJob(jobId); requireBrand(job, actorId);
         if (job.getReturnReceiveTxHash() != null) {
-            if (job.getReturnReceiveTxHash().equalsIgnoreCase(request.txHash())) return response(job);
+            if (sameOrMissing(job.getReturnReceiveTxHash(), request.txHash())) return response(job);
             throw new BusinessException(PROCESSING_INVALID_STATE);
         }
         ProcessingInput input = requireInput(jobId);
         List<ProcessingOutput> result = outputs.findAllByProcessingJobIdOrderById(jobId);
         if (job.getStatus() != ProcessingJobStatus.RETURN_SHIPPED || result.isEmpty())
             throw new BusinessException(PROCESSING_RESULT_INVALID);
-        VerifiedReceipt receipt = receiptVerifier.verifyReceipt(request.txHash(), job.getChainJobId(),
+        String txHash = signedTx(request.txHash(), job, Action.APPROVE);
+        VerifiedReceipt receipt = receiptVerifier.verifyReceipt(txHash, job.getChainJobId(),
                 job.getBrandWallet(), Action.APPROVE, null, result.size());
         MaterialLock lock = exactActiveLock(input.getProcessorMaterialLockId());
         MaterialBalance processor = balances.findForUpdate(input.getMaterialId(), job.getProcessorId())
@@ -169,8 +180,8 @@ public class ProcessingChainService {
             lineageRegistrar.link(child.getId(), parent.getId(), MaterialLineageRelationType.PROCESSING, jobId);
             row.linkMaterial(child.getId());
         }
-        job.confirmReturn(request.txHash(), receipt.blockNumber(), null, now);
-        record(actorId, "approveProcessingResult", jobId, request.txHash());
+        job.confirmReturn(txHash, receipt.blockNumber(), null, now);
+        record(actorId, "approveProcessingResult", jobId, txHash);
         eventRecorder.record(parent.getId(), MaterialEventType.PROCESSING_RESULT_APPROVED, actorId,
                 MaterialEventReferenceType.PROCESSING_JOB, jobId, null, input.getQuantity(),
                 "Brand 가공 결과 수령 및 승인",
@@ -212,6 +223,26 @@ public class ProcessingChainService {
                 "반려된 가공 입력 소재를 Brand에게 반환",
                 MaterialEventRecorder.key(MaterialEventType.PROCESSING_INPUT_RETURNED, input.getMaterialId(), jobId));
         return response(job);
+    }
+
+    /**
+     * 이 단계의 서명 거래. 화면이 해시를 보냈으면 그것을, 안 보냈으면 <b>체인에서 찾는다.</b>
+     *
+     * <p>서명이 체인에 들어간 뒤 서버 호출이 실패하면 화면은 해시를 잃는다. 다시 서명하려 하면 체인이
+     * 이미 그 단계를 지나 되돌리므로, 해시 없이 다시 부르면 서버가 그 거래를 찾아 이어 간다. 어느 쪽이든
+     * 뒤의 영수증 검증은 같다 — 서명자·컨트랙트·작업 번호를 다시 본다.
+     */
+    private String signedTx(String requested, ProcessingJob job, Action action) {
+        if (StringUtils.hasText(requested)) {
+            return requested;
+        }
+        return txFinder.find(job.getId(), job.getChainJobId(), action)
+                .orElseThrow(() -> new BusinessException(PROCESSING_CHAIN_RECORD_NOT_FOUND));
+    }
+
+    /** 이미 기록된 단계에 해시 없이 다시 왔다면, 따라잡으려던 요청이라 기록된 그대로 돌려준다. */
+    private static boolean sameOrMissing(String recorded, String requested) {
+        return !StringUtils.hasText(requested) || recorded.equalsIgnoreCase(requested);
     }
 
     private void record(Long actorId, String function, Long jobId, String hash) {

@@ -11,6 +11,7 @@ import static com.ssafy.upcycle.user.WalletTestSignatures.*;
 
 import com.ssafy.upcycle.blockchain.ScriptedReceiptClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ssafy.upcycle.blockchain.service.ProcessingChainTxFinder;
 import com.ssafy.upcycle.blockchain.service.ProcessingReceiptVerifier;
 import com.ssafy.upcycle.blockchain.service.ProcessingReceiptVerifier.Action;
 import com.ssafy.upcycle.blockchain.service.ProcessingReceiptVerifier.VerifiedReceipt;
@@ -26,6 +27,7 @@ import com.ssafy.upcycle.user.entity.UserRole;
 import com.ssafy.upcycle.user.repository.UserRepository;
 import com.ssafy.upcycle.user.repository.UserWalletRepository;
 import com.ssafy.upcycle.user.entity.UserWallet;
+import com.ssafy.upcycle.processing.entity.ProcessingJobStatus;
 import java.util.List;
 import java.util.concurrent.*;
 import java.time.LocalDateTime;
@@ -74,6 +76,7 @@ class ProcessingRequestTests {
     @Autowired java.time.Clock clock;
     @Autowired com.ssafy.upcycle.material.service.MaterialVerificationStateResolver verificationStates;
     @MockitoBean ProcessingReceiptVerifier receiptVerifier;
+    @MockitoBean ProcessingChainTxFinder txFinder;
     Long brandId;
     Long processorId;
     Long materialId;
@@ -1050,6 +1053,95 @@ class ProcessingRequestTests {
         assertThat(balances.findByMaterialIdAndOwnerId(materialId, brandId).orElseThrow().getQuantity())
                 .isEqualTo(1000);
         assertThat(balances.findByMaterialIdAndOwnerId(materialId, processorId)).isEmpty();
+    }
+
+    /**
+     * <b>서명은 체인에 들어갔는데 서버가 놓친 수령</b>을 체인에서 찾아 기록한다.
+     *
+     * <p>서명 뒤 서버 호출이 실패하면(네트워크 끊김, 로그인 만료) 화면은 해시를 잃는다. 다시 서명하려
+     * 하면 체인이 이미 수령된 작업이라 되돌리고, 보낼 해시가 없어 기록이 영원히 멈췄다. 해시 없이
+     * 다시 보내면 서버가 체인에서 그 거래를 찾고, 해시를 받았을 때와 똑같이 영수증을 검증한다.
+     */
+    @Test
+    void aSignedReceiptTheServerMissedIsFoundOnChainAndRecorded() throws Exception {
+        long jobId = createPaidProcessingJob(300);
+        mvc.perform(post("/processing-jobs/{id}/shipment", jobId)
+                        .with(jwt().jwt(j -> j.subject(brandId.toString()))))
+                .andExpect(status().isOk());
+        when(txFinder.find(eq(jobId), anyLong(), eq(Action.RECEIVE))).thenReturn(java.util.Optional.of(chainHash(jobId, 2)));
+
+        mvc.perform(patch("/processing-jobs/{id}/receive", jobId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("data.status").value("RECEIVED"));
+
+        // 찾은 거래도 영수증 검증을 똑같이 지난다 — 서명자·작업 번호를 다시 본다.
+        org.mockito.Mockito.verify(receiptVerifier).verifyReceipt(
+                eq(chainHash(jobId, 2)), eq(jobId), anyString(), eq(Action.RECEIVE), isNull(), eq(1));
+        assertThat(jobs.findById(jobId).orElseThrow().getReceiveTxHash()).isEqualTo(chainHash(jobId, 2));
+
+        // 한 번 더 와도 기록된 그대로다. 두 번 옮기지 않는다.
+        mvc.perform(patch("/processing-jobs/{id}/receive", jobId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("data.status").value("RECEIVED"));
+    }
+
+    /** 체인에도 기록이 없으면 넘기지 않는다. 서명이 끝나기 전에 DB 가 앞서 나가면 되돌릴 방법이 없다. */
+    @Test
+    void aReceiptWithNoHashAndNothingOnChainIsRefused() throws Exception {
+        long jobId = createPaidProcessingJob(300);
+        mvc.perform(post("/processing-jobs/{id}/shipment", jobId)
+                        .with(jwt().jwt(j -> j.subject(brandId.toString()))))
+                .andExpect(status().isOk());
+        when(txFinder.find(eq(jobId), anyLong(), eq(Action.RECEIVE))).thenReturn(java.util.Optional.empty());
+
+        mvc.perform(patch("/processing-jobs/{id}/receive", jobId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("code").value("PROCESSING_CHAIN_RECORD_NOT_FOUND"));
+
+        assertThat(jobs.findById(jobId).orElseThrow().getStatus()).isEqualTo(ProcessingJobStatus.SHIPPED);
+    }
+
+    /**
+     * 승인도 같다. 승인은 새 소재를 발행하는 자리라 그 번호가 영수증에만 있다 — 체인에서 거래를 찾아
+     * 그 영수증으로 발행한다.
+     */
+    @Test
+    void aSignedApprovalTheServerMissedIsFoundOnChainAndMintsTheResult() throws Exception {
+        long jobId = startProcessingJob(300);
+        mvc.perform(post("/processing-jobs/{id}/result", jobId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "outputs": [
+                                    {"materialType":"DENIM","name":"재생 데님","grade":"A","gradeReason":"오염과 손상이 없음","quantity":250}
+                                  ],
+                                  "evidenceHash":"0x%s",
+                                  "manifestUrl":"https://example.com/processing/manifest.json"
+                                }
+                                """.formatted("a".repeat(64))))
+                .andExpect(status().isOk());
+        mvc.perform(patch("/processing-jobs/{id}/return/ship", jobId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON).content(returnShipBody(jobId)))
+                .andExpect(status().isOk());
+        when(txFinder.find(eq(jobId), anyLong(), eq(Action.APPROVE))).thenReturn(java.util.Optional.of(chainHash(jobId, 4)));
+
+        mvc.perform(post("/processing-jobs/{id}/return/receive", jobId)
+                        .with(jwt().jwt(j -> j.subject(brandId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("data.status").value("CONFIRMED"))
+                .andExpect(jsonPath("data.outputs[0].materialId").isNumber());
+
+        org.mockito.Mockito.verify(receiptVerifier).verifyReceipt(
+                eq(chainHash(jobId, 4)), eq(jobId), anyString(), eq(Action.APPROVE), isNull(), eq(1));
     }
 
     private long startProcessingJob(long amount) throws Exception {
