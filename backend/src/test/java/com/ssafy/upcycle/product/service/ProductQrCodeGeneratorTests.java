@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.google.zxing.BinaryBitmap;
+import com.google.zxing.DecodeHintType;
 import com.google.zxing.NotFoundException;
 import com.google.zxing.client.j2se.BufferedImageLuminanceSource;
 import com.google.zxing.common.HybridBinarizer;
@@ -12,6 +13,7 @@ import com.ssafy.upcycle.product.config.ProductQrProperties;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.util.Map;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
 
@@ -82,6 +84,21 @@ class ProductQrCodeGeneratorTests {
         assertThat(decodeQr(png)).isEqualTo(generator.urlFor(TOKEN));
     }
 
+    /*
+      Jenkins 에서 ProductionQrApiTests 를 떨어뜨린 실제 토큰이다. 이 QR 은 휴대폰에서 멀쩡히
+      읽히는데, 힌트 없는 QRCodeReader 는 카메라 사진을 가정하고 위치 표식을 찾다가 잡음 없는
+      합성 이미지의 일부(무작위 토큰의 약 0.8%)에서 표식을 놓친다. 토큰이 매번 무작위라 그
+      테스트는 가끔만 떨어졌다. 디코딩 쪽이 PURE_BARCODE 로 "합성 이미지" 임을 알려야 한다.
+    */
+    @Test
+    void aTokenThePhotoDetectorMissesStillDecodes() throws Exception {
+        ProductQrCodeGenerator jenkins =
+                new ProductQrCodeGenerator(new ProductQrProperties("https://upcycle.test/qr"));
+        String token = "c83287ec60493af3cfcabca1af5ef155";
+
+        assertThat(decodeQr(jenkins.pngFor(token))).isEqualTo(jenkins.urlFor(token));
+    }
+
     @Test
     void staysReadableAtTheSmallestAllowedSize() throws Exception {
         // 하한이 실제로 읽히는 크기인지 확인한다. 숫자만 정해 두고 검증하지 않으면
@@ -141,7 +158,11 @@ class ProductQrCodeGeneratorTests {
         BinaryBitmap bitmap = new BinaryBitmap(
                 new HybridBinarizer(new BufferedImageLuminanceSource(image)));
         try {
-            return new QRCodeReader().decode(bitmap).getText();
+            // 카메라 사진이 아니라 방금 그린 합성 이미지다 — PURE_BARCODE 가 없으면 사진용
+            // 위치 표식 탐색이 일부 토큰에서 표식을 놓친다(aTokenThePhotoDetectorMissesStillDecodes).
+            return new QRCodeReader()
+                    .decode(bitmap, Map.of(DecodeHintType.PURE_BARCODE, Boolean.TRUE))
+                    .getText();
         } catch (com.google.zxing.ChecksumException | com.google.zxing.FormatException broken) {
             throw new AssertionError("생성한 QR 이 읽히지 않는다", broken);
         }
