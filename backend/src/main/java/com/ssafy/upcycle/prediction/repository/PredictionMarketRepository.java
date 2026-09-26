@@ -13,6 +13,7 @@ public interface PredictionMarketRepository extends JpaRepository<PredictionMark
     Optional<PredictionMarket> findByChainMarketId(long chainMarketId);
     boolean existsByProductionBatchId(Long productionBatchId);
     List<PredictionMarket> findAllByOrderByCreatedAtDesc();
+    List<PredictionMarket> findAllByBrandIdOrderByCreatedAtDesc(Long brandId);
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     List<PredictionMarket> findAllByStatusAndSalesEndsAtBefore(PredictionMarketStatus status, LocalDateTime at);
     @Lock(LockModeType.PESSIMISTIC_WRITE)

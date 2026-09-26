@@ -4,6 +4,7 @@ import com.ssafy.upcycle.trade.entity.MaterialTrade;
 import com.ssafy.upcycle.trade.entity.TradeStatus;
 import jakarta.persistence.LockModeType;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -29,6 +30,10 @@ public interface MaterialTradeRepository extends JpaRepository<MaterialTrade, Lo
     Optional<MaterialTrade>
             findFirstByMaterialIdAndBuyerIdAndStatusOrderByReceivedAtDesc(
                     Long materialId, Long buyerId, TradeStatus status);
+
+    /** 공개 Journey가 후보 소재의 완료 거래를 한 번에 불러와 실제 연결만 골라 낸다. */
+    List<MaterialTrade> findAllByMaterialIdInAndStatus(
+            Collection<Long> materialIds, TradeStatus status);
 
     /**
      * 이 소재에 구매자가 서명한 거래가 있는지. 소재의 검증 단계 판정에 쓴다.

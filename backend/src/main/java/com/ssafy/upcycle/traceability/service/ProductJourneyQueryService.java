@@ -136,6 +136,8 @@ public class ProductJourneyQueryService {
         if (!hasEveryOperation(graph.edges(), processingJobs, historicalBatches)) {
             return Optional.empty();
         }
+        Map<TradeKey, MaterialTrade> completedTrades = completedTrades(
+                graph, processingJobs, historicalBatches, finalInputs, finalBatch);
 
         Set<Long> companyIds = new LinkedHashSet<>();
         rootMaterials(graph).stream()
@@ -144,6 +146,7 @@ public class ProductJourneyQueryService {
         processingJobs.values().stream().map(ProcessingJob::getProcessorId).forEach(companyIds::add);
         historicalBatches.values().stream().map(ProductionBatch::getProducerId).forEach(companyIds::add);
         companyIds.add(finalBatch.getProducerId());
+        completedTrades.values().stream().map(MaterialTrade::getBuyerId).forEach(companyIds::add);
         Map<Long, UserRole> roles = userRepository.findAllById(companyIds).stream()
                 .collect(Collectors.toMap(User::getId, User::getRole));
         Map<Long, CompanyView> companies = companyProfileRepository.findAllById(companyIds).stream()
@@ -158,6 +161,7 @@ public class ProductJourneyQueryService {
                 graph,
                 processingJobs,
                 historicalBatches,
+                completedTrades,
                 companies));
     }
 
@@ -168,11 +172,13 @@ public class ProductJourneyQueryService {
             LineageGraph graph,
             Map<Long, ProcessingJob> processingJobs,
             Map<Long, ProductionBatch> historicalBatches,
+            Map<TradeKey, MaterialTrade> completedTrades,
             Map<Long, CompanyView> companies) {
         List<ProductJourneyResponse.Node> nodes = new ArrayList<>();
         Map<Long, String> materialProducerNode = new HashMap<>();
         Map<Long, String> processingNodeByJob = new HashMap<>();
         Map<Long, String> brandNodeByBatch = new HashMap<>();
+        Map<TradeKey, String> collectionNodeByTrade = new HashMap<>();
 
         Set<String> sourceNodeIds = new LinkedHashSet<>();
         List<Material> sources = rootMaterials(graph);
@@ -182,6 +188,20 @@ public class ProductJourneyQueryService {
             sourceNodeIds.add(nodeId);
             materialProducerNode.put(source.getId(), nodeId);
             nodes.add(sourceNode(nodeId, source, companies.get(source.getRegistrantId())));
+        }
+
+        int collectionSequence = 1;
+        for (Map.Entry<TradeKey, MaterialTrade> entry : completedTrades.entrySet().stream()
+                .sorted(Map.Entry.comparingByValue(Comparator.comparing(
+                                MaterialTrade::getReceivedAt,
+                                Comparator.nullsLast(Comparator.naturalOrder()))
+                        .thenComparing(MaterialTrade::getId)))
+                .toList()) {
+            String nodeId = "collection-brand-" + collectionSequence++;
+            collectionNodeByTrade.put(entry.getKey(), nodeId);
+            Material material = graph.materials().get(entry.getKey().materialId());
+            nodes.add(collectionNode(nodeId, entry.getValue(), material,
+                    companies.get(entry.getValue().getBuyerId())));
         }
 
         List<ProcessingJob> orderedJobs = processingJobs.values().stream()
@@ -237,17 +257,27 @@ public class ProductJourneyQueryService {
             }
             boolean processing = lineage.getRelationType() == MaterialLineageRelationType.PROCESSING;
             Material material = graph.materials().get(lineage.getParentMaterialId());
-            Movement movement = movementFor(
-                    material,
-                    processing ? processingJobs.get(lineage.getReferenceId()) : null,
-                    processing ? null : historicalBatches.get(lineage.getReferenceId()));
+            Long receivingBrandId = processing
+                    ? processingJobs.get(lineage.getReferenceId()).getBrandId()
+                    : historicalBatches.get(lineage.getReferenceId()).getProducerId();
+            MaterialTrade trade = completedTrades.get(new TradeKey(material.getId(), receivingBrandId));
+            String collectionNodeId = collectionNodeByTrade.get(new TradeKey(material.getId(), receivingBrandId));
+            if (collectionNodeId != null && !from.equals(collectionNodeId)) {
+                edges.add(edge(from, collectionNodeId, JourneyStageType.COLLECTION, material,
+                        movement(trade.getShippedAt(), trade.getReceivedAt())));
+                from = collectionNodeId;
+            }
+            Movement movement = processing
+                    ? movement(processingJobs.get(lineage.getReferenceId()).getShippedAt(),
+                            processingJobs.get(lineage.getReferenceId()).getReceivedAt())
+                    : movement(null, historicalBatches.get(lineage.getReferenceId()).getConfirmedAt());
             edges.add(edge(
                     from,
                     to,
-                    movementStage(
-                            from,
-                            sourceNodeIds,
-                            processing ? JourneyStageType.PROCESSING : JourneyStageType.BRAND),
+                    collectionNodeId == null ? movementStage(
+                            from, sourceNodeIds,
+                            processing ? JourneyStageType.PROCESSING : JourneyStageType.BRAND)
+                            : processing ? JourneyStageType.PROCESSING : JourneyStageType.BRAND,
                     material,
                     movement));
         }
@@ -258,12 +288,22 @@ public class ProductJourneyQueryService {
                 continue;
             }
             Material material = graph.materials().get(input.getMaterialId());
+            TradeKey tradeKey = new TradeKey(material.getId(), finalBatch.getProducerId());
+            MaterialTrade trade = completedTrades.get(tradeKey);
+            String collectionNodeId = collectionNodeByTrade.get(tradeKey);
+            if (collectionNodeId != null && !from.equals(collectionNodeId)) {
+                edges.add(edge(from, collectionNodeId, JourneyStageType.COLLECTION, material,
+                        movement(trade.getShippedAt(), trade.getReceivedAt())));
+                from = collectionNodeId;
+            }
             edges.add(edge(
                     from,
                     finalBrandNodeId,
-                    movementStage(from, sourceNodeIds, JourneyStageType.BRAND),
+                    collectionNodeId == null
+                            ? movementStage(from, sourceNodeIds, JourneyStageType.BRAND)
+                            : JourneyStageType.BRAND,
                     material,
-                    movementFor(material, null, finalBatch)));
+                    movement(null, finalBatch.getConfirmedAt())));
         }
 
         Delivery delivery = deliveryFor(item, finalBrandNodeId, edges.size() + 1);
@@ -346,6 +386,27 @@ public class ProductJourneyQueryService {
                 toJourneyMaterials(outputs),
                 proofs(chainReferences),
                 evidence(evidenceReferences));
+    }
+
+    /** 거래를 마친 브랜드의 수령·보유 지점. 가공 작업과는 별개의 실제 소유 구간이다. */
+    private ProductJourneyResponse.Node collectionNode(
+            String nodeId, MaterialTrade trade, Material material, CompanyView company) {
+        return new ProductJourneyResponse.Node(
+                nodeId,
+                JourneyStageType.COLLECTION,
+                companyName(company),
+                companyRole(company),
+                location(company),
+                latitude(company),
+                longitude(company),
+                trade.getReceivedAt(),
+                trade.getReceivedAt(),
+                trade.getStatus().name(),
+                "브랜드 소재 수령",
+                List.of(),
+                material == null ? List.of() : List.of(toJourneyMaterial(material)),
+                proofs(List.of(new ChainReference(BlockchainReferenceType.TRADE, trade.getId()))),
+                List.of());
     }
 
     private ProductJourneyResponse.Node brandNode(
@@ -431,6 +492,7 @@ public class ProductJourneyQueryService {
             List<ProductJourneyResponse.Edge> edges,
             JourneyStageStatus deliveryStatus) {
         List<String> sourceNodes = nodeIds(nodes, JourneyStageType.SOURCE);
+        List<String> collectionNodes = nodeIds(nodes, JourneyStageType.COLLECTION);
         List<String> processingNodes = nodeIds(nodes, JourneyStageType.PROCESSING);
         List<String> brandNodes = nodeIds(nodes, JourneyStageType.BRAND);
         List<String> deliveryNodes = nodeIds(nodes, JourneyStageType.DELIVERY);
@@ -447,8 +509,8 @@ public class ProductJourneyQueryService {
                 new ProductJourneyResponse.Stage(
                         JourneyStageType.COLLECTION,
                         2,
-                        recorded(List.of(), collectionEdges),
-                        List.of(),
+                        recorded(collectionNodes, collectionEdges),
+                        collectionNodes,
                         collectionEdges),
                 new ProductJourneyResponse.Stage(
                         JourneyStageType.PROCESSING,
@@ -540,40 +602,12 @@ public class ProductJourneyQueryService {
     }
 
     /**
-     * 공급업체에서 출발하는 이동을 수거 단계로 본다. 수거를 대신하는 가상의 업체를 만들지
-     * 않고, 출발 업체와 도착 업체 사이의 이동선 자체를 그 단계로 돌린다.
+     * 거래 수령 이력이 없는 과거·자가 보유 소재는 별도의 브랜드 수령 지점을 만들지 않는다.
+     * 이 경우에만 공급업체 출발 이동선을 기존 수거 단계로 표현한다.
      */
     private JourneyStageType movementStage(
             String fromNodeId, Set<String> sourceNodeIds, JourneyStageType targetStage) {
         return sourceNodeIds.contains(fromNodeId) ? JourneyStageType.COLLECTION : targetStage;
-    }
-
-    /**
-     * 이동선에 붙는 발송·수령 사실.
-     *
-     * <p>같은 소재에 완료된 거래가 있으면 그 거래의 발송·수령을 쓴다 — 공급업체가 실제로
-     * 물건을 보내고 받은 쪽이 확인한 기록이 그것이다. 거래가 없는 이동(브랜드가 자기 소재를
-     * 가공에 보내는 경우)은 그 가공 작업의 발송·수령으로, 생산 중 나온 스크랩처럼 업체 안에서
-     * 끝나는 이동은 배치 확정 시각으로 채운다.
-     *
-     * <p>거래 수량은 담지 않는다. 소재 상세에 공개되는 배치 등록 수량과 거래 수량은
-     * 서로 다른 값이다.
-     */
-    private Movement movementFor(Material material, ProcessingJob job, ProductionBatch batch) {
-        Long receivingBrandId = job != null
-                ? job.getBrandId()
-                : batch == null ? null : batch.getProducerId();
-        Optional<MaterialTrade> trade = completedTrade(material, receivingBrandId);
-        if (trade.isPresent()) {
-            return movement(trade.get().getShippedAt(), trade.get().getReceivedAt());
-        }
-        if (job != null) {
-            return movement(job.getShippedAt(), job.getReceivedAt());
-        }
-        if (batch != null) {
-            return movement(null, batch.getConfirmedAt());
-        }
-        return movement(null, null);
     }
 
     private Movement movement(LocalDateTime shippedAt, LocalDateTime receivedAt) {
@@ -588,14 +622,80 @@ public class ProductJourneyQueryService {
         return new Movement(shippedAt, receivedAt, status);
     }
 
-    /** 완료된 거래만 본다. 진행 중인 거래는 아직 확정된 이력이 아니다. */
-    private Optional<MaterialTrade> completedTrade(Material material, Long receivingBrandId) {
-        if (material == null || receivingBrandId == null) {
-            return Optional.empty();
+    /**
+     * 소재가 다음 공정으로 가기 전에 브랜드가 거래로 수령한 경우만 수령 지점을 만든다.
+     * 거래 없는 자가 보유 소재에 브랜드를 지어내면 실제 이력보다 한 단계를 더 보여 주게 된다.
+     */
+    private Map<TradeKey, MaterialTrade> completedTrades(
+            LineageGraph graph,
+            Map<Long, ProcessingJob> processingJobs,
+            Map<Long, ProductionBatch> historicalBatches,
+            List<ProductionInput> finalInputs,
+            ProductionBatch finalBatch) {
+        Map<TradeKey, TradeExpectation> expectations = new LinkedHashMap<>();
+        for (MaterialLineage lineage : graph.edges()) {
+            Material material = graph.materials().get(lineage.getParentMaterialId());
+            boolean processing = lineage.getRelationType() == MaterialLineageRelationType.PROCESSING;
+            Long receivingBrandId = processing
+                    ? processingJobs.get(lineage.getReferenceId()).getBrandId()
+                    : historicalBatches.get(lineage.getReferenceId()).getProducerId();
+            LocalDateTime downstreamAt = processing
+                    ? processingJobs.get(lineage.getReferenceId()).getShippedAt()
+                    : historicalBatches.get(lineage.getReferenceId()).getConfirmedAt();
+            expectTrade(expectations, material, receivingBrandId, downstreamAt);
         }
-        return materialTradeRepository
-                .findFirstByMaterialIdAndBuyerIdAndStatusOrderByReceivedAtDesc(
-                        material.getId(), receivingBrandId, TradeStatus.COMPLETED);
+        for (ProductionInput input : finalInputs) {
+            Material material = graph.materials().get(input.getMaterialId());
+            expectTrade(expectations, material, finalBatch.getProducerId(), finalBatch.getConfirmedAt());
+        }
+        if (expectations.isEmpty()) {
+            return Map.of();
+        }
+
+        return materialTradeRepository.findAllByMaterialIdInAndStatus(
+                        expectations.keySet().stream().map(TradeKey::materialId).collect(Collectors.toSet()),
+                        TradeStatus.COMPLETED)
+                .stream()
+                .filter(trade -> isExpectedTrade(trade, expectations.get(
+                        new TradeKey(trade.getMaterialId(), trade.getBuyerId()))))
+                .collect(Collectors.toMap(
+                        trade -> new TradeKey(trade.getMaterialId(), trade.getBuyerId()),
+                        Function.identity(),
+                        (left, right) -> left.getReceivedAt().isAfter(right.getReceivedAt()) ? left : right,
+                        LinkedHashMap::new));
+    }
+
+    private void expectTrade(
+            Map<TradeKey, TradeExpectation> expectations,
+            Material material,
+            Long buyerId,
+            LocalDateTime downstreamAt) {
+        if (material == null || buyerId == null) {
+            return;
+        }
+        TradeKey key = new TradeKey(material.getId(), buyerId);
+        expectations.merge(
+                key,
+                new TradeExpectation(material.getRegistrantId(), downstreamAt),
+                (current, candidate) -> new TradeExpectation(
+                        current.sellerId(), earliest(current.downstreamAt(), candidate.downstreamAt())));
+    }
+
+    private boolean isExpectedTrade(MaterialTrade trade, TradeExpectation expectation) {
+        return expectation != null
+                && trade.getSellerId().equals(expectation.sellerId())
+                && (expectation.downstreamAt() == null
+                        || !trade.getReceivedAt().isAfter(expectation.downstreamAt()));
+    }
+
+    private LocalDateTime earliest(LocalDateTime left, LocalDateTime right) {
+        if (left == null) {
+            return right;
+        }
+        if (right == null) {
+            return left;
+        }
+        return left.isBefore(right) ? left : right;
     }
 
     private List<ProductJourneyResponse.Composition> composition(List<ProductionInput> inputs) {
@@ -881,4 +981,9 @@ public class ProductJourneyQueryService {
             Optional<ProductJourneyResponse.Node> node,
             Optional<ProductJourneyResponse.Edge> edge,
             JourneyStageStatus status) {}
+
+    private record TradeKey(Long materialId, Long buyerId) {}
+
+    private record TradeExpectation(Long sellerId, LocalDateTime downstreamAt) {}
+
 }
