@@ -20,10 +20,9 @@ export const STAGE_ORDER: JourneyStageType[] = [
 ]
 
 /**
- * <b>COLLECTION은 '수거'가 아니라 '운송'이다.</b> 이 단계만 노드가 없다 — 백엔드는
- * 수거를 대신할 가상의 업체를 만들지 않고 공급업체에서 출발하는 <b>이동선 자체</b>를
- * 이 단계로 돌린다(`ProductJourneyQueryService.movementStage()`, 그래서 stage의
- * nodeIds가 비어 있다). 선에 붙는 값도 완료된 거래의 발송·수령 시각이다.
+ * <b>COLLECTION은 브랜드가 소재를 수령한 운송 구간이다.</b> 완료된 거래가 있으면
+ * 백엔드는 브랜드 수령 노드를 함께 내려, 공급업체 → 브랜드 → 가공업체 순서를 보여 준다.
+ * 거래가 없는 자가 보유 소재는 실제 수령 기록이 없으므로 노드를 만들지 않는다.
  *
  * <p>'수거'는 폐소재를 현장에서 모아 오는 행위를 가리키는데 여기 담기는 건 이미 등록된
  * 원단이 거래를 거쳐 실려 가는 구간이라, 화면에 보이는 말을 실제 데이터에 맞춘다.
@@ -31,7 +30,7 @@ export const STAGE_ORDER: JourneyStageType[] = [
  */
 export const STAGE_LABEL: Record<JourneyStageType, string> = {
   SOURCE: '원단 등록',
-  COLLECTION: '운송',
+  COLLECTION: '브랜드 수령',
   PROCESSING: '가공',
   BRAND: '브랜드 제작',
   DELIVERY: '최종 수령',
