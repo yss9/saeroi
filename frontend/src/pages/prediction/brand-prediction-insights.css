@@ -1,0 +1,32 @@
+.brand-prediction-page { display: grid; gap: 24px; }
+.brand-prediction-page__intro { display: flex; align-items: end; justify-content: space-between; gap: 24px; }
+.brand-prediction-page__intro h1 { margin: 0 0 8px; }
+.brand-prediction-page__intro p { margin: 0; color: var(--ui-color-muted); }
+.brand-prediction-page__intro dl, .brand-prediction-card__totals { display: flex; gap: 12px; margin: 0; }
+.brand-prediction-page__intro dl div, .brand-prediction-card__totals div { min-width: 112px; padding: 12px 16px; border: 1px solid var(--ui-color-border); border-radius: var(--ui-radius-sm); background: var(--ui-color-surface); }
+.brand-prediction-page dt, .brand-prediction-card dt { color: var(--ui-color-muted); font-size: 12px; }
+.brand-prediction-page dd, .brand-prediction-card dd { margin: 4px 0 0; color: var(--ui-color-text); font-weight: 700; }
+.brand-prediction-list { display: grid; gap: 20px; }
+.brand-prediction-card { padding: 24px; border: 1px solid var(--ui-color-border); border-radius: var(--ui-radius); background: var(--ui-color-surface); box-shadow: var(--ui-shadow); }
+.brand-prediction-card__header { display: flex; align-items: start; justify-content: space-between; gap: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--ui-color-border); }
+.brand-prediction-card__header h3 { margin: 10px 0 4px; font-size: 22px; }
+.brand-prediction-card__header p { margin: 0; color: var(--ui-color-muted); }
+.brand-prediction-card__columns { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(260px, .65fr); gap: 32px; padding: 24px 0; }
+.brand-prediction-card h4 { margin: 0 0 16px; font-size: 16px; }
+.brand-insight-bars, .brand-reason-list, .brand-comments ul { display: grid; gap: 14px; margin: 0; padding: 0; list-style: none; }
+.brand-insight-bars__label, .brand-reason-list li { display: flex; justify-content: space-between; gap: 16px; }
+.brand-insight-bars__track { height: 8px; margin: 6px 0 4px; overflow: hidden; border-radius: 999px; background: var(--ui-color-primary-soft); }
+.brand-insight-bars__track span { display: block; height: 100%; border-radius: inherit; background: var(--ui-color-primary); }
+.brand-insight-bars small { color: var(--ui-color-muted); }
+.brand-reason-list li { padding-bottom: 10px; border-bottom: 1px solid var(--ui-color-border); }
+.brand-comments { padding-top: 20px; border-top: 1px solid var(--ui-color-border); }
+.brand-comments li { display: grid; grid-template-columns: 110px 1fr auto; gap: 16px; align-items: start; padding: 14px 0; border-bottom: 1px solid var(--ui-color-border); }
+.brand-comments li > span { color: var(--ui-color-primary); font-weight: 700; }
+.brand-comments p { margin: 0; white-space: pre-wrap; }
+.brand-comments time, .brand-comments__empty { color: var(--ui-color-muted); font-size: 13px; }
+@media (max-width: 900px) {
+  .brand-prediction-page__intro, .brand-prediction-card__header { align-items: stretch; flex-direction: column; }
+  .brand-prediction-card__columns { grid-template-columns: 1fr; }
+  .brand-prediction-page__intro dl, .brand-prediction-card__totals { flex-wrap: wrap; }
+  .brand-comments li { grid-template-columns: 1fr; gap: 6px; }
+}

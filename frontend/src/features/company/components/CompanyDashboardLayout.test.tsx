@@ -271,6 +271,7 @@ describe('CompanyDashboardLayout', () => {
     expect(screen.getByRole('link', { name: '보유 소재' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '가공 요청' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '내 제품' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '예측·선호 분석' })).toHaveAttribute('href', '/brand/predictions')
   })
 
   // 이 파일에서 가장 중요한 테스트다. 예전 아코디언은 다른 묶음을 열면 보던 묶음이
