@@ -17,6 +17,7 @@ import {
   PROCESSING_CHAIN_STATUS,
   acceptProcessingJob,
   approveProcessingResultOnChain,
+  cancelProcessingJob,
   confirmProcessingReceipt,
   createProcessingJob,
   getProcessingBrandLockId,
@@ -62,10 +63,15 @@ export function useProcessingJob(jobId: number) {
     queryFn: ({ signal }) => processingRequestApi.detail(requestId!, signal),
     enabled: requestId !== undefined,
   })
+  /*
+    EXPIRED 도 켜 둔다 — 결제 전 취소(CREATED)만 정말 체인에 아무것도 없다. 만료된
+    작업은 이미 온체인 잠금이 있을 수 있고, 그 상태를 알아야 브랜드에게 해제 패널을
+    보여줄 수 있다(release-lock 게이트가 chainStatusCode 를 본다).
+  */
   const chainPreparation = useQuery({
     queryKey: keys.chainPreparation(jobId),
     queryFn: () => processingJobApi.chainPreparation(jobId),
-    enabled: detail.data?.status !== 'CREATED' && detail.data?.status !== 'EXPIRED',
+    enabled: detail.data?.status !== 'CREATED',
   })
   const chainJobId = chainPreparation.data?.chainJobId
   const chainStatus = useQuery({
@@ -127,9 +133,29 @@ export function useProcessingJob(jobId: number) {
     },
     onSuccess: refresh,
   })
+  /*
+    수락은 온체인 서명 한 번이다 — 가공사가 지갑으로 서명해 체인에 동의를 남기고,
+    그 서명이 성공해야만 서버에 수락을 기록한다. 서명 없이 DB 만 바뀌는 경로는 없다
+    (서버도 chainJobId 없는 작업의 accept 를 막는다).
+
+    **서명과 기록 사이에서 끊기면 재시도가 두 번째 서명이 되면 안 된다.** 서명은
+    성공했는데 이어지는 PATCH 가 실패하면(네트워크 끊김, 500, 탭 닫힘) 작업은 여전히
+    PAID 로 남고 가공사는 같은 버튼을 다시 본다 — 이때 그대로 다시 서명하면 컨트랙트가
+    `REQUESTED` 를 요구하는데 이미 `ACCEPTED` 라서 되돌린다. 그래서 매번 온체인 상태를
+    먼저 읽어 이미 ACCEPTED 일 때만 서명을 건너뛴다.
+
+    **"이미 끝났다"는 쪽으로만 건너뛴다.** `NONE`(체인 리셋·재배포로 chainJobId 가
+    낡았거나 잘못된 네트워크), `CANCELED`, `DECLINED`, 읽기 실패로 나온 `NaN` 까지
+    ACCEPTED 가 아닌 모든 값은 그대로 서명을 시도한다 — 서명 없이 서버에만 수락을
+    적으면 이 기획의 전제(서명이 곧 수락이다)가 깨진다. 예상 밖의 상태는 컨트랙트가
+    시끄럽게 되돌리는 편이, 조용히 근거 없는 수락을 만드는 것보다 낫다.
+  */
   const accept = useMutation({
     mutationFn: async () => {
-      await confirmed(acceptProcessingJob(requireChainJob()))
+      const id = requireChainJob()
+      const chainState = await getProcessingChainStatus(id)
+      if (chainState !== PROCESSING_CHAIN_STATUS.ACCEPTED) await confirmed(acceptProcessingJob(id))
+      await processingJobApi.accept(jobId)
     },
     onSuccess: refresh,
   })
@@ -168,19 +194,36 @@ export function useProcessingJob(jobId: number) {
     (ProcessingChainService.receive). 서명이 체인에 들어간 뒤 서버 호출이 실패하면 화면은 해시를
     잃고, 다시 서명하려 하면 체인이 이미 수령된 작업이라 되돌린다. 그래서 체인이 이미 수령을
     지났으면 해시 없이 보내고, 서버가 체인에서 그 서명 거래를 찾아 똑같이 검증한 뒤 기록한다.
+
+    **수령하면 곧바로 가공을 시작한다.** 가공업체가 "가공 시작" 을 따로 누르지 않고 바로 결과
+    작성으로 간다. 컨트랙트는 RECEIVED 와 PROCESSING 을 나눠 받으므로 서명은 둘이지만 버튼은
+    하나다. 순서는 수령 서명 → 수령 기록 → 시작 서명 → 시작 기록 — 시작 서명이 끊겨도 수령
+    기록은 남고, 작업 상세의 "가공 시작" 이 그 자리에서 이어 받는다.
   */
+  async function receiveOnly(id: number) {
+    if (await chainAlreadyPassed(id, 'RECEIVED')) {
+      return processingJobApi.receive(jobId, {})
+    }
+    const receipt = await confirmed(confirmProcessingReceipt(id))
+    return processingJobApi.receive(jobId, {
+      txHash: receipt.hash,
+    })
+  }
+  async function startOnly(id: number) {
+    if (!(await chainAlreadyPassed(id, 'PROCESSING'))) {
+      await confirmed(startProcessingOnChain(id))
+    }
+    return processingJobApi.start(jobId)
+  }
   const receive = useMutation({
     mutationFn: async () => {
       const id = requireChainJob()
-      if (await chainAlreadyPassed(id, 'RECEIVED')) {
-        return processingJobApi.receive(jobId, {})
-      }
-      const receipt = await confirmed(confirmProcessingReceipt(id))
-      return processingJobApi.receive(jobId, {
-        txHash: receipt.hash,
-      })
+      await receiveOnly(id)
+      return startOnly(id)
     },
     onSuccess: refresh,
+    // 시작 서명만 끊긴 경우에도 수령은 기록됐다 — 화면이 RECEIVED 로 바뀌어야 이어서 누를 수 있다.
+    onError: refresh,
   })
   /*
     가공 시작. **여기서 실제로 막혔다.**
@@ -191,13 +234,7 @@ export function useProcessingJob(jobId: number) {
     오류만 났다. 체인 작업 18·19 가 그 상태로 멈춰 있었다.
   */
   const start = useMutation({
-    mutationFn: async () => {
-      const id = requireChainJob()
-      if (!(await chainAlreadyPassed(id, 'PROCESSING'))) {
-        await confirmed(startProcessingOnChain(id))
-      }
-      return processingJobApi.start(jobId)
-    },
+    mutationFn: async () => startOnly(requireChainJob()),
     onSuccess: refresh,
   })
   const saveResult = useMutation({
@@ -276,15 +313,23 @@ export function useProcessingJob(jobId: number) {
     onSuccess: refresh,
   })
   /*
-    수락·거절은 온체인 서명이 없다. 브랜드가 결제한 일을 맡을지 말지를 서버에 적는 것이고,
-    온체인 작업 등록·수락은 그 뒤 발송 단계에서 따로 일어난다.
+    거절에는 온체인 서명이 없다. 가공사가 일 자체를 맡지 않기로 하는 것을 서버에
+    적을 뿐이다 — 잠긴 소재를 푸는 것은 브랜드 쪽 releaseChainLock 의 몫이다.
   */
-  const acceptJob = useMutation({
-    mutationFn: () => processingJobApi.accept(jobId),
-    onSuccess: refresh,
-  })
   const declineJob = useMutation({
     mutationFn: (reason: string) => processingJobApi.decline(jobId, reason),
+    onSuccess: refresh,
+  })
+  /*
+    거절·만료·취소로 끝났는데 온체인 잠금이 남아 있으면, 그 잠금을 푸는 서명은
+    브랜드 지갑만 할 수 있다 — cancelProcessingJob 을 그대로 쓴다.
+  */
+  const releaseChainLock = useMutation({
+    mutationFn: async () => {
+      if (!detail.data?.chainJobId) throw new Error('온체인 작업이 없습니다.')
+      const tx = await cancelProcessingJob(detail.data.chainJobId)
+      await tx.wait()
+    },
     onSuccess: refresh,
   })
   const returnRejected = useMutation({
@@ -302,7 +347,7 @@ export function useProcessingJob(jobId: number) {
 
   return {
     detail, request, evidence, chainPreparation, chainStatus,
-    initializeChain, accept, acceptJob, declineJob, ship, receive, start, saveResult, submit, shipReturn, approve, reject, returnRejected,
+    initializeChain, accept, declineJob, releaseChainLock, ship, receive, start, saveResult, submit, shipReturn, approve, reject, returnRejected,
     chainStatusCode: chainStatus.data ?? PROCESSING_CHAIN_STATUS.NONE,
   }
 }

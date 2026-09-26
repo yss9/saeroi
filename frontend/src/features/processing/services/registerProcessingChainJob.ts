@@ -1,13 +1,13 @@
-import { processingJobApi } from '../../processing/api/processingJobApi.ts'
+import { processingJobApi } from '../api/processingJobApi.ts'
 import {
   createProcessingJob,
   getProcessingBrandLockId,
   readProcessingEventValues,
-} from '../../processing/services/processingContractService.ts'
+} from './processingContractService.ts'
 import {
   createOrResumeProcessingChainJob,
   forgetProcessingChainCreate,
-} from '../../processing/services/processingChainJobCreation.ts'
+} from './processingChainJobCreation.ts'
 
 /**
  * 가공 작업을 <b>블록체인에 등록한다.</b> 인계보다 앞선 단계다.
