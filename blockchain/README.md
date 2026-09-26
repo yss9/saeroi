@@ -1,640 +1,152 @@
-# Git Convention
+# Circular Fashion Blockchain
 
-## 1. 전체 브랜치 구조
+Solidity + Hardhat 기반 소재 이력·거래 스마트 컨트랙트 프로젝트입니다.
 
-본 프로젝트는 Backend, Frontend, AI, Blockchain 파트를 독립적으로 개발하며,
-각 파트마다 `master`, `develop`, `feat/*` 브랜치를 운영합니다.
+현재 구현 범위는 `MaterialToken` ERC-1155, `Marketplace`, `ProcessingRegistry`, `ProductionRegistry`입니다. 모든 결제·환불·정산은 백엔드/PG와 DB에서만 처리하며 블록체인에는 금액이나 결제 식별자를 기록하지 않습니다.
 
-```text
-master
-
-backend/master
-└── backend/develop
-    └── backend/feat/*
-
-frontend/master
-└── frontend/develop
-    └── frontend/feat/*
-
-ai/master
-└── ai/develop
-    └── ai/feat/*
-
-blockchain/master
-└── blockchain/develop
-    └── blockchain/feat/*
-```
-
-최상위 `master`는 프로젝트 전체 기준 브랜치로 유지합니다.
-
-일반적인 개발 과정에서는 Backend, Frontend, AI, Blockchain의 작업 내용을
-최상위 `master`에 계속 병합하지 않습니다.
-
-각 파트는 자신의 `master`와 `develop`을 기준으로 독립적으로 개발합니다.
-
----
-
-## 2. 브랜치 역할
-
-### master
-
-프로젝트 전체의 기준 브랜치입니다.
-
-- 저장소 최초 기준 브랜치
-- 일반적인 기능 개발에서는 직접 사용하지 않음
-
----
-
-### backend/master
-
-Backend의 안정 버전 브랜치입니다.
+## Structure
 
 ```text
-backend/feat/*
-      ↓
-backend/develop
-      ↓
-backend/master
+.
+├── contracts/
+│   ├── MaterialToken.sol
+│   ├── Marketplace.sol
+│   ├── ProcessingRegistry.sol
+│   └── ProductionRegistry.sol
+├── scripts/
+│   ├── deploy.ts
+│   └── export-abi.ts
+├── test/
+│   ├── MaterialToken.ts
+│   └── Marketplace.ts
+├── deployments/
+├── abi/
+├── hardhat.config.ts
+├── package.json
+└── .env.example
 ```
 
-역할:
+## MaterialToken
 
-- Backend의 안정된 코드 유지
-- 배포 또는 시연 가능한 Backend 버전 관리
-- `backend/develop`에서 충분한 테스트가 완료된 경우에만 병합
-- 일반 기능 개발을 직접 진행하지 않음
+`MaterialToken`은 OpenZeppelin ERC-1155와 AccessControl을 사용합니다.
 
----
+- 하나의 `tokenId`는 하나의 소재 배치를 의미하며 컨트랙트가 순서대로 발급합니다.
+- DB의 `material.id`를 온체인 ID로 직접 사용하지 않습니다. 백엔드는 `MaterialMinted` 이벤트에서 `tokenId`를 읽어 DB에 매핑합니다.
+- 수량은 gram 정수 단위입니다. 예: 50kg = 50000g.
+- 최초 발행은 `SUPPLIER_ROLE`만 가능하며 `generationType`은 `INITIAL`로 기록됩니다.
+- `rootOrigin`은 MVP 정책에 따라 `VIRGIN`, `WASTE` 중 하나입니다.
+- 가공 결과에는 `A`, `B`, `C` 등급을 기록하며 최초 소재는 `NONE`입니다.
+- 소재 자체 상태는 `ACTIVE`, `DEPLETED`만 관리합니다. 판매·배송 상태는 `Marketplace`에서 관리합니다.
+- 증빙 manifest는 백엔드에서 SHA-256으로 계산한 뒤 `bytes32`로 저장합니다. DB에는 `0x`를 포함한 66자 hex 문자열로 저장합니다.
+- 검증 단계는 상태값으로 중복 저장하지 않고 Supplier 서명, 거래 수령 서명, Processing 승인, Production 확정 기록에서 조회 시 파생합니다.
+- 최초 등록 Supplier는 `verifySource`, 소재를 인수한 Brand는 `verifyTransaction`을 직접 호출하며 Processing 검증은 Processor 제출과 Brand 승인이 모두 완료되어야 확정됩니다.
+- 각 검증 단계에는 signer, SHA-256 증빙 해시, 거래/가공 참조 ID, 블록 시간이 별도 기록됩니다.
+- 잠금은 합계만 저장하지 않고 각 업무별 `lockId`, 소유자, 소재, 수량, 용도, 참조 ID, 생성·해제·만료 시각과 상태를 기록합니다.
+- 잠금 용도는 `MARKETPLACE`, `PROCESSING`, `PRODUCTION`입니다.
+- 잠긴 수량은 직접 전송하거나 소각할 수 없고, 잠금을 만든 작업 컨트랙트만 해제하거나 소비할 수 있습니다.
 
-### backend/develop
+## Marketplace
 
-Backend의 개발 통합 브랜치입니다.
+`Marketplace`는 판매글과 거래에 필요한 핵심 상태 및 소재 잠금을 온체인에서 보장합니다. 제목, 설명, 사진, 배송지와 카카오페이 상세 데이터는 DB에서 관리합니다.
 
-Backend 기능 브랜치는 항상 `backend/develop`에서 생성하며,
-완료된 기능은 다시 `backend/develop`로 Pull Request를 생성합니다.
+- `SUPPLIER_ROLE`을 가진 공급자만 판매를 등록할 수 있으며, 등록 시 판매글 전용 소재 잠금을 생성합니다. 브랜드는 구매만 가능합니다.
+- 판매글은 `ACTIVE`, `SOLD_OUT`, `CANCELLED` 상태를 가집니다.
+- 거래는 `CREATED → SHIPPED → RECEIVED → COMPLETED` 순서로 진행합니다.
+- 주문 생성 시 판매 잔량만 예약합니다. 가격, 총액, PG 거래번호, 결제 성공 여부는 컨트랙트의 상태·이벤트·함수에 존재하지 않습니다.
+- 백엔드가 DB의 오프체인 결제 완료를 확인한 뒤 판매자가 `markShipped`를 호출합니다.
+- 판매자가 `markShipped`, 구매자가 `confirmReceipt`를 호출합니다.
+- 수령 확인 시 판매글 잠금에서 주문 수량을 소비하면서 소재 소유권을 구매자에게 이전합니다.
+- 발송 전 `CREATED` 주문은 구매자 또는 판매자가 취소할 수 있습니다.
+- 배송 이후 분쟁은 관리자 판정 없이 판매자와 구매자가 같은 해결안에 서명하면 소재 잠금을 이전하거나 해제합니다.
 
+## Processing / Production
 
+- 가공 Job은 공정 유형을 하나 이상 기록하고 `REQUESTED → ACCEPTED → SHIPPED → RECEIVED → PROCESSING → RESULT_SUBMITTED → CONFIRMED`로 진행합니다.
+- Brand가 요청을 생성하면 지정 Processor가 `acceptJob` 또는 `rejectJob`으로 응답합니다. 수락 전에는 배송할 수 없으며, 거절 시 입력 소재 잠금이 해제됩니다.
+- Brand 또는 관리자는 배송 전 `REQUESTED`·`ACCEPTED` Job을 취소할 수 있고 입력 소재 잠금은 해제됩니다.
+- 출력별로 하나의 입력 소재를 지정하므로 MVP에서 N→1 혼합은 허용하지 않고 1→N 분할만 허용합니다.
+- Brand 승인 시 입력 무게 토큰을 소각하고 가공 등급과 원천 계보를 유지한 자식 무게 토큰을 발행합니다.
+- WASTE 원재료(`INITIAL`)는 생산에 직접 투입할 수 없고, 반드시 가공된 소재(`PROCESSED`)여야 합니다.
+- 생산 확정 시 `productUsed + scrap + waste = inputAmount`를 강제하고, WASTE 원천 제품 투입량 비율을 basis point로 저장합니다.
 
----
+## Shop / Product Passport
 
-### frontend/master
+- Shop 판매 상품의 이름, 이미지, 가격, 재고, 주문, 배송, 결제와 추측 불가능한 `qrToken`은 DB/Object Storage에서 관리합니다.
+- 블록체인은 확정된 `ProductionBatch`와 생성된 `ProductItem ID`의 연결만 저장하고 `ProductLinked` 이벤트를 기록합니다.
+- `getProductPassportProof(productItemId)`는 Batch ID, Brand, 업사이클 비율 스냅샷, Evidence Hash, 확정 시각을 공개 조회합니다. `view` 호출이므로 Consumer Wallet이나 서명이 필요하지 않습니다.
+- Passport의 소재 구성은 반환된 Batch ID로 `getMaterialUses(batchId)`를 조회해 확인합니다.
+- Shop 주문·결제·배송에서는 Material Token을 다시 차감하거나 Product 소유권 토큰을 전송하지 않습니다.
 
-Frontend의 안정 버전 브랜치입니다.
+## Roles
 
 ```text
-frontend/feat/*
-       ↓
-frontend/develop
-       ↓
-frontend/master
+MaterialToken
+├── DEFAULT_ADMIN_ROLE
+├── SUPPLIER_ROLE
+├── PROCESSOR_ROLE
+├── BRAND_ROLE
+├── MATERIAL_LOCK_MANAGER_ROLE
+└── MATERIAL_WORKFLOW_ROLE
+
+Marketplace
+└── DEFAULT_ADMIN_ROLE
+
+ProcessingRegistry / ProductionRegistry
+├── DEFAULT_ADMIN_ROLE
+├── BRAND_ROLE
+└── PROCESSOR_ROLE (ProcessingRegistry only)
 ```
 
-역할:
+별도 결제 관리자·검증자 역할은 사용하지 않습니다.
 
-- Frontend의 안정된 코드 유지
-- 시연 및 배포 가능한 Frontend 버전 관리
-- `frontend/develop`에서 검증된 코드만 병합
+## Deferred Scope
 
----
+- RECOVERED 원천 유형
+- 여러 입력을 하나의 출력으로 합치는 N→1 가공
+- 물리적 검수·PG 결제·환불·정산의 온체인 처리
 
-### frontend/develop
-
-Frontend의 개발 통합 브랜치입니다.
-
-
-
----
-
-### ai/master
-
-AI 파트의 안정 버전 브랜치입니다.
-
-```text
-ai/feat/*
-   ↓
-ai/develop
-   ↓
-ai/master
-```
-
-역할:
-
-- 검증된 AI 코드 유지
-- 안정된 모델 및 추론 서버 버전 관리
-- `ai/develop`에서 테스트가 완료된 코드만 병합
-
----
-
-### ai/develop
-
-AI 기능의 개발 통합 브랜치입니다.
-
-
----
-
-### blockchain/master
-
-Blockchain 파트의 안정 버전 브랜치입니다.
-
-```text
-blockchain/feat/*
-          ↓
-blockchain/develop
-          ↓
-blockchain/master
-```
-
-역할:
-
-- 검증된 Smart Contract 및 Blockchain 코드 유지
-- 배포 가능한 Contract 버전 관리
-- `blockchain/develop`에서 충분히 검증된 코드만 병합
-
----
-
-### blockchain/develop
-
-Blockchain 기능의 개발 통합 브랜치입니다.
-
-
----
-
-## 3. 최초 브랜치 생성
-
-원격 저장소의 기본 브랜치가 `master`라고 가정합니다.
-
-먼저 최신 `master`를 가져옵니다.
+## Commands
 
 ```bash
-git checkout master
-git pull origin master
+npm install
+npm run compile
+npm test
+npm run demo:flow
+npm run abi
 ```
 
----
+`npm run demo:flow`는 별도의 노드나 MetaMask 없이 Hardhat 메모리 네트워크와 가상 지갑을 사용합니다. 매 실행마다 컨트랙트를 새로 배포하고 Supplier 발행·원천 검증, Marketplace 잠금·주문·배송·수령, Brand 거래 검증까지 출력합니다. 결제는 오프체인 처리로만 표시되며 온체인 트랜잭션을 만들지 않습니다. 실행이 끝나면 메모리 네트워크의 데이터도 사라집니다.
 
-### Backend 브랜치 생성
+## RPC Checks
+
+아래 명령은 네트워크 정보, 최신 블록 번호, 계정 잔액, 주소의 컨트랙트 여부를 조회합니다.
 
 ```bash
-git checkout master
-
-git checkout -b backend/master
-git push -u origin backend/master
-
-git checkout -b backend/develop
-git push -u origin backend/develop
+npm run rpc:local
+npm run rpc:ssafy
 ```
 
-`backend/develop`은 `backend/master`에서 생성됩니다.
-
----
-
-### Frontend 브랜치 생성
+EOA 기본 송금 트랜잭션은 `.env`에 `TRANSFER_TO_ADDRESS`를 설정한 뒤 실행합니다.
 
 ```bash
-git checkout master
-
-git checkout -b frontend/master
-git push -u origin frontend/master
-
-git checkout -b frontend/develop
-git push -u origin frontend/develop
+npm run tx:ssafy
 ```
 
----
+## SSAFY Besu Draft
 
-### AI 브랜치 생성
+`.env.example`을 `.env`로 복사하고 SSAFY RPC 정보를 입력합니다.
+
+```dotenv
+SSAFY_RPC_URL=https://<SSAFY_BESU_RPC_URL>
+SSAFY_CHAIN_ID=<SSAFY_CHAIN_ID>
+DEPLOYER_PRIVATE_KEY=<DEPLOYER_PRIVATE_KEY_WITHOUT_0x>
+TARGET_ADDRESS=<ADDRESS_TO_READ_BALANCE_OR_CODE>
+TRANSFER_TO_ADDRESS=<RECEIVER_ADDRESS_FOR_EOA_TRANSFER>
+TRANSFER_AMOUNT_ETH=0.001
+```
+
+로컬 테스트 통과 후 아래 명령으로 네 컨트랙트를 배포합니다. 배포 스크립트는 Marketplace에 `MATERIAL_LOCK_MANAGER_ROLE`을, Processing/Production Registry에는 잠금 및 워크플로 역할을 부여합니다.
 
 ```bash
-git checkout master
-
-git checkout -b ai/master
-git push -u origin ai/master
-
-git checkout -b ai/develop
-git push -u origin ai/develop
+npm run deploy:ssafy
 ```
-
----
-
-### Blockchain 브랜치 생성
-
-```bash
-git checkout master
-
-git checkout -b blockchain/master
-git push -u origin blockchain/master
-
-git checkout -b blockchain/develop
-git push -u origin blockchain/develop
-```
-
----
-
-## 4. 최초 생성 후 브랜치 구조
-
-원격 저장소에는 다음 장기 브랜치가 존재합니다.
-
-```text
-master
-
-backend/master
-backend/develop
-
-frontend/master
-frontend/develop
-
-ai/master
-ai/develop
-
-blockchain/master
-blockchain/develop
-```
-
----
-
-## 5. 기능 개발 방법
-
-Backend에서 Material 등록 기능을 개발한다고 가정합니다.
-
-### 1) 최신 Backend develop 가져오기
-
-```bash
-git checkout backend/develop
-git pull origin backend/develop
-```
-
-### 2) 기능 브랜치 생성
-
-```bash
-git checkout -b backend/feat/material-register
-```
-
-### 3) 개발 후 Commit
-
-```bash
-git add .
-git commit -m "feat: 폐소재 등록 기능 구현"
-```
-
-### 4) 원격 Push
-
-```bash
-git push -u origin backend/feat/material-register
-```
-
-### 5) Pull Request 생성
-
-```text
-backend/feat/material-register
-        ↓
-backend/develop
-```
-
-리뷰와 테스트가 완료되면 `backend/develop`에 병합합니다.
-
-### 6) 기능 브랜치 삭제
-
-```bash
-git checkout backend/develop
-git pull origin backend/develop
-
-git branch -d backend/feat/material-register
-git push origin --delete backend/feat/material-register
-```
-
----
-
-## 6. develop → 파트 master 병합
-
-여러 기능이 `backend/develop`에 통합되고 테스트가 완료되면
-`backend/master`로 Pull Request를 생성합니다.
-
-```text
-backend/feat/*
-      ↓
-backend/develop
-      ↓
-backend/master
-```
-
-명령어로 직접 병합하는 경우:
-
-```bash
-git checkout backend/master
-git pull origin backend/master
-
-git merge backend/develop
-git push origin backend/master
-```
-
-하지만 팀 프로젝트에서는 직접 Merge보다 다음 방식이 권장됩니다.
-
-
-Frontend, AI, Blockchain도 동일하게 운영합니다.
-
-```text
-frontend/develop → frontend/master
-ai/develop → ai/master
-blockchain/develop → blockchain/master
-```
-
----
-
-## 7. 각 파트의 개발 흐름
-
-### Backend
-
-```text
-backend/master
-      ↑
-backend/develop
-      ↑
-backend/feat/*
-```
-
-### Frontend
-
-```text
-frontend/master
-       ↑
-frontend/develop
-       ↑
-frontend/feat/*
-```
-
-### AI
-
-```text
-ai/master
-   ↑
-ai/develop
-   ↑
-ai/feat/*
-```
-
-### Blockchain
-
-```text
-blockchain/master
-          ↑
-blockchain/develop
-          ↑
-blockchain/feat/*
-```
-
----
-
-## 8. 브랜치 네이밍 규칙
-
-### 기능 개발
-
-```text
-{part}/feat/{feature-name}
-```
-
-예시:
-
-```text
-backend/feat/auth-login
-backend/feat/material-register
-backend/feat/material-order
-
-frontend/feat/material-detail
-frontend/feat/qr-passport
-
-ai/feat/material-classification
-
-blockchain/feat/material-token
-blockchain/feat/escrow-contract
-```
-
-### 버그 수정
-
-```text
-{part}/fix/{issue-name}
-```
-
-예시:
-
-```text
-backend/fix/order-lock
-frontend/fix/material-layout
-ai/fix/inference-error
-blockchain/fix/token-burn
-```
-
-### 리팩토링
-
-```text
-{part}/refactor/{target}
-```
-
-예시:
-
-```text
-backend/refactor/material-service
-frontend/refactor/api-client
-ai/refactor/inference-pipeline
-blockchain/refactor/token-contract
-```
-
----
-
-## 9. Commit Message 규칙
-
-Conventional Commit 스타일을 사용합니다.
-
-```text
-feat: 새로운 기능
-fix: 버그 수정
-refactor: 기능 변경 없는 코드 구조 개선
-docs: 문서 변경
-test: 테스트 코드
-chore: 설정 및 기타 작업
-```
-
-예시:
-
-```text
-feat: 폐소재 등록 API 구현
-feat: Material Token 발행 기능 구현
-fix: 주문 수량 동시성 문제 수정
-refactor: MaterialService 구조 개선
-docs: 브랜치 전략 추가
-test: MaterialService 테스트 추가
-chore: Docker Compose 설정 추가
-```
-
-필요하면 scope를 사용할 수 있습니다.
-
-```text
-feat(material): 폐소재 등록 API 구현
-feat(auth): JWT 로그인 구현
-feat(blockchain): Material Token mint 구현
-```
-
----
-
-## 10. Pull Request 규칙
-
-각 파트의 `develop` 및 `master`에는 직접 Push하지 않고
-Pull Request를 통해 병합하는 것을 권장합니다.
-
-기능 개발:
-
-```text
-backend/feat/material-register
-        ↓ PR
-backend/develop
-```
-
-안정 버전 반영:
-
-
-권장 규칙:
-
-- 최소 1명 이상 리뷰
-- Conflict 해결 후 Merge
-- 테스트 성공 후 Merge
-- 기능 단위로 PR 생성
-- 너무 많은 기능을 하나의 PR에 포함하지 않음
-- Merge 완료된 기능 브랜치는 삭제
-- 각 파트의 `master`, `develop` 직접 Push 금지 권장
-
----
-
-## 11. 중요 규칙
-
-### 기능 브랜치는 반드시 자신의 파트 develop에서 생성
-
-잘못된 예:
-
-```text
-master
-   ↓
-backend/feat/material-register
-```
-
-권장:
-
-
----
-
-### 기능 브랜치는 다른 파트에 직접 병합하지 않음
-
-Backend 기능은:
-
-```text
-backend/feat/*
-      ↓
-backend/develop
-```
-
-Frontend 기능은:
-
-```text
-frontend/feat/*
-       ↓
-frontend/develop
-```
-
-AI 기능은:
-
-```text
-ai/feat/*
-   ↓
-ai/develop
-```
-
-Blockchain 기능은:
-
-```text
-blockchain/feat/*
-          ↓
-blockchain/develop
-```
-
----
-
-### 파트별 master는 안정 버전만 유지
-
-예를 들어 Backend의 일반적인 개발은:
-
-```text
-backend/feat/*
-      ↓
-backend/develop
-```
-
-에서 진행합니다.
-
-`backend/master`에는 기능 하나가 완성될 때마다 바로 병합하는 것이 아니라,
-여러 기능이 통합되고 충분한 테스트가 끝난 시점에 반영합니다.
-
----
-
-
----
-
-## 12. 최종 브랜치 구조
-
-```text
-master
-
-backend/master
-└── backend/develop
-    ├── backend/feat/auth-login
-    ├── backend/feat/material-register
-    ├── backend/feat/material-marketplace
-    ├── backend/feat/transaction
-    ├── backend/feat/processing
-    └── backend/feat/production
-
-frontend/master
-└── frontend/develop
-    ├── frontend/feat/auth
-    ├── frontend/feat/material-marketplace
-    ├── frontend/feat/inventory
-    └── frontend/feat/material-passport
-
-ai/master
-└── ai/develop
-    └── ai/feat/*
-
-blockchain/master
-└── blockchain/develop
-    ├── blockchain/feat/material-token
-    ├── blockchain/feat/escrow
-    └── blockchain/feat/traceability
-```
-
----
-
-## 13. 정리
-
-각 파트는 다음 3단계 구조를 가집니다.
-
-```text
-feat/*
-  ↓
-develop
-  ↓
-master
-```
-
-예를 들어 Backend는:
-
-```text
-backend/feat/*
-      ↓
-backend/develop
-      ↓
-backend/master
-```
-
-- `feat/*`: 실제 기능 개발용 단기 브랜치
-- `develop`: 파트 내부 기능 통합 및 테스트
-- `master`: 검증된 안정 버전
-
-기능 브랜치는 작업 완료 후 삭제하고,
-각 파트의 `develop`과 `master`는 프로젝트 기간 동안 유지하는 장기 브랜치입니다.

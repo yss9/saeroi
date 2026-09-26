@@ -1,0 +1,109 @@
+// AI Server CI/CD (Jenkins Multibranch Pipeline)
+//
+// 이 브랜치에는 아직 소스가 없다. 소스가 없으면 "실패"가 아니라 "스킵"이다.
+// 파일만 추가하면 파이프라인이 알아서 켜지므로 인프라에 따로 요청할 것이 없다:
+//   requirements.txt 또는 pyproject.toml 추가 → Test 스테이지 자동 활성화
+//   tests/ 디렉터리 추가                       → pytest 자동 실행
+//   위 + docker/Dockerfile + ai/master push    → 이미지 빌드 + EC2 자동 배포
+pipeline {
+    agent any
+
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+        timeout(time: 20, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '20'))
+    }
+
+    environment {
+        IMAGE      = 'circular-fashion/ai'
+        DEPLOY_DIR = '/home/ubuntu/deploy'
+    }
+
+    stages {
+        // 빌드 결과를 GitLab 커밋 상태로 보고한다 → GitLab 화면에 초록 체크/빨간 X 가 뜬다.
+        // 스크립트는 deploy/master 소유이고 보고 실패는 빌드에 영향을 주지 않는다(항상 exit 0).
+        stage('GitLab 상태 보고') {
+            steps { sh 'bash /home/ubuntu/deploy/scripts/gitlab-status.sh running' }
+        }
+
+        stage('Detect') {
+            steps {
+                script {
+                    env.HAS_DEPS       = (fileExists('requirements.txt') || fileExists('pyproject.toml')) ? 'true' : 'false'
+                    env.HAS_TESTS      = (fileExists('tests') || fileExists('test')) ? 'true' : 'false'
+                    env.HAS_DOCKERFILE = fileExists('docker/Dockerfile') ? 'true' : 'false'
+                    echo "deps=${env.HAS_DEPS} tests=${env.HAS_TESTS} dockerfile=${env.HAS_DOCKERFILE}"
+                    if (env.HAS_DEPS != 'true') {
+                        echo 'SKIP: 파이썬 소스가 아직 없습니다. requirements.txt 를 추가하면 자동으로 CI가 켜집니다.'
+                    }
+                }
+            }
+        }
+
+        stage('Test') {
+            when { environment name: 'HAS_DEPS', value: 'true' }
+            steps {
+                sh '''
+                    set -eu
+                    # 에이전트에 python3.12 가 없다. rapidocr-onnxruntime 이 3.13+ 을 지원하지 않으므로
+                    # docker/Dockerfile 과 동일한 python:3.12-slim 컨테이너 안에서 테스트를 돌린다.
+                    #
+                    # -v "$PWD":/workspace 는 쓰면 안 된다. Jenkins 는 컨테이너(cf-jenkins)로 돌고
+                    # /var/run/docker.sock 을 통해 "호스트" 데몬에 명령을 보낸다. -v 의 왼쪽 경로는
+                    # 호스트 기준으로 해석되는데, jenkins_home 은 named volume(jenkins-home)이라
+                    # 호스트에 /var/jenkins_home/workspace/... 같은 경로가 존재하지 않는다.
+                    # 그러면 Docker 가 그 경로를 빈 디렉터리로 만들어 마운트해버려서 /workspace 가
+                    # 텅 비고 `bash: docker/test.sh: No such file or directory` 로 죽는다.
+                    # → --volumes-from 으로 cf-jenkins 의 볼륨을 그대로 물려받으면 컨테이너 안에서
+                    #   $PWD 경로가 동일하게 보인다. (compose 가 container_name 을 고정해 둔다)
+                    docker run --rm \
+                        --volumes-from cf-jenkins \
+                        -u "$(id -u):$(id -g)" \
+                        -e HAS_TESTS="$HAS_TESTS" \
+                        -w "$PWD" \
+                        python:3.12-slim \
+                        bash docker/test.sh
+                '''
+            }
+        }
+
+        stage('Docker Build') {
+            when {
+                allOf {
+                    branch 'ai/master'
+                    environment name: 'HAS_DEPS',       value: 'true'
+                    environment name: 'HAS_DOCKERFILE', value: 'true'
+                }
+            }
+            steps { sh 'docker build -f docker/Dockerfile -t $IMAGE:latest -t $IMAGE:$BUILD_NUMBER .' }
+        }
+
+        stage('Deploy') {
+            when {
+                allOf {
+                    branch 'ai/master'
+                    environment name: 'HAS_DEPS',       value: 'true'
+                    environment name: 'HAS_DOCKERFILE', value: 'true'
+                }
+            }
+            steps {
+                sh 'flock -w 900 /var/jenkins_home/cf-deploy.lock bash $DEPLOY_DIR/scripts/deploy-ai.sh'
+            }
+        }
+    }
+
+    post {
+        success {
+            sh 'bash /home/ubuntu/deploy/scripts/gitlab-status.sh success'
+            echo "ai OK — ${env.BRANCH_NAME} #${env.BUILD_NUMBER}"
+        }
+        failure {
+            sh 'bash /home/ubuntu/deploy/scripts/gitlab-status.sh failed'
+            echo "ai FAIL — ${env.BRANCH_NAME} #${env.BUILD_NUMBER}"
+        }
+        aborted { sh 'bash /home/ubuntu/deploy/scripts/gitlab-status.sh canceled' }
+        // cleanup 은 선언적 파이프라인에서 항상 마지막이라 위 sh 들이 먼저 돈다
+        cleanup { deleteDir() }
+    }
+}
