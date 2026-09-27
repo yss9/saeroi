@@ -65,3 +65,4 @@
 .pj-action > div:first-child { display: grid; gap: 4px; }
 .pj-result-actions{display:flex;gap:10px;margin-top:14px}.pj-result-actions button{flex:1;min-height:42px;padding:0 15px;border:0;border-radius:8px;background:var(--blue);color:#fff;font:inherit;font-size:.76rem;font-weight:850;cursor:pointer}.pj-result-actions button:disabled{opacity:.5;cursor:not-allowed}
 @media(max-width:760px){.pj-result-actions{flex-direction:column}}
+.pj-status-note p{margin:0 0 8px;font-size:.8rem}.pj-status-note dl{grid-template-columns:repeat(2,1fr);margin:6px 0 10px}.pj-status-note.is-done{border-color:#bfe0c9;background:#f3faf5}.pj-status-note.is-done h2 svg{color:#2c8550}
