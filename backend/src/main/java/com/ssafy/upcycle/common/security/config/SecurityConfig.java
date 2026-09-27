@@ -68,7 +68,9 @@ public class SecurityConfig {
                                 "/api/v1/public/brands",
                                 "/api/v1/public/brands/**",
                                 "/api/v1/prediction-markets",
-                                "/api/v1/prediction-markets/*")
+                                "/api/v1/prediction-markets/*",
+                                // 시장 목록이 공개라 그 제품 사진도 공개다. <img> 는 토큰을 싣지 못한다.
+                                "/api/v1/prediction-markets/*/thumbnail")
                         .permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2

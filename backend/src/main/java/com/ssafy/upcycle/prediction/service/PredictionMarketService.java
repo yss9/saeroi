@@ -2,6 +2,9 @@ package com.ssafy.upcycle.prediction.service;
 
 import com.ssafy.upcycle.blockchain.service.ChainProductionStatusReader;
 import com.ssafy.upcycle.common.exception.BusinessException;
+import com.ssafy.upcycle.common.storage.FileContent;
+import com.ssafy.upcycle.common.storage.FileStorageErrorCode;
+import com.ssafy.upcycle.common.storage.FileStorageService;
 import com.ssafy.upcycle.prediction.PredictionErrorCode;
 import com.ssafy.upcycle.prediction.config.PredictionProperties;
 import com.ssafy.upcycle.prediction.dto.*;
@@ -41,6 +44,7 @@ public class PredictionMarketService {
     private final CompanyProfileRepository companyProfiles;
     private final UserWalletRepository wallets;
     private final PredictionChainGateway chain;
+    private final FileStorageService fileStorage;
     private final ChainProductionStatusReader chainBatches;
     private final PredictionProperties properties;
     private final Clock clock;
@@ -114,6 +118,27 @@ public class PredictionMarketService {
 
     @Transactional(readOnly = true)
     public PredictionMarketResponse detail(Long marketId) { return response(requireMarket(marketId)); }
+
+    /**
+     * 시장에 굳혀 둔 제품 사진.
+     *
+     * <p>시장 목록이 공개이므로 사진도 로그인 없이 연다. 사진은 개설 시점의 저장 키로 읽는다 —
+     * 브랜드가 나중에 제품 사진을 바꿔도 이미 열린 시장의 사진은 그대로다.
+     */
+    @Transactional(readOnly = true)
+    public MarketThumbnail thumbnail(Long marketId) {
+        String key = requireMarket(marketId).getProductThumbnailUrl();
+        if (key == null || key.isBlank() || key.startsWith("/images/")) throw error(PredictionErrorCode.THUMBNAIL_NOT_FOUND);
+        try {
+            return new MarketThumbnail(fileStorage.read(key), key);
+        } catch (BusinessException failure) {
+            if (failure.getErrorCode() == FileStorageErrorCode.FILE_NOT_FOUND) throw error(PredictionErrorCode.THUMBNAIL_NOT_FOUND);
+            throw failure;
+        }
+    }
+
+    /** 사진 내용과 캐시 태그를 만들 저장 키. */
+    public record MarketThumbnail(FileContent content, String storageKey) { }
 
     @Transactional
     public PredictionSurveyResponse recordSurvey(Long userId, Long marketId, PredictionSurveyRequest request) {
