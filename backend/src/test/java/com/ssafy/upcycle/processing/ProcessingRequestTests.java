@@ -821,6 +821,51 @@ class ProcessingRequestTests {
         assertThat(outputs.findAllByProcessingJobIdOrderById(jobId).getFirst().getMaterialType())
                 .isEqualTo(MaterialType.DENIM);
     }
+    /*
+      소재 이름도 종류와 같다 — 가공을 거쳐도 같은 소재이므로 이름이 바뀌지 않는다.
+      가공사가 이름을 다시 적게 하면 같은 소재가 단계마다 다른 이름으로 불리고,
+      여정을 따라가는 사람은 그게 같은 소재인지 알 수 없다. 화면은 이름을 보내지 않는다.
+    */
+    @Test
+    void resultDraftTakesOutputNameFromTheInputMaterial() throws Exception {
+        long jobId = startProcessingJob(300);
+
+        mvc.perform(post("/processing-jobs/{id}/results", jobId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "outputs": [
+                                    {"grade":"A","gradeReason":"오염과 손상이 없음","quantity":200}
+                                  ]
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        assertThat(outputs.findAllByProcessingJobIdOrderById(jobId).getFirst().getName())
+                .isEqualTo("denim");
+    }
+    @Test
+    void submittedOutputNameIgnoresTheRequestAndFollowsTheInputMaterial() throws Exception {
+        long jobId = startProcessingJob(300);
+
+        mvc.perform(post("/processing-jobs/{id}/result", jobId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "outputs": [
+                                    {"name":"재생 면사","grade":"A","gradeReason":"오염과 손상이 없음","quantity":200}
+                                  ],
+                                  "evidenceHash":"0x%s",
+                                  "manifestUrl":"https://example.com/processing/manifest.json"
+                                }
+                                """.formatted("a".repeat(64))))
+                .andExpect(status().isOk());
+
+        assertThat(outputs.findAllByProcessingJobIdOrderById(jobId).getFirst().getName())
+                .isEqualTo("denim");
+    }
     @Test
     void confirmedProcessingResultCreatesChildMaterialAndLineageAtomically() throws Exception {
         long jobId = startProcessingJob(300);
@@ -867,6 +912,8 @@ class ProcessingRequestTests {
                     assertThat(child.getGenerationType()).isEqualTo(MaterialGenerationType.PROCESSED);
                     assertThat(child.getRootOrigin()).isEqualTo(MaterialRootOrigin.WASTE);
                     assertThat(child.getRegistrantId()).isEqualTo(processorId);
+                    // 요청은 "재생 면사" 를 보냈다. 자식 소재는 부모의 이름을 그대로 잇는다.
+                    assertThat(child.getName()).isEqualTo("denim");
                 });
         assertThat(jdbc.queryForList(
                 "select parent_material_id from material_lineage where reference_id=? order by id",

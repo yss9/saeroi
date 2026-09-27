@@ -9,17 +9,23 @@ import com.ssafy.upcycle.material.entity.Material;
 import com.ssafy.upcycle.material.entity.MaterialBalance;
 import com.ssafy.upcycle.material.entity.MaterialLineage;
 import com.ssafy.upcycle.material.entity.MaterialLineageRelationType;
+import com.ssafy.upcycle.material.entity.MaterialLock;
+import com.ssafy.upcycle.material.entity.MaterialLockPurpose;
+import com.ssafy.upcycle.material.entity.MaterialLockReferenceType;
 import com.ssafy.upcycle.material.entity.MaterialRootOrigin;
 import com.ssafy.upcycle.material.entity.MaterialType;
 import com.ssafy.upcycle.material.repository.MaterialBalanceRepository;
 import com.ssafy.upcycle.material.repository.MaterialLineageRepository;
+import com.ssafy.upcycle.material.repository.MaterialLockRepository;
 import com.ssafy.upcycle.material.repository.MaterialRepository;
 import com.ssafy.upcycle.processing.entity.ProcessType;
 import com.ssafy.upcycle.processing.entity.ProcessingJob;
 import com.ssafy.upcycle.processing.entity.ProcessingRequestType;
 import com.ssafy.upcycle.processing.repository.ProcessingJobRepository;
 import com.ssafy.upcycle.processing.repository.ProcessingRequestTypeRepository;
+import com.ssafy.upcycle.trade.entity.MaterialListing;
 import com.ssafy.upcycle.trade.entity.PaymentMethod;
+import com.ssafy.upcycle.trade.repository.MaterialListingRepository;
 import com.ssafy.upcycle.user.entity.User;
 import com.ssafy.upcycle.user.entity.UserRole;
 import com.ssafy.upcycle.user.repository.UserRepository;
@@ -79,6 +85,12 @@ class MaterialProcessHistoryApiTests {
 
     @Autowired
     private ProcessingRequestTypeRepository requestTypeRepository;
+
+    @Autowired
+    private MaterialLockRepository lockRepository;
+
+    @Autowired
+    private MaterialListingRepository listingRepository;
 
     private User brand;
     private User processor;
@@ -218,7 +230,49 @@ class MaterialProcessHistoryApiTests {
                 .andExpect(jsonPath("$.data.completedProcessTypes.length()").value(0));
     }
 
+    // ── 판매 글 ─────────────────────────────────────────────
+
+    /*
+      가공을 거쳐도 소재 이름은 그대로다. 같은 이름의 판매 글이 여럿이면 구매자가 가를 수 있는
+      것은 이 이력뿐이다 — 보유 목록과 상세에만 있고 마켓에 없으면, 사는 쪽이 모른다.
+    */
+    @Test
+    void aListingCarriesTheHistoryOfItsMaterial() throws Exception {
+        Material washed = processedFrom(rawWaste(), confirmedJob(ProcessType.CLEANING));
+        Material sorted = processedFrom(washed, confirmedJob(ProcessType.SORTING));
+        MaterialListing listing = listed(sorted);
+
+        mockMvc.perform(get("/api/v1/listings/" + listing.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.completedProcessTypes.length()").value(2))
+                .andExpect(jsonPath("$.data.completedProcessTypes[0]").value("CLEANING"))
+                .andExpect(jsonPath("$.data.completedProcessTypes[1]").value("SORTING"));
+    }
+
+    @Test
+    void theListingPageCarriesHistoryPerListing() throws Exception {
+        MaterialListing raw = listed(rawWaste());
+        MaterialListing washed = listed(processedFrom(rawWaste(), confirmedJob(ProcessType.CLEANING)));
+
+        mockMvc.perform(get("/api/v1/listings").param("size", "50")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[?(@.listingId == " + raw.getId() + ")].completedProcessTypes[0]")
+                        .doesNotExist())
+                .andExpect(jsonPath("$.data.content[?(@.listingId == " + washed.getId() + ")].completedProcessTypes[0]")
+                        .value("CLEANING"));
+    }
+
     // ── helpers ─────────────────────────────────────────────
+
+    private MaterialListing listed(Material material) {
+        MaterialLock lock = lockRepository.save(MaterialLock.create(
+                material.getId(), brand.getId(), 10_000L, MaterialLockPurpose.MARKETPLACE,
+                MaterialLockReferenceType.LISTING, 70_000L + ++sequence, BASE.plusDays(30)));
+        return listingRepository.save(
+                MaterialListing.open(material.getId(), brand.getId(), 10_000L, 1_000L, lock.getId()));
+    }
 
     private MockHttpServletRequestBuilder myMaterials() {
         return get("/api/materials/me").header(HttpHeaders.AUTHORIZATION, "Bearer " + token);

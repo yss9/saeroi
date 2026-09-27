@@ -173,7 +173,7 @@ public class ProcessingChainService {
         for (int index = 0; index < result.size(); index++) {
             ProcessingOutput row = result.get(index);
             Material child = materials.save(Material.produceProcessed(materialCodeGenerator.placeholder(), parent,
-                    row.getMaterialType(), row.getName(), row.getGrade(), row.getQuantity(), job.getProcessorId()));
+                    row.getMaterialType(), parent.getName(), row.getGrade(), row.getQuantity(), job.getProcessorId()));
             child.assignCode(materialCodeGenerator.of(child.getId()));
             child.linkOnChain(receipt.outputTokenIds().get(index), recorder.chainId(), recorder.materialTokenAddress());
             balanceInitializer.open(child.getId(), actorId, row.getQuantity());

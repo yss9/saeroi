@@ -16,5 +16,10 @@ public record ProcessingOutputRequest(
         MaterialType materialType,
         @NotBlank @Pattern(regexp = "[ABC]") String grade,
         @NotBlank @Size(max=500) String gradeReason,
-        @NotBlank @Size(max=200) String name,
+        /**
+         * <b>무시된다.</b> 소재 이름도 종류처럼 투입 소재에서 그대로 따라온다 — 가공을
+         * 거쳐도 같은 소재이므로 단계마다 이름이 바뀌지 않는다. 남겨 둔 이유는
+         * {@link #materialType} 과 같다.
+         */
+        String name,
         @NotNull @Positive @JsonDeserialize(using = GramQuantityDeserializer.class) Long quantity) {}

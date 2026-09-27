@@ -1,12 +1,17 @@
 package com.ssafy.upcycle.trade.service;
 
 import com.ssafy.upcycle.common.exception.BusinessException;
+import com.ssafy.upcycle.material.service.MaterialProcessHistoryResolver;
+import com.ssafy.upcycle.processing.entity.ProcessType;
 import com.ssafy.upcycle.trade.TradeErrorCode;
 import com.ssafy.upcycle.trade.dto.ListingResponse;
 import com.ssafy.upcycle.trade.dto.ListingSearchCondition;
 import com.ssafy.upcycle.trade.dto.PageResponse;
 import com.ssafy.upcycle.trade.repository.ListingSearchQueryRepository;
+import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -31,13 +36,19 @@ import org.springframework.transaction.annotation.Transactional;
 public class ListingQueryService {
 
     private final ListingSearchQueryRepository listingSearchQueryRepository;
+    private final MaterialProcessHistoryResolver processHistoryResolver;
 
     /** 조건에 맞는 판매 글을 페이지로 읽는다. */
     @Transactional(readOnly = true)
     public PageResponse<ListingResponse> search(ListingSearchCondition condition) {
         Pageable pageable =
                 PageRequest.of(condition.pageOrDefault(), condition.sizeOrDefault());
-        return PageResponse.from(listingSearchQueryRepository.search(condition, pageable));
+        Page<ListingResponse> page = listingSearchQueryRepository.search(condition, pageable);
+        // 페이지 전체를 한 번에 푼다 — 카드마다 혈통을 따로 거슬러 오르면 N+1 이다.
+        Map<Long, List<ProcessType>> processTypes = processHistoryResolver.resolveAll(
+                page.getContent().stream().map(ListingResponse::materialId).toList());
+        return PageResponse.from(page.map(listing -> listing.withCompletedProcessTypes(
+                processTypes.getOrDefault(listing.materialId(), List.of()))));
     }
 
     /**
@@ -51,6 +62,6 @@ public class ListingQueryService {
         if (listing == null) {
             throw new BusinessException(TradeErrorCode.LISTING_NOT_FOUND);
         }
-        return listing;
+        return listing.withCompletedProcessTypes(processHistoryResolver.resolve(listing.materialId()));
     }
 }
