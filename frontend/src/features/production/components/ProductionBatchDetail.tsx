@@ -11,7 +11,7 @@ import { formatKg } from '../../../utils/quantity.ts'
 import { useCancelProductionBatch } from '../hooks/useCancelProductionBatch.ts'
 import { useProductionFlow } from '../hooks/useProductionFlow.ts'
 import { ProductionFlowProgress } from './ProductionFlowProgress.tsx'
-import { PRODUCTION_FLOW_STEPS, type ProductionFlowStep } from '../services/productionFlow.ts'
+import { stepsBefore } from '../services/productionFlow.ts'
 import { useProductionBatch } from '../hooks/useProductionBatch.ts'
 import type { ProductionBatch, ProductionBatchStatus } from '../types/production.types.ts'
 import { MaterialInputSelect } from './MaterialInputSelect.tsx'
@@ -296,15 +296,4 @@ function ConfirmedResult({ batch }: { batch: ProductionBatch }) {
       )}
     </section>
   )
-}
-
-/** 진행 중인 단계보다 앞선 단계. 확정 영역은 처음부터 진행하므로 앞 단계는 끝난 것이다. */
-function stepsBefore(current: ProductionFlowStep | null): Set<ProductionFlowStep> {
-  const done = new Set<ProductionFlowStep>()
-  if (current === null) return done
-  for (const { step } of PRODUCTION_FLOW_STEPS) {
-    if (step === current) break
-    done.add(step)
-  }
-  return done
 }

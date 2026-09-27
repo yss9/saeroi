@@ -1,4 +1,5 @@
-import { useParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { BackLink, ErrorMessage } from '../../components/common/index.ts'
 import { ProductionBatchDetail } from '../../features/production/components/ProductionBatchDetail.tsx'
 
@@ -11,6 +12,7 @@ import { ProductionBatchDetail } from '../../features/production/components/Prod
  */
 export function ProductionBatchDetailPage() {
   const { batchId } = useParams<{ batchId: string }>()
+  const failure = useProductionFailure()
   const parsed = Number(batchId)
   const id = Number.isInteger(parsed) && parsed > 0 ? parsed : null
 
@@ -20,8 +22,33 @@ export function ProductionBatchDetailPage() {
       {id === null ? (
         <ErrorMessage error="잘못된 주소입니다." />
       ) : (
-        <ProductionBatchDetail batchId={id} />
+        <>
+          {/* 생산 화면에서 배치를 연 뒤 멈춘 경우다. 배치가 사라진 것이 아니라 여기서 이어간다. */}
+          {failure !== null && (
+            <ErrorMessage error={`생산을 끝까지 기록하지 못했어요. ${failure} 아래에서 이어서 진행해 주세요.`} />
+          )}
+          <ProductionBatchDetail batchId={id} />
+        </>
       )}
     </main>
   )
+}
+
+/**
+ * 생산 화면이 넘긴 멈춘 이유. **한 번만 보여준다** — 주소 기록에 남겨 두면 새로 고치거나 뒤로
+ * 왔을 때, 이미 이어서 끝낸 생산에도 같은 경고가 다시 뜬다.
+ */
+function useProductionFailure(): string | null {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const [failure] = useState<string | null>(() => {
+    const state = location.state as { productionFailure?: unknown } | null
+    return typeof state?.productionFailure === 'string' ? state.productionFailure : null
+  })
+
+  useEffect(() => {
+    if (location.state !== null) void navigate(location.pathname, { replace: true, state: null })
+  }, [location.pathname, location.state, navigate])
+
+  return failure
 }
