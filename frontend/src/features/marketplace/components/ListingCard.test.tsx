@@ -89,6 +89,17 @@ it('소재와 값을 한 줄에 나눠 보여준다', () => {
   expect(screen.getByText(/구매 가능 전량/)).toBeInTheDocument()
 })
 
+// 가공을 거쳐도 이름은 그대로다 — 같은 이름의 판매글을 가르는 것은 가공 이력이다.
+it('소재 이름 아래에 가공 이력을 보여준다', () => {
+  renderCard(
+    <MemoryRouter>
+      <ListingCard listing={{ ...listing, generationType: 'PROCESSED', completedProcessTypes: ['CLEANING'] }} />
+    </MemoryRouter>,
+  )
+
+  expect(screen.getByText('세척 가공')).toBeInTheDocument()
+})
+
 // 사진이 생기기 전에도 자리를 잡아 둔다 — 나중에 카드 높이와 줄 맞춤이 통째로 달라지지 않게.
 it('이미지 자리를 두고 그 위에 등급을 얹는다', () => {
   const { container } = renderCard(

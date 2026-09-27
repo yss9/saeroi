@@ -82,7 +82,7 @@ describe('MaterialInputSelect', () => {
     ])
     renderSelect()
 
-    const option = await screen.findByRole('option', { name: '세척된 폐데님' })
+    const option = await screen.findByRole('option', { name: '세척된 폐데님 · 세척 가공' })
     expect(option).toBeDisabled()
     expect(option.closest('optgroup')).toHaveAttribute('label', '세척·해체·선별이 더 필요함')
   })
@@ -107,7 +107,7 @@ describe('MaterialInputSelect', () => {
     renderSelect()
 
     // 보유량 30kg 이 아니라 가용량 20kg 이어야 한다.
-    expect(await screen.findByRole('option', { name: /세척된 폐데님 · 가용 20 kg/ })).toBeInTheDocument()
+    expect(await screen.findByRole('option', { name: /세척된 폐데님 · 세척·해체·선별 가공 · 가용 20 kg/ })).toBeInTheDocument()
   })
 
   // 이 테스트가 이 파일의 존재 이유다.
@@ -119,7 +119,7 @@ describe('MaterialInputSelect', () => {
 
     // 이유는 항목 줄이 아니라 묶음 이름이 말한다 — 한 줄에 붙여 적으면 어디까지가 소재
     // 이름인지 읽히지 않는다.
-    const option = await screen.findByRole('option', { name: '수거한 폐데님' })
+    const option = await screen.findByRole('option', { name: '수거한 폐데님 · 가공 전' })
     expect(option).toBeDisabled()
     expect(option.closest('optgroup')).toHaveAttribute('label', '세척·해체·선별이 더 필요함')
   })
@@ -128,7 +128,7 @@ describe('MaterialInputSelect', () => {
     api.getMyMaterials.mockResolvedValue([material({ available: 0, lockedQuantity: 30_000 })])
     renderSelect()
 
-    const option = await screen.findByRole('option', { name: '세척된 폐데님' })
+    const option = await screen.findByRole('option', { name: /^세척된 폐데님 · / })
     expect(option).toBeDisabled()
     expect(option.closest('optgroup')).toHaveAttribute('label', '가용 수량 없음')
   })
@@ -136,7 +136,7 @@ describe('MaterialInputSelect', () => {
   it('이미 투입된 소재는 고를 수 없다', async () => {
     renderSelect({ inputMaterialIds: [11] })
 
-    const option = await screen.findByRole('option', { name: '세척된 폐데님' })
+    const option = await screen.findByRole('option', { name: /^세척된 폐데님 · / })
     expect(option).toBeDisabled()
     expect(option.closest('optgroup')).toHaveAttribute('label', '이미 투입한 소재')
   })
@@ -214,7 +214,7 @@ describe('MaterialInputSelect', () => {
     const user = renderSelect()
     await addDraft(user)
 
-    const option = screen.getByRole('option', { name: '세척된 폐데님' })
+    const option = screen.getByRole('option', { name: /^세척된 폐데님 · / })
     expect(option).toBeDisabled()
     expect(option.closest('optgroup')).toHaveAttribute('label', '아래에 추가한 소재')
   })

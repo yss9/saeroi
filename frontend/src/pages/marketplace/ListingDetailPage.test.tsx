@@ -69,6 +69,13 @@ afterEach(() => {
 })
 
 describe('ListingDetailPage', () => {
+  it('제목 옆에 가공 이력을 보여준다', async () => {
+    api.getListing.mockResolvedValue(listing({ completedProcessTypes: [] }))
+    renderPage()
+
+    expect(await screen.findByText('가공 전')).toBeInTheDocument()
+  })
+
   it('구매하기를 누르기 전에는 구매 요청 폼을 열지 않는다', async () => {
     const user = renderPage()
 

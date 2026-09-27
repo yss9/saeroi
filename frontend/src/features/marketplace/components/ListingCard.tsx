@@ -1,3 +1,4 @@
+import { MaterialProcessingBadge } from '../../material/components/MaterialProcessingBadge.tsx'
 import { Link } from 'react-router-dom'
 import { StatusBadge } from '../../../components/common/index.ts'
 import { EvidenceThumbnailImage } from '../../evidence/components/EvidenceThumbnailImage.tsx'
@@ -77,6 +78,7 @@ export function ListingCard({ listing, actions, viewer = 'buyer', thumbnail }: L
             {LISTING_STATUS_LABEL[listing.status]}
           </StatusBadge>
         </div>
+        <MaterialProcessingBadge completedProcessTypes={listing.completedProcessTypes} generationType={listing.generationType}/>
 
         {/* 고를 때 견주는 사실들. 한 칸에 몰아 두면 이름이 어디까지인지 흐려진다. */}
         <dl className="listing-card__facts">

@@ -6,6 +6,7 @@
 //
 // 수량은 전부 **gram 정수**, 금액은 **원** 이다 (정책 03·08절).
 
+import type { ProcessType } from '../../processing/types/processing.types.ts'
 import type { MaterialGrade, MaterialRootOrigin, MaterialType,
   MaterialGenerationType,
 } from '../../material/types/material.types.ts'
@@ -61,6 +62,11 @@ export interface Listing {
   pricePerKg: number
   status: ListingStatus
   createdAt: string
+  /**
+   * 소재가 거친 가공 종류(보유 목록·상세와 같은 값). 빈 배열이면 가공 전. 가공을 거쳐도 이름은
+   * 그대로라 같은 이름의 판매글을 가르는 값이다. 이 값을 싣기 전의 서버도 있어 없을 수 있다.
+   */
+  completedProcessTypes?: ProcessType[]
 }
 
 /**

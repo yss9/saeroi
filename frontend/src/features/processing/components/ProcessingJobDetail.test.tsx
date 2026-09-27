@@ -187,7 +187,6 @@ test('산출 수량이 바뀌면 Loss를 즉시 계산하고 투입량 초과 �
   expect(screen.getByLabelText('산출 수량 합계')).toHaveTextContent('0 g')
   expect(screen.getByLabelText('자동 계산 Loss')).toHaveTextContent('1,000 g')
 
-  await user.type(screen.getByLabelText('산출물 1 소재명'), '재생 원단')
   await user.type(screen.getByLabelText('산출물 1 등급 판정 사유'), '오염과 손상이 없음')
   await user.type(screen.getByLabelText('산출물 1 산출 수량(g)'), '650')
   expect(screen.getByLabelText('산출 수량 합계')).toHaveTextContent('650 g')
@@ -195,7 +194,6 @@ test('산출 수량이 바뀌면 Loss를 즉시 계산하고 투입량 초과 �
   expect(screen.getByRole('button', { name: '결과 임시 저장' })).toBeEnabled()
 
   await user.click(screen.getByRole('button', { name: '산출물 추가' }))
-  await user.type(screen.getAllByLabelText(/소재명/)[1], '재생 부자재')
   await user.type(screen.getByLabelText('산출물 2 등급 판정 사유'), '오염과 손상이 없음')
   await user.type(screen.getByLabelText('산출물 2 산출 수량(g)'), '500')
 
@@ -227,7 +225,9 @@ test('산출물 입력 의미를 라벨로 안내하고 선택한 등급과 판�
   render(<MemoryRouter><ProcessingJobDetail jobId={17} /></MemoryRouter>)
 
   expect(screen.getByLabelText('산출물 1 소재 종류')).toBeInTheDocument()
-  await user.type(screen.getByLabelText('산출물 1 소재명'), '재생 데님 원단')
+  // 소재 이름은 가공을 거쳐도 바뀌지 않는다 — 다시 적는 칸 없이 투입 소재의 이름을 보여준다.
+  expect(screen.getByLabelText('산출물 1 소재명')).toHaveTextContent('폐데님 원단')
+  expect(screen.queryByRole('textbox', { name: '산출물 1 소재명' })).not.toBeInTheDocument()
   await user.selectOptions(screen.getByLabelText('산출물 1 품질 등급'), 'B')
   await user.type(screen.getByLabelText('산출물 1 등급 판정 사유'), '표면에 경미한 오염이 남아 있음')
   await user.type(screen.getByLabelText('산출물 1 산출 수량(g)'), '650')
@@ -235,7 +235,7 @@ test('산출물 입력 의미를 라벨로 안내하고 선택한 등급과 판�
 
   expect(mocks.saveResult).toHaveBeenCalledWith({
     outputs: [{
-      name: '재생 데님 원단',
+      name: '폐데님 원단',
       grade: 'B',
       gradeReason: '표면에 경미한 오염이 남아 있음',
       quantity: 650,
@@ -256,7 +256,6 @@ test('산출 소재 종류는 투입 소재를 그대로 따르고 고를 수 �
   expect(shown).toHaveTextContent('데님')
   expect(shown.tagName).not.toBe('SELECT')
 
-  await user.type(screen.getByLabelText('산출물 1 소재명'), '재생 데님 원단')
   await user.type(screen.getByLabelText('산출물 1 등급 판정 사유'), '오염과 손상이 없음')
   await user.type(screen.getByLabelText('산출물 1 산출 수량(g)'), '650')
   await user.click(screen.getByRole('button', { name: '결과 임시 저장' }))

@@ -46,6 +46,14 @@ async function conditions() {
   await user.click(screen.getByLabelText('세척'))
   return user
 }
+it('보유 소재 선택지와 선택한 소재에 가공 이력을 함께 보여준다', async () => {
+  const user = setup()
+
+  expect(await screen.findByRole('option', { name: /^폐데님 · 가공 전 · MAT-1/ })).toBeInTheDocument()
+  await user.selectOptions(screen.getByLabelText('보유 소재'), '1')
+  expect(screen.getAllByText('가공 전').length).toBeGreaterThan(0)
+})
+
 it('예약 수량을 제외한 가용량 초과와 소수를 차단한다', async () => {
   const user = await conditions()
   await user.clear(screen.getByLabelText('가공 수량 (g)'))
