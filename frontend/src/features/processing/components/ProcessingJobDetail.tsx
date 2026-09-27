@@ -75,6 +75,11 @@ function ProcessingJobDetailContent({ jobId, job, request, role, flow }: {
   const excessQuantity=Math.max(outputSum-job.inputQuantity,0)
   const hasInvalidOutput=rows.some(row=>!row.name.trim()||!row.gradeReason.trim()||!Number.isSafeInteger(Number(row.quantity))||Number(row.quantity)<=0)
   const cannotSave=pending||excessQuantity>0||hasInvalidOutput
+  const savedRows=job.outputs.map(output=>({ grade:output.grade, gradeReason:output.gradeReason, name:output.name, quantity:String(output.quantity) }))
+  const hasUnsavedChanges=JSON.stringify(rows)!==JSON.stringify(savedRows)
+  const submitBlocker=job.resultRevision===0
+    ?'임시 저장한 결과를 제출합니다. 먼저 결과를 임시 저장해 주세요.'
+    :hasUnsavedChanges?'저장하지 않은 수정이 있어요. 임시 저장한 뒤 제출해 주세요.':null
   const save=()=>flow.saveResult.mutate({outputs:rows.map(row=>({...row,name:row.name.trim(),gradeReason:row.gradeReason.trim(),quantity:Number(row.quantity)}))})
   const counterparty = role === 'PROCESSOR' ? request?.brandName : request?.processorName
   /*
@@ -181,9 +186,14 @@ function ProcessingJobDetailContent({ jobId, job, request, role, flow }: {
         <div><span>자동 계산 Loss</span><output aria-label="자동 계산 Loss">{lossQuantity.toLocaleString()} g</output></div>
       </div>
       {excessQuantity>0&&<p className="pj-warning" role="alert">산출 수량 합계가 투입량을 {excessQuantity.toLocaleString()} g 초과했습니다.</p>}
-      <button disabled={cannotSave} onClick={save}>결과 임시 저장</button>
       <div className="pj-evidence"><h3>가공 증빙</h3><EvidenceUpload referenceType="PROCESSING_JOB" referenceId={jobId} uploadMode="type-grid"/></div>
-      {job.resultRevision>0&&<button className="pj-sign" disabled={pending} onClick={()=>flow.submit.mutate()}>가공 결과 제출</button>}
+      {/* 결과 작성의 마지막 두 동작은 증빙까지 올린 뒤 한 줄에서 고른다. 제출은 서버에 저장된
+          결과를 올리므로, 저장한 적이 없거나 저장하지 않은 수정이 있으면 막는다. */}
+      {submitBlocker&&<p className="pj-help">{submitBlocker}</p>}
+      <div className="pj-result-actions">
+        <button className="pj-secondary" disabled={cannotSave} onClick={save}>결과 임시 저장</button>
+        <button className="pj-sign" disabled={pending||Boolean(submitBlocker)} onClick={()=>flow.submit.mutate()}>가공 결과 제출</button>
+      </div>
     </section>}
 
     {job.outputs.length>0&&<section className="pj-panel"><h2>제출 산출물</h2><ul className="pj-results">{job.outputs.map(row=><li key={row.outputId}><strong>{row.name}</strong><span>{MATERIAL_TYPE_LABEL[row.materialType]} · {GRADE_LABEL[row.grade]}</span><b>{row.quantity.toLocaleString()} g</b><p>{row.gradeReason}</p>{row.materialId&&<small>생성 소재 #{row.materialId}</small>}</li>)}</ul></section>}
