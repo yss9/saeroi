@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 public enum PredictionErrorCode implements ErrorCode {
     NOT_CONFIGURED(HttpStatus.NOT_IMPLEMENTED, "PREDICTION_NOT_CONFIGURED", "예측시장 온체인 연동이 설정되지 않았습니다."),
     MARKET_NOT_FOUND(HttpStatus.NOT_FOUND, "PREDICTION_MARKET_NOT_FOUND", "예측시장을 찾을 수 없습니다."),
+    THUMBNAIL_NOT_FOUND(HttpStatus.NOT_FOUND, "PREDICTION_THUMBNAIL_NOT_FOUND", "예측시장 제품 사진이 없습니다."),
     MARKET_NOT_CANCELABLE(HttpStatus.CONFLICT, "PREDICTION_MARKET_NOT_CANCELABLE", "베팅이 진행 중인 시장만 무효화할 수 있습니다."),
     INVALID_MARKET(HttpStatus.BAD_REQUEST, "PREDICTION_MARKET_INVALID", "예측시장 조건이 올바르지 않습니다."),
     BRAND_INSIGHT_FORBIDDEN(HttpStatus.FORBIDDEN, "PREDICTION_BRAND_INSIGHT_FORBIDDEN", "승인된 브랜드만 예측 결과를 조회할 수 있습니다."),
