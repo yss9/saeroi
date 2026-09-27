@@ -41,10 +41,10 @@ vi.mock('../services/processingContractService.ts', async (importOriginal) => {
 const registration = vi.hoisted(() => ({ registerProcessingChainJob: vi.fn() }))
 vi.mock('../services/registerProcessingChainJob.ts', () => registration)
 
-const api = vi.hoisted(() => ({ detail: vi.fn(), chainPreparation: vi.fn(), accept: vi.fn(), list: vi.fn(), linkChain: vi.fn(), receive: vi.fn(), start: vi.fn(), challenge: vi.fn(), submitResult: vi.fn() }))
+const api = vi.hoisted(() => ({ detail: vi.fn(), chainPreparation: vi.fn(), accept: vi.fn(), list: vi.fn(), linkChain: vi.fn(), receive: vi.fn(), start: vi.fn(), challenge: vi.fn(), submitResult: vi.fn(), saveResult: vi.fn() }))
 vi.mock('../api/processingJobApi.ts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../api/processingJobApi.ts')>()
-  return { ...actual, processingJobApi: { ...actual.processingJobApi, detail: api.detail, chainPreparation: api.chainPreparation, accept: api.accept, list: api.list, linkChain: api.linkChain, receive: api.receive, start: api.start, challenge: api.challenge, submitResult: api.submitResult } }
+  return { ...actual, processingJobApi: { ...actual.processingJobApi, detail: api.detail, chainPreparation: api.chainPreparation, accept: api.accept, list: api.list, linkChain: api.linkChain, receive: api.receive, start: api.start, challenge: api.challenge, submitResult: api.submitResult, saveResult: api.saveResult } }
 })
 
 const requestApi = vi.hoisted(() => ({ detail: vi.fn() }))
@@ -258,6 +258,8 @@ describe('useProcessingJob 가공 작업 등록', () => {
 })
 
 describe('useProcessingJob 결과 제출', () => {
+  const INPUT = { outputs: [{ name: 'denim', grade: 'A' as const, gradeReason: '양호', quantity: 900 }] }
+
   function prepareSubmit(chainState: number) {
     const output = { outputId: 5, materialId: null, materialType: 'DENIM', grade: 'A', gradeReason: '양호', name: 'denim', quantity: 900 }
     contract.getProcessingChainStatus.mockResolvedValue(chainState)
@@ -267,14 +269,16 @@ describe('useProcessingJob 결과 제출', () => {
     api.challenge.mockResolvedValue({ challengeId: 3, message: 'sign me' })
     wallet.signMessage.mockResolvedValue('0xsig')
     api.submitResult.mockResolvedValue(job({ status: 'RESULT_SUBMITTED' }))
-    return renderJob('PROCESSING', { resultRevision: 1, outputs: [output] as ProcessingJobDetail['outputs'] })
+    // 제출은 먼저 저장하고, 그 응답(번호가 매겨진 산출물)으로 서명한다.
+    api.saveResult.mockResolvedValue(job({ status: 'PROCESSING', resultRevision: 1, outputs: [output] as ProcessingJobDetail['outputs'] }))
+    return renderJob('PROCESSING')
   }
 
   it('체인이 아직 수령 상태면 결과 제출 서명 앞에서 가공 시작을 함께 보낸다', async () => {
     const { result } = prepareSubmit(PROCESSING_CHAIN_STATUS.RECEIVED)
     await waitFor(() => expect(result.current.detail.isSuccess && result.current.chainPreparation.isSuccess).toBe(true))
 
-    await result.current.submit.mutateAsync()
+    await result.current.submit.mutateAsync(INPUT)
 
     expect(contract.startProcessingOnChain).toHaveBeenCalledWith(11)
     expect(contract.startProcessingOnChain.mock.invocationCallOrder[0])
@@ -286,10 +290,34 @@ describe('useProcessingJob 결과 제출', () => {
     const { result } = prepareSubmit(PROCESSING_CHAIN_STATUS.PROCESSING)
     await waitFor(() => expect(result.current.detail.isSuccess && result.current.chainPreparation.isSuccess).toBe(true))
 
-    await result.current.submit.mutateAsync()
+    await result.current.submit.mutateAsync(INPUT)
 
     expect(contract.startProcessingOnChain).not.toHaveBeenCalled()
     expect(contract.submitProcessingResultOnChain).toHaveBeenCalledOnce()
+  })
+})
+
+describe('useProcessingJob 결과 제출은 저장부터 한다', () => {
+  it('입력한 결과를 저장한 뒤 그 응답의 산출물로 체인에 제출한다', async () => {
+    const saved = { outputId: 77, materialId: null, materialType: 'DENIM', grade: 'B', gradeReason: '얼룩', name: 'denim', quantity: 650 }
+    contract.getProcessingChainStatus.mockResolvedValue(PROCESSING_CHAIN_STATUS.PROCESSING)
+    contract.submitProcessingResultOnChain.mockResolvedValue(txReceipt())
+    evidenceApi.getEvidence.mockResolvedValue({ files: [{ fileHash: '0x' + 'e'.repeat(64) }], summary: [] })
+    api.challenge.mockResolvedValue({ challengeId: 3, message: 'sign me' })
+    wallet.signMessage.mockResolvedValue('0xsig')
+    api.saveResult.mockResolvedValue(job({ status: 'PROCESSING', resultRevision: 2, outputs: [saved] as ProcessingJobDetail['outputs'] }))
+    api.submitResult.mockResolvedValue(job({ status: 'RESULT_SUBMITTED' }))
+    const { result } = renderJob('PROCESSING')
+    await waitFor(() => expect(result.current.chainPreparation.isSuccess).toBe(true))
+    const input = { outputs: [{ name: 'denim', grade: 'B' as const, gradeReason: '얼룩', quantity: 650 }] }
+
+    await result.current.submit.mutateAsync(input)
+
+    expect(api.saveResult).toHaveBeenCalledWith(41, input)
+    // 서명 요청은 저장이 끝난 뒤다 — 서버가 저장된 결과로 서명 문구를 만든다.
+    expect(api.saveResult.mock.invocationCallOrder[0]).toBeLessThan(api.challenge.mock.invocationCallOrder[0])
+    expect(contract.submitProcessingResultOnChain).toHaveBeenCalledWith(
+      11, [expect.objectContaining({ amount: 650, grade: 'B', metadataUri: 'saeroi://processing/41/output/77' })], expect.any(String))
   })
 })
 

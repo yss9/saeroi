@@ -85,23 +85,22 @@ function ProcessingJobDetailContent({ jobId, job, request, role, flow }: {
   const evidenceFiles = flow.evidence?.data?.files ?? []
   const hasBeforePhoto = evidenceFiles.some(file => file.evidenceType === 'BEFORE_PHOTO')
   const hasAfterPhoto = evidenceFiles.some(file => file.evidenceType === 'AFTER_PHOTO')
-  const pending=Boolean(flow.initializeChain?.isPending||flow.accept?.isPending||flow.declineJob?.isPending||flow.releaseChainLock?.isPending||flow.ship.isPending||flow.receive.isPending||flow.start.isPending||flow.saveResult.isPending||flow.submit.isPending||flow.shipReturn?.isPending||flow.approve.isPending||flow.reject.isPending||flow.returnRejected?.isPending)
-  const error=flow.initializeChain?.error||flow.accept?.error||flow.declineJob?.error||flow.releaseChainLock?.error||flow.ship.error||flow.receive.error||flow.start.error||flow.saveResult.error||flow.submit.error||flow.shipReturn?.error||flow.approve.error||flow.reject.error||flow.returnRejected?.error
+  const pending=Boolean(flow.initializeChain?.isPending||flow.accept?.isPending||flow.declineJob?.isPending||flow.releaseChainLock?.isPending||flow.ship.isPending||flow.receive.isPending||flow.start.isPending||flow.submit.isPending||flow.shipReturn?.isPending||flow.approve.isPending||flow.reject.isPending||flow.returnRejected?.isPending)
+  const error=flow.initializeChain?.error||flow.accept?.error||flow.declineJob?.error||flow.releaseChainLock?.error||flow.ship.error||flow.receive.error||flow.start.error||flow.submit.error||flow.shipReturn?.error||flow.approve.error||flow.reject.error||flow.returnRejected?.error
   const outputSum=rows.reduce((sum,row)=>sum+(Number.isSafeInteger(Number(row.quantity))&&Number(row.quantity)>0?Number(row.quantity):0),0)
   const lossQuantity=Math.max(job.inputQuantity-outputSum,0)
   const excessQuantity=Math.max(outputSum-job.inputQuantity,0)
   const outputName=request?.materialName
   const hasInvalidOutput=!outputName||rows.some(row=>!row.gradeReason.trim()||!Number.isSafeInteger(Number(row.quantity))||Number(row.quantity)<=0)
-  const cannotSave=pending||excessQuantity>0||hasInvalidOutput
-  const savedRows=job.outputs.map(output=>({ grade:output.grade, gradeReason:output.gradeReason, name:output.name, quantity:String(output.quantity) }))
-  const hasUnsavedChanges=JSON.stringify(rows)!==JSON.stringify(savedRows)
-  const submitBlocker=job.resultRevision===0
-    ?'임시 저장한 결과를 제출합니다. 먼저 결과를 임시 저장해 주세요.'
-    :hasUnsavedChanges?'저장하지 않은 수정이 있어요. 임시 저장한 뒤 제출해 주세요.'
+  // 제출은 저장과 서명을 한 번에 한다(useProcessingJobs.submit) — 임시 저장 단계는 없다.
+  // 그래서 막는 이유는 입력 자체와 작업 후 사진뿐이다.
+  const submitBlocker=excessQuantity>0
+    ?'산출 수량 합계가 투입량을 넘지 않게 고쳐 주세요.'
+    :hasInvalidOutput?'산출물마다 등급 판정 사유와 산출 수량을 입력해 주세요.'
     :!hasAfterPhoto?'가공을 마친 뒤의 작업 후 사진을 한 장 이상 올려야 제출할 수 있어요.':null
   // 이름도 종류와 같다 — 가공을 거쳐도 같은 소재라 처음 이름을 그대로 잇는다. 서버도 투입 소재의
   // 이름으로 덮어쓰지만, 이름을 요구하던 이전 서버가 배포돼 있어도 저장되도록 함께 보낸다.
-  const save=()=>flow.saveResult.mutate({outputs:rows.map(row=>({...row,name:outputName??'',gradeReason:row.gradeReason.trim(),quantity:Number(row.quantity)}))})
+  const submitResult=()=>flow.submit.mutate({outputs:rows.map(row=>({...row,name:outputName??'',gradeReason:row.gradeReason.trim(),quantity:Number(row.quantity)}))})
   const counterparty = role === 'PROCESSOR' ? request?.brandName : request?.processorName
   /*
     **온체인 잠금이 아직 살아 있는가.** 해제 패널과 "환불되었습니다" 안내가 같은 답을
@@ -215,12 +214,10 @@ function ProcessingJobDetailContent({ jobId, job, request, role, flow }: {
       </div>
       {excessQuantity>0&&<p className="pj-warning" role="alert">산출 수량 합계가 투입량을 {excessQuantity.toLocaleString()} g 초과했습니다.</p>}
       <div className="pj-evidence"><h3>작업 후 사진</h3><EvidenceUpload referenceType="PROCESSING_JOB" referenceId={jobId} uploadMode="type-grid" evidenceTypes={['AFTER_PHOTO']}/></div>
-      {/* 결과 작성의 마지막 두 동작은 증빙까지 올린 뒤 한 줄에서 고른다. 제출은 서버에 저장된
-          결과를 올리므로, 저장한 적이 없거나 저장하지 않은 수정이 있으면 막는다. */}
+      {/* 결과 작성의 마지막 동작은 제출 하나다. 누르면 입력한 결과를 저장하고 곧바로 서명해 제출한다. */}
       {submitBlocker&&<p className="pj-help">{submitBlocker}</p>}
       <div className="pj-result-actions">
-        <button className="pj-secondary" disabled={cannotSave} onClick={save}>결과 임시 저장</button>
-        <button className="pj-sign" disabled={pending||Boolean(submitBlocker)} onClick={()=>flow.submit.mutate()}>가공 결과 제출</button>
+        <button className="pj-sign" disabled={pending||Boolean(submitBlocker)} onClick={submitResult}>가공 결과 제출</button>
       </div>
     </section>}
 
