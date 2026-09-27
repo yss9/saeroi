@@ -211,20 +211,22 @@ export function useProcessingJob(jobId: number) {
     mutationFn: () => processingJobApi.start(jobId),
     onSuccess: refresh,
   })
-  const saveResult = useMutation({
-    mutationFn: (input: ResultDraftInput) => processingJobApi.saveResult(jobId, input),
-    onSuccess: refresh,
-  })
 
   async function signature(action: ProcessingSignatureAction, reason?: string) {
     const challenge = await processingJobApi.challenge(jobId, action, reason)
     return { challenge, signature: await signMessage(challenge.message) }
   }
+  /*
+    결과 제출 — **저장과 서명을 한 번에 한다.** 임시 저장 단계를 따로 두지 않는다. 서버는 저장된
+    결과를 기준으로 서명을 검증하므로(서명 요청 문구에 산출물이 들어간다) 먼저 저장하고, 그
+    응답(산출물 번호가 매겨진 결과)으로 곧바로 서명해 체인과 서버에 낸다. 서명을 취소해도 저장은
+    남고, 다시 누르면 그 자리에서 다시 저장하고 이어서 낸다.
+  */
   const submit = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (input: ResultDraftInput) => {
       const id = requireChainJob()
-      const job = detail.data
-      if (!job || job.outputs.length === 0) throw new Error('먼저 가공 결과를 저장해 주세요.')
+      const job = await processingJobApi.saveResult(jobId, input)
+      if (job.outputs.length === 0) throw new Error('가공 결과를 입력해 주세요.')
       const evidence = await getEvidence('PROCESSING_JOB', jobId)
       const files = evidence.files ?? []
       if (files.length === 0) throw new Error('가공 증빙을 한 개 이상 등록해 주세요.')
@@ -326,7 +328,7 @@ export function useProcessingJob(jobId: number) {
 
   return {
     detail, request, evidence, chainPreparation, chainStatus,
-    initializeChain, accept, declineJob, releaseChainLock, ship, receive, start, saveResult, submit, shipReturn, approve, reject, returnRejected,
+    initializeChain, accept, declineJob, releaseChainLock, ship, receive, start, submit, shipReturn, approve, reject, returnRejected,
     chainStatusCode: chainStatus.data ?? PROCESSING_CHAIN_STATUS.NONE,
   }
 }

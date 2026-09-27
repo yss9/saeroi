@@ -32,6 +32,17 @@ export const PRODUCTION_FLOW_STEPS: readonly { step: ProductionFlowStep; label: 
   { step: 'LINK_ITEMS', label: '생산 제품 등록' },
 ]
 
+/** 진행 중인 단계보다 앞선 단계. 처음부터 진행하는 흐름이라 앞 단계는 끝난 것이다. */
+export function stepsBefore(current: ProductionFlowStep | null): Set<ProductionFlowStep> {
+  const done = new Set<ProductionFlowStep>()
+  if (current === null) return done
+  for (const { step } of PRODUCTION_FLOW_STEPS) {
+    if (step === current) break
+    done.add(step)
+  }
+  return done
+}
+
 /**
  * 생산 확정을 **한 번의 누름으로** 끝까지 진행한다.
  *

@@ -1,4 +1,4 @@
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { useCallback, useRef, useState } from 'react'
 import { inventoryKeys } from '../../inventory/api/inventoryKeys.ts'
 import { materialKeys } from '../../material/api/materialKeys.ts'
@@ -37,23 +37,28 @@ export function useProductionFlow(batch: ProductionBatch): ProductionFlowState {
       await runProductionFlow(batch, setCurrentStep)
       setCurrentStep(null)
     } catch (cause) {
-      setError(messageOf(cause))
+      setError(productionFlowErrorMessage(cause))
     } finally {
       inFlight.current = false
       setRunning(false)
-      void queryClient.invalidateQueries({ queryKey: productionKeys.detail(batch.productionBatchId) })
-      void queryClient.invalidateQueries({ queryKey: productionKeys.lists() })
-      void queryClient.invalidateQueries({ queryKey: ['chain', 'production-batch'] })
-      void queryClient.invalidateQueries({ queryKey: inventoryKeys.all })
-      void queryClient.invalidateQueries({ queryKey: materialKeys.all })
-      void queryClient.invalidateQueries({ queryKey: productKeys.all })
+      invalidateAfterProductionFlow(queryClient, batch.productionBatchId)
     }
   }, [batch, queryClient])
 
   return { run, running, currentStep, error }
 }
 
-function messageOf(cause: unknown): string {
+/** 생산 진행이 바꾼 것들. 배치·체인 기록·소재 잠금과 소비·제품 재고가 함께 움직인다. */
+export function invalidateAfterProductionFlow(queryClient: QueryClient, productionBatchId: number): void {
+  void queryClient.invalidateQueries({ queryKey: productionKeys.detail(productionBatchId) })
+  void queryClient.invalidateQueries({ queryKey: productionKeys.lists() })
+  void queryClient.invalidateQueries({ queryKey: ['chain', 'production-batch'] })
+  void queryClient.invalidateQueries({ queryKey: inventoryKeys.all })
+  void queryClient.invalidateQueries({ queryKey: materialKeys.all })
+  void queryClient.invalidateQueries({ queryKey: productKeys.all })
+}
+
+export function productionFlowErrorMessage(cause: unknown): string {
   const error = cause as { code?: unknown; message?: unknown } | null
   // 지갑에서 취소한 것은 실패가 아니다. 다시 누르면 남은 단계부터 이어진다는 것을 알린다.
   if (error?.code === 'ACTION_REJECTED' || error?.code === 4001 || /user rejected|user denied/i.test(String(error?.message ?? ''))) {

@@ -30,34 +30,41 @@ export async function loadPredictionChainState(
   const chainMarket = await prediction.getMarket(market.chainMarketId)
   const winningBucket = Number(chainMarket.winningBucket)
   const resolved = Number(chainMarket.status) === 2
-  const [userStake, claimed, userWinningStake, winningPool] = await Promise.all([
+  const indexes = market.buckets.map((bucket) => bucket.index)
+  // 구간 수는 스무 개를 넘지 않는다(서버 검증). 구간마다 두 번씩 읽어도 한 번에 끝난다.
+  const [userStake, claimed, bucketPools, userBucketStakes] = await Promise.all([
     prediction.userTotalStake(market.chainMarketId, walletAddress) as Promise<bigint>,
     prediction.claimed(market.chainMarketId, walletAddress) as Promise<boolean>,
-    resolved
-      ? prediction.userBucketStake(market.chainMarketId, walletAddress, winningBucket) as Promise<bigint>
-      : Promise.resolve(0n),
-    resolved
-      ? prediction.bucketPool(market.chainMarketId, winningBucket) as Promise<bigint>
-      : Promise.resolve(0n),
+    Promise.all(indexes.map((index) => prediction.bucketPool(market.chainMarketId, index) as Promise<bigint>)),
+    Promise.all(indexes.map((index) =>
+      prediction.userBucketStake(market.chainMarketId, walletAddress, index) as Promise<bigint>)),
   ])
   return {
-    userStake, claimed, userWinningStake, winningPool,
+    userStake, claimed, bucketPools, userBucketStakes,
+    userWinningStake: resolved ? userBucketStakes[winningBucket] ?? 0n : 0n,
+    winningPool: resolved ? bucketPools[winningBucket] ?? 0n : 0n,
     totalPool: chainMarket.totalPool as bigint,
     refundOnly: Boolean(chainMarket.refundOnly),
   }
 }
 
+/** 참여는 지갑 서명이 두 번이다 — 포인트 사용 승인(approve), 예측 기록(placeBet). */
+export type PredictionBetStep = 'APPROVE' | 'PLACE_BET'
+
 export async function approveAndPlacePredictionBet(
   market: PredictionMarket, bucketIndex: number, pointAmount: string,
+  onStep: (step: PredictionBetStep) => void = () => {},
 ): Promise<{ transactionHash: string; stakeAmount: string }> {
   const marketAddress = contracts.predictionMarket
   if (!marketAddress) throw new Error('예측시장 기능을 사용할 수 없습니다. 관리자에게 문의해 주세요.')
   const amount = parseUnits(pointAmount, DECIMALS)
   if (amount <= 0n) throw new Error('예측 포인트는 0보다 커야 합니다.')
 
+  onStep('APPROVE')
   const point = await getWriteContract('predictionPoint')
   const approve = await point.approve(marketAddress, amount) as ContractTransactionResponse
   await approve.wait()
+  onStep('PLACE_BET')
   const prediction = await getWriteContract('predictionMarket')
   const bet = await prediction.placeBet(market.chainMarketId, bucketIndex, amount) as ContractTransactionResponse
   await bet.wait()

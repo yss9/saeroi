@@ -6,7 +6,7 @@ import { useAuthStore } from '../../../stores/authStore.ts'
 import { PROCESSING_CHAIN_STATUS } from '../services/processingContractService.ts'
 import { ProcessingJobDetail } from './ProcessingJobDetail.tsx'
 
-const mocks = vi.hoisted(() => ({ useProcessingJob: vi.fn(), saveResult: vi.fn(), accept: vi.fn(), releaseChainLock: vi.fn() }))
+const mocks = vi.hoisted(() => ({ useProcessingJob: vi.fn(), submit: vi.fn(), accept: vi.fn(), releaseChainLock: vi.fn() }))
 const accept = mocks.accept
 const releaseChainLock = mocks.releaseChainLock
 
@@ -167,8 +167,9 @@ beforeEach(() => {
     ship: mutation(),
     receive: mutation(),
     start: mutation(),
-    saveResult: { ...mutation(), mutate: mocks.saveResult },
-    submit: mutation(),
+    // 작업 후 사진은 결과 제출의 조건이다. 입력 규칙을 보는 테스트는 사진이 있는 상태에서 본다.
+    evidence: { data: { files: [{ evidenceFileId: 9, evidenceType: 'AFTER_PHOTO', fileHash: '0x' + 'a'.repeat(64), storageKey: 'processing/after.jpg' }] } },
+    submit: { ...mutation(), mutate: mocks.submit },
     approve: mutation(),
     reject: mutation(),
   })
@@ -180,7 +181,7 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-test('산출 수량이 바뀌면 Loss를 즉시 계산하고 투입량 초과 시 저장을 막는다', async () => {
+test('산출 수량이 바뀌면 Loss를 즉시 계산하고 투입량 초과 시 제출을 막는다', async () => {
   const user = userEvent.setup()
   render(<MemoryRouter><ProcessingJobDetail jobId={17} /></MemoryRouter>)
 
@@ -191,7 +192,7 @@ test('산출 수량이 바뀌면 Loss를 즉시 계산하고 투입량 초과 �
   await user.type(screen.getByLabelText('산출물 1 산출 수량(g)'), '650')
   expect(screen.getByLabelText('산출 수량 합계')).toHaveTextContent('650 g')
   expect(screen.getByLabelText('자동 계산 Loss')).toHaveTextContent('350 g')
-  expect(screen.getByRole('button', { name: '결과 임시 저장' })).toBeEnabled()
+  expect(screen.getByRole('button', { name: '가공 결과 제출' })).toBeEnabled()
 
   await user.click(screen.getByRole('button', { name: '산출물 추가' }))
   await user.type(screen.getByLabelText('산출물 2 등급 판정 사유'), '오염과 손상이 없음')
@@ -200,7 +201,7 @@ test('산출 수량이 바뀌면 Loss를 즉시 계산하고 투입량 초과 �
   expect(screen.getByLabelText('산출 수량 합계')).toHaveTextContent('1,150 g')
   expect(screen.getByLabelText('자동 계산 Loss')).toHaveTextContent('0 g')
   expect(screen.getByRole('alert')).toHaveTextContent('투입량을 150 g 초과했습니다.')
-  expect(screen.getByRole('button', { name: '결과 임시 저장' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: '가공 결과 제출' })).toBeDisabled()
 })
 
 test('가공 결과 작성에서는 작업 후 사진만 올린다', () => {
@@ -222,7 +223,7 @@ test('Processor에게 기술 ID 대신 요청 대상과 공정 정보를 보여�
   expect(screen.queryByText('PROCESSING JOB')).not.toBeInTheDocument()
 })
 
-test('산출물 입력 의미를 라벨로 안내하고 선택한 등급과 판정 사유를 저장한다', async () => {
+test('산출물 입력 의미를 라벨로 안내하고 선택한 등급과 판정 사유로 바로 제출한다', async () => {
   const user = userEvent.setup()
   render(<MemoryRouter><ProcessingJobDetail jobId={17} /></MemoryRouter>)
 
@@ -233,9 +234,9 @@ test('산출물 입력 의미를 라벨로 안내하고 선택한 등급과 판�
   await user.selectOptions(screen.getByLabelText('산출물 1 품질 등급'), 'B')
   await user.type(screen.getByLabelText('산출물 1 등급 판정 사유'), '표면에 경미한 오염이 남아 있음')
   await user.type(screen.getByLabelText('산출물 1 산출 수량(g)'), '650')
-  await user.click(screen.getByRole('button', { name: '결과 임시 저장' }))
+  await user.click(screen.getByRole('button', { name: '가공 결과 제출' }))
 
-  expect(mocks.saveResult).toHaveBeenCalledWith({
+  expect(mocks.submit).toHaveBeenCalledWith({
     outputs: [{
       name: '폐데님 원단',
       grade: 'B',
@@ -260,9 +261,9 @@ test('산출 소재 종류는 투입 소재를 그대로 따르고 고를 수 �
 
   await user.type(screen.getByLabelText('산출물 1 등급 판정 사유'), '오염과 손상이 없음')
   await user.type(screen.getByLabelText('산출물 1 산출 수량(g)'), '650')
-  await user.click(screen.getByRole('button', { name: '결과 임시 저장' }))
+  await user.click(screen.getByRole('button', { name: '가공 결과 제출' }))
 
-  const [payload] = mocks.saveResult.mock.calls[0]
+  const [payload] = mocks.submit.mock.calls[0]
   expect(payload.outputs[0]).not.toHaveProperty('materialType')
 })
 test('반환 발송 폼을 작업 카드 안에 중첩 카드 없이 표시한다', () => {
@@ -484,7 +485,7 @@ test('수령 뒤 가공 시작 기록만 빠진 작업은 버튼 없이 곧바�
 })
 
 
-// 임시 저장과 제출은 결과 작성의 마지막 두 동작이다 — 증빙까지 올린 뒤 한 줄에서 고른다.
+// 결과 작성의 마지막 동작은 제출 하나다 — 임시 저장 없이, 증빙까지 올린 뒤 바로 제출한다.
 function withSavedResult(overrides: Record<string, unknown> = {}) {
   const flow = mocks.useProcessingJob()
   const saved = {
@@ -494,6 +495,8 @@ function withSavedResult(overrides: Record<string, unknown> = {}) {
     ...flow,
     detail: { ...flow.detail, data: { ...flow.detail.data, resultRevision: 1, outputs: [saved], ...overrides } },
     evidence: { data: { files: [photo('AFTER_PHOTO')] } },
+    shipReturn: mutation(),
+    returnRejected: mutation(),
   })
   return flow
 }
@@ -502,39 +505,36 @@ function photo(evidenceType: string) {
   return { evidenceFileId: 1, evidenceType, fileHash: '0x' + 'a'.repeat(64), storageKey: 'processing/photo.jpg' }
 }
 
-test('임시 저장과 결과 제출 버튼은 증빙 아래에 나란히 있다', () => {
-  withSavedResult()
+test('임시 저장 없이 증빙 아래의 가공 결과 제출 버튼 하나만 둔다', () => {
   const { container } = render(<MemoryRouter><ProcessingJobDetail jobId={17} /></MemoryRouter>)
 
+  expect(screen.queryByRole('button', { name: '결과 임시 저장' })).not.toBeInTheDocument()
   const actions = container.querySelector('.pj-result-actions')
-  expect(actions).not.toBeNull()
-  const buttons = Array.from(actions!.querySelectorAll('button')).map(button => button.textContent)
-  expect(buttons).toEqual(['결과 임시 저장', '가공 결과 제출'])
-  // 증빙 업로드가 두 버튼보다 앞에 온다.
+  expect(Array.from(actions!.querySelectorAll('button')).map(button => button.textContent)).toEqual(['가공 결과 제출'])
   const evidence = screen.getByTestId('evidence-upload')
   expect(evidence.compareDocumentPosition(actions!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 })
 
-test('저장한 적이 없으면 결과 제출은 보이지만 누를 수 없다', () => {
+test('입력을 채우지 않았으면 제출을 막고 무엇이 빠졌는지 알린다', () => {
   render(<MemoryRouter><ProcessingJobDetail jobId={17} /></MemoryRouter>)
 
   expect(screen.getByRole('button', { name: '가공 결과 제출' })).toBeDisabled()
-  expect(screen.getByText('임시 저장한 결과를 제출합니다. 먼저 결과를 임시 저장해 주세요.')).toBeInTheDocument()
+  expect(screen.getByText('산출물마다 등급 판정 사유와 산출 수량을 입력해 주세요.')).toBeInTheDocument()
 })
 
-// 제출은 서버에 저장된 결과를 올린다. 고친 뒤 저장하지 않고 누르면 예전 값이 제출된다.
-test('저장하지 않은 수정이 있으면 결과 제출을 막는다', async () => {
+// 보완 요청으로 돌아온 작업은 전에 낸 결과가 채워져 있다 — 고친 그대로 다시 제출한다.
+test('이전에 낸 결과를 고쳐 바로 다시 제출한다', async () => {
   const user = userEvent.setup()
-  const flow = withSavedResult()
+  const flow = withSavedResult({ status: 'REJECTED' })
   render(<MemoryRouter><ProcessingJobDetail jobId={17} /></MemoryRouter>)
 
-  expect(screen.getByRole('button', { name: '가공 결과 제출' })).toBeEnabled()
   await user.clear(screen.getByLabelText('산출물 1 산출 수량(g)'))
   await user.type(screen.getByLabelText('산출물 1 산출 수량(g)'), '700')
+  await user.click(screen.getByRole('button', { name: '가공 결과 제출' }))
 
-  expect(screen.getByRole('button', { name: '가공 결과 제출' })).toBeDisabled()
-  expect(screen.getByText('저장하지 않은 수정이 있어요. 임시 저장한 뒤 제출해 주세요.')).toBeInTheDocument()
-  expect(flow.submit.mutate).not.toHaveBeenCalled()
+  expect(flow.submit.mutate).toHaveBeenCalledWith({
+    outputs: [{ name: '폐데님 원단', grade: 'A', gradeReason: '오염과 손상이 없음', quantity: 700 }],
+  })
 })
 
 // ── 작업 전·후 사진은 필수 ─────────────────────────────────────

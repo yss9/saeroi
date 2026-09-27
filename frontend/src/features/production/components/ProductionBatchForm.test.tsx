@@ -1,153 +1,145 @@
-// 새 생산 — 생산 상세와 같은 틀.
+// 생산 시작 — 한 화면에서 끝까지.
 //
-// 시작 전과 후가 같은 자리에서 같은 모양이어야 한다. 이름은 제목 자리에서, 생산 개수는
-// 상세가 숫자를 보여 주는 첫 칸에서 받는다. 투입 합계와 건수는 담은 소재를 따라 바뀐다.
+// 이름·개수·소재를 적고 **한 번 누르면** 배치를 열고, 소재를 담고, 확정과 체인 기록까지
+// 진행한다. 예전에는 여기서 배치만 열고 상세 화면에서 같은 내용을 다시 읽은 뒤 확정했다.
+//
+// 틀리면 안 되는 지점.
+//
+//   1) 무엇이 일어나는지(소비·생산 개수·되돌릴 수 없음)를 누르기 전에 적는다.
+//   2) 소재가 없거나 어긋나면 누를 수 없다 — 확정은 투입 없이 되지 않는다.
+//   3) 배치를 연 뒤에 멈추면 **이 화면에서 다시 누르게 하지 않는다.** 다시 누르면 배치가 하나
+//      더 열린다. 상세로 보내 이유를 적고, 거기서 남은 단계부터 잇는다.
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { InventoryItem } from '../../inventory/types/inventory.types.ts'
+import type { ProductionBatch } from '../types/production.types.ts'
+import type { DraftInput } from '../utils/productionInputDraft.ts'
 import { ProductionBatchForm } from './ProductionBatchForm.tsx'
 
 const api = vi.hoisted(() => ({
   openProductionBatch: vi.fn(),
   addProductionInputs: vi.fn(),
-  getMyMaterials: vi.fn(),
   getMyWallets: vi.fn(),
+  runProductionFlow: vi.fn(),
 }))
-vi.mock('../api/productionBatchApi.ts', async (importOriginal) => ({
-  ...(await importOriginal<object>()),
-  openProductionBatch: api.openProductionBatch,
-}))
+vi.mock('../api/productionBatchApi.ts', () => ({ openProductionBatch: api.openProductionBatch }))
 vi.mock('../api/addProductionInputs.ts', () => ({ addProductionInputs: api.addProductionInputs }))
-vi.mock('../../inventory/api/getMyMaterials.ts', () => ({ getMyMaterials: api.getMyMaterials }))
-vi.mock('../../wallet/api/walletRegistrationApi.ts', async (importOriginal) => ({
-  ...(await importOriginal<object>()),
-  getMyWallets: api.getMyWallets,
+vi.mock('../../wallet/api/walletRegistrationApi.ts', () => ({ getMyWallets: api.getMyWallets }))
+vi.mock('../services/productionFlow.ts', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../services/productionFlow.ts')>()),
+  runProductionFlow: api.runProductionFlow,
 }))
+// 소재 고르기는 따로 검증된 부품이다. 여기서는 고른 결과(초안)만 넘겨받는다.
+vi.mock('./MaterialInputSelect.tsx', () => ({ MaterialInputPicker: () => null }))
 
-function material(overrides: Partial<InventoryItem> = {}): InventoryItem {
+function batch(overrides: Partial<ProductionBatch> = {}): ProductionBatch {
   return {
-    materialId: 11,
-    materialCode: 'MAT-000011',
-    materialType: 'DENIM',
-    rootOrigin: 'WASTE',
-    generationType: 'PROCESSED',
-    name: '정제된 폐데님',
-    grade: 'A',
-    status: 'ACTIVE',
-    totalQuantity: 100_000,
-    quantity: 30_000,
-    lockedQuantity: 0,
-    available: 30_000,
-    syncedAt: '2026-09-28T09:00:00',
-    completedProcessTypes: ['CLEANING', 'DISASSEMBLY', 'SORTING'],
-    ...overrides,
-  }
-}
-
-function renderForm(onOpened = vi.fn()) {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  })
-  render(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
-        <ProductionBatchForm onOpened={onOpened} />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  )
-  return onOpened
-}
-
-beforeEach(() => {
-  vi.clearAllMocks()
-  api.getMyMaterials.mockResolvedValue([material()])
-  api.getMyWallets.mockResolvedValue([{ walletId: 1, address: '0xabc', active: true }])
-  api.openProductionBatch.mockResolvedValue({
-    productionBatchId: 66,
-    batchName: '가을 토트백 1차',
-    producedQuantity: 20,
+    productionBatchId: 3,
+    batchName: '토트백 1차',
+    producedQuantity: 10,
+    producerWallet: '0x2222222222222222222222222222222222222222',
+    chainBatchId: null,
     status: 'DRAFT',
     inputs: [],
+    ...overrides,
+  } as ProductionBatch
+}
+
+const material = { materialId: 11, available: 20_000 } as InventoryItem
+const draft: DraftInput = { material, productUsed: 8_000, reusableScrap: 1_500, waste: 500, wasteReason: '' }
+
+function renderForm(drafts: DraftInput[] = [draft], onDone = vi.fn()) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+  render(
+    <QueryClientProvider client={client}>
+      <ProductionBatchForm initial={{ batchName: '토트백 1차', producedQuantity: 10, drafts }} onDone={onDone} />
+    </QueryClientProvider>,
+  )
+  return onDone
+}
+
+describe('ProductionBatchForm', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    api.getMyWallets.mockResolvedValue([{ active: true, walletAddress: '0x2222222222222222222222222222222222222222' }])
+    api.openProductionBatch.mockResolvedValue(batch())
+    api.addProductionInputs.mockResolvedValue(batch({ inputs: [{ productionInputId: 51 }] as ProductionBatch['inputs'] }))
+    api.runProductionFlow.mockResolvedValue(undefined)
   })
-})
+  afterEach(cleanup)
 
-afterEach(cleanup)
-
-describe('새 생산', () => {
-  it('생산 상세와 같은 틀 — 이름 칸, 투입할 소재 카드, 생산 시작 버튼', async () => {
+  it('누르기 전에 무엇이 소비되고 몇 개가 만들어지는지 적는다', async () => {
     renderForm()
 
-    expect(await screen.findByLabelText('생산 이름')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: '투입할 소재' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '생산 시작' })).toBeInTheDocument()
+    expect(await screen.findByText(/투입한 8 kg이 소비되고 제품 10개가 만들어집니다/)).toBeTruthy()
+    expect(screen.getByText('되돌릴 수 없습니다.')).toBeTruthy()
   })
 
-  // 상세가 "생산 개수" 를 보여 주는 바로 그 자리에서 받는다.
-  it('생산 개수를 숫자 칸에서 받는다', async () => {
-    renderForm()
+  it('한 번 누르면 배치를 열고 소재를 담고 확정·기록까지 진행한다', async () => {
+    const onDone = renderForm()
 
-    const quantity = await screen.findByLabelText('생산 개수')
-    expect(quantity).toHaveAttribute('type', 'number')
-  })
+    await userEvent.click(await screen.findByRole('button', { name: '생산 확정' }))
 
-  // 담은 것의 합계는 담은 칸의 맨 아래에 선다 — 담기 전에는 더할 것이 없어 줄이 없다.
-  it('소재를 담으면 소재 카드 맨 아래에 투입 합계가 선다', async () => {
-    const user = userEvent.setup()
-    renderForm()
-
-    expect(await screen.findByLabelText('투입할 소재')).toBeInTheDocument()
-    expect(screen.queryByText('투입 합계')).not.toBeInTheDocument()
-
-    await user.selectOptions(screen.getByLabelText('투입할 소재'), '11')
-    await user.type(screen.getByLabelText('제품 사용 (g)'), '500')
-
-    expect(screen.getByText('투입 합계')).toBeInTheDocument()
-    expect(screen.getByText('0.5 kg')).toBeInTheDocument()
-    expect(screen.getByText('소재 1건')).toBeInTheDocument()
-  })
-
-  it('이름과 개수로 생산을 열고 상세로 넘긴다', async () => {
-    const user = userEvent.setup()
-    const onOpened = renderForm()
-
-    await user.type(await screen.findByLabelText('생산 이름'), '가을 토트백 1차')
-    await user.type(screen.getByLabelText('생산 개수'), '20')
-    await user.click(screen.getByRole('button', { name: '생산 시작' }))
-
+    await waitFor(() => expect(onDone).toHaveBeenCalled())
     expect(api.openProductionBatch).toHaveBeenCalledWith(
-      { batchName: '가을 토트백 1차', producedQuantity: 20 },
+      expect.objectContaining({ batchName: '토트백 1차', producedQuantity: 10 }),
       expect.anything(),
     )
-    expect(onOpened).toHaveBeenCalledWith(expect.objectContaining({ productionBatchId: 66 }))
+    expect(api.addProductionInputs).toHaveBeenCalledWith(3, [expect.objectContaining({ materialId: 11, inputQuantity: 10_000 })])
+    // 소재까지 담긴 배치로 진행한다 — 빈 배치로는 서버가 확정을 거절한다.
+    expect(api.runProductionFlow).toHaveBeenCalledWith(
+      expect.objectContaining({ productionBatchId: 3, inputs: [{ productionInputId: 51 }] }),
+      expect.any(Function),
+    )
+    expect(onDone).toHaveBeenCalledWith(expect.objectContaining({ productionBatchId: 3 }), null)
   })
 
-  // 상세의 "투입된 소재 / + 소재 더 담기" 처럼 제목 줄 오른쪽에 선다.
-  it('소재를 담으면 투입 추가가 카드 위쪽 오른쪽에 서고, 누르면 선택 칸이 다시 펴진다', async () => {
-    const user = userEvent.setup()
+  it('진행하는 동안 단계를 보여준다', async () => {
+    let finish: () => void = () => {}
+    api.runProductionFlow.mockImplementation((_batch, onStep: (step: string) => void) => {
+      onStep('CREATE_BATCH')
+      return new Promise<void>((resolve) => { finish = resolve })
+    })
     renderForm()
 
-    await user.selectOptions(await screen.findByLabelText('투입할 소재'), '11')
-    const more = screen.getByRole('button', { name: '+ 투입 추가' })
-    expect(more.closest('.batch-new__more')).not.toBeNull()
-    expect(screen.queryByLabelText('투입할 소재')).not.toBeInTheDocument()
+    await userEvent.click(await screen.findByRole('button', { name: '생산 확정' }))
 
-    await user.click(more)
-    expect(screen.getByLabelText('투입할 소재')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '+ 투입 추가' })).not.toBeInTheDocument()
+    const progress = await screen.findByRole('list', { name: '생산 기록 진행 상황' })
+    expect(progress.textContent).toContain('진행 중')
+    finish()
   })
 
-  it('생산 개수가 없으면 열지 않는다', async () => {
-    const user = userEvent.setup()
-    renderForm()
+  it('배치를 연 뒤 멈추면 이유와 함께 상세로 넘긴다 — 여기서 다시 누르면 배치가 또 열린다', async () => {
+    api.runProductionFlow.mockRejectedValue(Object.assign(new Error('user rejected action'), { code: 'ACTION_REJECTED' }))
+    const onDone = renderForm()
 
-    await user.type(await screen.findByLabelText('생산 이름'), '가을 토트백 1차')
-    await user.click(screen.getByRole('button', { name: '생산 시작' }))
+    await userEvent.click(await screen.findByRole('button', { name: '생산 확정' }))
 
-    expect(await screen.findByText('생산 개수를 입력해 주세요.')).toBeInTheDocument()
-    expect(api.openProductionBatch).not.toHaveBeenCalled()
+    await waitFor(() => expect(onDone).toHaveBeenCalled())
+    expect(onDone).toHaveBeenCalledWith(
+      expect.objectContaining({ productionBatchId: 3 }),
+      expect.stringContaining('서명을 취소했어요'),
+    )
+  })
+
+  it('소재를 담지 못하면 확정하지 않고 이유와 함께 상세로 넘긴다', async () => {
+    api.addProductionInputs.mockRejectedValue(new Error('가용 수량이 부족합니다.'))
+    const onDone = renderForm()
+
+    await userEvent.click(await screen.findByRole('button', { name: '생산 확정' }))
+
+    await waitFor(() => expect(onDone).toHaveBeenCalled())
+    expect(api.runProductionFlow).not.toHaveBeenCalled()
+    expect(onDone).toHaveBeenCalledWith(expect.objectContaining({ productionBatchId: 3 }), '가용 수량이 부족합니다.')
+  })
+
+  it('소재를 고르지 않으면 누를 수 없다', async () => {
+    renderForm([])
+
+    const button = await screen.findByRole('button', { name: '생산 확정' })
+    expect((button as HTMLButtonElement).disabled).toBe(true)
   })
 })
