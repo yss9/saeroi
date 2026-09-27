@@ -17,10 +17,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ProductionBatch } from '../types/production.types.ts'
 import { ProductionChainPanel } from './ProductionChainPanel.tsx'
 
-// 2~4단계는 체인을 직접 읽어 진행 상태를 정한다. 이 파일은 1단계만 보므로 잘라 둔다 —
-// 그쪽 동작은 ProductionChainSteps.test 가 본다.
+// 진행 목록과 버튼 하나는 ProductionChainSteps 가 그린다(그쪽 동작은 ProductionChainSteps.test).
+// 이 파일은 패널이 "못 누르는 이유" 를 제대로 계산해 넘기는지 본다.
 vi.mock('./ProductionChainSteps.tsx', () => ({
-  ProductionChainSteps: () => null,
+  ProductionChainSteps: ({ blockedReason, flow }: { blockedReason?: string; flow: { run: () => void } }) => (
+    <div>
+      {blockedReason && <p>{blockedReason}</p>}
+      <button disabled={Boolean(blockedReason)} onClick={flow.run}>남은 기록 이어서 진행</button>
+    </div>
+  ),
 }))
 
 // 컨트랙트 설정은 env 에서 온다. 테스트마다 갈아 끼울 수 있게 훅 경계에서 자른다.
@@ -37,18 +42,10 @@ vi.mock('../../wallet/hooks/useWallet.ts', () => ({
   useWallet: () => ({ address: wallet.address }),
 }))
 
-// 서명 자체는 MetaMask 의 일이다. 여기서 보는 것은 "서명을 시켰는가" 다.
-const chain = vi.hoisted(() => ({ create: vi.fn() }))
-vi.mock('../hooks/useCreateChainBatch.ts', () => ({
-  useCreateChainBatch: () => ({
-    ...chain,
-    status: 'IDLE',
-    hash: null,
-    blockNumber: null,
-    error: null,
-    isBusy: false,
-    isRejected: false,
-  }),
+// 서명 자체는 MetaMask 의 일이다. 여기서 보는 것은 "진행을 시켰는가" 다.
+const chain = vi.hoisted(() => ({ run: vi.fn() }))
+vi.mock('../hooks/useProductionFlow.ts', () => ({
+  useProductionFlow: () => ({ run: chain.run, running: false, currentStep: null, error: null }),
 }))
 
 const PRODUCER = '0x2222222222222222222222222222222222222222'
@@ -100,16 +97,16 @@ describe('ProductionChainPanel', () => {
   it('확정된 배치에서 서명할 수 있다', async () => {
     const user = renderPanel()
 
-    await user.click(screen.getByRole('button', { name: '생산 이력 기록' }))
+    await user.click(screen.getByRole('button', { name: '남은 기록 이어서 진행' }))
 
-    expect(chain.create).toHaveBeenCalled()
+    expect(chain.run).toHaveBeenCalled()
   })
 
   it('확정 전에는 서명시키지 않고 이유를 적는다', () => {
     renderPanel(batch({ status: 'DRAFT', confirmedAt: null, totalUsedQuantity: 0 }))
 
     expect(screen.getByText(/생산을 확정하면 이력을 기록할 수 있습니다/)).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '생산 이력 기록' })).toBeDisabled()
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 
   // 이 테스트가 이 파일의 존재 이유다 — 배치가 서명자 주소를 스냅샷으로 갖고 있다.
@@ -118,7 +115,7 @@ describe('ProductionChainPanel', () => {
     renderPanel()
 
     expect(screen.getByText(/이 생산을 시작한 0x2222…2222 지갑/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '생산 이력 기록' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '남은 기록 이어서 진행' })).toBeDisabled()
   })
 
   it('지갑을 연결하지 않으면 막는다', () => {
@@ -126,7 +123,7 @@ describe('ProductionChainPanel', () => {
     renderPanel()
 
     expect(screen.getByText('지갑을 먼저 연결해 주세요.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '생산 이력 기록' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '남은 기록 이어서 진행' })).toBeDisabled()
   })
 
   it('컨트랙트 주소가 없으면 막고 운영자에게 알리라고 한다', () => {
@@ -134,14 +131,13 @@ describe('ProductionChainPanel', () => {
     renderPanel()
 
     expect(screen.getByText(/생산 이력 기록 기능을 사용할 수 없습니다/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '생산 이력 기록' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '남은 기록 이어서 진행' })).toBeDisabled()
   })
 
   it('이미 기록된 배치는 온체인 번호를 보여준다', () => {
     renderPanel(batch({ chainBatchId: 7 }))
 
     expect(screen.getByText('기록 완료')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '생산 이력 기록' })).not.toBeInTheDocument()
   })
 
   // 남은 단계는 ProductionChainSteps 가 그린다. 이 패널은 1단계만 책임진다.
@@ -150,7 +146,6 @@ describe('ProductionChainPanel', () => {
 
     // 1단계가 끝났으면 번호를 보여주고 서명 버튼을 거둔다.
     expect(screen.getByText('기록 완료')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '생산 이력 기록' })).not.toBeInTheDocument()
   })
 
   it('생산 개수를 문구에 넣어 무엇을 기록하는지 말한다', () => {

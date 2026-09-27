@@ -2,7 +2,7 @@ import { OnChainPanel } from '../../../components/common/index.ts'
 import { contracts, isContractConfigured } from '../../../config/contracts.ts'
 import { env } from '../../../config/env.ts'
 import { useWallet } from '../../wallet/hooks/useWallet.ts'
-import { useCreateChainBatch } from '../hooks/useCreateChainBatch.ts'
+import { useProductionFlow } from '../hooks/useProductionFlow.ts'
 import { ProductionChainSteps } from './ProductionChainSteps.tsx'
 import type { ProductionBatch } from '../types/production.types.ts'
 import './production.css'
@@ -26,13 +26,12 @@ export interface ProductionChainPanelProps {
  *   3) `confirmProduction`  소재 소각
  *   4) `linkProductItems`   개체 연결
  *
- * **네 단계가 모두 배선돼 있다.** 1단계는 이 패널이 서명하고(번호를 채번하는 단계라 모양이
- * 다르다), 2~4단계는 `ProductionChainSteps` 가 맡는다 — 이미 있는 배치를 앞으로 미는
- * 단계들이라 다음에 할 수 있는 일을 체인 상태에서 읽는다.
+ * **누르는 것은 한 번이다.** 네 단계를 단계마다 따로 누르게 하지 않고, `ProductionChainSteps` 의
+ * 버튼 하나가 남은 단계를 차례로 진행한다(runProductionFlow). 이 패널은 온체인 번호만 보여준다.
  */
 export function ProductionChainPanel({ batch }: ProductionChainPanelProps) {
   const { address } = useWallet()
-  const chain = useCreateChainBatch(batch.productionBatchId, batch.producedQuantity)
+  const flow = useProductionFlow(batch)
 
   // 확정 전에는 투입이 더 바뀔 수 있다. 바뀐 뒤에도 체인에는 옛 내용이 남고 그 어긋남은
   // 대조할 때만 드러난다 — 서버도 확정된 배치만 받는다.
@@ -51,22 +50,30 @@ export function ProductionChainPanel({ batch }: ProductionChainPanelProps) {
       title="생산 이력 기록"
       description={`제품 ${batch.producedQuantity}개의 생산 정보를 안전하게 저장합니다.`}
       onChainId={batch.chainBatchId}
-      actionable
+      actionable={false}
       ready={ready}
-      blockedReason={blockedReason({ notConfirmed, configured, address, walletMismatch, batch })}
-      status={chain.status}
-      hash={chain.hash}
-      blockNumber={chain.blockNumber}
+      status="IDLE"
+      hash={null}
+      blockNumber={null}
       walletAddress={address}
       chainId={env.besuChainIdHex}
       contractAddress={contracts.productionRegistry}
-      error={chain.error}
-      isBusy={chain.isBusy}
-      isRejected={chain.isRejected}
-      onSign={() => void chain.create()}
+      error={null}
+      isBusy={flow.running}
+      isRejected={false}
+      onSign={() => void flow.run()}
       actionLabel="생산 이력 기록"
     >
-      <ProductionChainSteps batch={batch} />
+      {/* 확정 전에는 기록할 것이 없다 — 확정은 위의 "생산 확정" 이 기록까지 이어서 한다. */}
+      {notConfirmed ? (
+        <p className="chain-steps__blocked">{blockedReason({ notConfirmed, configured, address, walletMismatch, batch })}</p>
+      ) : (
+        <ProductionChainSteps
+          batch={batch}
+          flow={flow}
+          blockedReason={ready ? undefined : blockedReason({ notConfirmed, configured, address, walletMismatch, batch })}
+        />
+      )}
     </OnChainPanel>
   )
 }

@@ -923,3 +923,4 @@
 @media print {
   .qr-grid__pages, .qr-grid__actions { display: none; }
 }
+.production-flow__area{display:grid;gap:10px}.production-flow__active{font-weight:700}.production-flow__badge{background:#e6f2fa;color:#174b72}
