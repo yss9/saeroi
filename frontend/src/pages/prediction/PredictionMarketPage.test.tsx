@@ -202,3 +202,21 @@ it('종료된 시장의 결과는 확인 버튼을 누른 뒤에 보이고, 맞�
   expect(screen.getByText(/맞혔어요! 10 포인트를 걸어 30 포인트를 받습니다/)).toBeInTheDocument()
   expect(screen.getByRole('button', { name: '30 포인트 받기' })).toBeInTheDocument()
 })
+
+// 서버는 저장 키 대신 시장 번호로 여는 사진 주소를 준다. /test 배포에서는 API 가 /test/api 라 기준 주소를 붙인다.
+it('제품 사진은 API 기준 주소를 붙여 그린다', () => {
+  prediction.markets = [market({ productThumbnailUrl: '/api/v1/prediction-markets/1/thumbnail' })]
+  renderPage()
+
+  const photo = screen.getByRole('img', { name: '데님 토트백' })
+  expect(photo).toHaveAttribute('src', '/api/v1/prediction-markets/1/thumbnail')
+})
+
+it('사진을 불러오지 못하면 깨진 그림 대신 빈 자리를 보인다', () => {
+  prediction.markets = [market({ productThumbnailUrl: '/api/v1/prediction-markets/1/thumbnail' })]
+  renderPage()
+
+  fireEvent.error(screen.getByRole('img', { name: '데님 토트백' }))
+
+  expect(screen.queryByRole('img', { name: '데님 토트백' })).not.toBeInTheDocument()
+})

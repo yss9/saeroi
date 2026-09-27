@@ -2,6 +2,7 @@ import { useMutation } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Button } from '../../../components/common/index.ts'
 import { toErrorMessage } from '../../../utils/errors.ts'
+import { publicProductImageUrl } from '../../product/api/publicProductImageUrl.ts'
 import { usePredictionChainState } from '../hooks/usePredictionChainState.ts'
 import { claimPrediction, formatPredictionPoint } from '../services/predictionContractService.ts'
 import type { PredictionChainState, PredictionMarket } from '../types/prediction.types.ts'
@@ -41,9 +42,7 @@ export function PredictionMarketCard({ market, walletAddress, balance, now, onCh
   return (
     <article className={`prediction-card prediction-card--${phase.toLowerCase()}`}>
       <header className="prediction-card__head">
-        {market.productThumbnailUrl
-          ? <img src={market.productThumbnailUrl} alt="" className="prediction-card__thumb" />
-          : <span className="prediction-card__thumb" aria-hidden="true" />}
+        <MarketThumbnail url={market.productThumbnailUrl} name={market.productName} />
         <div>
           <span className={`prediction-phase prediction-phase--${phase.toLowerCase()}`}>{MARKET_PHASE_LABEL[phase]}</span>
           <h3>{market.productName}</h3>
@@ -78,6 +77,24 @@ export function PredictionMarketCard({ market, walletAddress, balance, now, onCh
         <Outcome market={market} state={state} phase={phase} onClaimed={() => { void chain.refetch(); onChanged() }} />
       )}
     </article>
+  )
+}
+
+/**
+ * 제품 사진. 서버가 주는 주소는 `/api/...` 라 배포 경로(`/test/api` 등)를 붙여야 열린다.
+ * 불러오지 못하면 깨진 그림 대신 빈 자리를 둔다.
+ */
+function MarketThumbnail({ url, name }: { url: string | null; name: string }) {
+  const [failed, setFailed] = useState(false)
+  if (!url || failed) return <span className="prediction-card__thumb" aria-hidden="true" />
+  return (
+    <img
+      src={publicProductImageUrl(url)}
+      alt={name}
+      className="prediction-card__thumb"
+      loading="lazy"
+      onError={() => setFailed(true)}
+    />
   )
 }
 
