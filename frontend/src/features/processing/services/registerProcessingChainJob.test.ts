@@ -12,6 +12,8 @@ const chain = vi.hoisted(() => ({
 const wallet = vi.hoisted(() => ({
   waitForTransaction: vi.fn(),
 }))
+const preflight = vi.hoisted(() => ({ assertCanRegisterProcessingJob: vi.fn() }))
+vi.mock('./processingRegistrationPreflight.ts', () => preflight)
 
 vi.mock('../api/processingJobApi.ts', () => ({ processingJobApi: api }))
 vi.mock('./processingContractService.ts', async (importOriginal) => ({
@@ -50,6 +52,7 @@ describe('registerProcessingChainJob', () => {
     api.linkChain.mockResolvedValue({})
     chain.readProcessingEventValues.mockReturnValue([31n])
     chain.getProcessingBrandLockId.mockResolvedValue(4)
+    preflight.assertCanRegisterProcessingJob.mockResolvedValue(undefined)
   })
 
   it('처음이면 만들고, 확정을 기다리기 전에 거래를 기억했다가 연결 뒤 지운다', async () => {
@@ -81,6 +84,8 @@ describe('registerProcessingChainJob', () => {
     await expect(registerProcessingChainJob(JOB_ID)).resolves.toBe('0xearlier')
 
     expect(chain.createProcessingJob).not.toHaveBeenCalled()
+    // 이어받는 거래는 이미 소재를 잠갔다 — 여기서 잔량을 보면 모자라다고 잘못 막는다.
+    expect(preflight.assertCanRegisterProcessingJob).not.toHaveBeenCalled()
     expect(api.linkChain).toHaveBeenCalledWith(JOB_ID, expect.objectContaining({ onChainId: 31, txHash: '0xearlier' }))
     expect(window.localStorage.getItem(KEY)).toBeNull()
   })
@@ -116,6 +121,17 @@ describe('registerProcessingChainJob', () => {
 
     await expect(registerProcessingChainJob(JOB_ID)).rejects.toMatchObject({ code: 'CHAIN_ALREADY_DONE' })
 
+    expect(chain.createProcessingJob).not.toHaveBeenCalled()
+    expect(window.localStorage.getItem(KEY)).toBeNull()
+  })
+
+  // 되돌려질 것이 확실하면 서명 창을 열지 않고 할 일을 문장으로 알린다.
+  it('새로 만들기 전에 사전 확인이 막으면 서명하지 않는다', async () => {
+    preflight.assertCanRegisterProcessingJob.mockRejectedValue(new Error('MetaMask 에서 이 브랜드의 지갑을 선택해 주세요.'))
+
+    await expect(registerProcessingChainJob(JOB_ID)).rejects.toThrow('MetaMask 에서 이 브랜드의 지갑을 선택해 주세요.')
+
+    expect(preflight.assertCanRegisterProcessingJob).toHaveBeenCalledWith(expect.objectContaining({ inputTokenId: 7, inputQuantity: 12_500 }))
     expect(chain.createProcessingJob).not.toHaveBeenCalled()
     expect(window.localStorage.getItem(KEY)).toBeNull()
   })

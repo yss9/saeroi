@@ -4,10 +4,7 @@ import { processingJobApi, type ProcessingSignatureAction, type ResultDraftInput
 import { processingRequestApi } from '../api/processingRequestApi.ts'
 import { processingKeys } from '../api/processingKeys.ts'
 import { chainAlreadyPassed } from '../services/processingChainProgress.ts'
-import {
-  createOrResumeProcessingChainJob,
-  forgetProcessingChainCreate,
-} from '../services/processingChainJobCreation.ts'
+import { registerProcessingChainJob } from '../services/registerProcessingChainJob.ts'
 import { inventoryKeys } from '../../inventory/api/inventoryKeys.ts'
 import { materialKeys } from '../../material/api/materialKeys.ts'
 import { signMessage } from '../../wallet/services/walletService.ts'
@@ -19,13 +16,10 @@ import {
   approveProcessingResultOnChain,
   cancelProcessingJob,
   confirmProcessingReceipt,
-  createProcessingJob,
-  getProcessingBrandLockId,
   getProcessingChainStatus,
   markProcessingReturnShipped,
   markProcessingShipped,
   processingEvidenceHash,
-  readProcessingEventValues,
   returnRejectedProcessingInput,
   rejectProcessingResultOnChain,
   startProcessingOnChain,
@@ -104,32 +98,20 @@ export function useProcessingJob(jobId: number) {
   }
 
   /*
-    작업 등록. **두 번 만들지 않는다.** 체인에 작업을 만든 뒤 서버 연결(linkChain)이 실패하고 다시
-    누르면, 서버는 아직 체인 작업을 모르니 한 번 더 만들게 되고 앞의 작업은 소재를 잠근 채
-    버려진다. 보낸 거래를 기억해 두었다가 다시 누르면 그 거래에서 이어 간다
-    (processingChainJobCreation).
+    작업 등록 — 결제 직후 자동 등록과 **같은 함수**(registerProcessingChainJob)를 쓴다. 두 번
+    만들지 않는 재시도(보낸 거래 기억)와 서명 전 사전 확인(지갑·권한·체인 잔량)이 그 안에 있다.
+
+    화면에 캐시된 준비 정보(chainPreparation)를 읽지 않는다. 예전에는 그 조회가 끝나기 전에 누르면
+    "작업 기록 정보를 불러오지 못했습니다" 로 실패했다 — 등록이 간헐적으로 안 되던 원인 중 하나다.
   */
   const initializeChain = useMutation({
     mutationFn: async () => {
-      const prep = requirePreparation()
-      const receipt = await createOrResumeProcessingChainJob(jobId, () => createProcessingJob(
-        prep.processorWallet,
-        prep.inputTokenId,
-        prep.inputQuantity,
-        prep.processTypes,
-      ))
-      const values = readProcessingEventValues(receipt, 'ProcessingJobCreated', 'jobId')
-      if (values.length !== 1) throw new Error('가공 작업 기록을 확인하지 못했습니다.')
-      const onChainId = Number(values[0])
-      const chainLockId = await getProcessingBrandLockId(onChainId)
-      const linked = await processingJobApi.linkChain(jobId, {
-        onChainId,
-        chainLockId,
-        txHash: receipt.hash,
-        blockNumber: receipt.blockNumber,
-      })
-      forgetProcessingChainCreate(jobId)
-      return linked
+      try {
+        await registerProcessingChainJob(jobId)
+      } catch (cause) {
+        // 서버가 이미 체인 작업을 안다 — 앞선 시도가 성공했다는 뜻이다.
+        if ((cause as { code?: string } | null)?.code !== 'CHAIN_ALREADY_DONE') throw cause
+      }
     },
     onSuccess: refresh,
   })
