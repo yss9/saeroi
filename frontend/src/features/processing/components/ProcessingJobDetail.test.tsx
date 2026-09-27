@@ -529,3 +529,56 @@ test('저장하지 않은 수정이 있으면 결과 제출을 막는다', async
   expect(screen.getByText('저장하지 않은 수정이 있어요. 임시 저장한 뒤 제출해 주세요.')).toBeInTheDocument()
   expect(flow.submit.mutate).not.toHaveBeenCalled()
 })
+
+// ── 브랜드 발송 이후 ────────────────────────────────────────────
+
+// jsdom 에는 스크롤이 없다 — 완료 안내로 화면을 옮기는지만 본다.
+beforeEach(() => { Element.prototype.scrollIntoView = vi.fn() })
+
+function asBrand(jobOverrides: Record<string, unknown>, shipOverrides: Record<string, unknown> = {}) {
+  useAuthStore.setState({
+    user: { id: 2, email: 'brand@test.com', name: '브랜드', role: 'BRAND', walletAddress: null },
+    accessToken: 'token',
+    isAuthenticated: true,
+  })
+  const flow = mocks.useProcessingJob()
+  mocks.useProcessingJob.mockReturnValue({
+    ...flow,
+    detail: { ...flow.detail, data: { ...flow.detail.data, chainJobId: 11, ...jobOverrides } },
+    ship: { ...mutation(), ...shipOverrides },
+  })
+}
+
+/*
+  발송 서명이 끝나면 발송 폼이 사라진다. 그 자리에 아무것도 없으면 브랜드는 발송이 됐는지,
+  다음에 무엇을 기다리는지 알 수 없다 — 버튼이 사라진 것이 끝이었다.
+*/
+test('발송 서명이 끝나면 발송 완료를 알리고 다음 단계를 말한다', () => {
+  asBrand({ status: 'SHIPPED', carrier: 'CJ대한통운', trackingNumber: '1234-5678', shippedAt: '2026-09-27T14:30:00' }, { isSuccess: true })
+  render(<MemoryRouter><ProcessingJobDetail jobId={17} /></MemoryRouter>)
+
+  const done = screen.getByRole('status', { name: '소재 발송 완료' })
+  expect(done).toHaveTextContent('가공업체로 소재를 보냈어요.')
+  expect(done).toHaveTextContent('CJ대한통운')
+  expect(done).toHaveTextContent('1234-5678')
+  expect(done).toHaveTextContent('가공업체가 수령을 확인하면 가공이 시작됩니다.')
+  expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
+})
+
+// 다시 들어와도(새로고침·다른 기기) 배송 중이라는 사실은 남아 있어야 한다.
+test('발송 뒤 다시 들어오면 배송 중 안내를 보여준다', () => {
+  asBrand({ status: 'SHIPPED', carrier: null, trackingNumber: null, shippedAt: '2026-09-27T14:30:00' })
+  render(<MemoryRouter><ProcessingJobDetail jobId={17} /></MemoryRouter>)
+
+  const waiting = screen.getByRole('status', { name: '가공업체로 배송 중' })
+  expect(waiting).toHaveTextContent('가공업체가 수령을 확인하면 가공이 시작됩니다.')
+  expect(waiting).not.toHaveTextContent('송장')
+  expect(screen.queryByRole('status', { name: '소재 발송 완료' })).not.toBeInTheDocument()
+})
+
+test('가공업체가 받은 뒤에는 가공 중이라고 알린다', () => {
+  asBrand({ status: 'PROCESSING', receivedAt: '2026-09-28T10:00:00' })
+  render(<MemoryRouter><ProcessingJobDetail jobId={17} /></MemoryRouter>)
+
+  expect(screen.getByRole('status', { name: '가공 중' })).toHaveTextContent('가공업체가 소재를 받아 가공하고 있어요.')
+})

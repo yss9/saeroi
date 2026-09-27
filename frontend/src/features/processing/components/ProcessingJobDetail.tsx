@@ -175,6 +175,13 @@ function ProcessingJobDetailContent({ jobId, job, request, role, flow }: {
       이미 풀렸는데 눌러서 되돌아가는 쪽이 낫다.
     */}
     {role==='BRAND'&&chainLockHeld&&<section className="pj-panel pj-action"><div><p>이 작업은 끝났지만 온체인 잠금이 남아 있습니다. 해제하기 전까지 해당 수량은 다시 쓸 수 없습니다.</p>{(flow.chainStatus?.isError||flow.chainPreparation?.isError)&&<p className="pj-help">체인 상태를 불러오지 못했습니다. 이미 해제됐을 수도 있으니 먼저 새로고침해 보세요.</p>}</div><button disabled={pending} onClick={()=>flow.releaseChainLock.mutate()}>MetaMask로 온체인 잠금 해제</button></section>}
+    {/*
+      발송 서명이 끝나면 발송 폼이 사라진다. 그 자리를 비워 두면 브랜드는 발송이 됐는지, 이제 무엇을
+      기다리는지 알 수 없다. 방금 끝냈으면 "발송 완료" 로 알리고 그 자리로 화면을 옮긴다. 다시
+      들어온 경우(새로고침·다른 기기)에도 배송 중이라는 사실과 다음 단계는 남긴다.
+    */}
+    {role==='BRAND'&&job.status==='SHIPPED'&&<ShipmentStatusPanel job={job} justShipped={flow.ship.isSuccess}/>}
+    {role==='BRAND'&&(job.status==='RECEIVED'||job.status==='PROCESSING')&&<section className="pj-panel pj-status-note" role="status" aria-label="가공 중"><h2><Factory/>가공 중</h2><p>가공업체가 소재를 받아 가공하고 있어요.{job.receivedAt?` (${formatDateTime(job.receivedAt)} 수령)`:''} 결과가 등록되면 이 화면에서 검토할 수 있어요.</p></section>}
     {role==='PROCESSOR'&&job.status==='SHIPPED'&&<section className="pj-panel pj-action"><p>소재가 도착했다면 수령을 확인해 주세요. 수령하면 바로 가공 결과를 작성할 수 있어요.</p><button disabled={pending} onClick={()=>flow.receive.mutate()}>소재 수령 처리</button></section>}
     {role==='PROCESSOR'&&job.status==='RECEIVED'&&<section className="pj-panel pj-action"><p>가공을 시작하고 있어요. 잠시 후 가공 결과를 작성할 수 있어요.</p></section>}
 
@@ -221,5 +228,19 @@ function ProcessingJobDetailContent({ jobId, job, request, role, flow }: {
     {role==='BRAND'&&job.status==='RESULT_SUBMITTED'&&<section className="pj-panel"><h2><CheckCircle/>결과 검토</h2><p>보완이 필요하면 결과 수정을 요청할 수 있습니다. 승인 처리는 결과물을 수령한 뒤 진행합니다.</p><div className="pj-review"><input placeholder="수정 요청 사유" value={reason} onChange={e=>setReason(e.target.value)}/><button className="is-danger" disabled={pending||!reason.trim()} onClick={()=>flow.reject.mutate(reason)}>결과 수정 요청</button></div></section>}
     {role==='BRAND'&&job.status==='RETURN_SHIPPED'&&<section className="pj-panel"><h2><CheckCircle/>결과물 수령 및 승인</h2><p>실물 결과물을 확인한 뒤 승인하면 투입 소재가 사용 처리되고 새 소재가 브랜드의 보유 목록에 등록됩니다.</p><button disabled={pending} onClick={()=>flow.approve.mutate()}>수령 확인하고 승인</button></section>}
     {error&&<p className="pj-error" role="alert">{error.message}</p>}
+  </section>
+}
+
+function ShipmentStatusPanel({ job, justShipped }: { job: ProcessingJob; justShipped: boolean }) {
+  const panel = useRef<HTMLElement>(null)
+  useEffect(() => {
+    if (justShipped) panel.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [justShipped])
+  const title = justShipped ? '소재 발송 완료' : '가공업체로 배송 중'
+  return <section ref={panel} className={`pj-panel pj-status-note${justShipped ? ' is-done' : ''}`} role="status" aria-label={title}>
+    <h2>{justShipped ? <CheckCircle/> : <Package/>}{title}</h2>
+    <p>가공업체로 소재를 보냈어요.{job.shippedAt ? ` (${formatDateTime(job.shippedAt)})` : ''}</p>
+    {(job.carrier || job.trackingNumber) && <dl><div><dt>택배사</dt><dd>{job.carrier ?? '-'}</dd></div><div><dt>송장번호</dt><dd>{job.trackingNumber ?? '-'}</dd></div></dl>}
+    <p className="pj-help">가공업체가 수령을 확인하면 가공이 시작됩니다.</p>
   </section>
 }
