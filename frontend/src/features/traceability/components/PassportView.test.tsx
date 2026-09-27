@@ -277,6 +277,21 @@ describe('PassportView', () => {
     expect(container.querySelector('.journey-detail__body')).toHaveTextContent('ReWeave')
   })
 
+  it('여정 지도에서 지점 사이 간격을 기존보다 약 10% 확대한다', async () => {
+    const { container } = renderView()
+    await screen.findByRole('heading', { name: 'RE:BAG' })
+
+    const point = (nodeId: string) => (container.querySelector(`[data-node-id="${nodeId}"]`)!
+      .getAttribute('transform') ?? '').match(/translate\(([^ ]+) ([^)]+)\)/)!
+      .slice(1).map(Number)
+    const [sourceX, sourceY] = point('source-a')
+    const [processorX, processorY] = point('process-b')
+    // 고정된 테스트 여정에서 기존 간격은 약 318 SVG 단위다.
+    const separation = Math.hypot(sourceX - processorX, sourceY - processorY)
+    expect(separation).toBeGreaterThan(345)
+    expect(separation).toBeLessThan(355)
+  })
+
   it('원단 등록·브랜드 수령 단계에서는 여정 전체 지점을 미리 보여준다', async () => {
     const user = userEvent.setup()
     const { container } = renderView()

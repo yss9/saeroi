@@ -974,8 +974,8 @@ const KOREA_PROJECTION = fitKorea(boundsFeature(...KOREA_BBOX))
  * 마커를 누르면 근처 지점을 선택할 수 있게 한다.
  */
 const MAP_MIN_SPAN_DEG = 0.15
-/** 지점들이 캔버스 가장자리에 붙지 않도록 범위 양옆에 더 두는 여백 비율. */
-const MAP_ZOOM_MARGIN_RATIO = 0.35
+/** 기존 0.35 여백을 0.273으로 줄이면 지도 배율이 약 10% 커지면서 가장자리 여백은 유지된다. */
+const MAP_ZOOM_MARGIN_RATIO = 0.273
 
 /**
  * **주어진 노드들 범위에 맞춰 확대한 투영.** `JourneyCanvas`가 단계에 따라 다른
