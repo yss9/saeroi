@@ -152,12 +152,13 @@ public class ProcessingJobWorkflowService {
         // 이유가 하나 더 있다: 화면은 이 값을 아예 보내지 않고 DTO 에도 @NotNull 이 없어,
         // row.materialType() 은 null 로 내려와 ProcessingOutput.draft 가
         // IllegalArgumentException 을 던지고 임시 저장 전체가 500 이 된다.
-        MaterialType inputMaterialType = materials.findById(input.getMaterialId())
-                .orElseThrow(() -> new BusinessException(PROCESSING_MATERIAL_NOT_FOUND))
-                .getMaterialType();
+        // 이름도 같다 — 투입 소재의 이름을 그대로 잇는다.
+        Material inputMaterial = materials.findById(input.getMaterialId())
+                .orElseThrow(() -> new BusinessException(PROCESSING_MATERIAL_NOT_FOUND));
         outputs.deleteByProcessingJobId(jobId);
         outputs.saveAll(request.outputs().stream().map(row -> ProcessingOutput.draft(jobId, input.getId(),
-                inputMaterialType, row.grade(), row.gradeReason(), row.name(), row.quantity())).toList());
+                inputMaterial.getMaterialType(), row.grade(), row.gradeReason(), inputMaterial.getName(),
+                row.quantity())).toList());
         return response(job);
     }
 
@@ -213,7 +214,7 @@ public class ProcessingJobWorkflowService {
                 MaterialEventRecorder.key(MaterialEventType.MATERIAL_CONSUMED, parent.getId(), jobId));
         for (ProcessingOutput row : result) {
             Material child = materials.save(Material.produceProcessed(materialCodeGenerator.placeholder(), parent,
-                    row.getMaterialType(), row.getName(), row.getGrade(), row.getQuantity(), job.getProcessorId()));
+                    row.getMaterialType(), parent.getName(), row.getGrade(), row.getQuantity(), job.getProcessorId()));
             child.assignCode(materialCodeGenerator.of(child.getId()));
             materialIssuer.issue(child.getId(), actorId, row.getQuantity());
             lineageRegistrar.link(child.getId(), parent.getId(), MaterialLineageRelationType.PROCESSING, jobId);
