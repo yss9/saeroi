@@ -13,6 +13,8 @@ public enum PredictionErrorCode implements ErrorCode {
     WALLET_REQUIRED(HttpStatus.CONFLICT, "PREDICTION_WALLET_REQUIRED", "MetaMask 지갑을 등록하고 소유 확인을 완료해 주세요."),
     RESPONSE_DUPLICATED(HttpStatus.CONFLICT, "PREDICTION_RESPONSE_DUPLICATED", "이미 이 시장에 예측 이유를 제출했습니다."),
     POINT_ALREADY_GRANTED(HttpStatus.CONFLICT, "PREDICTION_POINT_ALREADY_GRANTED", "예측 포인트가 이미 지급되었습니다."),
+    // DB 는 확정인데 체인 기록(서명 네 번)이 중간에 멈춘 생산이다. 컨트랙트가 되돌리므로 보내기 전에 막는다.
+    BATCH_NOT_CONFIRMED_ON_CHAIN(HttpStatus.CONFLICT, "PREDICTION_BATCH_NOT_CONFIRMED_ON_CHAIN", "이 생산은 블록체인 기록이 아직 끝나지 않아 예측시장을 열 수 없습니다. 브랜드가 생산 상세에서 남은 기록을 마쳐야 합니다."),
     CHAIN_TRANSACTION_FAILED(HttpStatus.BAD_GATEWAY, "PREDICTION_CHAIN_TRANSACTION_FAILED", "예측시장 온체인 처리에 실패했습니다.");
 
     private final HttpStatus status; private final String code; private final String message;
