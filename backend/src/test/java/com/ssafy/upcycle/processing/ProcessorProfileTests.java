@@ -161,4 +161,20 @@ class ProcessorProfileTests {
                         .param("quantity", "100").param("processTypes", "CLEANING"), brandId, "BRAND"))
                 .andExpect(status().isOk()).andExpect(jsonPath("data.total").value(1));
     }
+
+    @Test
+    void searchShowsTheCompanyNameNotTheRepresentativeName() throws Exception {
+        // 가입자 이름(users.name)은 대표자 이름이다. 브랜드가 고르는 것은 업체라 업체명을 보여야 한다.
+        jdbc.update("update company_profile set company_name=? where user_id=?", "새로이 가공소", processorId);
+        jdbc.update("insert into processor_profile(user_id,region) values (?,?)", processorId, "서울");
+        jdbc.update("insert into processor_capability(processor_profile_id,material_type,process_type,daily_capacity,price_per_kg) values (?,?,?,?,?)",
+                processorId, "DENIM", "CLEANING", 1000, 1000);
+
+        mvc.perform(authenticated(get("/processors/search").param("materialType", "DENIM")
+                        .param("quantity", "100").param("processTypes", "CLEANING"), brandId, "BRAND"))
+                .andExpect(status().isOk()).andExpect(jsonPath("data.items[0].name").value("새로이 가공소"));
+        // 조건 없이 둘러볼 때도 같다.
+        mvc.perform(authenticated(get("/processors/search"), brandId, "BRAND"))
+                .andExpect(status().isOk()).andExpect(jsonPath("data.items[0].name").value("새로이 가공소"));
+    }
 }
