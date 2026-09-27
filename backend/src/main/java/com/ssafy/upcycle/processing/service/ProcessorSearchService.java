@@ -40,6 +40,14 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ProcessorSearchService {
 
+    /**
+     * 목록에 보일 업체 이름. {@code users.name} 은 가입한 사람(대표자)의 이름이라 브랜드가 고르는
+     * 업체를 가리키지 못한다 — 업체명을 쓰고, 비어 있을 때만 가입자 이름으로 둔다
+     * ({@code agent.service.CompanyNames} 와 같은 규칙).
+     */
+    private static final String DISPLAY_NAME =
+            "coalesce(nullif(trim(company.company_name),''),u.name) as name";
+
     private final UserRepository users;
     private final NamedParameterJdbcTemplate jdbc;
     private final MaterialProcessHistoryResolver processHistoryResolver;
@@ -92,13 +100,13 @@ public class ProcessorSearchService {
                   and company.role_approval_status='APPROVED'
                   and c.material_type=:materialType and c.process_type in (:purposes)
                   and c.daily_capacity>0
-                group by p.user_id,u.name,p.region
+                group by p.user_id,u.name,company.company_name,p.region
                 having count(distinct c.process_type)=:purposeCount
                 """;
         Long total = jdbc.queryForObject(
                 "select count(*) from (select p.user_id " + matching + ") matched", params, Long.class);
 
-        var matched = jdbc.query("select p.user_id,u.name,p.region " + matching
+        var matched = jdbc.query("select p.user_id," + DISPLAY_NAME + ",p.region " + matching
                         + " order by p.user_id limit :limit offset :offset", params,
                 (rs, row) -> new Matched(rs.getLong("user_id"), rs.getString("name"), rs.getString("region")));
         if (matched.isEmpty()) {
@@ -183,14 +191,13 @@ public class ProcessorSearchService {
                 where u.role='PROCESSOR' and u.status='ACTIVE'
                   and company.role_approval_status='APPROVED'
                   and c.daily_capacity>0
-                group by p.user_id,u.name,p.region
+                group by p.user_id,u.name,company.company_name,p.region
                 """;
         Long total = jdbc.queryForObject(
                 "select count(*) from (select p.user_id " + registered + ") registered", params, Long.class);
-        var items = jdbc.query("""
-                select p.user_id,u.name,p.region,
-                  max(c.daily_capacity) as daily_capacity,min(c.price_per_kg) as price_per_kg
-                """ + registered + " order by p.user_id limit :limit offset :offset", params,
+        var items = jdbc.query("select p.user_id," + DISPLAY_NAME + ",p.region,"
+                + " max(c.daily_capacity) as daily_capacity,min(c.price_per_kg) as price_per_kg "
+                + registered + " order by p.user_id limit :limit offset :offset", params,
                 (rs, row) -> new ProcessorSearchResponse.Item(rs.getLong("user_id"), rs.getString("name"),
                         rs.getString("region"), rs.getLong("daily_capacity"), rs.getLong("price_per_kg"),
                         null, null, List.of()));

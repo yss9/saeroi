@@ -17,4 +17,16 @@ class Web3jPredictionChainGatewayTests {
         assertThat(epoch).isEqualTo(BigInteger.valueOf(
                 Instant.parse("2026-09-21T11:00:00Z").getEpochSecond()));
     }
+
+    // 운영에서 본 require 문구 그대로다. 이 사유가 로그에 남아야 원인을 찾는다.
+    @Test
+    void decodesTheRequireMessageOfARevertedCall() {
+        String data = org.web3j.abi.FunctionEncoder.encodeConstructor(
+                java.util.List.of(new org.web3j.abi.datatypes.Utf8String("PredictionMarket: batch is not confirmed")));
+
+        assertThat(Web3jPredictionChainGateway.decodeErrorString("0x08c379a0" + data))
+                .isEqualTo("PredictionMarket: batch is not confirmed");
+        assertThat(Web3jPredictionChainGateway.decodeErrorString("0x")).isNull();
+        assertThat(Web3jPredictionChainGateway.decodeErrorString(null)).isNull();
+    }
 }
