@@ -34,6 +34,8 @@ export interface EvidenceUploadProps {
   readOnly?: boolean
   /** 가공 결과처럼 증빙 종류별 파일 선택 칸을 동시에 보여준다. */
   uploadMode?: 'select' | 'type-grid'
+  /** type-grid 에서 보여줄 종류. 가공은 단계마다 올릴 사진이 하나다(수령: 작업 전, 결과: 작업 후). */
+  evidenceTypes?: readonly EvidenceType[]
 }
 
 /**
@@ -98,6 +100,7 @@ export function EvidenceUpload({
   referenceId,
   readOnly,
   uploadMode = 'select',
+  evidenceTypes = PROCESSING_EVIDENCE_TYPES,
 }: EvidenceUploadProps) {
   const [evidenceType, setEvidenceType] = useState<EvidenceType>('BEFORE_PHOTO')
   const [selected, setSelected] = useState<File[]>([])
@@ -142,7 +145,7 @@ export function EvidenceUpload({
       {!readOnly && uploadMode === 'type-grid' && (
         <div className="evidence__form">
             <div className="evidence__type-grid">
-              {PROCESSING_EVIDENCE_TYPES.map((type) => {
+              {evidenceTypes.map((type) => {
                 const files = selectedByType[type] ?? []
                 const label = EVIDENCE_TYPE_LABEL[type]
                 return (

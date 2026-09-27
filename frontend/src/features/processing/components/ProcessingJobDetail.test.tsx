@@ -14,8 +14,8 @@ vi.mock('../hooks/useProcessingJobs.ts', () => ({
   useProcessingJob: mocks.useProcessingJob,
 }))
 vi.mock('../../evidence/components/EvidenceUpload.tsx', () => ({
-  EvidenceUpload: ({ uploadMode }: { uploadMode?: string }) => (
-    <div data-testid="evidence-upload" data-upload-mode={uploadMode}>증빙 업로드</div>
+  EvidenceUpload: ({ uploadMode, evidenceTypes }: { uploadMode?: string; evidenceTypes?: readonly string[] }) => (
+    <div data-testid="evidence-upload" data-upload-mode={uploadMode} data-evidence-types={evidenceTypes?.join(',')}>증빙 업로드</div>
   ),
 }))
 
@@ -203,10 +203,12 @@ test('산출 수량이 바뀌면 Loss를 즉시 계산하고 투입량 초과 �
   expect(screen.getByRole('button', { name: '결과 임시 저장' })).toBeDisabled()
 })
 
-test('가공 증빙은 종류별 업로드 모드로 표시한다', () => {
+test('가공 결과 작성에서는 작업 후 사진만 올린다', () => {
   render(<MemoryRouter><ProcessingJobDetail jobId={17} /></MemoryRouter>)
 
-  expect(screen.getByTestId('evidence-upload')).toHaveAttribute('data-upload-mode', 'type-grid')
+  const upload = screen.getByTestId('evidence-upload')
+  expect(upload).toHaveAttribute('data-upload-mode', 'type-grid')
+  expect(upload).toHaveAttribute('data-evidence-types', 'AFTER_PHOTO')
 })
 test('Processor에게 기술 ID 대신 요청 대상과 공정 정보를 보여준다', () => {
   render(<MemoryRouter><ProcessingJobDetail jobId={17} /></MemoryRouter>)
@@ -462,10 +464,10 @@ test('온체인에 올리기 전에 거절된 작업은 잠금까지 모두 풀�
 // 수령 버튼 하나로 가공 시작까지 간다 — 수령한 뒤 "가공 시작" 을 또 누르게 하지 않는다.
 test('발송된 소재는 수령 한 번으로 가공 결과 작성까지 간다고 안내한다', async () => {
   const user = userEvent.setup()
-  renderDetail({ role: 'PROCESSOR', job: { status: 'SHIPPED', chainJobId: 11 } })
-  const flow = mocks.useProcessingJob()
+  const flow = asProcessorAt('SHIPPED', [photo('BEFORE_PHOTO')])
+  render(<MemoryRouter><ProcessingJobDetail jobId={17} /></MemoryRouter>)
 
-  expect(screen.getByText('소재가 도착했다면 수령을 확인해 주세요. 수령하면 바로 가공 결과를 작성할 수 있어요.')).toBeInTheDocument()
+  expect(screen.getByText(/수령하면 바로 가공 결과를 작성할 수 있어요\./)).toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: '소재 수령 처리' }))
 
   expect(flow.receive.mutate).toHaveBeenCalledOnce()
@@ -491,8 +493,13 @@ function withSavedResult(overrides: Record<string, unknown> = {}) {
   mocks.useProcessingJob.mockReturnValue({
     ...flow,
     detail: { ...flow.detail, data: { ...flow.detail.data, resultRevision: 1, outputs: [saved], ...overrides } },
+    evidence: { data: { files: [photo('AFTER_PHOTO')] } },
   })
   return flow
+}
+
+function photo(evidenceType: string) {
+  return { evidenceFileId: 1, evidenceType, fileHash: '0x' + 'a'.repeat(64), storageKey: 'processing/photo.jpg' }
 }
 
 test('임시 저장과 결과 제출 버튼은 증빙 아래에 나란히 있다', () => {
@@ -528,6 +535,68 @@ test('저장하지 않은 수정이 있으면 결과 제출을 막는다', async
   expect(screen.getByRole('button', { name: '가공 결과 제출' })).toBeDisabled()
   expect(screen.getByText('저장하지 않은 수정이 있어요. 임시 저장한 뒤 제출해 주세요.')).toBeInTheDocument()
   expect(flow.submit.mutate).not.toHaveBeenCalled()
+})
+
+// ── 작업 전·후 사진은 필수 ─────────────────────────────────────
+
+function asProcessorAt(status: string, files: unknown[] = []) {
+  const flow = mocks.useProcessingJob()
+  mocks.useProcessingJob.mockReturnValue({
+    ...flow,
+    detail: { ...flow.detail, data: { ...flow.detail.data, status, chainJobId: 11 } },
+    evidence: { data: { files } },
+  })
+  return flow
+}
+
+/*
+  작업 전 사진은 받은 그대로의 상태다 — 결과를 쓸 때가 아니라 소재를 받을 때 올린다. 서버도
+  작업 전 사진이 없으면 수령을 받지 않는데, 수령은 체인 서명이 먼저라 여기서 막지 않으면 서명만
+  남고 기록이 실패한다.
+*/
+test('소재 수령 단계에서 작업 전 사진을 올리고, 없으면 수령할 수 없다', () => {
+  asProcessorAt('SHIPPED')
+  render(<MemoryRouter><ProcessingJobDetail jobId={17} /></MemoryRouter>)
+
+  expect(screen.getByTestId('evidence-upload')).toHaveAttribute('data-evidence-types', 'BEFORE_PHOTO')
+  expect(screen.getByRole('button', { name: '소재 수령 처리' })).toBeDisabled()
+  expect(screen.getByText('받은 상태의 작업 전 사진을 한 장 이상 올려야 수령할 수 있어요.')).toBeInTheDocument()
+})
+
+test('작업 전 사진을 올리면 수령할 수 있다', async () => {
+  const user = userEvent.setup()
+  const flow = asProcessorAt('SHIPPED', [photo('BEFORE_PHOTO')])
+  render(<MemoryRouter><ProcessingJobDetail jobId={17} /></MemoryRouter>)
+
+  await user.click(screen.getByRole('button', { name: '소재 수령 처리' }))
+
+  expect(flow.receive.mutate).toHaveBeenCalledOnce()
+})
+
+test('작업 후 사진이 없으면 결과를 제출할 수 없다', () => {
+  withSavedResult()
+  const flow = mocks.useProcessingJob()
+  mocks.useProcessingJob.mockReturnValue({ ...flow, evidence: { data: { files: [photo('BEFORE_PHOTO')] } } })
+  render(<MemoryRouter><ProcessingJobDetail jobId={17} /></MemoryRouter>)
+
+  expect(screen.getByRole('button', { name: '가공 결과 제출' })).toBeDisabled()
+  expect(screen.getByText('가공을 마친 뒤의 작업 후 사진을 한 장 이상 올려야 제출할 수 있어요.')).toBeInTheDocument()
+})
+
+// 결과를 낸 뒤에는 새 사진을 받지 않는다 — 반환 발송 증빙은 이미 올린 사진에서 고른다.
+test('결과 제출 뒤 반환 발송에는 업로드 칸을 두지 않는다', () => {
+  const flow = mocks.useProcessingJob()
+  mocks.useProcessingJob.mockReturnValue({
+    ...flow,
+    detail: { ...flow.detail, data: { ...flow.detail.data, status: 'RESULT_SUBMITTED' } },
+    evidence: { data: { files: [photo('AFTER_PHOTO')] } },
+    shipReturn: mutation(),
+    returnRejected: mutation(),
+  })
+  render(<MemoryRouter><ProcessingJobDetail jobId={17} /></MemoryRouter>)
+
+  expect(screen.queryByTestId('evidence-upload')).not.toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: '가공 결과물 반환 발송' })).toBeInTheDocument()
 })
 
 // ── 브랜드 발송 이후 ────────────────────────────────────────────

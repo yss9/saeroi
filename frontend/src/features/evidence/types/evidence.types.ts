@@ -50,14 +50,16 @@ export const MATERIAL_EVIDENCE_TYPES: readonly EvidenceType[] = [
   'ETC',
 ]
 
-/** 가공 작업 결과에서 종류별로 따로 첨부하는 증빙. */
+/**
+ * 가공 작업에 올리는 증빙 — 작업 전 사진과 작업 후 사진 두 가지뿐이다.
+ *
+ * 받는 쪽이 확인하는 것은 "무엇이 들어와 무엇이 나갔는가" 다. 작업 전 사진은 받은 그대로의
+ * 상태라 소재를 수령할 때, 작업 후 사진은 결과를 쓸 때 올린다. 서버도 이 둘 외에는 받지 않고
+ * (EvidenceReferenceValidator), 수령과 결과 제출이 각각 그 사진을 요구한다.
+ */
 export const PROCESSING_EVIDENCE_TYPES: readonly EvidenceType[] = [
   'BEFORE_PHOTO',
-  'PROCESS_PHOTO',
   'AFTER_PHOTO',
-  'WEIGHT_SLIP',
-  'INVOICE',
-  'ETC',
 ]
 
 /**

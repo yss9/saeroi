@@ -80,6 +80,11 @@ function ProcessingJobDetailContent({ jobId, job, request, role, flow }: {
     hash: file.fileHash,
     label: `${EVIDENCE_TYPE_LABEL[file.evidenceType]} · ${file.storageKey.split('/').at(-1) ?? file.storageKey}`,
   }))
+  // 가공 작업의 사진 증빙은 작업 전(수령할 때)·작업 후(결과 쓸 때) 두 가지이고 둘 다 필수다.
+  // 서버도 없으면 수령·제출을 받지 않는다 — 수령은 체인 서명이 먼저라 여기서 막아야 서명만 남지 않는다.
+  const evidenceFiles = flow.evidence?.data?.files ?? []
+  const hasBeforePhoto = evidenceFiles.some(file => file.evidenceType === 'BEFORE_PHOTO')
+  const hasAfterPhoto = evidenceFiles.some(file => file.evidenceType === 'AFTER_PHOTO')
   const pending=Boolean(flow.initializeChain?.isPending||flow.accept?.isPending||flow.declineJob?.isPending||flow.releaseChainLock?.isPending||flow.ship.isPending||flow.receive.isPending||flow.start.isPending||flow.saveResult.isPending||flow.submit.isPending||flow.shipReturn?.isPending||flow.approve.isPending||flow.reject.isPending||flow.returnRejected?.isPending)
   const error=flow.initializeChain?.error||flow.accept?.error||flow.declineJob?.error||flow.releaseChainLock?.error||flow.ship.error||flow.receive.error||flow.start.error||flow.saveResult.error||flow.submit.error||flow.shipReturn?.error||flow.approve.error||flow.reject.error||flow.returnRejected?.error
   const outputSum=rows.reduce((sum,row)=>sum+(Number.isSafeInteger(Number(row.quantity))&&Number(row.quantity)>0?Number(row.quantity):0),0)
@@ -92,7 +97,8 @@ function ProcessingJobDetailContent({ jobId, job, request, role, flow }: {
   const hasUnsavedChanges=JSON.stringify(rows)!==JSON.stringify(savedRows)
   const submitBlocker=job.resultRevision===0
     ?'임시 저장한 결과를 제출합니다. 먼저 결과를 임시 저장해 주세요.'
-    :hasUnsavedChanges?'저장하지 않은 수정이 있어요. 임시 저장한 뒤 제출해 주세요.':null
+    :hasUnsavedChanges?'저장하지 않은 수정이 있어요. 임시 저장한 뒤 제출해 주세요.'
+    :!hasAfterPhoto?'가공을 마친 뒤의 작업 후 사진을 한 장 이상 올려야 제출할 수 있어요.':null
   // 이름도 종류와 같다 — 가공을 거쳐도 같은 소재라 처음 이름을 그대로 잇는다. 서버도 투입 소재의
   // 이름으로 덮어쓰지만, 이름을 요구하던 이전 서버가 배포돼 있어도 저장되도록 함께 보낸다.
   const save=()=>flow.saveResult.mutate({outputs:rows.map(row=>({...row,name:outputName??'',gradeReason:row.gradeReason.trim(),quantity:Number(row.quantity)}))})
@@ -182,7 +188,7 @@ function ProcessingJobDetailContent({ jobId, job, request, role, flow }: {
     */}
     {role==='BRAND'&&job.status==='SHIPPED'&&<ShipmentStatusPanel job={job} justShipped={flow.ship.isSuccess}/>}
     {role==='BRAND'&&(job.status==='RECEIVED'||job.status==='PROCESSING')&&<section className="pj-panel pj-status-note" role="status" aria-label="가공 중"><h2><Factory/>가공 중</h2><p>가공업체가 소재를 받아 가공하고 있어요.{job.receivedAt?` (${formatDateTime(job.receivedAt)} 수령)`:''} 결과가 등록되면 이 화면에서 검토할 수 있어요.</p></section>}
-    {role==='PROCESSOR'&&job.status==='SHIPPED'&&<section className="pj-panel pj-action"><p>소재가 도착했다면 수령을 확인해 주세요. 수령하면 바로 가공 결과를 작성할 수 있어요.</p><button disabled={pending} onClick={()=>flow.receive.mutate()}>소재 수령 처리</button></section>}
+    {role==='PROCESSOR'&&job.status==='SHIPPED'&&<section className="pj-panel"><h2><Package/>소재 수령</h2><p>소재가 도착했다면 받은 상태 그대로 작업 전 사진을 찍어 올린 뒤 수령을 확인해 주세요. 수령하면 바로 가공 결과를 작성할 수 있어요.</p><div className="pj-evidence"><h3>작업 전 사진</h3><EvidenceUpload referenceType="PROCESSING_JOB" referenceId={jobId} uploadMode="type-grid" evidenceTypes={['BEFORE_PHOTO']}/></div>{!hasBeforePhoto&&<p className="pj-help">받은 상태의 작업 전 사진을 한 장 이상 올려야 수령할 수 있어요.</p>}<div className="pj-result-actions"><button disabled={pending||!hasBeforePhoto} onClick={()=>flow.receive.mutate()}>소재 수령 처리</button></div></section>}
     {role==='PROCESSOR'&&job.status==='RECEIVED'&&<section className="pj-panel pj-action"><p>가공을 시작하고 있어요. 잠시 후 가공 결과를 작성할 수 있어요.</p></section>}
 
     {role==='PROCESSOR'&&(job.status==='PROCESSING'||job.status==='REJECTED')&&<section className="pj-panel"><h2><Factory/>가공 결과 작성</h2>{job.rejectionReason&&<p className="pj-warning">브랜드 수정 요청 사유: {job.rejectionReason}</p>}
@@ -208,7 +214,7 @@ function ProcessingJobDetailContent({ jobId, job, request, role, flow }: {
         <div><span>자동 계산 Loss</span><output aria-label="자동 계산 Loss">{lossQuantity.toLocaleString()} g</output></div>
       </div>
       {excessQuantity>0&&<p className="pj-warning" role="alert">산출 수량 합계가 투입량을 {excessQuantity.toLocaleString()} g 초과했습니다.</p>}
-      <div className="pj-evidence"><h3>가공 증빙</h3><EvidenceUpload referenceType="PROCESSING_JOB" referenceId={jobId} uploadMode="type-grid"/></div>
+      <div className="pj-evidence"><h3>작업 후 사진</h3><EvidenceUpload referenceType="PROCESSING_JOB" referenceId={jobId} uploadMode="type-grid" evidenceTypes={['AFTER_PHOTO']}/></div>
       {/* 결과 작성의 마지막 두 동작은 증빙까지 올린 뒤 한 줄에서 고른다. 제출은 서버에 저장된
           결과를 올리므로, 저장한 적이 없거나 저장하지 않은 수정이 있으면 막는다. */}
       {submitBlocker&&<p className="pj-help">{submitBlocker}</p>}
@@ -219,10 +225,11 @@ function ProcessingJobDetailContent({ jobId, job, request, role, flow }: {
     </section>}
 
     {job.outputs.length>0&&<section className="pj-panel"><h2>제출 산출물</h2><ul className="pj-results">{job.outputs.map(row=><li key={row.outputId}><strong>{row.name}</strong><span>{MATERIAL_TYPE_LABEL[row.materialType]} · {GRADE_LABEL[row.grade]}</span><b>{row.quantity.toLocaleString()} g</b><p>{row.gradeReason}</p>{row.materialId&&<small>생성 소재 #{row.materialId}</small>}</li>)}</ul></section>}
-    {role==='PROCESSOR'&&job.status==='RESULT_SUBMITTED'&&<section className="pj-panel"><div className="pj-evidence"><h3>반환 발송 증빙 등록</h3><EvidenceUpload referenceType="PROCESSING_JOB" referenceId={jobId} uploadMode="type-grid"/></div><ProcessingShipmentForm embedded title="가공 결과물 반환 발송" submitLabel="결과물 반환 발송" isPending={flow.shipReturn.isPending} error={flow.shipReturn.error} evidenceRequired evidenceOptions={evidenceOptions} onSubmit={input=>{
+    {/* 결과를 낸 뒤에는 새 사진을 받지 않는다(서버도 받지 않는다) — 반환 발송 증빙은 이미 올린 사진에서 고른다. */}
+    {role==='PROCESSOR'&&job.status==='RESULT_SUBMITTED'&&<section className="pj-panel"><ProcessingShipmentForm embedded title="가공 결과물 반환 발송" submitLabel="결과물 반환 발송" isPending={flow.shipReturn.isPending} error={flow.shipReturn.error} evidenceRequired evidenceOptions={evidenceOptions} onSubmit={input=>{
       if (input.evidenceFileId && input.evidenceHash) flow.shipReturn.mutate({...input,evidenceFileId:input.evidenceFileId,evidenceHash:input.evidenceHash})
     }}/></section>}
-    {role==='PROCESSOR'&&job.status==='REJECTED'&&<section className="pj-panel"><h2><Package/>원소재 반환 후 작업 종료</h2><div className="pj-evidence"><h3>반환 발송 증빙 등록</h3><EvidenceUpload referenceType="PROCESSING_JOB" referenceId={jobId} uploadMode="type-grid"/></div><ProcessingShipmentForm embedded title="수정 요청된 작업의 원소재 반환" submitLabel="반환 및 작업 종료" isPending={flow.returnRejected.isPending} error={flow.returnRejected.error} evidenceRequired evidenceOptions={evidenceOptions} onSubmit={input=>{
+    {role==='PROCESSOR'&&job.status==='REJECTED'&&<section className="pj-panel"><h2><Package/>원소재 반환 후 작업 종료</h2><div className="pj-evidence"><h3>반환 발송 증빙 등록</h3><EvidenceUpload referenceType="PROCESSING_JOB" referenceId={jobId} uploadMode="type-grid" evidenceTypes={['AFTER_PHOTO']}/></div><ProcessingShipmentForm embedded title="수정 요청된 작업의 원소재 반환" submitLabel="반환 및 작업 종료" isPending={flow.returnRejected.isPending} error={flow.returnRejected.error} evidenceRequired evidenceOptions={evidenceOptions} onSubmit={input=>{
       if (input.evidenceFileId && input.evidenceHash) flow.returnRejected.mutate({...input,evidenceFileId:input.evidenceFileId,evidenceHash:input.evidenceHash})
     }}/></section>}
     {role==='BRAND'&&job.status==='RESULT_SUBMITTED'&&<section className="pj-panel"><h2><CheckCircle/>결과 검토</h2><p>보완이 필요하면 결과 수정을 요청할 수 있습니다. 승인 처리는 결과물을 수령한 뒤 진행합니다.</p><div className="pj-review"><input placeholder="수정 요청 사유" value={reason} onChange={e=>setReason(e.target.value)}/><button className="is-danger" disabled={pending||!reason.trim()} onClick={()=>flow.reject.mutate(reason)}>결과 수정 요청</button></div></section>}
