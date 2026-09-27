@@ -73,9 +73,12 @@ function ProcessingJobDetailContent({ jobId, job, request, role, flow }: {
   const outputSum=rows.reduce((sum,row)=>sum+(Number.isSafeInteger(Number(row.quantity))&&Number(row.quantity)>0?Number(row.quantity):0),0)
   const lossQuantity=Math.max(job.inputQuantity-outputSum,0)
   const excessQuantity=Math.max(outputSum-job.inputQuantity,0)
-  const hasInvalidOutput=rows.some(row=>!row.name.trim()||!row.gradeReason.trim()||!Number.isSafeInteger(Number(row.quantity))||Number(row.quantity)<=0)
+  const outputName=request?.materialName
+  const hasInvalidOutput=!outputName||rows.some(row=>!row.gradeReason.trim()||!Number.isSafeInteger(Number(row.quantity))||Number(row.quantity)<=0)
   const cannotSave=pending||excessQuantity>0||hasInvalidOutput
-  const save=()=>flow.saveResult.mutate({outputs:rows.map(row=>({...row,name:row.name.trim(),gradeReason:row.gradeReason.trim(),quantity:Number(row.quantity)}))})
+  // 이름도 종류와 같다 — 가공을 거쳐도 같은 소재라 처음 이름을 그대로 잇는다. 서버도 투입 소재의
+  // 이름으로 덮어쓰지만, 이름을 요구하던 이전 서버가 배포돼 있어도 저장되도록 함께 보낸다.
+  const save=()=>flow.saveResult.mutate({outputs:rows.map(row=>({...row,name:outputName??'',gradeReason:row.gradeReason.trim(),quantity:Number(row.quantity)}))})
   const counterparty = role === 'PROCESSOR' ? request?.brandName : request?.processorName
   /*
     **온체인 잠금이 아직 살아 있는가.** 해제 패널과 "환불되었습니다" 안내가 같은 답을
@@ -165,7 +168,7 @@ function ProcessingJobDetailContent({ jobId, job, request, role, flow }: {
           {/* 고르게 하지 않는다. 가공은 섬유를 정제하고 모양을 바꿀 뿐 종류를 바꾸지 않아,
               산출물의 종류는 언제나 투입 소재의 종류다. 서버도 같은 값을 파생해 기록한다. */}
           <label>산출 소재 종류<output aria-label={`산출물 ${index+1} 소재 종류`}>{request?MATERIAL_TYPE_LABEL[request.materialType]:'투입 소재 확인 중'}</output><small className="pj-help">투입한 소재와 같습니다</small></label>
-          <label>산출 소재명<input aria-label={`산출물 ${index+1} 소재명`} placeholder="예: 재생 데님 원단" value={row.name} onChange={e=>setRows(v=>v.map((x,i)=>i===index?{...x,name:e.target.value}:x))}/></label>
+          <label>산출 소재명<output aria-label={`산출물 ${index+1} 소재명`}>{outputName??'투입 소재 확인 중'}</output><small className="pj-help">투입한 소재와 같습니다</small></label>
           <label>품질 등급<select aria-label={`산출물 ${index+1} 품질 등급`} value={row.grade} onChange={e=>setRows(v=>v.map((x,i)=>i===index?{...x,grade:e.target.value as MaterialGrade}:x))}>
             {materialGrades.map(grade=><option value={grade} key={grade}>{GRADE_LABEL[grade]}</option>)}
           </select></label>
