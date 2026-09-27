@@ -56,10 +56,14 @@ function renderSelect(props: Partial<Parameters<typeof MaterialInputSelect>[0]> 
   return userEvent.setup()
 }
 
-/** 소재를 골라 초안 한 줄을 만든다. */
+/**
+ * 소재를 골라 초안 한 줄을 만든다. 고르는 것만으로 칸이 열린다. 이미 한 줄이 있으면 선택 칸이
+ * 접혀 있으므로 "투입 추가" 로 다시 편다 — 사용자가 두 번째 소재를 넣는 길과 같다.
+ */
 async function addDraft(user: ReturnType<typeof userEvent.setup>, materialId = 11) {
+  const more = screen.queryByRole('button', { name: '+ 투입 추가' })
+  if (more) await user.click(more)
   await user.selectOptions(await screen.findByLabelText('투입할 소재'), String(materialId))
-  await user.click(screen.getByRole('button', { name: '투입 추가' }))
 }
 
 beforeEach(() => {
@@ -72,6 +76,30 @@ afterEach(() => {
 })
 
 describe('MaterialInputSelect', () => {
+  // 고른 뒤 버튼을 한 번 더 누르게 하면, 고르고 멈춘 사람에게는 아무 일도 안 일어난 것처럼 보인다.
+  it('소재를 고르면 곧바로 아래에 투입 칸이 열린다', async () => {
+    const user = renderSelect()
+    await addDraft(user)
+
+    expect(screen.getByLabelText('제품 사용 (g)')).toBeInTheDocument()
+    // 선택 칸은 접히고 그 자리에 "투입 추가" 가 선다 — 다른 소재도 함께 넣을 수 있다.
+    expect(screen.queryByLabelText('투입할 소재')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '+ 투입 추가' })).toBeInTheDocument()
+  })
+
+  it('투입 추가를 누르면 선택 칸이 다시 펴지고, 고르면 칸이 하나 더 열린다', async () => {
+    api.getMyMaterials.mockResolvedValue([
+      material(),
+      material({ materialId: 12, materialCode: 'MAT-000012', name: '정제된 폐면' }),
+    ])
+    const user = renderSelect()
+    await addDraft(user, 11)
+    await addDraft(user, 12)
+
+    expect(screen.getAllByLabelText('제품 사용 (g)')).toHaveLength(2)
+    expect(screen.getByRole('button', { name: '+ 투입 추가' })).toBeInTheDocument()
+  })
+
   /*
     폐기물은 그대로 제품이 되지 않는다 — 씻고, 뜯고, 골라내야 무엇을 만들 수 있는 소재가
     된다. 셋 중 하나라도 남았으면 투입 후보에서 빠진다.
@@ -213,6 +241,8 @@ describe('MaterialInputSelect', () => {
   it('초안에 추가한 소재는 다시 고를 수 없다', async () => {
     const user = renderSelect()
     await addDraft(user)
+    // 칸이 열리면 선택 칸이 접힌다. 다시 펴서 목록을 본다.
+    await user.click(screen.getByRole('button', { name: '+ 투입 추가' }))
 
     const option = screen.getByRole('option', { name: /^세척된 폐데님 · / })
     expect(option).toBeDisabled()

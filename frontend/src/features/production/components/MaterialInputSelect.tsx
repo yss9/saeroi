@@ -112,6 +112,15 @@ export interface MaterialInputPickerProps {
    * 여기서 정한다 — 담은 것의 끝에 붙어야 "이만큼을 보낸다" 로 읽힌다.
    */
   actions?: ReactNode
+  /**
+   * 선택 칸이 펴져 있는가 — **부르는 쪽이 쥘 수도 있다.**
+   *
+   * 새 생산 화면은 "+ 투입 추가" 를 카드 제목 줄 오른쪽에 둔다. 버튼이 이 컴포넌트 밖에
+   * 서니 펴고 접는 값도 밖에 있어야 한다. 넘기지 않으면 지금처럼 스스로 쥐고, 버튼도 선택
+   * 칸 자리에 스스로 그린다.
+   */
+  choosing?: boolean
+  onChoosingChange?: (choosing: boolean) => void
 }
 
 /**
@@ -126,9 +135,21 @@ export function MaterialInputPicker({
   onChange,
   inputMaterialIds = [],
   actions,
+  choosing: controlledChoosing,
+  onChoosingChange,
 }: MaterialInputPickerProps) {
   const materials = useMyMaterials()
-  const [picked, setPicked] = useState<number | null>(null)
+  /*
+    투입 칸이 하나라도 열리면 선택 칸은 접고 그 자리에 "투입 추가" 를 둔다 — 소재를 여럿 함께
+    넣을 수 있다는 것이 버튼으로 보인다. 누르면 선택 칸이 다시 펴진다.
+  */
+  const [ownChoosing, setOwnChoosing] = useState(false)
+  const controlled = controlledChoosing !== undefined
+  const choosing = controlled ? controlledChoosing : ownChoosing
+  const setChoosing = (next: boolean) => {
+    if (controlled) onChoosingChange?.(next)
+    else setOwnChoosing(next)
+  }
 
   if (materials.isPending) return <Loading label="보유 소재를 불러오는 중" />
   if (materials.isError) {
@@ -151,8 +172,13 @@ export function MaterialInputPicker({
 
   const full = drafts.length >= PRODUCTION_INPUTS_MAX
 
-  function addPicked() {
-    const material = materials.data?.find((item) => item.materialId === picked)
+  /*
+    **고르면 곧바로 아래에 투입 칸이 열린다.** 예전에는 고른 뒤 "투입 추가" 를 한 번 더
+    눌러야 했는데, 고르는 것 말고 그 버튼이 하는 일이 없었다 — 고르고 멈춘 사람에게는
+    아무 일도 안 일어난 것처럼 보였다. 칸은 곧바로 비워 다음 소재를 고를 수 있게 둔다.
+  */
+  function addMaterial(materialId: number) {
+    const material = materials.data?.find((item) => item.materialId === materialId)
     if (!material || full) return
     // 투입량 셋을 0 으로 시작한다. 가용량을 미리 채워 넣으면 사용자가 확인 없이 저장한다 —
     // 얼마가 제품이 되고 얼마가 자투리인지는 재단해 본 사람만 안다.
@@ -160,7 +186,7 @@ export function MaterialInputPicker({
       ...drafts,
       { material, productUsed: 0, reusableScrap: 0, waste: 0, wasteReason: '' },
     ])
-    setPicked(null)
+    setChoosing(false)
   }
 
   function update(materialId: number, patch: Partial<DraftInput>) {
@@ -175,18 +201,30 @@ export function MaterialInputPicker({
 
   return (
     <section className="material-input">
-      <div className="material-input__picker">
-        <Select
-          label="투입할 소재"
-          placeholder="소재를 선택하세요"
-          value={picked === null ? '' : String(picked)}
-          options={optionsOf(materials.data, draftIds, inputMaterialIds)}
-          onChange={(event) => setPicked(event.target.value ? Number(event.target.value) : null)}
-        />
-        <Button variant="secondary" onClick={addPicked} disabled={picked === null || full}>
-          투입 추가
-        </Button>
-      </div>
+      {drafts.length === 0 || choosing ? (
+        <div className="material-input__picker">
+          <Select
+            label="투입할 소재"
+            placeholder="소재를 선택하세요"
+            value=""
+            options={optionsOf(materials.data, draftIds, inputMaterialIds)}
+            onChange={(event) => {
+              if (event.target.value) addMaterial(Number(event.target.value))
+            }}
+          />
+          {drafts.length > 0 && (
+            <Button variant="secondary" onClick={() => setChoosing(false)}>
+              닫기
+            </Button>
+          )}
+        </div>
+      ) : controlled ? null : (
+        <div className="material-input__more">
+          <Button variant="secondary" onClick={() => setChoosing(true)} disabled={full}>
+            + 투입 추가
+          </Button>
+        </div>
+      )}
 
       {/*
         고를 수 있는 소재가 하나도 없다는 사실만 적는다. 목록은 보이는데 전부 선택이 안 되는
