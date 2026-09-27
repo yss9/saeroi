@@ -2,8 +2,11 @@ package com.ssafy.upcycle.processing.service;
 
 import static com.ssafy.upcycle.processing.ProcessingErrorCode.*;
 
+import com.ssafy.upcycle.blockchain.service.ChainProcessingStatusReader;
+
 import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.evidence.entity.EvidenceReferenceType;
+import com.ssafy.upcycle.evidence.entity.EvidenceType;
 import com.ssafy.upcycle.evidence.repository.EvidenceFileRepository;
 import com.ssafy.upcycle.material.entity.*;
 import com.ssafy.upcycle.material.repository.*;
@@ -45,6 +48,8 @@ public class ProcessingJobWorkflowService {
     private final MaterialEventRecorder eventRecorder;
     private final Clock clock;
     private final ProcessingNotificationService businessNotifications;
+    /** 발송을 DB 에 반영하기 전에 체인에 서명이 남았는지 확인한다. */
+    private final ChainProcessingStatusReader chainJobs;
 
     @Transactional(readOnly = true)
     public List<ProcessingJobResponse> list(Long actorId) {
@@ -73,11 +78,45 @@ public class ProcessingJobWorkflowService {
     @Transactional
     public ProcessingJobResponse ship(Long actorId, Long jobId, ProcessingJobShipRequest request) {
         ProcessingJob job = lockJob(jobId); requireBrand(job, actorId);
-        if (job.getChainJobId() == null) throw new BusinessException(PROCESSING_CHAIN_NOT_LINKED);
+        requireChainShipment(job);
         job.ship(request.carrier(), request.trackingNumber(), now());
         recordInput(job, MaterialEventType.PROCESSING_MATERIAL_SHIPPED, actorId, "가공 소재 발송");
         businessNotifications.jobEvent(job, NotificationType.PROCESSING_MATERIAL_SHIPPED);
         return response(job);
+    }
+
+    /**
+     * 발송을 DB 에 반영하기 전에 <b>체인에 발송이 남았는지 확인한다.</b>
+     *
+     * <p>{@code chainJobId} 만 보던 것을 고친 것이다. 그 값은 "작업이 체인에 등록됐다" 는
+     * 뜻이지 "발송 서명이 남았다" 는 뜻이 아니다 — 훨씬 앞 단계의 흔적이다.
+     *
+     * <p><b>DB 가 앞서면 상대편이 막힌다.</b> DB 는 {@code SHIPPED} 인데 체인이
+     * {@code ACCEPTED} 면, 가공업체가 수령을 누를 때 {@code confirmReceipt} 가
+     * {@code require(status == SHIPPED)} 에서 revert 한다. 그 함수가 체인에서 소재 보관을
+     * 브랜드 잠금에서 업체 잠금으로 옮기는 자리라 이후 모든 단계가 줄줄이 막히고, 그때는
+     * 이미 가공비를 내고 물건도 보낸 뒤다. 막히는 사람이 담당자가 아니라 업체여서 담당자는
+     * 왜 멈췄는지도 알 수 없다.
+     *
+     * <p><b>체인이 앞선 경우는 통과시킨다.</b> 화면은 서명을 먼저 하고 서버를 뒤에 부르므로
+     * ({@code signCustodyTransfer}) 그 사이에 실패하면 체인만 {@code SHIPPED} 로 남는다.
+     * 그때 이 검사는 참이 되어 DB 가 따라잡는다 — 그것이 정상 회복 경로다.
+     *
+     * <p>소재 거래의 {@code TradeShipmentService.requireShippable} 과 같은 모양이다. 두 곳이
+     * 다른 방식으로 판정하면 한쪽만 고쳐질 때 구멍이 난다.
+     */
+    private void requireChainShipment(ProcessingJob job) {
+        if (!chainJobs.canRead()) {
+            // 체인을 아예 쓰지 않는 환경이다(설정이 비어 있다). 어긋날 대상이 없으므로
+            // 막지 않는다 — 막으면 로컬·테스트에서 발송이 통째로 불가능해진다.
+            return;
+        }
+        if (job.getChainJobId() == null) {
+            throw new BusinessException(PROCESSING_CHAIN_NOT_LINKED);
+        }
+        if (!chainJobs.alreadyShipped(job.getChainJobId())) {
+            throw new BusinessException(PROCESSING_CHAIN_SHIPMENT_REQUIRED);
+        }
     }
 
     @Transactional
@@ -114,20 +153,22 @@ public class ProcessingJobWorkflowService {
         // 이유가 하나 더 있다: 화면은 이 값을 아예 보내지 않고 DTO 에도 @NotNull 이 없어,
         // row.materialType() 은 null 로 내려와 ProcessingOutput.draft 가
         // IllegalArgumentException 을 던지고 임시 저장 전체가 500 이 된다.
-        MaterialType inputMaterialType = materials.findById(input.getMaterialId())
-                .orElseThrow(() -> new BusinessException(PROCESSING_MATERIAL_NOT_FOUND))
-                .getMaterialType();
+        // 이름도 같다 — 투입 소재의 이름을 그대로 잇는다.
+        Material inputMaterial = materials.findById(input.getMaterialId())
+                .orElseThrow(() -> new BusinessException(PROCESSING_MATERIAL_NOT_FOUND));
         outputs.deleteByProcessingJobId(jobId);
         outputs.saveAll(request.outputs().stream().map(row -> ProcessingOutput.draft(jobId, input.getId(),
-                inputMaterialType, row.grade(), row.gradeReason(), row.name(), row.quantity())).toList());
+                inputMaterial.getMaterialType(), row.grade(), row.gradeReason(), inputMaterial.getName(),
+                row.quantity())).toList());
         return response(job);
     }
 
     @Transactional
     public ProcessingJobResponse submitResult(Long actorId, Long jobId, ProcessingSignedCommandRequest request) {
         ProcessingJob job = lockJob(jobId); requireProcessor(job, actorId);
-        if (evidenceFiles.countByReferenceTypeAndReferenceIdAndDeletedAtIsNull(
-                EvidenceReferenceType.PROCESSING_JOB, jobId) < 1)
+        // 결과의 근거는 작업 후 사진이다 — 아무 증빙이나 한 장(예: 수령 때의 작업 전 사진)으로는 안 된다.
+        if (evidenceFiles.countByReferenceTypeAndReferenceIdAndEvidenceTypeAndDeletedAtIsNull(
+                EvidenceReferenceType.PROCESSING_JOB, jobId, EvidenceType.AFTER_PHOTO) < 1)
             throw new BusinessException(PROCESSING_EVIDENCE_REQUIRED);
         String signature = signatures.verify(actorId, job, ProcessingSignatureAction.RESULT_SUBMIT,
                 request.challengeId(), request.signature(), null);
@@ -175,7 +216,7 @@ public class ProcessingJobWorkflowService {
                 MaterialEventRecorder.key(MaterialEventType.MATERIAL_CONSUMED, parent.getId(), jobId));
         for (ProcessingOutput row : result) {
             Material child = materials.save(Material.produceProcessed(materialCodeGenerator.placeholder(), parent,
-                    row.getMaterialType(), row.getName(), row.getGrade(), row.getQuantity(), job.getProcessorId()));
+                    row.getMaterialType(), parent.getName(), row.getGrade(), row.getQuantity(), job.getProcessorId()));
             child.assignCode(materialCodeGenerator.of(child.getId()));
             materialIssuer.issue(child.getId(), actorId, row.getQuantity());
             lineageRegistrar.link(child.getId(), parent.getId(), MaterialLineageRelationType.PROCESSING, jobId);

@@ -59,7 +59,8 @@ class MaterialTradeTests {
         assertThat(trade.getStatus()).isEqualTo(TradeStatus.SHIPPED);
         assertThat(trade.getShippedAt()).isEqualTo(NOW.plusDays(1));
 
-        trade.confirmReceipt(NOW.plusDays(3), NOW.plusDays(3));
+        trade.confirmReceipt(NOW.plusDays(3));
+        trade.markBuyerSigned(NOW.plusDays(3));
         assertThat(trade.getStatus()).isEqualTo(TradeStatus.RECEIVED);
 
         trade.complete(NOW.plusDays(3));
@@ -81,27 +82,36 @@ class MaterialTradeTests {
         MaterialTrade trade = trade();
         trade.markPaid("T1234", 200_000L, NOW, PaymentMethod.MOCK);
 
-        assertThatThrownBy(() -> trade.confirmReceipt(NOW, NOW))
+        assertThatThrownBy(() -> trade.confirmReceipt(NOW))
                 .isInstanceOf(IllegalStateException.class);
     }
 
     @Test
     void receiptCannotBeConfirmedTwice() {
         MaterialTrade trade = shippedTrade();
-        trade.confirmReceipt(NOW, NOW);
+        trade.confirmReceipt(NOW);
+        trade.markBuyerSigned(NOW);
 
-        assertThatThrownBy(() -> trade.confirmReceipt(NOW, NOW))
+        assertThatThrownBy(() -> trade.confirmReceipt(NOW))
                 .isInstanceOf(IllegalStateException.class);
     }
 
-    /** 수령 확인 시각과 서명 시각은 별개 컬럼이다. 정책 09.1 이 둘을 따로 요구한다. */
+    /**
+     * 수령 확인 시각과 서명 시각은 별개 컬럼이고 <b>따로 채워진다.</b>
+     *
+     * <p>예전에는 수령 확인이 둘을 함께 받았다. 그래서 지갑 서명을 한 번도 하지 않은
+     * 거래가 "검증됨" 으로 남았고, 체인에서는 소재가 판매자 잠금에 그대로 있었다.
+     */
     @Test
-    void receiptRecordsBothReceivedAndSignedTimes() {
+    void receiptRecordsReceivedTimeOnly() {
         MaterialTrade trade = shippedTrade();
 
-        trade.confirmReceipt(NOW, NOW.plusMinutes(5));
+        trade.confirmReceipt(NOW);
 
         assertThat(trade.getReceivedAt()).isEqualTo(NOW);
+        assertThat(trade.getBuyerSignedAt()).isNull();
+
+        trade.markBuyerSigned(NOW.plusMinutes(5));
         assertThat(trade.getBuyerSignedAt()).isEqualTo(NOW.plusMinutes(5));
     }
 

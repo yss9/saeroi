@@ -31,6 +31,18 @@ public enum EvidenceErrorCode implements ErrorCode {
 
     EVIDENCE_FILE_MISSING(HttpStatus.BAD_REQUEST, "EVIDENCE_FILE_MISSING", "올릴 파일이 없습니다."),
 
+    /**
+     * 가공 작업에 지금 단계에서 받지 않는 종류의 증빙을 올리려 했다.
+     *
+     * <p>가공 작업의 사진 증빙은 작업 전 사진(수령할 때)과 작업 후 사진(가공 중) 두 가지뿐이다.
+     * 받는 쪽이 확인하는 것은 "무엇이 들어와 무엇이 나갔는가" 이고, 작업 전 사진은 받은 그대로의
+     * 상태여야 하므로 가공을 시작한 뒤에는 받지 않는다.
+     */
+    EVIDENCE_TYPE_NOT_ALLOWED(
+            HttpStatus.CONFLICT,
+            "EVIDENCE_TYPE_NOT_ALLOWED",
+            "가공 작업에는 소재를 받을 때 작업 전 사진을, 가공 중에 작업 후 사진을 올릴 수 있습니다."),
+
     EVIDENCE_UPLOADER_NOT_FOUND(
             HttpStatus.NOT_FOUND, "EVIDENCE_UPLOADER_NOT_FOUND", "업로더를 찾을 수 없습니다."),
 

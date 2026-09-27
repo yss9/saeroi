@@ -55,9 +55,63 @@ public class BesuJsonRpcClient implements BlockchainJsonRpcClient {
 
     /** 영수증이 아직 안 보이면(result 없음/null) 예외가 아니라 {@code null} 을 돌려준다 — 재시도할 신호다. */
     private JsonNode fetchReceipt(String txHash) throws Exception {
+        JsonNode result = call("eth_getTransactionReceipt", java.util.List.of(txHash));
+        if (result.isMissingNode() || result.isNull() || !result.isObject()) return null;
+        return result;
+    }
+
+    /**
+     * 주어진 블록 구간의 로그를 찾는다. 구간은 호출하는 쪽이 좁혀 준다
+     * ({@link BlockchainJsonRpcClient#logs} 참고 — 0번 블록부터 찾다가 시간 초과가 났다).
+     *
+     * <p>영수증과 달리 재시도하지 않는다. 방금 채굴된 거래를 찾는 경로가 아니라, 한참 전에 들어간
+     * 서명을 따라잡는 경로라서 노드 사이의 뒤처짐이 문제되지 않는다.
+     */
+    @Override
+    public JsonNode logs(String address, java.util.List<String> topics, long fromBlock, long toBlock) {
+        if (!properties.hasRpcUrl()) {
+            throw new BusinessException(BlockchainErrorCode.BLOCKCHAIN_NOT_CONFIGURED);
+        }
+        try {
+            JsonNode result = call("eth_getLogs", java.util.List.of(Map.of(
+                    "address", address,
+                    "topics", topics,
+                    "fromBlock", "0x" + Long.toHexString(fromBlock),
+                    "toBlock", "0x" + Long.toHexString(toBlock))));
+            if (!result.isArray()) {
+                throw new IllegalStateException("eth_getLogs returned no array");
+            }
+            return result;
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw logsFailed(address, exception);
+        } catch (Exception exception) {
+            throw logsFailed(address, exception);
+        }
+    }
+
+    @Override
+    public long latestBlockNumber() {
+        if (!properties.hasRpcUrl()) {
+            throw new BusinessException(BlockchainErrorCode.BLOCKCHAIN_NOT_CONFIGURED);
+        }
+        try {
+            String hex = call("eth_blockNumber", java.util.List.of()).asText("");
+            if (!hex.startsWith("0x")) {
+                throw new IllegalStateException("eth_blockNumber returned no number");
+            }
+            return Long.parseLong(hex.substring(2), 16);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw blockNumberFailed(exception);
+        } catch (Exception exception) {
+            throw blockNumberFailed(exception);
+        }
+    }
+
+    private JsonNode call(String method, Object params) throws Exception {
         String body = mapper.writeValueAsString(Map.of(
-                "jsonrpc", "2.0", "id", 1, "method", "eth_getTransactionReceipt",
-                "params", java.util.List.of(txHash)));
+                "jsonrpc", "2.0", "id", 1, "method", method, "params", params));
         HttpRequest request = HttpRequest.newBuilder(URI.create(properties.rpcUrl()))
                 .timeout(Duration.ofSeconds(10))
                 .header("Content-Type", "application/json")
@@ -69,10 +123,17 @@ public class BesuJsonRpcClient implements BlockchainJsonRpcClient {
         if (response.statusCode() / 100 != 2) {
             throw new IllegalStateException("RPC HTTP " + response.statusCode());
         }
-        JsonNode root = mapper.readTree(response.body());
-        JsonNode result = root.path("result");
-        if (result.isMissingNode() || result.isNull() || !result.isObject()) return null;
-        return result;
+        return mapper.readTree(response.body()).path("result");
+    }
+
+    private static BusinessException logsFailed(String address, Exception cause) {
+        log.warn("Chain log lookup failed for contract {}", address, cause);
+        return new BusinessException(BlockchainErrorCode.BLOCKCHAIN_LINK_INVALID);
+    }
+
+    private static BusinessException blockNumberFailed(Exception cause) {
+        log.warn("Chain block number lookup failed", cause);
+        return new BusinessException(BlockchainErrorCode.BLOCKCHAIN_LINK_INVALID);
     }
 
     private void sleep() {

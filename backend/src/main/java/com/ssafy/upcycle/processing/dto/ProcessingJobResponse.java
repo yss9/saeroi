@@ -32,7 +32,15 @@ public record ProcessingJobResponse(Long jobId, String jobCode, Long requestId,
         LocalDateTime resultSubmittedAt, LocalDateTime rejectedAt, LocalDateTime returnShippedAt,
         LocalDateTime completedAt,
         LocalDateTime processorSubmittedAt, LocalDateTime brandReviewedAt,
-        List<ProcessingOutputResponse> outputs) {
+        List<ProcessingOutputResponse> outputs,
+        /**
+         * 온체인 잠금이 남아 있어 브랜드가 풀어 줘야 하는가.
+         *
+         * <p>거절·만료는 서버가 DB 와 환불만 정리한다. 체인의 Lock 은 브랜드 지갑이
+         * {@code cancelJob} 을 서명해야 풀린다 — 서버에 개인키를 두지 않기 때문이다.
+         * 이 값이 참인 동안 그 수량은 온체인 가용 잔량에서 빠져 있다.
+         */
+        boolean chainReleaseRequired) {
 
     public static ProcessingJobResponse of(ProcessingJob j) {
         return new ProcessingJobResponse(j.getId(), j.getJobCode(), j.getProcessingRequestId(),
@@ -44,7 +52,7 @@ public record ProcessingJobResponse(Long jobId, String jobCode, Long requestId,
                 j.getReturnTrackingNumber(), j.getReturnShippingEvidenceHash(), j.getRejectionReason(),
                 j.getShippedAt(), j.getReceivedAt(), j.getStartedAt(), j.getResultSubmittedAt(),
                 j.getRejectedAt(), j.getReturnShippedAt(), j.getCompletedAt(),
-                j.getProcessorSubmittedAt(), j.getBrandReviewedAt(), List.of());
+                j.getProcessorSubmittedAt(), j.getBrandReviewedAt(), List.of(), chainReleaseRequired(j));
     }
 
     public static ProcessingJobResponse of(
@@ -61,6 +69,28 @@ public record ProcessingJobResponse(Long jobId, String jobCode, Long requestId,
                 j.getReceivedAt(), j.getStartedAt(), j.getResultSubmittedAt(), j.getRejectedAt(),
                 j.getReturnShippedAt(), j.getCompletedAt(),
                 j.getProcessorSubmittedAt(), j.getBrandReviewedAt(),
-                outputs.stream().map(ProcessingOutputResponse::of).toList());
+                outputs.stream().map(ProcessingOutputResponse::of).toList(), base.chainReleaseRequired());
+    }
+
+    /**
+     * 잠금이 <b>아직 체인에 남아</b> 브랜드 서명을 기다리는가.
+     *
+     * <p>{@code CANCELED} 만 보면 안 된다. 그 값에는 두 갈래가 들어온다 — 시작 전 종료
+     * ({@code terminateBeforeStart}) 와 반려 결과의 반환 종료
+     * ({@code cancelAfterRejectedReturn}) 다. 뒤쪽은 체인에서 이미
+     * {@code REJECTED_INPUT_RETURNED}(12) 로 닫혔고 소재도 브랜드 잔량에 돌아가 있다.
+     * 거기에 해제 안내를 띄우면 브랜드는 {@code cancelJob} 이
+     * {@code require(REQUESTED||ACCEPTED)} 에서 revert 하는 버튼을 누르게 된다.
+     *
+     * <p>둘을 가르는 표시가 {@code declinedAt} 이다. 이 값을 적는 곳은
+     * {@code ProcessingJob#terminateBeforeStart} 한 군데뿐이고 엔티티에 setter 도 없으므로,
+     * {@code declinedAt != null} 은 곧 "시작 전에 끝난 작업" 을 뜻한다.
+     */
+    private static boolean chainReleaseRequired(ProcessingJob j) {
+        if (j.getChainJobId() == null) return false;
+        if (j.getDeclinedAt() == null) return false;
+        return j.getStatus() == ProcessingJobStatus.DECLINED
+                || j.getStatus() == ProcessingJobStatus.EXPIRED
+                || j.getStatus() == ProcessingJobStatus.CANCELED;
     }
 }

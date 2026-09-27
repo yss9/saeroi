@@ -3,13 +3,15 @@ package com.ssafy.upcycle.processing.service;
 import static com.ssafy.upcycle.processing.ProcessingErrorCode.*;
 
 import com.ssafy.upcycle.common.exception.BusinessException;
+import com.ssafy.upcycle.evidence.entity.EvidenceReferenceType;
+import com.ssafy.upcycle.evidence.entity.EvidenceType;
+import com.ssafy.upcycle.evidence.repository.EvidenceFileRepository;
 import com.ssafy.upcycle.material.entity.Material;
 import com.ssafy.upcycle.material.entity.MaterialBalance;
 import com.ssafy.upcycle.material.entity.MaterialEventReferenceType;
 import com.ssafy.upcycle.material.entity.MaterialEventType;
 import com.ssafy.upcycle.material.entity.MaterialLineageRelationType;
 import com.ssafy.upcycle.material.entity.MaterialLock;
-import com.ssafy.upcycle.material.entity.MaterialType;
 import com.ssafy.upcycle.material.entity.MaterialLockReferenceType;
 import com.ssafy.upcycle.material.entity.MaterialLockStatus;
 import com.ssafy.upcycle.material.repository.MaterialBalanceRepository;
@@ -56,6 +58,7 @@ public class ProcessingResultService {
     private final UserRepository users;
     private final Clock clock;
     private final ProcessingNotificationService businessNotifications;
+    private final EvidenceFileRepository evidenceFiles;
 
     @Transactional
     public ProcessingJobResponse submit(
@@ -65,6 +68,12 @@ public class ProcessingResultService {
         if (!actorId.equals(job.getProcessorId())) throw new BusinessException(PROCESSING_FORBIDDEN);
         if (job.getStatus() != ProcessingJobStatus.PROCESSING) {
             throw new BusinessException(PROCESSING_INVALID_STATE);
+        }
+        // 서명 제출(ProcessingJobWorkflowService#submitResult)과 같은 규칙 — 작업 후 사진이 결과의 근거다.
+        // 이 경로만 비워 두면 사진 없이 결과를 내는 뒷문이 된다.
+        if (evidenceFiles.countByReferenceTypeAndReferenceIdAndEvidenceTypeAndDeletedAtIsNull(
+                EvidenceReferenceType.PROCESSING_JOB, jobId, EvidenceType.AFTER_PHOTO) < 1) {
+            throw new BusinessException(PROCESSING_EVIDENCE_REQUIRED);
         }
         ProcessingInput input = requireInput(jobId);
         long outputQuantity = sumOutputQuantity(request.outputs());
@@ -80,12 +89,14 @@ public class ProcessingResultService {
         // 검증해서 거절하지 않고 **덮어쓴다.** 고를 수 없는 값을 물은 뒤 틀렸다고
         // 답하는 것보다, 애초에 고르게 하지 않는 편이 정직하다. 화면도 이 값을
         // 입력칸이 아니라 읽기 전용으로 보여준다.
-        MaterialType inputMaterialType = materials.findById(input.getMaterialId())
-                .orElseThrow(() -> new BusinessException(PROCESSING_MATERIAL_NOT_FOUND))
-                .getMaterialType();
+        //
+        // 이름도 같은 이유로 덮어쓴다 — 같은 소재가 단계마다 다른 이름으로 불리면
+        // 여정을 따라가는 사람이 그게 같은 소재인지 알 수 없다.
+        Material inputMaterial = materials.findById(input.getMaterialId())
+                .orElseThrow(() -> new BusinessException(PROCESSING_MATERIAL_NOT_FOUND));
         for (ProcessingOutputRequest output : request.outputs()) {
             outputs.save(ProcessingOutput.submit(
-                    jobId, input.getId(), inputMaterialType, output.name(), output.grade(),
+                    jobId, input.getId(), inputMaterial.getMaterialType(), inputMaterial.getName(), output.grade(),
                     output.gradeReason(), output.quantity()));
         }
         job.submitResult(
@@ -133,7 +144,7 @@ public class ProcessingResultService {
 
         for (ProcessingOutput output : submitted) {
             Material child = materials.save(Material.process(
-                    codeGenerator.placeholder(), parent, output.getMaterialType(), output.getName(),
+                    codeGenerator.placeholder(), parent, output.getMaterialType(), parent.getName(),
                     output.getGrade(), output.getQuantity(), job.getProcessorId()));
             child.assignCode(codeGenerator.of(child.getId()));
             materialIssuer.issue(child.getId(), actorId, output.getQuantity());

@@ -35,6 +35,15 @@ public record MyMaterialResponse(
         String name,
         String grade,
         MaterialStatus status,
+        /**
+         * 온체인 토큰 번호. <b>발행 전이면 null 이다.</b>
+         *
+         * <p>이 값이 없으면 가공을 맡길 수 없다 — 체인에 작업을 올리려면 소재가 토큰이어야
+         * 한다({@code ProcessingChainService.prepare}). 겉으로는 멀쩡해서 보유 목록에도 뜨고
+         * 다음 생산에 투입도 되므로, <b>드러나는 것은 가공 인계 순간</b>이고 그때는 이미
+         * 가공비를 낸 뒤다. 그래서 목록에 함께 실어 앞에서 판단할 수 있게 한다.
+         */
+        Long tokenId,
         /** 소재의 총 발행량 (gram) */
         long totalQuantity,
         /** 내 보유량 (gram) */
@@ -56,7 +65,7 @@ public record MyMaterialResponse(
     public MyMaterialResponse withCompletedProcessTypes(List<ProcessType> completedProcessTypes) {
         return new MyMaterialResponse(
                 materialId, materialCode, materialType, rootOrigin, generationType, name, grade,
-                status, totalQuantity, quantity, lockedQuantity, available, syncedAt,
+                status, tokenId, totalQuantity, quantity, lockedQuantity, available, syncedAt,
                 completedProcessTypes);
     }
 }

@@ -157,11 +157,8 @@ class RoleJourneyTests {
             long tradeId = createTrade(brand, listingId, 10L);
             payFor(brand, tradeId);
 
-            mockMvc.perform(patch("/api/v1/trades/{id}/ship", tradeId)
-                            .header(HttpHeaders.AUTHORIZATION, supplier)
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(json(Map.of("carrier", "CJ대한통운", "trackingNumber", "1234567890"))))
-                    .andExpect(status().isOk());
+            // ship 헬퍼를 쓴다 — 온체인 주문을 먼저 붙여야 발송이 통과한다.
+            ship(supplier, tradeId);
         }
 
         /** 판매는 보유량 안에서만 된다. 위 여정이 우연히 통과한 것이 아님을 보인다. */
@@ -433,12 +430,30 @@ class RoleJourneyTests {
                 .andExpect(jsonPath("$.data.status").value("PAID"));
     }
 
+    /**
+     * 발송한다. <b>온체인 주문을 먼저 붙인다.</b>
+     *
+     * <p>발송의 선행 조건이다 — 컨트랙트의 {@code markShipped(orderId)} 는 그 번호 없이는
+     * 부를 수도 없다. 실제 여정에서는 구매자가 결제 직후 주문에 서명해 그 번호가 붙는데,
+     * 이 테스트는 지갑이 없으므로 화면이 하는 일을 대신한다.
+     */
     private void ship(String token, long tradeId) throws Exception {
+        linkChainOrder(tradeId);
         mockMvc.perform(patch("/api/v1/trades/{id}/ship", tradeId)
                         .header(HttpHeaders.AUTHORIZATION, token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json(Map.of("carrier", "CJ대한통운", "trackingNumber", "1234567890"))))
                 .andExpect(status().isOk());
+    }
+
+    /** 온체인 주문 번호를 붙인다. 구매자가 결제 뒤 서명하면 붙는 값이다. */
+    private void linkChainOrder(long tradeId) {
+        tradeRepository.findById(tradeId).ifPresent(trade -> {
+            if (trade.getChainTradeId() == null) {
+                trade.assignChainTradeId(tradeId + 1000L);
+                tradeRepository.save(trade);
+            }
+        });
     }
 
     // ── 거들기 ──────────────────────────────────────────────
