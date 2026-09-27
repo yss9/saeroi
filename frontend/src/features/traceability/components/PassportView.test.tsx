@@ -540,11 +540,10 @@ describe('PassportView', () => {
     expect(screen.getByText('확정됨')).toBeInTheDocument()
     expect(screen.queryByText('0xBE98f5A9aA8d0480B09C689e38806aCcD41a0f66')).not.toBeInTheDocument()
     expect(screen.getByText('11,221,171')).toBeInTheDocument()
-    // 해시는 공통 TransactionHash 컴포넌트가 그리므로 값 자체만 확인한다 —
-    // 링크 여부는 VITE_BESU_EXPLORER_URL 설정에 달려 있어 이 테스트의 관심사가 아니다.
-    expect(screen.getByTitle(
-      '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcd',
-    )).toBeInTheDocument()
+    // 링크 여부는 VITE_BESU_EXPLORER_URL 설정에 달려 있지만, 상세 화면에는 전체
+    // 기록 번호가 실제 텍스트로 보여야 한다. title 속성만으로는 읽거나 복사하기 어렵다.
+    const hash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcd'
+    expect(screen.getByTitle(hash)).toHaveTextContent(hash)
   })
 
   it('연결된 Journey가 없으면 확인된 것처럼 표시하지 않는다', async () => {

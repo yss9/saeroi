@@ -797,8 +797,8 @@ function NodeDetail({ node }: { node: JourneyNode }) {
  * 블록체인 기록 상세. 목록에서는 한 줄로 보이던 것을 눌렀을 때만 전체 값을 보여준다.
  *
  * <p>Hash·주소 표시와 익스플로러 이동은 여기서 새로 만들지 않고 {@link TransactionHash}
- * (온체인 서명 패널이 이미 쓰는 공통 컴포넌트)를 그대로 쓴다 — 같은 값을 두 군데서 서로
- * 다르게 자르거나, 한쪽만 익스플로러 링크가 되는 어긋남을 막는다.
+ * (온체인 서명 패널이 이미 쓰는 공통 컴포넌트)를 전체 번호 표시 옵션으로 쓴다.
+ * 익스플로러 링크는 같은 컴포넌트가 관리한다.
  */
 function BlockchainProofModal({
   proof,
@@ -826,7 +826,7 @@ function BlockchainProofModal({
           <div>
             <dt>검증 번호</dt>
             <dd>
-              <TransactionHash hash={proof.txHash} />
+              <TransactionHash hash={proof.txHash} fullHash />
             </dd>
           </div>
           <div>
