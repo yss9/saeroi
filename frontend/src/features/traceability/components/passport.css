@@ -540,8 +540,7 @@
 }
 
 .journey-node__halo {
-  /* 반지름(r=34)은 JourneyExplorer의 MARKER_HALO_RADIUS와 짝이라 그대로 두고 투명도만
-     낮춘다 — r을 줄이면 마커 충돌 분산과 좌표 클램프가 어긋난다. */
+  /* 선택한 지점의 범위를 강조한다. 지도 좌표는 마커 크기에 맞춰 옮기지 않는다. */
   fill: color-mix(in srgb, var(--node-color) 10%, transparent);
   opacity: 0;
   transform: scale(0.72);
@@ -612,6 +611,19 @@
   pointer-events: none;
 }
 
+.journey-node__nearby-badge circle {
+  fill: #26384a;
+  stroke: white;
+  stroke-width: 1.5;
+}
+
+.journey-node__nearby-badge text {
+  fill: white;
+  font-size: 10px;
+  font-weight: 800;
+  pointer-events: none;
+}
+
 .journey-node__flow-label rect {
   fill: rgba(255, 255, 255, 0.96);
   stroke: #dfe4e7;
@@ -627,6 +639,50 @@
   fill: #7d8993;
   font-size: 11px;
   font-weight: 500;
+}
+
+.journey-location-choices {
+  margin: 10px 4px 0;
+  padding: 12px;
+  border: 1px solid #dce7ed;
+  border-radius: 12px;
+  background: #f7fafb;
+}
+
+.journey-location-choices > strong {
+  display: block;
+  margin-bottom: 9px;
+  color: #26384a;
+  font-size: 12px;
+}
+
+.journey-location-choices > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.journey-location-choices button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border: 1px solid #dce7ed;
+  border-radius: 8px;
+  background: white;
+  color: #26384a;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+}
+
+.journey-location-choices button.is-active {
+  border-color: var(--brand-blue);
+  color: var(--brand-blue);
+}
+
+.journey-location-choices button span:first-child {
+  font-weight: 750;
 }
 
 .journey-canvas__legend {
