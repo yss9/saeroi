@@ -7,10 +7,11 @@ import type { ProductionBatch } from '../../features/production/types/production
 import type { DraftInput } from '../../features/production/utils/productionInputDraft.ts'
 
 /**
- * 제품 생산 — 생산 시작.
+ * 제품 생산.
  *
- * 생산 이름과 개수, 투입할 소재를 여기서 모두 받는다. 시작하면 곧바로 상세로 보낸다 —
- * 다음 할 일(확정)이 거기 있고, 목록으로 돌려보내면 방금 만든 생산을 다시 찾아야 한다.
+ * 생산 이름과 개수, 투입할 소재를 여기서 모두 받고 확정과 체인 기록까지 이 화면에서 마친다.
+ * 끝나면 상세로 보내 결과를 보여준다. 도중에 멈췄으면 그 이유를 함께 넘긴다 — 배치는 이미
+ * 열렸으니 남은 단계는 상세에서 잇는다.
  *
  * **`?product=` 로 들어오면 지난 생산을 베껴 채운다.** 내 제품의 "추가 생산" 이 그 주소로
  * 보낸다 — 같은 제품을 또 만드는 일이라 이름·개수·투입 소재가 대개 같고, 그것을 매번 다시
@@ -45,7 +46,9 @@ export function ProductionPage() {
 
       <ProductionBatchForm
         initial={template}
-        onOpened={(batch) => void navigate(`/brand/production/${batch.productionBatchId}`)}
+        onDone={(batch, failure) =>
+          void navigate(`/brand/production/${batch.productionBatchId}`, { state: { productionFailure: failure } })
+        }
       />
     </main>
   )
