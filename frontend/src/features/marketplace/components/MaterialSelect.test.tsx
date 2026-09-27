@@ -71,6 +71,15 @@ describe('MaterialSelect', () => {
     expect(option).not.toHaveTextContent(/30\s*kg/)
   })
 
+  // 가공을 거쳐도 이름은 그대로라, 같은 이름의 소재는 가공 이력으로 가른다.
+  it('선택지에 가공 이력을 함께 적는다', async () => {
+    getMyMaterials.mockResolvedValue([DENIM, { ...DENIM, materialId: DENIM.materialId + 1, completedProcessTypes: ['CLEANING'] }])
+    renderSelect()
+
+    expect(await screen.findByRole('option', { name: /^세척된 폐데님 · 가공 전 · / })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /^세척된 폐데님 · 세척 가공 · / })).toBeInTheDocument()
+  })
+
   // 이 테스트가 이 파일의 존재 이유다.
   it('선택 시 보유량이 아니라 가용 수량을 올려보낸다', async () => {
     getMyMaterials.mockResolvedValue([DENIM])

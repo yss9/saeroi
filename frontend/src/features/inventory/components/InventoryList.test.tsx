@@ -148,6 +148,18 @@ describe('표에 적는 것', () => {
     expect(link).toHaveAttribute('href', '/materials/42')
   })
 
+  // 가공을 거쳐도 이름은 그대로다 — 같은 이름의 소재를 가르는 것은 가공 이력이다.
+  it('같은 이름의 소재도 가공 이력으로 가른다', async () => {
+    api.getMyMaterials.mockResolvedValue([
+      item(),
+      item({ materialId: 43, materialCode: 'MAT-000043', generationType: 'PROCESSED', completedProcessTypes: ['CLEANING', 'CUTTING'] }),
+    ])
+    renderList()
+
+    expect(await screen.findByText('가공 전')).toBeInTheDocument()
+    expect(screen.getByText('세척·재단 가공')).toBeInTheDocument()
+  })
+
   it('소재 코드를 함께 적는다', async () => {
     // 같은 이름의 소재가 여러 건일 수 있다. 예전에는 코드가 없어 구분할 수 없었다.
     api.getMyMaterials.mockResolvedValue([item()])
