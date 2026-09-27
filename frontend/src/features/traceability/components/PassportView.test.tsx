@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
@@ -209,6 +209,72 @@ describe('PassportView', () => {
     expect(container.querySelector('.journey-detail__body')).toHaveTextContent('ReWeave')
     expect(container.querySelector('.journey-detail__body')).toHaveTextContent('브랜드 소재 수령')
     expect(screen.getByText('1개의 수령·이동 기록')).toBeInTheDocument()
+  })
+
+  it('같은 좌표의 브랜드 수령과 제작은 실제 위치의 한 마커에서 각각 선택한다', async () => {
+    const user = userEvent.setup()
+    const baseJourney = journey()
+    const brand = baseJourney.nodes.find((item) => item.nodeId === 'brand')!
+    api.getPassport.mockResolvedValue(passport({
+      journey: {
+        ...baseJourney,
+        nodes: [...baseJourney.nodes, node({
+          nodeId: 'collection-brand',
+          stage: 'COLLECTION',
+          companyName: brand.companyName,
+          companyRole: 'BRAND',
+          locationName: brand.locationName,
+          latitude: brand.latitude,
+          longitude: brand.longitude,
+          description: '브랜드 소재 수령',
+        })],
+        edges: [...baseJourney.edges, {
+          edgeId: 'collection-to-brand',
+          fromNodeId: 'collection-brand',
+          toNodeId: 'brand',
+          stage: 'BRAND',
+          materialName: null,
+          materialType: null,
+          shippedAt: null,
+          receivedAt: null,
+          status: 'COMPLETED',
+        }],
+      },
+    }))
+    const { container } = renderView()
+    await screen.findByRole('heading', { name: 'RE:BAG' })
+
+    expect(container.querySelectorAll('.journey-canvas--map [data-node-id="brand"], .journey-canvas--map [data-node-id="collection-brand"]')).toHaveLength(1)
+    expect(container.querySelector('.journey-canvas--map [data-edge-id="collection-to-brand"]')).not.toBeInTheDocument()
+    const sharedPin = screen.getByRole('button', { name: /ReWeave.*2개 기록/ })
+    await user.click(sharedPin)
+    const choices = screen.getByRole('group', { name: '이 위치와 가까운 지점의 기록' })
+    expect(within(choices).getAllByRole('button').map((button) => button.textContent)).toEqual([
+      '원단 등록서울 원단 공급처',
+      '브랜드 수령ReWeave',
+      '브랜드 제작ReWeave',
+    ])
+    await user.click(within(choices).getByRole('button', { name: /브랜드 수령/ }))
+    expect(container.querySelector('.journey-detail__body')).toHaveTextContent('브랜드 소재 수령')
+    await user.click(within(choices).getByRole('button', { name: /브랜드 제작/ }))
+    expect(container.querySelector('.journey-detail__body')).toHaveTextContent('ReWeave')
+    await user.click(within(choices).getByRole('button', { name: /원단 등록/ }))
+    expect(container.querySelector('.journey-detail__body')).toHaveTextContent('서울 원단 공급처')
+  })
+
+  it('가까운 서로 다른 지점은 좌표를 유지하고 선택 목록에서 구분한다', async () => {
+    const user = userEvent.setup()
+    const { container } = renderView()
+    await screen.findByRole('heading', { name: 'RE:BAG' })
+
+    const source = container.querySelector('[data-node-id="source-a"]')!
+    const brand = container.querySelector('[data-node-id="brand"]')!
+    expect(source.getAttribute('transform')).not.toBe(brand.getAttribute('transform'))
+    expect(source.querySelector('.journey-node__nearby-badge')).toHaveTextContent('2')
+    await user.click(source)
+    const choices = screen.getByRole('group', { name: '가까운 지점의 기록' })
+    await user.click(within(choices).getByRole('button', { name: /브랜드 제작/ }))
+    expect(container.querySelector('.journey-detail__body')).toHaveTextContent('ReWeave')
   })
 
   it('원단 등록·브랜드 수령 단계에서는 여정 전체 지점을 미리 보여준다', async () => {
