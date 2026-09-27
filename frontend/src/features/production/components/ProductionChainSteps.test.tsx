@@ -1,21 +1,17 @@
-// 생산 온체인 2~4단계.
+// 생산 온체인 기록 — 진행 상황과 버튼 하나.
 //
-// 서명은 지갑의 일이라 여기서 보는 것은 **"지금 어느 단계를 시킬 수 있는가"** 다.
-// 틀리면 안 되는 지점 넷.
+// 예전에는 단계마다 "진행" 버튼이 있어 생산 하나에 다섯 번을 눌러야 했다. 이제는 버튼 하나가
+// 남은 단계를 차례로 진행한다. 여기서 보는 것은 둘이다.
 //
-//   1) **다음에 할 수 있는 일은 체인이 정한다.** 서버 응답으로는 3·4단계가 끝났는지 알 수
-//      없고, 서명은 됐는데 서버 보고가 실패하면 서버 기준으로는 영원히 "아직" 이다. 그
-//      상태에서 다시 서명하면 컨트랙트가 거절해 화면이 막다른 길이 된다.
-//   2) **순서를 건너뛸 수 없다.** 컨트랙트가 revert 하고 서버도 보고 순서를 검사한다.
-//   3) **개체 수가 맞아야 4단계를 연다.** 개수가 어긋나면 revert 하므로, 서명까지 시키고
-//      실패하게 두지 않는다.
-//   4) **못 누르는 이유를 적는다.** 잠긴 버튼은 이유를 말하지 않는다.
+//   1) **어디까지 끝났는지는 체인이 정한다.** 서명은 됐는데 서버 보고가 실패하면 서버 기준으로는
+//      영원히 "아직" 이다 — 체인 상태로 완료를 표시한다.
+//   2) **누르는 곳은 하나다.** 단계별 버튼이 없고, 남은 게 있을 때만 이어서 진행 버튼이 있다.
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ProductionBatch, ProductionItem } from '../types/production.types.ts'
+import type { ProductionBatch } from '../types/production.types.ts'
 import { ProductionChainSteps } from './ProductionChainSteps.tsx'
 
 // 체인 읽기. 단계 판정의 근거라 테스트마다 갈아 끼운다.
@@ -32,36 +28,9 @@ vi.mock('../hooks/useProductionChainStatus.ts', () => ({
   }),
 }))
 
-// 서명과 서버 보고는 훅 경계에서 자른다. 여기서 볼 것은 "서명을 시켰는가" 다.
-const steps = vi.hoisted(() => ({ plan: vi.fn(), confirm: vi.fn(), link: vi.fn() }))
-const idle = {
-  status: 'IDLE',
-  hash: null,
-  error: null,
-  isBusy: false,
-  isRejected: false,
-}
-vi.mock('../hooks/useProductionChainSteps.ts', () => ({
-  useSubmitProductionPlan: () => ({ ...idle, run: steps.plan }),
-  useConfirmProductionOnChain: () => ({ ...idle, run: steps.confirm }),
-  useLinkProductionItems: () => ({ ...idle, run: steps.link }),
-}))
-
-const items = vi.hoisted(() => ({ data: [] as ProductionItem[] }))
-vi.mock('../hooks/useProductionItems.ts', () => ({
-  useProductionItems: () => ({ data: items.data }),
-}))
-
-function item(serialNumber: number): ProductionItem {
-  return {
-    productItemId: 90 + serialNumber,
-    itemCode: `PI-${serialNumber}`,
-    serialNumber,
-    qrToken: 'a'.repeat(32),
-    qrUrl: `https://saeroi.example.com/qr/${'a'.repeat(32)}`,
-    status: 'IN_STOCK',
-    createdAt: '2026-09-10T10:00:00',
-  }
+const flowRun = vi.hoisted(() => vi.fn())
+function flow(overrides: Record<string, unknown> = {}) {
+  return { run: flowRun, running: false, currentStep: null, error: null, ...overrides }
 }
 
 function batch(overrides: Partial<ProductionBatch> = {}): ProductionBatch {
@@ -88,29 +57,25 @@ function batch(overrides: Partial<ProductionBatch> = {}): ProductionBatch {
   }
 }
 
-function renderSteps(value: ProductionBatch = batch()) {
+function renderSteps(value: ProductionBatch = batch(), extra: { blockedReason?: string; flow?: Record<string, unknown> } = {}) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  render(
+  const rendered = render(
     <QueryClientProvider client={queryClient}>
-      <ProductionChainSteps batch={value} />
+      <ProductionChainSteps batch={value} flow={flow(extra.flow) as never} blockedReason={extra.blockedReason} />
     </QueryClientProvider>,
   )
-  return userEvent.setup()
+  return { user: userEvent.setup(), ...rendered }
 }
 
-/** 단계 이름으로 그 줄의 서명 버튼을 찾는다. */
-function signButton(label: string): HTMLElement {
+function stepRow(label: string): HTMLElement {
   const row = screen.getByText(label).closest('li')
   if (row === null) throw new Error(`단계를 찾지 못했다: ${label}`)
-  const button = row.querySelector('button')
-  if (button === null) throw new Error(`서명 버튼이 없다: ${label}`)
-  return button
+  return row
 }
 
 beforeEach(() => {
   chain.status = 'DRAFT'
   chain.linkedItemCount = 0
-  items.data = [item(1), item(2)]
 })
 afterEach(() => {
   cleanup()
@@ -119,72 +84,66 @@ afterEach(() => {
 })
 
 describe('ProductionChainSteps', () => {
-  // 이 테스트가 이 파일의 존재 이유다 — 순서를 건너뛰면 컨트랙트가 revert 한다.
-  it('체인이 DRAFT 면 2단계만 열어 준다', async () => {
-    const user = renderSteps()
+  it('단계마다 버튼을 두지 않고, 남은 기록을 한 번에 이어서 진행한다', async () => {
+    chain.status = 'DRAFT'
+    const { user } = renderSteps()
 
-    expect(signButton('생산에 사용할 소재 확정')).toBeEnabled()
-    expect(signButton('사용 소재 차감·자투리 등록')).toBeDisabled()
-    expect(signButton('생산 제품 등록')).toBeDisabled()
+    expect(stepRow('생산 확정')).toHaveClass('chain-steps__done')
+    expect(stepRow('생산 이력 기록')).toHaveClass('chain-steps__done')
+    expect(stepRow('생산에 사용할 소재 확정').querySelector('button')).toBeNull()
+    expect(screen.getAllByRole('button')).toHaveLength(1)
 
-    await user.click(signButton('생산에 사용할 소재 확정'))
-    expect(steps.plan).toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: '남은 기록 이어서 진행' }))
+    expect(flowRun).toHaveBeenCalledOnce()
   })
 
-  it('체인이 SIGNING 이면 3단계를 열고 2단계는 완료로 둔다', async () => {
-    chain.status = 'SIGNING'
-    const user = renderSteps()
-
-    expect(screen.getAllByText('완료').length).toBeGreaterThan(0)
-    await user.click(signButton('사용 소재 차감·자투리 등록'))
-
-    expect(steps.confirm).toHaveBeenCalled()
-  })
-
-  it('체인이 CONFIRMED 면 4단계를 연다', async () => {
+  it('체인 상태로 끝난 단계를 표시한다', () => {
     chain.status = 'CONFIRMED'
-    const user = renderSteps()
-
-    await user.click(signButton('생산 제품 등록'))
-
-    expect(steps.link).toHaveBeenCalled()
-  })
-
-  // 개수가 어긋나면 컨트랙트가 revert 한다. 서명까지 시키고 실패하게 두지 않는다.
-  it('개체 수가 생산 수량과 다르면 4단계를 막고 이유를 적는다', () => {
-    chain.status = 'CONFIRMED'
-    items.data = [item(1)] // 생산 수량은 2개다
     renderSteps()
 
-    expect(signButton('생산 제품 등록')).toBeDisabled()
-    expect(screen.getByText(/등록할 생산 제품 수가 맞지 않습니다 \(1 \/ 2개\)/)).toBeInTheDocument()
+    expect(stepRow('생산에 사용할 소재 확정')).toHaveClass('chain-steps__done')
+    expect(stepRow('사용 소재 차감·자투리 등록')).toHaveClass('chain-steps__done')
+    expect(stepRow('생산 제품 등록')).not.toHaveClass('chain-steps__done')
   })
 
-  it('소각 전에는 개체 연결을 막고 앞 단계를 가리킨다', () => {
-    chain.status = 'SIGNING'
-    renderSteps()
-
-    expect(signButton('생산 제품 등록')).toBeDisabled()
-    expect(screen.getByText('사용 소재 차감과 자투리 등록을 먼저 마쳐 주세요.')).toBeInTheDocument()
-  })
-
-  it('개체가 연결됐으면 마지막 단계를 완료로 둔다', () => {
+  it('모두 끝났으면 버튼이 없다', () => {
     chain.status = 'CONFIRMED'
     chain.linkedItemCount = 2
     renderSteps()
 
-    const row = screen.getByText('생산 제품 등록').closest('li') as HTMLElement
-    expect(row.querySelector('button')).toBeNull()
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 
-  // 1단계를 마치기 전에는 뒤의 단계가 존재하지 않는다.
-  it('온체인 배치가 없으면 아무것도 그리지 않는다', () => {
-    const { container } = render(
-      <QueryClientProvider client={new QueryClient()}>
-        <ProductionChainSteps batch={batch({ chainBatchId: null })} />
-      </QueryClientProvider>,
-    )
+  it('진행 중에는 지금 단계를 표시한다', () => {
+    chain.status = 'DRAFT'
+    renderSteps(batch(), { flow: { running: true, currentStep: 'CONSUME' } })
+
+    expect(stepRow('사용 소재 차감·자투리 등록')).toHaveTextContent('진행 중')
+    expect(stepRow('생산에 사용할 소재 확정')).toHaveClass('chain-steps__done')
+  })
+
+  it('서명할 수 없으면 막고 이유를 적는다', () => {
+    renderSteps(batch(), { blockedReason: '지갑을 먼저 연결해 주세요.' })
+
+    expect(screen.getByRole('button', { name: '남은 기록 이어서 진행' })).toBeDisabled()
+    expect(screen.getByText('지갑을 먼저 연결해 주세요.')).toBeInTheDocument()
+  })
+
+  it('온체인 배치가 없으면 이력 기록부터 시작한다', () => {
+    renderSteps(batch({ chainBatchId: null }))
+
+    expect(screen.getByRole('button', { name: '생산 이력 기록' })).toBeInTheDocument()
+  })
+
+  it('확정 전에는 아무것도 그리지 않는다', () => {
+    const { container } = renderSteps(batch({ status: 'DRAFT', chainBatchId: null }))
 
     expect(container).toBeEmptyDOMElement()
+  })
+
+  it('멈춘 이유를 보여준다', () => {
+    renderSteps(batch(), { flow: { error: '서명을 취소했어요. 다시 누르면 남은 단계부터 이어서 진행해요.' } })
+
+    expect(screen.getByText('서명을 취소했어요. 다시 누르면 남은 단계부터 이어서 진행해요.')).toBeInTheDocument()
   })
 })
