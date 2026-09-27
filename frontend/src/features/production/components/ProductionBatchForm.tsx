@@ -9,7 +9,7 @@ import { productionKeys } from '../api/productionKeys.ts'
 import { useOpenProductionBatch } from '../hooks/useOpenProductionBatch.ts'
 import { invalidateAfterProductionFlow, productionFlowErrorMessage } from '../hooks/useProductionFlow.ts'
 import { runProductionFlow, stepsBefore, type ProductionFlowStep } from '../services/productionFlow.ts'
-import type { ProductionBatch } from '../types/production.types.ts'
+import { PRODUCTION_INPUTS_MAX, type ProductionBatch } from '../types/production.types.ts'
 import {
   canSubmitDrafts,
   toRequest,
@@ -74,6 +74,8 @@ export function ProductionBatchForm({ onDone, initial }: ProductionBatchFormProp
   const queryClient = useQueryClient()
   // 배치가 아직 없어 투입은 화면이 모아 둔다. 서버로는 배치를 만든 뒤에 보낸다.
   const [drafts, setDrafts] = useState<DraftInput[]>(initial?.drafts ?? [])
+  // 투입할 소재를 고르는 칸이 펴져 있는가. "투입 추가" 가 소재 카드 밖에 있어 여기서 쥔다.
+  const [choosing, setChoosing] = useState(false)
   const [running, setRunning] = useState(false)
   const [currentStep, setCurrentStep] = useState<ProductionFlowStep | null>(null)
   // 두 번 눌러 배치가 둘 열리지 않게 한다. 상태는 다음 그리기까지 늦다.
@@ -90,6 +92,7 @@ export function ProductionBatchForm({ onDone, initial }: ProductionBatchFormProp
   const hasWallet = wallets.isError || wallets.activeWallet !== null
 
   const productUsed = drafts.reduce((total, draft) => total + draft.productUsed, 0)
+  const draftTotal = totalDraftQuantity(drafts)
 
   /**
    * 배치를 열고, 고른 소재를 담고, 확정과 체인 기록 네 단계를 차례로 진행한다.
@@ -141,54 +144,93 @@ export function ProductionBatchForm({ onDone, initial }: ProductionBatchFormProp
     onDone?.(batch, failure)
   }
 
+  /*
+    **생산 상세와 같은 틀로 그린다.** 머리 카드 → 투입 소재 카드 → 오른쪽 끝 버튼. 예전에는
+    가운데 흰 카드 한 장에 칸을 쌓은 입력 폼이라, 상세로 넘어가면 같은 생산이 전혀 다른 화면으로
+    바뀌어 보였다.
+
+    머리에는 적는 것 둘(이름 · 개수)만 한 줄에 둔다. 투입 합계와 건수는 적는 값이 아니라
+    담은 소재에서 계산되는 값이라, 소재 카드의 맨 아래 합계 줄에서 보여 준다.
+  */
   return (
-    <form onSubmit={(event) => void handleSubmit(start)(event)} noValidate className="batch-form">
-      <div className="batch-form__fields">
-      <Input
-        label="생산 이름"
-        placeholder="예: 2026 가을 토트백 1차"
-        error={errors.batchName?.message}
-        {...register('batchName', {
-          required: '생산 이름을 입력해 주세요.',
-          maxLength: { value: 200, message: '생산 이름은 200자를 넘을 수 없습니다.' },
-        })}
-      />
+    <form onSubmit={(event) => void handleSubmit(start)(event)} noValidate className="batch-detail batch-new">
+      <header className="batch-detail__header">
+        <div className="batch-new__fields">
+          <div className="batch-new__name">
+            <Input
+              label="생산 이름"
+              placeholder="예: 2026 가을 토트백 1차"
+              error={errors.batchName?.message}
+              {...register('batchName', {
+                required: '생산 이름을 입력해 주세요.',
+                maxLength: { value: 200, message: '생산 이름은 200자를 넘을 수 없습니다.' },
+              })}
+            />
+          </div>
+          <div className="batch-new__quantity">
+            <Input
+              label="생산 개수"
+              type="number"
+              min={1}
+              placeholder="0"
+              error={errors.producedQuantity?.message}
+              {...register('producedQuantity', {
+                required: '생산 개수를 입력해 주세요.',
+                valueAsNumber: true,
+                min: { value: 1, message: '1개 이상 입력해 주세요.' },
+                validate: (value) =>
+                  Number.isInteger(value) ? true : '생산 개수는 정수로 입력해 주세요.',
+              })}
+            />
+            <small aria-hidden="true">개</small>
+          </div>
+        </div>
+      </header>
 
-      <Input
-        label="생산 개수"
-        type="number"
-        min={1}
-        error={errors.producedQuantity?.message}
-        {...register('producedQuantity', {
-          required: '생산 개수를 입력해 주세요.',
-          valueAsNumber: true,
-          min: { value: 1, message: '1개 이상 입력해 주세요.' },
-          validate: (value) =>
-            Number.isInteger(value) ? true : '생산 개수는 정수로 입력해 주세요.',
-        })}
-      />
+      {/* 무엇으로 만들지도 여기서 정한다. 확정은 투입 없이 되지 않는다(PRODUCTION_NO_INPUT). */}
+      <div className="batch-new__inputs">
+        {/*
+          "투입 추가" 는 카드 밖, 카드 바로 위 오른쪽 끝에 둔다 — 카드 안은 담은 소재의 자리라,
+          버튼이 그 안에 있으면 담긴 줄의 일부처럼 읽힌다. 칸이 하나라도 열린 뒤에만 선다.
+        */}
+        {drafts.length > 0 && !choosing && (
+          <div className="batch-new__more">
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={running || drafts.length >= PRODUCTION_INPUTS_MAX}
+              onClick={() => setChoosing(true)}
+            >
+              + 투입 추가
+            </Button>
+          </div>
+        )}
+        <section className="batch-detail__section">
+          {/* 큰 제목은 두지 않는다 — 선택 칸의 이름("투입할 소재")이 같은 말을 한다.
+              구획 이름은 보조 기술에만 남긴다. */}
+          <h2 className="ui-visually-hidden">투입할 소재</h2>
+          <MaterialInputPicker
+            drafts={drafts}
+            onChange={setDrafts}
+            choosing={choosing}
+            onChoosingChange={setChoosing}
+          />
+
+          {/*
+            **담은 것의 합계는 담은 칸의 맨 아래에 선다** — 상세의 투입 표가 "합계" 줄로 끝나는
+            것과 같다. 무게가 이 줄의 주인이고, 건수는 그 옆에 조용히 붙는다.
+          */}
+          {drafts.length > 0 && (
+            <div className="batch-new__sum" aria-live="polite">
+              <span className="batch-new__sum-label">투입 합계</span>
+              <span className="batch-new__sum-value">
+                <strong>{formatKg(draftTotal)}</strong>
+                <small>소재 {drafts.length}건</small>
+              </span>
+            </div>
+          )}
+        </section>
       </div>
-
-      {/* 무엇으로 만들지도 여기서 정한다. 배치를 연 뒤 다른 화면에서 담게 하면 이름과
-          개수만 적어 둔 빈 배치가 쌓인다. */}
-      <div className="batch-form__inputs">
-        <MaterialInputPicker drafts={drafts} onChange={setDrafts} />
-      </div>
-
-      {/*
-        **확인 단계를 두지 않는다.** 대신 무엇이 일어나는지를 버튼 바로 위에 둔다 — 누르기 전에
-        읽는 자리가 여기다.
-      */}
-      {drafts.length > 0 && Number.isInteger(producedQuantity) && producedQuantity > 0 && (
-        <p className="batch-detail__effects">
-          투입한 {formatKg(productUsed)}이 소비되고 제품 {producedQuantity}개가
-          만들어집니다. <strong>되돌릴 수 없습니다.</strong>
-        </p>
-      )}
-
-      {(running || currentStep) && (
-        <ProductionFlowProgress doneSteps={stepsBefore(currentStep)} currentStep={currentStep} running={running} />
-      )}
 
       {/* 지갑이 없으면 서버가 거절한다. 등록은 다른 화면이라 미리 알려주고 데려간다. */}
       {!hasWallet && (
@@ -199,21 +241,35 @@ export function ProductionBatchForm({ onDone, initial }: ProductionBatchFormProp
 
       {open.isError && <ErrorMessage error={open.error} />}
 
-      <div className="batch-form__footer">
-        {drafts.length > 0 && (
-          <span>투입 {drafts.length}건 · 합계 {formatKg(totalDraftQuantity(drafts))}</span>
+      {/* 상세의 "생산 확정" 과 같은 자리 — 위를 읽고 내려온 눈이 마치는 오른쪽 끝이다. */}
+      <section className="batch-detail__confirm-area">
+        {/*
+          **확인 단계를 두지 않는다.** 대신 무엇이 일어나는지를 버튼 바로 위에 둔다 — 누르기 전에
+          읽는 자리가 여기다.
+        */}
+        {drafts.length > 0 && Number.isInteger(producedQuantity) && producedQuantity > 0 && (
+          <p className="batch-detail__effects">
+            투입한 {formatKg(productUsed)}이 소비되고 제품 {producedQuantity}개가
+            만들어집니다. <strong>되돌릴 수 없습니다.</strong>
+          </p>
         )}
 
-        {/* 소재 없이는 확정할 수 없다(PRODUCTION_NO_INPUT). 한 건이라도 값이 어긋나도 막는다 —
-            서버가 투입을 통째로 거절한다. */}
-        <Button
-          type="submit"
-          loading={running}
-          disabled={!hasWallet || !canSubmitDrafts(drafts)}
-        >
-          생산 확정
-        </Button>
-      </div>
+        {(running || currentStep) && (
+          <ProductionFlowProgress doneSteps={stepsBefore(currentStep)} currentStep={currentStep} running={running} />
+        )}
+
+        <div className="batch-detail__confirm">
+          {/* 소재 없이는 확정할 수 없다(PRODUCTION_NO_INPUT). 한 건이라도 값이 어긋나도 막는다 —
+              서버가 투입을 통째로 거절한다. */}
+          <Button
+            type="submit"
+            loading={running}
+            disabled={!hasWallet || !canSubmitDrafts(drafts)}
+          >
+            생산 확정
+          </Button>
+        </div>
+      </section>
     </form>
   )
 }
