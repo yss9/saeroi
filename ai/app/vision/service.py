@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 import numpy as np
@@ -39,6 +39,11 @@ ZOOM_SCALE = 3
 # 여러 전처리의 합의는 "가장 큰 글자" 무리 안에서만 본다. 작은 글씨가 여러 번 읽힌다고
 # 본값을 이기면 안 된다.
 AGREEMENT_HEIGHT_RATIO = 0.85
+
+# 소수점이 붙은 g 값의 상한 확신. SUCCESS 문턱(0.90) 바로 아래라 LOW_CONFIDENCE 가 되어 사용자가
+# 확인한다. backend 가 confidence 를 숫자·단위 확신의 최솟값과 정확히 대조하므로, 상태만 바꾸지
+# 않고 **단위 확신을 낮춘다** — "이 g 는 kg 일 수 있다" 는 뜻과도 맞다.
+DECIMAL_GRAM_UNIT_CONFIDENCE = 0.89
 
 UnitReader = Callable[[np.ndarray, TextToken], "tuple[str, float] | None"]
 
@@ -148,7 +153,9 @@ class WeightRecognitionService:
                 token_sets.append(tokens_from_ocr(result))
 
         candidates = self._candidates_from(token_sets, None)
-        if any(candidate.parsed for candidate in candidates):
+        valid = [candidate for candidate in candidates if candidate.parsed]
+        # 확대는 두 경우에만 한다 — 단위 붙은 값을 못 찾았거나, 찾았어도 확신이 낮을 때.
+        if valid and self._confidence(self._agreed(valid).reading) >= SUCCESS_CONFIDENCE:
             return candidates
 
         zoomed: dict[tuple[int, int, int, int], tuple[str, float] | None] = {}
@@ -180,9 +187,20 @@ class WeightRecognitionService:
             )
             reader = None if zoom_unit is None else (lambda number, t=tallest: zoom_unit(number, t))
             for reading in find_weight_readings(tokens, reader):
-                candidates.append(
-                    _Candidate(reading=reading, parsed=self.weight_parser(reading.text))
-                )
+                parsed = self.weight_parser(reading.text)
+                decimals = _gram_decimals(parsed)
+                if decimals >= 2:
+                    # `20.10g`·`3.720g`: 0.01 g 를 재는 저울은 대상이 아니다. 가짜 소수점이거나
+                    # kg 를 g 로 읽은 것이라, 틀린 값을 성공으로 내느니 후보에서 뺀다.
+                    parsed = None
+                elif decimals == 1:
+                    # `18.7g`·`349.1g`: 있을 수는 있지만 kg 를 g 로, 3491 을 349.1 로 읽은
+                    # 경우와 구분이 안 된다. 값은 주되 사용자가 확인하게 한다.
+                    reading = replace(
+                        reading,
+                        unit_confidence=min(reading.unit_confidence, DECIMAL_GRAM_UNIT_CONFIDENCE),
+                    )
+                candidates.append(_Candidate(reading=reading, parsed=parsed))
 
         # 변형마다 같은 값을 다시 읽으므로 후보가 겹친다. 글자가 크고 확신이 높은
         # 것부터 본다.
@@ -236,11 +254,16 @@ class WeightRecognitionService:
         """
         tallest = valid[0].reading.height
         contenders = [c for c in valid if c.reading.height >= AGREEMENT_HEIGHT_RATIO * tallest]
+        # 표를 센다. 딕셔너리는 넣은 순서를 지키므로, 동점이면 먼저 나온(글자가 크고 확신이
+        # 높은) 값이 이긴다 — max 는 같은 값이면 앞의 것을 돌려준다.
         votes: dict[int, int] = {}
         for candidate in contenders:
             assert candidate.parsed is not None
             votes[candidate.parsed.gram] = votes.get(candidate.parsed.gram, 0) + 1
-        return max(contenders, key=lambda c: votes[c.parsed.gram])  # type: ignore[union-attr]
+        winner = max(votes, key=votes.__getitem__)
+        # 같은 값을 읽은 후보 중 가장 확신 있게 읽은 것을 보고한다.
+        agreeing = [c for c in contenders if c.parsed is not None and c.parsed.gram == winner]
+        return max(agreeing, key=lambda c: WeightRecognitionService._confidence(c.reading))
 
     def _read_unit_by_zooming(self, image: np.ndarray, number: TextToken) -> tuple[str, float] | None:
         """숫자 바로 오른쪽을 잘라 확대한 뒤 단위를 다시 읽는다.
@@ -253,21 +276,36 @@ class WeightRecognitionService:
 
         engine = self.ocr_engine or ocr.get_engine()
         height = number.height
-        x1 = int(number.right + 0.03 * height)
-        x2 = int(min(image.shape[1], number.right + 0.9 * height))
         y1 = int(max(0, number.top))
         y2 = int(min(image.shape[0], number.bottom + 0.3 * height))
-        if x2 - x1 < 4 or y2 - y1 < 4:
-            return None
-        crop = cv2.resize(
-            image[y1:y2, x1:x2], None, fx=ZOOM_SCALE, fy=ZOOM_SCALE, interpolation=cv2.INTER_CUBIC
-        )
         glyphs: list[tuple[str, float, float]] = []
-        for _name, variant in self.preprocessor(crop):
-            result, _elapsed = engine(np.asarray(variant))
-            for box, raw_text, raw_score in result or ():
-                points = np.asarray(box, dtype=float)
-                glyph_height = (points[:, 1].max() - points[:, 1].min()) / ZOOM_SCALE
-                glyphs.append((str(raw_text), float(raw_score), glyph_height / height))
+        # 두 창으로 본다. OCR 이 숫자 상자를 작은 g 까지 넓게 잡는 사진이 있어(31291 g), 숫자 끝의
+        # 바깥만 보면 g 를 지나친다. 안쪽 창에는 마지막 자리 조각이 들어오지만 그 조각은 숫자
+        # 높이만큼 커서 unit_from_zoom 의 크기 규칙이 걸러낸다.
+        for start, end in ((0.03, 0.9), (-0.35, 0.6)):
+            x1 = int(max(0, number.right + start * height))
+            x2 = int(min(image.shape[1], number.right + end * height))
+            if x2 - x1 < 4 or y2 - y1 < 4:
+                continue
+            crop = cv2.resize(
+                image[y1:y2, x1:x2], None, fx=ZOOM_SCALE, fy=ZOOM_SCALE, interpolation=cv2.INTER_CUBIC
+            )
+            for _name, variant in self.preprocessor(crop):
+                result, _elapsed = engine(np.asarray(variant))
+                for box, raw_text, raw_score in result or ():
+                    points = np.asarray(box, dtype=float)
+                    glyph_height = (points[:, 1].max() - points[:, 1].min()) / ZOOM_SCALE
+                    glyphs.append((str(raw_text), float(raw_score), glyph_height / height))
         return unit_from_zoom(glyphs)
+
+
+def _gram_decimals(parsed: ParsedWeight | None) -> int:
+    """g 단위 값의 소수점 아래 자릿수. kg 이거나 값이 없으면 0."""
+    if parsed is None:
+        return 0
+    text = parsed.normalized_text.strip().lower()
+    if text.endswith("kg") or not text.endswith("g"):
+        return 0
+    number = text[:-1].strip()
+    return len(number.split(".", 1)[1]) if "." in number else 0
 

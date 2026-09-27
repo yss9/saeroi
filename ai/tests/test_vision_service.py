@@ -320,3 +320,59 @@ def test_zooming_waits_until_no_variant_found_a_unit(service_factory):
 
     assert asked == []
     assert result.weight.value == 2_010
+
+
+def test_a_trailing_dot_is_dropped_before_attaching_the_zoomed_unit(service_factory):
+    """작은 g 를 점으로 읽어 `31291.` 이 되는 일이 있다 — 끝의 점은 무게에서 뜻이 없다."""
+    result = service_factory(text="31291.", ocr=0.99, unit_reader=lambda _i, _t: ("g", 0.93)).recognize(VALID_JPEG)
+
+    assert result.weight.value == 31_291
+    assert result.ocr.raw_text == "31291g"
+
+
+def test_a_weakly_read_unit_is_confirmed_by_zooming(service_factory):
+    """단위를 한 번, 낮은 확신으로만 읽었다면 확대해 다시 확인한다 — 값은 맞는데 신뢰도가 낮게 끝나지 않게."""
+    engine_result = ocr_result(
+        token("3500", 1.0, left=0, top=0, width=200, height=100),
+        token("g", 0.54, left=205, top=60, width=15, height=20),
+    )
+    result = service_factory(
+        ocr_engine=lambda _image: engine_result, unit_reader=lambda _i, _t: ("g", 0.96)
+    ).recognize(VALID_JPEG)
+
+    assert result.weight.value == 3_500
+    assert result.status == VisionStatus.SUCCESS
+    assert result.confidence >= 0.9
+
+
+def test_the_most_confident_reading_of_the_agreed_value_is_reported(service_factory):
+    responses = iter([ocr_result(token("2010g", 0.91, height=72)), ocr_result(token("2010g", 0.99, height=71))])
+    result = service_factory(variants=2, ocr_engine=lambda _image: next(responses)).recognize(VALID_JPEG)
+
+    assert result.weight.value == 2_010
+    assert result.confidence == 0.99
+
+
+# ── 소수점이 붙은 g 는 의심한다 ─────────────────────────────────────
+
+def test_grams_with_two_or_more_decimals_are_not_a_weight(service_factory):
+    """`20.10g`·`3.720g` 는 가짜 소수점이거나 kg 를 g 로 읽은 것이다 — 틀린 값을 성공으로 내지 않는다."""
+    result = service_factory(text="20.10g", ocr=0.99).recognize(VALID_JPEG)
+
+    assert result.status == VisionStatus.INVALID_WEIGHT_FORMAT
+    assert result.weight is None
+
+
+def test_grams_with_one_decimal_need_a_check(service_factory):
+    """`18.7g` 는 kg 를 g 로 잘못 읽었을 수 있다 — 값은 주되 사용자가 확인하게 한다."""
+    result = service_factory(text="18.7g", ocr=0.99).recognize(VALID_JPEG)
+
+    assert result.weight.value == 19
+    assert result.status == VisionStatus.LOW_CONFIDENCE
+
+
+def test_a_two_decimal_misread_does_not_beat_the_right_reading(service_factory):
+    responses = iter([ocr_result(token("20.10g", 0.99, height=72)), ocr_result(token("2010g", 0.95, height=72))])
+    result = service_factory(variants=2, ocr_engine=lambda _image: next(responses)).recognize(VALID_JPEG)
+
+    assert result.weight.value == 2_010

@@ -90,3 +90,20 @@ def test_preprocess_variants_returns_exactly_five_named_images():
     assert variants[0][1].ndim == 3
     assert all(variant.size > 0 for _, variant in variants)
     assert all(variant.dtype == np.uint8 for _, variant in variants)
+
+
+def test_validate_image_accepts_a_slightly_soft_real_photo():
+    """휴대폰 사진은 흔히 살짝 흐리다 — 숫자는 충분히 읽히는데 사진째 거절하면 안 된다.
+
+    사진 전체의 선명도로 거절하던 기준(35)은 표시창이 멀쩡한 사진도 배경이 부드러우면
+    막았다. 실제 사진 몇 장은 가우시안 3×3 한 번에 30 대로 떨어졌다. 완전히 평평한 사진만
+    거르고, 읽을 수 있는지는 OCR 이 판단한다.
+    """
+    from pathlib import Path
+
+    photo = cv2.imread(str(Path(__file__).parent / "fixtures" / "weighted_denim.jpg"))
+    softened = cv2.GaussianBlur(photo, (7, 7), 0)
+
+    decoded = validate_image(encoded_image(softened))
+
+    assert decoded.shape == softened.shape

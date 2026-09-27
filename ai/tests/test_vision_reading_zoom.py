@@ -26,3 +26,8 @@ def test_other_glyphs_are_not_units():
 
 def test_the_most_confident_unit_wins():
     assert unit_from_zoom([("g", 0.57, 0.32), ("9", 0.93, 0.4)]) == ("g", 0.93)
+
+
+def test_a_k_in_the_zoomed_area_means_kg():
+    """kg 를 잘라 보면 g 만 읽힐 수 있다. k 가 함께 보이면 kg 다 — 1000 배 틀리지 않게."""
+    assert unit_from_zoom([("g", 0.9, 0.4), ("k", 0.8, 0.45)]) == ("kg", 0.8)
