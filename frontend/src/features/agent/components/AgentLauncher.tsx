@@ -1,3 +1,6 @@
+import { Sparkle } from '@phosphor-icons/react'
+import './agent-launcher.css'
+
 /**
  * AI 어시스턴트를 별도 창으로 여는 버튼.
  *
@@ -27,7 +30,11 @@ const WINDOW_NAME = 'saeroi-agent'
  */
 const WINDOW_FEATURES = 'width=980,height=880'
 
-export function AgentLauncher({ label = 'AI 어시스턴트' }: { label?: string }) {
+/**
+ * @param floating 화면 오른쪽 아래에 떠 있는 버튼으로 둔다. 목록을 내려 읽는 동안에도 손 닿는
+ *   자리에 있어야 해서다 — 페이지 맨 위에 두면 스크롤을 내린 뒤에는 보이지 않는다.
+ */
+export function AgentLauncher({ label = 'AI 어시스턴트', floating = false }: { label?: string; floating?: boolean }) {
   function open() {
     const url = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/agent`
     const opened = window.open(url, WINDOW_NAME, WINDOW_FEATURES)
@@ -38,6 +45,16 @@ export function AgentLauncher({ label = 'AI 어시스턴트' }: { label?: string
       return
     }
     opened.focus()
+  }
+
+  if (floating) {
+    return (
+      <button type="button" className="agent-fab" onClick={open} aria-label={label} title={`${label} (새 창)`}>
+        <span className="agent-fab__icon" aria-hidden="true"><Sparkle size={20} weight="fill" /></span>
+        {/* 좁은 화면에서는 글자를 감추고 아이콘만 남긴다. 이름은 aria-label 이 말한다. */}
+        <span className="agent-fab__label" aria-hidden="true">{label}</span>
+      </button>
+    )
   }
 
   return (
