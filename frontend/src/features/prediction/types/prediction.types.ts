@@ -65,5 +65,9 @@ export interface PredictionChainState {
   winningPool: bigint
   claimed: boolean
   refundOnly: boolean
+  /** 구간별로 모인 포인트. 인덱스가 구간 번호다 */
+  bucketPools: bigint[]
+  /** 내가 구간별로 건 포인트. 어느 구간에 걸었는지 보여 주는 데 쓴다 */
+  userBucketStakes: bigint[]
 }
 
