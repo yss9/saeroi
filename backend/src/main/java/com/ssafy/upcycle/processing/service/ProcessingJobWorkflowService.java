@@ -6,6 +6,7 @@ import com.ssafy.upcycle.blockchain.service.ChainProcessingStatusReader;
 
 import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.evidence.entity.EvidenceReferenceType;
+import com.ssafy.upcycle.evidence.entity.EvidenceType;
 import com.ssafy.upcycle.evidence.repository.EvidenceFileRepository;
 import com.ssafy.upcycle.material.entity.*;
 import com.ssafy.upcycle.material.repository.*;
@@ -165,8 +166,9 @@ public class ProcessingJobWorkflowService {
     @Transactional
     public ProcessingJobResponse submitResult(Long actorId, Long jobId, ProcessingSignedCommandRequest request) {
         ProcessingJob job = lockJob(jobId); requireProcessor(job, actorId);
-        if (evidenceFiles.countByReferenceTypeAndReferenceIdAndDeletedAtIsNull(
-                EvidenceReferenceType.PROCESSING_JOB, jobId) < 1)
+        // 결과의 근거는 작업 후 사진이다 — 아무 증빙이나 한 장(예: 수령 때의 작업 전 사진)으로는 안 된다.
+        if (evidenceFiles.countByReferenceTypeAndReferenceIdAndEvidenceTypeAndDeletedAtIsNull(
+                EvidenceReferenceType.PROCESSING_JOB, jobId, EvidenceType.AFTER_PHOTO) < 1)
             throw new BusinessException(PROCESSING_EVIDENCE_REQUIRED);
         String signature = signatures.verify(actorId, job, ProcessingSignatureAction.RESULT_SUBMIT,
                 request.challengeId(), request.signature(), null);
