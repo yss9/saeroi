@@ -10,7 +10,10 @@ MIN_SHORT_SIDE = 480
 MIN_LONG_SIDE = 640
 MIN_BRIGHTNESS = 25.0
 MAX_BRIGHTNESS = 235.0
-MIN_LAPLACIAN_VARIANCE = 35.0
+# 사진 전체가 평평한(아무것도 찍히지 않은) 경우만 거른다. 예전 기준 35 는 표시창이 멀쩡히
+# 읽히는 사진도 배경이 부드러우면 막았다 — 실제 사진 몇 장이 가우시안 3×3 한 번에 30 대로
+# 떨어졌고, 크게 흐려도(9×9) 3.5 이상이었다. 읽을 수 있는지는 OCR 이 판단한다.
+MIN_LAPLACIAN_VARIANCE = 2.0
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 

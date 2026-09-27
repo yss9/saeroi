@@ -42,6 +42,10 @@ UNIT_TEXTS = ("kg", "g")
 # 작게 찍힌 g 는 확대하면 대개 "9" 로 읽혔고 높이는 숫자의 0.40~0.48 배였다(실측 두 장).
 # 숫자 9 라면 다른 숫자와 같은 높이(1.0 배)라 여유를 두고 0.6 배에서 자른다.
 ZOOMED_UNIT_MAX_HEIGHT_RATIO = 0.6
+
+# 옆 토큰으로 붙인 단위라도 이보다 확신이 낮으면 확대해 한 번 더 본다. 표시창의 작은 g 가 한
+# 변형에서만 0.54 로 읽혀 값은 맞는데 "신뢰도 낮음" 으로 끝난 사진이 있었다.
+WEAK_UNIT_CONFIDENCE = 0.9
 _SMALL_G_LOOKALIKES = ("g", "9", "q")
 
 # 숫자 토큰 하나의 오른쪽을 확대해 단위를 다시 읽는 함수. 못 읽으면 None.
@@ -55,17 +59,28 @@ def unit_from_zoom(glyphs: Iterable[tuple[str, float, float]]) -> tuple[str, flo
     확대하면 9 로 읽히는데, 같은 자리에 숫자 9 가 있었다면 다른 숫자만큼 컸을 것이다.
     여럿이면 확신이 가장 높은 것을 쓴다.
     """
+    glyphs = list(glyphs)
+    # kg 를 잘라 보면 g 만 읽힐 수 있다. k 가 함께 보이면 kg 다 — 1000 배 틀리지 않게.
+    k_confidence = max(
+        (confidence for text, confidence, _ratio in glyphs if text.strip().lower() == "k"),
+        default=None,
+    )
     best: tuple[str, float] | None = None
     for text, confidence, height_ratio in glyphs:
         lowered = text.strip().lower()
+        looks_like_g = lowered == "g" or (
+            lowered in _SMALL_G_LOOKALIKES and height_ratio <= ZOOMED_UNIT_MAX_HEIGHT_RATIO
+        )
         if lowered == "kg":
-            unit = "kg"
-        elif lowered in _SMALL_G_LOOKALIKES and height_ratio <= ZOOMED_UNIT_MAX_HEIGHT_RATIO:
-            unit = "g"
+            candidate = ("kg", confidence)
+        elif looks_like_g and k_confidence is not None:
+            candidate = ("kg", min(confidence, k_confidence))
+        elif looks_like_g:
+            candidate = ("g", confidence)
         else:
             continue
-        if best is None or confidence > best[1]:
-            best = (unit, confidence)
+        if best is None or candidate[1] > best[1]:
+            best = candidate
     return best
 
 
@@ -198,15 +213,23 @@ def find_weight_readings(
             continue
         unit = unit_beside(token, tokens)
         already_has_unit = token.text.strip().lower().endswith(UNIT_TEXTS)
+        weak_unit = unit is not None and unit.confidence < WEAK_UNIT_CONFIDENCE
         zoomed = (
             zoom_unit(token)
-            if unit is None and not already_has_unit and zoom_unit is not None
+            if (unit is None or weak_unit) and not already_has_unit and zoom_unit is not None
             else None
         )
+        # 작은 g 를 점으로 읽어 `31291.` 이 되는 일이 있다. 끝의 점은 무게에서 뜻이 없다.
+        number = token.text.rstrip(".")
         if unit is not None:
-            text, unit_confidence = f"{token.text}{unit.text}", unit.confidence
+            unit_confidence = unit.confidence
+            # 약하게 읽힌 단위는 확대해서 같은 단위로 확인되면 그 확신을 쓴다. 다른 단위가 나오면
+            # 옆에서 읽은 쪽을 믿는다 — 확대 영역에는 kg·g 표시등 같은 다른 글자가 섞일 수 있다.
+            if zoomed is not None and zoomed[0] == unit.text.strip().lower():
+                unit_confidence = max(unit_confidence, zoomed[1])
+            text = f"{number}{unit.text}"
         elif zoomed is not None:
-            text, unit_confidence = f"{token.text}{zoomed[0]}", zoomed[1]
+            text, unit_confidence = f"{number}{zoomed[0]}", zoomed[1]
         else:
             text, unit_confidence = token.text, token.confidence
 
