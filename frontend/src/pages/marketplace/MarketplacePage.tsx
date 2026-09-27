@@ -19,16 +19,13 @@ export function MarketplacePage() {
   const role = useAuthStore((state) => state.user?.role)
 
   return (
-    <main className="page">
+    <main className={role === 'BRAND' ? 'page marketplace-page--with-agent' : 'page'}>
       <h1 className="ui-visually-hidden">소재 검색</h1>
 
       {/* 소재를 사러 온 자리라 AI 어시스턴트 진입점이 여기 있다. 누르면 별도 창이 떠서
-          이 화면을 보면서 대화할 수 있다 (BRAND 전용 — 다른 역할에는 보이지 않는다). */}
-      {role === 'BRAND' && (
-        <div className="marketplace-agent-entry">
-          <AgentLauncher label="AI 어시스턴트로 소재 찾기" />
-        </div>
-      )}
+          이 화면을 보면서 대화할 수 있다 (BRAND 전용 — 다른 역할에는 보이지 않는다).
+          오른쪽 아래에 떠 있다 — 목록을 내려 읽다가도 바로 부를 수 있어야 한다. */}
+      {role === 'BRAND' && <AgentLauncher label="AI 어시스턴트로 소재 찾기" floating />}
 
       {/* 조건이 바뀌면 첫 페이지로 돌아간다. 3페이지를 보다가 필터를 걸면 결과가 한 페이지로
           줄어들 수 있고, 그러면 3페이지는 빈 화면이라 "결과가 없다" 로 읽힌다. */}
