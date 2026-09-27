@@ -38,6 +38,9 @@ vi.mock('../services/processingContractService.ts', async (importOriginal) => {
   }
 })
 
+const registration = vi.hoisted(() => ({ registerProcessingChainJob: vi.fn() }))
+vi.mock('../services/registerProcessingChainJob.ts', () => registration)
+
 const api = vi.hoisted(() => ({ detail: vi.fn(), chainPreparation: vi.fn(), accept: vi.fn(), list: vi.fn(), linkChain: vi.fn(), receive: vi.fn(), start: vi.fn(), challenge: vi.fn(), submitResult: vi.fn() }))
 vi.mock('../api/processingJobApi.ts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../api/processingJobApi.ts')>()
@@ -204,6 +207,53 @@ describe('useProcessingJob 수령', () => {
 
     expect(api.start).toHaveBeenCalledWith(41)
     expect(contract.startProcessingOnChain).not.toHaveBeenCalled()
+  })
+})
+
+/*
+  작업 상세의 등록 재시도는 결제 직후 자동 등록과 같은 함수를 쓴다. 화면에 캐시된 준비 정보를
+  읽던 예전 방식은 그 조회가 끝나기 전에 누르면 "온체인 작업 정보를 불러오지 못했습니다" 로
+  실패했다 — 간헐적 실패의 한 원인이었다. 등록 함수는 준비 정보를 서버에서 새로 읽는다.
+*/
+describe('useProcessingJob 가공 작업 등록', () => {
+  function renderPaidJob() {
+    api.detail.mockResolvedValue(job({ status: 'PAID', chainJobId: null }))
+    // 첫 준비 조회는 늦게 끝난다 — 버튼을 그보다 먼저 누르는 상황이다.
+    let finishFirst: (value: unknown) => void = () => {}
+    api.chainPreparation
+      .mockReturnValueOnce(new Promise(resolve => { finishFirst = resolve }))
+      .mockResolvedValue({ jobId: 41, chainJobId: 11, status: 'PAID' })
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+    function wrapper({ children }: { children: ReactNode }) {
+      return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    }
+    const rendered = renderHook(() => useProcessingJob(41), { wrapper })
+    return { ...rendered, finishFirst: () => finishFirst({ jobId: 41, chainJobId: null, status: 'PAID' }) }
+  }
+
+  it('준비 정보를 다 불러오기 전에 눌러도 등록한다', async () => {
+    registration.registerProcessingChainJob.mockResolvedValue('0xabc')
+    const { result, finishFirst } = renderPaidJob()
+    await waitFor(() => expect(result.current.detail.isSuccess).toBe(true))
+    expect(result.current.chainPreparation.isSuccess).toBe(false)
+
+    result.current.initializeChain.mutate()
+    await waitFor(() => expect(registration.registerProcessingChainJob).toHaveBeenCalledWith(41))
+    finishFirst()
+
+    await waitFor(() => expect(result.current.initializeChain.isSuccess).toBe(true))
+  })
+
+  it('이미 등록돼 있으면 성공으로 본다', async () => {
+    registration.registerProcessingChainJob.mockRejectedValue(Object.assign(new Error('이미 등록'), { code: 'CHAIN_ALREADY_DONE' }))
+    const { result, finishFirst } = renderPaidJob()
+    await waitFor(() => expect(result.current.detail.isSuccess).toBe(true))
+
+    result.current.initializeChain.mutate()
+    await waitFor(() => expect(registration.registerProcessingChainJob).toHaveBeenCalled())
+    finishFirst()
+
+    await waitFor(() => expect(result.current.initializeChain.isSuccess).toBe(true))
   })
 })
 

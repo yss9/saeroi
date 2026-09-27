@@ -8,6 +8,7 @@ import {
   createOrResumeProcessingChainJob,
   forgetProcessingChainCreate,
 } from './processingChainJobCreation.ts'
+import { assertCanRegisterProcessingJob } from './processingRegistrationPreflight.ts'
 
 /**
  * 가공 작업을 <b>블록체인에 등록한다.</b> 인계보다 앞선 단계다.
@@ -31,14 +32,19 @@ export async function registerProcessingChainJob(jobId: number): Promise<string>
   // **앞서 보낸 등록이 있으면 새로 만들지 않고 그 거래에서 이어 간다.** 서명이 체인에 들어간
   // 뒤 서버 연결(linkChain)이 실패하는 창이 있다(네트워크 끊김, 로그인 만료). 그때 다시 누르면
   // 서버는 아직 체인 작업을 모르니 한 번 더 만들게 되고, 앞의 작업은 소재를 잠근 채 버려진다.
-  const receipt = await createOrResumeProcessingChainJob(jobId, () =>
-    createProcessingJob(
+  //
+  // **새로 만들 때만 사전 확인을 한다.** 되돌려질 것이 확실하면(다른 지갑, 권한 없음, 체인 잔량
+  // 부족) 서명 창을 열지 않고 할 일을 알린다. 이어받는 거래는 이미 소재를 잠갔으므로 여기서
+  // 잔량을 보면 모자라다고 잘못 막는다 — 그래서 send 안에서만 부른다.
+  const receipt = await createOrResumeProcessingChainJob(jobId, async () => {
+    await assertCanRegisterProcessingJob(preparation)
+    return createProcessingJob(
       preparation.processorWallet,
       preparation.inputTokenId,
       preparation.inputQuantity,
       preparation.processTypes,
-    ),
-  )
+    )
+  })
   const values = readProcessingEventValues(receipt, 'ProcessingJobCreated', 'jobId')
   if (values.length !== 1) throw new Error('온체인 작업 번호를 확인하지 못했습니다.')
   const onChainId = Number(values[0])
