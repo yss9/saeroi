@@ -974,6 +974,10 @@
   word-break: break-all;
 }
 
+.journey-proof-modal .on-chain-panel__hash {
+  overflow-wrap: anywhere;
+}
+
 .journey-detail__evidence p {
   display: flex;
   align-items: center;
