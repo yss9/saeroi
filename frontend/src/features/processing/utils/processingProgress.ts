@@ -3,6 +3,13 @@ import type { ProcessingJobStatus, ProcessingRequestStatus } from '../types/proc
 /**
  * 브랜드가 읽는 "이 가공은 지금 어디까지 왔는가".
  *
+ * **이 파일은 브랜드 전용이다.** 여기의 라벨과 묶음을 쓰는 화면은
+ * `BrandProcessingRequestList` · `BrandProcessingRequestDetail` ·
+ * `BrandProcessingJobPanel` 셋뿐이고, 가공사의 목록(`ProcessorWorkList`)은 자기 말을
+ * 따로 갖고 있다. 그래서 "지금 누구 차례인가" 는 늘 **브랜드 기준**으로 답한다 —
+ * 같은 `PAID` 가 가공사에게는 기다리는 칸이지만 여기서는 손댈 칸이다. 이 파일을
+ * 가공사 화면이 쓰게 되는 날에는 역할을 인자로 받아야 한다.
+ *
  * **요청 상태와 작업 상태는 하나로 읽혀야 한다.** 요청은 만들어진 뒤 `REQUESTED` 에서
  * 더 움직이지 않고, 그 뒤의 일(결제·수락·발송·가공·반환)은 전부 작업(`processing_job`)에
  * 적힌다. 둘을 따로 보여주면 브랜드는 멈춘 목록을 보며 가공이 끝난 줄 모른다.
@@ -26,7 +33,10 @@ const REQUEST_LABEL: Record<ProcessingRequestStatus, string> = {
  */
 const JOB_LABEL: Record<ProcessingJobStatus, string> = {
   CREATED: '결제 대기',
-  PAID: '수락 대기',
+  // 결제 다음 차례는 브랜드다. 소재를 온체인 가공 작업에 잠가 줘야 가공사가 수락(=온체인
+  // 서명)할 수 있다 — 여기에 '수락 대기' 라 적으면 브랜드는 기다리면 되는 줄 알고,
+  // 가공사는 등록을 기다리다 기한이 지나 자동 거절된다.
+  PAID: '온체인 등록 대기',
   ACCEPTED: '발송 대기',
   DECLINED: '가공사 거절',
   SHIPPED: '배송 중',
@@ -40,16 +50,29 @@ const JOB_LABEL: Record<ProcessingJobStatus, string> = {
   CANCELED: '반환 종료',
 }
 
-/** 작업 상태 한 줄. 작업이 있는 화면(요청 상세의 진행 칸)이 쓴다. */
-export function jobLabel(jobStatus: ProcessingJobStatus): string {
+/**
+ * **`PAID` 만은 한 단어로 적을 수 없다.** 결제 뒤의 그 구간은 둘로 갈린다 — 온체인
+ * 등록 전에는 브랜드가 할 일이 남아 있고, 등록한 뒤로 사흘 동안 기다리는 것은
+ * 가공사의 서명이다. 한 라벨로 뭉개면 둘 중 한쪽에게 반드시 거짓말을 한다.
+ *
+ * @param chainRegistered 이 작업이 이미 온체인에 등록됐는가(`chainJobId != null`).
+ */
+function jobText(jobStatus: ProcessingJobStatus, chainRegistered: boolean): string {
+  if (jobStatus === 'PAID') return chainRegistered ? '수락 대기' : JOB_LABEL.PAID
   return JOB_LABEL[jobStatus]
+}
+
+/** 작업 상태 한 줄. 작업이 있는 화면(요청 상세의 진행 칸)이 쓴다. */
+export function jobLabel(jobStatus: ProcessingJobStatus, chainRegistered = false): string {
+  return jobText(jobStatus, chainRegistered)
 }
 
 export function progressLabel(
   requestStatus: ProcessingRequestStatus,
   jobStatus?: ProcessingJobStatus,
+  chainRegistered = false,
 ): string {
-  return jobStatus === undefined ? REQUEST_LABEL[requestStatus] : JOB_LABEL[jobStatus]
+  return jobStatus === undefined ? REQUEST_LABEL[requestStatus] : jobText(jobStatus, chainRegistered)
 }
 
 /** 상태 색을 고르는 이름. 라벨과 같은 근거(작업이 있으면 작업)를 쓴다. */
@@ -77,6 +100,7 @@ export type ProcessingPhase = 'MY_TURN' | 'IN_PROGRESS' | 'DONE' | 'CLOSED'
 /** 브랜드가 직접 눌러야 다음으로 넘어가는 작업 상태. */
 const MY_TURN_JOB: readonly ProcessingJobStatus[] = [
   'CREATED', // 결제 대기
+  // 'PAID' 는 여기 두지 않는다 — 등록 전후로 차례가 갈려 `phaseOf` 가 따로 답한다.
   'ACCEPTED', // 가공사가 수락했다 — 이제 소재를 보낸다
   'RETURN_SHIPPED', // 수령 확인 대기 — 확인해야 산출 소재가 발행된다
 ]
@@ -84,10 +108,23 @@ const MY_TURN_JOB: readonly ProcessingJobStatus[] = [
 /** 더 손댈 것이 없는 작업 상태. */
 const CLOSED_JOB: readonly ProcessingJobStatus[] = ['REJECTED', 'DECLINED', 'EXPIRED', 'CANCELED']
 
+/**
+ * @param chain.chainReleaseRequired 끝난 작업에 온체인 잠금이 남아 있는가(서버가 계산해
+ *   준다). 거절·만료·취소는 서버가 DB 와 환불만 정리한다 — 체인의 잠금은 브랜드 지갑이
+ *   `cancelJob` 을 서명해야 풀린다. 그 서명이 남아 있는 한 "종료" 가 아니라 **내 차례**다.
+ *   접어 버리면 그 수량은 목록에서 사라진 채로 온체인 가용 잔량에서만 빠져 있다.
+ * @param chain.chainRegistered 이 작업이 이미 온체인에 등록됐는가(`chainJobId != null`).
+ *   `PAID` 는 등록 **전에만** 내 차례다. 등록한 뒤로는 가공사의 서명을 사흘까지 기다리는
+ *   구간이고, 그 동안 "내 차례" 라고 말하면 작업 상세("가공업체의 수락을 기다리고
+ *   있습니다")와 정면으로 어긋난다 — 브랜드는 이미 한 일을 다시 하러 들어간다.
+ */
 export function phaseOf(
   requestStatus: ProcessingRequestStatus,
   jobStatus: ProcessingJobStatus | undefined,
+  chain: { chainReleaseRequired?: boolean; chainRegistered?: boolean } = {},
 ): ProcessingPhase {
+  if (chain.chainReleaseRequired) return 'MY_TURN'
+  if (jobStatus === 'PAID') return chain.chainRegistered ? 'IN_PROGRESS' : 'MY_TURN'
   if (jobStatus === undefined) {
     // 요청이 만들어지면 곧바로 작업이 생기므로 여기 오는 일은 드물다 — 결제가 남아 있다.
     if (requestStatus === 'REQUESTED') return 'MY_TURN'

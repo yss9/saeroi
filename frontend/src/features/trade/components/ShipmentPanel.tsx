@@ -101,7 +101,25 @@ export function ShipmentPanel({ trade }: ShipmentPanelProps) {
 
       {shipped && <ShippedReceipt trade={trade} justShipped={data ?? null} />}
 
-      {trade.status === 'PAID' && !isSuccess && (
+      {/*
+        <b>온체인 주문이 먼저다.</b> 컨트랙트의 markShipped(orderId) 는 주문 번호 없이는
+        부를 수도 없어서, 그대로 발송하면 서버만 앞서 나간다. 실제로 그렇게 새어 나갔다 —
+        주문 서명을 건너뛴 거래가 발송·수령까지 끝나 DB 는 소재를 넘겨줬는데 체인은 그
+        거래를 모르는 채로 굳었고, 그 소재를 가공에 보낼 때 insufficient material 로
+        거절당해서야 드러났다.
+
+        그 시점에는 되돌릴 수 없다. 온체인 기록은 결제 직후 구간에서만 남길 수 있는데
+        거래는 이미 그 구간을 지나쳤기 때문이다. 서버도 막지만(TRADE_CHAIN_ORDER_REQUIRED),
+        눌러서 오류를 보는 것보다 왜 지금 못 하는지 먼저 읽는 편이 낫다.
+      */}
+      {trade.status === 'PAID' && !isSuccess && trade.chainTradeId === null && (
+        <p className="shipment-panel__note">
+          이 거래는 아직 블록체인에 기록되지 않았습니다. 구매자가 주문을 서명해 온체인에
+          기록한 뒤에 발송할 수 있습니다.
+        </p>
+      )}
+
+      {trade.status === 'PAID' && !isSuccess && trade.chainTradeId !== null && (
         <form onSubmit={onSubmit} noValidate className="shipment-panel__form">
           {/*
             <b>고르게 하되 가두지 않는다.</b> 목록에 없는 택배사나 화물 업체를 쓰는 경우가
@@ -177,17 +195,24 @@ export function ShipmentPanel({ trade }: ShipmentPanelProps) {
         loading={isPending}
         onConfirm={() => {
           if (pending === null) return
-          mutate(pending, {
-            // **발송이 기록되면 바로 체인 서명으로 이어간다.**
-            //
-            // 버튼을 나눠 뒀을 때 두 번째를 잊으면 체인의 주문은 CREATED 로 남아,
-            // 구매자가 온체인 수령 확인을 부를 수 없다 — confirmReceipt 가 SHIPPED 를
-            // 요구한다. 실패하면 아래 패널에서 다시 시도할 수 있다.
-            onSuccess: () => {
-              if (trade.chainTradeId !== null) void chain.ship(trade.chainTradeId)
-            },
-            onSettled: () => setPending(null),
-          })
+
+          // **서명이 먼저다.** 체인에 발송이 남은 뒤에 서버가 DB 를 기록한다 — 서버도
+          // 같은 순서를 검사한다(TRADE_CHAIN_SHIPMENT_REQUIRED).
+          //
+          // 예전에는 반대였다. 그래서 판매자가 서명 창을 끄면 DB 는 SHIPPED 인데 체인은
+          // CREATED 로 남았고, 그러면 구매자가 수령 서명을 할 수 없다 — 컨트랙트의
+          // confirmReceipt 는 체인이 SHIPPED 일 때만 받는다. 거래가 그 자리에서 멈춘다.
+          //
+          // 서명이 실패하면 발송을 기록하지 않는다. 서버가 어차피 거절한다.
+          if (trade.chainTradeId === null) {
+            setPending(null)
+            return
+          }
+          const waybill = pending
+          void chain
+            .ship(trade.chainTradeId)
+            .then(() => mutate(waybill, { onSettled: () => setPending(null) }))
+            .catch(() => setPending(null))
         }}
         onClose={() => setPending(null)}
       />

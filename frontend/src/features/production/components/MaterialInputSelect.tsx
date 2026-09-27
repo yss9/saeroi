@@ -1,3 +1,6 @@
+import { MaterialProcessingBadge } from '../../material/components/MaterialProcessingBadge.tsx'
+import { processingHistoryText } from '../../material/utils/processingHistory.ts'
+import type { MaterialGenerationType } from '../../material/types/material.types.ts'
 import { useState, type ReactNode } from 'react'
 import {
   Button,
@@ -253,6 +256,7 @@ function DraftRow({
     <div className="material-input__row">
       <div className="material-input__row-head">
         <strong>{draft.material.name}</strong>
+        <MaterialProcessingBadge completedProcessTypes={draft.material.completedProcessTypes} generationType={draft.material.generationType as MaterialGenerationType}/>
         <span className="material-input__available">
           가용 {formatKg(draft.material.available)}
         </span>
@@ -342,7 +346,10 @@ function optionsOf(
       value: String(item.materialId),
       // 고를 수 있는 것에만 가용량을 붙인다. 못 고르는 소재의 수량은 지금 쓸 수 없는 값이라
       // 읽는 사람을 헷갈리게 한다.
-      label: usable ? `${item.name} · 가용 ${formatKg(item.available)}` : item.name,
+      // 가공을 거쳐도 이름은 그대로라, 같은 이름끼리는 가공 이력으로 가른다.
+      label: usable
+        ? `${itemName(item)} · 가용 ${formatKg(item.available)}`
+        : itemName(item),
       group,
       disabled: !usable,
     }
@@ -387,4 +394,8 @@ function groupOf(
   if (!isProductionEligible(item)) return GROUPS.missingRequired
   if (item.available <= 0) return GROUPS.empty
   return GROUPS.usable
+}
+
+function itemName(item: InventoryItem): string {
+  return `${item.name} · ${processingHistoryText(item.completedProcessTypes, item.generationType as MaterialGenerationType)}`
 }

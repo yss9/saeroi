@@ -142,16 +142,16 @@ export function OnChainPanel({
 /**
  * 트랜잭션 해시. 익스플로러가 설정돼 있으면 링크로 만든다.
  *
- * <p>전체 해시를 {@code title} 에 담아 둔다 — 잘린 값만 보여주면 사용자가 다른 곳에
- * 붙여 넣어 확인할 수 없다.
+ * <p>기본 목록에서는 짧게 표시하고, 기록 상세에서는 {@code fullHash}로 전체 번호를
+ * 보여준다. 어느 쪽이든 title에는 전체 값을 담아 둔다.
  */
-export function TransactionHash({ hash }: { hash: string }) {
-  const short = `${hash.slice(0, 10)}…${hash.slice(-8)}`
+export function TransactionHash({ hash, fullHash = false }: { hash: string; fullHash?: boolean }) {
+  const displayHash = fullHash ? hash : `${hash.slice(0, 10)}…${hash.slice(-8)}`
 
   if (!env.besuExplorerUrl) {
     return (
       <p className="on-chain-panel__hash" title={hash}>
-        기록 번호 {short}
+        기록 번호 {displayHash}
       </p>
     )
   }
@@ -165,7 +165,7 @@ export function TransactionHash({ hash }: { hash: string }) {
         rel="noreferrer noopener"
         title={hash}
       >
-        {short}
+        {displayHash}
       </a>
     </p>
   )

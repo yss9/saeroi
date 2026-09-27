@@ -20,6 +20,8 @@ export interface ProcessingJobDetail {
   /** 환불된 시각. 값이 있으면 돈이 돌아간 것이다 */
   refundedAt:string|null
   outputs:ProcessingOutput[]
+  /** 거절·만료됐는데 온체인 잠금이 남아 브랜드가 풀어 줘야 하는가. */
+  chainReleaseRequired:boolean
 }
 export interface ProcessingChainPreparation {
   jobId:number; chainJobId:number|null; status:ProcessingJobStatus; brandWallet:string; processorWallet:string
@@ -41,7 +43,13 @@ export const processingJobApi={
   /**
    * 가공사가 일을 맡는다 — `PATCH /processing-jobs/{jobId}/accept`
    *
-   * **결제된 작업만 수락할 수 있다.** 소재 발송은 이 뒤에만 열린다(결제만으로 보내면 409).
+   * **이 요청은 수락을 만들지 않고 기록한다.** 수락은 가공사가 `acceptJob` 에 서명한
+   * 그 순간 체인에서 이미 일어났고, 여기서는 그 결과를 DB 에 적을 뿐이다. 그래서
+   * 서버는 **결제됐고(PAID) 온체인에 등록된(chainJobId) 작업만** 받는다 — 둘 중
+   * 하나라도 아니면 409 다. 서명 없이 상태만 ACCEPTED 로 바뀌는 길은 없다.
+   *
+   * 온체인 등록은 그 앞 단계이고 브랜드의 몫이다(`linkChain`). 소재 발송은 이 뒤에만
+   * 열린다.
    */
   accept:async(jobId:number)=>(await apiClient.patch<ProcessingJobDetail>(`${root}/${jobId}/accept`)).data,
   /**
@@ -55,13 +63,15 @@ export const processingJobApi={
    */
   decline:async(jobId:number,reason:string)=>(await apiClient.patch<ProcessingJobDetail>(`${root}/${jobId}/reject`,{reason})).data,
   ship:async(jobId:number,input:{carrier?:string;trackingNumber?:string})=>(await apiClient.patch<ProcessingJobDetail>(`${root}/${jobId}/ship`,input)).data,
-  receive:async(jobId:number,input:{txHash:string})=>(await apiClient.patch<ProcessingJobDetail>(`${root}/${jobId}/receive`,input)).data,
+  // 해시를 비워 보내면 서버가 체인에서 그 서명 거래를 찾는다 — 서명은 됐는데 서버 호출이 실패해
+  // 해시를 잃은 경우다(ProcessingChainService.signedTx).
+  receive:async(jobId:number,input:{txHash?:string})=>(await apiClient.patch<ProcessingJobDetail>(`${root}/${jobId}/receive`,input)).data,
   start:async(jobId:number)=>(await apiClient.patch<ProcessingJobDetail>(`${root}/${jobId}/start`)).data,
   saveResult:async(jobId:number,input:ResultDraftInput)=>(await apiClient.post<ProcessingJobDetail>(`${root}/${jobId}/results`,input)).data,
   challenge:async(jobId:number,action:ProcessingSignatureAction,rejectionReason?:string)=>(await apiClient.post<SignatureChallenge>(`${root}/${jobId}/signature-challenge`,{action,rejectionReason})).data,
   submitResult:async(jobId:number,challengeId:number,signature:string)=>(await apiClient.post<ProcessingJobDetail>(`${root}/${jobId}/results/submit`,{challengeId,signature})).data,
   reject:async(jobId:number,challengeId:number,signature:string,reason:string)=>(await apiClient.post<ProcessingJobDetail>(`${root}/${jobId}/reject`,{challengeId,signature,reason})).data,
   shipReturn:async(jobId:number,input:{carrier?:string;trackingNumber?:string;evidenceFileId:number;txHash:string})=>(await apiClient.patch<ProcessingJobDetail>(`${root}/${jobId}/return/ship`,input)).data,
-  receiveReturn:async(jobId:number,input:{txHash:string})=>(await apiClient.post<ProcessingJobDetail>(`${root}/${jobId}/return/receive`,input)).data,
+  receiveReturn:async(jobId:number,input:{txHash?:string})=>(await apiClient.post<ProcessingJobDetail>(`${root}/${jobId}/return/receive`,input)).data,
   returnRejected:async(jobId:number,input:{carrier?:string;trackingNumber?:string;evidenceFileId:number;txHash:string})=>(await apiClient.post<ProcessingJobDetail>(`${root}/${jobId}/return/rejected`,input)).data,
 }

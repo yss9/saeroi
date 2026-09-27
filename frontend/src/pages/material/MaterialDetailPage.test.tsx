@@ -186,6 +186,14 @@ describe('소재 정보', () => {
     expect(screen.getByText('B · 경미한 오염·손상')).toBeInTheDocument()
   })
 
+  // 가공을 거쳐도 이름은 그대로라, 제목만으로는 어느 단계의 소재인지 알 수 없다.
+  it('제목 옆에 가공 이력을 보여준다', async () => {
+    api.getMaterial.mockResolvedValue(detail({ generationType: 'PROCESSED', completedProcessTypes: ['CLEANING', 'SORTING'] }))
+    renderPage()
+
+    expect(await screen.findByText('세척·선별 가공')).toBeInTheDocument()
+  })
+
   it('총 수량을 kg 단위와 함께 보여준다', async () => {
     // gram 을 단위 없이 그리면 20,500 이 20.5kg 인지 20.5t 인지 알 수 없다.
     api.getMaterial.mockResolvedValue(detail({ totalQuantity: 20_500 }))

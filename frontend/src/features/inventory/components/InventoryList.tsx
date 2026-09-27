@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { EmptyState, ErrorMessage, Loading } from '../../../components/common/index.ts'
 import { useAuth } from '../../auth/hooks/useAuth.ts'
-import { MATERIAL_TYPE_LABEL } from '../../material/types/material.types.ts'
+import { MaterialProcessingBadge } from '../../material/components/MaterialProcessingBadge.tsx'
+import { MATERIAL_TYPE_LABEL, type MaterialGenerationType } from '../../material/types/material.types.ts'
 import { formatKg } from '../../../utils/quantity.ts'
 import { useMyMaterials } from '../hooks/useMyMaterials.ts'
 import { useMaterialLockSources, type LockSource } from '../hooks/useMaterialLockSources.ts'
@@ -185,7 +186,9 @@ function InventoryRow({
         <Link to={`/materials/${item.materialId}`} onClick={(event) => event.stopPropagation()}>
           {item.name}
         </Link>
-        {/* 같은 이름의 소재가 여러 건 있을 수 있다. 구분하는 값은 코드다. */}
+        {/* 같은 이름의 소재가 여러 건 있을 수 있다 — 가공을 거쳐도 이름은 그대로다. 사람이
+            가르는 값은 가공 이력이고, 기계가 가르는 값은 코드다. */}
+        <MaterialProcessingBadge completedProcessTypes={item.completedProcessTypes} generationType={item.generationType as MaterialGenerationType}/>
         <small className="inv-code">{item.materialCode}</small>
       </td>
 

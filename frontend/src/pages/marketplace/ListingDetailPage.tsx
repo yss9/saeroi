@@ -1,3 +1,4 @@
+import { MaterialProcessingBadge } from '../../features/material/components/MaterialProcessingBadge.tsx'
 import { useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { BackLink, ErrorMessage, Loading, Modal, StatusBadge } from '../../components/common/index.ts'
@@ -86,6 +87,7 @@ export function ListingDetailPage() {
               {LISTING_STATUS_LABEL[data.status]}
             </StatusBadge>
           </div>
+          <MaterialProcessingBadge completedProcessTypes={data.completedProcessTypes} generationType={data.generationType}/>
 
           {/* 소재를 등록할 때 판매자가 적은 설명. 없는 판매글이 많아 있을 때만 그린다. */}
           {data.materialDescription && (

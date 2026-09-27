@@ -8,7 +8,10 @@ import {
   type StatusTone,
 } from '../../../components/common/index.ts'
 import { formatKg } from '../../../utils/quantity.ts'
-import { useConfirmProductionBatch } from '../hooks/useConfirmProductionBatch.ts'
+import { useCancelProductionBatch } from '../hooks/useCancelProductionBatch.ts'
+import { useProductionFlow } from '../hooks/useProductionFlow.ts'
+import { ProductionFlowProgress } from './ProductionFlowProgress.tsx'
+import { PRODUCTION_FLOW_STEPS, type ProductionFlowStep } from '../services/productionFlow.ts'
 import { useProductionBatch } from '../hooks/useProductionBatch.ts'
 import type { ProductionBatch, ProductionBatchStatus } from '../types/production.types.ts'
 import { MaterialInputSelect } from './MaterialInputSelect.tsx'
@@ -182,10 +185,17 @@ function BatchSummary({ batch }: { batch: ProductionBatch }) {
  * `ProductionInputList` 가 이미 경고하므로 여기서는 버튼만 잠근다.
  */
 function ConfirmSection({ batch }: { batch: ProductionBatch }) {
-  const confirm = useConfirmProductionBatch(batch.productionBatchId)
+  /*
+    **누르는 것은 한 번이다.** 확정(서버)과 온체인 기록 네 단계를 차례로 진행한다 — 단계마다 지갑
+    서명 창은 뜨지만 다섯 번 따로 누르지 않는다. 중간에 멈추면 아래 기록 패널의 "남은 기록 이어서
+    진행" 으로 남은 단계부터 잇는다.
+  */
+  const confirm = useProductionFlow(batch)
+  const cancel = useCancelProductionBatch(batch.productionBatchId)
 
   const productUsed = batch.inputs.reduce((total, input) => total + input.productUsedQuantity, 0)
   const ready = batch.inputs.length > 0 && productUsed > 0
+  const locked = batch.inputs.reduce((total, input) => total + input.inputQuantity, 0)
 
   return (
     /*
@@ -202,11 +212,38 @@ function ConfirmSection({ batch }: { batch: ProductionBatch }) {
         만들어집니다. <strong>되돌릴 수 없습니다.</strong>
       </p>
 
-      {confirm.isError && <ErrorMessage error={confirm.error} />}
+      {/*
+        **그만두는 길을 같은 자리에 둔다.** 투입한 소재는 잠겨 있어 다른 배치에도 판매 글에도
+        쓸 수 없고, 그 잠금에는 만료가 없다. 확정만 놓아두면 마음이 바뀐 담당자에게 남는 길이
+        "원하지 않는 제품을 확정한다" 뿐이다 — 그건 되돌릴 수 없는 쪽으로 미는 것이다.
+      */}
+      {locked > 0 && (
+        <p className="batch-detail__effects">
+          취소하면 투입해 둔 {formatKg(locked)}의 잠금이 풀려 다시 쓸 수 있습니다.
+        </p>
+      )}
+
+      {(confirm.running || confirm.currentStep) && (
+        <ProductionFlowProgress doneSteps={stepsBefore(confirm.currentStep)} currentStep={confirm.currentStep} running={confirm.running} />
+      )}
+      {confirm.error && !confirm.running && <ErrorMessage error={confirm.error} />}
+      {cancel.isError && <ErrorMessage error={cancel.error} />}
 
       {/* 마지막 동작은 오른쪽 끝이다 — 위의 설명을 읽고 내려온 눈이 마치는 자리. */}
       <div className="batch-detail__confirm">
-        <Button onClick={() => confirm.mutate()} disabled={!ready} loading={confirm.isPending}>
+        <Button
+          variant="secondary"
+          onClick={() => cancel.mutate()}
+          loading={cancel.isPending}
+          disabled={confirm.running}
+        >
+          배치 취소
+        </Button>
+        <Button
+          onClick={() => void confirm.run()}
+          disabled={!ready || cancel.isPending}
+          loading={confirm.running}
+        >
           생산 확정
         </Button>
       </div>
@@ -259,4 +296,15 @@ function ConfirmedResult({ batch }: { batch: ProductionBatch }) {
       )}
     </section>
   )
+}
+
+/** 진행 중인 단계보다 앞선 단계. 확정 영역은 처음부터 진행하므로 앞 단계는 끝난 것이다. */
+function stepsBefore(current: ProductionFlowStep | null): Set<ProductionFlowStep> {
+  const done = new Set<ProductionFlowStep>()
+  if (current === null) return done
+  for (const { step } of PRODUCTION_FLOW_STEPS) {
+    if (step === current) break
+    done.add(step)
+  }
+  return done
 }

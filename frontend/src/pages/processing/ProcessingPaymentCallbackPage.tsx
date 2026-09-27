@@ -4,6 +4,8 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { processingRequestApi, type ProcessingJob } from '../../features/processing/api/processingRequestApi.ts'
 import { processingJobApi, type ProcessingJobDetail } from '../../features/processing/api/processingJobApi.ts'
 import { PROCESSING_PAYMENT_JOB_KEY } from '../../features/processing/hooks/useProcessingPayment.ts'
+import { useProcessingChainRegistration } from '../../features/processing/hooks/useProcessingChainRegistration.ts'
+import { ProcessingChainRegistrationStatus } from '../../features/processing/components/ProcessingChainRegistrationStatus.tsx'
 import { isAppError } from '../../utils/errors.ts'
 import '../../features/processing/components/brand-processing-detail.css'
 
@@ -20,6 +22,8 @@ export function ProcessingPaymentCallbackPage() {
   const [job, setJob] = useState<ProcessingJob | null>(null)
   const [paymentJob, setPaymentJob] = useState<ProcessingJobDetail | null>(null)
   const [error, setError] = useState<unknown>(null)
+  // 결제가 확정되면 같은 흐름에서 온체인 등록 서명까지 요청한다 — 브랜드가 따로 누를 단계가 없다.
+  const registration = useProcessingChainRegistration(job?.status === 'PAID' ? job.jobId : null)
 
   useEffect(() => {
     if (!validJobId) return
@@ -46,7 +50,7 @@ export function ProcessingPaymentCallbackPage() {
   } else if (!job) {
     content = <><span className="br-payment-callback__spinner" aria-hidden="true" /><h1>가공비 결제를 승인하고 있습니다</h1><p>잠시만 기다려 주세요.</p></>
   } else {
-    content = <><CheckCircle aria-hidden="true" /><h1>가공비 결제가 완료되었습니다</h1><strong>{won(job.paymentAmount)}</strong><p>결제가 완료되었습니다. 소재를 가공사로 발송해 주세요.</p><div className="br-payment-callback__actions"><Link to={`/processing/jobs/${job.jobId}`}>가공 작업 보기</Link><Link to={`/brand/processing/requests/${job.requestId}`}>요청 상세로 돌아가기</Link></div></>
+    content = <><CheckCircle aria-hidden="true" /><h1>가공비 결제가 완료되었습니다</h1><strong>{won(job.paymentAmount)}</strong><ProcessingChainRegistrationStatus phase={registration.phase} error={registration.error} onRetry={() => void registration.retry()}/><div className="br-payment-callback__actions"><Link to={`/processing/jobs/${job.jobId}`}>가공 작업 보기</Link><Link to={`/brand/processing/requests/${job.requestId}`}>요청 상세로 돌아가기</Link></div></>
   }
 
   const canRetry = !job && validJobId && (!pgToken || Boolean(error)) && paymentJob?.status === 'CREATED'
