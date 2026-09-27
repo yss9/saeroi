@@ -54,7 +54,7 @@ describe('WeightPhotoRecognition', () => {
     const { onFileChange } = renderRecognition()
     const user = userEvent.setup()
 
-    await user.upload(screen.getByLabelText('저울 사진'), file)
+    await user.upload(screen.getByLabelText('저울 사진 선택'), file)
 
     expect(onFileChange).toHaveBeenCalledWith(file)
     expect(screen.getByRole('img', { name: '선택한 저울 사진 미리보기' })).toHaveAttribute(
@@ -69,7 +69,7 @@ describe('WeightPhotoRecognition', () => {
     const user = userEvent.setup({ applyAccept: false })
 
     await user.upload(
-      screen.getByLabelText('저울 사진'),
+      screen.getByLabelText('저울 사진 선택'),
       imageFile('scale.webp', 'image/webp'),
     )
 
@@ -83,7 +83,7 @@ describe('WeightPhotoRecognition', () => {
     const user = userEvent.setup()
 
     await user.upload(
-      screen.getByLabelText('저울 사진'),
+      screen.getByLabelText('저울 사진 선택'),
       imageFile('large.png', 'image/png', 10 * 1024 * 1024 + 1),
     )
 
@@ -97,7 +97,7 @@ describe('WeightPhotoRecognition', () => {
     const user = userEvent.setup()
     const file = imageFile('limit.png', 'image/png', 10 * 1024 * 1024)
 
-    await user.upload(screen.getByLabelText('저울 사진'), file)
+    await user.upload(screen.getByLabelText('저울 사진 선택'), file)
 
     expect(onFileChange).toHaveBeenCalledWith(file)
     await waitFor(() => expect(api.recognizeWeight).toHaveBeenCalledWith(file))
@@ -109,28 +109,28 @@ describe('WeightPhotoRecognition', () => {
     renderRecognition()
     const user = userEvent.setup()
 
-    await user.upload(screen.getByLabelText('저울 사진'), imageFile())
+    await user.upload(screen.getByLabelText('저울 사진 선택'), imageFile())
 
     expect(screen.getByRole('status')).toHaveTextContent('무게를 인식하는 중')
-    expect(screen.getByLabelText('저울 사진')).toBeDisabled()
+    expect(screen.getByLabelText('저울 사진 선택')).toBeDisabled()
   })
 
   it('성공 결과를 보여 주되 사용자가 적용하기 전에는 콜백을 부르지 않는다', async () => {
     const { onApply } = renderRecognition()
     const user = userEvent.setup()
 
-    await user.upload(screen.getByLabelText('저울 사진'), imageFile())
+    await user.upload(screen.getByLabelText('저울 사진 선택'), imageFile())
 
-    expect(await screen.findByRole('status')).toHaveTextContent('1,250 g')
-    expect(screen.getByRole('status')).toHaveTextContent('95%')
-    expect(screen.getByRole('status')).toHaveTextContent('1250 g')
+    expect(await screen.findByRole('status')).toHaveTextContent('1,250g(신뢰도 95%)로 측정되었습니다.')
+    // OCR 원문은 인식 무게와 같은 숫자를 한 번 더 적는 줄이라 두지 않는다.
+    expect(screen.getByRole('status')).not.toHaveTextContent('OCR 원문')
     expect(onApply).not.toHaveBeenCalled()
   })
 
   it('적용 버튼을 눌러야 인식된 gram 값을 넘긴다', async () => {
     const { onApply } = renderRecognition()
     const user = userEvent.setup()
-    await user.upload(screen.getByLabelText('저울 사진'), imageFile())
+    await user.upload(screen.getByLabelText('저울 사진 선택'), imageFile())
 
     await user.click(await screen.findByRole('button', { name: '인식 무게 적용' }))
 
@@ -147,7 +147,7 @@ describe('WeightPhotoRecognition', () => {
     })
     const { onApply } = renderRecognition()
     const user = userEvent.setup()
-    await user.upload(screen.getByLabelText('저울 사진'), imageFile())
+    await user.upload(screen.getByLabelText('저울 사진 선택'), imageFile())
 
     expect(await screen.findByRole('status')).toHaveTextContent('인식 신뢰도가 낮습니다.')
     const applyButton = screen.getByRole('button', { name: '인식 무게 적용' })
@@ -166,9 +166,9 @@ describe('WeightPhotoRecognition', () => {
     })
     const { onApply } = renderRecognition()
     const user = userEvent.setup()
-    await user.upload(screen.getByLabelText('저울 사진'), imageFile())
+    await user.upload(screen.getByLabelText('저울 사진 선택'), imageFile())
 
-    expect(await screen.findByRole('status')).toHaveTextContent('1,250 g')
+    expect(await screen.findByRole('status')).toHaveTextContent('1,250g(신뢰도 69%)로 측정되었습니다.')
     expect(screen.getByRole('button', { name: '인식 무게 적용' })).toBeDisabled()
     expect(screen.getByRole('status')).toHaveTextContent('다시 촬영')
     expect(onApply).not.toHaveBeenCalled()
@@ -193,7 +193,7 @@ describe('WeightPhotoRecognition', () => {
       })
       renderRecognition()
       const user = userEvent.setup()
-      await user.upload(screen.getByLabelText('저울 사진'), imageFile())
+      await user.upload(screen.getByLabelText('저울 사진 선택'), imageFile())
 
       const alert = await screen.findByRole('alert')
       expect(alert).toHaveTextContent(message ?? '무게를 인식하지 못했습니다.')
@@ -207,7 +207,7 @@ describe('WeightPhotoRecognition', () => {
     renderRecognition()
     const user = userEvent.setup()
 
-    await user.upload(screen.getByLabelText('저울 사진'), imageFile())
+    await user.upload(screen.getByLabelText('저울 사진 선택'), imageFile())
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('일시적인 서비스 문제')
@@ -221,10 +221,10 @@ describe('WeightPhotoRecognition', () => {
       .mockReturnValueOnce('blob:second')
     const { unmount } = renderRecognition()
     const user = userEvent.setup()
-    const input = screen.getByLabelText('저울 사진')
+    const input = screen.getByLabelText('저울 사진 선택')
 
     await user.upload(input, imageFile('first.jpg'))
-    await screen.findByText('1,250 g')
+    await screen.findByText(/측정되었습니다/)
     await user.upload(input, imageFile('second.png', 'image/png'))
 
     await waitFor(() => expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:first'))
@@ -235,13 +235,13 @@ describe('WeightPhotoRecognition', () => {
   it('파일 제거 시 선택을 비우고 부모에 null을 알린다', async () => {
     const { onFileChange } = renderRecognition()
     const user = userEvent.setup()
-    await user.upload(screen.getByLabelText('저울 사진'), imageFile())
-    await screen.findByText('1,250 g')
+    await user.upload(screen.getByLabelText('저울 사진 선택'), imageFile())
+    await screen.findByText(/측정되었습니다/)
 
     await user.click(screen.getByRole('button', { name: '사진 제거' }))
 
     expect(onFileChange).toHaveBeenLastCalledWith(null)
     expect(screen.queryByRole('img', { name: '선택한 저울 사진 미리보기' })).not.toBeInTheDocument()
-    expect(screen.queryByText('1,250 g')).not.toBeInTheDocument()
+    expect(screen.queryByText(/측정되었습니다/)).not.toBeInTheDocument()
   })
 })

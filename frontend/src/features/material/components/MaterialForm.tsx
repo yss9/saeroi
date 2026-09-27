@@ -1,6 +1,13 @@
 import { useMemo, useRef, useState } from 'react'
 import { useFieldArray, useForm, useWatch } from 'react-hook-form'
-import { Warning } from '@phosphor-icons/react'
+import {
+  IdentificationCard,
+  ListChecks,
+  Scales,
+  Stack,
+  Wallet,
+  Warning,
+} from '@phosphor-icons/react'
 import { Button, ConfirmModal, ErrorMessage, Input, Select } from '../../../components/common/index.ts'
 import { gramToKg, kgToGram } from '../../../utils/quantity.ts'
 import { useCreateMaterial } from '../hooks/useCreateMaterial.ts'
@@ -120,14 +127,13 @@ const MINT_STAGE: Partial<Record<ChainLinkStatus, { percent: number; label: stri
  */
 const STEPS: readonly {
   title: string
-  hint: string
   /** 이 구획을 벗어날 때 검증할 필드. 비면 검증 없이 넘어간다 */
   fields: readonly (keyof MaterialFormValues)[]
 }[] = [
-  { title: '기본 정보', hint: '유형 · 출처 · 소재명', fields: ['materialType', 'rootOrigin', 'name'] },
-  { title: '수량 · 규격', hint: '수량 필수', fields: ['quantityKg', 'lengthMm', 'widthMm', 'description'] },
-  { title: '구성 · 발생', hint: '모두 선택', fields: ['originReason', 'originReasonNote', 'composition'] },
-  { title: '등록 확인', hint: '최종 확인', fields: [] },
+  { title: '기본 정보', fields: ['materialType', 'rootOrigin', 'name'] },
+  { title: '수량 · 규격', fields: ['quantityKg', 'lengthMm', 'widthMm', 'description'] },
+  { title: '구성 · 발생', fields: ['originReason', 'originReasonNote', 'composition'] },
+  { title: '등록 확인', fields: [] },
 ]
 
 /**
@@ -140,6 +146,11 @@ const STEPS: readonly {
 function stepOfField(field: string): number {
   const index = STEPS.findIndex((step) => step.fields.some((name) => field.startsWith(name)))
   return index === -1 ? 0 : index
+}
+
+/** `0x1234…abcd`. 짧은 주소(테스트의 가짜 값 등)는 그대로 둔다. */
+function shortAddress(address: string): string {
+  return address.length > 12 ? `${address.slice(0, 6)}…${address.slice(-4)}` : address
 }
 
 /**
@@ -258,6 +269,7 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
     setVisited((max) => Math.max(max, next))
   }
 
+  const isLastStep = step === STEPS.length - 1
   const isWaste = rootOrigin === 'WASTE'
   // 소재 유형 ENUM 에 자유 입력 값을 보낼 수 없다(서버 400). '기타' 를 고르면
   // 실제 종류를 설명에 적게 해 유형은 ENUM 그대로, 값은 설명으로 전달한다.
@@ -293,6 +305,7 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
   // 비동기라 화면이 뜨자마자 잠깐 `null` 이기 때문이다. 그때 경고부터 보이면 정상적으로
   // 연결된 사용자에게도 한 번 번쩍인다.
   const [walletRequired, setWalletRequired] = useState(false)
+  const walletBlocked = walletRequired && wallet.address === null
 
   // ── 이전 기록 불러오기 (S15P21E104-mypage) ──
   //
@@ -484,13 +497,57 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
     if (values) void registerMaterial(values)
   }
 
+  // ── 요약 조각 ──
+  //
+  // 1~3구획에서는 오른쪽 기둥의 카드로, 4구획에서는 영수증으로 그린다. 값을 두 번 적으면
+  // 한쪽만 고쳐지는 날이 온다 — 조각은 한 번만 만든다.
+  const summaryIdentity = (
+    <dl className="mat-summary__list">
+      <SummaryRow label="소재명" value={name?.trim()} />
+      <SummaryRow
+        label="유형 · 출처"
+        value={
+          materialType
+            ? `${MATERIAL_TYPE_LABEL[materialType as MaterialType]} · ${ROOT_ORIGIN_LABEL[rootOrigin]}`
+            : ''
+        }
+      />
+      <SummaryRow label="품질 등급" value={grade ? `${grade}등급` : ''} fallback="미지정" />
+    </dl>
+  )
+  const summaryDetails = (
+    <dl className="mat-summary__list">
+      {/* 규격은 비정형 소재에 아예 없는 값이라, 비었으면 줄째 숨긴다.
+          "—" 로 남겨 두면 안 채운 것처럼 읽힌다. */}
+      {(lengthMm !== null || widthMm !== null) && (
+        <SummaryRow
+          label="규격 (L × W)"
+          value={`${(lengthMm ?? 0).toLocaleString('ko-KR')} × ${(widthMm ?? 0).toLocaleString('ko-KR')} mm`}
+        />
+      )}
+      <SummaryRow label="섬유 구성" value={compositionSummary} />
+      {isWaste && (
+        <SummaryRow
+          label="발생 사유"
+          value={originReason ? ORIGIN_REASON_LABEL[originReason as MaterialOriginReason] : ''}
+        />
+      )}
+    </dl>
+  )
+  const summaryQuantity = (
+    <strong className="mat-num">
+      {Number.isFinite(quantityKg) && quantityKg > 0 ? quantityKg.toLocaleString('ko-KR') : '—'}
+      <small>kg</small>
+    </strong>
+  )
+
   return (
     <form
       className="material-form"
       onSubmit={(event) => {
         void handleSubmit(submitValues, (invalid) => {
-          // 등록 버튼은 오른쪽에 늘 떠 있어 1구획에서도 눌린다. 비어 있는 필수 항목이
-          // 다른 구획에 있으면 그 오류는 화면에 없는 자리에 그려져, 사용자에게는
+          // 등록 버튼은 4구획에 있다. 비어 있는 필수 항목이 앞 구획에 있으면(이전 기록을
+          // 불러와 되돌아가 고친 경우 등) 그 오류는 화면에 없는 자리에 그려져, 사용자에게는
           // 아무 일도 안 일어난 것처럼 보인다. 그래서 그 구획으로 데려간다.
           const first = Object.keys(invalid)[0]
           if (first === undefined) return
@@ -505,13 +562,54 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
         <b>구획 하나가 아니라 폼 전체를 채우는 동작이라 맨 위에 둔다.</b>
 
         예전에는 1구획 안에 있었는데, 하는 일은 네 구획을 통째로 덮어쓰는 것이다 —
-        1구획만 보고 있는 사용자는 그 버튼이 어디까지 바꾸는지 알 수 없었다. 무엇을
-        바꾸는지 옆에 적어 두는 것도 같은 이유다.
+        1구획만 보고 있는 사용자는 그 버튼이 어디까지 바꾸는지 알 수 없었다.
       */}
       <div className="mat-prefill">
-        <span className="mat-prefill__note">
-          직전에 등록한 소재와 비슷하다면 값을 불러와 고쳐 쓸 수 있습니다.
-        </span>
+        {/*
+          <b>등록에 쓸 지갑은 한 줄로 맨 위에 둔다.</b> 예전에는 오른쪽 기둥에 카드 한 장을
+          차지했는데, 평소에 읽을 것은 "어느 주소로, 연결은 됐는가" 두 가지뿐이다. 여러 지갑을
+          오가는 사용자가 엉뚱한 계정으로 서명하면 되돌릴 수 없으니 그 둘은 늘 보인다.
+
+          제출을 시도했는데 지갑이 없을 때만 이 줄이 <b>소리를 낸다</b>(role="alert") — 늘
+          경고 모양이면 아무도 보지 않는다.
+        */}
+        <div
+          className={`mat-wallet${walletBlocked ? ' mat-wallet--required' : ''}`}
+          role={walletBlocked ? 'alert' : undefined}
+        >
+          <Wallet aria-hidden="true" />
+          <span className="ui-visually-hidden">등록에 사용할 지갑</span>
+          {wallet.address === null ? (
+            <>
+              <span className="mat-badge mat-badge--wait">연결 필요</span>
+              <Button type="button" variant="secondary" size="sm" onClick={wallet.connect}>
+                지갑 연결
+              </Button>
+            </>
+          ) : (
+            <>
+              <span className="mat-badge mat-badge--ok">
+                <span className="mat-badge__dot" aria-hidden="true" />
+                연결됨
+              </span>
+              {/* 앞뒤만 보여도 어느 지갑인지 가려진다. 전체는 마우스를 올리면 보인다. */}
+              <span className="mat-wallet__address mat-num" title={wallet.address}>
+                {shortAddress(wallet.address)}
+              </span>
+            </>
+          )}
+          {/*
+            막혔을 때만 이유를 적는다. 둘째 문장은 다른 주소에서 이미 연결해 둔 사용자에게
+            필요한 설명이다 — MetaMask 의 연결 승인은 주소(origin)마다 따로 저장된다.
+          */}
+          {walletBlocked && (
+            <p className="mat-wallet__note">
+              <strong>지갑을 먼저 연결해 주세요.</strong> 소재를 등록하면 주요 정보가 변경할 수
+              없는 이력으로 함께 저장됩니다. 다른 주소(예: <code>localhost</code>)에서 연결해
+              두었더라도 지금 주소에서는 <b>다시 승인</b>해야 합니다.
+            </p>
+          )}
+        </div>
         <Button
           type="button"
           variant="secondary"
@@ -550,24 +648,19 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
               onClick={() => void goToStep(index)}
             >
               <span className="mat-steps__no">{index + 1}</span>
-              <span>
-                <strong>{item.title}</strong>
-                <small>{index === step ? '작성 중' : item.hint}</small>
-              </span>
+              <strong>{item.title}</strong>
             </button>
           </li>
         ))}
       </ol>
 
-      <div className="mat-layout">
-        <div className="mat-main">
+      <div className={`mat-layout${isLastStep ? ' mat-layout--receipt' : ''}`}>
+        <div className={`mat-main${isLastStep ? ' mat-main--receipt' : ''}`}>
           {step === 0 && (
-          <section id="mat-step-1" className="console-panel mat-section">
+          <section id="mat-step-1" className="mat-panel mat-section">
             <div className="mat-section__head">
-              <h2>
-                <span className="mat-section__dot" aria-hidden="true" />1. 기본 정보
-              </h2>
-              <span className="console__tag">identification</span>
+              <IdentificationCard aria-hidden="true" />
+              <h2>1. 기본 정보</h2>
             </div>
 
       {/* 짧은 필드는 한 줄에 여러 개 — 선택지 하나하나가 줄 하나를 다 차지하면
@@ -615,12 +708,10 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
           )}
 
           {step === 1 && (
-          <section id="mat-step-2" className="console-panel mat-section">
+          <section id="mat-step-2" className="mat-panel mat-section">
             <div className="mat-section__head">
-              <h2>
-                <span className="mat-section__dot" aria-hidden="true" />2. 수량 · 규격
-              </h2>
-              <span className="console__tag">metrics</span>
+              <Scales aria-hidden="true" />
+              <h2>2. 수량 · 규격</h2>
             </div>
 
       <div className="material-form__row">
@@ -674,7 +765,7 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
         <section className="weight-recognition" aria-labelledby="weight-recognition-title">
           <div className="weight-recognition__heading">
             <div>
-              <h3 id="weight-recognition-title">저울 사진으로 무게 인식</h3>
+              <h3 id="weight-recognition-title">저울 사진</h3>
               <p>이미 생성된 소재의 증빙은 재시도 중에 변경할 수 없습니다.</p>
             </div>
           </div>
@@ -719,23 +810,17 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
           )}
 
           {step === 2 && (
-          <section id="mat-step-3" className="console-panel mat-section">
+          <section id="mat-step-3" className="mat-panel mat-section">
             <div className="mat-section__head">
-              <h2>
-                <span className="mat-section__dot" aria-hidden="true" />3. 구성 · 발생 사유
-              </h2>
-              <span className="console__tag">composition</span>
+              <Stack aria-hidden="true" />
+              <h2>3. 구성 · 발생 사유</h2>
             </div>
 
             {/*
               <b>전부 선택 입력이지만 접지 않는다.</b> 접으면 채워지는 비율이 떨어지는데,
               이 서비스는 소재 정보가 얇으면 브랜드가 고를 근거도, 최종 소비자에게 보여줄
-              이력도 얇아진다. 실제로 지금도 등급이 빈 소재가 적지 않다 — 펼쳐 둔 채로도
-              그렇다. 감추면 더 늘어난다.
+              이력도 얇아진다.
             */}
-            <p className="mat-section__note">
-              모두 선택 입력입니다. 다만 채워 둘수록 구매자가 판단할 근거가 늘어납니다.
-            </p>
 
       {/*
         발생 사유는 출처가 WASTE 일 때만 보인다. 신소재에 사유를 보내면 서버가 400 을
@@ -744,7 +829,7 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
       {isWaste && (
         <div className="material-form__row">
           <Select
-            label="발생 사유 (선택)"
+            label="발생 사유"
             placeholder="선택 안 함"
             options={ORIGIN_REASON_OPTIONS}
             error={errors.originReason?.message}
@@ -835,23 +920,54 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
           </section>
           )}
 
-          {step === 3 && (
-            <section id="mat-step-4" className="console-panel mat-section">
-              <div className="mat-section__head">
-                <h2>
-                  <span className="mat-section__dot" aria-hidden="true" />4. 등록 확인
-                </h2>
-                <span className="console__tag">확인</span>
-              </div>
-              <p className="mat-section__note">
-                오른쪽 요약에서 값을 확인한 뒤 등록하세요. 지갑에서 요청을 확인하면
-                이력 기록이 완료됩니다.
-              </p>
+          {/*
+            <b>4구획은 영수증 한 장이다.</b> 확인할 것은 "무엇을 얼마나 등록하는가" 하나라,
+            따로 "등록 확인" 상자를 세우고 요약을 옆 기둥에 두면 눈이 좌우로 오간다. 요약을
+            영수증처럼 한가운데 두고, 그 바로 아래에서 등록한다 — 읽은 자리에서 누른다.
+          */}
+          {isLastStep && (
+            <>
+              <section id="mat-step-4" className="mat-receipt" aria-labelledby="mat-receipt-title">
+                <header className="mat-receipt__head">
+                  <ListChecks aria-hidden="true" />
+                  <h2 id="mat-receipt-title">소재 등록 확인</h2>
+                </header>
+                {summaryIdentity}
+                <hr className="mat-receipt__rule" />
+                {summaryDetails}
+                {/* 영수증의 합계 자리. 이 화면에서 가장 중요한 숫자다. */}
+                <div className="mat-receipt__total">
+                  <span>등록 수량</span>
+                  {summaryQuantity}
+                </div>
+              </section>
 
               {/*
-                여기서만 진행률을 보여준다. 등록은 서버 저장 → 지갑 서명 → 블록 확정 →
-                서버 기록으로 이어지는데, 그 사이 화면이 조용하면 사용자는 멈췄다고
-                오해하고 새로고침하거나 다시 누른다.
+                <b>되돌릴 수 없다는 사실을 등록 전에 말한다.</b> 소재를 취소하거나 지우는 기능이
+                지금 이 서비스에 없다 — 잘못 등록하면 보유 목록에 영원히 남는다. 겁주지 않되
+                사실은 적는다. 처음부터 떠 있으면 1구획에서 노란 경고를 읽고 시작하게 되므로
+                이 구획에만 둔다.
+              */}
+              <p className="mat-warn" role="note">
+                <Warning aria-hidden="true" weight="fill" />
+                <span>
+                  <strong>등록 후에는 되돌릴 수 없습니다.</strong>
+                  등록 즉시 고유 코드가 발급되며, 소재를 취소·삭제하는 기능은 없습니다.
+                  <br />
+                  수량과 규격을 다시 확인해 주세요.
+                </span>
+              </p>
+
+              {isError && <ErrorMessage error={error} />}
+              {evidenceUploadError && <ErrorMessage error={evidenceUploadError} />}
+              {mint.error && !mint.isRejected && <ErrorMessage error={mint.error} />}
+              {isUploadingEvidence && (
+                <p role="status" aria-live="polite">저울 사진 증빙을 업로드하는 중입니다…</p>
+              )}
+
+              {/*
+                진행률. 등록은 서버 저장 → 지갑 서명 → 블록 확정 → 서버 기록으로 이어지는데,
+                그 사이 화면이 조용하면 사용자는 멈췄다고 오해하고 새로고침하거나 다시 누른다.
               */}
               {MINT_STAGE[mint.status] && (
                 <div className="material-form__mint-progress" role="status">
@@ -862,11 +978,19 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
                   </span>
                 </div>
               )}
-            </section>
+
+              <Button
+                type="submit"
+                fullWidth
+                loading={isPending || isUploadingEvidence || mint.isBusy}
+                disabled={compositionTotal > COMPOSITION_MAX_TOTAL}
+              >
+                {pendingRegistration && !mint.isBusy ? '소재 등록 완료하기' : '소재 등록'}
+              </Button>
+            </>
           )}
 
-          {/* 구획 이동. 제출은 오른쪽 기둥이 맡는다 — 필수를 다 채운 사람은
-              끝까지 넘기지 않고 바로 등록할 수 있어야 한다. */}
+          {/* 구획 이동. 제출은 4구획의 영수증 아래에 있다. */}
           <div className="mat-nav">
             <Button
               type="button"
@@ -876,12 +1000,10 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
             >
               이전
             </Button>
-            <span className="mat-nav__where console__num">
-              {step + 1} / {STEPS.length}
-            </span>
+            {/* 어느 구획으로 가는지는 위 단계 표시가 이미 말한다 — 버튼은 한 가지 말만 한다. */}
             {step < STEPS.length - 1 && (
               <Button type="button" onClick={() => void goToStep(step + 1)}>
-                다음: {STEPS[step + 1].title} →
+                다음 단계 →
               </Button>
             )}
           </div>
@@ -890,145 +1012,30 @@ export function MaterialForm({ onCreated }: MaterialFormProps) {
         {/*
           오른쪽 기둥. 스크롤을 따라온다.
 
-          왼쪽이 길어질 수밖에 없는 폼이라(선택 항목을 감추지 않기로 했다) 끝까지 내려가야
-          등록 버튼이 나오면 안 된다. 그리고 <b>무엇을 채웠고 무엇이 비었는지</b>가 입력하는
-          내내 보여야, 다 쓴 뒤에 위로 되짚어 올라가는 일이 없다.
+          <b>무엇을 채웠고 무엇이 비었는지</b>가 입력하는 내내 보여야, 다 쓴 뒤에 위로
+          되짚어 올라가는 일이 없다. 4구획에서는 이 요약이 가운데 영수증이 되므로 기둥은 없다.
         */}
+        {!isLastStep && (
         <aside className="mat-side">
-          <section className="console-panel mat-summary">
+          <section className="mat-panel mat-summary">
             <div className="mat-section__head">
+              <ListChecks aria-hidden="true" />
               <h2>실시간 요약</h2>
-              <span className="console-badge console-badge--flat">draft</span>
+              <span className="mat-badge mat-badge--flat">작성 중</span>
             </div>
 
-            <dl className="mat-summary__list">
-              <SummaryRow label="소재명" value={name?.trim()} />
-              <SummaryRow
-                label="유형 · 출처"
-                value={
-                  materialType
-                    ? `${MATERIAL_TYPE_LABEL[materialType as MaterialType]} · ${ROOT_ORIGIN_LABEL[rootOrigin]}`
-                    : ''
-                }
-              />
-              <SummaryRow
-                label="품질 등급"
-                value={grade ? `${grade}등급` : ''}
-                fallback="미지정"
-              />
-            </dl>
+            {summaryIdentity}
 
             {/* 이 화면에서 가장 중요한 숫자. 요약 안에서도 따로 띄운다. */}
             <div className="mat-summary__hero">
               <span>등록 수량</span>
-              <strong className="console__num">
-                {Number.isFinite(quantityKg) && quantityKg > 0 ? quantityKg.toLocaleString('ko-KR') : '—'}
-                <small>kg</small>
-              </strong>
+              {summaryQuantity}
             </div>
 
-            <dl className="mat-summary__list">
-              {/* 규격은 비정형 소재에 아예 없는 값이라, 비었으면 줄째 숨긴다.
-                  "—" 로 남겨 두면 안 채운 것처럼 읽힌다. */}
-              {(lengthMm !== null || widthMm !== null) && (
-                <SummaryRow
-                  label="규격 (L × W)"
-                  value={`${(lengthMm ?? 0).toLocaleString('ko-KR')} × ${(widthMm ?? 0).toLocaleString('ko-KR')} mm`}
-                />
-              )}
-              <SummaryRow label="섬유 구성" value={compositionSummary} />
-              {isWaste && (
-                <SummaryRow
-                  label="발생 사유"
-                  value={originReason ? ORIGIN_REASON_LABEL[originReason as MaterialOriginReason] : ''}
-                />
-              )}
-            </dl>
+            {summaryDetails}
           </section>
-
-          {/*
-            서명할 지갑. 등록 전에 사용자가 확인해야 하는 마지막 값이다 — 여러 지갑을
-            오가는 사용자가 엉뚱한 계정으로 서명하면 되돌릴 수 없다.
-          */}
-          {/*
-            제출을 시도했는데 지갑이 없으면 이 패널이 <b>소리를 낸다</b>(role="alert").
-            평소에는 조용히 상태만 보여주다가, 막힌 순간에만 보조 기술이 읽고 색이 바뀐다 —
-            늘 경고 모양이면 아무도 보지 않는다.
-          */}
-          <section
-            className={`console-panel mat-wallet${walletRequired && wallet.address === null ? ' mat-wallet--required' : ''}`}
-            role={walletRequired && wallet.address === null ? 'alert' : undefined}
-          >
-            <div className="mat-section__head">
-              <h2>등록에 사용할 지갑</h2>
-              {wallet.address === null ? (
-                <span className="console-badge console-badge--wait">연결 필요</span>
-              ) : (
-                <span className="console-badge console-badge--ok">
-                  <span className="console-badge__dot" aria-hidden="true" />
-                  연결됨
-                </span>
-              )}
-            </div>
-
-            {wallet.address === null ? (
-              <>
-                <p className="mat-wallet__note">
-                  <strong>지갑을 먼저 연결해 주세요.</strong> 소재를 등록하면 주요 정보가
-                  변경할 수 없는 이력으로 함께 저장됩니다.
-                </p>
-                {/*
-                  <b>다른 주소에서 이미 연결해 둔 사용자에게 필요한 설명이다.</b>
-                  "지갑을 연결해 주세요" 만으로는 왜 또 연결해야 하는지 알 수 없다 —
-                  MetaMask 의 연결 승인은 주소(origin)마다 따로 저장된다. 제출한 뒤에
-                  알려 주면 이미 폼을 다 채운 뒤라, 들어오자마자 보이게 둔다.
-                */}
-                <p className="mat-wallet__note">
-                  다른 주소(예: <code>localhost</code>)에서 연결해 두었더라도 지금
-                  주소에서는 <b>다시 승인</b>해야 합니다.
-                </p>
-                <Button type="button" variant="secondary" size="sm" onClick={wallet.connect}>
-                  지갑 연결
-                </Button>
-              </>
-            ) : (
-              <>
-                <p className="mat-wallet__address console__num">{wallet.address}</p>
-                <p className="mat-wallet__note">이 지갑으로 등록을 확인합니다.</p>
-              </>
-            )}
-          </section>
-
-          {/*
-            <b>되돌릴 수 없다는 사실을 등록 전에 말한다.</b> 소재를 취소하거나 지우는 기능이
-            지금 이 서비스에 없다 — 잘못 등록하면 보유 목록에 영원히 남는다. 겁주지 않되
-            사실은 적는다.
-          */}
-          <p className="mat-warn" role="note">
-            <Warning aria-hidden="true" weight="fill" />
-            <span>
-              <strong>등록 후에는 되돌릴 수 없습니다.</strong>
-              등록 즉시 고유 코드가 발급되며, 소재를 취소·삭제하는 기능은 없습니다. 수량과
-              규격을 다시 확인해 주세요.
-            </span>
-          </p>
-
-          {isError && <ErrorMessage error={error} />}
-          {evidenceUploadError && <ErrorMessage error={evidenceUploadError} />}
-          {mint.error && !mint.isRejected && <ErrorMessage error={mint.error} />}
-          {isUploadingEvidence && (
-            <p role="status" aria-live="polite">저울 사진 증빙을 업로드하는 중입니다…</p>
-          )}
-
-          <Button
-            type="submit"
-            fullWidth
-            loading={isPending || isUploadingEvidence || mint.isBusy}
-            disabled={compositionTotal > COMPOSITION_MAX_TOTAL}
-          >
-            {pendingRegistration && !mint.isBusy ? '소재 등록 완료하기' : '소재 등록'}
-          </Button>
         </aside>
+        )}
       </div>
 
       <ConfirmModal

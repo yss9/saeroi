@@ -116,9 +116,9 @@
   gap: 0.5rem;
   margin: 1rem 0;
   padding: 1rem 1.125rem;
-  border: 1px solid var(--ui-color-primary);
+  border: 1px solid var(--mat-orange);
   border-radius: var(--ui-radius);
-  background: var(--ui-color-primary-soft);
+  background: var(--mat-orange-soft);
 }
 
 .material-form__mint-progress p {
@@ -137,11 +137,13 @@
   color: var(--ui-color-muted);
 }
 
-/* 저울 사진 인식 — 폼 안에서 독립된 보조 입력 단계로 읽히게 카드로 묶는다. */
+/* 저울 사진 인식 — 폼 안에서 독립된 보조 입력 단계로 읽히게 카드로 묶는다.
+   아래 여백을 둔다. 바로 밑 "설명" 칸이 카드에 붙어 있으면 카드 안의 칸처럼 읽힌다. */
 .weight-recognition {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  margin-bottom: 1.25rem;
   padding: 1rem 1.125rem;
   border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius);
@@ -169,17 +171,61 @@
   font-size: 0.875rem;
 }
 
-.weight-recognition__file-label {
-  font-size: 0.8125rem;
-  font-weight: 600;
-}
-
+/*
+ * 파일 선택.
+ *
+ * 브라우저 기본 모양(회색 "파일 선택" + 맨 글씨)이 이 화면에서 혼자 운영체제의 말투였다.
+ * input 을 감추고 가짜 버튼을 그리지 않는다 — 라벨로 찾아 올리는 보조 기술과 테스트가
+ * 이 요소를 그대로 쓴다. 대신 칸은 점선 상자로, 버튼(::file-selector-button)은 사이트의
+ * 파란 테두리 버튼으로 입힌다.
+ */
 .weight-recognition__file-input {
-  width: 100%;
+  box-sizing: border-box;
+  /* 칸은 내용 폭만큼 — "선택된 파일 없음" 뒤에서 끝난다. 좁은 화면에서는 줄 폭을 넘지 않는다. */
+  width: auto;
+  max-width: 100%;
+  padding: 0.4rem;
+  border: 1px dashed var(--ui-color-border-strong);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-color-bg);
+  color: var(--ui-color-muted);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
 }
+.weight-recognition__file-input::file-selector-button {
+  margin-right: 0.75rem;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid #216a9f;
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-color-surface);
+  color: #216a9f;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.weight-recognition__file-input:hover:not(:disabled) { border-color: #216a9f; }
+.weight-recognition__file-input:hover:not(:disabled)::file-selector-button {
+  background: #216a9f;
+  color: #fff;
+}
+.weight-recognition__file-input:focus-visible { outline: 2px solid #216a9f; outline-offset: 2px; }
+/* 인식하는 동안은 잠긴다 — 바꿔 올리면 앞선 인식 결과가 뒤늦게 덮어쓴다. */
+.weight-recognition__file-input:disabled,
+.weight-recognition__file-input:disabled::file-selector-button { cursor: default; opacity: 0.6; }
 
-.weight-recognition__hint {
-  margin: -0.5rem 0 0;
+/* 파일 칸과 받는 조건을 한 줄에. 조건은 칸에 붙어 있되 앞으로 나서지 않게 작게 둔다. */
+.weight-recognition__picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.75rem;
+}
+.weight-recognition__picker .weight-recognition__hint {
+  margin: 0;
+  font-size: 0.75rem;
 }
 
 .weight-recognition__preview {
@@ -199,10 +245,12 @@
   line-height: 1.6;
 }
 
+/* 진행·결과 상자는 사이트 주황이다. 공통 primary(초록)는 이 화면의 파랑·주황 사이에서
+   혼자 다른 서비스의 색이었다. */
 .weight-recognition__status,
 .weight-recognition__result {
-  border: 1px solid var(--ui-color-primary);
-  background: var(--ui-color-primary-soft);
+  border: 1px solid var(--mat-orange);
+  background: var(--mat-orange-soft);
 }
 
 .weight-recognition__result {
@@ -217,13 +265,463 @@
   background: var(--ui-color-surface);
 }
 
+/* 인식 중 — 결과 문장과 같은 말투로. 도는 표시와 한 줄, 핵심 말만 주황으로 짚는다. */
+.weight-recognition__status {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--ui-color-muted);
+  font-size: 0.92rem;
+}
+.weight-recognition__status .ui-loading__spinner {
+  flex: none;
+  width: 1.1rem;
+  height: 1.1rem;
+  color: #e8703a;
+}
+.weight-recognition__status strong { font-weight: 700; color: #e8703a; }
+
+/*
+ * 결과 문장 — "15,300g(신뢰도 98%)로 측정되었습니다."
+ *
+ * 한 가지 굵기로 적으면 밋밋하고 무엇이 결과인지 한눈에 안 들어온다. 조각마다 무게를 나눈다:
+ * 숫자는 크고 또렷하게(Inter — 이미 받아 둔 서체라 숫자 모양이 곧다), 단위는 작게,
+ * 신뢰도는 사이트 주황, 끝말은 조용한 회색. 줄의 바닥선을 맞춰 한 문장으로 읽히게 한다.
+ */
 .weight-recognition__weight {
-  font-size: 1.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 0.1rem;
+  color: var(--ui-color-muted);
+  font-size: 0.92rem;
+}
+.weight-recognition__weight > svg {
+  align-self: center;
+  width: 1.3rem;
+  height: 1.3rem;
+  margin-right: 0.45rem;
+  color: #e8703a;
+}
+.weight-recognition__weight strong {
+  font-family: 'Inter', 'Pretendard', system-ui, sans-serif;
+  font-size: 1.3rem;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--mat-dark);
+}
+.weight-recognition__weight strong small {
+  margin-left: 0.08rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--mat-blue);
+}
+.weight-recognition__confidence {
+  margin-left: 0.2rem;
+  font-weight: 700;
+  color: #e8703a;
+}
+.weight-recognition__tail { color: var(--ui-color-muted); }
+
+/* 무게 · 신뢰도 · 적용 버튼 한 줄. 버튼은 오른쪽 끝, 좁으면 줄이 접힌다. */
+.weight-recognition__result-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.9rem;
+  align-self: stretch;
+}
+.weight-recognition__result-row > p { margin: 0; }
+.weight-recognition__result-row > .ui-button { margin-left: auto; }
+/*
+ * 적용 버튼 — 상자의 주황과 무게 숫자의 남색을 한데 묶는다.
+ *
+ * 바탕은 상자 테두리와 같은 사이트 주황을 조금 밝힌 값, 글씨는 무게 숫자와 같은 남색이다.
+ * 짙은 주황에 흰 글씨는 옅은 주황 상자 위에서 혼자 튀었다. 밝은 주황 위의 남색은 대비가
+ * 4.7:1 이라 읽기에도 모자라지 않다.
+ */
+.weight-recognition__result-row > .ui-button--primary {
+  background: #ffa574;
+  color: var(--mat-dark);
   font-weight: 700;
 }
+.weight-recognition__result-row > .ui-button--primary:hover:not(:disabled) { background: #ff9b69; }
 
 .weight-recognition__alert {
   border: 1px solid var(--ui-color-danger);
   background: var(--ui-color-surface);
   color: var(--ui-color-danger);
+}
+
+/* ══ 소재 등록 화면 ═══════════════════════════════════════════════
+ *
+ * <b>소재 검색(`/marketplace`)과 같은 모양을 입는다.</b> 예전에는 공급업체 콘솔
+ * (`console.css`)의 초록·고정폭·영문 태그 디자인이었는데, 같은 "소재" 묶음에서 두
+ * 화면을 오가면 다른 서비스처럼 보였다. 등록한 소재가 곧 검색에 올라가는 판매 글이 된다.
+ *
+ * 그래서 값도 그쪽에서 가져온다 — 흰 카드에 공통 테두리·모서리·그림자(--ui-*),
+ * 머리줄은 파란 아이콘 + 굵은 제목 + 아래 구분선, 강조는 사이트 파랑(#216a9f).
+ * 공통 토큰(--ui-*)은 재정의하지 않는다. 앱 전체가 따라 바뀐다.
+ * ══════════════════════════════════════════════════════════════════ */
+
+.material-form {
+  --mat-blue: #216a9f;
+  --mat-dark: #174b72;
+  --mat-soft: #e8f2f8;
+  /* 사이트 주황 — 사이드바·소재 검색과 같은 값이다. */
+  --mat-orange: #ff9b69;
+  --mat-orange-soft: #fff4ee;
+}
+
+/* 입력칸 라벨과 높이를 소재 검색의 조건 칸과 맞춘다. 같은 소재 종류·출처·등급을 두 화면이
+   다른 크기로 물으면 같은 칸으로 읽히지 않는다. */
+.material-form .ui-field__label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--ui-color-muted);
+}
+.material-form .ui-field__control { min-height: 2.5rem; }
+.material-form textarea.ui-field__control { min-height: 0; }
+
+/* 카드. 소재 검색의 조건 상자(.listing-filter)와 같은 겉모양이다. */
+.mat-panel {
+  padding: 0.85rem 1rem 1rem;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius);
+  box-shadow: var(--ui-shadow);
+  background: var(--ui-color-surface);
+}
+
+/* 숫자는 자리를 맞춰 읽는다. 글꼴은 바꾸지 않는다 — 고정폭은 콘솔의 말투였다. */
+.mat-num { font-variant-numeric: tabular-nums; }
+
+/* ── 이전 기록 불러오기 ──────────────────────────────────────────
+ * 구획 하나가 아니라 <b>폼 전체</b>를 덮어쓰는 동작이라 단계 표시보다도 위에 둔다.
+ * 구획 안에 있으면 그 구획만 바뀌는 것으로 읽힌다. */
+.mat-prefill {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+/* 막혀서 안내가 붙으면 줄 전체를 쓰므로 불러오기 버튼은 그 아래로 내려간다. */
+.mat-prefill > .mat-wallet--required + .ui-button { margin-left: auto; }
+
+/* ── 진행 표시 ───────────────────────────────────────────────────
+ * 마법사가 아니다 — "얼마나 남았는지" 와 "눌러서 되돌아가기" 만 맡는다. 스스로 눈에 띄려
+ * 하면 안 되므로 카드 한 장 안에 조용히 늘어놓고, 지금 구획만 파랗게 켠다(소재 검색의
+ * 상태 버튼과 같은 파랑). */
+.mat-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.3rem;
+  margin: 0 0 1rem;
+  padding: 0.35rem;
+  list-style: none;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius);
+  box-shadow: var(--ui-shadow);
+  background: var(--ui-color-surface);
+}
+.mat-steps button {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 0;
+  border-radius: var(--ui-radius-sm);
+  background: transparent;
+  color: var(--ui-color-muted);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.mat-steps button:hover:not(:disabled) { background: var(--ui-color-bg); color: var(--ui-color-text); }
+/* 아직 안 지나온 구획. 눌러 건너뛰면 검증을 통과하지 않은 채 넘어간다. */
+.mat-steps button:disabled { cursor: default; opacity: 0.55; }
+.mat-steps__no {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: var(--ui-color-bg);
+  color: var(--ui-color-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.mat-steps .is-current button { background: var(--mat-soft); color: var(--mat-dark); }
+.mat-steps .is-current .mat-steps__no { background: var(--mat-blue); color: #fff; }
+/* 지나온 구획. 되돌아갈 수 있다는 것이 보여야 한다. */
+.mat-steps .is-done button { color: var(--ui-color-text); }
+.mat-steps .is-done .mat-steps__no { background: var(--mat-soft); color: var(--mat-blue); }
+.mat-steps strong { display: block; font-size: 0.82rem; font-weight: 700; }
+
+/* ── 2단 배치 ────────────────────────────────────────────────────
+ * 왼쪽에 폼, 오른쪽에 요약·지갑·등록. 선택 항목을 감추지 않기로 했으므로 왼쪽은 길어질
+ * 수밖에 없다 — 오른쪽을 붙박이(sticky)로 두어 끝까지 내려가지 않아도 등록 버튼이 보이고,
+ * 무엇을 채웠고 무엇이 비었는지가 입력하는 내내 보이게 한다. */
+.mat-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20rem;
+  align-items: start;
+  gap: 1rem;
+}
+.mat-main { display: flex; flex-direction: column; gap: 1rem; }
+.mat-side {
+  position: sticky;
+  top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+@media (max-width: 1024px) {
+  /* 좁아지면 한 단으로 쌓고 요약을 폼 아래로 내린다. */
+  .mat-layout { grid-template-columns: minmax(0, 1fr); }
+  .mat-side { position: static; }
+}
+
+/* ── 구획 머리 ───────────────────────────────────────────────────
+ * 소재 검색의 "검색 조건" 머리와 같다 — 파란 아이콘과 제목, 아래 구분선. 오른쪽 끝에는
+ * 상태 배지가 붙을 수 있다. */
+.mat-section__head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.9rem;
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid var(--ui-color-border);
+  color: var(--ui-color-text);
+}
+.mat-section__head > svg {
+  flex: none;
+  width: 1.05rem;
+  height: 1.05rem;
+  color: var(--mat-blue);
+}
+.mat-section__head h2 {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--ui-color-text);
+}
+.mat-section__head .mat-badge { margin-left: auto; }
+
+.mat-section__note {
+  margin: 0 0 1rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-color-bg);
+  color: var(--ui-color-muted);
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+/* ── 배지 ────────────────────────────────────────────────────────
+ * 둥근 알약 — 소재 검색의 상태 버튼과 같은 모양이다. 색은 가공·거래 목록의 상태 딱지와
+ * 같은 값을 쓴다: 완료는 초록, 할 일은 주황, 그 밖은 파랑. */
+.mat-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.mat-badge--ok { background: #e8f5ef; color: #176a4b; }
+.mat-badge--wait { background: #fff1dc; color: #80551d; }
+.mat-badge--flat { background: var(--mat-soft); color: var(--mat-dark); }
+/* 살아 있는 상태를 가리키는 점. */
+.mat-badge__dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+/* ── 요약 ────────────────────────────────────────────────────────── */
+.mat-summary__list { display: flex; flex-direction: column; gap: 0.5rem; margin: 0; }
+.mat-summary__list > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.mat-summary__list dt { flex: none; font-size: 0.78rem; color: var(--ui-color-muted); }
+.mat-summary__list dd {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ui-color-text);
+  text-align: right;
+  word-break: break-word;
+}
+/* 아직 안 채운 값. 줄을 빼지 않고 흐리게 남긴다 — 빼 버리면 무엇이 비었는지 안 보인다. */
+.mat-summary__empty { color: var(--ui-color-muted); font-weight: 400; }
+
+/* 이 화면에서 가장 중요한 숫자. 소재 검색의 단가처럼 파랗고 크게 띄운다. */
+.mat-summary__hero {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0.8rem 0;
+  padding: 0.75rem 0.9rem;
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-color-bg);
+}
+.mat-summary__hero > span { font-size: 0.78rem; font-weight: 700; color: var(--ui-color-muted); }
+.mat-summary__hero strong {
+  font-size: 1.6rem;
+  line-height: 1.2;
+  font-weight: 800;
+  color: var(--mat-blue);
+}
+.mat-summary__hero small { margin-left: 0.15rem; font-size: 0.78rem; color: var(--ui-color-muted); }
+
+/* ── 4구획: 영수증 ─────────────────────────────────────────────────
+ * 확인할 것은 "무엇을 얼마나 등록하는가" 하나라, 요약을 영수증 한 장으로 가운데 두고 그
+ * 바로 아래에서 등록한다. 기둥이 없으니 한 단으로 접고 영수증 폭으로 모은다. */
+.mat-layout--receipt { grid-template-columns: minmax(0, 1fr); }
+.mat-main--receipt { width: 100%; max-width: 30rem; margin: 0 auto; }
+
+.mat-receipt {
+  position: relative;
+  /* 아래 톱니가 칸 밖으로 10px 나온다 — 다음 줄이 그 위에 겹치지 않게 비워 둔다. */
+  margin-bottom: 10px;
+  padding: 1.25rem 1.35rem 1.4rem;
+  background: var(--ui-color-surface);
+  border-radius: var(--ui-radius) var(--ui-radius) 0 0;
+  /* box-shadow 는 톱니를 따라가지 않는다. drop-shadow 는 톱니까지 그림자를 드리운다. */
+  filter: drop-shadow(0 1px 1px rgb(16 34 56 / 0.12)) drop-shadow(0 8px 16px rgb(16 34 56 / 0.07));
+}
+/* 뜯어낸 종이의 아래 가장자리. */
+.mat-receipt::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -10px;
+  height: 10px;
+  background: conic-gradient(from -45deg at bottom, var(--ui-color-surface) 90deg, transparent 0) 50% / 20px 100%;
+}
+.mat-receipt__head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px dashed var(--ui-color-border-strong);
+}
+.mat-receipt__head > svg { width: 1.4rem; height: 1.4rem; color: var(--mat-blue); }
+.mat-receipt__head h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--ui-color-text);
+}
+.mat-receipt .mat-summary__list { gap: 0.6rem; }
+.mat-receipt .mat-summary__list dt,
+.mat-receipt .mat-summary__list dd { font-size: 0.85rem; }
+.mat-receipt__rule {
+  margin: 0.9rem 0;
+  border: 0;
+  border-top: 1px dashed var(--ui-color-border-strong);
+}
+/* 합계 줄. 영수증의 맨 아래, 두 겹 점선 위에 선다. */
+.mat-receipt__total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding-top: 0.9rem;
+  border-top: 3px double var(--ui-color-border-strong);
+}
+.mat-receipt__total > span { font-size: 0.85rem; font-weight: 800; color: var(--ui-color-text); }
+.mat-receipt__total strong {
+  font-size: 1.75rem;
+  line-height: 1.2;
+  font-weight: 800;
+  color: var(--mat-blue);
+}
+.mat-receipt__total small { margin-left: 0.15rem; font-size: 0.85rem; color: var(--ui-color-muted); }
+
+/* ── 서명 지갑 (맨 위 한 줄) ───────────────────────────────────────
+ * 평소에는 아이콘·상태·주소 한 줄이다. 막혔을 때만 주황으로 바뀌고 이유가 붙는다. */
+.mat-wallet {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  margin-right: auto;
+  font-size: 0.8rem;
+  color: var(--ui-color-text);
+}
+.mat-wallet > svg { flex: none; width: 1.05rem; height: 1.05rem; color: var(--mat-blue); }
+.mat-wallet__address {
+  /* 주소는 글자 하나를 틀려도 다른 지갑이다 — 여기만은 고정폭으로 또박또박 읽힌다. */
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+  color: var(--ui-color-muted);
+}
+.mat-wallet--required {
+  flex-basis: 100%;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid #f5d9a8;
+  border-radius: var(--ui-radius);
+  background: #fffaf2;
+}
+.mat-wallet__note {
+  flex-basis: 100%;
+  margin: 0.15rem 0 0;
+  color: #80551d;
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+.mat-wallet__note code {
+  padding: 0.05rem 0.3rem;
+  border-radius: 0.25rem;
+  background: rgb(255 255 255 / 0.7);
+  font-size: 0.9em;
+}
+
+/*
+ * 되돌릴 수 없다는 안내.
+ *
+ * danger 가 아니라 warning 이다 — 등록이 잘못됐다는 뜻이 아니라 <b>확인하고 누르라</b>는
+ * 뜻이다. 빨간색이면 사용자가 버튼을 못 누르고 멈춘다.
+ */
+.mat-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid #f5d9a8;
+  border-radius: var(--ui-radius);
+  background: #fffaf2;
+  color: #80551d;
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+.mat-warn svg { flex: none; width: 1rem; height: 1rem; margin-top: 0.1rem; }
+.mat-warn strong { display: block; margin-bottom: 0.15rem; font-size: 0.8rem; }
+
+/* ── 구획 이동 ───────────────────────────────────────────────────── */
+/* 상자는 두르지 않는다 — 카드 아래에 또 카드가 서면 이동 버튼이 한 구획처럼 읽힌다.
+   이전은 왼쪽, 다음 단계는 오른쪽 끝. 몇 번째인지는 위 단계 표시가 말한다. */
+.mat-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
 }
