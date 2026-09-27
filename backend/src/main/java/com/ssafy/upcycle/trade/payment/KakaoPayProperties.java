@@ -26,6 +26,7 @@ public record KakaoPayProperties(
         String returnUrl,
         String productOrderReturnUrl,
         String productOrderGroupReturnUrl,
+        String agentReturnUrl,
         java.time.Duration timeout) {
 
     private static final String DEFAULT_BASE_URL = "https://open-api.kakaopay.com";
@@ -52,6 +53,17 @@ public record KakaoPayProperties(
     private static final String PRODUCT_ORDER_GROUP_PATH =
             "/order-groups/{orderGroupId}/payment/return";
 
+    /**
+     * 대화창에서 시작한 결제의 복귀 경로.
+     *
+     * <p>거래 상세로 보내면 <b>대화창이 다른 화면으로 바뀌어 버린다.</b> 대화 안에서 결제까지
+     * 끝내는 것이 이 기능의 요점이라, 결제가 끝나면 다시 대화로 돌아와야 한다.
+     */
+    private static final String AGENT_PATH = "/agent/payment/callback?tradeId={tradeId}";
+
+    private static final String DEFAULT_AGENT_RETURN_URL =
+            "http://localhost:5173/agent/payment/callback?tradeId={tradeId}";
+
     private static final java.time.Duration DEFAULT_TIMEOUT = java.time.Duration.ofSeconds(10);
 
     public KakaoPayProperties {
@@ -65,6 +77,8 @@ public record KakaoPayProperties(
         productOrderGroupReturnUrl =
                 orDefault(productOrderGroupReturnUrl, derived(returnUrl, PRODUCT_ORDER_GROUP_PATH,
                         DEFAULT_PRODUCT_ORDER_GROUP_RETURN_URL));
+        agentReturnUrl =
+                orDefault(agentReturnUrl, derived(returnUrl, AGENT_PATH, DEFAULT_AGENT_RETURN_URL));
         timeout = timeout == null ? DEFAULT_TIMEOUT : timeout;
     }
 
@@ -96,6 +110,16 @@ public record KakaoPayProperties(
             return fallback;
         }
         return tradeReturnUrl.substring(0, marker) + path;
+    }
+
+    /**
+     * 대화창에서 시작한 결제의 복귀 주소.
+     *
+     * <p>{@link #returnUrlFor} 와 달리 대화로 돌아온다. 거래 id 는 쿼리로 넘긴다 — 이 경로는
+     * 라우트 파라미터가 아니라 대화 화면 하나이고, 승인 당사자 검사는 어차피 서버가 한다.
+     */
+    public String agentReturnUrlFor(Long tradeId) {
+        return agentReturnUrl.replace("{tradeId}", String.valueOf(tradeId));
     }
 
     /** 실제 PG 를 붙일 수 있는 상태인가. */

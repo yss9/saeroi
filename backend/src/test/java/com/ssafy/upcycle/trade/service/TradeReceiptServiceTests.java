@@ -1,8 +1,11 @@
 package com.ssafy.upcycle.trade.service;
 
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.when;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.ssafy.upcycle.blockchain.service.ChainOrderStatusReader;
 import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.common.exception.ErrorCode;
 import com.ssafy.upcycle.common.jpa.config.JpaAuditingConfig;
@@ -48,6 +51,14 @@ class TradeReceiptServiceTests {
     @MockitoBean
     private TradeNotificationService businessNotifications;
 
+    /**
+     * 수령 확정은 <b>체인에 수령이 남아 있어야</b> 통과한다. 이 슬라이스에는 RPC 가 없으므로
+     * 목으로 두고 "남아 있다" 를 돌려준다 — 남지 않은 경우는
+     * {@link #receiptBeforeTheChainSignatureIsRejected} 가 따로 본다.
+     */
+    @MockitoBean
+    private ChainOrderStatusReader chainOrders;
+
     private static final long MATERIAL_ID = 2L;
     private static final long SELLER_ID = 10L;
     private static final long BUYER_ID = 11L;
@@ -82,6 +93,10 @@ class TradeReceiptServiceTests {
 
     @BeforeEach
     void setUp() {
+        // 체인을 읽을 수 있는 환경으로 둔다. canRead 가 false 면 선행 조건을 건너뛰어
+        // 그 검사 자체를 시험할 수 없다.
+        when(chainOrders.canRead()).thenReturn(true);
+        when(chainOrders.alreadyReceived(anyLong())).thenReturn(true);
         lock = lockRepository.save(MaterialLock.create(
                 MATERIAL_ID, SELLER_ID, LISTING_QUANTITY,
                 MaterialLockPurpose.MARKETPLACE, MaterialLockReferenceType.LISTING, 1L, null));
@@ -94,11 +109,30 @@ class TradeReceiptServiceTests {
                 "TRD-000001", listing.getId(), MATERIAL_ID, SELLER_ID, BUYER_ID,
                 SELLER_WALLET, BUYER_WALLET, TRADE_QUANTITY, 200_000L, PaymentMethod.MOCK, LocalDateTime.now().plusMinutes(30)));
         trade.markPaid("T1234", 200_000L, LocalDateTime.now(), PaymentMethod.MOCK);
+        // 수령 확정의 선행 조건이다 — 체인에 주문이 있고 그 주문에 수령이 남아야 한다.
+        trade.assignChainTradeId(29L);
         trade.ship(LocalDateTime.now());
         shippingRepository.save(TradeShipping.of(
                         trade.getId(), "김구매", "010-0000-0000", "04766", "서울시 성동구", "101동"))
                 .registerShipment("CJ대한통운", "123456789012", LocalDateTime.now());
         entityManager.flush();
+    }
+
+    /**
+     * 체인에 수령이 남기 전에는 확정되지 않는다.
+     *
+     * <p>예전에는 순서가 반대였다. 그래서 담당자가 수령 확정을 누른 뒤 서명 창을 끄면 DB 는
+     * 소유권을 옮겼는데 체인은 모르는 상태가 됐고, 그 어긋남은 한참 뒤 그 소재를 가공에
+     * 보낼 때 insufficient material 로 드러났다. 가공은 처음부터 서명이 먼저였다.
+     */
+    @Test
+    void receiptBeforeTheChainSignatureIsRejected() {
+        when(chainOrders.alreadyReceived(29L)).thenReturn(false);
+
+        assertThatThrownBy(() -> tradeReceiptService.confirmReceipt(BUYER_ID, trade.getId()))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                        .isEqualTo(TradeErrorCode.TRADE_CHAIN_RECEIPT_REQUIRED));
     }
 
     @Test
@@ -108,6 +142,8 @@ class TradeReceiptServiceTests {
         assertThat(response.status()).isEqualTo(TradeStatus.COMPLETED);
         assertThat(response.transferredQuantity()).isEqualTo(TRADE_QUANTITY);
         assertThat(response.buyerQuantity()).isEqualTo(TRADE_QUANTITY);
+        // 서명 시각이 채워진다. 확정은 체인에 수령이 남은 뒤에만 통과하므로, 여기 값이
+        // 있다는 것은 지갑 서명이 실제로 있었다는 뜻이다 — 거짓이 아니다.
         assertThat(response.buyerSignedAt()).isNotNull();
     }
 
@@ -160,6 +196,7 @@ class TradeReceiptServiceTests {
                 "TRD-000002", trade.getListingId(), MATERIAL_ID, SELLER_ID, BUYER_ID,
                 SELLER_WALLET, BUYER_WALLET, LISTING_QUANTITY, 300_000L, PaymentMethod.MOCK, LocalDateTime.now().plusMinutes(30)));
         wholeTrade.markPaid("T9999", 300_000L, LocalDateTime.now(), PaymentMethod.MOCK);
+        wholeTrade.assignChainTradeId(30L);
         wholeTrade.ship(LocalDateTime.now());
         shippingRepository.save(TradeShipping.of(
                         wholeTrade.getId(), "김구매", "010-0000-0000", "04766", "서울시 성동구", null))
@@ -256,6 +293,7 @@ class TradeReceiptServiceTests {
                 "TRD-000004", smallListing.getId(), MATERIAL_ID, SELLER_ID, BUYER_ID,
                 SELLER_WALLET, BUYER_WALLET, 5_000L, 50_000L, PaymentMethod.MOCK, LocalDateTime.now().plusMinutes(30)));
         oversized.markPaid("T7777", 50_000L, LocalDateTime.now(), PaymentMethod.MOCK);
+        oversized.assignChainTradeId(31L);
         oversized.ship(LocalDateTime.now());
         shippingRepository.save(TradeShipping.of(
                         oversized.getId(), "김구매", "010-0000-0000", "04766", "서울시 성동구", null))

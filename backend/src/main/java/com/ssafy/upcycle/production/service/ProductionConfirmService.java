@@ -18,6 +18,7 @@ import com.ssafy.upcycle.material.service.MaterialLineageRegistrar;
 import com.ssafy.upcycle.material.service.MaterialProcessHistoryResolver;
 import com.ssafy.upcycle.material.service.MaterialEventRecorder;
 import com.ssafy.upcycle.processing.entity.ProcessType;
+import com.ssafy.upcycle.processing.entity.RequiredProcessing;
 import com.ssafy.upcycle.product.entity.ProductItem;
 import com.ssafy.upcycle.product.repository.ProductItemRepository;
 import com.ssafy.upcycle.product.service.ProductQrTokenGenerator;
@@ -35,11 +36,9 @@ import com.ssafy.upcycle.user.repository.UserRepository;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -74,15 +73,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class ProductionConfirmService {
-
-    /**
-     * 폐소재가 제품이 되기 전에 반드시 거쳐야 하는 정제 공정.
-     *
-     * <p>세 가지를 한 자리에 모아 둔다 — 규칙이 바뀌면 여기만 고친다. 검사하는 곳과
-     * 오류 메시지 둘로 훩어지면 한쪽만 바뀔 때 안내가 거짓말이 된다.
-     */
-    private static final Set<ProcessType> REQUIRED_PROCESS_TYPES = EnumSet.of(
-            ProcessType.CLEANING, ProcessType.DISASSEMBLY, ProcessType.SORTING);
 
     private final ProductionBatchRepository batchRepository;
     private final ProductionInputRepository inputRepository;
@@ -226,8 +216,8 @@ public class ProductionConfirmService {
         Map<Long, List<ProcessType>> completed =
                 processHistoryResolver.resolveAll(wasteMaterialIds);
         for (Long materialId : wasteMaterialIds) {
-            if (!completed.getOrDefault(materialId, List.of())
-                    .containsAll(REQUIRED_PROCESS_TYPES)) {
+            if (!RequiredProcessing.satisfied(
+                    MaterialRootOrigin.WASTE, completed.getOrDefault(materialId, List.of()))) {
                 throw new BusinessException(
                         ProductionErrorCode.PRODUCTION_MATERIAL_NOT_PROCESSED);
             }

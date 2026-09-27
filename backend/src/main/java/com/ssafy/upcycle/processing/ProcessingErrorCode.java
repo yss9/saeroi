@@ -19,12 +19,23 @@ public enum ProcessingErrorCode implements ErrorCode {
     PROCESSING_INVALID_STATE(HttpStatus.CONFLICT, "현재 상태에서는 가공 요청을 변경할 수 없습니다."),
     PROCESSING_JOB_NOT_FOUND(HttpStatus.NOT_FOUND, "가공 작업을 찾을 수 없습니다."),
     PROCESSING_CHAIN_NOT_LINKED(HttpStatus.CONFLICT, "온체인 작업 등록을 먼저 완료해야 소재를 발송할 수 있습니다."),
+    PROCESSING_MATERIAL_NOT_ON_CHAIN(
+            HttpStatus.CONFLICT,
+            "이 소재는 아직 블록체인에 발행되지 않아 가공을 맡길 수 없습니다. "
+                    + "생산 자투리처럼 온체인 발행이 끝나지 않은 소재가 여기 해당합니다."),
+    PROCESSING_CHAIN_SHIPMENT_REQUIRED(
+            HttpStatus.CONFLICT,
+            "발송을 블록체인에 먼저 서명해야 합니다. 서명이 남지 않으면 가공업체가 수령을 기록할 수 없습니다."),
+    PROCESSING_CHAIN_RECORD_NOT_FOUND(
+            HttpStatus.CONFLICT,
+            "서명 기록을 아직 찾지 못했습니다. 지갑에서 서명이 끝났는지 확인한 뒤 잠시 후 다시 시도해 주세요."),
     PROCESSING_WALLET_NOT_FOUND(HttpStatus.CONFLICT, "Brand와 Processor 모두 활성 지갑이 필요합니다."),
     PROCESSING_PAYMENT_NOT_PREPARED(HttpStatus.CONFLICT, "결제 준비가 필요합니다."),
     PROCESSING_PAYMENT_EXPIRED(HttpStatus.CONFLICT, "결제 가능 시간이 만료되었습니다."),
     PROCESSING_PAYMENT_AMOUNT_MISMATCH(HttpStatus.CONFLICT, "승인 금액이 견적 금액과 일치하지 않습니다."),
     PROCESSING_RESULT_INVALID(HttpStatus.BAD_REQUEST, "산출 수량 합계와 Loss 합계가 투입 수량과 일치해야 합니다."),
-    PROCESSING_EVIDENCE_REQUIRED(HttpStatus.CONFLICT, "가공 결과 제출 전 증빙 파일을 한 개 이상 등록해 주세요."),
+    PROCESSING_EVIDENCE_REQUIRED(HttpStatus.CONFLICT, "가공 결과를 제출하려면 작업 후 사진을 한 장 이상 올려 주세요."),
+    PROCESSING_BEFORE_PHOTO_REQUIRED(HttpStatus.CONFLICT, "소재를 수령하려면 받은 상태의 작업 전 사진을 한 장 이상 올려 주세요."),
     PROCESSING_SIGNATURE_CHALLENGE_NOT_FOUND(HttpStatus.NOT_FOUND, "유효한 서명 요청을 찾을 수 없습니다."),
     PROCESSING_SIGNATURE_CHALLENGE_INVALID(HttpStatus.CONFLICT, "서명 요청이 만료되었거나 현재 작업 내용과 일치하지 않습니다."),
     PROCESSING_SIGNATURE_MISMATCH(HttpStatus.UNAUTHORIZED, "MetaMask 서명자가 작업 지갑과 일치하지 않습니다."),

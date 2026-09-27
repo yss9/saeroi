@@ -6,18 +6,25 @@ import com.ssafy.upcycle.blockchain.entity.BlockchainReferenceType;
 import com.ssafy.upcycle.blockchain.entity.BlockchainTransactionStatus;
 import com.ssafy.upcycle.blockchain.repository.BlockchainTransactionRepository;
 import com.ssafy.upcycle.blockchain.service.ChainTransactionRecorder;
+import com.ssafy.upcycle.blockchain.service.ProductionScrapReceiptReader;
 import com.ssafy.upcycle.common.exception.BusinessException;
+import com.ssafy.upcycle.material.entity.Material;
 import com.ssafy.upcycle.material.entity.MaterialLock;
 import com.ssafy.upcycle.material.entity.MaterialLockStatus;
 import com.ssafy.upcycle.material.repository.MaterialLockRepository;
+import com.ssafy.upcycle.material.repository.MaterialRepository;
 import com.ssafy.upcycle.production.ProductionErrorCode;
 import com.ssafy.upcycle.production.dto.ProductionConsumeChainRequest;
 import com.ssafy.upcycle.production.entity.ProductionBatch;
 import com.ssafy.upcycle.production.entity.ProductionInput;
+import com.ssafy.upcycle.production.entity.ProductionOutput;
 import com.ssafy.upcycle.production.repository.ProductionBatchRepository;
 import com.ssafy.upcycle.production.repository.ProductionInputRepository;
+import com.ssafy.upcycle.production.repository.ProductionOutputRepository;
+import java.util.Map;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,6 +57,7 @@ import org.springframework.transaction.annotation.Transactional;
  * ({@code web3j:crypto} 만 쓴다), 소재 발행·판매·거래·생산 기록이 모두 같은 방식이다 —
  * 화면이 지갑으로 보내고 확정된 결과를 서버가 받아 적는다.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ProductionConsumeChainService {
@@ -70,6 +78,10 @@ public class ProductionConsumeChainService {
 
     private final ProductionBatchRepository batchRepository;
     private final ProductionInputRepository inputRepository;
+    private final ProductionOutputRepository outputRepository;
+    private final MaterialRepository materialRepository;
+    /** 확정 영수증에서 발행된 자투리 토큰 번호를 읽는다. */
+    private final ProductionScrapReceiptReader scrapReceiptReader;
     private final MaterialLockRepository lockRepository;
     private final BlockchainTransactionRepository transactionRepository;
     private final ChainTransactionRecorder recorder;
@@ -112,6 +124,63 @@ public class ProductionConsumeChainService {
                 BlockchainReferenceType.MATERIAL,
                 batchId,
                 request.txHash());
+
+        linkScrapTokens(batch, request.txHash());
+    }
+
+    /**
+     * 확정 트랜잭션이 발행한 <b>자투리 토큰을 DB 소재에 붙인다.</b>
+     *
+     * <p>{@code confirmProduction} 은 소각과 함께 자투리를 새 토큰으로 발행한다. 화면은 그
+     * 트랜잭션 해시만 보고하므로, 발행된 번호는 서버가 영수증에서 읽어야 한다.
+     *
+     * <p><b>붙이지 않으면 나중에 가공에서 막힌다.</b> 토큰 없는 소재는 겉으로 멀쩡해서 보유
+     * 목록에도 뜨고 다음 생산에 투입도 된다. 그런데 가공을 맡기려 하면
+     * {@code ProcessingChainService.prepare} 가 거절한다 — 그때는 이미 가공비를 결제하고
+     * 업체가 수락한 뒤다. 실제로 자투리 500g 이 그렇게 묶였다.
+     *
+     * <p>부모 토큰으로 짝을 찾는다. 이벤트가 주는 것은 토큰 번호이고 DB 의 소재 id 가 아니라,
+     * 투입 소재의 {@code tokenId} 를 열쇠로 삼는다.
+     *
+     * <p><b>실패해도 소각 기록을 되돌리지 않는다.</b> 자투리 연결은 부수 작업이고, 그것 때문에
+     * 전체를 실패시키면 체인은 소각됐는데 서버는 모르는 상태가 된다 — 지금 고치려는 문제보다
+     * 나쁜 어긋남이다. 경고만 남긴다.
+     */
+    private void linkScrapTokens(ProductionBatch batch, String txHash) {
+        if (batch.getChainBatchId() == null) {
+            return;
+        }
+        Map<Long, Long> scrapByParentToken =
+                scrapReceiptReader.scrapTokensOf(txHash, batch.getChainBatchId());
+        if (scrapByParentToken.isEmpty()) {
+            return;
+        }
+
+        for (ProductionInput input : inputRepository.findAllByProductionBatchId(batch.getId())) {
+            Material parent = materialRepository.findById(input.getMaterialId()).orElse(null);
+            if (parent == null || parent.getTokenId() == null) {
+                continue;
+            }
+            Long scrapTokenId = scrapByParentToken.get(parent.getTokenId());
+            if (scrapTokenId == null) {
+                continue;
+            }
+            outputRepository.findAllByProductionInputId(input.getId()).stream()
+                    .map(ProductionOutput::getNewMaterialId)
+                    .filter(java.util.Objects::nonNull)
+                    .map(materialRepository::findById)
+                    .flatMap(java.util.Optional::stream)
+                    .filter(scrap -> scrap.getTokenId() == null)
+                    .forEach(scrap -> {
+                        scrap.linkOnChain(
+                                scrapTokenId, recorder.chainId(), recorder.materialTokenAddress());
+                        log.info(
+                                "Production scrap linked on chain: materialId={} tokenId={} batch={}",
+                                scrap.getId(),
+                                scrapTokenId,
+                                batch.getId());
+                    });
+        }
     }
 
     /**

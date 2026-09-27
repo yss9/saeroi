@@ -25,6 +25,8 @@ import com.ssafy.upcycle.traceability.dto.JourneyStageStatus;
 import com.ssafy.upcycle.traceability.dto.JourneyStageType;
 import com.ssafy.upcycle.traceability.dto.ProductJourneyResponse;
 import com.ssafy.upcycle.trade.entity.PaymentMethod;
+import com.ssafy.upcycle.trade.entity.MaterialTrade;
+import com.ssafy.upcycle.trade.repository.MaterialTradeRepository;
 import com.ssafy.upcycle.user.entity.CompanyProfile;
 import com.ssafy.upcycle.user.entity.User;
 import com.ssafy.upcycle.user.entity.UserRole;
@@ -83,6 +85,9 @@ class ProductJourneyQueryServiceTests {
 
     @Autowired
     private BlockchainTransactionRepository blockchainTransactionRepository;
+
+    @Autowired
+    private MaterialTradeRepository materialTradeRepository;
 
     private long sequence = 0;
 
@@ -147,6 +152,51 @@ class ProductJourneyQueryServiceTests {
                 .containsOnly(JourneyStageStatus.COMPLETED);
         assertThat(journey.truncated()).isFalse();
         assertThat(journey.message()).isNull();
+    }
+
+    @Test
+    void routesPurchasedMaterialThroughTheBrandBeforeProcessing() {
+        User brand = company("리위브", UserRole.BRAND);
+        User processor = company("그린프로세싱", UserRole.PROCESSOR);
+        User supplier = company("한빛섬유", UserRole.SUPPLIER);
+        Material denim = sourceMaterial(supplier);
+        MaterialTrade purchase = completedTrade(denim, supplier, brand);
+        ProcessingJob job = confirmedJob(brand, processor);
+        // 가공 발송 뒤에 같은 소재로 생성된 거래는 이 제품의 가공 전 수령 이력이 아니다.
+        completedTrade(denim, supplier, brand);
+        Material processed = processedFrom(List.of(denim), job, processor);
+
+        ProductJourneyResponse journey = productJourneyQueryService
+                .findJourney(item(confirmBatch(openBatch(brand, processed))))
+                .orElseThrow();
+
+        assertThat(journey.nodes())
+                .extracting(ProductJourneyResponse.Node::nodeId, ProductJourneyResponse.Node::stage,
+                        ProductJourneyResponse.Node::companyName)
+                .contains(
+                        tuple("source-1", JourneyStageType.SOURCE, "한빛섬유"),
+                        tuple("collection-brand-1", JourneyStageType.COLLECTION, "리위브"),
+                        tuple("processing-1", JourneyStageType.PROCESSING, "그린프로세싱"));
+        assertThat(journey.edges())
+                .extracting(
+                        ProductJourneyResponse.Edge::fromNodeId,
+                        ProductJourneyResponse.Edge::toNodeId,
+                        ProductJourneyResponse.Edge::stage)
+                .contains(
+                        tuple("source-1", "collection-brand-1", JourneyStageType.COLLECTION),
+                        tuple("collection-brand-1", "processing-1", JourneyStageType.PROCESSING));
+        assertThat(journey.edges()).filteredOn(edge -> edge.fromNodeId().equals("source-1"))
+                .singleElement()
+                .satisfies(edge -> {
+                    assertThat(edge.shippedAt()).isEqualTo(purchase.getShippedAt());
+                    assertThat(edge.receivedAt()).isEqualTo(purchase.getReceivedAt());
+                });
+        assertThat(journey.edges()).filteredOn(edge -> edge.fromNodeId().equals("collection-brand-1"))
+                .singleElement()
+                .satisfies(edge -> {
+                    assertThat(edge.shippedAt()).isEqualTo(job.getShippedAt());
+                    assertThat(edge.receivedAt()).isEqualTo(job.getReceivedAt());
+                });
     }
 
     @Test
@@ -347,6 +397,28 @@ class ProductJourneyQueryServiceTests {
                     job.getId()));
         }
         return output;
+    }
+
+    private MaterialTrade completedTrade(Material material, User supplier, User brand) {
+        MaterialTrade trade = materialTradeRepository.save(MaterialTrade.create(
+                "TRADE-JOURNEY-" + (++sequence),
+                7_000L + sequence,
+                material.getId(),
+                supplier.getId(),
+                brand.getId(),
+                WALLET,
+                "0x" + "2".repeat(40),
+                material.getTotalQuantity(),
+                10_000L,
+                PaymentMethod.MOCK,
+                BASE.plusHours(sequence)));
+        LocalDateTime receivedAt = BASE.plusHours(sequence).plusMinutes(3);
+        trade.markPaid("journey-trade-payment-" + sequence, 10_000L,
+                BASE.plusHours(sequence), PaymentMethod.MOCK);
+        trade.ship(BASE.plusHours(sequence).plusMinutes(1));
+        trade.confirmReceipt(receivedAt);
+        trade.complete(receivedAt);
+        return trade;
     }
 
     private ProductionBatch openBatch(User brand, Material input) {

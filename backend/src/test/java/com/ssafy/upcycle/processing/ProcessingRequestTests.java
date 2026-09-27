@@ -6,17 +6,20 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static com.ssafy.upcycle.user.WalletTestSignatures.*;
 
 import com.ssafy.upcycle.blockchain.ScriptedReceiptClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ssafy.upcycle.blockchain.service.ProcessingChainTxFinder;
 import com.ssafy.upcycle.blockchain.service.ProcessingReceiptVerifier;
 import com.ssafy.upcycle.blockchain.service.ProcessingReceiptVerifier.Action;
 import com.ssafy.upcycle.blockchain.service.ProcessingReceiptVerifier.VerifiedReceipt;
 import com.ssafy.upcycle.material.entity.*;
 import com.ssafy.upcycle.material.repository.*;
 import com.ssafy.upcycle.evidence.entity.*;
+import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.evidence.repository.EvidenceFileRepository;
 import com.ssafy.upcycle.processing.entity.ProcessingInput;
 import com.ssafy.upcycle.processing.repository.ProcessingOutputRepository;
@@ -26,6 +29,7 @@ import com.ssafy.upcycle.user.entity.UserRole;
 import com.ssafy.upcycle.user.repository.UserRepository;
 import com.ssafy.upcycle.user.repository.UserWalletRepository;
 import com.ssafy.upcycle.user.entity.UserWallet;
+import com.ssafy.upcycle.processing.entity.ProcessingJobStatus;
 import java.util.List;
 import java.util.concurrent.*;
 import java.time.LocalDateTime;
@@ -55,6 +59,7 @@ class ProcessingRequestTests {
     private static final String PROCESSING_REGISTRY = "0x3333333333333333333333333333333333333333";
     @Autowired ScriptedReceiptClient chain;
     @Autowired MockMvc mvc;
+    @Autowired com.ssafy.upcycle.evidence.service.EvidenceReferenceValidator evidenceRules;
     @Autowired JdbcTemplate jdbc;
     @Autowired ObjectMapper mapper;
     @Autowired UserRepository users;
@@ -74,6 +79,7 @@ class ProcessingRequestTests {
     @Autowired java.time.Clock clock;
     @Autowired com.ssafy.upcycle.material.service.MaterialVerificationStateResolver verificationStates;
     @MockitoBean ProcessingReceiptVerifier receiptVerifier;
+    @MockitoBean ProcessingChainTxFinder txFinder;
     Long brandId;
     Long processorId;
     Long materialId;
@@ -600,6 +606,8 @@ class ProcessingRequestTests {
         mvc.perform(post("/processing-jobs/{id}/shipment", jobId)
                         .with(jwt().jwt(j -> j.subject(brandId.toString()))))
                 .andExpect(status().isConflict());
+        // 수락은 온체인 등록을 전제로 한다 — 먼저 체인에 올린 뒤에야 받을 수 있다.
+        linkChainJob(jobId);
         acceptJob(jobId);
         assertThat(jdbc.queryForObject("select status from processing_request where id=?", String.class, requestId))
                 .isEqualTo("ACCEPTED");
@@ -665,13 +673,15 @@ class ProcessingRequestTests {
         linkWallets(brandWallet, processorWallet);
         long jobId = createJob(300);
         payJob(jobId);
-        acceptJob(jobId);
+        // 수락은 온체인 등록을 전제로 한다 — 먼저 체인에 올린 뒤에야 받을 수 있다.
         linkChainJob(jobId);
+        acceptJob(jobId);
         mvc.perform(patch("/processing-jobs/{id}/ship", jobId)
                         .with(jwt().jwt(j -> j.subject(brandId.toString())))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"carrier\":\"CJ\",\"trackingNumber\":\"1234\"}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("data.status").value("SHIPPED"));
+        beforePhoto(jobId);
         mvc.perform(patch("/processing-jobs/{id}/receive", jobId)
                         .with(jwt().jwt(j -> j.subject(processorId.toString())))
                         .contentType(MediaType.APPLICATION_JSON).content(receiveBody(jobId)))
@@ -774,6 +784,7 @@ class ProcessingRequestTests {
     void outputMaterialTypeFollowsTheInputMaterial() throws Exception {
         long jobId = startProcessingJob(300);
 
+        afterPhoto(jobId);
         mvc.perform(post("/processing-jobs/{id}/result", jobId)
                         .with(jwt().jwt(j -> j.subject(processorId.toString())))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -818,10 +829,57 @@ class ProcessingRequestTests {
         assertThat(outputs.findAllByProcessingJobIdOrderById(jobId).getFirst().getMaterialType())
                 .isEqualTo(MaterialType.DENIM);
     }
+    /*
+      소재 이름도 종류와 같다 — 가공을 거쳐도 같은 소재이므로 이름이 바뀌지 않는다.
+      가공사가 이름을 다시 적게 하면 같은 소재가 단계마다 다른 이름으로 불리고,
+      여정을 따라가는 사람은 그게 같은 소재인지 알 수 없다. 화면은 이름을 보내지 않는다.
+    */
+    @Test
+    void resultDraftTakesOutputNameFromTheInputMaterial() throws Exception {
+        long jobId = startProcessingJob(300);
+
+        mvc.perform(post("/processing-jobs/{id}/results", jobId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "outputs": [
+                                    {"grade":"A","gradeReason":"오염과 손상이 없음","quantity":200}
+                                  ]
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        assertThat(outputs.findAllByProcessingJobIdOrderById(jobId).getFirst().getName())
+                .isEqualTo("denim");
+    }
+    @Test
+    void submittedOutputNameIgnoresTheRequestAndFollowsTheInputMaterial() throws Exception {
+        long jobId = startProcessingJob(300);
+
+        afterPhoto(jobId);
+        mvc.perform(post("/processing-jobs/{id}/result", jobId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "outputs": [
+                                    {"name":"재생 면사","grade":"A","gradeReason":"오염과 손상이 없음","quantity":200}
+                                  ],
+                                  "evidenceHash":"0x%s",
+                                  "manifestUrl":"https://example.com/processing/manifest.json"
+                                }
+                                """.formatted("a".repeat(64))))
+                .andExpect(status().isOk());
+
+        assertThat(outputs.findAllByProcessingJobIdOrderById(jobId).getFirst().getName())
+                .isEqualTo("denim");
+    }
     @Test
     void confirmedProcessingResultCreatesChildMaterialAndLineageAtomically() throws Exception {
         long jobId = startProcessingJob(300);
 
+        afterPhoto(jobId);
         mvc.perform(post("/processing-jobs/{id}/result", jobId)
                         .with(jwt().jwt(j -> j.subject(processorId.toString())))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -864,6 +922,8 @@ class ProcessingRequestTests {
                     assertThat(child.getGenerationType()).isEqualTo(MaterialGenerationType.PROCESSED);
                     assertThat(child.getRootOrigin()).isEqualTo(MaterialRootOrigin.WASTE);
                     assertThat(child.getRegistrantId()).isEqualTo(processorId);
+                    // 요청은 "재생 면사" 를 보냈다. 자식 소재는 부모의 이름을 그대로 잇는다.
+                    assertThat(child.getName()).isEqualTo("denim");
                 });
         assertThat(jdbc.queryForList(
                 "select parent_material_id from material_lineage where reference_id=? order by id",
@@ -904,6 +964,7 @@ class ProcessingRequestTests {
     void invalidOrUnapprovedResultNeverCreatesLineage() throws Exception {
         long jobId = startProcessingJob(300);
 
+        afterPhoto(jobId);
         mvc.perform(post("/processing-jobs/{id}/result", jobId)
                         .with(jwt().jwt(j -> j.subject(processorId.toString())))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -1052,12 +1113,118 @@ class ProcessingRequestTests {
         assertThat(balances.findByMaterialIdAndOwnerId(materialId, processorId)).isEmpty();
     }
 
+    /**
+     * <b>서명은 체인에 들어갔는데 서버가 놓친 수령</b>을 체인에서 찾아 기록한다.
+     *
+     * <p>서명 뒤 서버 호출이 실패하면(네트워크 끊김, 로그인 만료) 화면은 해시를 잃는다. 다시 서명하려
+     * 하면 체인이 이미 수령된 작업이라 되돌리고, 보낼 해시가 없어 기록이 영원히 멈췄다. 해시 없이
+     * 다시 보내면 서버가 체인에서 그 거래를 찾고, 해시를 받았을 때와 똑같이 영수증을 검증한다.
+     */
+    @Test
+    void aSignedReceiptTheServerMissedIsFoundOnChainAndRecorded() throws Exception {
+        long jobId = createPaidProcessingJob(300);
+        mvc.perform(post("/processing-jobs/{id}/shipment", jobId)
+                        .with(jwt().jwt(j -> j.subject(brandId.toString()))))
+                .andExpect(status().isOk());
+        when(txFinder.find(eq(jobId), anyLong(), eq(Action.RECEIVE))).thenReturn(java.util.Optional.of(chainHash(jobId, 2)));
+
+        beforePhoto(jobId);
+        mvc.perform(patch("/processing-jobs/{id}/receive", jobId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("data.status").value("RECEIVED"));
+
+        // 찾은 거래도 영수증 검증을 똑같이 지난다 — 서명자·작업 번호를 다시 본다.
+        org.mockito.Mockito.verify(receiptVerifier).verifyReceipt(
+                eq(chainHash(jobId, 2)), eq(jobId), anyString(), eq(Action.RECEIVE), isNull(), eq(1));
+        assertThat(jobs.findById(jobId).orElseThrow().getReceiveTxHash()).isEqualTo(chainHash(jobId, 2));
+
+        // 한 번 더 와도 기록된 그대로다. 두 번 옮기지 않는다.
+        beforePhoto(jobId);
+        mvc.perform(patch("/processing-jobs/{id}/receive", jobId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("data.status").value("RECEIVED"));
+    }
+
+    /** 체인에도 기록이 없으면 넘기지 않는다. 서명이 끝나기 전에 DB 가 앞서 나가면 되돌릴 방법이 없다. */
+    @Test
+    void aReceiptWithNoHashAndNothingOnChainIsRefused() throws Exception {
+        long jobId = createPaidProcessingJob(300);
+        mvc.perform(post("/processing-jobs/{id}/shipment", jobId)
+                        .with(jwt().jwt(j -> j.subject(brandId.toString()))))
+                .andExpect(status().isOk());
+        when(txFinder.find(eq(jobId), anyLong(), eq(Action.RECEIVE))).thenReturn(java.util.Optional.empty());
+
+        beforePhoto(jobId);
+        mvc.perform(patch("/processing-jobs/{id}/receive", jobId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("code").value("PROCESSING_CHAIN_RECORD_NOT_FOUND"));
+
+        assertThat(jobs.findById(jobId).orElseThrow().getStatus()).isEqualTo(ProcessingJobStatus.SHIPPED);
+    }
+
+    /**
+     * 승인도 같다. 승인은 새 소재를 발행하는 자리라 그 번호가 영수증에만 있다 — 체인에서 거래를 찾아
+     * 그 영수증으로 발행한다.
+     */
+    @Test
+    void aSignedApprovalTheServerMissedIsFoundOnChainAndMintsTheResult() throws Exception {
+        long jobId = startProcessingJob(300);
+        afterPhoto(jobId);
+        mvc.perform(post("/processing-jobs/{id}/result", jobId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "outputs": [
+                                    {"materialType":"DENIM","name":"재생 데님","grade":"A","gradeReason":"오염과 손상이 없음","quantity":250}
+                                  ],
+                                  "evidenceHash":"0x%s",
+                                  "manifestUrl":"https://example.com/processing/manifest.json"
+                                }
+                                """.formatted("a".repeat(64))))
+                .andExpect(status().isOk());
+        mvc.perform(patch("/processing-jobs/{id}/return/ship", jobId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON).content(returnShipBody(jobId)))
+                .andExpect(status().isOk());
+        when(txFinder.find(eq(jobId), anyLong(), eq(Action.APPROVE))).thenReturn(java.util.Optional.of(chainHash(jobId, 4)));
+
+        mvc.perform(post("/processing-jobs/{id}/return/receive", jobId)
+                        .with(jwt().jwt(j -> j.subject(brandId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("data.status").value("CONFIRMED"))
+                .andExpect(jsonPath("data.outputs[0].materialId").isNumber());
+
+        org.mockito.Mockito.verify(receiptVerifier).verifyReceipt(
+                eq(chainHash(jobId, 4)), eq(jobId), anyString(), eq(Action.APPROVE), isNull(), eq(1));
+    }
+
+    /** 가공 중에 가공사가 올리는 작업 후 사진. 결과 제출은 이것이 있어야 받는다. */
+    private void afterPhoto(long jobId) {
+        evidenceFiles.save(EvidenceFile.record(EvidenceReferenceType.PROCESSING_JOB, jobId,
+                "processing/after-" + jobId + ".jpg", "0x" + "c".repeat(64), EvidenceType.AFTER_PHOTO, processorId));
+    }
+
+    /** 수령 전에 가공사가 올리는 작업 전 사진. 수령은 이것이 있어야 받는다. */
+    private void beforePhoto(long jobId) {
+        evidenceFiles.save(EvidenceFile.record(EvidenceReferenceType.PROCESSING_JOB, jobId,
+                "processing/before-" + jobId + ".jpg", "0x" + "b".repeat(64), EvidenceType.BEFORE_PHOTO, processorId));
+    }
+
     private long startProcessingJob(long amount) throws Exception {
         long jobId = createPaidProcessingJob(amount);
         mvc.perform(post("/processing-jobs/{id}/shipment", jobId)
                         .with(jwt().jwt(j -> j.subject(brandId.toString()))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("data.status").value("SHIPPED"));
+        beforePhoto(jobId);
         mvc.perform(patch("/processing-jobs/{id}/receive", jobId)
                         .with(jwt().jwt(j -> j.subject(processorId.toString())))
                         .contentType(MediaType.APPLICATION_JSON).content(receiveBody(jobId)))
@@ -1080,8 +1247,9 @@ class ProcessingRequestTests {
         linkWallets("0x" + "5".repeat(40), "0x" + "6".repeat(40));
         long jobId = createJob(amount);
         payJob(jobId);
-        acceptJob(jobId);
+        // 수락은 온체인 등록을 전제로 한다 — 먼저 체인에 올린 뒤에야 받을 수 있다.
         linkChainJob(jobId);
+        acceptJob(jobId);
         return jobId;
     }
 
@@ -1177,5 +1345,73 @@ class ProcessingRequestTests {
                 .containsEntry("reference_type", referenceType)
                 .containsEntry("reference_id", referenceId)
                 .containsEntry("target_path", targetPath);
+    }
+
+    // ── 가공 사진 증빙: 작업 전·후만, 둘 다 필수 ─────────────────────────
+
+    /*
+      가공 결과를 받는 쪽이 확인하는 것은 "무엇이 들어와 무엇이 나갔는가" 다. 그래서 가공 작업의
+      사진 증빙은 작업 전 사진과 작업 후 사진 두 가지뿐이고, 둘 다 없으면 다음 단계로 가지 않는다.
+      작업 전 사진은 받은 그대로의 상태여야 하므로 수령할 때 올린다.
+    */
+    @Test
+    void receivingRequiresABeforePhoto() throws Exception {
+        long jobId = createPaidProcessingJob(300);
+        mvc.perform(post("/processing-jobs/{id}/shipment", jobId)
+                        .with(jwt().jwt(j -> j.subject(brandId.toString()))))
+                .andExpect(status().isOk());
+
+        mvc.perform(patch("/processing-jobs/{id}/receive", jobId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON).content(receiveBody(jobId)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("code").value("PROCESSING_BEFORE_PHOTO_REQUIRED"));
+
+        assertThat(jobs.findById(jobId).orElseThrow().getStatus()).isEqualTo(ProcessingJobStatus.SHIPPED);
+    }
+
+    @Test
+    void submittingRequiresAnAfterPhotoNotJustAnyEvidence() throws Exception {
+        long jobId = startProcessingJob(300);
+        mvc.perform(post("/processing-jobs/{id}/results", jobId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"outputs\":[{\"grade\":\"A\",\"gradeReason\":\"오염과 손상이 없음\",\"quantity\":200}]}"))
+                .andExpect(status().isOk());
+        // 작업 전 사진은 이미 있다(수령할 때 올렸다). 그것만으로는 결과를 낼 수 없다.
+
+        mvc.perform(post("/processing-jobs/{id}/results/submit", jobId)
+                        .with(jwt().jwt(j -> j.subject(processorId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"challengeId\":1,\"signature\":\"0x" + "1".repeat(130) + "\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("code").value("PROCESSING_EVIDENCE_REQUIRED"));
+    }
+
+    @Test
+    void aProcessingJobAcceptsOnlyTheRightPhotoAtTheRightStage() throws Exception {
+        long shipped = createPaidProcessingJob(300);
+        mvc.perform(post("/processing-jobs/{id}/shipment", shipped)
+                        .with(jwt().jwt(j -> j.subject(brandId.toString()))))
+                .andExpect(status().isOk());
+        long processing = startProcessingJob(300);
+
+        // 수령 전에는 작업 전 사진만, 가공 중에는 작업 후 사진만.
+        evidenceRules.requireUploadable(processorId, EvidenceReferenceType.PROCESSING_JOB, shipped, EvidenceType.BEFORE_PHOTO);
+        evidenceRules.requireUploadable(processorId, EvidenceReferenceType.PROCESSING_JOB, processing, EvidenceType.AFTER_PHOTO);
+        assertThatThrownBy(() -> evidenceRules.requireUploadable(
+                processorId, EvidenceReferenceType.PROCESSING_JOB, shipped, EvidenceType.AFTER_PHOTO))
+                .isInstanceOf(BusinessException.class).hasMessageContaining("작업 전 사진");
+        assertThatThrownBy(() -> evidenceRules.requireUploadable(
+                processorId, EvidenceReferenceType.PROCESSING_JOB, processing, EvidenceType.BEFORE_PHOTO))
+                .isInstanceOf(BusinessException.class);
+        // 다른 종류는 가공 작업에 올리지 않는다.
+        assertThatThrownBy(() -> evidenceRules.requireUploadable(
+                processorId, EvidenceReferenceType.PROCESSING_JOB, processing, EvidenceType.WEIGHT_SLIP))
+                .isInstanceOf(BusinessException.class);
+        // 브랜드는 가공 작업에 증빙을 올리지 않는다.
+        assertThatThrownBy(() -> evidenceRules.requireUploadable(
+                brandId, EvidenceReferenceType.PROCESSING_JOB, processing, EvidenceType.AFTER_PHOTO))
+                .isInstanceOf(BusinessException.class);
     }
 }

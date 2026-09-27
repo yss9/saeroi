@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.zxing.BinaryBitmap;
+import com.google.zxing.DecodeHintType;
 import com.google.zxing.client.j2se.BufferedImageLuminanceSource;
 import com.google.zxing.common.HybridBinarizer;
 import com.google.zxing.qrcode.QRCodeReader;
@@ -255,9 +256,13 @@ class ProductionQrApiTests {
 
     private String decodeQr(byte[] png) throws Exception {
         BufferedImage image = ImageIO.read(new ByteArrayInputStream(png));
+        // 서버가 방금 그린 합성 이미지다. PURE_BARCODE 가 없으면 사진용 위치 표식 탐색이
+        // 무작위 토큰의 약 0.8% 에서 표식을 놓쳐 이 테스트가 가끔 떨어졌다
+        // (ProductQrCodeGeneratorTests#aTokenThePhotoDetectorMissesStillDecodes).
         return new QRCodeReader()
                 .decode(new BinaryBitmap(
-                        new HybridBinarizer(new BufferedImageLuminanceSource(image))))
+                                new HybridBinarizer(new BufferedImageLuminanceSource(image))),
+                        Map.of(DecodeHintType.PURE_BARCODE, Boolean.TRUE))
                 .getText();
     }
 

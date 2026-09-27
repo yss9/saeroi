@@ -3,6 +3,7 @@ package com.ssafy.upcycle.evidence.service;
 import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.evidence.EvidenceErrorCode;
 import com.ssafy.upcycle.evidence.entity.EvidenceReferenceType;
+import com.ssafy.upcycle.evidence.entity.EvidenceType;
 import com.ssafy.upcycle.material.repository.MaterialRepository;
 import com.ssafy.upcycle.processing.entity.ProcessingJobStatus;
 import com.ssafy.upcycle.processing.repository.ProcessingJobRepository;
@@ -49,14 +50,27 @@ public class EvidenceReferenceValidator {
         }
     }
 
-    public void requireUploadable(Long actorId, EvidenceReferenceType referenceType, Long referenceId) {
+    /**
+     * 이 사람이 이 대상에 이 종류의 증빙을 지금 올릴 수 있는가.
+     *
+     * <p><b>가공 작업은 사진 두 가지만, 제 단계에서만 받는다.</b> 작업 전 사진은 소재를 받은
+     * 그대로의 상태여야 하므로 수령 전(SHIPPED)·수령 직후(RECEIVED)에만, 작업 후 사진은 가공 중
+     * (PROCESSING)·보완 중(REJECTED)에만 받는다. 수령과 결과 제출이 각각 그 사진을 요구한다
+     * ({@code ProcessingChainService#receive}, {@code ProcessingJobWorkflowService#submitResult}).
+     */
+    public void requireUploadable(
+            Long actorId, EvidenceReferenceType referenceType, Long referenceId, EvidenceType evidenceType) {
         requireExists(referenceType, referenceId);
         if (referenceType != EvidenceReferenceType.PROCESSING_JOB) return;
-        boolean allowed = processingJobRepository.findById(referenceId)
+        ProcessingJobStatus status = processingJobRepository.findById(referenceId)
                 .filter(job -> job.getProcessorId().equals(actorId))
-                .filter(job -> job.getStatus() == ProcessingJobStatus.PROCESSING
-                        || job.getStatus() == ProcessingJobStatus.REJECTED)
-                .isPresent();
-        if (!allowed) throw new BusinessException(EvidenceErrorCode.EVIDENCE_ACCESS_FORBIDDEN);
+                .map(job -> job.getStatus())
+                .orElseThrow(() -> new BusinessException(EvidenceErrorCode.EVIDENCE_ACCESS_FORBIDDEN));
+        boolean allowed = switch (evidenceType) {
+            case BEFORE_PHOTO -> status == ProcessingJobStatus.SHIPPED || status == ProcessingJobStatus.RECEIVED;
+            case AFTER_PHOTO -> status == ProcessingJobStatus.PROCESSING || status == ProcessingJobStatus.REJECTED;
+            default -> false;
+        };
+        if (!allowed) throw new BusinessException(EvidenceErrorCode.EVIDENCE_TYPE_NOT_ALLOWED);
     }
 }

@@ -4,10 +4,12 @@ import com.ssafy.upcycle.material.entity.Material;
 import com.ssafy.upcycle.material.entity.MaterialGenerationType;
 import com.ssafy.upcycle.material.entity.MaterialRootOrigin;
 import com.ssafy.upcycle.material.entity.MaterialType;
+import com.ssafy.upcycle.processing.entity.ProcessType;
 import com.ssafy.upcycle.trade.entity.ListingStatus;
 import com.ssafy.upcycle.trade.entity.MaterialListing;
 import com.ssafy.upcycle.user.entity.User;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 판매 글 한 건. 목록과 상세가 <b>같은 모양</b>을 쓴다.
@@ -53,7 +55,17 @@ public record ListingResponse(
         long availableQuantity,
         long pricePerKg,
         ListingStatus status,
-        LocalDateTime createdAt) {
+        LocalDateTime createdAt,
+
+        /**
+         * 이 소재가 지금까지 거친 가공 종류 — 보유 목록·소재 상세와 같은 값
+         * ({@code MaterialProcessHistoryResolver}). 빈 목록이면 가공 전이다.
+         *
+         * <p>가공을 거쳐도 소재 이름은 바뀌지 않는다. 같은 이름의 판매 글이 여럿일 때
+         * 구매자가 가를 수 있는 것이 이 값이다. 조회 쿼리는 모르는 값이라 {@link #of} 는
+         * 빈 목록으로 두고, 서비스가 {@link #withCompletedProcessTypes} 로 채운다.
+         */
+        List<ProcessType> completedProcessTypes) {
 
     public static ListingResponse of(MaterialListing listing, Material material, User seller) {
         return new ListingResponse(
@@ -73,6 +85,14 @@ public record ListingResponse(
                 listing.getAvailableQuantity(),
                 listing.getPricePerKg(),
                 listing.getStatus(),
-                listing.getCreatedAt());
+                listing.getCreatedAt(),
+                List.of());
+    }
+
+    public ListingResponse withCompletedProcessTypes(List<ProcessType> processTypes) {
+        return new ListingResponse(listingId, chainListingId, materialId, materialCode, materialName,
+                materialDescription, materialType, rootOrigin, generationType, grade, sellerId,
+                sellerName, totalQuantity, availableQuantity, pricePerKg, status, createdAt,
+                List.copyOf(processTypes));
     }
 }

@@ -22,6 +22,9 @@ public class ProcessingReceiptVerifier {
 
         private final String topic;
         Action(String signature) { this.topic = Hash.sha3String(signature).toLowerCase(); }
+
+        /** 이 단계가 남기는 이벤트의 첫 토픽. 해시 없이 체인에서 그 거래를 찾을 때 쓴다. */
+        public String topic() { return topic; }
     }
 
     public record VerifiedReceipt(
