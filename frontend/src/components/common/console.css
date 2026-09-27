@@ -1562,6 +1562,12 @@ a.console-btn--primary:hover { color: #ffffff; }
   color: var(--console-ink-3);
 }
 
+/* 가공 이력 배지. 이름 바로 옆에 붙여 같은 이름끼리 한눈에 갈리게 한다. */
+.inv-table .console-row__name .material-processing-badge {
+  margin-left: 6px;
+  vertical-align: 1px;
+}
+
 /* 이 표를 보는 이유가 되는 숫자. 한 열만 크게 둔다. */
 .inv-usable {
   font-size: 15px;

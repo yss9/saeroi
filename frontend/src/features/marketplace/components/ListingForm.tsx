@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { Button, ErrorMessage, Input } from '../../../components/common/index.ts'
-import { calculateTotalPrice, formatKg, formatWon, kgToGram } from '../../../utils/quantity.ts'
+import { calculateTotalPrice, formatKg, formatWon, gramToKg, kgToGram } from '../../../utils/quantity.ts'
 import { useMaterial } from '../../material/hooks/useMaterial.ts'
 import { useCreateListing } from '../hooks/useCreateListing.ts'
 import { useListingOnChain } from '../hooks/useListingOnChain.ts'
@@ -59,7 +59,7 @@ export function ListingForm({
   const previewTotal =
     quantityKg > 0 && pricePerKg > 0 ? calculateTotalPrice(kgToGram(quantityKg), pricePerKg) : null
 
-  const availableKg = availableQuantity / 1000
+  const availableKg = gramToKg(availableQuantity)
 
   // 온체인 등록에 필요한 tokenId. 소재가 아직 발행되지 않았으면 null 이고, 그때는
   // 서버 등록만 하고 끝낸다 — 판매 자체를 막을 이유는 없다.

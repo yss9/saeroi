@@ -33,6 +33,31 @@ export interface PredictionSurveyRequest {
 
 export interface PredictionPointGrant { walletAddress: string; amount: string; transactionHash: string }
 
+export interface BrandPredictionBucketInsight extends PredictionBucket {
+  responseCount: number
+  stakeAmount: string
+}
+
+export interface BrandPredictionReasonInsight {
+  reasonCode: PredictionReasonCode
+  responseCount: number
+}
+
+export interface BrandPredictionComment {
+  reasonCode: PredictionReasonCode
+  reasonText: string
+  submittedAt: string
+}
+
+export interface BrandPredictionInsight {
+  market: PredictionMarket
+  participantCount: number
+  totalStakeAmount: string
+  buckets: BrandPredictionBucketInsight[]
+  reasons: BrandPredictionReasonInsight[]
+  comments: BrandPredictionComment[]
+}
+
 export interface PredictionChainState {
   totalPool: bigint
   userStake: bigint

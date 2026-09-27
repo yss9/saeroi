@@ -11,7 +11,7 @@ import { parseServerTime } from '../utils/processingTime.ts'
 import './processor-work-list.css'
 
 const jobStatusLabel: Record<ProcessingJobStatus, string> = {
-  CREATED: '결제 대기', PAID: '수락 대기', ACCEPTED: '발송 대기', DECLINED: '거절', SHIPPED: '수령 대기', RECEIVED: '가공 시작 대기',
+  CREATED: '결제 대기', PAID: '수락 대기', ACCEPTED: '발송 대기', DECLINED: '거절', SHIPPED: '수령 대기', RECEIVED: '가공 중',
   PROCESSING: '가공 중', RESULT_SUBMITTED: '검토 대기', RETURN_SHIPPED: '결과물 반환 중', CONFIRMED: '완료', REJECTED: '보완 요청', EXPIRED: '만료', CANCELED: '반환 종료',
 }
 const grams = (value: number) => `${value.toLocaleString('ko-KR')} g`

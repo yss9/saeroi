@@ -24,6 +24,7 @@ import {
   STAGE_ORDER,
   stageIndex,
 } from '../utils/journeyStages.ts'
+import { formatKg } from '../../../utils/quantity.ts'
 import type {
   BlockchainProof,
   JourneyEdge,
@@ -64,10 +65,9 @@ function formatDate(value: string | null): string {
   }).format(new Date(value))
 }
 
-function formatQuantity(grams: number): string {
-  if (grams >= 1000) return `${new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 1 }).format(grams / 1000)} kg`
-  return `${new Intl.NumberFormat('ko-KR').format(grams)} g`
-}
+// 자체 포맷터를 두지 않는다. 화면마다 단위가 달라지면(여기는 1kg 미만을 g 로 보여줬다)
+// 같은 수량이 화면에 따라 다르게 읽힌다.
+const formatQuantity = formatKg
 
 const REFERENCE_TYPE_LABEL: Record<BlockchainProof['referenceType'], string> = {
   MATERIAL: '소재 발행',
@@ -336,6 +336,7 @@ function JourneyCanvas({
   onSelectNode: (nodeId: string) => void
 }) {
   const reducedMotion = useReducedMotion()
+  const [openLocation, setOpenLocation] = useState<{ key: string; stage: JourneyStageType; mode: ViewMode } | null>(null)
   const activeIndex = stageIndex(activeStage)
   const focusedEdgeIds = useMemo(
     () => focusedNodeId ? traceFocusedRoute(journey.edges, focusedNodeId) : new Set<string>(),
@@ -391,8 +392,8 @@ function JourneyCanvas({
       || focusedNodeIds.has(node.nodeId),
   )
   // Journey Map은 실제 위도·경도를 이 SVG 좌표계 위에 그대로 투영해 찍는다(외부 지도
-  // 타일 서버 없이) — 타일 CDN이 API 키를 요구하거나 막히는 상황에 기록 조회 자체가
-  // 흔들리지 않도록. 좌표가 없는 노드는 찍을 위치가 없으니 지도에서 빠진다.
+  // 타일 서버 없이). 같은 좌표의 기록만 한 마커로 묶고, 가까운 다른 좌표는 이동시키지
+  // 않는다. 좌표가 없는 노드는 찍을 위치가 없으니 지도에서 빠진다.
   //
   // 투영은 전국 고정이 아니라 **단계에 맞춰 확대**한다. `showFullFlow` 인 두 단계는
   // 여정 전체 지점을 보여줘 전체 흐름을 먼저 보게 하고, 그다음부터는 `visibleNodes` —
@@ -402,8 +403,23 @@ function JourneyCanvas({
   const mapZoomTarget = showFullFlow ? journey.nodes : visibleNodes
   const mapProjection = viewMode === 'MAP' ? zoomedProjection(mapZoomTarget) : KOREA_PROJECTION
   const positions = viewMode === 'MAP'
-    ? declutterPositions(mapPositions(journey.nodes, mapProjection))
+    ? mapPositions(journey.nodes, mapProjection)
     : flowPositions(journey.nodes)
+  const locationGroups = viewMode === 'MAP' ? groupLocatedNodes(visibleNodes) : []
+  const openGroup = openLocation?.stage === activeStage && openLocation.mode === viewMode
+    ? locationGroups.find((group) => group.key === openLocation.key)
+    : undefined
+  const nearbyNodes = openGroup
+    ? visibleNodes.filter((node) => {
+        const anchor = positions[openGroup.nodes[0].nodeId]
+        const point = positions[node.nodeId]
+        return anchor && point && Math.hypot(point.x - anchor.x, point.y - anchor.y) < MARKER_MIN_SEPARATION_PX
+      }).sort((a, b) => stageIndex(a.stage) - stageIndex(b.stage)
+        || Date.parse(a.startedAt ?? '9999-12-31') - Date.parse(b.startedAt ?? '9999-12-31'))
+    : []
+  const choiceLabel = openGroup && openGroup.nodes.length > 1
+    ? nearbyNodes.length > openGroup.nodes.length ? '이 위치와 가까운 지점의 기록' : '이 위치의 기록'
+    : '가까운 지점의 기록'
 
   return (
     <div className={`journey-canvas journey-canvas--${viewMode.toLowerCase()}${compact ? ' journey-canvas--compact' : ''}`}>
@@ -434,6 +450,7 @@ function JourneyCanvas({
             const from = positions[edge.fromNodeId]
             const to = positions[edge.toNodeId]
             if (!from || !to) return null
+            if (viewMode === 'MAP' && from.x === to.x && from.y === to.y) return null
             const focused = focusedVisibleEdgeIds.has(edge.edgeId)
             const active = routeFocused
               ? focused && activeEdgeIds.has(edge.edgeId)
@@ -495,28 +512,50 @@ function JourneyCanvas({
         </g>
 
         <g className="journey-canvas__nodes">
-          {visibleNodes.map((node) => {
+          {(viewMode === 'MAP' ? locationGroups.map((group) => {
+            const active = group.nodes.find((node) => node.nodeId === activeNodeId)
+            return { ...group, node: active ?? group.nodes[0] }
+          }) : visibleNodes.map((node) => ({ key: node.nodeId, nodes: [node], node }))).map((group) => {
+            const node = group.node
             const point = positions[node.nodeId]
             if (!point) return null
-            const selected = node.nodeId === activeNodeId
-            const current = focusedNodeIds.has(node.nodeId) || node.stage === activeStage || connectedIds.has(node.nodeId)
+            const selected = group.nodes.some((item) => item.nodeId === activeNodeId)
+            const current = group.nodes.some((item) => focusedNodeIds.has(item.nodeId) || item.stage === activeStage || connectedIds.has(item.nodeId))
             const NodeIcon = STAGE_META[node.stage].icon
+            const nearbyCount = viewMode === 'MAP' ? locationGroups.filter((other) => {
+              const otherPoint = positions[other.nodes[0].nodeId]
+              return otherPoint && Math.hypot(otherPoint.x - point.x, otherPoint.y - point.y) < MARKER_MIN_SEPARATION_PX
+            }).reduce((count, other) => count + other.nodes.length, 0) : 1
+            const markerLabel = group.nodes.length > 1
+              ? `${node.companyName ?? STAGE_LABEL[node.stage]} · ${group.nodes.length}개 기록`
+              : `${node.companyName ?? STAGE_LABEL[node.stage]} 상세 보기`
+            const selectMarker = () => {
+              if (viewMode === 'MAP' && nearbyCount > 1) {
+                setOpenLocation({ key: group.key, stage: activeStage, mode: viewMode })
+              } else {
+                setOpenLocation(null)
+                onSelectNode(node.nodeId)
+              }
+            }
             return (
               <g
-                key={node.nodeId}
+                key={group.key}
                 role="button"
                 tabIndex={0}
-                aria-label={`${node.companyName ?? STAGE_LABEL[node.stage]} 상세 보기`}
+                aria-label={markerLabel}
                 className={`journey-node${selected ? ' is-selected' : ''}${current ? ' is-current' : ''}${routeFocused && !focusedNodeIds.has(node.nodeId) ? ' is-dimmed' : ''}`}
                 transform={`translate(${point.x} ${point.y})`}
                 data-node-id={node.nodeId}
                 data-node-stage={node.stage}
-                onClick={() => onSelectNode(node.nodeId)}
+                onClick={selectMarker}
                 onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') onSelectNode(node.nodeId)
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    selectMarker()
+                  }
                 }}
               >
-                <title>{node.companyName ?? STAGE_LABEL[node.stage]}{node.locationName ? ` · ${node.locationName}` : ''}</title>
+                <title>{markerLabel}{node.locationName ? ` · ${node.locationName}` : ''}</title>
                 <circle className="journey-node__halo" r="34" />
                 <circle className="journey-node__body" r="23" />
                 <g className="journey-node__icon" transform="translate(-12 -12)">
@@ -524,8 +563,14 @@ function JourneyCanvas({
                 </g>
                 <g className="journey-node__stage-badge" transform="translate(17 -17)">
                   <circle r="10" />
-                  <text textAnchor="middle" dy="4">{stageIndex(node.stage) + 1}</text>
+                  <text textAnchor="middle" dy="4">{viewMode === 'MAP' && group.nodes.length > 1 ? group.nodes.length : stageIndex(node.stage) + 1}</text>
                 </g>
+                {viewMode === 'MAP' && nearbyCount > group.nodes.length ? (
+                  <g className="journey-node__nearby-badge" transform="translate(-19 -19)" aria-hidden="true">
+                    <circle r="11" />
+                    <text textAnchor="middle" dy="4">{nearbyCount}</text>
+                  </g>
+                ) : null}
                 {viewMode === 'FLOW' ? (
                   <g className="journey-node__flow-label">
                     <rect x="-78" y="32" width="156" height="54" rx="11" />
@@ -541,6 +586,19 @@ function JourneyCanvas({
         </g>
       </JourneyCanvasSvg>
       )}
+      {viewMode === 'MAP' && openGroup && nearbyNodes.length > 1 ? (
+        <div className="journey-location-choices" role="group" aria-label={choiceLabel}>
+          <strong>{choiceLabel}</strong>
+          <div>
+            {nearbyNodes.map((node) => (
+              <button key={node.nodeId} type="button" className={node.nodeId === activeNodeId ? 'is-active' : ''} onClick={() => onSelectNode(node.nodeId)}>
+                <span>{STAGE_LABEL[node.stage]}</span>
+                <span>{node.companyName ?? node.locationName ?? '위치 정보 없음'}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
       <div className="journey-canvas__legend" aria-hidden="true">
         <span><i className="is-active" />현재 단계</span>
         <span><i />이전 경로</span>
@@ -644,7 +702,10 @@ function JourneyDetailPanel({
       ) : null}
 
       {detailStage === 'COLLECTION'
-        ? <CollectionDetail edges={edges} journey={journey} />
+        ? <>
+            {selectedStageNode ? <NodeDetail node={selectedStageNode} /> : null}
+            <CollectionDetail edges={edges} journey={journey} />
+          </>
         : selectedStageNode
           ? <NodeDetail node={selectedStageNode} />
           : <p className="journey-detail__empty">등록된 단계 정보가 없습니다.</p>}
@@ -736,8 +797,8 @@ function NodeDetail({ node }: { node: JourneyNode }) {
  * 블록체인 기록 상세. 목록에서는 한 줄로 보이던 것을 눌렀을 때만 전체 값을 보여준다.
  *
  * <p>Hash·주소 표시와 익스플로러 이동은 여기서 새로 만들지 않고 {@link TransactionHash}
- * (온체인 서명 패널이 이미 쓰는 공통 컴포넌트)를 그대로 쓴다 — 같은 값을 두 군데서 서로
- * 다르게 자르거나, 한쪽만 익스플로러 링크가 되는 어긋남을 막는다.
+ * (온체인 서명 패널이 이미 쓰는 공통 컴포넌트)를 전체 번호 표시 옵션으로 쓴다.
+ * 익스플로러 링크는 같은 컴포넌트가 관리한다.
  */
 function BlockchainProofModal({
   proof,
@@ -765,7 +826,7 @@ function BlockchainProofModal({
           <div>
             <dt>검증 번호</dt>
             <dd>
-              <TransactionHash hash={proof.txHash} />
+              <TransactionHash hash={proof.txHash} fullHash />
             </dd>
           </div>
           <div>
@@ -792,7 +853,7 @@ function CollectionDetail({
   if (edges.length === 0) return <p className="journey-detail__empty">등록된 이동 기록이 없습니다.</p>
   return (
     <section className="journey-detail__movements">
-      <h3>{edges.length}개의 이동 기록</h3>
+      <h3>{edges.length}개의 수령·이동 기록</h3>
       <ul>
         {edges.map((edge) => {
           const from = journey.nodes.find((node) => node.nodeId === edge.fromNodeId)
@@ -909,13 +970,12 @@ const KOREA_PROJECTION = fitKorea(boundsFeature(...KOREA_BBOX))
  * 뭉개진다 — "좌표가 진짜 지도 위에 있는 게 맞냐"는 인상을 준다. 0.15도(약 16.6km)
  * 부터는 그 폭 안에 정점이 200개 안팎 잡혀 해안선 굴곡이 보인다.
  *
- * <p>같은 산업단지 안(직선거리 1.6km)처럼 이 폭으로도 마커 halo(반지름 34px)가 겹칠
- * 만큼 가까운 지점은 카메라를 더 좁히는 대신 {@link declutterPositions}가 화면
- * 좌표에서 따로 밀어낸다 — 배경 지도 해상도와 마커 간격을 별개 문제로 다룬다.
+ * <p>이 폭으로도 가까운 지점의 마커가 겹칠 수 있다. 그 경우 좌표를 옮기는 대신
+ * 마커를 누르면 근처 지점을 선택할 수 있게 한다.
  */
 const MAP_MIN_SPAN_DEG = 0.15
-/** 지점들이 캔버스 가장자리에 붙지 않도록 범위 양옆에 더 두는 여백 비율. */
-const MAP_ZOOM_MARGIN_RATIO = 0.35
+/** 기존 0.35 여백을 0.273으로 줄이면 지도 배율이 약 10% 커지면서 가장자리 여백은 유지된다. */
+const MAP_ZOOM_MARGIN_RATIO = 0.273
 
 /**
  * **주어진 노드들 범위에 맞춰 확대한 투영.** `JourneyCanvas`가 단계에 따라 다른
@@ -972,60 +1032,17 @@ function mapPositions(nodes: JourneyNode[], projection: GeoProjection): Record<s
   return positions
 }
 
-/** `.journey-node__halo`의 반지름(passport.css) — 마커가 카드 밖으로 나가지 않게 자를 때도 쓴다. */
-const MARKER_HALO_RADIUS = 34
-/** 마커 halo 두 개가 겹치지 않을 중심 간 최소 간격. */
-const MARKER_MIN_SEPARATION_PX = MARKER_HALO_RADIUS * 2 + 4
+/** 가까운 핀을 누르면 함께 선택할 수 있도록 찾는 화면 좌표 거리. 핀 자체는 움직이지 않는다. */
+const MARKER_MIN_SEPARATION_PX = 72
 
-/**
- * 실제 위·경도로 투영한 화면 좌표 중 서로 너무 가까운 것들을 살짝 밀어낸다.
- *
- * <p>{@link MAP_MIN_SPAN_DEG}는 배경 지도가 알아볼 수 있게 보이는 최소 폭이지,
- * 마커가 안 겹치는 폭이 아니다 — 그 폭으로도 실제 업체 두 곳이 halo 반경보다 가깝게
- * 찍힐 수 있다(같은 산업단지 등). 그렇다고 카메라를 계속 좁히면 배경이 민무늬로
- * 뭉개져 "가짜 좌표 같다"는 인상을 준다. 그래서 지도 확대와 별개로, 화면에 이미
- * 투영된 좌표끼리만 비교해 겹치는 쌍을 서로 반대 방향으로 밀어낸다 — 실제 위치는
- * 그대로 두고 화면 표시만 벌린다.
- */
-function declutterPositions(
-  positions: Record<string, Point>,
-  minDistance: number = MARKER_MIN_SEPARATION_PX,
-): Record<string, Point> {
-  const ids = Object.keys(positions)
-  const next: Record<string, Point> = { ...positions }
-  for (let pass = 0; pass < 4; pass += 1) {
-    let moved = false
-    for (let i = 0; i < ids.length; i += 1) {
-      for (let j = i + 1; j < ids.length; j += 1) {
-        const a = next[ids[i]]
-        const b = next[ids[j]]
-        const dx = b.x - a.x
-        const dy = b.y - a.y
-        const distance = Math.hypot(dx, dy)
-        if (distance >= minDistance) continue
-        moved = true
-        // 두 지점이 완전히 같은 좌표면(distance === 0) 방향이 없으니 인덱스로 갈라 둔다.
-        const angle = distance === 0 ? (i - j) * (Math.PI / 2) : Math.atan2(dy, dx)
-        const push = (minDistance - distance) / 2 + 0.5
-        const ux = Math.cos(angle)
-        const uy = Math.sin(angle)
-        next[ids[i]] = { x: a.x - ux * push, y: a.y - uy * push }
-        next[ids[j]] = { x: b.x + ux * push, y: b.y + uy * push }
-      }
-    }
-    if (!moved) break
-  }
-  // 밀어낸 결과가 캔버스 밖으로 나가지 않게 자른다 — 클러스터가 확대 범위 가장자리에
-  // 걸쳐 있으면(전체 3곳 중 두 곳이 한쪽 끝에 몰린 경우 등) 마커를 밀어내는 방향이
-  // 카드 경계 쪽일 수 있다. halo 반지름(34px)만큼 여유를 둬 halo까지 카드 안에 있게 한다.
-  ids.forEach((id) => {
-    const point = next[id]
-    next[id] = {
-      x: Math.min(Math.max(point.x, MARKER_HALO_RADIUS), MAP_VIEW_WIDTH - MARKER_HALO_RADIUS),
-      y: Math.min(Math.max(point.y, MARKER_HALO_RADIUS), MAP_VIEW_HEIGHT - MARKER_HALO_RADIUS),
-    }
+function groupLocatedNodes(nodes: JourneyNode[]): { key: string; nodes: JourneyNode[] }[] {
+  const groups = new Map<string, JourneyNode[]>()
+  nodes.forEach((node) => {
+    if (node.latitude === null || node.longitude === null) return
+    const key = `${node.latitude},${node.longitude}`
+    groups.set(key, [...(groups.get(key) ?? []), node])
   })
-  return next
+  return [...groups].map(([key, grouped]) => ({ key, nodes: grouped }))
 }
 
 /** `.journey-node__flow-label` 카드의 반폭 — 노드 마크업의 `rect x="-78" width="156"`. */

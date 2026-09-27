@@ -1,3 +1,5 @@
+import { processingHistoryText } from '../../material/utils/processingHistory.ts'
+import type { MaterialGenerationType } from '../../material/types/material.types.ts'
 import { EmptyState, ErrorMessage, Loading, Select } from '../../../components/common/index.ts'
 import { useMyMaterials } from '../../inventory/hooks/useMyMaterials.ts'
 import type { InventoryItem } from '../../inventory/types/inventory.types.ts'
@@ -78,8 +80,10 @@ export function MaterialSelect({ value, onChange }: MaterialSelectProps) {
  * 여러 번 열어보며 비교해야 한다.
  */
 function optionLabel(item: InventoryItem): string {
+  // 가공을 거쳐도 이름은 그대로라, 같은 이름끼리는 가공 이력으로 가른다.
+  const name = `${item.name} · ${processingHistoryText(item.completedProcessTypes, item.generationType as MaterialGenerationType)}`
   if (item.available <= 0) {
-    return `${item.name} · 판매 가능 수량 없음`
+    return `${name} · 판매 가능 수량 없음`
   }
-  return `${item.name} · 판매 가능 ${formatKg(item.available)}`
+  return `${name} · 판매 가능 ${formatKg(item.available)}`
 }

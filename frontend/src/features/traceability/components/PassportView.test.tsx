@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
@@ -176,7 +176,123 @@ describe('PassportView', () => {
     expect(screen.queryByText('검증된 업사이클 제품')).not.toBeInTheDocument()
   })
 
-  it('원단 등록·운송 단계에서는 여정 전체 지점을 미리 보여준다', async () => {
+  it('가공 전에 브랜드 수령 지점을 별도 단계로 보여준다', async () => {
+    const user = userEvent.setup()
+    const baseJourney = journey()
+    api.getPassport.mockResolvedValue(passport({
+      journey: {
+        ...baseJourney,
+        stages: baseJourney.stages.map((stage) => stage.stage === 'COLLECTION'
+          ? { ...stage, nodeIds: ['collection-brand'], edgeIds: ['supplier-to-brand'] }
+          : stage),
+        nodes: [
+          ...baseJourney.nodes,
+          node({
+            nodeId: 'collection-brand',
+            stage: 'COLLECTION',
+            companyName: 'ReWeave',
+            companyRole: 'BRAND',
+            description: '브랜드 소재 수령',
+            materials: [{ name: '폐데님 A', materialType: 'DENIM', rootOrigin: 'WASTE', batchQuantityGrams: 800 }],
+          }),
+        ],
+        edges: [
+          { edgeId: 'supplier-to-brand', fromNodeId: 'source-a', toNodeId: 'collection-brand', stage: 'COLLECTION', materialName: '폐데님 A', materialType: 'DENIM', shippedAt: '2026-09-02T00:00:00', receivedAt: '2026-09-03T00:00:00', status: 'COMPLETED' },
+          { edgeId: 'brand-to-process', fromNodeId: 'collection-brand', toNodeId: 'process-a', stage: 'PROCESSING', materialName: '폐데님 A', materialType: 'DENIM', shippedAt: '2026-09-04T00:00:00', receivedAt: '2026-09-05T00:00:00', status: 'COMPLETED' },
+        ],
+      },
+    }))
+    const { container } = renderView()
+
+    const collectionStep = await screen.findByRole('button', { name: /브랜드 수령 완료/ })
+    await user.click(collectionStep)
+    expect(container.querySelector('.journey-detail__body')).toHaveTextContent('ReWeave')
+    expect(container.querySelector('.journey-detail__body')).toHaveTextContent('브랜드 소재 수령')
+    expect(screen.getByText('1개의 수령·이동 기록')).toBeInTheDocument()
+  })
+
+  it('같은 좌표의 브랜드 수령과 제작은 실제 위치의 한 마커에서 각각 선택한다', async () => {
+    const user = userEvent.setup()
+    const baseJourney = journey()
+    const brand = baseJourney.nodes.find((item) => item.nodeId === 'brand')!
+    api.getPassport.mockResolvedValue(passport({
+      journey: {
+        ...baseJourney,
+        nodes: [...baseJourney.nodes, node({
+          nodeId: 'collection-brand',
+          stage: 'COLLECTION',
+          companyName: brand.companyName,
+          companyRole: 'BRAND',
+          locationName: brand.locationName,
+          latitude: brand.latitude,
+          longitude: brand.longitude,
+          description: '브랜드 소재 수령',
+        })],
+        edges: [...baseJourney.edges, {
+          edgeId: 'collection-to-brand',
+          fromNodeId: 'collection-brand',
+          toNodeId: 'brand',
+          stage: 'BRAND',
+          materialName: null,
+          materialType: null,
+          shippedAt: null,
+          receivedAt: null,
+          status: 'COMPLETED',
+        }],
+      },
+    }))
+    const { container } = renderView()
+    await screen.findByRole('heading', { name: 'RE:BAG' })
+
+    expect(container.querySelectorAll('.journey-canvas--map [data-node-id="brand"], .journey-canvas--map [data-node-id="collection-brand"]')).toHaveLength(1)
+    expect(container.querySelector('.journey-canvas--map [data-edge-id="collection-to-brand"]')).not.toBeInTheDocument()
+    const sharedPin = screen.getByRole('button', { name: /ReWeave.*2개 기록/ })
+    await user.click(sharedPin)
+    const choices = screen.getByRole('group', { name: '이 위치와 가까운 지점의 기록' })
+    expect(within(choices).getAllByRole('button').map((button) => button.textContent)).toEqual([
+      '원단 등록서울 원단 공급처',
+      '브랜드 수령ReWeave',
+      '브랜드 제작ReWeave',
+    ])
+    await user.click(within(choices).getByRole('button', { name: /브랜드 수령/ }))
+    expect(container.querySelector('.journey-detail__body')).toHaveTextContent('브랜드 소재 수령')
+    await user.click(within(choices).getByRole('button', { name: /브랜드 제작/ }))
+    expect(container.querySelector('.journey-detail__body')).toHaveTextContent('ReWeave')
+    await user.click(within(choices).getByRole('button', { name: /원단 등록/ }))
+    expect(container.querySelector('.journey-detail__body')).toHaveTextContent('서울 원단 공급처')
+  })
+
+  it('가까운 서로 다른 지점은 좌표를 유지하고 선택 목록에서 구분한다', async () => {
+    const user = userEvent.setup()
+    const { container } = renderView()
+    await screen.findByRole('heading', { name: 'RE:BAG' })
+
+    const source = container.querySelector('[data-node-id="source-a"]')!
+    const brand = container.querySelector('[data-node-id="brand"]')!
+    expect(source.getAttribute('transform')).not.toBe(brand.getAttribute('transform'))
+    expect(source.querySelector('.journey-node__nearby-badge')).toHaveTextContent('2')
+    await user.click(source)
+    const choices = screen.getByRole('group', { name: '가까운 지점의 기록' })
+    await user.click(within(choices).getByRole('button', { name: /브랜드 제작/ }))
+    expect(container.querySelector('.journey-detail__body')).toHaveTextContent('ReWeave')
+  })
+
+  it('여정 지도에서 지점 사이 간격을 기존보다 약 10% 확대한다', async () => {
+    const { container } = renderView()
+    await screen.findByRole('heading', { name: 'RE:BAG' })
+
+    const point = (nodeId: string) => (container.querySelector(`[data-node-id="${nodeId}"]`)!
+      .getAttribute('transform') ?? '').match(/translate\(([^ ]+) ([^)]+)\)/)!
+      .slice(1).map(Number)
+    const [sourceX, sourceY] = point('source-a')
+    const [processorX, processorY] = point('process-b')
+    // 고정된 테스트 여정에서 기존 간격은 약 318 SVG 단위다.
+    const separation = Math.hypot(sourceX - processorX, sourceY - processorY)
+    expect(separation).toBeGreaterThan(345)
+    expect(separation).toBeLessThan(355)
+  })
+
+  it('원단 등록·브랜드 수령 단계에서는 여정 전체 지점을 미리 보여준다', async () => {
     const user = userEvent.setup()
     const { container } = renderView()
     await screen.findByRole('heading', { name: 'RE:BAG' })
@@ -187,8 +303,8 @@ describe('PassportView', () => {
     expect(container.querySelector('[data-node-id="process-a"]')).toBeInTheDocument()
     expect(container.querySelector('[data-edge-id="brand-a"]')).toBeInTheDocument()
 
-    // 운송으로 옮겨도 마찬가지다.
-    await user.click(screen.getByRole('button', { name: /운송 완료/ }))
+    // 브랜드 수령으로 옮겨도 마찬가지다.
+    await user.click(screen.getByRole('button', { name: /브랜드 수령 완료/ }))
     expect(container.querySelector('[data-node-id="process-a"]')).toBeInTheDocument()
     expect(container.querySelector('[data-edge-id="brand-a"]')).toBeInTheDocument()
 
@@ -401,20 +517,19 @@ describe('PassportView', () => {
     expect(screen.getByRole('button', { name: '에코사이클' })).toHaveClass('is-active')
   })
 
-  it('운송 단계에 업체 노드를 만들지 않고 업체 사이 이동 기록만 보여준다', async () => {
+  it('거래 수령 기록이 없는 기존 운송 단계는 이동 기록만 보여준다', async () => {
     const user = userEvent.setup()
     const { container } = renderView()
     await screen.findByRole('heading', { name: 'RE:BAG' })
 
-    await user.click(screen.getByRole('button', { name: /운송 완료/ }))
-    expect(screen.getByText('2개의 이동 기록')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /브랜드 수령 완료/ }))
+    expect(screen.getByText('2개의 수령·이동 기록')).toBeInTheDocument()
     expect(container.querySelector('.journey-detail__selector')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^서울 원단 공급처$/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^그린텍스$/ })).not.toBeInTheDocument()
 
-    // 운송을 대신하는 가상의 업체를 만들지 않고 이동선 자체를 그 단계로 돌린다 —
-    // 백엔드가 이 단계의 nodeIds를 비워 내려주기 때문이다. 좌표 없는 노드가 빠지는
-    // Journey Map에서 세면 없는 게 당연해지므로, 모든 노드를 그리는 Flow View에서 센다.
+    // 거래가 없는 자가 보유 소재에는 브랜드 수령 노드를 지어내지 않는다. 좌표 없는 노드가
+    // 빠지는 Journey Map 대신, 모든 노드를 그리는 Flow View에서 없는 것을 확인한다.
     await user.click(screen.getByRole('button', { name: '흐름 보기' }))
     expect(container.querySelectorAll('[data-node-stage="COLLECTION"]')).toHaveLength(0)
   })
@@ -440,11 +555,10 @@ describe('PassportView', () => {
     expect(screen.getByText('확정됨')).toBeInTheDocument()
     expect(screen.queryByText('0xBE98f5A9aA8d0480B09C689e38806aCcD41a0f66')).not.toBeInTheDocument()
     expect(screen.getByText('11,221,171')).toBeInTheDocument()
-    // 해시는 공통 TransactionHash 컴포넌트가 그리므로 값 자체만 확인한다 —
-    // 링크 여부는 VITE_BESU_EXPLORER_URL 설정에 달려 있어 이 테스트의 관심사가 아니다.
-    expect(screen.getByTitle(
-      '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcd',
-    )).toBeInTheDocument()
+    // 링크 여부는 VITE_BESU_EXPLORER_URL 설정에 달려 있지만, 상세 화면에는 전체
+    // 기록 번호가 실제 텍스트로 보여야 한다. title 속성만으로는 읽거나 복사하기 어렵다.
+    const hash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcd'
+    expect(screen.getByTitle(hash)).toHaveTextContent(hash)
   })
 
   it('연결된 Journey가 없으면 확인된 것처럼 표시하지 않는다', async () => {

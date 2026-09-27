@@ -97,6 +97,7 @@ describe('routeAccess — routes.tsx 에서 파생한 접근 조건', () => {
     })
     expect(getRouteAccess('/supplier/listings')).toEqual({ kind: 'role', allow: ['SUPPLIER'] })
     expect(getRouteAccess('/brand/products/new')).toEqual({ kind: 'role', allow: ['BRAND'] })
+    expect(getRouteAccess('/brand/predictions')).toEqual({ kind: 'role', allow: ['BRAND'] })
     expect(getRouteAccess('/processor/jobs')).toEqual({ kind: 'role', allow: ['PROCESSOR'] })
     expect(getRouteAccess('/admin')).toEqual({ kind: 'role', allow: ['ADMIN'] })
     for (const path of [

@@ -36,7 +36,7 @@ export function BrandProcessingJobPanel({ jobId }: { jobId: number }) {
           <h2 id="job-progress-title">가공 진행</h2>
         </div>
         <span className={`br-detail__request-status is-${job.status.toLowerCase()}`}>
-          {jobLabel(job.status)}
+          {jobLabel(job.status, job.chainJobId !== null)}
         </span>
       </div>
 

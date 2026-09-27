@@ -3,6 +3,7 @@
 // 문자열 값은 Backend Enum 과 **정확히** 일치시킨다 (backend/src/main/resources/schema.sql).
 // 프론트에서 임의로 이름을 바꾸면 서버 응답을 그대로 화면 상태로 쓸 수 없게 된다.
 
+import type { ProcessType } from '../../processing/types/processing.types.ts'
 import type { MaterialQuantityUnit } from './materialQuantity.ts'
 
 /** `material.root_origin` — 원소재의 최초 출처 */
@@ -112,6 +113,11 @@ export interface MaterialDetail extends MaterialSummary {
   tokenId: number | null
   chainId: number | null
   contractAddress: string | null
+  /**
+   * 혈통을 거슬러 확정된 가공 종류(서버 MaterialProcessHistoryResolver). 빈 배열이면 가공 전.
+   * 이 값을 싣기 전의 서버도 있으므로 없을 수 있다 — 없으면 "가공 전" 이라고 단정하지 않는다.
+   */
+  completedProcessTypes?: ProcessType[]
 }
 
 /** `material_lineage.relation_type` — 자식 소재가 만들어진 경위 */

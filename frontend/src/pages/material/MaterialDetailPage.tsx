@@ -1,3 +1,4 @@
+import { MaterialProcessingBadge } from '../../features/material/components/MaterialProcessingBadge.tsx'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   BackLink,
@@ -107,6 +108,7 @@ export function MaterialDetailPage() {
       <header className="material-detail__header">
         <h1>{data.name}</h1>
         <p className="material-detail__code">{data.materialCode}</p>
+        <MaterialProcessingBadge completedProcessTypes={data.completedProcessTypes} generationType={data.generationType}/>
         <StatusBadge tone={data.status === 'ACTIVE' ? 'success' : 'neutral'}>
           {data.status === 'ACTIVE' ? '보유 중' : '소진'}
         </StatusBadge>

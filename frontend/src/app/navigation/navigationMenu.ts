@@ -13,6 +13,7 @@
 
 import {
   Buildings,
+  ChartBar,
   ClipboardText,
   Cube,
   Factory,
@@ -79,7 +80,7 @@ export interface NavigationMenuGroup {
  * RoleGuard 가 정하고, 이 파일은 "같은 일끼리 모은다" 만 말한다 — 비는 묶음은 화면이
  * 그리지 않으므로 역할마다 다른 배열을 둘 필요가 없다.
  *
- *   BRAND     회사 정보 + 소재(3) · 가공(3) · 제품(4)
+ *   BRAND     회사 정보 + 소재(3) · 가공(3) · 제품(5)
  *   SUPPLIER  회사 정보 + 소재(5)
  *   PROCESSOR 회사 정보 + 소재(2) · 가공(2)
  */
@@ -126,6 +127,7 @@ export const BUSINESS_MENU_GROUPS: readonly NavigationMenuGroup[] = [
       { label: '제품 생산', to: '/brand/production', Icon: Cube },
       { label: '제품 등록', to: '/brand/products/new', Icon: Tag },
       { label: '내 제품', to: '/brand/products', Icon: Storefront },
+      { label: '예측·선호 분석', to: '/brand/predictions', Icon: ChartBar },
       { label: '제품 발송', to: '/brand/orders', Icon: Truck },
     ],
   },

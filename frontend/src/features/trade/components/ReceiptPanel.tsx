@@ -106,19 +106,25 @@ export function ReceiptPanel({ trade }: ReceiptPanelProps) {
         message={`${formatKg(trade.quantity)}을 받았음을 확인합니다. 소유권이 즉시 이전되며 되돌릴 수 없습니다.`}
         confirmLabel="수령 확정"
         loading={isPending}
-        onConfirm={() =>
-          mutate(undefined, {
-            // **수령이 확정되면 바로 체인 서명으로 이어간다.**
-            //
-            // 이 서명이 체인에서 소유권을 옮기는 유일한 자리다(confirmReceipt 가 ERC1155
-            // 잔액을 판매자에서 구매자로 이동시킨다). 놓치면 DB 는 넘어갔는데 체인은
-            // 판매자 소유로 남아, 두 기록이 영구히 어긋난다.
-            onSuccess: () => {
-              if (trade.chainTradeId !== null) void chain.receive(trade.chainTradeId)
-            },
-            onSettled: () => setConfirming(false),
-          })
-        }
+        onConfirm={() => {
+          // **서명이 먼저다.** 이 서명이 체인에서 소유권을 옮기는 유일한 자리이고
+          // (confirmReceipt 가 ERC1155 잔액을 판매자에서 구매자로 옮긴다), 서버는 체인에
+          // 그 기록이 남았는지 확인한 뒤에만 DB 를 옮긴다.
+          //
+          // 예전에는 순서가 반대였다. 그래서 담당자가 서명 창을 끄면 DB 는 소유권을
+          // 옮겼는데 체인은 모르는 상태가 됐고, 그 어긋남은 한참 뒤 그 소재를 가공에
+          // 보낼 때 insufficient material 로 드러났다.
+          //
+          // 서명이 실패하면 수령 확정을 부르지 않는다 — 서버가 어차피 거절한다.
+          if (trade.chainTradeId === null) {
+            setConfirming(false)
+            return
+          }
+          void chain
+            .receive(trade.chainTradeId)
+            .then(() => mutate(undefined, { onSettled: () => setConfirming(false) }))
+            .catch(() => setConfirming(false))
+        }}
         onClose={() => setConfirming(false)}
       />
     </section>

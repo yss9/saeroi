@@ -15,6 +15,7 @@ import { env } from '../config/env.ts'
 import { getAccessToken, useAuthStore } from '../stores/authStore.ts'
 import type { ApiEnvelope, ValidationError } from '../types/api.types.ts'
 import { createAppError, ERROR_KIND, isAppError, type AppError } from '../utils/errors.ts'
+import { sessionSync } from './sessionSync.ts'
 
 declare module 'axios' {
   interface AxiosRequestConfig {
@@ -126,10 +127,19 @@ function requestUsedCurrentAccessToken(config: InternalAxiosRequestConfig): bool
   return config.headers.get('Authorization') === `Bearer ${currentAccessToken}`
 }
 
+/**
+ * 재발급을 한 번만 돌린다. **창 안에서도, 창 사이에서도.**
+ *
+ * Refresh Token 은 한 번 쓰면 회전하고 기존 것을 무효화한다. 두 창이 동시에 재발급하면
+ * 하나가 실패하고 세션이 통째로 비워진다 — localStorage 공유라 두 창 모두 로그아웃된다.
+ * AI 어시스턴트가 별도 창으로 열리므로 실제로 일어날 수 있는 상황이다.
+ *
+ * 그래서 다른 창이 먼저 시작했으면 기다렸다가 그 결과를 쓴다.
+ */
 function getOrStartTokenRefresh(): Promise<void> {
   if (refreshInFlight) return refreshInFlight
 
-  refreshInFlight = refreshSession().then(
+  refreshInFlight = runCoordinatedRefresh().then(
     () => {
       refreshInFlight = null
     },
@@ -140,6 +150,49 @@ function getOrStartTokenRefresh(): Promise<void> {
   )
   return refreshInFlight
 }
+
+/** 다른 창이 재발급 중이면 기다리고, 아니면 이 창이 돌린다. */
+async function runCoordinatedRefresh(): Promise<void> {
+  if (otherWindowIsRefreshing) {
+    const refreshed = await sessionSync.waitForRefresh()
+    // 다른 창이 끝냈다면 그 창이 localStorage 에 새 토큰을 넣었고, 아래 구독이 이 창의
+    // 스토어에도 반영해 두었다. 우리가 다시 돌릴 필요가 없다.
+    if (refreshed) return
+  }
+
+  sessionSync.announceRefreshStarted()
+  try {
+    await refreshSession()
+  } catch (error) {
+    sessionSync.announceRefreshFailed()
+    throw error
+  }
+
+  const session = useAuthStore.getState()
+  if (session.accessToken && session.user) {
+    sessionSync.announceRefreshSucceeded(session.accessToken, session.user.id)
+  }
+}
+
+/** 다른 창이 재발급을 시작했는지. 그 창이 끝내거나 실패하면 해제된다. */
+let otherWindowIsRefreshing = false
+
+sessionSync.subscribe((event) => {
+  if (event.type === 'refresh-started') {
+    otherWindowIsRefreshing = true
+    return
+  }
+  if (event.type === 'refresh-succeeded') {
+    otherWindowIsRefreshing = false
+    // 다른 창이 받은 새 토큰을 이 창의 메모리에도 반영한다. persist 는 창 사이에서
+    // 자동 동기화되지 않아, 이걸 하지 않으면 이 창은 낡은 토큰으로 계속 401 을 맞는다.
+    useAuthStore.getState().adoptAccessToken(event.userId, event.accessToken)
+    return
+  }
+  if (event.type === 'refresh-failed' || event.type === 'signed-out') {
+    otherWindowIsRefreshing = false
+  }
+})
 
 async function refreshSession(): Promise<void> {
   const session = useAuthStore.getState()
@@ -219,5 +272,9 @@ function normalizeAxiosError(error: unknown): AppError {
  */
 function handleUnauthorized(): void {
   const state = useAuthStore.getState()
-  if (state.user || state.accessToken || state.isAuthenticated) state.signOut()
+  if (state.user || state.accessToken || state.isAuthenticated) {
+    state.signOut()
+    // 다른 창도 함께 정리한다. 한쪽만 로그아웃된 채 남으면 그 창은 401 을 반복한다.
+    sessionSync.announceSignedOut()
+  }
 }

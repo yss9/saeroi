@@ -39,7 +39,9 @@ function trade(overrides: Partial<Trade> = {}): Trade {
   return {
     tradeId: 7,
     tradeCode: 'TRD-000007',
-    chainTradeId: null,
+    // **수령 확정의 선행 조건이다.** 서명이 먼저이고, 서명할 주문 번호가 없으면
+    // 아무것도 일어나지 않는다 — 그 경우는 아래 전용 테스트가 따로 본다.
+    chainTradeId: 4,
     listingId: 3,
     materialId: 1,
     materialCode: 'MAT-000001',
@@ -128,6 +130,8 @@ describe('ReceiptPanel', () => {
 
     await user.click(screen.getByRole('button', { name: '수령 확정' }))
 
+    // **서명이 먼저다.** 서버 확정은 체인에 수령이 남은 뒤에만 통과한다.
+    await waitFor(() => expect(chainAction.receive).toHaveBeenCalled())
     expect(api.confirmTradeReceipt).toHaveBeenCalledWith(7)
     // 얼마가 옮겨졌고 내 보유량이 얼마가 됐는지가 이 요청의 결과다.
     expect(await screen.findByText('12 kg')).toBeInTheDocument()
@@ -189,33 +193,39 @@ describe('수령 확인과 온체인 서명', () => {
     await waitFor(() => expect(chainAction.receive).toHaveBeenCalledWith(4))
   })
 
-  it('서버 기록이 실패하면 서명하지 않는다', async () => {
-    // 서명이 먼저 나가면 체인만 RECEIVED 가 되고 서버는 SHIPPED 로 남는다.
-    api.confirmTradeReceipt.mockRejectedValue(new Error('conflict'))
+  /**
+   * 서명이 실패하면 DB 를 옮기지 않는다.
+   *
+   * 예전에는 순서가 반대였다. 그래서 담당자가 서명 창을 끄면 DB 는 소유권을 옮겼는데
+   * 체인은 모르는 상태가 됐고, 그 어긋남은 한참 뒤 그 소재를 가공에 보낼 때
+   * insufficient material 로 드러났다. 가공은 처음부터 서명이 먼저였다.
+   */
+  it('서명이 실패하면 수령을 확정하지 않는다', async () => {
+    chainAction.receive.mockRejectedValue(new Error('user rejected'))
     renderPanel(trade({ status: 'SHIPPED', chainTradeId: 4, shippedAt: '2026-09-15T09:00:00' }))
     const user = userEvent.setup()
 
     await user.click(screen.getByRole('button', { name: '수령 확인' }))
     await user.click(screen.getByRole('button', { name: '수령 확정' }))
 
-    await waitFor(() => expect(api.confirmTradeReceipt).toHaveBeenCalled())
-    expect(chainAction.receive).not.toHaveBeenCalled()
+    await waitFor(() => expect(chainAction.receive).toHaveBeenCalled())
+    expect(api.confirmTradeReceipt).not.toHaveBeenCalled()
   })
 
-  it('온체인 주문이 없으면 서명을 시도하지 않는다', async () => {
-    // 구매 시 서명을 놓친 거래다. 서버 수령까지 막을 이유는 없다 — 물건은 도착했다.
-    api.confirmTradeReceipt.mockResolvedValue({
-      receivedAt: '2026-09-15T10:00:00',
-      transferredQuantity: 12_000,
-      buyerQuantity: 12_000,
-    })
+  /**
+   * 온체인 주문이 없으면 서명할 대상이 없고, 서버도 확정을 거절한다.
+   *
+   * 구매 시 주문 서명을 놓친 거래다. 예전에는 서버 수령만 진행했는데, 그 거래가 바로
+   * DB 와 체인이 어긋난 채로 굳은 사례였다.
+   */
+  it('온체인 주문이 없으면 서명도 확정도 하지 않는다', async () => {
     renderPanel(trade({ status: 'SHIPPED', chainTradeId: null, shippedAt: '2026-09-15T09:00:00' }))
     const user = userEvent.setup()
 
     await user.click(screen.getByRole('button', { name: '수령 확인' }))
     await user.click(screen.getByRole('button', { name: '수령 확정' }))
 
-    await waitFor(() => expect(api.confirmTradeReceipt).toHaveBeenCalled())
     expect(chainAction.receive).not.toHaveBeenCalled()
+    expect(api.confirmTradeReceipt).not.toHaveBeenCalled()
   })
 })

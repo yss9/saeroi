@@ -120,7 +120,8 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('가공 증빙 종류별 업로드', () => {
-  it('가공 증빙 종류마다 파일 선택 칸을 동시에 표시한다', async () => {
+  // 가공 작업의 사진 증빙은 작업 전·작업 후 두 가지뿐이다(서버도 그 외는 받지 않는다).
+  it('가공 증빙은 작업 전·작업 후 사진 칸만 표시한다', async () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     })
@@ -135,12 +136,27 @@ describe('가공 증빙 종류별 업로드', () => {
     )
 
     expect(await screen.findByLabelText('작업 전 사진 파일 선택')).toBeInTheDocument()
-    expect(screen.getByLabelText('공정 사진 파일 선택')).toBeInTheDocument()
     expect(screen.getByLabelText('작업 후 사진 파일 선택')).toBeInTheDocument()
-    expect(screen.getByLabelText('계근표 파일 선택')).toBeInTheDocument()
-    expect(screen.getByLabelText('거래명세서 파일 선택')).toBeInTheDocument()
-    expect(screen.getByLabelText('기타 파일 선택')).toBeInTheDocument()
+    expect(screen.queryByLabelText('공정 사진 파일 선택')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('계근표 파일 선택')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('거래명세서 파일 선택')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('기타 파일 선택')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('증빙 종류')).not.toBeInTheDocument()
+  })
+
+  // 단계마다 올릴 사진이 하나다 — 수령할 때는 작업 전, 결과를 쓸 때는 작업 후.
+  it('보여줄 종류를 좁힐 수 있다', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    render(
+      <QueryClientProvider client={queryClient}>
+        <EvidenceUpload referenceType="PROCESSING_JOB" referenceId={7} uploadMode="type-grid" evidenceTypes={['AFTER_PHOTO']} />
+      </QueryClientProvider>,
+    )
+
+    expect(await screen.findByLabelText('작업 후 사진 파일 선택')).toBeInTheDocument()
+    expect(screen.queryByLabelText('작업 전 사진 파일 선택')).not.toBeInTheDocument()
   })
 
   it('각 칸에서 고른 파일을 해당 증빙 종류로 업로드한다', async () => {
@@ -158,14 +174,14 @@ describe('가공 증빙 종류별 업로드', () => {
       </QueryClientProvider>,
     )
 
-    await user.upload(await screen.findByLabelText('공정 사진 파일 선택'), jpeg('process.jpg'))
-    await user.click(screen.getByRole('button', { name: '공정 사진 1개 올리기' }))
+    await user.upload(await screen.findByLabelText('작업 후 사진 파일 선택'), jpeg('process.jpg'))
+    await user.click(screen.getByRole('button', { name: '작업 후 사진 1개 올리기' }))
 
     await waitFor(() => expect(api.uploadEvidence).toHaveBeenCalledTimes(1))
     expect(api.uploadEvidence.mock.calls[0][0]).toMatchObject({
       referenceType: 'PROCESSING_JOB',
       referenceId: 7,
-      evidenceType: 'PROCESS_PHOTO',
+      evidenceType: 'AFTER_PHOTO',
     })
     expect(api.uploadEvidence.mock.calls[0][0].files[0]).toHaveProperty('name', 'process.jpg')
   })
