@@ -11,6 +11,7 @@ import com.ssafy.upcycle.blockchain.service.ProcessingReceiptVerifier.VerifiedRe
 import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.evidence.entity.EvidenceFile;
 import com.ssafy.upcycle.evidence.entity.EvidenceReferenceType;
+import com.ssafy.upcycle.evidence.entity.EvidenceType;
 import com.ssafy.upcycle.evidence.repository.EvidenceFileRepository;
 import com.ssafy.upcycle.material.entity.*;
 import com.ssafy.upcycle.material.repository.*;
@@ -105,6 +106,10 @@ public class ProcessingChainService {
         }
         if (job.getChainJobId() == null || job.getStatus() != ProcessingJobStatus.SHIPPED)
             throw new BusinessException(PROCESSING_INVALID_STATE);
+        // 받은 그대로의 상태를 남긴 뒤에만 받는다. 가공이 시작되면 작업 전 사진은 더 받지 않는다.
+        if (evidenceFiles.countByReferenceTypeAndReferenceIdAndEvidenceTypeAndDeletedAtIsNull(
+                EvidenceReferenceType.PROCESSING_JOB, jobId, EvidenceType.BEFORE_PHOTO) < 1)
+            throw new BusinessException(PROCESSING_BEFORE_PHOTO_REQUIRED);
         ProcessingInput input = requireInput(jobId);
         String txHash = signedTx(request.txHash(), job, Action.RECEIVE);
         VerifiedReceipt receipt = receiptVerifier.verifyReceipt(txHash, job.getChainJobId(),

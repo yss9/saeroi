@@ -43,6 +43,10 @@ public interface EvidenceFileRepository extends JpaRepository<EvidenceFile, Long
     long countByReferenceTypeAndReferenceIdAndDeletedAtIsNull(
             EvidenceReferenceType referenceType, Long referenceId);
 
+    /** 대상의 특정 종류 증빙 수. 가공 작업의 작업 전·후 사진이 올라왔는지 볼 때 쓴다. */
+    long countByReferenceTypeAndReferenceIdAndEvidenceTypeAndDeletedAtIsNull(
+            EvidenceReferenceType referenceType, Long referenceId, EvidenceType evidenceType);
+
     /**
      * 여러 대상의 공개 가능한 사진류 증빙을 한 번에 읽는다 (마켓플레이스 썸네일,
      * S15P21E104-438/439 연장). 대상마다 여러 건이 나올 수 있으므로 <b>대상 하나당 첫

@@ -3,6 +3,9 @@ package com.ssafy.upcycle.processing.service;
 import static com.ssafy.upcycle.processing.ProcessingErrorCode.*;
 
 import com.ssafy.upcycle.common.exception.BusinessException;
+import com.ssafy.upcycle.evidence.entity.EvidenceReferenceType;
+import com.ssafy.upcycle.evidence.entity.EvidenceType;
+import com.ssafy.upcycle.evidence.repository.EvidenceFileRepository;
 import com.ssafy.upcycle.material.entity.Material;
 import com.ssafy.upcycle.material.entity.MaterialBalance;
 import com.ssafy.upcycle.material.entity.MaterialEventReferenceType;
@@ -55,6 +58,7 @@ public class ProcessingResultService {
     private final UserRepository users;
     private final Clock clock;
     private final ProcessingNotificationService businessNotifications;
+    private final EvidenceFileRepository evidenceFiles;
 
     @Transactional
     public ProcessingJobResponse submit(
@@ -64,6 +68,12 @@ public class ProcessingResultService {
         if (!actorId.equals(job.getProcessorId())) throw new BusinessException(PROCESSING_FORBIDDEN);
         if (job.getStatus() != ProcessingJobStatus.PROCESSING) {
             throw new BusinessException(PROCESSING_INVALID_STATE);
+        }
+        // 서명 제출(ProcessingJobWorkflowService#submitResult)과 같은 규칙 — 작업 후 사진이 결과의 근거다.
+        // 이 경로만 비워 두면 사진 없이 결과를 내는 뒷문이 된다.
+        if (evidenceFiles.countByReferenceTypeAndReferenceIdAndEvidenceTypeAndDeletedAtIsNull(
+                EvidenceReferenceType.PROCESSING_JOB, jobId, EvidenceType.AFTER_PHOTO) < 1) {
+            throw new BusinessException(PROCESSING_EVIDENCE_REQUIRED);
         }
         ProcessingInput input = requireInput(jobId);
         long outputQuantity = sumOutputQuantity(request.outputs());
