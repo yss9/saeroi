@@ -51,6 +51,11 @@ public class ProcessingJobService {
         if (job.getStatus() != ProcessingJobStatus.PAID) {
             throw new BusinessException(PROCESSING_INVALID_STATE);
         }
+        // 수락은 온체인 서명으로 이뤄진다. 체인에 job 이 없으면 서명할 대상이 없고,
+        // 여기서 DB 만 ACCEPTED 로 올려 두면 체인은 영영 REQUESTED 에 남는다.
+        if (job.getChainJobId() == null) {
+            throw new BusinessException(PROCESSING_INVALID_STATE);
+        }
         LocalDateTime now = LocalDateTime.now(clock);
         job.accept(now);
         requestService.markAccepted(job.getProcessingRequestId());
@@ -83,6 +88,11 @@ public class ProcessingJobService {
      * <p>브랜드 입장에서 <b>가장 나쁜 결말은 아무 일도 일어나지 않는 것</b>이다 — 돈과 소재가
      * 묶인 채로 가공사의 답을 기다리기만 한다. 그래서 기한이 지나면 서버가 대신 끝내고
      * 환불한다. 사유는 비워 둔다 (아무도 적지 않았으므로).
+     *
+     * <p><b>온체인 잠금은 서버가 풀지 않는다.</b> {@code cancelJob} 은 브랜드 지갑이나
+     * DEFAULT_ADMIN_ROLE 만 부를 수 있는데, 서버에 개인키를 두면 이 시스템의 모든
+     * 서명이 사용자 지갑에서 나온다는 전제가 깨진다. 대신 응답의
+     * {@code chainReleaseRequired} 로 브랜드 화면이 해제를 안내한다.
      */
     @Transactional
     public void expireAcceptance(Long jobId) {
