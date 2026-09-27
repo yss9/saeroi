@@ -1,5 +1,6 @@
 package com.ssafy.upcycle.prediction.service;
 
+import com.ssafy.upcycle.blockchain.service.ChainProductionStatusReader;
 import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.prediction.PredictionErrorCode;
 import com.ssafy.upcycle.prediction.config.PredictionProperties;
@@ -40,9 +41,18 @@ public class PredictionMarketService {
     private final CompanyProfileRepository companyProfiles;
     private final UserWalletRepository wallets;
     private final PredictionChainGateway chain;
+    private final ChainProductionStatusReader chainBatches;
     private final PredictionProperties properties;
     private final Clock clock;
 
+    /**
+     * 예측시장을 열 수 있는 생산.
+     *
+     * <p><b>DB 의 확정만 보지 않는다.</b> 생산 기록은 서버 확정 뒤 서명 네 번으로 이어져, 중간에
+     * 멈추면 DB 는 CONFIRMED 인데 체인은 DRAFT 다. 컨트랙트는 체인 상태로 판단하므로 그런 배치를
+     * 올리면 관리자가 골라도 {@code batch is not confirmed} 로 되돌려진다. 체인을 읽지 못한
+     * 배치도 올리지 않는다 — 골라도 열릴지 알 수 없다.
+     */
     @Transactional(readOnly = true)
     public List<PredictionMarketEligibleBatchResponse> eligibleBatches() {
         return productionBatches
@@ -53,6 +63,7 @@ public class PredictionMarketService {
                 .filter(batch -> companyProfiles.findById(batch.getProducerId())
                         .map(profile -> profile.getRoleApprovalStatus() == CompanyRoleApprovalStatus.APPROVED)
                         .orElse(false))
+                .filter(batch -> chainBatches.isConfirmedOnChain(batch.getChainBatchId()).orElse(false))
                 .map(this::eligibleBatchResponse)
                 .toList();
     }
@@ -68,6 +79,10 @@ public class PredictionMarketService {
         if (!batch.isConfirmed() || batch.getChainBatchId() == null || batch.getProductModelId() == null
                 || markets.existsByProductionBatchId(batch.getId()) || !approvedBrand) {
             throw error(PredictionErrorCode.INVALID_MARKET);
+        }
+        // 체인이 확정이 아니라고 답하면 보내지 않는다. 읽지 못했으면 게이트웨이의 사전 호출이 다시 본다.
+        if (chainBatches.isConfirmedOnChain(batch.getChainBatchId()).map(confirmed -> !confirmed).orElse(false)) {
+            throw error(PredictionErrorCode.BATCH_NOT_CONFIRMED_ON_CHAIN);
         }
         ProductModel model = productModels.findById(batch.getProductModelId())
                 .orElseThrow(() -> error(PredictionErrorCode.INVALID_MARKET));
