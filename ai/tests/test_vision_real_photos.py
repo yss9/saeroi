@@ -10,6 +10,10 @@
   - weighted_clothes    : 표시부가 저울 본체 밖(옆 기둥)에 있다
   - weighted_clothes_2  : 본값과 TARE 줄이 한 화면에 함께 있다
   - weighted_denim      : 표시부가 화면 최상단이고 MAX:30kg 표기가 섞여 있다
+  - cotton_weighted     : 단위 g 가 숫자 옆에 작게 따로 찍혀 전체 사진에서는 읽히지 않고,
+                          7세그먼트 3491 이 대부분의 전처리에서 16hE 로 잘못 읽힌다
+  - denim_1             : 단위 g 가 작게 따로 찍혀 있고, 한 전처리가 2010 을 20.10 으로 읽는다
+  - fleece_weighted     : 숫자와 g 가 한 덩어리로 읽히는 일반적인 경우
 """
 
 from pathlib import Path
@@ -26,6 +30,9 @@ REAL_PHOTOS = [
     ("weighted_clothes.jpg", "18.7 kg", 18_700),
     ("weighted_clothes_2.jpg", "34.8 kg", 34_800),
     ("weighted_denim.jpg", "12.45 kg", 12_450),
+    ("cotton_weighted.png", "3491 g", 3_491),
+    ("denim_1.png", "2010 g", 2_010),
+    ("fleece_weighted.png", "3011 g", 3_011),
 ]
 
 
