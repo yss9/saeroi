@@ -195,10 +195,11 @@ export function useProcessingJob(jobId: number) {
     잃고, 다시 서명하려 하면 체인이 이미 수령된 작업이라 되돌린다. 그래서 체인이 이미 수령을
     지났으면 해시 없이 보내고, 서버가 체인에서 그 서명 거래를 찾아 똑같이 검증한 뒤 기록한다.
 
-    **수령하면 곧바로 가공을 시작한다.** 가공업체가 "가공 시작" 을 따로 누르지 않고 바로 결과
-    작성으로 간다. 컨트랙트는 RECEIVED 와 PROCESSING 을 나눠 받으므로 서명은 둘이지만 버튼은
-    하나다. 순서는 수령 서명 → 수령 기록 → 시작 서명 → 시작 기록 — 시작 서명이 끊겨도 수령
-    기록은 남고, 작업 상세의 "가공 시작" 이 그 자리에서 이어 받는다.
+    **수령하면 곧바로 가공 중이 된다 — 가공 시작 버튼은 없다.** 서명은 수령 한 번이고, 서버는
+    이어서 가공 중(PROCESSING)으로 기록한다. 서버의 가공 시작은 서명을 요구하지 않는다.
+    컨트랙트는 결과 제출 전에 PROCESSING 을 요구하므로 체인의 startProcessing 은 결과 제출
+    서명 바로 앞에서 함께 보낸다(submit). 서버 기록만 끊겨 RECEIVED 로 남으면 작업 상세가
+    서명 없이 start 를 다시 부른다.
   */
   async function receiveOnly(id: number) {
     if (await chainAlreadyPassed(id, 'RECEIVED')) {
@@ -209,32 +210,23 @@ export function useProcessingJob(jobId: number) {
       txHash: receipt.hash,
     })
   }
-  async function startOnly(id: number) {
-    if (!(await chainAlreadyPassed(id, 'PROCESSING'))) {
-      await confirmed(startProcessingOnChain(id))
-    }
-    return processingJobApi.start(jobId)
-  }
   const receive = useMutation({
     mutationFn: async () => {
-      const id = requireChainJob()
-      await receiveOnly(id)
-      return startOnly(id)
+      await receiveOnly(requireChainJob())
+      return processingJobApi.start(jobId)
     },
     onSuccess: refresh,
-    // 시작 서명만 끊긴 경우에도 수령은 기록됐다 — 화면이 RECEIVED 로 바뀌어야 이어서 누를 수 있다.
+    // 서버의 가공 시작 기록만 실패해도 수령은 기록됐다 — 화면이 RECEIVED 로 바뀌어야 이어 받는다.
     onError: refresh,
   })
   /*
-    가공 시작. **여기서 실제로 막혔다.**
-
-    startProcessing 이 체인에 들어간 뒤 서버 보고가 빠져, 체인은 PROCESSING 인데 DB 는
-    RECEIVED 였다. 업체가 "가공 시작" 을 누를 때마다 컨트랙트가 require(RECEIVED) 를 어겨
-    "Processing: invalid status" 로 거절했고, 그 뒤의 서버 호출까지 못 가서 누를수록 같은
-    오류만 났다. 체인 작업 18·19 가 그 상태로 멈춰 있었다.
+    가공 시작 — **서버 기록만 한다.** 수령이 곧바로 부르고, 그 기록만 끊겨 RECEIVED 로 남은
+    작업은 작업 상세가 서명 없이 다시 부른다. 체인의 startProcessing 은 결과 제출 앞에서
+    보낸다(submit) — 예전에 여기서 서명과 기록이 갈라져 체인은 PROCESSING, DB 는 RECEIVED 로
+    멈춘 일이 있었는데(체인 작업 18·19), 서명을 떼어 내 그 틈이 없어졌다.
   */
   const start = useMutation({
-    mutationFn: async () => startOnly(requireChainJob()),
+    mutationFn: () => processingJobApi.start(jobId),
     onSuccess: refresh,
   })
   const saveResult = useMutation({
@@ -255,6 +247,11 @@ export function useProcessingJob(jobId: number) {
       const files = evidence.files ?? []
       if (files.length === 0) throw new Error('가공 증빙을 한 개 이상 등록해 주세요.')
       const signed = await signature('RESULT_SUBMIT')
+      // 체인의 가공 시작은 수령 때 보내지 않는다(receive 참고). 컨트랙트가 결과 제출 전에
+      // PROCESSING 을 요구하므로, 아직 수령 상태일 때만 여기서 먼저 보낸다.
+      if (!(await chainAlreadyPassed(id, 'PROCESSING'))) {
+        await confirmed(startProcessingOnChain(id))
+      }
       const outputHashes = job.outputs.map((output, index) =>
         files[index % files.length]?.fileHash ?? processingEvidenceHash(output))
       const resultEvidenceHash = processingEvidenceHash({

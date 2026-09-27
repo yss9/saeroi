@@ -472,10 +472,60 @@ test('발송된 소재는 수령 한 번으로 가공 결과 작성까지 간다
   expect(screen.queryByRole('button', { name: '가공 시작' })).not.toBeInTheDocument()
 })
 
-test('수령 뒤 가공 시작 서명만 끊긴 작업은 그 자리에서 이어서 서명한다', () => {
+test('수령 뒤 가공 시작 기록만 빠진 작업은 버튼 없이 곧바로 가공을 시작한다', () => {
   renderDetail({ role: 'PROCESSOR', job: { status: 'RECEIVED', chainJobId: 11 } })
+  const flow = mocks.useProcessingJob()
 
-  expect(screen.getByText('소재 수령은 기록됐지만 가공 시작 서명이 끝나지 않았어요. 서명하면 바로 가공 결과를 작성할 수 있어요.')).toBeInTheDocument()
-  expect(screen.getByRole('button', { name: '가공 시작 서명 다시 하기' })).toBeInTheDocument()
+  expect(screen.getByText('가공을 시작하고 있어요. 잠시 후 가공 결과를 작성할 수 있어요.')).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: /가공 시작/ })).not.toBeInTheDocument()
+  expect(flow.start.mutate).toHaveBeenCalledOnce()
 })
 
+
+// 임시 저장과 제출은 결과 작성의 마지막 두 동작이다 — 증빙까지 올린 뒤 한 줄에서 고른다.
+function withSavedResult(overrides: Record<string, unknown> = {}) {
+  const flow = mocks.useProcessingJob()
+  const saved = {
+    outputId: 1, materialId: null, materialType: 'DENIM', grade: 'A', gradeReason: '오염과 손상이 없음', name: '폐데님 원단', quantity: 650,
+  }
+  mocks.useProcessingJob.mockReturnValue({
+    ...flow,
+    detail: { ...flow.detail, data: { ...flow.detail.data, resultRevision: 1, outputs: [saved], ...overrides } },
+  })
+  return flow
+}
+
+test('임시 저장과 결과 제출 버튼은 증빙 아래에 나란히 있다', () => {
+  withSavedResult()
+  const { container } = render(<MemoryRouter><ProcessingJobDetail jobId={17} /></MemoryRouter>)
+
+  const actions = container.querySelector('.pj-result-actions')
+  expect(actions).not.toBeNull()
+  const buttons = Array.from(actions!.querySelectorAll('button')).map(button => button.textContent)
+  expect(buttons).toEqual(['결과 임시 저장', '가공 결과 제출'])
+  // 증빙 업로드가 두 버튼보다 앞에 온다.
+  const evidence = screen.getByTestId('evidence-upload')
+  expect(evidence.compareDocumentPosition(actions!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+})
+
+test('저장한 적이 없으면 결과 제출은 보이지만 누를 수 없다', () => {
+  render(<MemoryRouter><ProcessingJobDetail jobId={17} /></MemoryRouter>)
+
+  expect(screen.getByRole('button', { name: '가공 결과 제출' })).toBeDisabled()
+  expect(screen.getByText('임시 저장한 결과를 제출합니다. 먼저 결과를 임시 저장해 주세요.')).toBeInTheDocument()
+})
+
+// 제출은 서버에 저장된 결과를 올린다. 고친 뒤 저장하지 않고 누르면 예전 값이 제출된다.
+test('저장하지 않은 수정이 있으면 결과 제출을 막는다', async () => {
+  const user = userEvent.setup()
+  const flow = withSavedResult()
+  render(<MemoryRouter><ProcessingJobDetail jobId={17} /></MemoryRouter>)
+
+  expect(screen.getByRole('button', { name: '가공 결과 제출' })).toBeEnabled()
+  await user.clear(screen.getByLabelText('산출물 1 산출 수량(g)'))
+  await user.type(screen.getByLabelText('산출물 1 산출 수량(g)'), '700')
+
+  expect(screen.getByRole('button', { name: '가공 결과 제출' })).toBeDisabled()
+  expect(screen.getByText('저장하지 않은 수정이 있어요. 임시 저장한 뒤 제출해 주세요.')).toBeInTheDocument()
+  expect(flow.submit.mutate).not.toHaveBeenCalled()
+})
