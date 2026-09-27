@@ -24,7 +24,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Callable, Iterable
 
 import numpy as np
 
@@ -37,6 +37,36 @@ ASIDE_LABELS = ("TARE", "MAX", "PCS", "TOTAL")
 
 # 단위로 인정하는 글자. 소문자로 비교한다.
 UNIT_TEXTS = ("kg", "g")
+
+# 확대해 다시 읽은 글자가 이 비율(숫자 높이 대비) 이하로 작으면 7세그먼트 숫자가 아니다.
+# 작게 찍힌 g 는 확대하면 대개 "9" 로 읽혔고 높이는 숫자의 0.40~0.48 배였다(실측 두 장).
+# 숫자 9 라면 다른 숫자와 같은 높이(1.0 배)라 여유를 두고 0.6 배에서 자른다.
+ZOOMED_UNIT_MAX_HEIGHT_RATIO = 0.6
+_SMALL_G_LOOKALIKES = ("g", "9", "q")
+
+# 숫자 토큰 하나의 오른쪽을 확대해 단위를 다시 읽는 함수. 못 읽으면 None.
+ZoomUnitReader = Callable[["TextToken"], "tuple[str, float] | None"]
+
+
+def unit_from_zoom(glyphs: Iterable[tuple[str, float, float]]) -> tuple[str, float] | None:
+    """확대해 다시 읽은 글자들 (텍스트, 확신, 숫자 높이 대비 글자 높이) 에서 단위를 가려낸다.
+
+    `g`·`kg` 는 그대로 단위다. 한 글자짜리 `9`·`q` 는 **작을 때만** g 로 본다 — 작게 찍힌 g 가
+    확대하면 9 로 읽히는데, 같은 자리에 숫자 9 가 있었다면 다른 숫자만큼 컸을 것이다.
+    여럿이면 확신이 가장 높은 것을 쓴다.
+    """
+    best: tuple[str, float] | None = None
+    for text, confidence, height_ratio in glyphs:
+        lowered = text.strip().lower()
+        if lowered == "kg":
+            unit = "kg"
+        elif lowered in _SMALL_G_LOOKALIKES and height_ratio <= ZOOMED_UNIT_MAX_HEIGHT_RATIO:
+            unit = "g"
+        else:
+            continue
+        if best is None or confidence > best[1]:
+            best = (unit, confidence)
+    return best
 
 
 @dataclass(frozen=True)
@@ -147,8 +177,14 @@ class WeightReading:
     height: float
 
 
-def find_weight_readings(tokens: list[TextToken]) -> list[WeightReading]:
-    """단위가 붙은 무게 후보를 글자가 큰 순서로 돌려준다."""
+def find_weight_readings(
+    tokens: list[TextToken], zoom_unit: ZoomUnitReader | None = None
+) -> list[WeightReading]:
+    """단위가 붙은 무게 후보를 글자가 큰 순서로 돌려준다.
+
+    `zoom_unit` 을 주면 옆에 단위 토큰이 없는 숫자는 그 오른쪽을 확대해 한 번 더 본다. 표시창의
+    단위가 숫자보다 훨씬 작게 찍혀 전체 사진의 OCR 에서는 아예 읽히지 않는 저울이 있다.
+    """
     readings: list[WeightReading] = []
     for token in tokens:
         if not any(character.isdigit() for character in token.text):
@@ -161,10 +197,18 @@ def find_weight_readings(tokens: list[TextToken]) -> list[WeightReading]:
         if token.is_unit:
             continue
         unit = unit_beside(token, tokens)
-        if unit is None:
-            text, unit_confidence = token.text, token.confidence
-        else:
+        already_has_unit = token.text.strip().lower().endswith(UNIT_TEXTS)
+        zoomed = (
+            zoom_unit(token)
+            if unit is None and not already_has_unit and zoom_unit is not None
+            else None
+        )
+        if unit is not None:
             text, unit_confidence = f"{token.text}{unit.text}", unit.confidence
+        elif zoomed is not None:
+            text, unit_confidence = f"{token.text}{zoomed[0]}", zoomed[1]
+        else:
+            text, unit_confidence = token.text, token.confidence
 
         readings.append(
             WeightReading(

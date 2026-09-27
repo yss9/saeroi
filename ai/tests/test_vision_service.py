@@ -50,6 +50,7 @@ def service_factory() -> Callable[..., WeightRecognitionService]:
         validator: Callable[[bytes], np.ndarray] | None = None,
         ocr_engine: Callable[[np.ndarray], object] | None = None,
         variants: int = 1,
+        unit_reader: Callable[[np.ndarray, object], object] | None = None,
     ) -> WeightRecognitionService:
         return WeightRecognitionService(
             image_validator=validator or (lambda _data: IMAGE.copy()),
@@ -57,6 +58,8 @@ def service_factory() -> Callable[..., WeightRecognitionService]:
                 (f"variant-{index}", image) for index in range(variants)
             ],
             ocr_engine=ocr_engine or (lambda _image: ocr_result(token(text, ocr))),
+            # 단위 확대 재판독은 따로 본다(아래 테스트). 기본은 "확대해도 못 읽었다".
+            unit_reader=unit_reader or (lambda _image, _token: None),
         )
 
     return make_service
@@ -246,3 +249,74 @@ def test_unexpected_ocr_exception_is_not_converted_to_domain_failure(service_fac
 
     with pytest.raises(RuntimeError):
         service_factory(ocr_engine=explode).recognize(VALID_JPEG)
+
+
+# ── 작게 따로 찍힌 단위 ─────────────────────────────────────────
+
+def test_a_small_unit_missed_in_the_full_photo_is_read_by_zooming(service_factory):
+    """숫자 옆에 작게 찍힌 g 는 전체 사진에서 읽히지 않는다 — 그 자리만 확대해 다시 읽는다."""
+    asked = []
+
+    def unit_reader(_image, number_token):
+        asked.append(number_token.text)
+        return "g", 0.95
+
+    result = service_factory(text="2010", ocr=0.99, unit_reader=unit_reader).recognize(VALID_JPEG)
+
+    assert asked == ["2010"]
+    assert result.status == VisionStatus.SUCCESS
+    assert result.weight.value == 2_010
+    assert result.ocr.raw_text == "2010g"
+
+
+def test_zooming_is_skipped_when_the_unit_was_already_read(service_factory):
+    asked = []
+    result = service_factory(
+        text="2.35 kg", unit_reader=lambda _image, t: asked.append(t) or ("g", 0.9)
+    ).recognize(VALID_JPEG)
+
+    assert asked == []
+    assert result.weight.value == 2_350
+
+
+def test_agreement_across_variants_beats_a_spurious_decimal_point(service_factory):
+    """한 전처리가 2010 을 20.10 으로 읽어도, 여러 전처리가 같게 읽은 값을 고른다."""
+    responses = iter(
+        [
+            ocr_result(token("2010g", 0.99, height=72)),
+            ocr_result(token("20.10g", 0.995, height=72)),
+            ocr_result(token("2010g", 0.98, height=71)),
+        ]
+    )
+    result = service_factory(variants=3, ocr_engine=lambda _image: next(responses)).recognize(VALID_JPEG)
+
+    assert result.weight.value == 2_010
+
+
+def test_agreement_does_not_override_a_much_taller_reading(service_factory):
+    """작은 글씨가 여러 번 읽혀도 가장 큰 본값을 이기지 못한다(용량 표기 같은 것)."""
+    responses = iter(
+        [
+            ocr_result(token("5kg", 0.99, height=20), token("1.25kg", 0.95, height=90)),
+            ocr_result(token("5kg", 0.99, height=20)),
+            ocr_result(token("5kg", 0.99, height=20)),
+        ]
+    )
+    result = service_factory(variants=3, ocr_engine=lambda _image: next(responses)).recognize(VALID_JPEG)
+
+    assert result.weight.value == 1_250
+
+
+
+def test_zooming_waits_until_no_variant_found_a_unit(service_factory):
+    """다른 전처리에서 이미 단위를 읽었으면 확대하지 않는다 — 잘 읽히는 사진을 느리게 만들지 않는다."""
+    responses = iter([ocr_result(token("2010", 0.99, height=72)), ocr_result(token("2010g", 0.98, height=72))])
+    asked = []
+    result = service_factory(
+        variants=2,
+        ocr_engine=lambda _image: next(responses),
+        unit_reader=lambda _image, t: asked.append(t.text) or ("g", 0.9),
+    ).recognize(VALID_JPEG)
+
+    assert asked == []
+    assert result.weight.value == 2_010
