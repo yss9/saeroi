@@ -207,21 +207,23 @@ function ConfirmSection({ batch }: { batch: ProductionBatch }) {
         **확인 단계를 두지 않는다.** 대신 무엇이 일어나는지를 버튼 바로 위에 둔다 — 누르기
         전에 읽는 자리가 여기여야 하고, 모달로 한 번 더 물으면 같은 말을 두 번 하게 된다.
       */}
-      <p className="batch-detail__effects">
-        투입한 {formatKg(productUsed)}이 소비되고 제품 {batch.producedQuantity}개가
-        만들어집니다. <strong>되돌릴 수 없습니다.</strong>
-      </p>
-
       {/*
+        확정하면 일어나는 일과 그만두면 일어나는 일을 한 상자에 둔다 — 두 버튼이 나란히 서
+        있으니 설명도 한 덩어리여야 어느 말이 어느 버튼 것인지 한눈에 맞춰 읽힌다.
+
         **그만두는 길을 같은 자리에 둔다.** 투입한 소재는 잠겨 있어 다른 배치에도 판매 글에도
         쓸 수 없고, 그 잠금에는 만료가 없다. 확정만 놓아두면 마음이 바뀐 담당자에게 남는 길이
         "원하지 않는 제품을 확정한다" 뿐이다 — 그건 되돌릴 수 없는 쪽으로 미는 것이다.
       */}
-      {locked > 0 && (
-        <p className="batch-detail__effects">
-          취소하면 투입해 둔 {formatKg(locked)}의 잠금이 풀려 다시 쓸 수 있습니다.
+      <div className="batch-detail__effects">
+        <p>
+          투입한 {formatKg(productUsed)}이 소비되고 제품 {batch.producedQuantity}개가
+          만들어집니다. <strong>되돌릴 수 없습니다.</strong>
         </p>
-      )}
+        {locked > 0 && (
+          <p>취소하면 투입해 둔 {formatKg(locked)}의 잠금이 풀려 다시 쓸 수 있습니다.</p>
+        )}
+      </div>
 
       {(confirm.running || confirm.currentStep) && (
         <ProductionFlowProgress doneSteps={stepsBefore(confirm.currentStep)} currentStep={confirm.currentStep} running={confirm.running} />
@@ -237,7 +239,7 @@ function ConfirmSection({ batch }: { batch: ProductionBatch }) {
           loading={cancel.isPending}
           disabled={confirm.running}
         >
-          배치 취소
+          생산 취소
         </Button>
         <Button
           onClick={() => void confirm.run()}

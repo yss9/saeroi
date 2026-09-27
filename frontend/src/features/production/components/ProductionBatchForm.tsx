@@ -9,7 +9,7 @@ import { productionKeys } from '../api/productionKeys.ts'
 import { inventoryKeys } from '../../inventory/api/inventoryKeys.ts'
 import { materialKeys } from '../../material/api/materialKeys.ts'
 import { useOpenProductionBatch } from '../hooks/useOpenProductionBatch.ts'
-import type { ProductionBatch } from '../types/production.types.ts'
+import { PRODUCTION_INPUTS_MAX, type ProductionBatch } from '../types/production.types.ts'
 import {
   canSubmitDrafts,
   toRequest,
@@ -69,6 +69,8 @@ export function ProductionBatchForm({ onOpened, initial }: ProductionBatchFormPr
   // 배치가 아직 없어 투입은 화면이 모아 둔다. 서버로는 배치를 만든 뒤에 보낸다.
   const [drafts, setDrafts] = useState<DraftInput[]>(initial?.drafts ?? [])
   const [inputError, setInputError] = useState<unknown>(null)
+  // 투입할 소재를 고르는 칸이 펴져 있는가. "투입 추가" 가 카드 제목 줄에 있어 여기서 쥔다.
+  const [choosing, setChoosing] = useState(false)
 
   if (wallets.isPending) {
     return <Loading label="지갑 정보를 불러오는 중" />
@@ -136,38 +138,96 @@ export function ProductionBatchForm({ onOpened, initial }: ProductionBatchFormPr
     )
   })
 
-  return (
-    <form onSubmit={onSubmit} noValidate className="batch-form">
-      <div className="batch-form__fields">
-      <Input
-        label="생산 이름"
-        placeholder="예: 2026 가을 토트백 1차"
-        error={errors.batchName?.message}
-        {...register('batchName', {
-          required: '생산 이름을 입력해 주세요.',
-          maxLength: { value: 200, message: '생산 이름은 200자를 넘을 수 없습니다.' },
-        })}
-      />
+  const draftTotal = totalDraftQuantity(drafts)
 
-      <Input
-        label="생산 개수"
-        type="number"
-        min={1}
-        error={errors.producedQuantity?.message}
-        {...register('producedQuantity', {
-          required: '생산 개수를 입력해 주세요.',
-          valueAsNumber: true,
-          min: { value: 1, message: '1개 이상 입력해 주세요.' },
-          validate: (value) =>
-            Number.isInteger(value) ? true : '생산 개수는 정수로 입력해 주세요.',
-        })}
-      />
-      </div>
+  /*
+    **생산 상세와 같은 틀로 그린다.** 머리 카드 → 투입 소재 카드 → 오른쪽 끝 버튼. 예전에는
+    가운데 흰 카드 한 장에 칸을 쌓은 입력 폼이라, 시작을 누르고 상세로 넘어가면 같은 생산이
+    전혀 다른 화면으로 바뀌어 보였다.
+
+    머리에는 적는 것 둘(이름 · 개수)만 한 줄에 둔다. 투입 합계와 건수는 적는 값이 아니라
+    담은 소재에서 계산되는 값이라, 소재 카드의 맨 아래 합계 줄에서 보여 준다.
+  */
+  return (
+    <form onSubmit={onSubmit} noValidate className="batch-detail batch-new">
+      <header className="batch-detail__header">
+        <div className="batch-new__fields">
+          <div className="batch-new__name">
+            <Input
+              label="생산 이름"
+              placeholder="예: 2026 가을 토트백 1차"
+              error={errors.batchName?.message}
+              {...register('batchName', {
+                required: '생산 이름을 입력해 주세요.',
+                maxLength: { value: 200, message: '생산 이름은 200자를 넘을 수 없습니다.' },
+              })}
+            />
+          </div>
+          <div className="batch-new__quantity">
+            <Input
+              label="생산 개수"
+              type="number"
+              min={1}
+              placeholder="0"
+              error={errors.producedQuantity?.message}
+              {...register('producedQuantity', {
+                required: '생산 개수를 입력해 주세요.',
+                valueAsNumber: true,
+                min: { value: 1, message: '1개 이상 입력해 주세요.' },
+                validate: (value) =>
+                  Number.isInteger(value) ? true : '생산 개수는 정수로 입력해 주세요.',
+              })}
+            />
+            <small aria-hidden="true">개</small>
+          </div>
+        </div>
+      </header>
 
       {/* 무엇으로 만들지도 여기서 정한다. 배치를 연 뒤 다른 화면에서 담게 하면 이름과
           개수만 적어 둔 빈 배치가 쌓인다. */}
-      <div className="batch-form__inputs">
-        <MaterialInputPicker drafts={drafts} onChange={setDrafts} />
+      <div className="batch-new__inputs">
+        {/*
+          "투입 추가" 는 카드 밖, 카드 바로 위 오른쪽 끝에 둔다 — 카드 안은 담은 소재의 자리라,
+          버튼이 그 안에 있으면 담긴 줄의 일부처럼 읽힌다. 칸이 하나라도 열린 뒤에만 선다.
+        */}
+        {drafts.length > 0 && !choosing && (
+          <div className="batch-new__more">
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={drafts.length >= PRODUCTION_INPUTS_MAX}
+              onClick={() => setChoosing(true)}
+            >
+              + 투입 추가
+            </Button>
+          </div>
+        )}
+        <section className="batch-detail__section">
+          {/* 큰 제목은 두지 않는다 — 선택 칸의 이름("투입할 소재")이 같은 말을 한다.
+              구획 이름은 보조 기술에만 남긴다. */}
+          <h2 className="ui-visually-hidden">투입할 소재</h2>
+          <MaterialInputPicker
+            drafts={drafts}
+            onChange={setDrafts}
+            choosing={choosing}
+            onChoosingChange={setChoosing}
+          />
+
+          {/*
+            **담은 것의 합계는 담은 칸의 맨 아래에 선다** — 상세의 투입 표가 "합계" 줄로 끝나는
+            것과 같다. 버튼 옆에 따로 떼어 두면 어느 목록의 합인지 눈으로 이어지지 않았다.
+            무게가 이 줄의 주인이고, 건수는 그 옆에 조용히 붙는다.
+          */}
+          {drafts.length > 0 && (
+            <div className="batch-new__sum" aria-live="polite">
+              <span className="batch-new__sum-label">투입 합계</span>
+              <span className="batch-new__sum-value">
+                <strong>{formatKg(draftTotal)}</strong>
+                <small>소재 {drafts.length}건</small>
+              </span>
+            </div>
+          )}
+        </section>
       </div>
 
       {/* 배치는 열렸는데 투입만 실패한 경우다. 배치가 사라진 것이 아니다. */}
@@ -182,21 +242,20 @@ export function ProductionBatchForm({ onOpened, initial }: ProductionBatchFormPr
 
       {open.isError && <ErrorMessage error={open.error} />}
 
-      <div className="batch-form__footer">
-        {drafts.length > 0 && (
-          <span>투입 {drafts.length}건 · 합계 {formatKg(totalDraftQuantity(drafts))}</span>
-        )}
-
-        {/* 소재를 하나도 고르지 않아도 열 수 있다 — 나중에 담는 것도 정상 경로다.
-            다만 한 건이라도 값이 어긋나면 막는다. 서버가 통째로 거절하기 때문이다. */}
-        <Button
-          type="submit"
-          loading={open.isPending}
-          disabled={!hasWallet || (drafts.length > 0 && !canSubmitDrafts(drafts))}
-        >
-          생산 시작
-        </Button>
-      </div>
+      {/* 상세의 "생산 확정" 과 같은 자리 — 위를 읽고 내려온 눈이 마치는 오른쪽 끝이다. */}
+      <section className="batch-detail__confirm-area">
+        <div className="batch-detail__confirm">
+          {/* 소재를 하나도 고르지 않아도 열 수 있다 — 나중에 담는 것도 정상 경로다.
+              다만 한 건이라도 값이 어긋나면 막는다. 서버가 통째로 거절하기 때문이다. */}
+          <Button
+            type="submit"
+            loading={open.isPending}
+            disabled={!hasWallet || (drafts.length > 0 && !canSubmitDrafts(drafts))}
+          >
+            생산 시작
+          </Button>
+        </div>
+      </section>
     </form>
   )
 }
