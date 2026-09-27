@@ -104,6 +104,7 @@ describe('ProductionChainSteps', () => {
     expect(stepRow('생산에 사용할 소재 확정')).toHaveClass('chain-steps__done')
     expect(stepRow('사용 소재 차감·자투리 등록')).toHaveClass('chain-steps__done')
     expect(stepRow('생산 제품 등록')).not.toHaveClass('chain-steps__done')
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
   it('모두 끝났으면 버튼이 없다', () => {
@@ -112,6 +113,7 @@ describe('ProductionChainSteps', () => {
     renderSteps()
 
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('생산 이력 기록이 완료되었습니다.')
   })
 
   it('진행 중에는 지금 단계를 표시한다', () => {

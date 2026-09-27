@@ -46,6 +46,12 @@ export function ProductionChainSteps({ batch, flow, blockedReason }: ProductionC
     <div className="production-flow__area">
       <ProductionFlowProgress doneSteps={done} currentStep={flow.currentStep} running={flow.running} />
 
+      {allDone && (
+        <p className="chain-steps__complete" role="status">
+          생산 이력 기록이 완료되었습니다. 제품 QR에서 소재 이력을 확인할 수 있습니다.
+        </p>
+      )}
+
       {!allDone && (
         <>
           {blockedReason && !flow.running && <p className="chain-steps__blocked">{blockedReason}</p>}
