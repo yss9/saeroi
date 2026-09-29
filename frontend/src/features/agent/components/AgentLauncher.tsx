@@ -1,4 +1,6 @@
-import { Sparkle } from '@phosphor-icons/react'
+// 어시스턴트 캐릭터 전신 그림(saerpa.png)에서 머리만 잘라 96px 로 줄인 것이다. 머리말에서는 30px 로 서는데,
+// 전신을 그 크기로 줄이면 무엇인지 알아볼 수 없고 원본(720KB)은 아이콘으로 싣기에 무겁다.
+import saerpaIconUrl from '../../../assets/saerpa-icon.png'
 import './agent-launcher.css'
 
 /**
@@ -31,10 +33,21 @@ const WINDOW_NAME = 'saeroi-agent'
 const WINDOW_FEATURES = 'width=980,height=880'
 
 /**
- * @param floating 화면 오른쪽 아래에 떠 있는 버튼으로 둔다. 목록을 내려 읽는 동안에도 손 닿는
- *   자리에 있어야 해서다 — 페이지 맨 위에 두면 스크롤을 내린 뒤에는 보이지 않는다.
+ * @param variant 어디에 놓이는가.
+ *   - `button` 제자리에 놓이는 보조 버튼
+ *   - `header` 사업자 머리말(쇼핑몰 옆)의 버튼. 머리말이 모양을 정하므로 공용 버튼 클래스를
+ *     붙이지 않는다 — 붙이면 옆의 쇼핑몰·마이페이지와 따로 논다. 어느 화면에서든 부를 수 있어
+ *     예전처럼 소재 검색 화면에만 띄워 두지 않는다.
  */
-export function AgentLauncher({ label = 'AI 어시스턴트', floating = false }: { label?: string; floating?: boolean }) {
+export function AgentLauncher({
+  label = 'AI 어시스턴트',
+  variant = 'button',
+  className,
+}: {
+  label?: string
+  variant?: 'button' | 'header'
+  className?: string
+}) {
   function open() {
     const url = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/agent`
     const opened = window.open(url, WINDOW_NAME, WINDOW_FEATURES)
@@ -47,12 +60,18 @@ export function AgentLauncher({ label = 'AI 어시스턴트', floating = false }
     opened.focus()
   }
 
-  if (floating) {
+  if (variant === 'header') {
     return (
-      <button type="button" className="agent-fab" onClick={open} aria-label={label} title={`${label} (새 창)`}>
-        <span className="agent-fab__icon" aria-hidden="true"><Sparkle size={20} weight="fill" /></span>
-        {/* 좁은 화면에서는 글자를 감추고 아이콘만 남긴다. 이름은 aria-label 이 말한다. */}
-        <span className="agent-fab__label" aria-hidden="true">{label}</span>
+      <button
+        type="button"
+        className={['agent-header-button', className].filter(Boolean).join(' ')}
+        onClick={open}
+        aria-label={label}
+        title={`${label} (새 창)`}
+      >
+        <img className="agent-header-button__icon" src={saerpaIconUrl} alt="" width={30} height={30} />
+        {/* 좁은 화면에서는 머리말이 글자를 감추고 아이콘만 남긴다. 이름은 aria-label 이 말한다. */}
+        <span aria-hidden="true">{label}</span>
       </button>
     )
   }
