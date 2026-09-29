@@ -25,7 +25,7 @@ const NOT_IN_MENU: ReadonlyMap<string, string> = new Map([
   ['/brands', '공개 브랜드 목록. 쇼핑몰 헤더와 홈 발견 링크에서 접근'],
   ['/brands/:brandId', '공개 브랜드 상세. 브랜드 카드와 상품 브랜드명에서 접근'],
   ['/search', '공개 소비자 검색. 쇼핑몰 헤더 SEARCH 아이콘에서 접근'],
-  ['/agent', 'AI 어시스턴트. 사이드바 링크로 열면 같은 탭에서 이동해 버린다 — 소재 검색 화면의 AgentLauncher 가 별도 창으로 띄운다'],
+  ['/agent', 'AI 어시스턴트. 사이드바 링크로 열면 같은 탭에서 이동해 버린다 — 브랜드 머리말의 AgentLauncher 가 별도 창으로 띄운다'],
   ['/agent/payment/callback', 'AI 어시스턴트 결제 복귀. 카카오페이가 보내는 주소라 사람이 메뉴로 들어가지 않는다'],
   ['/agent/processing/payment/callback', 'AI 어시스턴트 가공비 결제 복귀. 위와 같은 이유로 메뉴에 없다'],
   ['/', '랜딩. 로그인 전 입구이고 헤더 로고가 데려간다'],

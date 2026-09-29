@@ -12,6 +12,7 @@ import {
   useVisibleMenu,
   useVisibleMenuGroups,
 } from '../../../app/navigation/useVisibleMenu.ts'
+import { AgentLauncher } from '../../agent/components/AgentLauncher.tsx'
 import { useAuth } from '../../auth/hooks/useAuth.ts'
 import { useLogout } from '../../auth/hooks/useLogout.ts'
 import { NotificationCenter } from '../../notification/components/NotificationCenter.tsx'
@@ -157,6 +158,19 @@ export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps
             <House aria-hidden="true" />
             <span>쇼핑몰</span>
           </Link>
+          {/*
+            **AI 어시스턴트는 브랜드 전용이고, 승인된 뒤에만 보인다.** 예전에는 소재 검색 화면 오른쪽
+            아래에만 떠 있어 다른 화면에서는 부를 길이 없었다. 머리말은 모든 업무 화면에 있으므로
+            여기 두면 어디서든 연다. 승인 전에는 업무 화면이 막혀 있어(blocksRolePage) 어시스턴트가
+            대신 해 줄 일도 없다.
+          */}
+          {user?.role === 'BRAND' && roleApproved ? (
+            <AgentLauncher
+              label="AI 어시스턴트로 소재 찾기"
+              variant="header"
+              className="company-dashboard__agent-button"
+            />
+          ) : null}
           {isBusinessUser ? (
             <>
               {roleApproved ? <NotificationCenter enabled /> : null}
