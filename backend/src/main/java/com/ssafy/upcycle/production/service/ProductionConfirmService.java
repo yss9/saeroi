@@ -24,6 +24,7 @@ import com.ssafy.upcycle.product.repository.ProductItemRepository;
 import com.ssafy.upcycle.product.service.ProductQrTokenGenerator;
 import com.ssafy.upcycle.production.ProductionErrorCode;
 import com.ssafy.upcycle.production.dto.ProductionBatchResponse;
+import com.ssafy.upcycle.production.dto.ProductionInputResponse;
 import com.ssafy.upcycle.production.entity.ProductionBatch;
 import com.ssafy.upcycle.production.entity.ProductionInput;
 import com.ssafy.upcycle.production.entity.ProductionOutput;
@@ -133,7 +134,31 @@ public class ProductionConfirmService {
         batch.startSigning();
         batch.confirm(consumption.virginUsed, consumption.upcycledUsed, now);
 
-        return ProductionBatchResponse.of(batch, List.of());
+        return ProductionBatchResponse.of(batch, inputResponses(inputs, consumption));
+    }
+
+    /**
+     * 확정 응답에 싣는 투입 목록.
+     *
+     * <p><b>비우면 온체인 2단계가 깨진다.</b> 화면은 이 응답을 그대로 들고 {@code submitPlanAndLock}
+     * 에 서명하고, 영수증의 잠금 번호를 여기 적힌 투입에 짝지어 보고한다. 목록이 비어 있으면
+     * 짝을 하나도 찾지 못해 빈 보고가 나가고({@code VALIDATION_ERROR}), 체인에는 서버가 모르는
+     * 잠금만 남는다 — 그 뒤 이어서 진행하면 소각까지 가서야 거절된다.
+     *
+     * <p>새로 읽지 않는다. 투입·소재·잠금은 검증하며 이미 읽었고, 잠금은 방금
+     * {@code CONSUMED} 로 바뀐 그 엔티티다. {@code consumption.locks} 는 투입과 같은 순서로 쌓인다.
+     */
+    private List<ProductionInputResponse> inputResponses(
+            List<ProductionInput> inputs, Consumption consumption) {
+        List<ProductionInputResponse> responses = new ArrayList<>(inputs.size());
+        for (int i = 0; i < inputs.size(); i++) {
+            ProductionInput input = inputs.get(i);
+            responses.add(ProductionInputResponse.of(
+                    input,
+                    consumption.materials.get(input.getMaterialId()),
+                    consumption.locks.get(i)));
+        }
+        return responses;
     }
 
     /**

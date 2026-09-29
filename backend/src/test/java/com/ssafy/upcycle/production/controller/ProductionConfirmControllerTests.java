@@ -165,6 +165,21 @@ class ProductionConfirmControllerTests {
     }
 
     @Test
+    void confirmationResponseCarriesTheInputs() throws Exception {
+        // 화면은 이 응답을 그대로 들고 체인 2단계로 간다. 투입이 비어 있으면 영수증의 잠금 번호를
+        // 어느 투입에도 짝짓지 못해 빈 목록을 보고하고(VALIDATION_ERROR), 체인에는 잠금만 남는다.
+        Long batchId = batchWithInput(virginMaterialId, 30_000L, 30_000L, 0L, 0L);
+        Long inputId = inputRepository.findAllByProductionBatchId(batchId).get(0).getId();
+        String materialCode = materialRepository.findById(virginMaterialId).orElseThrow().getMaterialCode();
+
+        confirm(brandToken, batchId)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.inputs.length()").value(1))
+                .andExpect(jsonPath("$.data.inputs[0].productionInputId").value(inputId))
+                .andExpect(jsonPath("$.data.inputs[0].materialCode").value(materialCode));
+    }
+
+    @Test
     void everyItemGetsItsOwnUnguessableQrToken() throws Exception {
         // QR 조회는 인증 없이 열린 경로다. 값을 맞힐 수 있으면 남의 제품 이력을 열람할 수 있다.
         Long batchId = batchWithInput(virginMaterialId, 30_000L, 30_000L, 0L, 0L);
