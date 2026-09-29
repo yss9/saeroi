@@ -193,6 +193,56 @@
   height: 19px;
 }
 
+/*
+ * 새르파 AI — 머리말에서 유일하게 색을 채운 버튼.
+ *
+ * 옆의 쇼핑몰·마이페이지는 글자만 있는 링크라, 같은 모양이면 누르는 것인지 읽히지 않는다.
+ * 역할 색(--role-accent)으로 채운 알약 모양에 캐릭터 얼굴을 밝은 원 안에 앉힌다. 위의
+ * `> button` 규칙이 테두리·배경을 지우므로 그보다 구체적인 선택자로 덮는다.
+ */
+.company-dashboard__header-actions > .company-dashboard__agent-button {
+  min-height: 38px;
+  gap: 8px;
+  padding: 0 16px 0 4px;
+  border: 1px solid var(--role-accent);
+  border-radius: 999px;
+  background: var(--role-accent);
+  box-shadow: 0 1px 2px rgb(23 32 51 / 0.14);
+  color: #fff;
+  font-weight: 800;
+  transition: background-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+
+.company-dashboard__header-actions > .company-dashboard__agent-button:hover {
+  background: color-mix(in srgb, var(--role-accent) 86%, #000);
+  box-shadow: 0 3px 8px rgb(23 32 51 / 0.2);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.company-dashboard__header-actions > .company-dashboard__agent-button:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgb(23 32 51 / 0.14);
+}
+
+.company-dashboard__header-actions > .company-dashboard__agent-button:focus-visible {
+  outline: 3px solid var(--company-orange);
+  outline-offset: 2px;
+}
+
+.company-dashboard__agent-button .agent-header-button__icon {
+  border-radius: 50%;
+  background: #fff8f1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .company-dashboard__header-actions > .company-dashboard__agent-button,
+  .company-dashboard__header-actions > .company-dashboard__agent-button:hover {
+    transition: none;
+    transform: none;
+  }
+}
+
 .company-wallet-status {
   position: relative;
 }
@@ -922,6 +972,11 @@
     width: 42px;
     justify-content: center;
     padding: 0 !important;
+  }
+
+  /* 글자를 감추면 알약이 원이 된다. 높이(38px)에 폭을 맞춘다. */
+  .company-dashboard__header-actions > .company-dashboard__agent-button {
+    width: 38px;
   }
 
   .company-dashboard__menu-button {

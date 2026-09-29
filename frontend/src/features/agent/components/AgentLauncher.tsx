@@ -35,8 +35,8 @@ const WINDOW_FEATURES = 'width=980,height=880'
 /**
  * @param variant 어디에 놓이는가.
  *   - `button` 제자리에 놓이는 보조 버튼
- *   - `header` 사업자 머리말(쇼핑몰 옆)의 버튼. 머리말이 모양을 정하므로 공용 버튼 클래스를
- *     붙이지 않는다 — 붙이면 옆의 쇼핑몰·마이페이지와 따로 논다. 어느 화면에서든 부를 수 있어
+ *   - `header` 사업자 머리말(쇼핑몰 왼쪽)의 버튼. 머리말이 모양을 정하므로(company-dashboard.css)
+ *     공용 버튼 클래스를 붙이지 않는다. 어느 화면에서든 부를 수 있어
  *     예전처럼 소재 검색 화면에만 띄워 두지 않는다.
  */
 export function AgentLauncher({
