@@ -154,23 +154,25 @@ export function CompanyDashboardLayout({ children }: CompanyDashboardLayoutProps
           ) : null}
         </div>
         <div className="company-dashboard__header-actions">
-          <Link className="company-dashboard__shop-link" to="/">
-            <House aria-hidden="true" />
-            <span>쇼핑몰</span>
-          </Link>
           {/*
-            **AI 어시스턴트는 브랜드 전용이고, 승인된 뒤에만 보인다.** 예전에는 소재 검색 화면 오른쪽
-            아래에만 떠 있어 다른 화면에서는 부를 길이 없었다. 머리말은 모든 업무 화면에 있으므로
+            **새르파 AI(어시스턴트)는 브랜드 전용이고, 승인된 뒤에만 보인다.** 예전에는 소재 검색 화면
+            오른쪽 아래에만 떠 있어 다른 화면에서는 부를 길이 없었다. 머리말은 모든 업무 화면에 있으므로
             여기 두면 어디서든 연다. 승인 전에는 업무 화면이 막혀 있어(blocksRolePage) 어시스턴트가
             대신 해 줄 일도 없다.
+
+            머리말 줄의 맨 앞, 쇼핑몰 왼쪽에 둔다. 머리말에서 유일하게 색을 채운 버튼이다.
           */}
           {user?.role === 'BRAND' && roleApproved ? (
             <AgentLauncher
-              label="AI 어시스턴트로 소재 찾기"
+              label="새르파 AI"
               variant="header"
               className="company-dashboard__agent-button"
             />
           ) : null}
+          <Link className="company-dashboard__shop-link" to="/">
+            <House aria-hidden="true" />
+            <span>쇼핑몰</span>
+          </Link>
           {isBusinessUser ? (
             <>
               {roleApproved ? <NotificationCenter enabled /> : null}
