@@ -1,0 +1,501 @@
+/*
+ * 예측·선호 분석 차트.
+ *
+ * 색은 하는 일로 나눈다 — 화면 전체에서 같은 뜻이다.
+ *   파랑 --insight-predict  소비자 예측 (적중 구간이 아니면 한 단계 옅은 --insight-predict-soft)
+ *   주황 --insight-actual   실제 판매
+ *   회색 --insight-track    생산 수량(가득 찬 자)
+ * 파랑·주황 쌍은 색각 이상에서도 갈린다(OKLab ΔE 17.4, 검증 스크립트 통과). 그래도 색만으로
+ * 가르지 않는다 — 범례·글자·모양(빈 원과 찬 원)이 함께 말한다. 글자는 데이터 색을 입지 않는다.
+ */
+.brand-prediction-page {
+  --insight-predict: #216a9f;
+  --insight-predict-soft: #a9c7de;
+  --insight-actual: #c2562e;
+  --insight-track: #e4e8ec;
+  --insight-grid: #eef1f4;
+}
+
+/* ── 카드와 지표 ─────────────────────────────────────── */
+
+.insight-card {
+  padding: 24px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-color-surface);
+  box-shadow: var(--ui-shadow);
+}
+
+.insight-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.insight-kpis > div {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  padding: 16px 18px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-color-surface);
+}
+
+.insight-kpis dt {
+  color: var(--ui-color-muted);
+  font-size: 13px;
+}
+
+.insight-kpis dd {
+  margin: 0;
+  color: var(--ui-color-text);
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.insight-kpis small {
+  color: var(--ui-color-muted);
+  font-size: 12px;
+}
+
+.insight-kpis--compact {
+  flex: none;
+  grid-template-columns: repeat(4, max-content);
+}
+
+.insight-kpis--compact > div {
+  padding: 10px 14px;
+}
+
+.insight-kpis--compact dd {
+  font-size: 17px;
+  white-space: nowrap;
+}
+
+.insight-summary {
+  margin: 20px 0 0;
+  padding: 14px 16px;
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-color-bg);
+  color: var(--ui-color-text);
+  line-height: 1.6;
+}
+
+/* ── 차트 공통 ──────────────────────────────────────── */
+
+.insight-chart {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  min-width: 0;
+}
+
+.insight-chart__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.insight-chart__header h2,
+.insight-chart__header h4 {
+  margin: 0;
+}
+
+.insight-chart__header h2 {
+  font-size: 18px;
+}
+
+.insight-chart__header h4 small {
+  margin-left: 4px;
+  color: var(--ui-color-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.insight-chart__header p {
+  margin: 4px 0 0;
+  color: var(--ui-color-muted);
+  font-size: 13px;
+}
+
+.insight-chart__empty {
+  margin: 0;
+  color: var(--ui-color-muted);
+  font-size: 13px;
+}
+
+.insight-segmented,
+.insight-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.insight-segmented button,
+.insight-chips button {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: 999px;
+  background: var(--ui-color-surface);
+  color: var(--ui-color-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.insight-segmented button[aria-pressed='true'],
+.insight-chips button[aria-pressed='true'] {
+  border-color: var(--ui-color-text);
+  background: var(--ui-color-text);
+  color: var(--ui-color-surface);
+}
+
+.insight-segmented button:focus-visible,
+.insight-chips button:focus-visible,
+.insight-columns__slot:focus-visible,
+.insight-dots__row:focus-visible {
+  outline: 2px solid var(--insight-predict);
+  outline-offset: 2px;
+}
+
+.insight-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  color: var(--ui-color-muted);
+  font-size: 13px;
+  list-style: none;
+}
+
+.insight-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.insight-legend__swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.insight-legend__swatch--predict { background: var(--insight-predict); }
+.insight-legend__swatch--predict-soft { background: var(--insight-predict-soft); }
+
+.insight-legend__line {
+  width: 2px;
+  height: 14px;
+  background: var(--insight-actual);
+}
+
+.insight-legend__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.insight-legend__dot--predict {
+  border: 2px solid var(--insight-predict);
+  background: var(--ui-color-surface);
+}
+
+.insight-legend__dot--actual { background: var(--insight-actual); }
+
+.insight-legend__track {
+  width: 18px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--insight-track);
+}
+
+.insight-tooltip {
+  position: absolute;
+  z-index: 2;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  display: grid;
+  gap: 2px;
+  min-width: max-content;
+  padding: 8px 10px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: 8px;
+  background: var(--ui-color-surface);
+  box-shadow: 0 6px 18px rgb(16 34 56 / 0.14);
+  color: var(--ui-color-muted);
+  font-size: 12px;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.insight-tooltip strong {
+  color: var(--ui-color-text);
+  font-size: 13px;
+}
+
+/* ── 분포: 세로 막대 ────────────────────────────────── */
+
+.insight-columns {
+  display: grid;
+  row-gap: 8px;
+}
+
+.insight-columns__plot {
+  position: relative;
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: inherit;
+  height: 190px;
+  margin-top: 22px; /* 가장 큰 막대 위의 값 글자 자리 */
+  border-bottom: 1px solid var(--ui-color-border-strong);
+  background: repeating-linear-gradient(
+    to top,
+    var(--insight-grid) 0 1px,
+    transparent 1px 25%
+  );
+}
+
+.insight-columns__slot {
+  position: relative;
+  display: flex;
+  align-items: end;
+  justify-content: center;
+  height: 100%;
+  border-radius: 4px;
+  cursor: default;
+}
+
+.insight-columns__bar {
+  width: min(24px, 60%);
+  min-height: 0;
+  border-radius: 4px 4px 0 0;
+  background: var(--insight-predict);
+  transition: filter 120ms ease;
+}
+
+.insight-columns__bar--soft { background: var(--insight-predict-soft); }
+.insight-columns__bar--active { filter: brightness(1.12); }
+
+.insight-columns__value {
+  position: absolute;
+  left: 50%;
+  margin-bottom: 4px;
+  color: var(--ui-color-text);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+.insight-columns__marker {
+  position: absolute;
+  top: -8px;
+  bottom: 0;
+  width: 2px;
+  background: var(--insight-actual);
+  pointer-events: none;
+  transform: translateX(-1px);
+}
+
+.insight-columns__axis-label {
+  color: var(--ui-color-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+/* ── 이유: 가로 막대 ────────────────────────────────── */
+
+.insight-hbars {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.insight-hbars li {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) 92px;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.insight-hbars__label { color: var(--ui-color-text); }
+
+.insight-hbars__track {
+  height: 12px;
+}
+
+.insight-hbars__bar {
+  display: block;
+  height: 100%;
+  border-radius: 0 4px 4px 0;
+  background: var(--insight-predict);
+}
+
+.insight-hbars__value {
+  color: var(--ui-color-muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* ── 예측 vs 실제: 점 그래프 ─────────────────────────── */
+
+.insight-dots {
+  display: grid;
+  gap: 6px;
+}
+
+.insight-dots__axis {
+  position: relative;
+  height: 18px;
+  margin: 0 108px 0 180px;
+  color: var(--ui-color-muted);
+  font-size: 12px;
+}
+
+.insight-dots__axis span {
+  position: absolute;
+  transform: translateX(-50%);
+}
+
+.insight-dots ul {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.insight-dots__row {
+  display: grid;
+  grid-template-columns: 168px minmax(0, 1fr) 96px;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  border-radius: 6px;
+}
+
+.insight-dots__row:hover { background: var(--ui-color-bg); }
+
+.insight-dots__name {
+  overflow: hidden;
+  color: var(--ui-color-text);
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.insight-dots__plot {
+  position: relative;
+  height: 20px;
+}
+
+.insight-dots__track,
+.insight-dots__gap {
+  position: absolute;
+  top: 50%;
+  height: 6px;
+  border-radius: 999px;
+  transform: translateY(-50%);
+}
+
+.insight-dots__track {
+  right: 0;
+  left: 0;
+  background: var(--insight-track);
+}
+
+/* 예측과 실제 사이 — 그 길이가 오차다. 색이 아니라 짙은 회색으로 둔다. */
+.insight-dots__gap {
+  height: 2px;
+  border-radius: 0;
+  background: var(--ui-color-border-strong);
+}
+
+.insight-dots__dot {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--ui-color-surface);
+  transform: translate(-50%, -50%);
+}
+
+.insight-dots__dot--predict {
+  border: 2px solid var(--insight-predict);
+  background: var(--ui-color-surface);
+}
+
+.insight-dots__dot--actual { background: var(--insight-actual); }
+
+.insight-dots__value {
+  color: var(--ui-color-muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.insight-tooltip--row {
+  bottom: calc(100% + 6px);
+}
+
+/* ── 표로 보기 ──────────────────────────────────────── */
+
+.insight-table summary {
+  width: max-content;
+  color: var(--ui-color-muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.insight-table table {
+  width: 100%;
+  margin-top: 10px;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.insight-table th,
+.insight-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--ui-color-border);
+  text-align: right;
+}
+
+.insight-table th:first-child,
+.insight-table thead th:first-child {
+  text-align: left;
+}
+
+.insight-table thead th {
+  color: var(--ui-color-muted);
+  font-weight: 600;
+}
+
+@media (max-width: 720px) {
+  .insight-dots__axis { margin: 0 0 0 0; }
+  .insight-dots__row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 6px 0;
+  }
+  .insight-dots__plot { grid-column: 1 / -1; grid-row: 2; }
+  .insight-kpis--compact { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .insight-columns__bar { transition: none; }
+}

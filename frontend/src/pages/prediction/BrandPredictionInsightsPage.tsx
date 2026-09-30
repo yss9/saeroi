@@ -1,122 +1,18 @@
-import { EmptyState, ErrorMessage, Loading, StatusBadge, type StatusTone } from '../../components/common/index.ts'
+import { EmptyState, ErrorMessage, Loading } from '../../components/common/index.ts'
+import { MarketInsightCard } from '../../features/prediction/components/insights/MarketInsightCard.tsx'
+import { PredictionAccuracyChart } from '../../features/prediction/components/insights/PredictionAccuracyChart.tsx'
+import { formatPoint, formatRate } from '../../features/prediction/components/insights/insightFormat.ts'
 import { useBrandPredictionInsights } from '../../features/prediction/hooks/useBrandPredictionInsights.ts'
-import { formatPredictionPoint } from '../../features/prediction/services/predictionContractService.ts'
-import type {
-  BrandPredictionInsight,
-  PredictionMarket,
-  PredictionReasonCode,
-} from '../../features/prediction/types/prediction.types.ts'
+import { summarizeInsights } from '../../features/prediction/utils/predictionInsightStats.ts'
+import '../../features/prediction/components/insights/prediction-insights.css'
 import './brand-prediction-insights.css'
 
-const REASON_LABELS: Record<PredictionReasonCode, string> = {
-  DESIGN: '디자인',
-  PRICE: '가격',
-  BRAND: '브랜드',
-  SUSTAINABILITY: '친환경 가치',
-  PRACTICALITY: '실용성',
-  TREND: '트렌드',
-  OTHER: '기타',
-}
-
-const STATUS: Record<PredictionMarket['status'], { label: string; tone: StatusTone }> = {
-  OPEN: { label: '예측 진행 중', tone: 'info' },
-  RESOLVING: { label: '결과 집계 중', tone: 'warning' },
-  RESOLVED: { label: '결과 확정', tone: 'success' },
-  CANCELED: { label: '시장 취소', tone: 'danger' },
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium' }).format(new Date(value))
-}
-
-function percent(value: number, total: number) {
-  if (total === 0) return '0%'
-  return `${Math.round((value / total) * 100)}%`
-}
-
-function point(value: string) {
-  return formatPredictionPoint(BigInt(value))
-}
-
-function MarketInsight({ insight }: { insight: BrandPredictionInsight }) {
-  const { market } = insight
-  const soldRate = market.soldQuantity === null || market.productionQuantity === 0
-    ? null
-    : Math.round((market.soldQuantity / market.productionQuantity) * 100)
-
-  return (
-    <article className="brand-prediction-card">
-      <header className="brand-prediction-card__header">
-        <div>
-          <StatusBadge tone={STATUS[market.status].tone}>{STATUS[market.status].label}</StatusBadge>
-          <h3>{market.productName}</h3>
-          <p>{formatDate(market.bettingEndsAt)} 예측 마감 · 생산 {market.productionQuantity.toLocaleString()}개</p>
-        </div>
-        <dl className="brand-prediction-card__totals">
-          <div><dt>참여자</dt><dd>{insight.participantCount.toLocaleString()}명</dd></div>
-          <div><dt>총 예치</dt><dd>{point(insight.totalStakeAmount)} PRED</dd></div>
-          <div>
-            <dt>실제 판매</dt>
-            <dd>{market.soldQuantity === null ? '집계 전' : `${market.soldQuantity.toLocaleString()}개 (${soldRate}%)`}</dd>
-          </div>
-        </dl>
-      </header>
-
-      <div className="brand-prediction-card__columns">
-        <section aria-labelledby={`bucket-title-${market.id}`}>
-          <h4 id={`bucket-title-${market.id}`}>예상 판매량 분포</h4>
-          <ul className="brand-insight-bars">
-            {insight.buckets.map((bucket) => {
-              const share = percent(bucket.responseCount, insight.participantCount)
-              return (
-                <li key={bucket.index}>
-                  <div className="brand-insight-bars__label">
-                    <span>{bucket.lowerBound.toLocaleString()}~{bucket.upperBound.toLocaleString()}개</span>
-                    <strong>{bucket.responseCount}명 · {share}</strong>
-                  </div>
-                  <div className="brand-insight-bars__track" aria-hidden="true">
-                    <span style={{ width: share }} />
-                  </div>
-                  <small>{point(bucket.stakeAmount)} PRED 예치</small>
-                </li>
-              )
-            })}
-          </ul>
-        </section>
-
-        <section aria-labelledby={`reason-title-${market.id}`}>
-          <h4 id={`reason-title-${market.id}`}>구매 판단 이유</h4>
-          <ul className="brand-reason-list">
-            {insight.reasons.map((reason) => (
-              <li key={reason.reasonCode}>
-                <span>{REASON_LABELS[reason.reasonCode]}</span>
-                <strong>{reason.responseCount}명 · {percent(reason.responseCount, insight.participantCount)}</strong>
-              </li>
-            ))}
-          </ul>
-        </section>
-      </div>
-
-      <section className="brand-comments" aria-labelledby={`comment-title-${market.id}`}>
-        <h4 id={`comment-title-${market.id}`}>익명 선호 의견</h4>
-        {insight.comments.length === 0 ? (
-          <p className="brand-comments__empty">작성된 자유 의견이 없습니다.</p>
-        ) : (
-          <ul>
-            {insight.comments.map((comment, index) => (
-              <li key={`${comment.submittedAt}-${index}`}>
-                <span>{REASON_LABELS[comment.reasonCode]}</span>
-                <p>{comment.reasonText}</p>
-                <time dateTime={comment.submittedAt}>{formatDate(comment.submittedAt)}</time>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </article>
-  )
-}
-
+/**
+ * 예측·선호 분석 — 브랜드가 내 상품의 예측시장을 한 화면에서 읽는다.
+ *
+ * 위에서 아래로 넓은 것 → 좁은 것 순이다. 전체 지표, 상품 사이의 "예측이 얼마나 맞았나" 비교,
+ * 그다음 상품별 분포·이유·의견. 수치 계산은 `predictionInsightStats` 가 한다.
+ */
 export function BrandPredictionInsightsPage() {
   const insights = useBrandPredictionInsights()
 
@@ -131,21 +27,31 @@ export function BrandPredictionInsightsPage() {
     )
   }
 
-  const participants = insights.data.reduce((sum, item) => sum + item.participantCount, 0)
-  const resolved = insights.data.filter((item) => item.market.status === 'RESOLVED').length
+  const summary = summarizeInsights(insights.data)
 
   return (
     <main className="page brand-prediction-page">
       <header className="brand-prediction-page__intro">
-        <div><h1>예측·선호 분석</h1><p>내 상품에 열린 예측시장의 결과와 소비자 선호 이유를 익명으로 모아봅니다.</p></div>
-        <dl>
-          <div><dt>전체 시장</dt><dd>{insights.data.length}</dd></div>
-          <div><dt>결과 확정</dt><dd>{resolved}</dd></div>
-          <div><dt>누적 참여</dt><dd>{participants.toLocaleString()}명</dd></div>
-        </dl>
+        <h1>예측·선호 분석</h1>
+        <p>내 상품에 열린 예측시장의 결과와 소비자 선호 이유를 익명으로 모아봅니다.</p>
       </header>
+
+      <dl className="insight-kpis" aria-label="전체 지표">
+        <div><dt>전체 시장</dt><dd>{summary.marketCount.toLocaleString()}</dd></div>
+        <div><dt>누적 참여</dt><dd>{summary.participantCount.toLocaleString()}명</dd></div>
+        <div><dt>총 예치</dt><dd>{formatPoint(summary.totalStake)}</dd></div>
+        <div><dt>결과 확정</dt><dd>{summary.resolvedCount.toLocaleString()}</dd></div>
+        <div>
+          <dt>평균 적중률</dt>
+          <dd>{formatRate(summary.hitRate)}</dd>
+          <small>확정된 시장에서 적중 구간을 고른 참여자 비율</small>
+        </div>
+      </dl>
+
+      <PredictionAccuracyChart insights={insights.data} />
+
       <section className="brand-prediction-list" aria-label="상품별 예측시장 분석">
-        {insights.data.map((insight) => <MarketInsight key={insight.market.id} insight={insight} />)}
+        {insights.data.map((insight) => <MarketInsightCard key={insight.market.id} insight={insight} />)}
       </section>
     </main>
   )
