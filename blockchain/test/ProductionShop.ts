@@ -3,6 +3,8 @@ import { ethers } from "hardhat";
 import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 
 const hash = (value: string) => ethers.keccak256(ethers.toUtf8Bytes(value));
+let operationSequence = 0;
+const op = () => hash(`operation-${++operationSequence}`);
 
 describe("ProductionRegistry Shop 연결", function () {
   async function fixture() {
@@ -18,7 +20,7 @@ describe("ProductionRegistry Shop 연결", function () {
     await token.grantRole(await token.MATERIAL_WORKFLOW_ROLE(), await production.getAddress());
     await production.grantRole(await production.BRAND_ROLE(), brand.address);
     await production.grantRole(await production.BRAND_ROLE(), otherBrand.address);
-    await token.connect(supplier).mintMaterial(brand.address, 40_000, 0, "ipfs://virgin", hash("source"));
+    await token.connect(supplier).mintMaterial(brand.address, 40_000, 0, "ipfs://virgin", hash("source"), op());
 
     return { brand, otherBrand, production };
   }
@@ -30,7 +32,7 @@ describe("ProductionRegistry Shop 연결", function () {
     batchId = 1,
     inputAmount = 20_000
   ) {
-    await production.connect(brand).createBatch(productQuantity);
+    await production.connect(brand).createBatch(productQuantity, op());
     await production.connect(brand).submitPlanAndLock(
       batchId,
       hash(`production-evidence-${batchId}`),
@@ -41,15 +43,15 @@ describe("ProductionRegistry Shop 연결", function () {
       [0],
       [""],
       [ethers.ZeroHash]
-    );
-    await production.connect(brand).confirmProduction(batchId);
+    , op());
+    await production.connect(brand).confirmProduction(batchId, op());
   }
 
   it("확정된 Batch에 ProductItem을 연결하고 공개 Passport 증명을 조회한다", async function () {
     const { brand, production } = await fixture();
     await confirmBatch(production, brand, 2);
 
-    await expect(production.connect(brand).linkProductItems(1, [101, 102]))
+    await expect(production.connect(brand).linkProductItems(1, [101, 102], op()))
       .to.emit(production, "ProductLinked")
       .withArgs(1, 101, brand.address, anyValue);
 
@@ -67,7 +69,7 @@ describe("ProductionRegistry Shop 연결", function () {
     const { brand, otherBrand, production } = await fixture();
     await confirmBatch(production, brand, 1);
 
-    await expect(production.connect(otherBrand).linkProductItems(1, [101]))
+    await expect(production.connect(otherBrand).linkProductItems(1, [101], op()))
       .to.be.revertedWith("Production: caller is not brand");
   });
 
@@ -75,13 +77,13 @@ describe("ProductionRegistry Shop 연결", function () {
     const { brand, production } = await fixture();
     await confirmBatch(production, brand, 2);
 
-    await expect(production.connect(brand).linkProductItems(1, [101]))
+    await expect(production.connect(brand).linkProductItems(1, [101], op()))
       .to.be.revertedWith("Production: product count mismatch");
-    await expect(production.connect(brand).linkProductItems(1, [101, 101]))
+    await expect(production.connect(brand).linkProductItems(1, [101, 101], op()))
       .to.be.revertedWith("Production: duplicate product");
 
-    await production.connect(brand).linkProductItems(1, [101, 102]);
-    await expect(production.connect(brand).linkProductItems(1, [103, 104]))
+    await production.connect(brand).linkProductItems(1, [101, 102], op());
+    await expect(production.connect(brand).linkProductItems(1, [103, 104], op()))
       .to.be.revertedWith("Production: products already linked");
   });
 
@@ -89,9 +91,9 @@ describe("ProductionRegistry Shop 연결", function () {
     const { brand, production } = await fixture();
     await confirmBatch(production, brand, 1, 1, 20_000);
     await confirmBatch(production, brand, 1, 2, 20_000);
-    await production.connect(brand).linkProductItems(1, [101]);
+    await production.connect(brand).linkProductItems(1, [101], op());
 
-    await expect(production.connect(brand).linkProductItems(2, [101]))
+    await expect(production.connect(brand).linkProductItems(2, [101], op()))
       .to.be.revertedWith("Production: product already linked");
   });
 

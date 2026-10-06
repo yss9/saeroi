@@ -239,6 +239,31 @@
     "inputs": [
       {
         "indexed": true,
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "bytes4",
+        "name": "selector",
+        "type": "bytes4"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "actor",
+        "type": "address"
+      }
+    ],
+    "name": "OperationRecorded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
         "internalType": "uint256",
         "name": "orderId",
         "type": "uint256"
@@ -433,6 +458,11 @@
         "internalType": "uint256",
         "name": "listingId",
         "type": "uint256"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
       }
     ],
     "name": "cancelListing",
@@ -446,6 +476,11 @@
         "internalType": "uint256",
         "name": "orderId",
         "type": "uint256"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
       }
     ],
     "name": "cancelOrder",
@@ -459,6 +494,11 @@
         "internalType": "uint256",
         "name": "orderId",
         "type": "uint256"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
       }
     ],
     "name": "confirmReceipt",
@@ -477,6 +517,11 @@
         "internalType": "uint256",
         "name": "quantity",
         "type": "uint256"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
       }
     ],
     "name": "createListing",
@@ -501,6 +546,11 @@
         "internalType": "uint256",
         "name": "quantity",
         "type": "uint256"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
       }
     ],
     "name": "createOrder",
@@ -741,9 +791,33 @@
   {
     "inputs": [
       {
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "isOperationProcessed",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "uint256",
         "name": "orderId",
         "type": "uint256"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
       }
     ],
     "name": "markShipped",
@@ -801,6 +875,11 @@
         "internalType": "bytes32",
         "name": "reasonHash",
         "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
       }
     ],
     "name": "openDispute",
@@ -855,6 +934,11 @@
         "internalType": "enum Marketplace.DisputeResolution",
         "name": "resolution",
         "type": "uint8"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
       }
     ],
     "name": "settleDispute",

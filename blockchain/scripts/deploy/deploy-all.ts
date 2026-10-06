@@ -85,8 +85,17 @@ async function main() {
 
   const deploymentsDir = path.join(PROJECT_ROOT, "deployments");
   fs.mkdirSync(deploymentsDir, { recursive: true });
+  const deploymentFile = path.join(deploymentsDir, `${network.name}.json`);
+  // 재배포는 새 주소로 정본을 바꾸지만, 옛 주소와 배포 시각은 감사·복구에 필요하다.
+  // 덮어쓰기 전에 그대로 보존해 두면 과거 트랜잭션을 어느 컨트랙트에서 조회할지 잃지 않는다.
+  if (fs.existsSync(deploymentFile)) {
+    const historyDir = path.join(deploymentsDir, "history");
+    fs.mkdirSync(historyDir, { recursive: true });
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    fs.copyFileSync(deploymentFile, path.join(historyDir, `${network.name}-${stamp}.json`));
+  }
   fs.writeFileSync(
-    path.join(deploymentsDir, `${network.name}.json`),
+    deploymentFile,
     `${JSON.stringify(deployment, null, 2)}\n`
   );
 

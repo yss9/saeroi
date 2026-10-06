@@ -3,6 +3,9 @@ import { createHash } from "node:crypto";
 import { ethers } from "hardhat";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 
+let operationSequence = 0;
+const op = () => ethers.keccak256(ethers.toUtf8Bytes(`operation-${++operationSequence}`));
+
 const METADATA_URI = "ipfs://material-denim-batch-1.json";
 const EVIDENCE_HASH = `0x${createHash("sha256")
   .update("denim-batch-1-manifest.json")
@@ -90,7 +93,7 @@ describe("소재 토큰(MaterialToken)", function () {
         RootOrigin.WASTE,
         METADATA_URI,
         EVIDENCE_HASH
-      );
+      , op());
     return { ...fixture, tokenId: 1n };
   }
 
@@ -106,7 +109,7 @@ describe("소재 토큰(MaterialToken)", function () {
           RootOrigin.WASTE,
           METADATA_URI,
           EVIDENCE_HASH
-        )
+        , op())
     )
       .to.emit(materialToken, "MaterialMinted")
       .withArgs(
@@ -144,7 +147,7 @@ describe("소재 토큰(MaterialToken)", function () {
         RootOrigin.VIRGIN,
         "ipfs://material/one.json",
         EVIDENCE_HASH
-      );
+      , op());
     await materialToken
       .connect(supplier)
       .mintMaterial(
@@ -153,7 +156,7 @@ describe("소재 토큰(MaterialToken)", function () {
         RootOrigin.WASTE,
         "ipfs://material/two.json",
         EVIDENCE_HASH
-      );
+      , op());
 
     expect(await materialToken.nextMaterialId()).to.equal(3);
     expect(await materialToken.balanceOf(supplier.address, 1)).to.equal(10_000);
@@ -183,7 +186,7 @@ describe("소재 토큰(MaterialToken)", function () {
           RootOrigin.WASTE,
           METADATA_URI,
           EVIDENCE_HASH
-        )
+        , op())
     )
       .to.be.revertedWithCustomError(materialToken, "AccessControlUnauthorizedAccount")
       .withArgs(outsider.address, await materialToken.SUPPLIER_ROLE());
@@ -201,7 +204,7 @@ describe("소재 토큰(MaterialToken)", function () {
           RootOrigin.WASTE,
           METADATA_URI,
           ethers.ZeroHash
-        )
+        , op())
     ).to.be.revertedWith("MaterialToken: evidenceHash is empty");
   });
 
@@ -217,7 +220,7 @@ describe("소재 토큰(MaterialToken)", function () {
     const { materialToken, supplier, tokenId } = await mintedFixture();
 
     await expect(
-      materialToken.connect(supplier).verifySource(tokenId, EVIDENCE_HASH)
+      materialToken.connect(supplier).verifySource(tokenId, EVIDENCE_HASH, op())
     )
       .to.emit(materialToken, "SourceVerified")
       .withArgs(tokenId, supplier.address, EVIDENCE_HASH);
@@ -240,18 +243,18 @@ describe("소재 토큰(MaterialToken)", function () {
     );
 
     await expect(
-      materialToken.connect(outsider).verifySource(tokenId, EVIDENCE_HASH)
+      materialToken.connect(outsider).verifySource(tokenId, EVIDENCE_HASH, op())
     ).to.be.revertedWith("MaterialToken: caller is not registrant");
 
-    await materialToken.connect(supplier).verifySource(tokenId, EVIDENCE_HASH);
+    await materialToken.connect(supplier).verifySource(tokenId, EVIDENCE_HASH, op());
     await expect(
-      materialToken.connect(supplier).verifySource(tokenId, EVIDENCE_HASH)
+      materialToken.connect(supplier).verifySource(tokenId, EVIDENCE_HASH, op())
     ).to.be.revertedWith("MaterialToken: source already verified");
   });
 
   it("소재를 인수한 Brand가 거래 증빙을 서명하고 TRANSACTION_VERIFIED로 변경한다", async function () {
     const { materialToken, supplier, brand, tokenId } = await mintedFixture();
-    await materialToken.connect(supplier).verifySource(tokenId, EVIDENCE_HASH);
+    await materialToken.connect(supplier).verifySource(tokenId, EVIDENCE_HASH, op());
     await materialToken
       .connect(supplier)
       .safeTransferFrom(supplier.address, brand.address, tokenId, 10_000, "0x");
@@ -259,7 +262,7 @@ describe("소재 토큰(MaterialToken)", function () {
     await expect(
       materialToken
         .connect(brand)
-        .verifyTransaction(tokenId, 101, TRANSACTION_EVIDENCE_HASH)
+        .verifyTransaction(tokenId, 101, TRANSACTION_EVIDENCE_HASH, op())
     )
       .to.emit(materialToken, "TransactionVerified")
       .withArgs(tokenId, 101, brand.address, TRANSACTION_EVIDENCE_HASH);
@@ -274,12 +277,12 @@ describe("소재 토큰(MaterialToken)", function () {
 
   it("소재 잔액이 없는 Brand의 거래 검증을 거부한다", async function () {
     const { materialToken, supplier, brand, tokenId } = await mintedFixture();
-    await materialToken.connect(supplier).verifySource(tokenId, EVIDENCE_HASH);
+    await materialToken.connect(supplier).verifySource(tokenId, EVIDENCE_HASH, op());
 
     await expect(
       materialToken
         .connect(brand)
-        .verifyTransaction(tokenId, 101, TRANSACTION_EVIDENCE_HASH)
+        .verifyTransaction(tokenId, 101, TRANSACTION_EVIDENCE_HASH, op())
     ).to.be.revertedWith("MaterialToken: brand has no material balance");
   });
 
@@ -418,7 +421,7 @@ describe("소재 토큰(MaterialToken)", function () {
     await expect(
       materialToken
         .connect(supplier)
-        .burnMaterial(supplier.address, tokenId, 41_000, BurnReason.DISCARDED)
+        .burnMaterial(supplier.address, tokenId, 41_000, BurnReason.DISCARDED, op())
     ).to.be.revertedWith("MaterialToken: amount exceeds available balance");
   });
 
@@ -453,7 +456,7 @@ describe("소재 토큰(MaterialToken)", function () {
 
     await materialToken
       .connect(supplier)
-      .burnMaterial(supplier.address, tokenId, 12_000, BurnReason.PROCESSING);
+      .burnMaterial(supplier.address, tokenId, 12_000, BurnReason.PROCESSING, op());
 
     expect(await materialToken.remainingSupply(tokenId)).to.equal(38_000);
     expect((await materialToken.materialInfo(tokenId)).status).to.equal(MaterialStatus.ACTIVE);
@@ -465,7 +468,7 @@ describe("소재 토큰(MaterialToken)", function () {
     await expect(
       materialToken
         .connect(supplier)
-        .burnMaterial(supplier.address, tokenId, 50_000, BurnReason.PRODUCTION)
+        .burnMaterial(supplier.address, tokenId, 50_000, BurnReason.PRODUCTION, op())
     )
       .to.emit(materialToken, "MaterialDepleted")
       .withArgs(tokenId);
@@ -479,7 +482,7 @@ describe("소재 토큰(MaterialToken)", function () {
     await expect(
       materialToken
         .connect(outsider)
-        .burnMaterial(supplier.address, tokenId, 1_000, BurnReason.DISCARDED)
+        .burnMaterial(supplier.address, tokenId, 1_000, BurnReason.DISCARDED, op())
     ).to.be.revertedWith("MaterialToken: caller is not owner nor approved");
   });
 });

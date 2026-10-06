@@ -1,19 +1,13 @@
 {
   "network": "ssafy",
   "chainId": 31221,
-  "materialToken": "0xBE98f5A9aA8d0480B09C689e38806aCcD41a0f66",
-  "marketplace": "0x53Fc91Be37720Fcb051004B7aab73639CA266853",
-  "processingRegistry": "0x09C809D42eae5e7281da7b03e0a16bd5528f2b47",
-  "productionRegistry": "0x65B4D067E929a7Ce64E8d5896bD8D4e0efE6DD3a",
-  "deployer": "0x9612FAAf534894eDC310cc5FAee2Be000A14e0c7",
-  "deployedAt": "2026-09-08T02:11:04.255Z",
-  "predictionPoint": "0x0e3759f7E80a12BdA466c5526926E520A2002056",
-  "predictionMarket": "0x79Db90DE712AD9b647f20CA55aE99f59BE5B5C68",
+  "materialToken": "0x8d0641f6cB792c70C03b0209f98C512b5e727BAa",
+  "marketplace": "0x9B87D1A716FDB12C15864998fc0DdA6dCAD1F9ae",
+  "processingRegistry": "0x439fbD4A53B8029c0af40382246B2050A010d2dc",
+  "productionRegistry": "0x810065F3f33ff5257A2e24326E9ADCc80192C9e5",
+  "predictionPoint": "0x2F97fd54774137fD54e076dE499238E1532a092c",
+  "predictionMarket": "0x549d1ff0312e9a603327bad75C9308809A9c1cf6",
   "predictionPointInitialSupply": "1000000000000000000000000",
-  "predictionDeployer": "0x9612FAAf534894eDC310cc5FAee2Be000A14e0c7",
-  "predictionDeployedAt": "2026-09-16T08:32:25.338Z",
-  "processingRegistryPrevious": "0x8C4b9e2bDEb53D7120Df681E891A7A6D9E1ecB5E",
-  "processingRegistryDeployer": "0x9612FAAf534894eDC310cc5FAee2Be000A14e0c7",
-  "processingRegistryDeployTx": "0x9b3ee17319856939d1d8223dcd1416daadbb16d0a5dad98c1fd2d9f3147b13c1",
-  "processingRegistryDeployedAt": "2026-09-17T01:39:05.389Z"
+  "deployer": "0x9612FAAf534894eDC310cc5FAee2Be000A14e0c7",
+  "deployedAt": "2026-10-02T08:41:41.715Z"
 }

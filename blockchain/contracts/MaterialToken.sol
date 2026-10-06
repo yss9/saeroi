@@ -3,12 +3,13 @@ pragma solidity ^0.8.24;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ERC1155} from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import {OperationTracked} from "./OperationTracked.sol";
 
 /// @title MaterialToken
 /// @notice 소재 배치와 그 수량을 gram 단위로 관리하는 ERC-1155 토큰이다.
 /// @dev DB의 material.id와 온체인 tokenId는 별도 식별자다. tokenId는 이 컨트랙트가 순서대로 발급하며,
 ///      백엔드는 MaterialMinted 이벤트를 읽어 DB의 chain_id, contract_address, token_id를 갱신한다.
-contract MaterialToken is ERC1155, AccessControl {
+contract MaterialToken is ERC1155, AccessControl, OperationTracked {
     bytes32 public constant SUPPLIER_ROLE = keccak256("SUPPLIER_ROLE");
     bytes32 public constant PROCESSOR_ROLE = keccak256("PROCESSOR_ROLE");
     bytes32 public constant BRAND_ROLE = keccak256("BRAND_ROLE");
@@ -253,8 +254,9 @@ contract MaterialToken is ERC1155, AccessControl {
         uint256 amount,
         RootOrigin rootOrigin,
         string calldata metadataUri,
-        bytes32 evidenceHash
-    ) external onlyRole(SUPPLIER_ROLE) returns (uint256 tokenId) {
+        bytes32 evidenceHash,
+        bytes32 operationId
+    ) external onlyRole(SUPPLIER_ROLE) trackedOperation(operationId) returns (uint256 tokenId) {
         require(to != address(0), "MaterialToken: to is zero address");
         require(amount > 0, "MaterialToken: amount is zero");
         require(evidenceHash != bytes32(0), "MaterialToken: evidenceHash is empty");
@@ -288,9 +290,10 @@ contract MaterialToken is ERC1155, AccessControl {
     }
 
     /// @notice 최초 등록 Supplier가 발행 당시 증빙과 일치함을 직접 서명한다.
-    function verifySource(uint256 tokenId, bytes32 evidenceHash)
+    function verifySource(uint256 tokenId, bytes32 evidenceHash, bytes32 operationId)
         external
         onlyRole(SUPPLIER_ROLE)
+        trackedOperation(operationId)
     {
         MaterialInfo storage material = _materials[tokenId];
         require(material.exists, "MaterialToken: material does not exist");
@@ -311,8 +314,9 @@ contract MaterialToken is ERC1155, AccessControl {
     function verifyTransaction(
         uint256 tokenId,
         uint256 tradeId,
-        bytes32 evidenceHash
-    ) external onlyRole(BRAND_ROLE) {
+        bytes32 evidenceHash,
+        bytes32 operationId
+    ) external onlyRole(BRAND_ROLE) trackedOperation(operationId) {
         MaterialInfo storage material = _materials[tokenId];
         require(material.exists, "MaterialToken: material does not exist");
         require(_verificationRecords[tokenId][VerificationState.SOURCE_VERIFIED].signer != address(0), "MaterialToken: source is not verified");
@@ -508,8 +512,9 @@ contract MaterialToken is ERC1155, AccessControl {
         address from,
         uint256 tokenId,
         uint256 amount,
-        BurnReason reason
-    ) external {
+        BurnReason reason,
+        bytes32 operationId
+    ) external trackedOperation(operationId) {
         require(
             from == _msgSender() || isApprovedForAll(from, _msgSender()),
             "MaterialToken: caller is not owner nor approved"

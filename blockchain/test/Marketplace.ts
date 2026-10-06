@@ -2,6 +2,9 @@ import { expect } from "chai";
 import { createHash } from "node:crypto";
 import { ethers } from "hardhat";
 
+let operationSequence = 0;
+const op = () => ethers.keccak256(ethers.toUtf8Bytes(`operation-${++operationSequence}`));
+
 const METADATA_URI = "ipfs://material-denim-batch-1.json";
 const EVIDENCE_HASH = `0x${createHash("sha256")
   .update("denim-batch-1-manifest.json")
@@ -60,7 +63,7 @@ describe("마켓플레이스(Marketplace)", function () {
         1,
         METADATA_URI,
         EVIDENCE_HASH
-      );
+      , op());
 
     return {
       materialToken,
@@ -79,7 +82,7 @@ describe("마켓플레이스(Marketplace)", function () {
       await deployFixture();
 
     await expect(
-      marketplace.connect(supplier).createListing(tokenId, 20_000)
+      marketplace.connect(supplier).createListing(tokenId, 20_000, op())
     )
       .to.emit(marketplace, "ListingCreated")
       .withArgs(1, tokenId, 1, supplier.address, 20_000);
@@ -98,15 +101,15 @@ describe("마켓플레이스(Marketplace)", function () {
     const { marketplace, brand, tokenId } = await deployFixture();
 
     await expect(
-      marketplace.connect(brand).createListing(tokenId, 20_000)
+      marketplace.connect(brand).createListing(tokenId, 20_000, op())
     ).to.be.revertedWith("Marketplace: seller role required");
   });
 
   it("판매글마다 서로 다른 잠금 ID를 발급한다", async function () {
     const { marketplace, supplier, tokenId } = await deployFixture();
 
-    await marketplace.connect(supplier).createListing(tokenId, 10_000);
-    await marketplace.connect(supplier).createListing(tokenId, 15_000);
+    await marketplace.connect(supplier).createListing(tokenId, 10_000, op());
+    await marketplace.connect(supplier).createListing(tokenId, 15_000, op());
 
     expect((await marketplace.getListing(1)).materialLockId).to.equal(1);
     expect((await marketplace.getListing(2)).materialLockId).to.equal(2);
@@ -114,19 +117,19 @@ describe("마켓플레이스(Marketplace)", function () {
 
   it("가용 수량보다 큰 판매 등록을 거부한다", async function () {
     const { marketplace, supplier, tokenId } = await deployFixture();
-    await marketplace.connect(supplier).createListing(tokenId, 20_000);
+    await marketplace.connect(supplier).createListing(tokenId, 20_000, op());
 
     await expect(
-      marketplace.connect(supplier).createListing(tokenId, 31_000)
+      marketplace.connect(supplier).createListing(tokenId, 31_000, op())
     ).to.be.revertedWith("Marketplace: insufficient available balance");
   });
 
   it("판매자가 판매글을 취소하면 미예약 수량의 잠금을 해제한다", async function () {
     const { materialToken, marketplace, supplier, tokenId } =
       await deployFixture();
-    await marketplace.connect(supplier).createListing(tokenId, 20_000);
+    await marketplace.connect(supplier).createListing(tokenId, 20_000, op());
 
-    await expect(marketplace.connect(supplier).cancelListing(1))
+    await expect(marketplace.connect(supplier).cancelListing(1, op()))
       .to.emit(marketplace, "ListingCancelled")
       .withArgs(1, supplier.address, 20_000);
 
@@ -137,9 +140,9 @@ describe("마켓플레이스(Marketplace)", function () {
 
   it("주문을 CREATED 상태로 만들고 판매글 잔량을 예약한다", async function () {
     const { marketplace, supplier, brand, tokenId } = await deployFixture();
-    await marketplace.connect(supplier).createListing(tokenId, 20_000);
+    await marketplace.connect(supplier).createListing(tokenId, 20_000, op());
 
-    await expect(marketplace.connect(brand).createOrder(1, 5_000))
+    await expect(marketplace.connect(brand).createOrder(1, 5_000, op()))
       .to.emit(marketplace, "OrderCreated")
       .withArgs(1, 1, brand.address, 5_000);
 
@@ -164,13 +167,13 @@ describe("마켓플레이스(Marketplace)", function () {
   it("오프체인 결제 완료 후 발송·수령 순서로 무게 토큰만 이전한다", async function () {
     const { materialToken, marketplace, supplier, brand, tokenId } =
       await deployFixture();
-    await marketplace.connect(supplier).createListing(tokenId, 20_000);
-    await marketplace.connect(brand).createOrder(1, 10_000);
+    await marketplace.connect(supplier).createListing(tokenId, 20_000, op());
+    await marketplace.connect(brand).createOrder(1, 10_000, op());
 
-    await marketplace.connect(supplier).markShipped(1);
+    await marketplace.connect(supplier).markShipped(1, op());
     expect((await marketplace.getOrder(1)).status).to.equal(OrderStatus.SHIPPED);
 
-    await expect(marketplace.connect(brand).confirmReceipt(1))
+    await expect(marketplace.connect(brand).confirmReceipt(1, op()))
       .to.emit(marketplace, "ReceiptConfirmed")
       .withArgs(1, brand.address)
       .and.to.emit(marketplace, "MaterialTransferred")
@@ -186,33 +189,33 @@ describe("마켓플레이스(Marketplace)", function () {
   it("Brand 권한이 없는 계정은 주문을 만들 수 없다", async function () {
     const { marketplace, supplier, outsider, tokenId } =
       await deployFixture();
-    await marketplace.connect(supplier).createListing(tokenId, 2_000);
+    await marketplace.connect(supplier).createListing(tokenId, 2_000, op());
 
-    await expect(marketplace.connect(outsider).createOrder(1, 1_000))
+    await expect(marketplace.connect(outsider).createOrder(1, 1_000, op()))
       .to.be.revertedWith("Marketplace: buyer role required");
   });
 
   it("판매자가 아닌 계정의 발송과 구매자가 아닌 계정의 수령 확인을 거부한다", async function () {
     const { marketplace, supplier, brand, outsider, tokenId } =
       await deployFixture();
-    await marketplace.connect(supplier).createListing(tokenId, 2_000);
-    await marketplace.connect(brand).createOrder(1, 1_000);
+    await marketplace.connect(supplier).createListing(tokenId, 2_000, op());
+    await marketplace.connect(brand).createOrder(1, 1_000, op());
 
-    await expect(marketplace.connect(outsider).markShipped(1)).to.be.revertedWith(
+    await expect(marketplace.connect(outsider).markShipped(1, op())).to.be.revertedWith(
       "Marketplace: caller is not seller"
     );
-    await marketplace.connect(supplier).markShipped(1);
-    await expect(marketplace.connect(outsider).confirmReceipt(1)).to.be.revertedWith(
+    await marketplace.connect(supplier).markShipped(1, op());
+    await expect(marketplace.connect(outsider).confirmReceipt(1, op())).to.be.revertedWith(
       "Marketplace: caller is not buyer"
     );
   });
 
   it("발송 전 주문을 취소하면 예약 수량을 판매글 잔량으로 돌린다", async function () {
     const { marketplace, supplier, brand, tokenId } = await deployFixture();
-    await marketplace.connect(supplier).createListing(tokenId, 20_000);
-    await marketplace.connect(brand).createOrder(1, 5_000);
+    await marketplace.connect(supplier).createListing(tokenId, 20_000, op());
+    await marketplace.connect(brand).createOrder(1, 5_000, op());
 
-    await marketplace.connect(brand).cancelOrder(1);
+    await marketplace.connect(brand).cancelOrder(1, op());
 
     const listing = await marketplace.getListing(1);
     expect((await marketplace.getOrder(1)).status).to.equal(OrderStatus.CANCELLED);
@@ -224,28 +227,28 @@ describe("마켓플레이스(Marketplace)", function () {
   it("예약 주문이 있는 판매글 취소 시 예약분만 유지하고 주문 취소 때 마저 해제한다", async function () {
     const { materialToken, marketplace, supplier, brand, tokenId } =
       await deployFixture();
-    await marketplace.connect(supplier).createListing(tokenId, 20_000);
-    await marketplace.connect(brand).createOrder(1, 5_000);
+    await marketplace.connect(supplier).createListing(tokenId, 20_000, op());
+    await marketplace.connect(brand).createOrder(1, 5_000, op());
 
-    await marketplace.connect(supplier).cancelListing(1);
+    await marketplace.connect(supplier).cancelListing(1, op());
     expect((await materialToken.materialLockInfo(1)).remainingAmount).to.equal(5_000);
     expect((await marketplace.getListing(1)).reservedQuantity).to.equal(5_000);
 
-    await marketplace.connect(brand).cancelOrder(1);
+    await marketplace.connect(brand).cancelOrder(1, op());
     expect((await materialToken.materialLockInfo(1)).status).to.equal(LockStatus.RELEASED);
     expect(await materialToken.availableBalance(supplier.address, tokenId)).to.equal(50_000);
   });
 
   it("배송 후 분쟁은 관리자 판정 없이 양 당사자의 동일한 서명으로 Buyer 이전한다", async function () {
     const { materialToken, marketplace, supplier, brand, tokenId } = await deployFixture();
-    await marketplace.connect(supplier).createListing(tokenId, 10_000);
-    await marketplace.connect(brand).createOrder(1, 5_000);
-    await marketplace.connect(supplier).markShipped(1);
+    await marketplace.connect(supplier).createListing(tokenId, 10_000, op());
+    await marketplace.connect(brand).createOrder(1, 5_000, op());
+    await marketplace.connect(supplier).markShipped(1, op());
     const reasonHash = ethers.keccak256(ethers.toUtf8Bytes("delivery dispute"));
-    await marketplace.connect(brand).openDispute(1, reasonHash);
-    await marketplace.connect(supplier).settleDispute(1, DisputeResolution.TRANSFER_TO_BUYER);
+    await marketplace.connect(brand).openDispute(1, reasonHash, op());
+    await marketplace.connect(supplier).settleDispute(1, DisputeResolution.TRANSFER_TO_BUYER, op());
     expect((await marketplace.getOrder(1)).status).to.equal(OrderStatus.DISPUTED);
-    await expect(marketplace.connect(brand).settleDispute(1, DisputeResolution.TRANSFER_TO_BUYER))
+    await expect(marketplace.connect(brand).settleDispute(1, DisputeResolution.TRANSFER_TO_BUYER, op()))
       .to.emit(marketplace, "DisputeSettled");
     expect((await marketplace.getOrder(1)).status).to.equal(OrderStatus.COMPLETED);
     expect(await materialToken.balanceOf(brand.address, tokenId)).to.equal(5_000);
@@ -253,12 +256,12 @@ describe("마켓플레이스(Marketplace)", function () {
 
   it("분쟁 합의가 RETURN_TO_SELLER이면 주문 수량의 Lock을 해제한다", async function () {
     const { materialToken, marketplace, supplier, brand, tokenId } = await deployFixture();
-    await marketplace.connect(supplier).createListing(tokenId, 5_000);
-    await marketplace.connect(brand).createOrder(1, 5_000);
-    await marketplace.connect(supplier).markShipped(1);
-    await marketplace.connect(supplier).openDispute(1, DISPUTE_HASH);
-    await marketplace.connect(supplier).settleDispute(1, DisputeResolution.RETURN_TO_SELLER);
-    await marketplace.connect(brand).settleDispute(1, DisputeResolution.RETURN_TO_SELLER);
+    await marketplace.connect(supplier).createListing(tokenId, 5_000, op());
+    await marketplace.connect(brand).createOrder(1, 5_000, op());
+    await marketplace.connect(supplier).markShipped(1, op());
+    await marketplace.connect(supplier).openDispute(1, DISPUTE_HASH, op());
+    await marketplace.connect(supplier).settleDispute(1, DisputeResolution.RETURN_TO_SELLER, op());
+    await marketplace.connect(brand).settleDispute(1, DisputeResolution.RETURN_TO_SELLER, op());
     expect((await marketplace.getOrder(1)).status).to.equal(OrderStatus.CANCELLED);
     expect((await materialToken.materialLockInfo(1)).status).to.equal(LockStatus.RELEASED);
     expect(await materialToken.availableBalance(supplier.address, tokenId)).to.equal(50_000);

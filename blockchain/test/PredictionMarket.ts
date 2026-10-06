@@ -4,6 +4,8 @@ import { time } from "@nomicfoundation/hardhat-network-helpers";
 
 const hash = (value: string) => ethers.keccak256(ethers.toUtf8Bytes(value));
 const point = (value: string) => ethers.parseEther(value);
+let operationSequence = 0;
+const op = () => hash(`operation-${++operationSequence}`);
 
 describe("PredictionMarket", function () {
   async function fixture() {
@@ -28,7 +30,7 @@ describe("PredictionMarket", function () {
     await production.grantRole(await production.BRAND_ROLE(), brand.address);
     await materialToken
       .connect(supplier)
-      .mintMaterial(brand.address, 20_000, 0, "ipfs://virgin", hash("source"));
+      .mintMaterial(brand.address, 20_000, 0, "ipfs://virgin", hash("source"), op());
 
     const PredictionPoint = await ethers.getContractFactory("PredictionPoint");
     const predictionPoint = await PredictionPoint.deploy(admin.address, point("1000000"));
@@ -46,7 +48,7 @@ describe("PredictionMarket", function () {
     }
 
     async function confirmBatch(productQuantity = 10) {
-      await production.connect(brand).createBatch(productQuantity);
+      await production.connect(brand).createBatch(productQuantity, op());
       await production.connect(brand).submitPlanAndLock(
         1,
         hash("production"),
@@ -57,8 +59,8 @@ describe("PredictionMarket", function () {
         [1_000],
         ["ipfs://scrap"],
         [hash("scrap")]
-      );
-      await production.connect(brand).confirmProduction(1);
+      , op());
+      await production.connect(brand).confirmProduction(1, op());
     }
 
     async function createMarket(bounds = [2, 5, 10]) {
@@ -108,15 +110,15 @@ describe("PredictionMarket", function () {
     const { brand, production, market, confirmBatch, createMarket } = await fixture();
     const now = await time.latest();
 
-    await production.connect(brand).createBatch(10);
+    await production.connect(brand).createBatch(10, op());
     await expect(
       market.createMarket(1, 101, 59_000, now + 100, now + 200, now + 1_000, [2, 5, 10])
     ).to.be.revertedWith("PredictionMarket: batch is not confirmed");
 
     await production.connect(brand).submitPlanAndLock(
       1, hash("production"), [1], [20_000], [18_000], [1_000], [1_000], ["ipfs://scrap"], [hash("scrap")]
-    );
-    await production.connect(brand).confirmProduction(1);
+    , op());
+    await production.connect(brand).confirmProduction(1, op());
     await expect(
       market.createMarket(1, 101, 59_000, now + 100, now + 200, now + 1_000, [5, 5, 10])
     ).to.be.revertedWith("PredictionMarket: buckets not increasing");

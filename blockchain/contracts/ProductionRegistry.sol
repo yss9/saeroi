@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {OperationTracked} from "./OperationTracked.sol";
 
 interface IProductionMaterialToken {
     function availableBalance(address owner, uint256 tokenId) external view returns (uint256);
@@ -16,7 +17,7 @@ interface IProductionMaterialToken {
 
 /// @title ProductionRegistry
 /// @notice 생산 투입량을 제품·자투리·폐기로 보존하고 ProductItem과 배치를 연결한다.
-contract ProductionRegistry is AccessControl {
+contract ProductionRegistry is AccessControl, OperationTracked {
     bytes32 public constant BRAND_ROLE = keccak256("BRAND_ROLE");
     uint8 private constant PRODUCTION_PURPOSE = 2;
     uint8 private constant PRODUCTION_REASON = 1;
@@ -65,14 +66,14 @@ contract ProductionRegistry is AccessControl {
         _grantRole(BRAND_ROLE, admin);
     }
 
-    function createBatch(uint256 productQuantity) external onlyRole(BRAND_ROLE) returns (uint256 batchId) {
+    function createBatch(uint256 productQuantity, bytes32 operationId) external onlyRole(BRAND_ROLE) trackedOperation(operationId) returns (uint256 batchId) {
         require(productQuantity > 0, "Production: invalid batch");
         batchId = nextBatchId++;
         _batches[batchId] = Batch(msg.sender, productQuantity, bytes32(0), Status.DRAFT, uint64(block.timestamp), 0, 0);
         emit ProductionBatchCreated(batchId, msg.sender, productQuantity, bytes32(0), block.timestamp);
     }
 
-    function submitPlanAndLock(uint256 batchId, bytes32 evidenceHash, uint256[] calldata tokenIds, uint256[] calldata inputAmounts, uint256[] calldata productUsed, uint256[] calldata scrap, uint256[] calldata waste, string[] calldata scrapMetadataUris, bytes32[] calldata scrapEvidenceHashes) external {
+    function submitPlanAndLock(uint256 batchId, bytes32 evidenceHash, uint256[] calldata tokenIds, uint256[] calldata inputAmounts, uint256[] calldata productUsed, uint256[] calldata scrap, uint256[] calldata waste, string[] calldata scrapMetadataUris, bytes32[] calldata scrapEvidenceHashes, bytes32 operationId) external trackedOperation(operationId) {
         Batch storage batch = _batch(batchId);
         require(msg.sender == batch.brand, "Production: caller is not brand");
         require(batch.status == Status.DRAFT, "Production: invalid status");
@@ -98,7 +99,7 @@ contract ProductionRegistry is AccessControl {
         emit ProductionPlanSubmitted(batchId, batch.brand, block.timestamp);
     }
 
-    function confirmProduction(uint256 batchId) external {
+    function confirmProduction(uint256 batchId, bytes32 operationId) external trackedOperation(operationId) {
         Batch storage batch = _batch(batchId);
         require(msg.sender == batch.brand, "Production: caller is not brand");
         require(batch.status == Status.SIGNING, "Production: invalid status");
@@ -122,7 +123,7 @@ contract ProductionRegistry is AccessControl {
     }
 
     /// @notice 서명 전 초안 배치를 폐기한다. 초안에는 아직 Lock이 없다.
-    function cancelProduction(uint256 batchId) external {
+    function cancelProduction(uint256 batchId, bytes32 operationId) external trackedOperation(operationId) {
         Batch storage batch = _batch(batchId);
         require(msg.sender == batch.brand, "Production: caller is not brand");
         require(batch.status == Status.DRAFT, "Production: invalid status");
@@ -131,7 +132,7 @@ contract ProductionRegistry is AccessControl {
     }
 
     /// @notice 서명 이후 온체인 처리 실패 시 배치를 종료하고 모든 PRODUCTION Lock을 해제한다.
-    function markFailed(uint256 batchId) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function markFailed(uint256 batchId, bytes32 operationId) external onlyRole(DEFAULT_ADMIN_ROLE) trackedOperation(operationId) {
         Batch storage batch = _batch(batchId);
         require(batch.status == Status.SIGNING, "Production: invalid status");
         batch.status = Status.FAILED;
@@ -141,7 +142,7 @@ contract ProductionRegistry is AccessControl {
         }
     }
 
-    function linkProductItems(uint256 batchId, uint256[] calldata productItemIds) external {
+    function linkProductItems(uint256 batchId, uint256[] calldata productItemIds, bytes32 operationId) external trackedOperation(operationId) {
         Batch storage batch = _batch(batchId);
         require(msg.sender == batch.brand, "Production: caller is not brand");
         require(batch.status == Status.CONFIRMED, "Production: batch is not confirmed");
