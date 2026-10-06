@@ -51,7 +51,7 @@ describe('useVerifySourceOnChain', () => {
     })
 
     // 컨트랙트 호출은 tokenId 를 쓴다 — verifySource(tokenId, evidenceHash).
-    expect(mocks.verifySource).toHaveBeenCalledWith(7, '0xhash')
+    expect(mocks.verifySource).toHaveBeenCalledWith(7, '0xhash', expect.stringMatching(/^0x[0-9a-f]{64}$/))
     // 서버 알림은 materialId 로 붙는다. 훅이 이 둘을 헷갈리면 엉뚱한 소재가 검증 처리된다.
     expect(mocks.confirmSourceVerification).toHaveBeenCalledWith(12, {
       txHash: '0xconfirmed',

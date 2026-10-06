@@ -67,7 +67,7 @@ export function useSubmitProductionPlan(batch: ProductionBatch): ChainStepAction
   const run = useCallback(async () => {
     const { manifest, evidenceHash } = await getProductionManifest(batch.productionBatchId)
 
-    const receipt = await transaction.execute(async () => {
+    const receipt = await transaction.execute(async (operationId) => {
       const { submitPlanAndLock } = await import('../services/productionContractService.ts')
       return submitPlanAndLock(batch.chainBatchId as number, evidenceHash, {
         tokenIds: manifest.inputs.map((input) => BigInt(input.materialTokenId)),
@@ -77,8 +77,8 @@ export function useSubmitProductionPlan(batch: ProductionBatch): ChainStepAction
         waste: manifest.inputs.map((input) => BigInt(input.wasteQuantity)),
         scrapMetadataUris: manifest.inputs.map((input) => input.scrapMetadataUri),
         scrapEvidenceHashes: manifest.inputs.map((input) => input.scrapEvidenceHash),
-      })
-    })
+      }, operationId)
+    }, { contract: 'PRODUCTION_REGISTRY', functionName: 'submitPlanAndLock', referenceType: 'PRODUCTION', referenceId: batch.productionBatchId })
     if (receipt === null) return
 
     await linkChainPlan(batch.productionBatchId, {
@@ -139,10 +139,10 @@ export function useConfirmProductionOnChain(batch: ProductionBatch): ChainStepAc
   const transaction = useBlockchainTransaction()
 
   const run = useCallback(async () => {
-    const receipt = await transaction.execute(async () => {
+    const receipt = await transaction.execute(async (operationId) => {
       const { confirmProduction } = await import('../services/productionContractService.ts')
-      return confirmProduction(batch.chainBatchId as number)
-    })
+      return confirmProduction(batch.chainBatchId as number, operationId)
+    }, { contract: 'PRODUCTION_REGISTRY', functionName: 'confirmProduction', referenceType: 'PRODUCTION', referenceId: batch.productionBatchId })
     if (receipt === null) return
 
     await linkChainConsume(batch.productionBatchId, {
@@ -175,10 +175,10 @@ export function useLinkProductionItems(
       .sort((left, right) => left.serialNumber - right.serialNumber)
       .map((item) => item.productItemId)
 
-    const receipt = await transaction.execute(async () => {
+    const receipt = await transaction.execute(async (operationId) => {
       const { linkProductItems } = await import('../services/productionContractService.ts')
-      return linkProductItems(batch.chainBatchId as number, productItemIds)
-    })
+      return linkProductItems(batch.chainBatchId as number, productItemIds, operationId)
+    }, { contract: 'PRODUCTION_REGISTRY', functionName: 'linkProductItems', referenceType: 'PRODUCTION', referenceId: batch.productionBatchId })
     if (receipt === null) return
 
     await linkChainItems(batch.productionBatchId, {

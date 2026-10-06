@@ -37,6 +37,7 @@ import { AgentTaskPanel } from './AgentTaskPanel.tsx'
 import { JourneyProgressBar } from './JourneyProgressBar.tsx'
 import { ProductionChainCard } from './ProductionChainCard.tsx'
 import { WalletSignCard } from './WalletSignCard.tsx'
+import { sendTrackedOperation } from '../../../services/blockchain/operationApi.ts'
 
 /**
  * 대화창 본체.
@@ -388,14 +389,18 @@ async function signCustodyTransfer(
   let shipTxHash: string | null = null
   if (!(await chainAlreadyPassed(chainJobId, 'SHIPPED'))) {
     const shipReceipt = await confirmedTransaction(
-      markProcessingShipped(
-        chainJobId,
-        processingEvidenceHash({
+      sendTrackedOperation(
+        { contract: 'PROCESSING_REGISTRY', functionName: 'markShipped', referenceType: 'PROCESSING', referenceId: jobId },
+        (operationId) => markProcessingShipped(
+          chainJobId,
+          processingEvidenceHash({
           type: 'PROCESSING_OUTBOUND_SHIPMENT',
           jobId,
           carrier: carrier ?? '',
           trackingNumber: trackingNumber ?? '',
-        }),
+          }),
+          operationId,
+        ),
       ),
     )
     shipTxHash = shipReceipt.hash
@@ -426,7 +431,10 @@ async function signProcessingApproval(jobId: number): Promise<string> {
     return 'already-signed'
   }
 
-  const receipt = await confirmedTransaction(approveProcessingResultOnChain(preparation.chainJobId))
+  const receipt = await confirmedTransaction(sendTrackedOperation(
+    { contract: 'PROCESSING_REGISTRY', functionName: 'approveProcessingResult', referenceType: 'PROCESSING', referenceId: jobId },
+    (operationId) => approveProcessingResultOnChain(preparation.chainJobId!, operationId),
+  ))
   await processingJobApi.receiveReturn(jobId, { txHash: receipt.hash })
   return receipt.hash
 }
@@ -464,7 +472,10 @@ async function signTradeReceipt(tradeId: number): Promise<string> {
     )
   }
 
-  const receipt = await confirmedTransaction(confirmReceipt(trade.chainTradeId))
+  const receipt = await confirmedTransaction(sendTrackedOperation(
+    { contract: 'MARKETPLACE', functionName: 'confirmReceipt', referenceType: 'TRADE', referenceId: tradeId },
+    (operationId) => confirmReceipt(trade.chainTradeId!, operationId),
+  ))
 
   // **서버에 따로 알리지 않는다.** 다음 단계인 confirm_receipt 가 체인을 읽어 수령이
   // 남았는지 확인하고, 그때 서명 시각까지 채운다. 여기서 한 번 더 보고하면 같은 일을
@@ -506,7 +517,10 @@ async function signTradeOrder(tradeId: number): Promise<string> {
     throw new Error('이 판매 글은 아직 온체인에 등록되지 않아 블록체인 기록을 만들 수 없습니다.')
   }
 
-  const response = await createOrder(listing.chainListingId, trade.quantity)
+  const response = await sendTrackedOperation(
+    { contract: 'MARKETPLACE', functionName: 'createOrder', referenceType: 'TRADE', referenceId: tradeId },
+    (operationId) => createOrder(listing.chainListingId!, trade.quantity, operationId),
+  )
   const receipt = await response.wait()
 
   // 기존 chain-link API 로 서버에 붙인다. 영수증 검증은 그쪽이 한다.

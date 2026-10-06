@@ -36,18 +36,19 @@ import { requireOnChainRole } from '../../../services/blockchain/onChainRole.ts'
 export async function createListing(
   materialId: number,
   quantity: number,
+  operationId: string,
 ): Promise<ContractTransactionResponse> {
   const contract = await getWriteContract('marketplace')
   // 컨트랙트가 materialToken.hasRole(SUPPLIER_ROLE, msg.sender) 를 검사한다
   // (Marketplace.sol:139). 없으면 영문 revert 만 보이므로 미리 확인한다.
   await requireOnChainRole('SUPPLIER_ROLE')
-  return contract.createListing(materialId, quantity) as Promise<ContractTransactionResponse>
+  return contract.createListing(materialId, quantity, operationId) as Promise<ContractTransactionResponse>
 }
 
 /** 판매 취소. 남은 수량의 Lock 이 해제된다. */
-export async function cancelListing(listingId: number): Promise<ContractTransactionResponse> {
+export async function cancelListing(listingId: number, operationId: string): Promise<ContractTransactionResponse> {
   const contract = await getWriteContract('marketplace')
-  return contract.cancelListing(listingId) as Promise<ContractTransactionResponse>
+  return contract.cancelListing(listingId, operationId) as Promise<ContractTransactionResponse>
 }
 
 /**
@@ -57,23 +58,24 @@ export async function cancelListing(listingId: number): Promise<ContractTransact
 export async function createOrder(
   listingId: number,
   quantity: number,
+  operationId: string,
 ): Promise<ContractTransactionResponse> {
   const contract = await getWriteContract('marketplace')
   // 컨트랙트가 materialToken.hasRole(BRAND_ROLE, msg.sender) 를 검사한다
   // (Marketplace.sol:208). 앱에서 BRAND 로 가입했어도 그 지갑에 권한이 없을 수 있다.
   await requireOnChainRole('BRAND_ROLE')
-  return contract.createOrder(listingId, quantity) as Promise<ContractTransactionResponse>
+  return contract.createOrder(listingId, quantity, operationId) as Promise<ContractTransactionResponse>
 }
 
-export async function cancelOrder(orderId: number): Promise<ContractTransactionResponse> {
+export async function cancelOrder(orderId: number, operationId: string): Promise<ContractTransactionResponse> {
   const contract = await getWriteContract('marketplace')
-  return contract.cancelOrder(orderId) as Promise<ContractTransactionResponse>
+  return contract.cancelOrder(orderId, operationId) as Promise<ContractTransactionResponse>
 }
 
 /** Seller 배송 처리. 이 시점에도 Lock 은 유지된다 — 배송 중 재판매를 막는다. */
-export async function markShipped(orderId: number): Promise<ContractTransactionResponse> {
+export async function markShipped(orderId: number, operationId: string): Promise<ContractTransactionResponse> {
   const contract = await getWriteContract('marketplace')
-  return contract.markShipped(orderId) as Promise<ContractTransactionResponse>
+  return contract.markShipped(orderId, operationId) as Promise<ContractTransactionResponse>
 }
 
 /**
@@ -82,9 +84,9 @@ export async function markShipped(orderId: number): Promise<ContractTransactionR
  * **여기서 소유권이 이전된다.** 배송 시점이 아니라 수령 확인 시점이다 (정책 07.2).
  * Lock 이 CONSUMED 로 바뀌고 Balance 가 Seller → Buyer 로 옮겨간다.
  */
-export async function confirmReceipt(orderId: number): Promise<ContractTransactionResponse> {
+export async function confirmReceipt(orderId: number, operationId: string): Promise<ContractTransactionResponse> {
   const contract = await getWriteContract('marketplace')
-  return contract.confirmReceipt(orderId) as Promise<ContractTransactionResponse>
+  return contract.confirmReceipt(orderId, operationId) as Promise<ContractTransactionResponse>
 }
 
 // ── 조회 ────────────────────────────────────────────────

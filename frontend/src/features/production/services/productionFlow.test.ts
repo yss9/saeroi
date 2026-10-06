@@ -90,12 +90,12 @@ describe('runProductionFlow', () => {
 
     expect(steps).toEqual(['CONFIRM', 'CREATE_BATCH', 'PLAN', 'CONSUME', 'LINK_ITEMS'])
     expect(api.linkChainBatch).toHaveBeenCalledWith(3, expect.objectContaining({ chainBatchId: 77, txHash: '0xcreate' }))
-    expect(chain.submitPlanAndLock).toHaveBeenCalledWith(77, '0xplan', expect.anything())
+    expect(chain.submitPlanAndLock).toHaveBeenCalledWith(77, '0xplan', expect.anything(), expect.stringMatching(/^0x[0-9a-f]{64}$/))
     expect(api.linkChainPlan).toHaveBeenCalledWith(3, expect.objectContaining({ txHash: '0xplan', lockedMaterials: [{ productionInputId: 1, chainLockId: 9 }] }))
-    expect(chain.confirmProduction).toHaveBeenCalledWith(77)
+    expect(chain.confirmProduction).toHaveBeenCalledWith(77, expect.stringMatching(/^0x[0-9a-f]{64}$/))
     expect(api.linkChainConsume).toHaveBeenCalledWith(3, expect.objectContaining({ txHash: '0xconsume' }))
     // 일련번호 순으로 연결한다.
-    expect(chain.linkProductItems).toHaveBeenCalledWith(77, [20, 21])
+    expect(chain.linkProductItems).toHaveBeenCalledWith(77, [20, 21], expect.stringMatching(/^0x[0-9a-f]{64}$/))
     expect(api.linkChainItems).toHaveBeenCalledWith(3, expect.objectContaining({ txHash: '0xlink' }))
   })
 

@@ -41,7 +41,7 @@ export function ListingChainCancelButton({ listing }: { listing: Listing }) {
         size="sm"
         onClick={() => {
           if (listing.chainListingId === null) return
-          void chain.cancel(listing.chainListingId)
+          void chain.cancel(listing.listingId, listing.chainListingId)
         }}
         loading={chain.isBusy}
         disabled={chain.isBusy}

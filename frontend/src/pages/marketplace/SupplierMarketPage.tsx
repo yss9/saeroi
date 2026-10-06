@@ -263,7 +263,7 @@ export function SupplierMarketPage() {
             // 뿐이다. 여기서 놓치면 DB 는 풀렸는데 체인은 잠긴 채라 같은 소재를 다시
             // 팔 수 없다 — Marketplace: insufficient available balance 로 막힌다.
             onSuccess: () => {
-              if (chainListingId !== null) void chain.cancel(chainListingId)
+              if (chainListingId !== null && cancelTarget !== null) void chain.cancel(cancelTarget.listingId, chainListingId)
             },
             onSettled: () => setCancelTarget(null),
           })

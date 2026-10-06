@@ -28,6 +28,10 @@ vi.mock('../services/blockchain/contractFactory.ts', () => ({
   // 영수증에서 번호를 꺼내는 부분은 이 테스트의 관심사가 아니다.
   readEventArg: () => 7n,
 }))
+vi.mock('../services/blockchain/operationApi.ts', () => ({
+  createBlockchainOperation: vi.fn(async () => ({ operationId: `0x${'01'.repeat(32)}`, status: 'CREATED', txHash: null })),
+  submitBlockchainTransaction: vi.fn(async () => undefined),
+}))
 
 afterEach(() => {
   vi.clearAllMocks()
@@ -44,6 +48,9 @@ function setup(options: {
       contract: 'materialToken',
       eventName: 'MaterialMinted',
       argName: 'tokenId',
+      operationContract: 'MATERIAL_TOKEN',
+      functionName: 'mintMaterial',
+      referenceType: 'MATERIAL',
       link,
       findExisting: options.findExisting,
     }),

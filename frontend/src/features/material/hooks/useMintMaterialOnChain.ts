@@ -40,6 +40,9 @@ export function useMintMaterialOnChain() {
     contract: 'materialToken',
     eventName: 'MaterialMinted',
     argName: 'tokenId',
+    operationContract: 'MATERIAL_TOKEN',
+    functionName: 'mintMaterial',
+    referenceType: 'MATERIAL',
     link: linkMaterialOnChain,
     onLinked: () => {
       void queryClient.invalidateQueries({ queryKey: materialKeys.all })
@@ -57,8 +60,8 @@ export function useMintMaterialOnChain() {
   const mint = useCallback(
     ({ materialId, to, amount, rootOrigin, metadataUri, evidenceHash }: MintOnChainParams) => {
       probe.current = { to, metadataUri }
-      return link.run(materialId, () =>
-        mintMaterial({ to, amount, rootOrigin, metadataUri, evidenceHash }),
+      return link.run(materialId, (operationId) =>
+        mintMaterial({ to, amount, rootOrigin, metadataUri, evidenceHash, operationId }),
       )
     },
     [link],

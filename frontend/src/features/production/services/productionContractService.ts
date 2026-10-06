@@ -31,9 +31,9 @@ import { getWriteContract } from '../../../services/blockchain/contractFactory.t
  *
  * `BRAND_ROLE` 이 있는 지갑만 부를 수 있다 — 없으면 revert 한다.
  */
-export async function createBatch(producedQuantity: number): Promise<ContractTransactionResponse> {
+export async function createBatch(producedQuantity: number, operationId: string): Promise<ContractTransactionResponse> {
   const contract = await getWriteContract('productionRegistry')
-  return contract.createBatch(producedQuantity) as Promise<ContractTransactionResponse>
+  return contract.createBatch(producedQuantity, operationId) as Promise<ContractTransactionResponse>
 }
 
 /**
@@ -62,6 +62,7 @@ export async function submitPlanAndLock(
     scrapMetadataUris: string[]
     scrapEvidenceHashes: string[]
   },
+  operationId: string,
 ): Promise<ContractTransactionResponse> {
   const contract = await getWriteContract('productionRegistry')
   return contract.submitPlanAndLock(
@@ -74,6 +75,7 @@ export async function submitPlanAndLock(
     plan.waste,
     plan.scrapMetadataUris,
     plan.scrapEvidenceHashes,
+    operationId,
   ) as Promise<ContractTransactionResponse>
 }
 
@@ -88,9 +90,10 @@ export async function submitPlanAndLock(
  */
 export async function confirmProduction(
   chainBatchId: number,
+  operationId: string,
 ): Promise<ContractTransactionResponse> {
   const contract = await getWriteContract('productionRegistry')
-  return contract.confirmProduction(chainBatchId) as Promise<ContractTransactionResponse>
+  return contract.confirmProduction(chainBatchId, operationId) as Promise<ContractTransactionResponse>
 }
 
 /**
@@ -106,7 +109,8 @@ export async function confirmProduction(
 export async function linkProductItems(
   chainBatchId: number,
   productItemIds: number[],
+  operationId: string,
 ): Promise<ContractTransactionResponse> {
   const contract = await getWriteContract('productionRegistry')
-  return contract.linkProductItems(chainBatchId, productItemIds) as Promise<ContractTransactionResponse>
+  return contract.linkProductItems(chainBatchId, productItemIds, operationId) as Promise<ContractTransactionResponse>
 }

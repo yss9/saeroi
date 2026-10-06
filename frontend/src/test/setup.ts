@@ -1,4 +1,26 @@
 import '@testing-library/jest-dom/vitest'
+import axios, { type AxiosResponse } from 'axios'
+import { apiClient } from '../services/apiClient.ts'
+
+// 블록체인 쓰기 단위 테스트는 지갑/도메인 흐름에 집중한다. 새 정합성 API까지 실제
+// localhost 서버로 보내면 기존 테스트가 네트워크 상태에 의존하므로, 이 경계만 공통 가짜
+// 응답으로 막는다. 요청별 adapter를 직접 지정하는 apiClient 테스트에는 영향을 주지 않는다.
+const defaultAdapter = axios.getAdapter(apiClient.defaults.adapter)
+apiClient.defaults.adapter = async (config) => {
+  if (config.url?.startsWith('/v1/blockchain/operations')) {
+    const data = config.method === 'post'
+      ? { operationId: `0x${'01'.repeat(32)}`, status: 'CREATED', txHash: null }
+      : null
+    return {
+      data: { success: true, code: 'SUCCESS', message: 'ok', data, timestamp: new Date().toISOString() },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+    } as AxiosResponse
+  }
+  return defaultAdapter(config)
+}
 
 // jsdom 에 `<dialog>` 의 showModal / close 가 없다.
 //

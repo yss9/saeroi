@@ -19,6 +19,12 @@ import { readEventArg } from '../services/blockchain/contractFactory.ts'
 import type { ChainLinkPayload } from '../services/blockchain/chainLinkApi.ts'
 import { useBlockchainTransaction, type TransactionStatus } from './useBlockchainTransaction.ts'
 import { ERROR_KIND, createAppError, isAppError, type AppError } from '../utils/errors.ts'
+import {
+  createBlockchainOperation,
+  submitBlockchainTransaction,
+  type BlockchainContract,
+  type BlockchainReferenceType,
+} from '../services/blockchain/operationApi.ts'
 
 /** 서명 이후 단계까지 포함한 상태. 트랜잭션 상태만으로는 서버 기록 실패를 표현할 수 없다. */
 export type ChainLinkStatus = TransactionStatus | 'LINKING' | 'LINKED'
@@ -30,6 +36,9 @@ export interface UseOnChainLinkOptions {
   eventName: string
   /** 그 이벤트에서 꺼낼 인자 이름 (`tokenId` 등). */
   argName: string
+  operationContract: BlockchainContract
+  functionName: string
+  referenceType: BlockchainReferenceType
   /** 꺼낸 번호를 서버에 알리는 함수. */
   link: (targetId: number, payload: ChainLinkPayload) => Promise<void>
   onLinked?: (onChainId: number) => void
@@ -59,7 +68,7 @@ export interface UseOnChainLinkResult {
   /** 사용자가 서명을 취소했다. 에러 배너 대신 조용히 넘기고 싶을 때 구분한다. */
   isRejected: boolean
   /** 서명 → 확정 → 서버 기록. 세 단계가 모두 끝나면 true다. */
-  run: (targetId: number, send: () => Promise<ContractTransactionResponse>) => Promise<boolean>
+  run: (targetId: number, send: (operationId: string) => Promise<ContractTransactionResponse>) => Promise<boolean>
   reset: () => void
 }
 
@@ -68,13 +77,14 @@ type LinkPhase = { status: 'IDLE' | 'LINKING' | 'LINKED'; error: AppError | null
 const IDLE: LinkPhase = { status: 'IDLE', error: null }
 
 export function useOnChainLink(options: UseOnChainLinkOptions): UseOnChainLinkResult {
-  const { contract, eventName, argName, link, onLinked, findExisting } = options
+  const { contract, eventName, argName, operationContract, functionName, referenceType, link, onLinked, findExisting } = options
 
   // 서버 기록 구간은 트랜잭션 훅이 모르므로 따로 든다.
   const [phase, setPhase] = useState<LinkPhase>(IDLE)
 
   // 확정 콜백은 run 의 인자를 볼 수 없다. 대상 id 를 ref 로 건네준다.
   const targetId = useRef<number | null>(null)
+  const operationId = useRef<string | null>(null)
   const linked = useRef(false)
   const pendingLink = useRef<{
     targetId: number
@@ -88,10 +98,10 @@ export function useOnChainLink(options: UseOnChainLinkOptions): UseOnChainLinkRe
   // 갱신을 effect 안에서 하는 이유도 같다: 렌더 중에 ref 를 쓰면 React 가 렌더를 버리고
   // 다시 실행했을 때(Concurrent 렌더) 커밋되지 않은 값이 남는다. 여기서 쓰는 값은
   // 모두 await 이후에 읽히므로 커밋 이후 시점이면 충분하다.
-  const latest = useRef({ contract, eventName, argName, link, onLinked, findExisting })
+  const latest = useRef({ contract, eventName, argName, operationContract, functionName, referenceType, link, onLinked, findExisting })
   useEffect(() => {
-    latest.current = { contract, eventName, argName, link, onLinked, findExisting }
-  }, [contract, eventName, argName, link, onLinked, findExisting])
+    latest.current = { contract, eventName, argName, operationContract, functionName, referenceType, link, onLinked, findExisting }
+  }, [contract, eventName, argName, operationContract, functionName, referenceType, link, onLinked, findExisting])
 
   const handleConfirmed = useCallback(async (receipt: ContractTransactionReceipt) => {
     const { contract, eventName, argName, link, onLinked } = latest.current
@@ -145,12 +155,19 @@ export function useOnChainLink(options: UseOnChainLinkOptions): UseOnChainLinkRe
   }, [])
 
   const transaction = useBlockchainTransaction({
+    onSubmitted: async (hash) => {
+      if (operationId.current !== null) {
+        // 실패해도 체인 전송/영수증 대기는 계속한다. CREATED 작업을 워커가 operationId
+        // 이벤트로 찾아 txHash까지 복구할 수 있기 때문이다.
+        await submitBlockchainTransaction(operationId.current, hash).catch(() => undefined)
+      }
+    },
     // Promise를 그대로 반환해야 execute가 서버 연결 완료까지 기다린다.
     onConfirmed: handleConfirmed,
   })
 
   const run = useCallback(
-    async (id: number, send: () => Promise<ContractTransactionResponse>) => {
+    async (id: number, send: (operationId: string) => Promise<ContractTransactionResponse>) => {
       // **기록할 수 없으면 서명시키지 않는다.**
       //
       // 체인 트랜잭션은 되돌릴 수 없다. 대상 id 가 깨진 채로 서명부터 시키면 발행은
@@ -218,7 +235,14 @@ export function useOnChainLink(options: UseOnChainLinkOptions): UseOnChainLinkRe
       targetId.current = id
       linked.current = false
       setPhase(IDLE)
-      const receipt = await transaction.execute(send)
+      const operation = await createBlockchainOperation({
+        contract: latest.current.operationContract,
+        functionName: latest.current.functionName,
+        referenceType: latest.current.referenceType,
+        referenceId: id,
+      })
+      operationId.current = operation.operationId
+      const receipt = await transaction.execute(() => send(operation.operationId))
       return receipt !== null && linked.current
     },
     [transaction],
@@ -226,6 +250,7 @@ export function useOnChainLink(options: UseOnChainLinkOptions): UseOnChainLinkRe
 
   const reset = useCallback(() => {
     targetId.current = null
+    operationId.current = null
     linked.current = false
     pendingLink.current = null
     setPhase(IDLE)

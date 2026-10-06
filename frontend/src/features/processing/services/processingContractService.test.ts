@@ -13,6 +13,7 @@ const contract = vi.hoisted(() => ({
   queryFilter: vi.fn(),
   filters: { ProcessingJobCreated: vi.fn(() => 'ProcessingJobCreated-filter') },
 }))
+const operationId = `0x${'01'.repeat(32)}`
 
 vi.mock('../../../services/blockchain/contractFactory.ts', () => ({
   getWriteContract: vi.fn(),
@@ -40,8 +41,8 @@ describe('processingContractService', () => {
 
   it('반려된 입력 소재 반환은 실제 증빙 파일 해시와 함께 호출한다', async () => {
     const hash = `0x${'cd'.repeat(32)}`
-    await returnRejectedProcessingInput(12, hash)
-    expect(contract.returnRejectedInput).toHaveBeenCalledWith(12, hash)
+    await returnRejectedProcessingInput(12, hash, operationId)
+    expect(contract.returnRejectedInput).toHaveBeenCalledWith(12, hash, operationId)
   })
 
   it('Processor 수령 이후 잠금 번호는 processorLockId에서 읽는다', async () => {
@@ -52,13 +53,14 @@ describe('processingContractService', () => {
   })
 
   it('백엔드 공정 enum 순서를 컨트랙트 enum 번호로 변환해 작업을 만든다', async () => {
-    await createProcessingJob('0x0000000000000000000000000000000000000002', 9, 250, ['CLEANING', 'CUTTING'])
+    await createProcessingJob('0x0000000000000000000000000000000000000002', 9, 250, ['CLEANING', 'CUTTING'], operationId)
 
     expect(contract.createJob).toHaveBeenCalledWith(
       '0x0000000000000000000000000000000000000002',
       [9],
       [250],
       [0, 3],
+      operationId,
     )
   })
 
@@ -67,7 +69,7 @@ describe('processingContractService', () => {
     await submitProcessingResultOnChain(4, [
       { amount: 180, grade: 'A', metadataUri: 'saeroi://processing/4/output/1', evidenceHash: hash },
       { amount: 40, grade: 'C', metadataUri: 'saeroi://processing/4/output/2', evidenceHash: hash },
-    ], hash)
+    ], hash, operationId)
 
     expect(contract.submitProcessingResult).toHaveBeenCalledWith(
       4,
@@ -77,12 +79,13 @@ describe('processingContractService', () => {
       ['saeroi://processing/4/output/1', 'saeroi://processing/4/output/2'],
       [hash, hash],
       hash,
+      operationId,
     )
   })
 
   it('브랜드 지갑으로 온체인 잠금을 해제한다', async () => {
-    await cancelProcessingJob(11)
+    await cancelProcessingJob(11, operationId)
 
-    expect(contract.cancelJob).toHaveBeenCalledWith(11)
+    expect(contract.cancelJob).toHaveBeenCalledWith(11, operationId)
   })
 })

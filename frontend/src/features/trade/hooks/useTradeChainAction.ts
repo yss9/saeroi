@@ -49,13 +49,19 @@ export function useTradeChainAction(tradeId: number) {
   })
 
   const ship = useCallback(
-    (chainTradeId: number) => transaction.execute(() => markShipped(chainTradeId)),
+    (chainTradeId: number) => transaction.execute(
+      (operationId) => markShipped(chainTradeId, operationId),
+      { contract: 'MARKETPLACE', functionName: 'markShipped', referenceType: 'TRADE', referenceId: tradeId },
+    ),
     [transaction],
   )
 
   const receive = useCallback(
     async (chainTradeId: number) => {
-      const receipt = await transaction.execute(() => confirmReceipt(chainTradeId))
+      const receipt = await transaction.execute(
+        (operationId) => confirmReceipt(chainTradeId, operationId),
+        { contract: 'MARKETPLACE', functionName: 'confirmReceipt', referenceType: 'TRADE', referenceId: tradeId },
+      )
       // 서버에 따로 알리지 않는다. 뒤이어 부르는 수령 확정이 체인을 읽어 확인하고 그때
       // 서명 시각까지 채운다 — 같은 일을 두 곳에서 하면 어긋나는 순간 정본을 알 수 없다.
       void queryClient.invalidateQueries({ queryKey: tradeKeys.detail(tradeId) })
@@ -80,7 +86,10 @@ export function useTradeChainAction(tradeId: number) {
    * (Marketplace.sol:279).
    */
   const cancel = useCallback(
-    (chainTradeId: number) => transaction.execute(() => cancelOrder(chainTradeId)),
+    (chainTradeId: number) => transaction.execute(
+      (operationId) => cancelOrder(chainTradeId, operationId),
+      { contract: 'MARKETPLACE', functionName: 'cancelOrder', referenceType: 'TRADE', referenceId: tradeId },
+    ),
     [transaction],
   )
 

@@ -26,6 +26,7 @@ export function toOnChainRootOrigin(origin: MaterialRootOrigin): RootOriginOnCha
 }
 
 export interface MintMaterialParams {
+  operationId: string
   /** 발행 대상 지갑. 보통 등록자 본인이다. */
   to: string
   /** gram 정수 */
@@ -53,6 +54,7 @@ export async function mintMaterial({
   rootOrigin,
   metadataUri,
   evidenceHash,
+  operationId,
 }: MintMaterialParams): Promise<ContractTransactionResponse> {
   const contract = await getWriteContract('materialToken')
   // mintMaterial 은 onlyRole(SUPPLIER_ROLE) 이다 (MaterialToken.sol:257).
@@ -64,6 +66,7 @@ export async function mintMaterial({
     toOnChainRootOrigin(rootOrigin),
     metadataUri,
     evidenceHash,
+    operationId,
   ) as Promise<ContractTransactionResponse>
 }
 
@@ -151,10 +154,11 @@ export async function burnMaterial(
   from: string,
   tokenId: number,
   amount: number,
+  operationId: string,
   reason: BurnReasonOnChain = BURN_REASON_ON_CHAIN.PROCESSING_LOSS,
 ): Promise<ContractTransactionResponse> {
   const contract = await getWriteContract('materialToken')
-  return contract.burnMaterial(from, tokenId, amount, reason) as Promise<ContractTransactionResponse>
+  return contract.burnMaterial(from, tokenId, amount, reason, operationId) as Promise<ContractTransactionResponse>
 }
 
 // ── 조회 (서명 불필요) ──────────────────────────────────
@@ -218,9 +222,10 @@ export async function verifyEvidence(tokenId: number, hash: string): Promise<boo
 export async function verifySource(
   tokenId: number,
   evidenceHash: string,
+  operationId: string,
 ): Promise<ContractTransactionResponse> {
   const contract = await getWriteContract('materialToken')
   // mintMaterial 과 같은 이유로 미리 확인한다 — revert 를 서명 팝업 뒤에서 보게 하지 않는다.
   await requireOnChainRole('SUPPLIER_ROLE')
-  return contract.verifySource(tokenId, evidenceHash) as Promise<ContractTransactionResponse>
+  return contract.verifySource(tokenId, evidenceHash, operationId) as Promise<ContractTransactionResponse>
 }
