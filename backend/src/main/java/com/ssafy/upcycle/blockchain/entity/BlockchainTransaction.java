@@ -150,6 +150,21 @@ public class BlockchainTransaction {
             String fromWallet,
             Long blockNumber,
             LocalDateTime confirmedAt) {
+        return confirmed(chainId, contractAddress, txHash, referenceType, referenceId,
+                functionName, fromWallet, blockNumber, 0, confirmedAt);
+    }
+
+    public static BlockchainTransaction confirmed(
+            Long chainId,
+            String contractAddress,
+            String txHash,
+            BlockchainReferenceType referenceType,
+            Long referenceId,
+            String functionName,
+            String fromWallet,
+            Long blockNumber,
+            Integer logIndex,
+            LocalDateTime confirmedAt) {
         BlockchainTransaction transaction = new BlockchainTransaction();
         transaction.chainId = requirePositive(chainId, "chain id");
         transaction.contractAddress = requireAddress(contractAddress, "contract address");
@@ -160,6 +175,7 @@ public class BlockchainTransaction {
         transaction.fromWallet = requireAddress(fromWallet, "from wallet");
         transaction.status = BlockchainTransactionStatus.SUCCESS;
         transaction.blockNumber = blockNumber;
+        transaction.logIndex = logIndex;
         transaction.createdAt = requireNotNull(confirmedAt, "confirmed at");
         transaction.confirmedAt = confirmedAt;
         return transaction;

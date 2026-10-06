@@ -65,6 +65,7 @@ class SchemaSqlTests {
             "material_trade",
             "trade_shipping",
             "blockchain_transaction",
+            "blockchain_operation",
             "agent_conversation",
             "agent_message",
             "agent_pending_action");
