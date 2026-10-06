@@ -7,6 +7,11 @@ import java.util.List;
 public interface BlockchainJsonRpcClient {
     JsonNode transactionReceipt(String txHash);
 
+    /** 한 번만 조회한다. 아직 채굴되지 않았으면 {@code null}; 워커가 다음 실행에서 다시 본다. */
+    default JsonNode transactionReceiptOrNull(String txHash) {
+        return transactionReceipt(txHash);
+    }
+
     /**
      * 이 컨트랙트가 이 토픽들로 <b>주어진 블록 구간에</b> 남긴 로그({@code eth_getLogs}). 결과는 로그
      * 배열이다.

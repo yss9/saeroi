@@ -51,6 +51,8 @@ app:
   blockchain:
     live-initial-delay-ms: 3600000
     live-poll-ms: 3600000
+    reconciliation-initial-delay-ms: 3600000
+    reconciliation-poll-ms: 3600000
   company-role-approval-guard:
     # 기존 도메인 테스트는 각 기능의 자체 권한 검사를 독립적으로 검증한다.
     # 전역 승인 차단은 CompanyRoleApprovalGuardTests에서만 다시 켜서 검증한다.

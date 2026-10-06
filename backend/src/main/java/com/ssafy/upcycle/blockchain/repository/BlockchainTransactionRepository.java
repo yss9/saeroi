@@ -10,6 +10,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface BlockchainTransactionRepository
         extends JpaRepository<BlockchainTransaction, Long> {
 
+    boolean existsByChainIdAndTxHashAndLogIndex(Long chainId, String txHash, Integer logIndex);
+
     /**
      * 한 대상에 기록된 모든 온체인 트랜잭션. 함수 이름을 가리지 않는다 —
      * mint 링크·거래 링크·검증 등 여러 함수가 같은 대상(reference_id)을 가리킬 수 있고,

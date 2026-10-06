@@ -5,6 +5,8 @@ import com.ssafy.upcycle.blockchain.BlockchainErrorCode;
 import com.ssafy.upcycle.blockchain.config.BlockchainProperties;
 import com.ssafy.upcycle.blockchain.entity.BlockchainReferenceType;
 import com.ssafy.upcycle.blockchain.entity.BlockchainTransaction;
+import com.ssafy.upcycle.blockchain.entity.BlockchainOperation;
+import com.ssafy.upcycle.blockchain.repository.BlockchainOperationRepository;
 import com.ssafy.upcycle.blockchain.repository.BlockchainTransactionRepository;
 import com.ssafy.upcycle.common.exception.BusinessException;
 import com.ssafy.upcycle.user.entity.UserWallet;
@@ -13,6 +15,8 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.web3j.crypto.Hash;
 
 /**
  * 확정된 온체인 트랜잭션을 {@code blockchain_transaction} 에 남긴다.
@@ -57,6 +61,7 @@ public class ChainTransactionRecorder {
     }
 
     private final BlockchainTransactionRepository transactionRepository;
+    private final BlockchainOperationRepository operationRepository;
     private final UserWalletRepository walletRepository;
     private final BlockchainProperties properties;
     private final BlockchainJsonRpcClient rpc;
@@ -83,6 +88,7 @@ public class ChainTransactionRecorder {
      * @throws BusinessException 해시가 체인에 없거나, 실패한 트랜잭션이거나, 다른 컨트랙트·
      *     다른 서명자의 것이면 {@link BlockchainErrorCode#BLOCKCHAIN_LINK_INVALID}
      */
+    @Transactional
     public void record(
             Long signerId,
             Contract contract,
@@ -101,7 +107,8 @@ public class ChainTransactionRecorder {
                 .map(UserWallet::getWalletAddress)
                 .orElseThrow(() -> new BusinessException(BlockchainErrorCode.BLOCKCHAIN_LINK_INVALID));
 
-        long blockNumber = verifiedBlockNumber(txHash, contractAddress, signerWallet);
+        BlockchainOperation operation = operationRepository.findByTxHash(txHash.toLowerCase()).orElse(null);
+        VerifiedReceipt verified = verifiedReceipt(txHash, contractAddress, signerWallet, operation);
 
         try {
             transactionRepository.save(BlockchainTransaction.confirmed(
@@ -112,8 +119,14 @@ public class ChainTransactionRecorder {
                     referenceId,
                     functionName,
                     signerWallet,
-                    blockNumber,
+                    verified.blockNumber(),
+                    verified.logIndex(),
                     LocalDateTime.now(clock)));
+            if (operation != null) {
+                LocalDateTime now = LocalDateTime.now(clock);
+                operation.confirmed(verified.blockNumber(), verified.logIndex(), now);
+                operation.projected(now);
+            }
         } catch (IllegalArgumentException invalid) {
             // 엔티티의 형식 검증(해시 길이, 주소 형식)을 도메인 오류로 바꾼다.
             // 그대로 흘리면 사용자에게 설명할 수 없는 500 이 된다.
@@ -128,7 +141,8 @@ public class ChainTransactionRecorder {
      * 화면이 영수증을 받고 곧바로 알려 오므로 보통 한 번에 잡히지만, 노드가 조금 늦을 수 있다.
      * 끝내 안 보이면 거기서 {@code BLOCKCHAIN_LINK_INVALID} 가 난다.
      */
-    private long verifiedBlockNumber(String txHash, String contractAddress, String signerWallet) {
+    private VerifiedReceipt verifiedReceipt(String txHash, String contractAddress, String signerWallet,
+            BlockchainOperation operation) {
         JsonNode receipt = rpc.transactionReceipt(txHash);
         if (!"0x1".equals(receipt.path("status").asText())) {
             // 리버트된 트랜잭션도 해시는 남는다. 증명으로 적으면 "실패한 발행" 이 성공한
@@ -137,7 +151,30 @@ public class ChainTransactionRecorder {
         }
         requireSameAddress(contractAddress, receipt.path("to").asText());
         requireSameAddress(signerWallet, receipt.path("from").asText());
-        return hexToLong(receipt.path("blockNumber").asText());
+        int logIndex = 0;
+        if (operation != null) {
+            if (!operation.getContractAddress().equalsIgnoreCase(contractAddress)
+                    || !operation.getActorWallet().equalsIgnoreCase(signerWallet)) {
+                throw new BusinessException(BlockchainErrorCode.BLOCKCHAIN_LINK_INVALID);
+            }
+            JsonNode matched = null;
+            String topic = Hash.sha3String("OperationRecorded(bytes32,bytes4,address)");
+            for (JsonNode log : receipt.path("logs")) {
+                JsonNode topics = log.path("topics");
+                if (contractAddress.equalsIgnoreCase(log.path("address").asText())
+                        && topics.isArray() && topics.size() >= 2
+                        && topic.equalsIgnoreCase(topics.get(0).asText())
+                        && operation.getOperationId().equalsIgnoreCase(topics.get(1).asText())
+                        && topics.size() >= 3
+                        && topics.get(2).asText().length() >= 10
+                        && operation.getExpectedSelector().equalsIgnoreCase(topics.get(2).asText().substring(0, 10))) {
+                    matched = log; break;
+                }
+            }
+            if (matched == null) throw new BusinessException(BlockchainErrorCode.BLOCKCHAIN_LINK_INVALID);
+            logIndex = Math.toIntExact(hexToLong(matched.path("logIndex").asText()));
+        }
+        return new VerifiedReceipt(hexToLong(receipt.path("blockNumber").asText()), logIndex);
     }
 
     private void requireSameAddress(String expected, String actual) {
@@ -171,4 +208,6 @@ public class ChainTransactionRecorder {
     public String materialTokenAddress() {
         return properties.materialTokenAddress();
     }
+
+    private record VerifiedReceipt(long blockNumber, int logIndex) {}
 }

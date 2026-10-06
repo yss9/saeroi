@@ -53,6 +53,21 @@ public class BesuJsonRpcClient implements BlockchainJsonRpcClient {
         throw invalid(txHash, MAX_ATTEMPTS, lastFailure);
     }
 
+    @Override
+    public JsonNode transactionReceiptOrNull(String txHash) {
+        if (!properties.hasRpcUrl()) {
+            throw new BusinessException(BlockchainErrorCode.BLOCKCHAIN_NOT_CONFIGURED);
+        }
+        try {
+            return fetchReceipt(txHash);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw invalid(txHash, 1, exception);
+        } catch (Exception exception) {
+            throw invalid(txHash, 1, exception);
+        }
+    }
+
     /** 영수증이 아직 안 보이면(result 없음/null) 예외가 아니라 {@code null} 을 돌려준다 — 재시도할 신호다. */
     private JsonNode fetchReceipt(String txHash) throws Exception {
         JsonNode result = call("eth_getTransactionReceipt", java.util.List.of(txHash));

@@ -184,6 +184,10 @@ app:
     # 관리자 대시보드 SSE의 원본. HTTP RPC를 짧게 폴링하고 새 블록만 fan-out한다.
     live-initial-delay-ms: ${BLOCKCHAIN_LIVE_INITIAL_DELAY_MS:2000}
     live-poll-ms: ${BLOCKCHAIN_LIVE_POLL_MS:2500}
+    # 브라우저 콜백/이벤트 유실을 복구하는 최종 정합성 워커. 영수증 null은 실패가 아니라
+    # 지연으로 보고 지수 백오프로 계속 확인하며, 자동으로 같은 거래를 재전송하지 않는다.
+    reconciliation-initial-delay-ms: ${BLOCKCHAIN_RECONCILIATION_INITIAL_DELAY_MS:10000}
+    reconciliation-poll-ms: ${BLOCKCHAIN_RECONCILIATION_POLL_MS:15000}
   prediction:
     chain-id: ${PREDICTION_CHAIN_ID:31221}
     rpc-url: ${PREDICTION_RPC_URL:${BESU_RPC_URL:}}
