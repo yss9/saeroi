@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IERC1155} from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
+import {OperationTracked} from "./OperationTracked.sol";
 
 /// @dev Marketplace가 사용하는 MaterialToken 기능만 선언한 최소 인터페이스다.
 interface IMaterialToken is IERC1155 {
@@ -23,7 +24,7 @@ interface IMaterialToken is IERC1155 {
 /// @title Marketplace
 /// @notice 소재 판매 잠금과 거래 상태, 수령 완료 후 소유권 이전을 관리한다.
 /// @dev 결제 승인·취소·환불·정산은 백엔드와 카카오페이가 담당한다. 컨트랙트는 결제 토큰을 보유하지 않는다.
-contract Marketplace is AccessControl {
+contract Marketplace is AccessControl, OperationTracked {
     bytes32 private constant SUPPLIER_ROLE = keccak256("SUPPLIER_ROLE");
     bytes32 private constant BRAND_ROLE = keccak256("BRAND_ROLE");
 
@@ -133,8 +134,9 @@ contract Marketplace is AccessControl {
     /// @notice 공급자가 보유 소재 일부를 판매 등록하고 판매글 전용 잠금을 만든다.
     function createListing(
         uint256 materialId,
-        uint256 quantity
-    ) external returns (uint256 listingId) {
+        uint256 quantity,
+        bytes32 operationId
+    ) external trackedOperation(operationId) returns (uint256 listingId) {
         require(
             materialToken.hasRole(SUPPLIER_ROLE, _msgSender()),
             "Marketplace: seller role required"
@@ -176,7 +178,7 @@ contract Marketplace is AccessControl {
 
     /// @notice 판매를 중단하고 아직 주문에 예약되지 않은 수량만 해제한다.
     /// @dev 이미 생성된 주문 수량은 결제/수령 또는 주문 취소 때까지 계속 잠긴다.
-    function cancelListing(uint256 listingId) external {
+    function cancelListing(uint256 listingId, bytes32 operationId) external trackedOperation(operationId) {
         Listing storage listing = _listings[listingId];
         require(listing.id != 0, "Marketplace: listing does not exist");
         require(listing.seller == _msgSender(), "Marketplace: caller is not seller");
@@ -201,8 +203,9 @@ contract Marketplace is AccessControl {
     }
 
     /// @notice 구매 주문을 CREATED 상태로 만들고 판매글 잔량을 예약한다.
-    function createOrder(uint256 listingId, uint256 quantity)
+    function createOrder(uint256 listingId, uint256 quantity, bytes32 operationId)
         external
+        trackedOperation(operationId)
         returns (uint256 orderId)
     {
         require(materialToken.hasRole(BRAND_ROLE, _msgSender()), "Marketplace: buyer role required");
@@ -241,7 +244,7 @@ contract Marketplace is AccessControl {
     }
 
     /// @notice 오프체인 결제를 마친 주문을 판매자가 발송 처리한다. 금액과 결제 정보는 온체인에 저장하지 않는다.
-    function markShipped(uint256 orderId) external {
+    function markShipped(uint256 orderId, bytes32 operationId) external trackedOperation(operationId) {
         Order storage order = _orders[orderId];
         require(order.seller == _msgSender(), "Marketplace: caller is not seller");
         require(order.status == OrderStatus.CREATED, "Marketplace: order is not shippable");
@@ -250,7 +253,7 @@ contract Marketplace is AccessControl {
     }
 
     /// @notice 구매자가 수령을 확인하면 잠긴 소재를 구매자에게 이전하고 거래를 완료한다.
-    function confirmReceipt(uint256 orderId) external {
+    function confirmReceipt(uint256 orderId, bytes32 operationId) external trackedOperation(operationId) {
         Order storage order = _orders[orderId];
         require(order.buyer == _msgSender(), "Marketplace: caller is not buyer");
         require(order.status == OrderStatus.SHIPPED, "Marketplace: order is not shipped");
@@ -276,7 +279,7 @@ contract Marketplace is AccessControl {
     }
 
     /// @notice 발송 전 주문을 구매자 또는 판매자가 취소한다.
-    function cancelOrder(uint256 orderId) external {
+    function cancelOrder(uint256 orderId, bytes32 operationId) external trackedOperation(operationId) {
         Order storage order = _orders[orderId];
         require(order.status == OrderStatus.CREATED, "Marketplace: order is not cancellable");
         require(
@@ -300,7 +303,7 @@ contract Marketplace is AccessControl {
     }
 
     /// @notice 배송 이후 거래 당사자가 증빙 Manifest 해시를 근거로 분쟁을 연다.
-    function openDispute(uint256 orderId, bytes32 reasonHash) external {
+    function openDispute(uint256 orderId, bytes32 reasonHash, bytes32 operationId) external trackedOperation(operationId) {
         Order storage order = _orders[orderId];
         require(order.status == OrderStatus.SHIPPED, "Marketplace: order is not disputable");
         require(order.buyer == _msgSender() || order.seller == _msgSender(), "Marketplace: caller is not trade participant");
@@ -314,7 +317,7 @@ contract Marketplace is AccessControl {
     }
 
     /// @notice ADMIN 판정 없이 Seller와 Buyer가 동일한 처리 결과에 각각 서명한다.
-    function settleDispute(uint256 orderId, DisputeResolution resolution) external {
+    function settleDispute(uint256 orderId, DisputeResolution resolution, bytes32 operationId) external trackedOperation(operationId) {
         Order storage order = _orders[orderId];
         require(order.status == OrderStatus.DISPUTED, "Marketplace: order is not disputed");
         require(resolution != DisputeResolution.NONE, "Marketplace: resolution is empty");

@@ -78,6 +78,31 @@
     "inputs": [
       {
         "indexed": true,
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "bytes4",
+        "name": "selector",
+        "type": "bytes4"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "actor",
+        "type": "address"
+      }
+    ],
+    "name": "OperationRecorded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
         "internalType": "uint256",
         "name": "batchId",
         "type": "uint256"
@@ -378,6 +403,11 @@
         "internalType": "uint256",
         "name": "batchId",
         "type": "uint256"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
       }
     ],
     "name": "cancelProduction",
@@ -391,6 +421,11 @@
         "internalType": "uint256",
         "name": "batchId",
         "type": "uint256"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
       }
     ],
     "name": "confirmProduction",
@@ -404,6 +439,11 @@
         "internalType": "uint256",
         "name": "productQuantity",
         "type": "uint256"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
       }
     ],
     "name": "createBatch",
@@ -678,6 +718,25 @@
   {
     "inputs": [
       {
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "isOperationProcessed",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "uint256",
         "name": "batchId",
         "type": "uint256"
@@ -686,6 +745,11 @@
         "internalType": "uint256[]",
         "name": "productItemIds",
         "type": "uint256[]"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
       }
     ],
     "name": "linkProductItems",
@@ -699,6 +763,11 @@
         "internalType": "uint256",
         "name": "batchId",
         "type": "uint256"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
       }
     ],
     "name": "markFailed",
@@ -852,6 +921,11 @@
         "internalType": "bytes32[]",
         "name": "scrapEvidenceHashes",
         "type": "bytes32[]"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
       }
     ],
     "name": "submitPlanAndLock",

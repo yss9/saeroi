@@ -477,6 +477,31 @@
       {
         "indexed": true,
         "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "bytes4",
+        "name": "selector",
+        "type": "bytes4"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "actor",
+        "type": "address"
+      }
+    ],
+    "name": "OperationRecorded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
         "name": "role",
         "type": "bytes32"
       },
@@ -866,6 +891,11 @@
         "internalType": "enum MaterialToken.BurnReason",
         "name": "reason",
         "type": "uint8"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
       }
     ],
     "name": "burnMaterial",
@@ -1157,6 +1187,25 @@
   {
     "inputs": [
       {
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "isOperationProcessed",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "address",
         "name": "owner",
         "type": "address"
@@ -1404,6 +1453,11 @@
       {
         "internalType": "bytes32",
         "name": "evidenceHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "operationId",
         "type": "bytes32"
       }
     ],
@@ -1739,6 +1793,11 @@
         "internalType": "bytes32",
         "name": "evidenceHash",
         "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
       }
     ],
     "name": "verifySource",
@@ -1761,6 +1820,11 @@
       {
         "internalType": "bytes32",
         "name": "evidenceHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "operationId",
         "type": "bytes32"
       }
     ],

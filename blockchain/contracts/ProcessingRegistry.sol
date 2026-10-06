@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {OperationTracked} from "./OperationTracked.sol";
 
 interface IProcessingMaterialToken {
     struct MaterialLockSnapshot {
@@ -32,7 +33,7 @@ interface IProcessingMaterialToken {
 
 /// @title ProcessingRegistry
 /// @notice 배송부터 결과 승인, 입력 소각, 다중 산출물 발행까지 가공 전 과정을 원자적으로 관리한다.
-contract ProcessingRegistry is AccessControl {
+contract ProcessingRegistry is AccessControl, OperationTracked {
     bytes32 public constant BRAND_ROLE = keccak256("BRAND_ROLE");
     bytes32 public constant PROCESSOR_ROLE = keccak256("PROCESSOR_ROLE");
     uint8 private constant PROCESSING_PURPOSE = 1;
@@ -90,7 +91,7 @@ contract ProcessingRegistry is AccessControl {
         _grantRole(PROCESSOR_ROLE, admin);
     }
 
-    function createJob(address processor, uint256[] calldata tokenIds, uint256[] calldata amounts, ProcessingType[] calldata processingTypes) external onlyRole(BRAND_ROLE) returns (uint256 jobId) {
+    function createJob(address processor, uint256[] calldata tokenIds, uint256[] calldata amounts, ProcessingType[] calldata processingTypes, bytes32 operationId) external onlyRole(BRAND_ROLE) trackedOperation(operationId) returns (uint256 jobId) {
         require(processor != address(0), "Processing: processor is zero");
         require(hasRole(PROCESSOR_ROLE, processor), "Processing: processor role required");
         require(tokenIds.length > 0 && tokenIds.length == amounts.length, "Processing: invalid inputs");
@@ -114,7 +115,7 @@ contract ProcessingRegistry is AccessControl {
     }
 
     /// @notice 지정된 Processor가 가공 요청을 수락해야 Brand가 소재를 발송할 수 있다.
-    function acceptJob(uint256 jobId) external onlyRole(PROCESSOR_ROLE) {
+    function acceptJob(uint256 jobId, bytes32 operationId) external onlyRole(PROCESSOR_ROLE) trackedOperation(operationId) {
         Job storage job = _job(jobId);
         require(msg.sender == job.processor, "Processing: caller is not processor");
         require(job.status == Status.REQUESTED, "Processing: invalid status");
@@ -124,7 +125,7 @@ contract ProcessingRegistry is AccessControl {
     }
 
     /// @notice 지정된 Processor가 요청을 거절하면 Job을 종료하고 입력 소재 잠금을 해제한다.
-    function rejectJob(uint256 jobId) external onlyRole(PROCESSOR_ROLE) {
+    function rejectJob(uint256 jobId, bytes32 operationId) external onlyRole(PROCESSOR_ROLE) trackedOperation(operationId) {
         Job storage job = _job(jobId);
         require(msg.sender == job.processor, "Processing: caller is not processor");
         require(job.status == Status.REQUESTED, "Processing: invalid status");
@@ -134,7 +135,7 @@ contract ProcessingRegistry is AccessControl {
         emit ProcessingJobDeclined(jobId, msg.sender, block.timestamp);
     }
 
-    function cancelJob(uint256 jobId) external {
+    function cancelJob(uint256 jobId, bytes32 operationId) external trackedOperation(operationId) {
         Job storage job = _job(jobId);
         require(
             job.status == Status.REQUESTED || job.status == Status.ACCEPTED,
@@ -145,7 +146,7 @@ contract ProcessingRegistry is AccessControl {
         _releaseInputs(jobId);
     }
 
-    function markShipped(uint256 jobId, bytes32 evidenceHash) external {
+    function markShipped(uint256 jobId, bytes32 evidenceHash, bytes32 operationId) external trackedOperation(operationId) {
         Job storage job = _job(jobId);
         require(msg.sender == job.brand, "Processing: caller is not brand");
         require(job.status == Status.ACCEPTED, "Processing: invalid status");
@@ -154,7 +155,7 @@ contract ProcessingRegistry is AccessControl {
         emit ProcessingShipped(jobId, msg.sender, evidenceHash, block.timestamp);
     }
 
-    function confirmReceipt(uint256 jobId) external onlyRole(PROCESSOR_ROLE) {
+    function confirmReceipt(uint256 jobId, bytes32 operationId) external onlyRole(PROCESSOR_ROLE) trackedOperation(operationId) {
         Job storage job = _job(jobId);
         require(msg.sender == job.processor, "Processing: caller is not processor");
         require(job.status == Status.SHIPPED, "Processing: invalid status");
@@ -175,14 +176,14 @@ contract ProcessingRegistry is AccessControl {
         emit ProcessingReceived(jobId, msg.sender, block.timestamp);
     }
 
-    function startProcessing(uint256 jobId) external onlyRole(PROCESSOR_ROLE) {
+    function startProcessing(uint256 jobId, bytes32 operationId) external onlyRole(PROCESSOR_ROLE) trackedOperation(operationId) {
         Job storage job = _job(jobId);
         require(msg.sender == job.processor, "Processing: caller is not processor");
         require(job.status == Status.RECEIVED, "Processing: invalid status");
         job.status = Status.PROCESSING; job.updatedAt = uint64(block.timestamp);
     }
 
-    function submitProcessingResult(uint256 jobId, uint256[] calldata inputIndexes, uint256[] calldata amounts, Grade[] calldata grades, string[] calldata metadataUris, bytes32[] calldata evidenceHashes, bytes32 resultEvidenceHash) external onlyRole(PROCESSOR_ROLE) {
+    function submitProcessingResult(uint256 jobId, uint256[] calldata inputIndexes, uint256[] calldata amounts, Grade[] calldata grades, string[] calldata metadataUris, bytes32[] calldata evidenceHashes, bytes32 resultEvidenceHash, bytes32 operationId) external onlyRole(PROCESSOR_ROLE) trackedOperation(operationId) {
         Job storage job = _job(jobId);
         require(msg.sender == job.processor, "Processing: caller is not processor");
         require(
@@ -205,7 +206,7 @@ contract ProcessingRegistry is AccessControl {
         emit ProcessingResultSubmitted(jobId, msg.sender, resultEvidenceHash, submittedTotal, block.timestamp);
     }
 
-    function markReturnShipped(uint256 jobId, bytes32 evidenceHash) external onlyRole(PROCESSOR_ROLE) {
+    function markReturnShipped(uint256 jobId, bytes32 evidenceHash, bytes32 operationId) external onlyRole(PROCESSOR_ROLE) trackedOperation(operationId) {
         Job storage job = _job(jobId);
         require(msg.sender == job.processor, "Processing: caller is not processor");
         require(job.status == Status.RESULT_SUBMITTED, "Processing: invalid status");
@@ -219,7 +220,7 @@ contract ProcessingRegistry is AccessControl {
     }
 
     /// @notice 결과 반려 후 작업을 중단할 때 잠긴 원소재를 Brand에게 반환하고 Job을 종료한다.
-    function returnRejectedInput(uint256 jobId, bytes32 evidenceHash) external onlyRole(PROCESSOR_ROLE) {
+    function returnRejectedInput(uint256 jobId, bytes32 evidenceHash, bytes32 operationId) external onlyRole(PROCESSOR_ROLE) trackedOperation(operationId) {
         Job storage job = _job(jobId);
         require(msg.sender == job.processor, "Processing: caller is not processor");
         require(job.status == Status.RESULT_REJECTED, "Processing: invalid status");
@@ -235,7 +236,7 @@ contract ProcessingRegistry is AccessControl {
         emit ProcessingRejectedInputReturned(jobId, msg.sender, job.brand, evidenceHash, block.timestamp);
     }
 
-    function approveProcessingResult(uint256 jobId) external {
+    function approveProcessingResult(uint256 jobId, bytes32 operationId) external trackedOperation(operationId) {
         Job storage job = _job(jobId);
         require(msg.sender == job.brand, "Processing: caller is not brand");
         require(job.status == Status.RETURN_SHIPPED, "Processing: invalid status");
@@ -256,7 +257,7 @@ contract ProcessingRegistry is AccessControl {
         emit ProcessingConfirmed(jobId, job.processor, job.brand, job.resultEvidenceHash, block.timestamp);
     }
 
-    function rejectProcessingResult(uint256 jobId) external {
+    function rejectProcessingResult(uint256 jobId, bytes32 operationId) external trackedOperation(operationId) {
         Job storage job = _job(jobId);
         require(msg.sender == job.brand, "Processing: caller is not brand");
         require(job.status == Status.RESULT_SUBMITTED, "Processing: invalid status");
