@@ -32,6 +32,9 @@ export function useCreateChainBatch(batchId: number, producedQuantity: number) {
     contract: 'productionRegistry',
     eventName: 'ProductionBatchCreated',
     argName: 'batchId',
+    operationContract: 'PRODUCTION_REGISTRY',
+    functionName: 'createBatch',
+    referenceType: 'PRODUCTION',
     link: (targetId, payload) =>
       linkChainBatch(targetId, {
         chainBatchId: payload.onChainId,
@@ -46,7 +49,7 @@ export function useCreateChainBatch(batchId: number, producedQuantity: number) {
   })
 
   const create = useCallback(
-    () => link.run(batchId, () => createBatch(producedQuantity)),
+    () => link.run(batchId, (operationId) => createBatch(producedQuantity, operationId)),
     [link, batchId, producedQuantity],
   )
 

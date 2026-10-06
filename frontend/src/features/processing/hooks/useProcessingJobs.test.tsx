@@ -190,7 +190,7 @@ describe('useProcessingJob 수령', () => {
 
     await result.current.receive.mutateAsync()
 
-    expect(contract.confirmProcessingReceipt).toHaveBeenCalledWith(11)
+    expect(contract.confirmProcessingReceipt).toHaveBeenCalledWith(11, expect.stringMatching(/^0x[0-9a-f]{64}$/))
     expect(api.receive).toHaveBeenCalledWith(41, { txHash: '0xabc' })
     expect(api.start).toHaveBeenCalledWith(41)
     expect(api.receive.mock.invocationCallOrder[0]).toBeLessThan(api.start.mock.invocationCallOrder[0])
@@ -280,7 +280,7 @@ describe('useProcessingJob 결과 제출', () => {
 
     await result.current.submit.mutateAsync(INPUT)
 
-    expect(contract.startProcessingOnChain).toHaveBeenCalledWith(11)
+    expect(contract.startProcessingOnChain).toHaveBeenCalledWith(11, expect.stringMatching(/^0x[0-9a-f]{64}$/))
     expect(contract.startProcessingOnChain.mock.invocationCallOrder[0])
       .toBeLessThan(contract.submitProcessingResultOnChain.mock.invocationCallOrder[0])
     expect(api.submitResult).toHaveBeenCalledWith(41, 3, '0xsig')
@@ -317,7 +317,11 @@ describe('useProcessingJob 결과 제출은 저장부터 한다', () => {
     // 서명 요청은 저장이 끝난 뒤다 — 서버가 저장된 결과로 서명 문구를 만든다.
     expect(api.saveResult.mock.invocationCallOrder[0]).toBeLessThan(api.challenge.mock.invocationCallOrder[0])
     expect(contract.submitProcessingResultOnChain).toHaveBeenCalledWith(
-      11, [expect.objectContaining({ amount: 650, grade: 'B', metadataUri: 'saeroi://processing/41/output/77' })], expect.any(String))
+      11,
+      [expect.objectContaining({ amount: 650, grade: 'B', metadataUri: 'saeroi://processing/41/output/77' })],
+      expect.any(String),
+      expect.stringMatching(/^0x[0-9a-f]{64}$/),
+    )
   })
 })
 

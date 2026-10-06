@@ -26,8 +26,8 @@ import {
 /** 서비스 계층이 실제로 호출하는 함수와 인자 개수. */
 const REQUIRED: Record<ContractName, ReadonlyArray<readonly [string, number]>> = {
   materialToken: [
-    ['mintMaterial', 5],
-    ['burnMaterial', 4],
+    ['mintMaterial', 6], // 마지막 bytes32 는 서버가 먼저 만든 operationId
+    ['burnMaterial', 5],
     ['safeTransferFrom', 5], // ERC-1155 는 from 포함 5개다 (ERC-721 과 다름)
     ['balanceOf', 2],
     ['availableBalance', 2],
@@ -36,12 +36,12 @@ const REQUIRED: Record<ContractName, ReadonlyArray<readonly [string, number]>> =
   ],
   marketplace: [
     // 가격 인자가 없다. 컨트랙트는 대금을 모른다 (정책 08절, 결제는 전적으로 오프체인).
-    ['createListing', 2],
-    ['cancelListing', 1],
-    ['createOrder', 2],
-    ['cancelOrder', 1],
-    ['markShipped', 1],
-    ['confirmReceipt', 1],
+    ['createListing', 3],
+    ['cancelListing', 2],
+    ['createOrder', 3],
+    ['cancelOrder', 2],
+    ['markShipped', 2],
+    ['confirmReceipt', 2],
     ['getListing', 1],
     ['getOrder', 1],
     ['availableBalance', 2],

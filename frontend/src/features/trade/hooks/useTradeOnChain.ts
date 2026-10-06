@@ -32,6 +32,9 @@ export function useTradeOnChain() {
     contract: 'marketplace',
     eventName: 'OrderCreated',
     argName: 'orderId',
+    operationContract: 'MARKETPLACE',
+    functionName: 'createOrder',
+    referenceType: 'TRADE',
     link: linkTradeOnChain,
     onLinked: () => {
       // 어느 거래인지 모르므로 도메인 전체를 무효화한다. 거래 목록·상세가 함께 갱신된다.
@@ -41,7 +44,7 @@ export function useTradeOnChain() {
 
   const order = useCallback(
     (tradeId: number, chainListingId: number, quantityGram: number) =>
-      link.run(tradeId, async () => {
+      link.run(tradeId, async (operationId) => {
         // **서명 전에 체인의 잔량을 확인한다.**
         //
         // 서버 잔량과 체인 잔량은 어긋날 수 있다. 오프체인에서 취소된 거래는 서버가
@@ -64,7 +67,7 @@ export function useTradeOnChain() {
               '수량을 줄이거나, 판매자에게 문의해 주세요.',
           })
         }
-        return createOrder(chainListingId, quantityGram)
+        return createOrder(chainListingId, quantityGram, operationId)
       }),
     [link],
   )

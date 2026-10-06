@@ -20,10 +20,11 @@ import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const ABI_DIR = [
+  process.env.BLOCKCHAIN_ABI_DIR,
   resolve(here, '../../S15P21E104-blockchain/abi'),
   resolve(here, '../../blockchain/abi'),
   resolve(here, '../../S15P21E104_blockchain/abi'),
-]
+].filter((candidate): candidate is string => Boolean(candidate))
   .find((candidate) => existsSync(candidate)) ?? resolve(here, '../../blockchain/abi')
 const OUT_DIR = resolve(here, '../src/config/abi')
 

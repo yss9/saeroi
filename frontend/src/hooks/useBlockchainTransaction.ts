@@ -12,6 +12,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ContractTransactionReceipt, ContractTransactionResponse } from 'ethers'
 import { toWalletError } from '../features/wallet/services/walletService.ts'
 import { ERROR_KIND, isAppError, type AppError } from '../utils/errors.ts'
+import { sendTrackedOperation, type BlockchainOperationSpec } from '../services/blockchain/operationApi.ts'
 
 export type TransactionStatus =
   /** 아직 시작하지 않음 */
@@ -50,12 +51,14 @@ export interface UseBlockchainTransactionOptions {
   /** 몇 개의 확인 블록을 기다릴지. 기본 1. */
   confirmations?: number
   onConfirmed?: (receipt: ContractTransactionReceipt) => void | Promise<void>
+  /** 해시가 생긴 즉시 서버에 전달한다. 채굴 대기 중 탭이 닫혀도 복구 워커가 이어받는다. */
+  onSubmitted?: (hash: string) => void | Promise<void>
   onFailed?: (error: AppError) => void
 }
 
 export interface UseBlockchainTransactionResult extends TransactionState {
   /** 트랜잭션 실행. 성공 영수증을 돌려주고 실패하면 null이다. */
-  execute: (send: SendTransaction) => Promise<ContractTransactionReceipt | null>
+  execute: (send: (operationId: string) => Promise<ContractTransactionResponse>, operation?: BlockchainOperationSpec) => Promise<ContractTransactionReceipt | null>
   reset: () => void
   /** SIGNING 또는 PENDING — 버튼을 잠글 때 쓴다. */
   isBusy: boolean
@@ -66,7 +69,7 @@ export interface UseBlockchainTransactionResult extends TransactionState {
 export function useBlockchainTransaction(
   options: UseBlockchainTransactionOptions = {},
 ): UseBlockchainTransactionResult {
-  const { confirmations = 1, onConfirmed, onFailed } = options
+  const { confirmations = 1, onConfirmed, onSubmitted, onFailed } = options
   const [state, setState] = useState<TransactionState>(INITIAL_STATE)
 
   // 콜백을 ref 로 들고 있어 execute 의 의존성에서 빼낸다.
@@ -76,10 +79,10 @@ export function useBlockchainTransaction(
   // 갱신을 effect 안에서 하는 이유: 렌더 중에 ref 를 쓰면 React 가 렌더를 버리고
   // 다시 실행했을 때(Concurrent 렌더) 실제로 커밋되지 않은 값이 남는다.
   // 콜백은 await 이후에만 호출되므로 커밋 이후 시점의 값이면 충분하다.
-  const callbacks = useRef<UseBlockchainTransactionOptions>({ onConfirmed, onFailed })
+  const callbacks = useRef<UseBlockchainTransactionOptions>({ onConfirmed, onSubmitted, onFailed })
   useEffect(() => {
-    callbacks.current = { onConfirmed, onFailed }
-  }, [onConfirmed, onFailed])
+    callbacks.current = { onConfirmed, onSubmitted, onFailed }
+  }, [onConfirmed, onSubmitted, onFailed])
 
   // 중복 실행 방지. 사용자가 버튼을 빠르게 두 번 누르면 트랜잭션이 두 번 나가고,
   // 그건 되돌릴 수 없다. status 상태로 막으면 setState 반영 전 두 번째 클릭을 놓친다.
@@ -91,15 +94,18 @@ export function useBlockchainTransaction(
   }, [])
 
   const execute = useCallback(
-    async (send: SendTransaction) => {
+    async (send: (operationId: string) => Promise<ContractTransactionResponse>, operation?: BlockchainOperationSpec) => {
       if (running.current) return null
       running.current = true
       setState({ ...INITIAL_STATE, status: 'SIGNING' })
 
       try {
         // 이 await 가 풀릴 때까지가 SIGNING 구간이다 (팝업이 떠 있는 시간).
-        const response = await send()
+        const response = operation
+          ? await sendTrackedOperation(operation, send)
+          : await send('')
         setState({ status: 'PENDING', hash: response.hash, receipt: null, error: null })
+        await callbacks.current.onSubmitted?.(response.hash)
 
         const receipt = await response.wait(confirmations)
 

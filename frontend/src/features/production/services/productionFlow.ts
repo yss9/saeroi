@@ -20,6 +20,7 @@ import {
   linkProductItems,
   submitPlanAndLock,
 } from './productionContractService.ts'
+import { sendTrackedOperation } from '../../../services/blockchain/operationApi.ts'
 
 export type ProductionFlowStep = 'CONFIRM' | 'CREATE_BATCH' | 'PLAN' | 'CONSUME' | 'LINK_ITEMS'
 
@@ -64,6 +65,8 @@ export async function runProductionFlow(
   onStep: (step: ProductionFlowStep) => void,
 ): Promise<void> {
   let current = batch
+  const tracked = (functionName: string, send: (operationId: string) => Promise<ContractTransactionResponse>) =>
+    sendTrackedOperation({ contract: 'PRODUCTION_REGISTRY', functionName, referenceType: 'PRODUCTION', referenceId: current.productionBatchId }, send)
 
   if (current.status === 'DRAFT') {
     onStep('CONFIRM')
@@ -83,7 +86,7 @@ export async function runProductionFlow(
   let chainBatchId = current.chainBatchId
   if (chainBatchId === null) {
     onStep('CREATE_BATCH')
-    const receipt = await confirmed(createBatch(current.producedQuantity))
+    const receipt = await confirmed(tracked('createBatch', (op) => createBatch(current.producedQuantity, op)))
     chainBatchId = readCreatedBatchId(receipt)
     if (chainBatchId === null) throw new Error('생산 이력 번호를 확인하지 못했습니다. 관리자에게 문의해 주세요.')
     await linkChainBatch(current.productionBatchId, {
@@ -99,7 +102,7 @@ export async function runProductionFlow(
     onStep('PLAN')
     // manifest 는 서명 직전에 받는다 — 미리 받아 두면 그 사이 바뀐 투입 대신 옛 계획에 서명하게 된다.
     const { manifest, evidenceHash } = await getProductionManifest(current.productionBatchId)
-    const receipt = await confirmed(submitPlanAndLock(chainBatchId, evidenceHash, {
+    const receipt = await confirmed(tracked('submitPlanAndLock', (op) => submitPlanAndLock(chainBatchId, evidenceHash, {
       tokenIds: manifest.inputs.map((input) => BigInt(input.materialTokenId)),
       inputAmounts: manifest.inputs.map((input) => BigInt(input.inputQuantity)),
       productUsed: manifest.inputs.map((input) => BigInt(input.productUsedQuantity)),
@@ -107,7 +110,7 @@ export async function runProductionFlow(
       waste: manifest.inputs.map((input) => BigInt(input.wasteQuantity)),
       scrapMetadataUris: manifest.inputs.map((input) => input.scrapMetadataUri),
       scrapEvidenceHashes: manifest.inputs.map((input) => input.scrapEvidenceHash),
-    }))
+    }, op)))
     await linkChainPlan(current.productionBatchId, {
       txHash: receipt.hash,
       blockNumber: receipt.blockNumber,
@@ -119,7 +122,7 @@ export async function runProductionFlow(
 
   if (state.status === 'SIGNING') {
     onStep('CONSUME')
-    const receipt = await confirmed(confirmProduction(chainBatchId))
+    const receipt = await confirmed(tracked('confirmProduction', (op) => confirmProduction(chainBatchId, op)))
     await linkChainConsume(current.productionBatchId, { txHash: receipt.hash, blockNumber: receipt.blockNumber })
     state.status = 'CONFIRMED'
   }
@@ -136,7 +139,7 @@ export async function runProductionFlow(
     const productItemIds = [...items]
       .sort((left, right) => left.serialNumber - right.serialNumber)
       .map((item) => item.productItemId)
-    const receipt = await confirmed(linkProductItems(chainBatchId, productItemIds))
+    const receipt = await confirmed(tracked('linkProductItems', (op) => linkProductItems(chainBatchId, productItemIds, op)))
     await linkChainItems(current.productionBatchId, { txHash: receipt.hash, blockNumber: receipt.blockNumber })
   }
 }

@@ -33,7 +33,10 @@ export function useListingChainAction() {
   })
 
   const cancel = useCallback(
-    (chainListingId: number) => transaction.execute(() => cancelListing(chainListingId)),
+    (listingId: number, chainListingId: number) => transaction.execute(
+      (operationId) => cancelListing(chainListingId, operationId),
+      { contract: 'MARKETPLACE', functionName: 'cancelListing', referenceType: 'TRADE', referenceId: listingId },
+    ),
     [transaction],
   )
 

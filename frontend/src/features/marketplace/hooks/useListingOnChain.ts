@@ -23,6 +23,9 @@ export function useListingOnChain() {
     contract: 'marketplace',
     eventName: 'ListingCreated',
     argName: 'listingId',
+    operationContract: 'MARKETPLACE',
+    functionName: 'createListing',
+    referenceType: 'TRADE',
     link: linkListingOnChain,
     onLinked: () => {
       // 온체인 번호가 붙으면 목록·상세의 배지가 바뀐다. 보유 소재도 함께 무효화하는
@@ -34,7 +37,7 @@ export function useListingOnChain() {
 
   const register = useCallback(
     (listingId: number, tokenId: number, quantityGram: number) =>
-      link.run(listingId, () => createListing(tokenId, quantityGram)),
+      link.run(listingId, (operationId) => createListing(tokenId, quantityGram, operationId)),
     [link],
   )
 

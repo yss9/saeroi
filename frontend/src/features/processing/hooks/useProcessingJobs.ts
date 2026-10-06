@@ -25,6 +25,7 @@ import {
   startProcessingOnChain,
   submitProcessingResultOnChain,
 } from '../services/processingContractService.ts'
+import { sendTrackedOperation } from '../../../services/blockchain/operationApi.ts'
 
 const keys = {
   all: ['processing-jobs'] as const,
@@ -96,6 +97,8 @@ export function useProcessingJob(jobId: number) {
     if (!id) throw new Error('먼저 가공 작업을 등록해 주세요.')
     return id
   }
+  const tracked = (functionName: string, send: (operationId: string) => Promise<ContractTransactionResponse>) =>
+    sendTrackedOperation({ contract: 'PROCESSING_REGISTRY', functionName, referenceType: 'PROCESSING', referenceId: jobId }, send)
 
   /*
     작업 등록 — 결제 직후 자동 등록과 **같은 함수**(registerProcessingChainJob)를 쓴다. 두 번
@@ -136,7 +139,7 @@ export function useProcessingJob(jobId: number) {
     mutationFn: async () => {
       const id = requireChainJob()
       const chainState = await getProcessingChainStatus(id)
-      if (chainState !== PROCESSING_CHAIN_STATUS.ACCEPTED) await confirmed(acceptProcessingJob(id))
+      if (chainState !== PROCESSING_CHAIN_STATUS.ACCEPTED) await confirmed(tracked('acceptJob', (op) => acceptProcessingJob(id, op)))
       await processingJobApi.accept(jobId)
     },
     onSuccess: refresh,
@@ -158,12 +161,12 @@ export function useProcessingJob(jobId: number) {
     mutationFn: async (input: { carrier?: string; trackingNumber?: string }) => {
       const id = requireChainJob()
       if (!(await chainAlreadyPassed(id, 'SHIPPED'))) {
-        await confirmed(markProcessingShipped(id, processingEvidenceHash({
+        await confirmed(tracked('markShipped', (op) => markProcessingShipped(id, processingEvidenceHash({
           type: 'PROCESSING_OUTBOUND_SHIPMENT',
           jobId,
           carrier: input.carrier ?? '',
           trackingNumber: input.trackingNumber ?? '',
-        })))
+        }), op)))
       }
       return processingJobApi.ship(jobId, input)
     },
@@ -187,7 +190,7 @@ export function useProcessingJob(jobId: number) {
     if (await chainAlreadyPassed(id, 'RECEIVED')) {
       return processingJobApi.receive(jobId, {})
     }
-    const receipt = await confirmed(confirmProcessingReceipt(id))
+    const receipt = await confirmed(tracked('confirmReceipt', (op) => confirmProcessingReceipt(id, op)))
     return processingJobApi.receive(jobId, {
       txHash: receipt.hash,
     })
@@ -234,7 +237,7 @@ export function useProcessingJob(jobId: number) {
       // 체인의 가공 시작은 수령 때 보내지 않는다(receive 참고). 컨트랙트가 결과 제출 전에
       // PROCESSING 을 요구하므로, 아직 수령 상태일 때만 여기서 먼저 보낸다.
       if (!(await chainAlreadyPassed(id, 'PROCESSING'))) {
-        await confirmed(startProcessingOnChain(id))
+        await confirmed(tracked('startProcessing', (op) => startProcessingOnChain(id, op)))
       }
       const outputHashes = job.outputs.map((output, index) =>
         files[index % files.length]?.fileHash ?? processingEvidenceHash(output))
@@ -244,12 +247,12 @@ export function useProcessingJob(jobId: number) {
         outputHashes,
         evidenceHashes: files.map(file => file.fileHash),
       })
-      await confirmed(submitProcessingResultOnChain(id, job.outputs.map((output, index) => ({
+      await confirmed(tracked('submitProcessingResult', (op) => submitProcessingResultOnChain(id, job.outputs.map((output, index) => ({
         amount: output.quantity,
         grade: output.grade,
         metadataUri: `saeroi://processing/${jobId}/output/${output.outputId}`,
         evidenceHash: outputHashes[index],
-      })), resultEvidenceHash))
+      })), resultEvidenceHash, op)))
       return processingJobApi.submitResult(jobId, signed.challenge.challengeId, signed.signature)
     },
     onSuccess: refresh,
@@ -258,7 +261,7 @@ export function useProcessingJob(jobId: number) {
     mutationFn: async (reason: string) => {
       const id = requireChainJob()
       const signed = await signature('REJECT', reason)
-      await confirmed(rejectProcessingResultOnChain(id))
+      await confirmed(tracked('rejectProcessingResult', (op) => rejectProcessingResultOnChain(id, op)))
       return processingJobApi.reject(jobId, signed.challenge.challengeId, signed.signature, reason)
     },
     onSuccess: refresh,
@@ -266,7 +269,7 @@ export function useProcessingJob(jobId: number) {
   const shipReturn = useMutation({
     mutationFn: async (input: { carrier?: string; trackingNumber?: string; evidenceFileId: number; evidenceHash: string }) => {
       const id = requireChainJob()
-      const receipt = await confirmed(markProcessingReturnShipped(id, input.evidenceHash))
+      const receipt = await confirmed(tracked('markReturnShipped', (op) => markProcessingReturnShipped(id, input.evidenceHash, op)))
       return processingJobApi.shipReturn(jobId, {
         carrier: input.carrier,
         trackingNumber: input.trackingNumber,
@@ -286,7 +289,7 @@ export function useProcessingJob(jobId: number) {
       if (await chainAlreadyPassed(id, 'CONFIRMED')) {
         return processingJobApi.receiveReturn(jobId, {})
       }
-      const receipt = await confirmed(approveProcessingResultOnChain(id))
+      const receipt = await confirmed(tracked('approveProcessingResult', (op) => approveProcessingResultOnChain(id, op)))
       return processingJobApi.receiveReturn(jobId, {
         txHash: receipt.hash,
       })
@@ -308,14 +311,14 @@ export function useProcessingJob(jobId: number) {
   const releaseChainLock = useMutation({
     mutationFn: async () => {
       if (!detail.data?.chainJobId) throw new Error('온체인 작업이 없습니다.')
-      const tx = await cancelProcessingJob(detail.data.chainJobId)
+      const tx = await tracked('cancelJob', (op) => cancelProcessingJob(detail.data!.chainJobId!, op))
       await tx.wait()
     },
     onSuccess: refresh,
   })
   const returnRejected = useMutation({
     mutationFn: async (input: { carrier?: string; trackingNumber?: string; evidenceFileId: number; evidenceHash: string }) => {
-      const receipt = await confirmed(returnRejectedProcessingInput(requireChainJob(), input.evidenceHash))
+      const receipt = await confirmed(tracked('returnRejectedInput', (op) => returnRejectedProcessingInput(requireChainJob(), input.evidenceHash, op)))
       return processingJobApi.returnRejected(jobId, {
         carrier: input.carrier,
         trackingNumber: input.trackingNumber,

@@ -9,6 +9,7 @@ import {
   forgetProcessingChainCreate,
 } from './processingChainJobCreation.ts'
 import { assertCanRegisterProcessingJob } from './processingRegistrationPreflight.ts'
+import { sendTrackedOperation } from '../../../services/blockchain/operationApi.ts'
 
 /**
  * 가공 작업을 <b>블록체인에 등록한다.</b> 인계보다 앞선 단계다.
@@ -38,11 +39,15 @@ export async function registerProcessingChainJob(jobId: number): Promise<string>
   // 잔량을 보면 모자라다고 잘못 막는다 — 그래서 send 안에서만 부른다.
   const receipt = await createOrResumeProcessingChainJob(jobId, async () => {
     await assertCanRegisterProcessingJob(preparation)
-    return createProcessingJob(
-      preparation.processorWallet,
-      preparation.inputTokenId,
-      preparation.inputQuantity,
-      preparation.processTypes,
+    return sendTrackedOperation(
+      { contract: 'PROCESSING_REGISTRY', functionName: 'createJob', referenceType: 'PROCESSING', referenceId: jobId },
+      (operationId) => createProcessingJob(
+        preparation.processorWallet,
+        preparation.inputTokenId,
+        preparation.inputQuantity,
+        preparation.processTypes,
+        operationId,
+      ),
     )
   })
   const values = readProcessingEventValues(receipt, 'ProcessingJobCreated', 'jobId')

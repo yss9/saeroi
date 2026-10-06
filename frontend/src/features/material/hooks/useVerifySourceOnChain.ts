@@ -42,7 +42,10 @@ export function useVerifySourceOnChain() {
   const verify = useCallback(
     ({ materialId, tokenId, evidenceHash }: VerifySourceOnChainParams) => {
       pendingMaterialId.current = materialId
-      return transaction.execute(() => verifySource(tokenId, evidenceHash))
+      return transaction.execute(
+        (operationId) => verifySource(tokenId, evidenceHash, operationId),
+        { contract: 'MATERIAL_TOKEN', functionName: 'verifySource', referenceType: 'MATERIAL', referenceId: materialId },
+      )
     },
     [transaction],
   )

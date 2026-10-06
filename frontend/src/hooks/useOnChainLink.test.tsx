@@ -6,6 +6,10 @@ import { useOnChainLink } from './useOnChainLink.ts'
 vi.mock('../services/blockchain/contractFactory.ts', () => ({
   readEventArg: vi.fn(() => 77n),
 }))
+vi.mock('../services/blockchain/operationApi.ts', () => ({
+  createBlockchainOperation: vi.fn(async () => ({ operationId: `0x${'01'.repeat(32)}`, status: 'CREATED', txHash: null })),
+  submitBlockchainTransaction: vi.fn(async () => undefined),
+}))
 
 describe('useOnChainLink', () => {
   it('체인은 성공하고 서버 연결만 실패하면 새 트랜잭션 없이 연결만 재시도한다', async () => {
@@ -30,6 +34,9 @@ describe('useOnChainLink', () => {
         contract: 'materialToken',
         eventName: 'MaterialMinted',
         argName: 'tokenId',
+        operationContract: 'MATERIAL_TOKEN',
+        functionName: 'mintMaterial',
+        referenceType: 'MATERIAL',
         link,
       }),
     )
