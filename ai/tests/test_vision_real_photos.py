@@ -1,0 +1,73 @@
+"""실제 산업용 저울 사진으로 인식 파이프라인 전체를 검증한다.
+
+합성 이미지만으로 맞춘 임계값은 현장 사진에서 무너진다. 실제로 그랬다 — 세 장 중
+두 장이 저울을 찾지 못했고, 찾은 한 장은 본값(34.8 kg) 대신 TARE 줄의 0.0 을 읽었다.
+
+그래서 여기서는 **촬영된 그대로의 사진**을 쓴다. 이 테스트가 느린 것은 OCR 을 실제로
+돌리기 때문이고, 그 느림이 이 테스트의 값어치다.
+
+세 장이 각각 다른 것을 지킨다.
+  - weighted_clothes    : 표시부가 저울 본체 밖(옆 기둥)에 있다
+  - weighted_clothes_2  : 본값과 TARE 줄이 한 화면에 함께 있다
+  - weighted_denim      : 표시부가 화면 최상단이고 MAX:30kg 표기가 섞여 있다
+  - cotton_weighted     : 단위 g 가 숫자 옆에 작게 따로 찍혀 전체 사진에서는 읽히지 않고,
+                          7세그먼트 3491 이 대부분의 전처리에서 16hE 로 잘못 읽힌다
+  - denim_1             : 단위 g 가 작게 따로 찍혀 있고, 한 전처리가 2010 을 20.10 으로 읽는다
+  - fleece_weighted     : 숫자와 g 가 한 덩어리로 읽히는 일반적인 경우
+  - scale_31291g        : OCR 이 숫자 상자를 작은 g 까지 넓게 잡고, 이진화 변형이 1 을 7 로
+                          읽어 37297. 이 나온다
+  - scale_3500g         : 표시창의 g 가 한 변형에서만 낮은 확신(0.54)으로 읽히고, 오른쪽에
+                          kg·g·lb 표시등 글자가 따로 인쇄돼 있다
+"""
+
+from pathlib import Path
+
+import pytest
+
+from app.vision.schemas import VisionStatus
+from app.vision.service import WeightRecognitionService
+
+FIXTURES = Path(__file__).parent / "fixtures"
+
+# (파일, 화면에 찍힌 값, 그램 환산)
+REAL_PHOTOS = [
+    ("weighted_clothes.jpg", "18.7 kg", 18_700),
+    ("weighted_clothes_2.jpg", "34.8 kg", 34_800),
+    ("weighted_denim.jpg", "12.45 kg", 12_450),
+    ("cotton_weighted.png", "3491 g", 3_491),
+    ("denim_1.png", "2010 g", 2_010),
+    ("fleece_weighted.png", "3011 g", 3_011),
+    ("scale_31291g.png", "31291 g", 31_291),
+    ("scale_3500g.png", "3500 g", 3_500),
+]
+
+
+@pytest.mark.parametrize("filename,displayed,expected_gram", REAL_PHOTOS)
+def test_real_scale_photo_is_recognized(filename, displayed, expected_gram):
+    data = (FIXTURES / filename).read_bytes()
+
+    result = WeightRecognitionService().recognize(data)
+
+    assert result.status is VisionStatus.SUCCESS, (
+        f"{filename}: 화면에는 {displayed} 가 찍혀 있는데 "
+        f"{result.status.value} ({result.message}) 로 끝났다"
+    )
+    assert result.weight is not None
+    assert result.weight.value == expected_gram
+    assert result.weight.unit == "g"
+
+
+def test_tare_line_is_not_mistaken_for_the_weight():
+    """본값과 TARE 가 함께 보이는 사진에서 TARE 를 집지 않는다.
+
+    0.0 을 무게로 집으면 화면은 "인식 성공" 이라 말하면서 0 g 을 채운다 — 틀린 값을
+    자신 있게 보여주는 쪽이 못 읽었다고 말하는 것보다 나쁘다.
+    """
+    data = (FIXTURES / "weighted_clothes_2.jpg").read_bytes()
+
+    result = WeightRecognitionService().recognize(data)
+
+    assert result.weight is not None
+    assert result.weight.value != 0
+    assert result.ocr is not None
+    assert "0.0" != result.ocr.raw_text.strip()

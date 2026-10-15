@@ -1,0 +1,15 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+# 파일 업로드(multipart/form-data)를 받으려면 FastAPI 가 이 패키지를 요구한다.
+python-multipart==0.0.20
+
+# OCR — PaddleOCR 모델을 ONNX 로 변환해 쓰는 구현.
+# paddlepaddle(약 1GB)나 torch(약 2GB)를 끌어오지 않아 slim 이미지에 들어간다.
+# 모델 가중치(약 15MB)는 패키지에 포함되어 있어 런타임 다운로드가 없다.
+rapidocr-onnxruntime==1.4.4
+pillow==11.1.0
+numpy==2.2.1
+opencv-python-headless==4.12.0.88
+
+# TestClient 는 httpx 를 쓴다 (pytest 스테이지용)
+httpx==0.28.1
