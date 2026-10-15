@@ -1,0 +1,30 @@
+# "파트 이미지가 없는 환경"용 override — 두 곳에서 쓴다.
+#   1. 로컬 검증: 팀원 PC에는 circular-fashion/* 이미지가 없으므로 placeholder로 대체해
+#      프록시 라우팅 / 네트워크 / 볼륨 구성을 EC2 없이 검증한다.
+#   2. EC2 재구축 첫 기동: 새 서버에도 이미지가 없다. 이걸로 먼저 띄운 뒤 Jenkins 에서
+#      각 파트 master 를 빌드하면 deploy-*.sh 가 실제 이미지로 교체한다 (docs/EC2_DAY1.md).
+#
+# 실행 전 .env 필요 (MYSQL_* 값만 임의로 채우면 됨):
+#   cp .env.example .env
+# 실행:
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
+services:
+  frontend:
+    image: nginxdemos/hello:plain-text
+
+  backend:
+    image: traefik/whoami
+    command:
+      - --port=8080
+      - --name=backend-placeholder
+
+  ai:
+    image: traefik/whoami
+    command:
+      - --port=8000
+      - --name=ai-placeholder
+
+  mysql:
+    ports:
+      # Docker publish 포트는 UFW를 우회하므로 EC2에서도 외부 노출되지 않도록 루프백 바인딩
+      - "127.0.0.1:3306:3306"

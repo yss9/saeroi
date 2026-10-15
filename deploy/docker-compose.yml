@@ -1,0 +1,372 @@
+# Circular-Fashion 운영 구성 (AWS EC2 1대 기준)
+# - 외부 진입점은 nginx(80/443) 하나뿐이다. Jenkins도 nginx의 https /jenkins/ 뒤에 있다
+#   (8081은 127.0.0.1 루프백 — Docker publish가 UFW를 우회하므로 바인딩 주소로 막는다).
+# - frontend/backend/ai 이미지는 각 파트 master 브랜치의 Dockerfile로 빌드된다. (이미지 이름 규약 고정)
+# - 실행 전 .env 파일이 필요하다: cp .env.example .env 후 실값 입력
+name: circular-fashion
+
+# 컨테이너 로그 로테이션 — 디스크 가득참 사고 예방 (서비스별 최대 30MB)
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: cf-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # 파일이 아니라 디렉터리를 마운트한다. 단일 파일 bind mount 는 inode 에 고정되는데
+      # git pull 은 파일을 새 inode 로 갈아끼우므로, 컨테이너는 영원히 옛 내용을 보게 된다.
+      # 2026-09-01 에 실제로 겪었다 — nginx.conf 를 고치고 pull + reload 했는데 아무 일도
+      # 일어나지 않았고, 보안 설정 변경이 조용히 무시됐다. 디렉터리 마운트는 inode 가 안정적이다.
+      - ./nginx:/etc/nginx/conf.d:ro
+      # certbot webroot (HTTPS 인증서 발급/갱신용) — nginx.conf의 acme-challenge location과 짝
+      - ./certbot/www:/var/www/certbot:ro
+      # Let's Encrypt 인증서 — certbot 기본 경로를 그대로 마운트 (systemd 자동 갱신과 호환)
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    depends_on:
+      # nginx.conf 의 upstream 3개(frontend/backend/jenkins)가 전부 떠 있어야 기동된다.
+      # 컨테이너 이름이 Docker DNS 에서 해석되지 않으면 nginx 는 "host not found in
+      # upstream" 으로 기동 자체가 실패한다 — 재구축처럼 아무것도 없는 상태에서 특히.
+      - frontend
+      - backend
+      - jenkins
+    networks:
+      - web
+    logging: *default-logging
+    restart: unless-stopped
+
+  frontend:
+    image: circular-fashion/frontend:latest
+    container_name: cf-frontend
+    networks:
+      - web
+    logging: *default-logging
+    restart: unless-stopped
+
+  backend:
+    image: circular-fashion/backend:latest
+    container_name: cf-backend
+    # env_file: .env 를 쓰지 않는다. 그렇게 하면 .env 의 모든 키가 컨테이너 환경에 들어가서
+    # backend 가 쓸 일 없는 MYSQL_ROOT_PASSWORD / JENKINS_ADMIN_PASSWORD / GITLAB_TOKEN 까지
+    # 노출된다 (실제로 그랬다). 애플리케이션이 실제로 읽는 키만 명시적으로 넘긴다.
+    environment:
+      # SPRING_DATASOURCE_* 와 DB_* 를 같은 값으로 함께 넣는다.
+      # backend 의 application.yml 은 ${DB_URL}/${DB_USERNAME}/${DB_PASSWORD} 를 읽는데,
+      # 지금 동작하는 이유는 OS 환경변수가 application.yml 보다 우선이라 그 placeholder 가
+      # 아예 평가되지 않기 때문이지 설계된 동작이 아니다. DB_USERNAME/DB_PASSWORD 에는
+      # 기본값도 없어서, yml 쪽이 한 번이라도 우선하게 되는 순간 기동이 깨진다.
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+      DB_USERNAME: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+      AI_SERVER_BASE_URL: http://ai:8000
+      # BRAND 대화형 에이전트가 쓰는 LLM(GMS). env_file 금지 규칙에 따라 키를 명시한다.
+      # 비어 있으면 backend 는 뜨고 에이전트만 503 이다.
+      AGENT_LLM_BASE_URL: ${AGENT_LLM_BASE_URL:-https://gms.ssafy.io/gmsapi/api.anthropic.com}
+      AGENT_LLM_API_KEY: ${AGENT_LLM_API_KEY:-}
+      AGENT_LLM_MODEL: ${AGENT_LLM_MODEL:-claude-haiku-4-5-20251001}
+      AGENT_LLM_THINKING: ${AGENT_LLM_THINKING:-false}
+      AGENT_MAX_TOOL_ITERATIONS: ${AGENT_MAX_TOOL_ITERATIONS:-6}
+      # 파일 저장소. **키가 없으면 local(파일시스템)** 이다 — application.yml 쪽
+      # 기본값이 그렇다. MinIO 로 옮기려면 .env 에 STORAGE_TYPE=s3 를 넣는다.
+      # 그때까지 minio 컨테이너는 떠 있지만 backend 가 쓰지 않는다.
+      APP_STORAGE_TYPE: ${STORAGE_TYPE:-local}
+      APP_STORAGE_BUCKET: ${STORAGE_BUCKET:-evidence}
+      APP_STORAGE_ENDPOINT: ${STORAGE_ENDPOINT:-http://minio:9000}
+      # `:-` 로 항상 정의되게 둔다. local 일 때는 읽히지도 않는 값이라 비어도 무해하다.
+      # s3 로 바꿀 때는 자격증명이 실제로 채워졌는지 사람이 확인해야 한다 — 비어 있으면
+      # backend 는 정상 기동한 뒤 업로드 시점에 인증 오류를 낸다 (기동 로그에는 안 보인다).
+      APP_STORAGE_ACCESS_KEY: ${MINIO_ROOT_USER:-}
+      APP_STORAGE_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-}
+      # application.yml 의 app.security.jwt.*
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ISSUER: ${JWT_ISSUER:-upcycle}
+      JWT_ACCESS_TOKEN_TTL: ${JWT_ACCESS_TOKEN_TTL:-PT30M}
+      # application.yml 의 app.auth.wallet.nonce-ttl. yml 쪽에 PT5M 기본값이 있지만
+      # 여기서도 `:-` 를 붙여 .env 에 키가 없을 때 compose 경고가 나지 않게 한다.
+      WALLET_NONCE_TTL: ${WALLET_NONCE_TTL:-PT5M}
+      # application.yml 의 app.cors.allowed-origins. 이 값을 안 넘기면 기본값(localhost:5173)만
+      # 허용되는데, 최신 브라우저는 same-origin POST 에도 Origin 헤더를 실어 보내서 Spring 의
+      # CorsConfigurationSource 가 그걸 그대로 걸러 "Invalid CORS request" 403 을 낸다 — 운영
+      # 도메인이 로그인 자체가 막혀 있던 상태였다(2026-09-11 /test 스택 로그인 테스트 중 발견,
+      # curl 로 운영에서도 재현 확인). 반드시 실제 서비스 도메인을 넣어야 한다.
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+      # application.yml 의 app.geocoding.kakao.*. 키가 없으면 좌표 없는 업체가 저장되지
+      # 않도록 backend 가 **사업자 회원가입·주소 변경 자체를 의도적으로 거절**한다
+      # (KakaoGeocodingProperties.isConfigured(), 2026-09-11 발견 — 이 값 자체가 없어서
+      # 전달 경로가 아예 없었다). 카카오 디벨로퍼스에서 REST API 키를 발급받아 채울 것 —
+      # 이 값은 인프라가 만들어낼 수 없다.
+      KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:-}
+      KAKAO_GEOCODING_BASE_URL: ${KAKAO_GEOCODING_BASE_URL:-https://dapi.kakao.com}
+      # application.yml 의 app.payment.kakaopay.*. secret-key 가 없으면 MockPaymentGateway 로
+      # 대체되어 실제 청구가 안 나간다(경고만 남고 기동은 된다 — Geocoding 과 달리 거절하지
+      # 않는다). return-url/processing-return-url 은 기본값이 localhost:5173 이라 여기서
+      # 넘기지 않으면 결제 완료 후 실제 도메인이 아니라 로컬호스트로 리다이렉트되어 깨진다
+      # (2026-09-11 발견 — 결제 자체는 되는데 완료 화면 연결이 끊기는 형태로 드러난다).
+      KAKAOPAY_SECRET_KEY: ${KAKAOPAY_SECRET_KEY:-}
+      KAKAOPAY_CID: ${KAKAOPAY_CID:-TC0ONETIME}
+      KAKAOPAY_RETURN_URL: ${KAKAOPAY_RETURN_URL:-https://j15e104.p.ssafy.io/trades/{tradeId}/payment/return}
+      KAKAOPAY_PROCESSING_RETURN_URL: ${KAKAOPAY_PROCESSING_RETURN_URL:-https://j15e104.p.ssafy.io/processing/jobs/{jobId}/payment/callback}
+      # 브랜드 AI 대화창에서 가공비를 결제했을 때의 복귀 화면. 넘기지 않으면 backend 기본값(localhost)으로 돌아간다.
+      KAKAOPAY_PROCESSING_AGENT_RETURN_URL: ${KAKAOPAY_PROCESSING_AGENT_RETURN_URL:-https://j15e104.p.ssafy.io/agent/processing/payment/callback?jobId={jobId}}
+      # QR 이 담을 Passport 화면 주소 (application.yml 의 app.qr.base-url). backend/develop 에서
+      # 필수값이 됐다 — 비어 있으면 ProductQrConfig 가 **기동 자체를 거부**한다. 운영은 아직
+      # backend/master(2026-09-08) 라 이 값을 안 읽지만, develop → master 승격 배포가 되는 순간
+      # 이 전달 경로가 없으면 새 backend 가 뜨지 못하고 헬스체크 실패로 롤백된다 (2026-09-18 발견,
+      # test compose 에는 2026-09-11 부터 있었다). 프론트 Passport 라우트가 /qr/:qrToken 이라
+      # 끝이 /qr 이어야 한다 (.env.test.example 주석 참고). `:-` 로 빈 값을 허용하는 이유는 test
+      # compose 의 QR_BASE_URL 주석과 같다 — 값이 비면 backend 가 스스로 명확히 실패한다.
+      QR_BASE_URL: ${QR_BASE_URL:-}
+      # 블록체인 연동. RPC/체인 ID 는 2026-09-01 수령해 .env 에 채워져 있고,
+      # 컨테이너 안에서 scripts/check-besu.sh 로 실제 도달까지 확인했다.
+      BESU_RPC_URL: ${BESU_RPC_URL:-}
+      BESU_CHAIN_ID: ${BESU_CHAIN_ID:-}
+      BLOCKCHAIN_SERVICE_PRIVATE_KEY: ${BLOCKCHAIN_SERVICE_PRIVATE_KEY:-}
+      # 컨트랙트 주소. 프론트가 VITE_* 로 받는 것과 별개로, 백엔드가 Web3j 로 컨트랙트를
+      # 호출하려면 서버에도 필요하다.
+      #
+      # 2026-09-11 정정: 이전에 여기 있던 PAYMENT_TOKEN_ADDRESS/ESCROW_ADDRESS 는
+      # backend application.yml 이 실제로 읽는 이름이 아니었다(죽은 키 — 초기 기획 문서의
+      # Escrow/PaymentToken 이 이후 폐기됐는데 이름만 남아있었다). 실제 property 는
+      # app.blockchain.material-token-address / marketplace-address /
+      # processing-registry-address / production-registry-address 이고 env 키는
+      # MATERIAL_TOKEN_ADDRESS / MARKETPLACE_ADDRESS / PROCESSING_REGISTRY_ADDRESS /
+      # PRODUCTION_REGISTRY_ADDRESS 다. 정본은 blockchain/develop:deployments/ssafy.json.
+      #
+      # `:-` 기본값을 반드시 붙인다. 이게 없으면 .env 에 키가 없을 때 compose 가 경고를 내고
+      # 빈 값을 넣는데, 그보다 위험한 건 application.yml 쪽이다 — OS 환경변수가 yml 보다
+      # 우선하므로 yml 에서 ${MATERIAL_TOKEN_ADDRESS} 를 기본값 없이 읽으면 키가 빠지는 순간
+      # 기동 자체가 깨진다. 여기서 항상 정의되게 만들어 그 경로를 막는다.
+      #
+      # 주소가 바뀌면 backend 는 컨테이너 재생성으로 반영되지만(restart 로는 안 된다),
+      # frontend 는 이미지 재빌드가 필요하다(VITE_* 는 빌드 시점 인라인).
+      MATERIAL_TOKEN_ADDRESS: ${MATERIAL_TOKEN_ADDRESS:-}
+      MARKETPLACE_ADDRESS: ${MARKETPLACE_ADDRESS:-}
+      PROCESSING_REGISTRY_ADDRESS: ${PROCESSING_REGISTRY_ADDRESS:-}
+      PRODUCTION_REGISTRY_ADDRESS: ${PRODUCTION_REGISTRY_ADDRESS:-}
+      # 판매량 예측시장 (backend/develop 2026-09-17, application.yml 의 app.prediction.*). 주소 정본은
+      # blockchain/develop:deployments/ssafy.json 의 predictionPoint / predictionMarket. 비어 있으면
+      # 예측시장 엔드포인트만 BLOCKCHAIN_NOT_CONFIGURED 로 거절되고 나머지 기능은 영향 없다.
+      # PREDICTION_OPERATOR_PRIVATE_KEY 는 MARKET_CREATOR/ORACLE/MINTER role 을 가진 운영 계정 키 —
+      # 서버 서명 키(BLOCKCHAIN_SERVICE_PRIVATE_KEY)와 같은 계정인지는 컨트랙트 배포자가 정한다.
+      # 절대 VITE_ 로 내보내지 말 것. RPC/체인은 비우면 BESU_* 값을 그대로 따른다(yml 기본값).
+      PREDICTION_CHAIN_ID: ${PREDICTION_CHAIN_ID:-${BESU_CHAIN_ID:-31221}}
+      PREDICTION_RPC_URL: ${PREDICTION_RPC_URL:-${BESU_RPC_URL:-}}
+      PREDICTION_MARKET_ADDRESS: ${PREDICTION_MARKET_ADDRESS:-}
+      PREDICTION_POINT_ADDRESS: ${PREDICTION_POINT_ADDRESS:-}
+      PREDICTION_OPERATOR_PRIVATE_KEY: ${PREDICTION_OPERATOR_PRIVATE_KEY:-}
+      PREDICTION_ORACLE_ENABLED: ${PREDICTION_ORACLE_ENABLED:-false}
+    volumes:
+      - file-storage:/app/files
+    depends_on:
+      mysql:
+        condition: service_healthy
+      # minio 는 **여기에 넣지 않는다** (2026-09-08 제거). 전에는
+      # `minio: condition: service_healthy` 가 있었고, 근거는 "저장소가 준비되기 전에
+      # 뜨면 첫 업로드가 실패한다. minio 는 어차피 떠 있고 몇 초 차이다" 였다.
+      # 뒤쪽 가정이 틀렸다 — minio 는 MINIO_ROOT_USER/MINIO_ROOT_PASSWORD 를 기본값 없이
+      # 요구하고 비밀번호가 8자 미만이면 기동을 거부한다. 자격증명이 없거나 부실하면
+      # minio 가 healthy 가 되지 못하고, 그러면 STORAGE_TYPE 이 기본값 local 이라
+      # MinIO 를 한 줄도 쓰지 않는데도 cf-backend 가 아예 생성되지 않는다.
+      # /api/health 까지 같이 죽어 nginx upstream 과 인프라 헬스체크가 전부 실패한다.
+      # 저장소 자격증명 하나가 전체 서비스 중단으로 번지는 배선이었다.
+      #
+      # 잃는 것: STORAGE_TYPE=s3 일 때 `up` 직후 minio 가 healthy 가 되기 전 몇 초의
+      # 창에서 첫 업로드가 연결 실패할 수 있다. 그 실패는 업로드 요청 하나가 5xx 를
+      # 돌려주는 형태로 끝나고(사용자 재시도로 해결된다) 저장된 데이터에는 영향이 없다.
+      # 애초에 depends_on 은 기동 순서만 보장하므로 운영 중 minio 가 재기동되는 경우는
+      # 막아 주지 못한다 — 저장소의 일시 부재는 애플리케이션이 감당해야 하는 조건이다.
+      # "모든 API 가 무기한 죽는다" 를 "업로드 한 번이 수 초 창에서 실패할 수 있다" 로
+      # 바꾸는 거래라 제거가 맞다.
+      #
+      # `service_started` 로 낮추는 안은 버렸다. 자격증명이 잘못되면 minio 는 기동
+      # 직후 종료되어 restart 정책에 따라 크래시 루프에 들어가는데, 그 상태에서도
+      # backend 가 계속 발이 묶일 수 있어(컨테이너가 살아 있지 않으므로) 결합은 남고
+      # 얻는 순서 보장은 "프로세스가 준비됐다" 는 뜻이 아니어서 거의 의미가 없다.
+      # 버킷 준비를 실제로 기다려야 하는 것은 minio-init 이고, 그 의존성은 그대로 둔다.
+    networks:
+      - web
+      - internal
+    logging: *default-logging
+    restart: unless-stopped
+
+  ai:
+    image: circular-fashion/ai:latest
+    container_name: cf-ai
+    # env_file: .env 금지 — backend와 같은 이유다. .env 전체가 컨테이너 환경에 들어가면
+    # ai 가 쓸 일 없는 GITLAB_TOKEN / MYSQL_ROOT_PASSWORD / JENKINS_ADMIN_PASSWORD 까지
+    # 노출된다 (2026-09-01 점검에서 실제로 4종이 들어가 있었다). 필요한 키만 명시한다.
+    environment:
+      AI_MODEL_PATH: ${AI_MODEL_PATH:-}
+    networks:
+      - internal
+    logging: *default-logging
+    restart: unless-stopped
+
+  # Object Storage (S15P21E104-162 / -248).
+  #
+  # ⚠️ **포트를 외부에 열지 않는다.** backend 만 내부 네트워크로 붙는다.
+  #    Docker publish 는 UFW 를 우회하므로 "9000:9000" 으로 열면 방화벽 규칙과 무관하게
+  #    인터넷에 저장소가 노출된다 (mysql 항목과 같은 이유).
+  #
+  # 콘솔(9001)도 열지 않는다. 필요하면 SSH 터널로 본다:
+  #   ssh -L 9001:localhost:9001 e104   후  docker compose 로 콘솔 포트를 임시 노출
+  # 상시 노출해 두면 루트 자격증명 하나로 모든 증빙 파일에 닿는 창구가 생긴다.
+  minio:
+    image: minio/minio:RELEASE.2024-10-13T13-34-11Z
+    container_name: cf-minio
+    environment:
+      # 기본값을 주지 않는다. 여기에 minioadmin 같은 기본 자격증명을 넣으면 값이 빠진
+      # 환경에서 **약한 루트 키로 조용히 뜨는** 쪽이 되는데, 이 키 하나로 모든 증빙
+      # 파일에 닿으므로 "안 뜨는 것" 보다 나쁘다.
+      #
+      # `${MINIO_ROOT_PASSWORD:?...}` 로 compose 를 즉시 멈추게 하는 안도 검토했고
+      # 채택하지 않았다. `:?` 는 파일 보간 단계에서 평가되므로 `docker compose up -d`,
+      # `up -d --no-deps backend`, `config`, `ps` 까지 **전부** 그 자리에서 실패한다
+      # (2026-09-08 로컬 실측: `config backend` 처럼 backend 만 지정해도
+      #  "error while interpolating services.minio.environment.MINIO_ROOT_PASSWORD"
+      #  로 exit 1 — 서비스를 골라도 파일 전체를 보간하기 때문이다).
+      # 즉 저장소 자격증명이 빠진 것 하나로 다시 스택 전체가 뜨지 못하게 되어,
+      # 이 커밋이 없애려는 결합을 더 넓은 범위로 되살리는 셈이다.
+      # 지금 구조에서 값이 없으면 compose 가
+      #   warning: The "MINIO_ROOT_PASSWORD" variable is not set. Defaulting to a blank string.
+      # 를 매 호출마다 내고 minio 만 뜨지 못한다(다른 서비스는 정상). 진단 경로는
+      # `cflog minio` 로, MinIO 가 자격증명 길이 문제를 직접 로그에 적는다.
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      TZ: Asia/Seoul
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      # 버킷을 만드는 minio-init 이 이 조건을 기다린다 (backend 는 기다리지 않는다 —
+      # 위 backend.depends_on 주석 참고).
+      test: ["CMD-SHELL", "mc ready local || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      # 기동 중의 실패를 retries 에서 차감하지 않는다. 이게 없으면 첫 몇 초의 정상적인
+      # "아직 준비 안 됨" 이 재시도 예산을 갉아먹어, 느린 기동이 unhealthy 로 오인된다.
+      start_period: 20s
+    networks:
+      - internal
+    logging: *default-logging
+    restart: unless-stopped
+
+  # 버킷을 만든다. MinIO 는 기동만으로 버킷을 만들지 않고, 없는 버킷에 PutObject 하면
+  # NoSuchBucket 이 된다 — 그 실패는 사용자가 파일을 고른 뒤에 드러난다.
+  #
+  # 한 번 돌고 끝나는 잡이라 restart 하지 않는다. 이미 있으면 아무 일도 하지 않는다.
+  minio-init:
+    image: minio/mc:RELEASE.2024-10-08T09-37-26Z
+    container_name: cf-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      STORAGE_BUCKET: ${STORAGE_BUCKET:-evidence}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        mc alias set cf http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"
+        mc mb --ignore-existing "cf/$$STORAGE_BUCKET"
+        # 공개 읽기를 켜지 않는다. 증빙은 특정 소재의 거래 당사자만 볼 자료이고,
+        # 버킷을 공개하면 저장 키를 아는 누구나 받아 갈 수 있다. 파일 서빙은
+        # 서버가 권한을 확인한 뒤 내려주는 경로로 만든다 (별도 티켓).
+        echo "bucket ready: $$STORAGE_BUCKET"
+    networks:
+      - internal
+    logging: *default-logging
+    restart: "no"
+
+  mysql:
+    image: mysql:8.0
+    container_name: cf-mysql
+    ports:
+      # 호스트에서 mysql 클라이언트로 붙기 위한 포트. 루프백에만 바인딩한다 —
+      # Docker publish 는 UFW 를 우회하므로 "3306:3306" 으로 열면 방화벽 규칙과 무관하게
+      # 인터넷에 DB 가 노출된다.
+      - "127.0.0.1:3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      TZ: Asia/Seoul
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - internal
+    logging: *default-logging
+    restart: unless-stopped
+
+  jenkins:
+    build: ./jenkins
+    image: circular-fashion/jenkins:latest
+    container_name: cf-jenkins
+    ports:
+      # 루프백 바인딩. Docker publish 는 UFW 를 우회하므로 "0.0.0.0:8081" 은 방화벽 규칙과
+      # 무관하게 인터넷에 열린다. 외부 접근은 nginx 의 https /jenkins/ 로만 받는다.
+      # (호스트에서 디버깅할 때는 curl http://localhost:8081/jenkins/ 로 여전히 접근 가능)
+      - "127.0.0.1:8081:8080"
+    environment:
+      # 컨테이너 시간대. 호스트는 init-ec2.sh 가 Asia/Seoul 로 맞추지만 컨테이너는 그 설정을
+      # 물려받지 않아 기본 UTC 로 뜬다 (2026-09-07 확인 — 호스트 10:38 KST, 컨테이너 01:38 UTC).
+      # 그러면 빌드 시각·로그 타임스탬프가 9시간 어긋나 GitLab 커밋 시각과 대조가 안 된다.
+      # JVM 도 이 TZ 를 기본 시간대로 읽으므로 화면 표시까지 함께 KST 가 된다.
+      TZ: Asia/Seoul
+      # nginx 가 /jenkins/ 하위로 프록시하므로 Jenkins 도 같은 prefix 로 떠야 링크·리소스가 맞는다
+      JENKINS_OPTS: --prefix=/jenkins
+      # JCasC(jenkins/casc.yaml)에서 사용 — EC2에서는 .env에 실값 필수
+      JENKINS_ADMIN_ID: ${JENKINS_ADMIN_ID:-admin}
+      JENKINS_ADMIN_PASSWORD: ${JENKINS_ADMIN_PASSWORD:-admin}
+      JENKINS_EXTERNAL_URL: ${JENKINS_EXTERNAL_URL:-http://localhost:8081/jenkins/}
+      GITLAB_USERNAME: ${GITLAB_USERNAME:-oauth2}
+      GITLAB_TOKEN: ${GITLAB_TOKEN:-changeme}
+    volumes:
+      - jenkins-home:/var/jenkins_home
+      # 호스트 Docker로 이미지 빌드/배포를 수행하기 위한 소켓 공유
+      - /var/run/docker.sock:/var/run/docker.sock
+      # 배포 스크립트 / compose 파일 / .env 접근용.
+      # 반드시 호스트와 "동일한 절대경로"에 마운트할 것 — compose는 ./nginx 같은 상대 bind 경로를
+      # 호스트 절대경로로 변환해 데몬에 넘기므로, 다른 경로에 걸면 nginx가 빈 파일을 마운트한 채 뜬다.
+      - /home/ubuntu/deploy:/home/ubuntu/deploy:ro
+      # casc 설정을 이미지 재빌드 없이 반영 (Manage Jenkins → CasC → Reload 로 즉시 적용).
+      # nginx 와 같은 이유로 파일이 아니라 디렉터리를 마운트한다 (단일 파일은 inode 에 고정된다).
+      # CASC_JENKINS_CONFIG=/var/jenkins_casc/casc.yaml 은 그대로 유효하다 (이미지 재빌드 불필요).
+      # 같은 디렉터리의 Dockerfile / plugins.txt 가 함께 올라오지만 JCasC 가 읽지 않으므로 무해하다.
+      - ./jenkins:/var/jenkins_casc:ro
+    networks:
+      - web
+    logging: *default-logging
+    restart: unless-stopped
+
+networks:
+  web:
+  internal:
+
+volumes:
+  mysql-data:
+  minio-data:
+  jenkins-home:
+  file-storage:
