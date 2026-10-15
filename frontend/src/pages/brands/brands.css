@@ -1,0 +1,37 @@
+.brand-catalog, .brand-detail { padding: 150px var(--page-gutter) 100px; min-height: 80vh; }
+.brand-catalog__search { display: flex; align-items: center; gap: 16px; width: min(100%, 620px); border-bottom: 1px solid var(--line); }
+.brand-catalog__search input { min-width: 0; width: 100%; padding: 17px 0; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 16px; }
+.brand-catalog__search input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+.brand-catalog__search input::placeholder { color: var(--muted); }
+.brand-catalog__search input:focus { outline: none; }
+.brand-catalog__search:focus-within { border-color: var(--brand-blue); }
+.brand-catalog__search button { display: grid; place-items: center; flex-shrink: 0; width: 50px; min-height: 50px; border: 0; background: transparent; cursor: pointer; }
+.brand-catalog__search .brand-catalog__clear { width: 44px; color: var(--brand-blue); }
+.brand-catalog__grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 40px 24px; margin: 0; padding: 0; list-style: none; }
+.brand-card > a { display: block; }
+.brand-logo { display: grid; place-items: center; aspect-ratio: 4 / 3; overflow: hidden; background: #e9edf0; color: #47647c; }
+.brand-logo--1 { background: #ece7de; color: #766854; }
+.brand-logo--2 { background: #e5e9e3; color: #596f5a; }
+.brand-logo--3 { background: #f0e5dd; color: #9a6b4d; }
+.brand-logo img { width: 100%; height: 100%; object-fit: contain; padding: 24px; background: var(--paper-warm); }
+.brand-logo__fallback { font: 500 clamp(2rem, 4vw, 4rem)/1 "Manrope", "Pretendard", sans-serif; letter-spacing: -.04em; }
+.brand-card__copy { padding-top: 22px; }
+.brand-card h2 { margin: 0; font: 500 21px/1.3 "Manrope", "Pretendard", sans-serif; overflow-wrap: anywhere; }
+.brand-card__copy p { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin: 12px 0 18px; color: var(--muted); font-size: 13px; line-height: 1.7; white-space: pre-line; }
+.brand-card__copy > span { color: var(--muted); font-size: 11px; }
+.brand-card > a:hover h2 { color: var(--brand-blue); }
+.brand-introduction--fallback { color: var(--muted); }
+.brand-detail__breadcrumb { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 44px; color: var(--muted); font-size: 11px; }
+.brand-detail__hero { display: grid; grid-template-columns: minmax(200px, .7fr) minmax(0, 1.3fr); gap: clamp(32px, 6vw, 100px); align-items: center; padding-bottom: 64px; border-bottom: 1px solid var(--line); }
+.brand-detail__hero > .brand-logo { width: 100%; }
+.brand-detail__eyebrow { margin: 0 0 20px; font: 500 10px "Inter", sans-serif; letter-spacing: .18em; }
+.brand-detail__hero h1 { margin: 0; font: 500 clamp(2.5rem, 5vw, 5rem)/1.1 "Manrope", "Pretendard", sans-serif; letter-spacing: -.04em; overflow-wrap: anywhere; }
+.brand-detail__introduction { max-width: 650px; margin: 24px 0; font-size: 15px; line-height: 1.9; white-space: pre-line; word-break: keep-all; overflow-wrap: break-word; }
+.brand-detail__total { color: var(--muted); font-size: 12px; }
+.brand-detail__products { padding-top: 60px; }
+.brand-detail__products-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 20px; margin-bottom: 30px; }
+.brand-detail__products-heading h2 { margin: 0; font-size: 22px; font-weight: 500; }
+.brand-detail__products-heading p { margin: 0; color: var(--muted); font-size: 12px; }
+@media (max-width: 1100px) { .brand-catalog__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 760px) { .brand-catalog, .brand-detail { padding-top: 140px; } .brand-catalog__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px 16px; } .brand-card h2 { font-size: 18px; } .brand-logo img { padding: 16px; } .brand-detail__hero { grid-template-columns: 1fr; gap: 32px; padding-bottom: 40px; } .brand-detail__hero > .brand-logo { max-width: 440px; } .brand-detail__products { padding-top: 40px; } .brand-detail__products-heading h2 { font-size: 18px; } }
+@media (max-width: 380px) { .brand-catalog__grid { grid-template-columns: 1fr; } }

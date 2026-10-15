@@ -1,0 +1,20 @@
+.brand-prediction-page { display: grid; gap: 24px; }
+.brand-prediction-page__intro h1 { margin: 0 0 8px; }
+.brand-prediction-page__intro p { margin: 0; color: var(--ui-color-muted); }
+.brand-prediction-list { display: grid; gap: 20px; }
+.brand-prediction-card__header { display: flex; align-items: start; justify-content: space-between; gap: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--ui-color-border); }
+.brand-prediction-card__header h3 { margin: 10px 0 4px; font-size: 22px; }
+.brand-prediction-card__header p { margin: 0; color: var(--ui-color-muted); }
+.brand-prediction-card__columns { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(280px, .65fr); gap: 36px; padding: 24px 0; }
+.brand-prediction-card h4 { margin: 0; font-size: 16px; }
+.brand-comments { display: grid; gap: 12px; padding-top: 20px; border-top: 1px solid var(--ui-color-border); }
+.brand-comments ul { display: grid; margin: 0; padding: 0; list-style: none; }
+.brand-comments li { display: grid; grid-template-columns: 110px 1fr auto; gap: 16px; align-items: start; padding: 14px 0; border-bottom: 1px solid var(--ui-color-border); }
+.brand-comments li > span { color: var(--ui-color-text); font-weight: 700; }
+.brand-comments p { margin: 0; white-space: pre-wrap; }
+.brand-comments time, .brand-comments__empty { color: var(--ui-color-muted); font-size: 13px; }
+@media (max-width: 900px) {
+  .brand-prediction-card__header { align-items: stretch; flex-direction: column; }
+  .brand-prediction-card__columns { grid-template-columns: 1fr; }
+  .brand-comments li { grid-template-columns: 1fr; gap: 6px; }
+}

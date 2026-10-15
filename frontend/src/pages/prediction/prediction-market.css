@@ -1,0 +1,106 @@
+/*
+  예측시장 — 쇼핑몰과 같은 결을 쓴다(종이 배경, 먹색 글씨, 가는 선, 둥글리지 않은 모서리).
+  예전의 초록 둥근 카드는 이 화면만 다른 서비스처럼 보였다.
+*/
+.prediction-page {
+  --pm-ink: var(--ink, #1d1d1b);
+  --pm-muted: var(--muted, #6c6b66);
+  --pm-line: var(--line, rgb(29 29 27 / 18%));
+  --pm-paper: var(--paper, #faf8f4);
+  --pm-warm: var(--paper-warm, #f3ecdf);
+  --pm-blue: var(--brand-blue, #1e6098);
+  --pm-orange: var(--brand-orange, #fb9154);
+  display: grid;
+  gap: 40px;
+  color: var(--pm-ink);
+}
+.prediction-page p { margin: 0; }
+
+/* 소개와 참여 방법 */
+.prediction-intro { display: grid; gap: 12px; }
+.prediction-eyebrow { color: var(--pm-orange); font-size: 12px; font-weight: 700; letter-spacing: .16em; }
+.prediction-intro h2 { margin: 0; font: 600 clamp(1.6rem, 3vw, 2.4rem)/1.15 "Manrope", "Pretendard", sans-serif; letter-spacing: -.03em; }
+.prediction-intro > p { color: var(--pm-muted); font-size: 15px; }
+.prediction-steps { display: grid; grid-template-columns: repeat(3, 1fr); margin: 12px 0 0; padding: 0; border-top: 1px solid var(--pm-line); list-style: none; }
+.prediction-steps li { display: grid; gap: 4px; padding: 18px 18px 0 0; }
+.prediction-steps li + li { padding-left: 18px; border-left: 1px solid var(--pm-line); }
+.prediction-steps span { color: var(--pm-orange); font-size: 13px; font-weight: 700; }
+.prediction-steps strong { font-size: 15px; }
+.prediction-steps small { color: var(--pm-muted); font-size: 13px; line-height: 1.6; }
+
+/* 지갑과 포인트 */
+.prediction-account { display: grid; gap: 12px; padding: 22px 0; border-top: 1px solid var(--pm-line); border-bottom: 1px solid var(--pm-line); }
+.prediction-balance { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.prediction-balance span { display: block; color: var(--pm-muted); font-size: 13px; }
+.prediction-balance strong { font-size: 28px; font-variant-numeric: tabular-nums; }
+
+/* 목록 */
+.prediction-section { display: grid; gap: 16px; }
+.prediction-section h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 18px; }
+.prediction-section h3 span { color: var(--pm-muted); font-size: 14px; font-weight: 500; }
+.prediction-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px; }
+.prediction-empty { padding: 32px 0; border-top: 1px solid var(--pm-line); color: var(--pm-muted); }
+
+/* 카드 */
+.prediction-card { display: grid; align-content: start; gap: 18px; padding: 22px; border: 1px solid var(--pm-line); background: #fff; }
+.prediction-card--counting, .prediction-card--resolved, .prediction-card--canceled { background: var(--pm-paper); }
+.prediction-card__head { display: flex; gap: 14px; align-items: flex-start; }
+.prediction-card__thumb { flex: 0 0 64px; width: 64px; height: 64px; object-fit: cover; background: var(--pm-warm); }
+.prediction-card__head h3 { margin: 6px 0 2px; font-size: 18px; line-height: 1.3; }
+.prediction-card__head p { color: var(--pm-muted); font-size: 13px; }
+.prediction-phase { display: inline-block; padding: 3px 8px; font-size: 11px; font-weight: 700; letter-spacing: .02em; }
+.prediction-phase--open { background: var(--pm-blue); color: #fff; }
+.prediction-phase--counting { background: var(--pm-warm); color: var(--pm-ink); }
+.prediction-phase--resolved { background: var(--pm-ink); color: #fff; }
+.prediction-phase--canceled { border: 1px solid var(--pm-line); color: var(--pm-muted); }
+.prediction-card__schedule { display: grid; gap: 3px; }
+.prediction-card__schedule strong { color: var(--pm-blue); font-size: 15px; }
+.prediction-card__schedule span { color: var(--pm-muted); font-size: 12px; line-height: 1.6; }
+.prediction-card__locked { padding: 14px; background: var(--pm-paper); }
+
+/* 참여 폼 */
+.prediction-bet { display: grid; gap: 20px; }
+.prediction-bet fieldset { display: grid; gap: 10px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.prediction-bet legend { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; padding: 0; font-size: 14px; font-weight: 700; }
+.prediction-bet legend span { display: inline-grid; place-items: center; width: 20px; height: 20px; background: var(--pm-ink); color: #fff; font-size: 11px; }
+.prediction-bet [role='radiogroup'] { display: flex; flex-wrap: wrap; gap: 8px; }
+.prediction-bet label { position: relative; cursor: pointer; }
+.prediction-bet label input[type='radio'] { position: absolute; opacity: 0; pointer-events: none; }
+.prediction-bet label:has(input:focus-visible) { outline: 2px solid var(--pm-blue); outline-offset: 2px; }
+.prediction-bet__buckets [role='radiogroup'] { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+.prediction-bet__buckets label { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--pm-line); background: #fff; }
+.prediction-bet__buckets label strong { font-size: 15px; font-variant-numeric: tabular-nums; }
+.prediction-bet__buckets label small { color: var(--pm-muted); font-size: 11px; }
+.prediction-bet__share { display: block; height: 4px; background: var(--pm-warm); }
+.prediction-bet__share i { display: block; height: 100%; background: var(--pm-orange); }
+.prediction-bet label.is-selected { border-color: var(--pm-blue); box-shadow: inset 0 0 0 1px var(--pm-blue); background: #f2f7fb; }
+.prediction-bet__amount-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.prediction-bet__amount-row input { flex: 1 1 120px; min-width: 0; min-height: 42px; padding: 0 12px; border: 1px solid var(--pm-line); background: #fff; font: inherit; font-size: 16px; font-variant-numeric: tabular-nums; }
+.prediction-bet__amount-row button { min-width: 52px; min-height: 42px; padding: 0 12px; border: 1px solid var(--pm-line); background: #fff; font: inherit; font-size: 13px; cursor: pointer; }
+.prediction-bet__amount-row button:hover { border-color: var(--pm-ink); }
+.prediction-bet__reason label { padding: 8px 12px; border: 1px solid var(--pm-line); background: #fff; font-size: 13px; }
+.prediction-bet textarea { box-sizing: border-box; width: 100%; min-height: 72px; padding: 10px 12px; border: 1px solid var(--pm-line); background: #fff; font: inherit; font-size: 14px; resize: vertical; }
+.prediction-bet__summary { display: grid; gap: 6px; padding: 14px; background: var(--pm-paper); font-size: 14px; line-height: 1.6; }
+.prediction-bet .ui-button { width: 100%; }
+
+/* 내 예측과 결과 */
+.prediction-mine { display: grid; gap: 6px; padding: 14px; border-left: 3px solid var(--pm-blue); background: #f2f7fb; }
+.prediction-mine > span { color: var(--pm-blue); font-size: 12px; font-weight: 700; }
+.prediction-mine ul { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; font-size: 15px; }
+.prediction-outcome { display: grid; gap: 10px; font-size: 14px; line-height: 1.6; }
+.prediction-card__result { padding: 14px; border: 1px solid var(--pm-line); background: #fff; font-weight: 600; }
+.prediction-card__result strong { color: var(--pm-orange); font-size: 26px; font-variant-numeric: tabular-nums; }
+
+/* 문구 */
+.prediction-hint { color: var(--pm-muted); font-size: 12px; line-height: 1.6; }
+.prediction-progress { padding: 10px 12px; background: var(--pm-warm); font-size: 13px; font-weight: 600; }
+.prediction-success { color: #1f6b43 !important; font-weight: 600; }
+.prediction-error { color: #b3261e !important; font-size: 13px; }
+.consumer-mypage .prediction-notice { margin: 0; color: var(--pm-muted); font-size: 13px; line-height: 1.7; }
+
+@media (max-width: 680px) {
+  .prediction-steps { grid-template-columns: 1fr; }
+  .prediction-steps li + li { padding-left: 0; border-left: 0; border-top: 1px solid var(--pm-line); }
+  .prediction-grid { grid-template-columns: 1fr; }
+  .prediction-card { padding: 18px; }
+}

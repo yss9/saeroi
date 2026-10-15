@@ -1,0 +1,34 @@
+import { ArrowRight, Package } from '@phosphor-icons/react'
+import { useMemo } from 'react'
+import { Link } from 'react-router-dom'
+import { useBrandProcessingRequests } from '../hooks/useBrandProcessingRequests.ts'
+import { useProcessingJobs } from '../hooks/useProcessingJobs.ts'
+import './processing-jobs.css'
+
+const labels = { CREATED:'결제 대기', PAID:'수락 대기', ACCEPTED:'발송 대기', DECLINED:'가공사 거절', SHIPPED:'수령 대기', RECEIVED:'가공 중', PROCESSING:'가공 중', RESULT_SUBMITTED:'검토 대기', RETURN_SHIPPED:'결과물 반환 중', CONFIRMED:'완료', REJECTED:'보완 요청', EXPIRED:'만료', CANCELED:'반환 종료' } as const
+
+export function ProcessingJobList() {
+  const jobs = useProcessingJobs()
+  /*
+    이름은 요청에서 온다. 작업 응답에는 소재 번호밖에 없어 줄마다 "투입 소재 #3" 이라고만
+    적혔고, 그러면 어느 소재를 맡긴 작업인지 목록에서 구분되지 않는다. 한 쪽(20건)만 받으므로
+    오래된 작업은 번호로 남는다.
+  */
+  const requests = useBrandProcessingRequests()
+  const nameByRequest = useMemo(
+    () => new Map((requests.data?.items ?? []).map(request => [request.requestId, request.materialName])),
+    [requests.data?.items],
+  )
+  if (jobs.isPending) return <section className="pj-state">가공 작업을 불러오는 중이에요…</section>
+  if (jobs.isError) return <section className="pj-state pj-state--error">작업 목록을 불러오지 못했어요.<button onClick={() => void jobs.refetch()}>다시 시도</button></section>
+  return <section className="pj-list">
+    <h1 className="ui-visually-hidden">가공 작업</h1>
+    {!jobs.data?.length ? <div className="pj-state"><Package size={36}/><strong>진행 중인 가공 작업이 없어요</strong></div> :
+      <div className="pj-grid">{jobs.data.map(job => <Link className="pj-card" to={`/processing/jobs/${job.jobId}`} key={job.jobId}>
+        <div><b className={`is-${job.status.toLowerCase()}`}>{labels[job.status]}</b></div>
+        <strong>{nameByRequest.get(job.requestId) ?? `투입 소재 #${job.inputMaterialId}`}</strong>
+        <p>{job.inputQuantity.toLocaleString('ko-KR')} g · {job.fee.toLocaleString('ko-KR')}원</p>
+        <small>작업 상세 및 처리 <ArrowRight /></small>
+      </Link>)}</div>}
+  </section>
+}

@@ -1,0 +1,351 @@
+/* 발송·수령 패널 스타일.
+ *
+ * marketplace.css 의 결제 패널과 같은 팔레트·치수를 쓴다. 같은 화면에 나란히 놓이므로
+ * 테두리·여백이 다르면 서로 다른 화면 조각처럼 보인다.
+ *
+ * index.css 에 @import 를 추가하지 않고 컴포넌트에서 직접 import 한다
+ * (brand-processing.css 와 같은 방식) — index.css 는 여러 사람이 함께 고치는 파일이고,
+ * 이 스타일은 trade 도메인 밖에서 쓰이지 않는다.
+ */
+
+.shipment-panel,
+.receipt-panel {
+  max-width: 28rem;
+  padding: 1.25rem;
+  border: 1px solid var(--ui-color-border);
+  border-radius: 8px;
+  background: var(--ui-color-surface);
+}
+
+.shipment-panel__header,
+.receipt-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.shipment-panel__header h2,
+.receipt-panel__header h2 { margin: 0; font-size: 1.05rem; }
+
+.shipment-panel__summary,
+.receipt-panel__summary,
+.shipment-panel__result,
+.receipt-panel__result {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin: 0 0 1.15rem;
+}
+.shipment-panel__summary > div,
+.receipt-panel__summary > div,
+.shipment-panel__result > div,
+.receipt-panel__result > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.shipment-panel__summary dt,
+.receipt-panel__summary dt,
+.shipment-panel__result dt,
+.receipt-panel__result dt { color: var(--ui-color-muted); font-size: 0.875rem; }
+.shipment-panel__summary dd,
+.receipt-panel__summary dd,
+.shipment-panel__result dd,
+.receipt-panel__result dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
+
+/* 발송 결과는 이 화면에서 확정된 사실이다. 입력 요약과 구분되게 배경을 준다. */
+.shipment-panel__result,
+.receipt-panel__result {
+  padding: 0.85rem 1rem;
+  border-radius: 6px;
+  background: var(--ui-color-bg);
+}
+
+/* 배송지. 주소는 길어서 좌우로 늘어놓으면 줄바꿈이 지저분해진다 — 위아래로 쌓는다. */
+.shipment-panel__address {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin: 0 0 1.15rem;
+  padding: 0.85rem 1rem;
+  border-radius: 6px;
+  background: var(--ui-color-bg);
+  font-size: 0.9rem;
+}
+.shipment-panel__address dt { color: var(--ui-color-muted); font-size: 0.78rem; }
+.shipment-panel__address dd { margin: 0.2rem 0 0; }
+
+.shipment-panel__note,
+.receipt-panel__note {
+  margin: 0 0 1rem;
+  font-size: 0.875rem;
+  color: var(--ui-color-muted);
+}
+.shipment-panel__note--warning { color: var(--ui-color-warning); }
+
+/* 되돌릴 수 없는 동작 바로 앞의 경고. 색만으로 구분하지 않고 테두리도 준다. */
+.receipt-panel__warning {
+  margin: 0 0 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--ui-color-warning);
+  border-radius: 6px;
+  background: var(--ui-color-primary-soft);
+  font-size: 0.875rem;
+  color: var(--ui-color-warning);
+}
+
+.shipment-panel__form { display: flex; flex-direction: column; gap: 0.35rem; }
+
+.receipt-panel__tracking {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+/* ── 판매 거래 관리 ──────────────────────────────────── */
+
+.supplier-trades__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.15rem;
+}
+
+/* ── 거래 진행 타임라인 ──────────────────────────────── */
+
+/*
+  상자는 화면(팝업) 폭을 그대로 쓴다. 고정 폭(28rem)으로 두면 옆의 카드들만 넓고 이
+  상자만 좁아, 오른쪽이 통째로 빈 자리로 남았다.
+*/
+.trade-timeline {
+  width: 100%;
+  margin: 0 0 1.5rem;
+  padding: 1.15rem 1.25rem 1.25rem;
+  border: 1px solid var(--ui-color-border);
+  border-radius: 8px;
+  background: var(--ui-color-surface);
+}
+
+.trade-timeline__steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* 각 단계가 세로선으로 이어지게 한다. 선을 별도 요소로 두지 않고 ::before 로 그려
+   마크업을 단계 하나 = li 하나로 유지한다. */
+.trade-timeline__step {
+  position: relative;
+  display: flex;
+  gap: 0.75rem;
+  padding: 0 0 1.15rem;
+}
+.trade-timeline__step:last-child { padding-bottom: 0; }
+.trade-timeline__step::before {
+  content: "";
+  position: absolute;
+  left: 0.3rem;
+  top: 1.1rem;
+  bottom: 0;
+  width: 1px;
+  background: var(--ui-color-border);
+}
+.trade-timeline__step:last-child::before { display: none; }
+
+.trade-timeline__marker {
+  flex-shrink: 0;
+  width: 0.7rem;
+  height: 0.7rem;
+  margin-top: 0.3rem;
+  border: 2px solid var(--ui-color-border);
+  border-radius: 50%;
+  background: var(--ui-color-surface);
+}
+
+.trade-timeline__body { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+.trade-timeline__label { font-size: 0.92rem; color: var(--ui-color-muted); }
+.trade-timeline__at {
+  font-size: 0.8rem;
+  color: var(--ui-color-muted);
+  font-variant-numeric: tabular-nums;
+}
+.trade-timeline__detail {
+  font-size: 0.78rem;
+  color: var(--ui-color-muted);
+  overflow-wrap: anywhere;
+}
+
+/* 끝난 단계. 색만으로 구분하지 않는다 — 굵기도 함께 바꿔 색을 구분하기 어려운
+   사용자에게도 진행된 단계가 드러난다. */
+.trade-timeline__step--done .trade-timeline__marker {
+  border-color: var(--ui-color-primary);
+  background: var(--ui-color-primary);
+}
+.trade-timeline__step--done .trade-timeline__label { color: var(--ui-color-text); font-weight: 600; }
+.trade-timeline__step--done .trade-timeline__at { color: var(--ui-color-muted); }
+
+/* 진행 중인 단계. 링을 둘러 지금 여기라는 것을 드러낸다. */
+.trade-timeline__step--current .trade-timeline__marker {
+  border-color: var(--ui-color-primary);
+  background: var(--ui-color-surface);
+  box-shadow: 0 0 0 3px rgba(31, 111, 74, 0.16);
+}
+.trade-timeline__step--current .trade-timeline__label { color: var(--ui-color-text); font-weight: 700; }
+.trade-timeline__step--current .trade-timeline__at { color: var(--ui-color-primary); font-weight: 600; }
+
+/* 취소로 멈춘 단계. 대기와 달라 보여야 한다 — 기다리면 진행될 것처럼 읽히면 안 된다. */
+.trade-timeline__step--stopped .trade-timeline__marker {
+  border-style: dashed;
+  border-color: var(--ui-color-border-strong);
+}
+.trade-timeline__step--stopped .trade-timeline__label,
+.trade-timeline__step--stopped .trade-timeline__at { color: var(--ui-color-muted); }
+
+.trade-timeline__next,
+.trade-timeline__canceled {
+  margin: 1.15rem 0 0;
+  padding: 0.7rem 0.9rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+.trade-timeline__next { background: var(--ui-color-bg); color: var(--ui-color-text); }
+.trade-timeline__canceled { background: var(--ui-color-primary-soft); color: var(--ui-color-warning); }
+
+/* ── 거래 취소 ───────────────────────────────────────── */
+
+.shipment-panel__actions { display: flex; gap: 0.5rem; margin-top: 1rem; }
+.shipment-panel__canceled { display: flex; flex-direction: column; }
+/* 사유는 사용자가 적은 문장이라 길고 줄바꿈이 들어올 수 있다. */
+.shipment-panel__reason {
+  text-align: left;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.cancel-form__lead { margin: 0 0 1rem; font-size: 0.9rem; }
+.cancel-form__label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.cancel-form__optional { font-weight: 400; color: var(--ui-color-muted); }
+.cancel-form__textarea {
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--ui-color-border);
+  border-radius: 6px;
+  background: var(--ui-color-surface);
+  resize: vertical;
+}
+.cancel-form__textarea:focus-visible { outline: 2px solid var(--ui-color-primary); outline-offset: 1px; }
+.cancel-form__textarea[aria-invalid="true"] { border-color: var(--ui-color-danger); }
+.cancel-form__hint { margin: 0.35rem 0 0; font-size: 0.78rem; color: var(--ui-color-muted); }
+.cancel-form__hint--error { color: var(--ui-color-danger); }
+
+.trade-timeline__canceled p { margin: 0; }
+.trade-timeline__cancel-reason {
+  margin-top: 0.35rem;
+  font-size: 0.82rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/*
+ * 구매 폼의 주소 검색.
+ *
+ * 우편번호·주소 두 칸은 readOnly 라 검색 버튼이 유일한 입력 수단이다. 그래서 버튼을
+ * 입력칸 안쪽 오른쪽에 겹쳐 둔다 — 따로 떨어뜨리면 "읽기 전용 칸"과 "그 칸을 채우는
+ * 버튼"의 관계가 보이지 않는다. 가입 화면(auth-entry.css)과 같은 배치이며, 색만
+ * 이 도메인의 ui-* 토큰으로 맞춘다.
+ */
+.purchase-form__address-search {
+  position: relative;
+}
+
+.purchase-form__address-search .ui-field__control {
+  padding-right: 112px;
+}
+
+.purchase-form__address-search > button {
+  position: absolute;
+  top: 29px;
+  right: 6px;
+  display: inline-flex;
+  min-width: 100px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 11px;
+  border: 1px solid var(--ui-color-border-strong);
+  border-radius: 8px;
+  background: var(--ui-color-primary-soft);
+  color: var(--ui-color-primary);
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.purchase-form__address-search > button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* 두 칸이 읽기 전용이라, 검색이 실패하면 손으로 메울 방법이 없다 — 눈에 띄어야 한다. */
+.purchase-form__address-error {
+  margin-top: 0.35rem;
+  color: var(--ui-color-danger);
+  font-size: 0.82rem;
+}
+
+/* ── 거래 상세 ───────────────────────────────────────────
+   목록에서는 팝업으로, 주소로 들어오면 한 페이지로 같은 본문을 쓴다.
+   ────────────────────────────────────────────────────── */
+.trade-detail { display: flex; flex-direction: column; gap: 1rem; }
+
+/* 모달 제목("거래 상세")과 같은 검정이면 둘이 한 덩어리로 읽힌다. 이쪽은 내용이므로
+   색과 크기로 갈라 둔다. */
+.trade-detail__title {
+  margin: 0;
+  color: #216a9f;
+  font-size: 1.3rem;
+  letter-spacing: -0.02em;
+}
+
+/* 결제·발송 패널이 들어가 기본 모달 폭(32rem)으로는 값들이 서로를 민다. */
+.ui-modal:has(.trade-detail) { max-width: min(46rem, 94vw); }
+
+/* 단계·결제·수령이 세로로 이어져 화면보다 길어진다 — 창을 넘기지 않고 안에서 굴린다. */
+.ui-modal:has(.trade-detail) .ui-modal__body {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+/* 모달 안에서는 패널이 폭을 다 쓴다. 28rem 으로 묶어 두면 오른쪽이 비어 보인다. */
+.ui-modal .payment-panel,
+.ui-modal .receipt-panel,
+.ui-modal .shipment-panel { max-width: none; }
+
+/* ── 온체인 예약 해제 ─────────────────────────────────────
+   서버는 취소됐는데 체인에 예약이 남은 거래에만 나온다. 평소에는 없는 칸이라 눈에
+   걸리되, 오류는 아니므로 붉은색은 쓰지 않는다 — 사용자가 잘못한 것이 아니다. */
+
+.trade-chain-release {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--ui-color-border);
+  border-radius: 8px;
+  background: var(--ui-color-surface);
+}
+
+.trade-chain-release__note {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: var(--ui-color-muted);
+}

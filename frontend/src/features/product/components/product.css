@@ -1,0 +1,587 @@
+/* 제품 등록 폼.
+ *
+ * 컴포넌트에서 직접 import 한다 (brand-processing.css · trade.css 와 같은 방식) —
+ * index.css 는 여러 사람이 함께 고치는 파일이고 이 스타일은 product 도메인 밖에서 쓰이지
+ * 않는다.
+ */
+
+/*
+ * 두 칸으로 편다. 한 줄로 쌓으면 화면이 넓은데도 폰처럼 길어져, 등록 버튼이 스크롤
+ * 한참 아래에 숨는다. 왼쪽은 적는 값(이름·분류·가격·설명), 오른쪽은 고르는 이미지다.
+ */
+.product-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 21rem);
+  align-items: start;
+  gap: 0 2rem;
+}
+
+.product-form__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+/* 버튼과 안내는 칸이 아니라 줄이다. 버튼은 오른쪽 끝에 세운다. */
+.product-form__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: end;
+  grid-column: 1 / -1;
+  margin-top: 0.5rem;
+}
+
+.product-form__actions > .ui-error { width: 100%; }
+.product-form__actions > .product-form__note { width: 100%; }
+
+@media (max-width: 62rem) {
+  .product-form { grid-template-columns: minmax(0, 1fr); }
+  .product-form__actions { align-items: stretch; }
+}
+
+/* 설명은 여러 줄이다. 공통 Input 은 한 줄 입력이라 여기서만 textarea 를 쓴다. */
+.product-form__description {
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid #d8d5cb;
+  border-radius: 6px;
+  background: #fff;
+  resize: vertical;
+}
+.product-form__description:focus-visible { outline: 2px solid #1f6f4a; outline-offset: 1px; }
+.product-form__description[aria-invalid="true"] { border-color: #b42318; }
+
+/* 오른쪽 칸. 설명 상자와 나란히 서서 첫 줄부터 시작한다. */
+.product-form__thumbnail {
+  margin: 0;
+  padding: 0.9rem 1rem;
+  border: 1px solid #ddd9cd;
+  border-radius: 8px;
+  background: #fff;
+}
+
+/* 미리보기. 세로로 긴 사진이 화면을 밀어내지 않게 높이를 묶고 비율을 유지한다. */
+.product-form__preview { margin: 0.75rem 0 0; }
+.product-form__preview img {
+  display: block;
+  max-width: 100%;
+  max-height: 14rem;
+  border-radius: 6px;
+  object-fit: contain;
+  background: #f4f2ec;
+}
+.product-form__preview figcaption {
+  margin-top: 0.4rem;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.product-form__hint { margin: 0.6rem 0 0; font-size: 0.78rem; color: #6b7280; }
+
+/*
+ * 팝업 안에서는 한 칸이다. 두 칸 배치는 화면 폭을 보고 접히는데(미디어 쿼리), 모달은
+ * 넓은 화면에서도 32rem 이라 그대로 두면 칸들이 서로를 밀어낸다.
+ */
+.ui-modal .product-form { grid-template-columns: minmax(0, 1fr); }
+.ui-modal .product-form__thumbnail { margin-top: 1rem; }
+.ui-modal .product-form__actions { align-items: stretch; }
+
+/* 등록해도 바로 팔리지 않는다는 안내. 버튼 아래에서 다음 할 일을 말한다. */
+.product-form__note {
+  margin: 0.75rem 0 0;
+  padding: 0.7rem 0.9rem;
+  border-radius: 6px;
+  background: #f4f2ec;
+  font-size: 0.85rem;
+  color: #172033;
+}
+
+/* 등록 결과 — 사이트 파랑. 한 줄로 적고 다음 걸음을 오른쪽에 둔다. */
+.product-form__created {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 0 0 1.25rem;
+  padding: 0.85rem 1.1rem;
+  border: 1px solid #cfe1ee;
+  border-radius: 8px;
+  background: #eef5fa;
+}
+.product-form__created-title { margin: 0; min-width: 0; font-weight: 700; color: #174b72; }
+/*
+  글자색을 상자 안에서 한 번 더 못박는다. 링크로 만든 버튼이라 전역 a 규칙이 색을
+  가져가면 파란 바탕에 검은 글씨가 된다 — 읽히지 않는다.
+*/
+.product-form__created .product-form__created-link {
+  flex: 0 0 auto;
+  background: #216a9f;
+  color: #fff;
+  text-decoration: none;
+}
+.product-form__created .product-form__created-link:hover { background: #174b72; color: #fff; }
+
+/* 다음 걸음. 요약과 선 하나로 갈라 "끝" 이 아니라 "다음" 으로 읽히게 한다. */
+.product-form__created-next {
+  margin: 0.9rem 0 0;
+  padding-top: 0.75rem;
+  border-top: 1px solid #b7d9c4;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: #3f5748;
+}
+
+/* 고른 사진들. 대표 한 장이 눈에 띄어야 한다 — 그 장이 목록과 마켓에 걸린다. */
+.product-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+  gap: 0.6rem;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.product-gallery__item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.4rem;
+  border: 1px solid #ddd9cd;
+  border-radius: 8px;
+  background: #fff;
+}
+.product-gallery__item.is-main { border-color: #216a9f; box-shadow: 0 0 0 1px #216a9f inset; }
+.product-gallery__item img {
+  width: 100%;
+  height: 6.5rem;
+  border-radius: 6px;
+  object-fit: cover;
+  background: #f5f4f0;
+}
+.product-gallery__state {
+  position: absolute;
+  top: 0.7rem;
+  left: 0.7rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: rgb(23 32 51 / 0.72);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+.product-gallery__state--error { background: #b42318; }
+.product-gallery__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+}
+.product-gallery__actions label { display: inline-flex; align-items: center; gap: 0.3rem; }
+.product-gallery__actions button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #6b7280;
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.product-gallery__actions button:hover { color: #b42318; }
+/* 갤러리만 실패했을 때 다시 보내는 자리. 문장 안에 있는 동작이라 글자로 둔다. */
+.product-form__retry {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #216a9f;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ── 제품 상세 ───────────────────────────────────────── */
+
+.product-detail {
+  display: grid;
+  gap: 1.5rem;
+  /* 좁은 화면에서는 이미지가 위, 넓어지면 좌우로 놓인다. 이미지 폭을 고정하지 않고
+     비율로 두어 긴 제품명이 들어와도 본문이 먼저 줄어든다. */
+  grid-template-columns: 1fr;
+  align-items: start;
+}
+@media (min-width: 48rem) {
+  .product-detail { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+
+.product-detail__image {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 12rem;
+  padding: 0.75rem;
+  border: 1px solid #ddd9cd;
+  border-radius: 8px;
+  background: #f4f2ec;
+}
+.product-detail__image img {
+  display: block;
+  max-width: 100%;
+  max-height: 24rem;
+  border-radius: 6px;
+  object-fit: contain;
+}
+.product-detail__image-empty { margin: 0; font-size: 0.85rem; color: #6b7280; }
+
+.product-detail__body { display: flex; flex-direction: column; gap: 0.85rem; min-width: 0; }
+.product-detail__header { display: flex; flex-direction: column; gap: 0.3rem; }
+.product-detail__title { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.product-detail__title h2 { margin: 0; font-size: 1.35rem; }
+.product-detail__category { margin: 0; font-size: 0.85rem; color: #6b7280; }
+
+.product-detail__price {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.product-detail__stock { margin: 0; font-size: 0.9rem; }
+/* 팔 수 없는 상태(판매 준비·품절·단종)는 남은 수량과 색으로 구분한다. */
+.product-detail__stock--muted { color: #6b7280; }
+
+/* 사용자가 적은 설명이다. 줄바꿈을 살리고 긴 단어는 강제로 끊는다. */
+.product-detail__description {
+  margin: 0.35rem 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.65;
+}
+
+/* ── 브랜드 제품 관리 ────────────────────────────────── */
+
+/* 거르개와 동작이 같은 줄에 선다. */
+.brand-product-list__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 0.8rem;
+}
+
+/* 목록 위의 상태 거르개. 고른 것만 채워 칠한다. */
+.brand-product-list__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.brand-product-list__filter {
+  padding: 0.35rem 0.8rem;
+  border: 1px solid #ddd9cd;
+  border-radius: 999px;
+  background: #fff;
+  color: #6b7280;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.brand-product-list__filter:hover { border-color: #216a9f; color: #216a9f; }
+.brand-product-list__filter--on {
+  border-color: #216a9f;
+  background: #216a9f;
+  color: #fff;
+}
+.brand-product-list__filter--on:hover { color: #fff; }
+
+.brand-product-list__empty { margin: 0 0 0.8rem; font-size: 0.85rem; color: #6b7280; }
+
+.brand-product-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+
+.brand-product-list__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1.15rem;
+  border: 1px solid #ddd9cd;
+  border-radius: 8px;
+  background: #fff;
+  flex-wrap: wrap;
+  cursor: pointer;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.brand-product-list__item:hover {
+  border-color: var(--ui-color-primary);
+  box-shadow: 0 2px 8px rgba(16, 34, 56, 0.08);
+}
+
+.brand-product-list__main { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.brand-product-list__name { font-size: 0.98rem; font-weight: 600; color: inherit; }
+.brand-product-list__meta { font-size: 0.82rem; color: #6b7280; }
+
+.brand-product-list__stock { font-size: 0.8rem; color: #1f6f4a; font-variant-numeric: tabular-nums; }
+/* 팔 수 없는 상태는 색을 낮춘다 — 판매 가능 수량과 눈으로 갈려야 한다. */
+.brand-product-list__stock--empty { color: #6b7280; }
+/*
+  생산·수정·라벨로 가는 곁가지 셋.
+
+  **셋이 같은 모양이어야 한다.** 하나만 밑줄이 있으면 다른 종류의 동작으로 읽히고, 그렇다고
+  테두리를 두르면 옆의 판매 중단(버튼)과 구분이 사라진다. 그래서 테두리 없는 파란 글자로
+  맞추고, 누를 수 있다는 신호는 hover 의 밑줄이 맡는다. 셋 사이는 가는 구분선으로 가른다 —
+  띄우기만 하면 긴 이름 옆에서 한 덩어리로 뭉쳐 보인다.
+*/
+.brand-product-list__link {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #216a9f;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.brand-product-list__link:hover { text-decoration: underline; }
+/* 버튼도 글자로 보이게 되돌린다. 팝업을 여는 자리라 링크가 아닐 뿐이다. */
+.brand-product-list__link--button {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  line-height: inherit;
+  cursor: pointer;
+}
+.brand-product-list__links > * + *::before {
+  content: '';
+  display: inline-block;
+  width: 1px;
+  height: 0.8em;
+  margin-right: 0.7rem;
+  background: #ddd9cd;
+  vertical-align: -0.05em;
+}
+/* 오른쪽 곁가지 묶음. 한 줄로 흐르다 좁아지면 접힌다. */
+.brand-product-list__links {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.7rem;
+}
+
+.brand-product-list__side {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.brand-product-list__actions { display: flex; gap: 0.4rem; }
+
+/* 다 팔린 제품은 뒤로 물린다 — 목록에서 손댈 것은 팔리는 제품이다. */
+.brand-product-list__item--soldout { background: #f4f4f2; border-color: #e3e1da; }
+
+/* 상태 배지는 줄의 첫 칸이다. 여러 줄을 훑는 눈이 같은 자리에서 찾도록 너비를 고정하고,
+   글자는 그 칸 가운데에 둔다 (배지는 inline-block 이라 justify-content 가 듣지 않는다). */
+.brand-product-list__item > .ui-badge {
+  flex: 0 0 auto;
+  min-width: 5rem;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.85rem;
+  text-align: center;
+}
+/* 이름 쪽이 남는 폭을 가져간다 — 배지가 왼쪽에 서면서 가운데가 비지 않게. */
+.brand-product-list__main { flex: 1 1 auto; }
+
+/* 판매 중단·판매 시작은 그 옆의 곁가지다 — 상태보다 작아야 상태가 먼저 읽힌다. */
+.brand-product-list__actions .ui-button {
+  min-height: 28px;
+  padding: 0 0.6rem;
+  font-size: 0.75rem;
+}
+
+/* 목록 위 오른쪽 버튼. */
+/* 새 제품 등록 — 거르개와 같은 줄의 오른쪽 끝. */
+.brand-product-page__action {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  padding: 0 1.1rem;
+  border-radius: 8px;
+  background: #216a9f;
+  color: #fff !important;
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+.brand-product-page__action:hover { background: #174b72; }
+
+/* 버튼을 비활성으로 남기는 대신 이유를 적는다 — 비활성 버튼은 이유를 말하지 않는다. */
+.brand-product-list__hint { font-size: 0.78rem; color: #6b7280; }
+.brand-product-list__hint-link { font-size: 0.78rem; }
+
+/* ── 제품 마켓 목록 ──────────────────────────────────── */
+
+.product-list__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 1.25rem;
+}
+
+.product-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+  /* 카드 폭을 고정하지 않는다 — 화면이 좁아지면 열이 줄고, 넓어지면 늘어난다. */
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
+}
+
+.product-card {
+  border: 1px solid #ddd9cd;
+  border-radius: 8px;
+  background: #fff;
+  overflow: hidden;
+}
+.product-card__link { display: block; color: inherit; text-decoration: none; }
+.product-card__link:hover { border-color: #1f6f4a; }
+
+/* 이미지 자리를 비율로 잡아 둔다. 이미지가 늦게 오거나 없어도 카드 높이가 흔들리지 않는다. */
+.product-card__image {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  background: #f4f2ec;
+}
+.product-card__image img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.product-card__image-empty { display: block; width: 100%; height: 100%; }
+
+/* 품절은 이미지 위에 얹는다 — 카드를 훑을 때 가격보다 먼저 보여야 한다. */
+.product-card__sold-out {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(23, 32, 51, 0.55);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.product-card__body { display: flex; flex-direction: column; gap: 0.2rem; padding: 0.75rem 0.85rem 0.9rem; }
+.product-card__category { font-size: 0.75rem; color: #6b7280; }
+.product-card__name {
+  font-size: 0.95rem;
+  /* 제품명이 길면 두 줄까지만. 카드 높이가 제품마다 달라지면 격자가 어긋난다. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.product-card__price { font-size: 1.05rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* ── 주문·발송 관리 (Brand) ──────────────────────────── */
+
+.brand-orders { display: flex; flex-direction: column; gap: 1rem; width: 100%; }
+.brand-orders__tabs { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.brand-orders__list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.75rem; }
+
+/*
+  한 줄에 셋: 무엇을 보내나 · 어디로 보내나 · 무엇을 하나. 좁아지면 위아래로 쌓인다.
+*/
+.brand-order {
+  display: grid;
+  /*
+    네 칸 — 주문·배송지·운송장·상태. 칸 폭을 고정해 두면 송장이 있는 줄과 없는 줄에서
+    같은 값이 같은 자리에 온다.
+  */
+  grid-template-columns: minmax(200px, 1.3fr) minmax(190px, 1fr) minmax(8.5rem, 0.7fr) 9rem;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid #ece9e0;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.brand-order__main { display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; }
+.brand-order__head { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.brand-order__code { font-family: ui-monospace, Menlo, monospace; font-size: 0.82rem; color: #6b7280; }
+
+.brand-order__items { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.3rem; }
+.brand-order__items li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem; font-size: 0.85rem; }
+/* 개체 코드는 창고에서 물건을 집을 때 대조하는 값이다. 눈에 띄어야 한다. */
+.brand-order__items code { font-family: ui-monospace, Menlo, monospace; font-size: 0.78rem; color: #8a4b0b; }
+.brand-order__items span { font-size: 0.78rem; color: #6b7280; }
+.brand-order__price { margin: 0; font-size: 0.9rem; font-weight: 700; }
+
+.brand-order__shipping {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+.brand-order__shipping address { font-style: normal; }
+.brand-order__label { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; color: #8fa3b3; }
+/* 주문자는 참고값이다. 송장에 쓰는 이름은 받는 분이라 그쪽보다 낮춘다. */
+
+/* 상태는 맨 위, 동작은 그 아래. 둘 다 오른쪽 끝에서 줄을 마감한다. */
+.brand-order__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+/* 운송장 칸. 없는 줄에서는 비어 있고, 그래도 옆 칸의 자리는 흔들리지 않는다. */
+.brand-order__tracking-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+.brand-order__tracking {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin: 0;
+  font-size: 0.78rem;
+  color: #6b7280;
+  overflow-wrap: anywhere;
+}
+.brand-order__tracking b {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 0.82rem;
+  color: #172033;
+}
+
+/* ── 발송 처리 폼 (모달 안) ──────────────────────────── */
+
+.ship-form { display: flex; flex-direction: column; gap: 0.9rem; }
+
+/* 받는 사람을 가장 먼저, 크게. 주문자 이름을 송장에 적으면 물건이 엉뚱한 곳으로 간다. */
+.ship-form__receiver {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.8rem;
+  border-radius: 8px;
+  background: #f4f2ec;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+.ship-form__receiver strong { font-size: 1rem; }
+.ship-form__receiver address { font-style: normal; }
+.ship-form__label { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; color: #8fa3b3; }
+.ship-form__buyer { margin: 0.3rem 0 0; font-size: 0.78rem; color: #9ca3af; }
+
+.ship-form__items { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.3rem; }
+.ship-form__items li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem; font-size: 0.85rem; }
+.ship-form__items code { font-family: ui-monospace, Menlo, monospace; font-size: 0.78rem; color: #8a4b0b; }
+.ship-form__items span { font-size: 0.78rem; color: #6b7280; }
+
+.ship-form__fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.7rem; }
+.ship-form__actions { display: flex; justify-content: flex-end; gap: 0.5rem; }

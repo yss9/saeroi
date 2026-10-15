@@ -1,0 +1,36 @@
+.processing-custody {
+  display: grid;
+  gap: 1rem;
+  margin-top: 2.5rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--ui-color-border);
+}
+
+.processing-custody > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.processing-custody h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.processing-custody header span {
+  color: var(--ui-color-muted);
+  font-size: 0.75rem;
+}
+
+.processing-custody__card {
+  border-color: #9fc3da;
+  background: #f8fbfd;
+}
+
+@media (max-width: 560px) {
+  .processing-custody > header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

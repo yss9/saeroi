@@ -1,0 +1,63 @@
+import { EmptyState, ErrorMessage, Loading, Pagination } from '../../../components/common/index.ts'
+import { useEvidenceThumbnails } from '../../evidence/hooks/useEvidenceThumbnails.ts'
+import { useListings } from '../hooks/useListings.ts'
+import type { GetListingsParams } from '../api/getListings.ts'
+import type { Listing } from '../types/marketplace.types.ts'
+import { ListingCard } from './ListingCard.tsx'
+
+export interface ListingListProps {
+  params?: GetListingsParams
+  /** 판매자 화면에서 카드마다 붙일 동작 (취소 버튼 등) */
+  /** 판매 글 전체를 넘긴다 — 취소는 온체인 번호(chainListingId)까지 알아야 한다. */
+  renderActions?: (listing: Listing) => React.ReactNode
+  /**
+   * 페이지 이동. 주지 않으면 페이지 UI 가 나오지 않는다 —
+   * 페이지 번호는 조회 조건이라 이 컴포넌트가 아니라 화면이 들고 있어야 한다
+   * (뒤로 가기·URL 공유 같은 것이 전부 화면의 관심사다).
+   */
+  onPageChange?: (page: number) => void
+  emptyTitle?: string
+  emptyDescription?: string
+  /** 카드에 남은 수량을 뭐라고 부를지. 자기 판매글을 보는 화면만 'seller' 다. */
+  viewer?: 'buyer' | 'seller'
+}
+
+/** 목록 조회 + 로딩·에러·빈 결과 세 상태 처리. */
+export function ListingList({
+  params,
+  renderActions,
+  onPageChange,
+  emptyTitle = '판매 중인 소재가 없습니다',
+  emptyDescription = '조건을 바꾸면 다른 소재를 찾을 수 있습니다.',
+  viewer = 'buyer',
+}: ListingListProps) {
+  const { data, isPending, isError, error, refetch } = useListings(params)
+  // 카드마다 따로 부르면 화면 하나에 판매글 수만큼 요청이 나간다(N+1) — 이 페이지에 보일
+  // materialId 를 모아 한 번에 묻는다. `data` 가 없을 때는 빈 배열이라 훅이 요청하지 않는다.
+  const materialIds = data?.content.map((listing) => listing.materialId) ?? []
+  const thumbnails = useEvidenceThumbnails('MATERIAL', materialIds)
+
+  if (isPending) return <Loading variant="skeleton" rows={4} label="판매 목록을 불러오는 중" />
+  if (isError) return <ErrorMessage error={error} onRetry={() => void refetch()} />
+  if (data.content.length === 0)
+    return <EmptyState title={emptyTitle} description={emptyDescription} />
+
+  return (
+    <>
+      <ul className="listing-list">
+        {data.content.map((listing) => (
+          <li key={listing.listingId}>
+            <ListingCard
+              listing={listing}
+              actions={renderActions?.(listing)}
+              viewer={viewer}
+              thumbnail={thumbnails.data?.[listing.materialId]}
+            />
+          </li>
+        ))}
+      </ul>
+
+      {onPageChange && <Pagination page={data} onChange={onPageChange} />}
+    </>
+  )
+}

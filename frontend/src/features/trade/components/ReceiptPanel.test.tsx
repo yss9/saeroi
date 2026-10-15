@@ -1,0 +1,231 @@
+// 구매자 수령 확인.
+//
+// 이 버튼이 소유권을 옮긴다. 그래서 지켜야 하는 것은 둘이다.
+//
+//   1) **발송 전에는 누를 수 없다** — 서버도 거절하지만(TRADE_NOT_RECEIVABLE),
+//      받지도 않은 물건을 받았다고 기록할 통로가 화면에 있으면 안 된다.
+//   2) **확인 없이 호출되지 않는다** — 되돌릴 수 없고, 발송된 거래는 취소도 막혀 있다.
+//
+// 성공 후 이전 수량을 보여주는 것도 함께 본다. 그게 이 요청의 결과이고, 보이지 않으면
+// 사용자는 보유 소재 화면을 따로 열어 확인해야 한다.
+
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { Trade, TradeReceiptResult } from '../types/trade.types.ts'
+import { ReceiptPanel } from './ReceiptPanel.tsx'
+
+const api = vi.hoisted(() => ({ confirmTradeReceipt: vi.fn() }))
+vi.mock('../api/confirmTradeReceipt.ts', () => api)
+
+/**
+ * 온체인 서명은 이 패널이 <b>이어서</b> 부른다. 실제 훅은 MetaMask 를 찾으므로 모킹한다.
+ */
+const chainAction = vi.hoisted(() => ({
+  receive: vi.fn(() => Promise.resolve(true)),
+  ship: vi.fn(),
+  cancel: vi.fn(),
+  status: 'IDLE',
+  isBusy: false,
+  isRejected: false,
+  error: null,
+}))
+vi.mock('../hooks/useTradeChainAction.ts', () => ({
+  useTradeChainAction: () => chainAction,
+}))
+
+function trade(overrides: Partial<Trade> = {}): Trade {
+  return {
+    tradeId: 7,
+    tradeCode: 'TRD-000007',
+    // **수령 확정의 선행 조건이다.** 서명이 먼저이고, 서명할 주문 번호가 없으면
+    // 아무것도 일어나지 않는다 — 그 경우는 아래 전용 테스트가 따로 본다.
+    chainTradeId: 4,
+    listingId: 3,
+    materialId: 1,
+    materialCode: 'MAT-000001',
+    materialName: '세척된 폐데님',
+    sellerId: 2,
+    sellerName: '수거업체 A',
+    buyerId: 5,
+    buyerName: '브랜드 B',
+    sellerWallet: '0x1111111111111111111111111111111111111111',
+    buyerWallet: '0x2222222222222222222222222222222222222222',
+    quantity: 12_000,
+    pricePerKg: 4_200,
+    totalPrice: 50_400,
+    paymentMethod: 'MOCK',
+    paymentReference: 'MOCK-TID-7',
+    paymentAmount: 50_400,
+    status: 'SHIPPED',
+    createdAt: '2026-09-01T10:00:00',
+    paidAt: '2026-09-02T10:00:00',
+    shippedAt: '2026-09-03T09:00:00',
+    receivedAt: null,
+    buyerSignedAt: null,
+    completedAt: null,
+    canceledAt: null,
+    cancelReason: null,
+    // 배송지는 구매 시점에 확정된다. 이 값이 null 인 거래는 배송지 입력이 적용되기 전에
+    // 만들어진 건이고, 서버에서도 발송이 막힌다.
+    shipping: null,
+    ...overrides,
+  }
+}
+
+const RECEIPT: TradeReceiptResult = {
+  tradeId: 7,
+  tradeCode: 'TRD-000007',
+  status: 'COMPLETED',
+  receivedAt: '2026-09-05T14:00:00',
+  buyerSignedAt: '2026-09-05T14:00:00',
+  completedAt: '2026-09-05T14:00:00',
+  transferredQuantity: 12_000,
+  buyerQuantity: 32_000,
+}
+
+function renderPanel(value: Trade = trade()) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
+  render(
+    <QueryClientProvider client={queryClient}>
+      <ReceiptPanel trade={value} />
+    </QueryClientProvider>,
+  )
+  return userEvent.setup()
+}
+
+// beforeEach 가 함수를 반환하면 vitest 는 그것을 teardown 으로 실행한다.
+// mockResolvedValue 는 mock 자신을 돌려주므로 블록으로 감싸야 한다.
+beforeEach(() => {
+  api.confirmTradeReceipt.mockResolvedValue(RECEIPT)
+})
+afterEach(() => {
+  cleanup()
+  vi.resetAllMocks()
+})
+
+describe('ReceiptPanel', () => {
+  it('발송 전에는 수령을 확인할 수 없다', () => {
+    renderPanel(trade({ status: 'PAID', shippedAt: null }))
+
+    expect(screen.queryByRole('button', { name: '수령 확인' })).not.toBeInTheDocument()
+    expect(screen.getByText(/판매자의 발송을 기다리는 중/)).toBeInTheDocument()
+  })
+
+  it('되돌릴 수 없다는 것을 먼저 알린다', () => {
+    renderPanel()
+
+    expect(screen.getByText(/소유권이 이전되고 되돌릴 수 없습니다/)).toBeInTheDocument()
+  })
+
+  // 이 테스트가 이 파일의 존재 이유다.
+  it('확인 단계를 거친 뒤에만 수령을 확정하고 이전 결과를 보여준다', async () => {
+    const user = renderPanel()
+
+    await user.click(screen.getByRole('button', { name: '수령 확인' }))
+    expect(api.confirmTradeReceipt).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('button', { name: '수령 확정' }))
+
+    // **서명이 먼저다.** 서버 확정은 체인에 수령이 남은 뒤에만 통과한다.
+    await waitFor(() => expect(chainAction.receive).toHaveBeenCalled())
+    expect(api.confirmTradeReceipt).toHaveBeenCalledWith(7)
+    // 얼마가 옮겨졌고 내 보유량이 얼마가 됐는지가 이 요청의 결과다.
+    expect(await screen.findByText('12 kg')).toBeInTheDocument()
+    expect(screen.getByText('32 kg')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '수령 확인' })).not.toBeInTheDocument()
+  })
+
+  it('확인 모달을 닫으면 수령을 확정하지 않는다', async () => {
+    const user = renderPanel()
+
+    await user.click(screen.getByRole('button', { name: '수령 확인' }))
+    await user.click(screen.getByRole('button', { name: '취소' }))
+
+    expect(api.confirmTradeReceipt).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: '수령 확인' })).toBeInTheDocument()
+  })
+
+  it('이미 완료된 거래는 확인 버튼 없이 시각만 보여준다', () => {
+    renderPanel(
+      trade({
+        status: 'COMPLETED',
+        receivedAt: '2026-09-05T14:00:00',
+        buyerSignedAt: '2026-09-05T14:00:00',
+        completedAt: '2026-09-05T14:00:00',
+      }),
+    )
+
+    expect(screen.queryByRole('button', { name: '수령 확인' })).not.toBeInTheDocument()
+    expect(screen.getByText('거래 완료')).toBeInTheDocument()
+    expect(screen.getByText('수령 확인 시각')).toBeInTheDocument()
+  })
+})
+
+/**
+ * <b>버튼 하나가 서버 기록과 온체인 서명을 함께 끝낸다.</b>
+ *
+ * 예전에는 같은 화면에 TradeChainActionPanel 이 따로 있어 「온체인 수령 확인」 버튼이
+ * 하나 더 보였다. 그쪽을 먼저 누르면 서버는 모른 채 체인만 앞서가고, 이어서 「수령
+ * 확인」을 누르면 이미 RECEIVED 인 주문에 다시 서명하려다 되돌려진다
+ * ("Marketplace: order is not shipped"). 둘 다 눌러야 하는 것처럼 보이는데 순서에
+ * 따라 한쪽이 반드시 실패하는 화면이었다.
+ *
+ * <b>순서가 계약이다</b> — 서버 기록이 성공한 뒤에 서명한다. 반대로 하면 서명은 됐는데
+ * 서버가 거절하는 경우에 체인만 앞서간 채로 남는다.
+ */
+describe('수령 확인과 온체인 서명', () => {
+  it('수령을 확정하면 온체인 서명까지 이어서 한다', async () => {
+    api.confirmTradeReceipt.mockResolvedValue({
+      receivedAt: '2026-09-15T10:00:00',
+      transferredQuantity: 12_000,
+      buyerQuantity: 12_000,
+    })
+    renderPanel(trade({ status: 'SHIPPED', chainTradeId: 4, shippedAt: '2026-09-15T09:00:00' }))
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: '수령 확인' }))
+    await user.click(screen.getByRole('button', { name: '수령 확정' }))
+
+    await waitFor(() => expect(chainAction.receive).toHaveBeenCalledWith(4))
+  })
+
+  /**
+   * 서명이 실패하면 DB 를 옮기지 않는다.
+   *
+   * 예전에는 순서가 반대였다. 그래서 담당자가 서명 창을 끄면 DB 는 소유권을 옮겼는데
+   * 체인은 모르는 상태가 됐고, 그 어긋남은 한참 뒤 그 소재를 가공에 보낼 때
+   * insufficient material 로 드러났다. 가공은 처음부터 서명이 먼저였다.
+   */
+  it('서명이 실패하면 수령을 확정하지 않는다', async () => {
+    chainAction.receive.mockRejectedValue(new Error('user rejected'))
+    renderPanel(trade({ status: 'SHIPPED', chainTradeId: 4, shippedAt: '2026-09-15T09:00:00' }))
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: '수령 확인' }))
+    await user.click(screen.getByRole('button', { name: '수령 확정' }))
+
+    await waitFor(() => expect(chainAction.receive).toHaveBeenCalled())
+    expect(api.confirmTradeReceipt).not.toHaveBeenCalled()
+  })
+
+  /**
+   * 온체인 주문이 없으면 서명할 대상이 없고, 서버도 확정을 거절한다.
+   *
+   * 구매 시 주문 서명을 놓친 거래다. 예전에는 서버 수령만 진행했는데, 그 거래가 바로
+   * DB 와 체인이 어긋난 채로 굳은 사례였다.
+   */
+  it('온체인 주문이 없으면 서명도 확정도 하지 않는다', async () => {
+    renderPanel(trade({ status: 'SHIPPED', chainTradeId: null, shippedAt: '2026-09-15T09:00:00' }))
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: '수령 확인' }))
+    await user.click(screen.getByRole('button', { name: '수령 확정' }))
+
+    expect(chainAction.receive).not.toHaveBeenCalled()
+    expect(api.confirmTradeReceipt).not.toHaveBeenCalled()
+  })
+})

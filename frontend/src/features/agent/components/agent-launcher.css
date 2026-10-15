@@ -1,0 +1,14 @@
+/*
+ * 새르파 AI 머리말 버튼의 캐릭터 얼굴.
+ *
+ * 버튼 모양(색·테두리·여백)은 머리말(company-dashboard.css 의 __agent-button)이 정한다.
+ * 여기서는 얼굴 크기만 정한다. 옆 버튼의 선 아이콘(19px)보다 크게 두는 이유는 그림이라 그
+ * 크기로는 얼굴이 읽히지 않기 때문이다 — 버튼 높이(38px) 안에 들어간다.
+ */
+.agent-header-button__icon {
+  display: block;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  object-fit: contain;
+}

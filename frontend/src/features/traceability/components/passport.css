@@ -1,0 +1,1677 @@
+.passport-page {
+  min-height: 100vh;
+  background: #faf8f4;
+}
+
+.passport {
+  min-width: 0;
+  color: #13233a;
+}
+
+.passport-brandbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 72px;
+  padding: 0 clamp(24px, 4vw, 68px);
+  border-bottom: 1px solid rgba(32, 57, 82, 0.1);
+  background: rgba(255, 253, 249, 0.84);
+  backdrop-filter: blur(12px);
+}
+
+.passport-brandbar__logo {
+  display: inline-flex;
+  text-decoration: none;
+}
+
+.passport-brandbar__logo img { display: block; width: 144px; height: auto; }
+.passport .passport-brandbar { justify-content: flex-start; gap: 24px; }
+.passport-brandbar__title { padding-left: 24px; border-left: 1px solid var(--line); color: var(--brand-blue); font-family: "Manrope", sans-serif; font-size: 12px; font-weight: 600; letter-spacing: .14em; }
+@media (max-width: 600px) {
+  .passport .passport-brandbar { gap: 14px; }
+  .passport-brandbar__title { padding-left: 14px; font-size: 10px; letter-spacing: .08em; }
+}
+
+.passport-brandbar__message {
+  display: flex;
+  flex-direction: column;
+  padding-left: 24px;
+  border-left: 1px solid #d7d8d7;
+  color: #78808b;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  line-height: 1.45;
+}
+
+.passport__content {
+  width: min(1500px, calc(100% - 56px));
+  margin: 0 auto;
+  padding: 22px 0 54px;
+}
+
+.passport-product {
+  display: grid;
+  grid-template-columns: 124px minmax(260px, 1.1fr) minmax(480px, 1.5fr) auto;
+  align-items: center;
+  gap: 24px;
+  min-height: 154px;
+  padding: 16px 24px 16px 16px;
+  overflow: hidden;
+  border: 1px solid rgba(32, 57, 82, 0.08);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 18px 55px rgba(49, 55, 62, 0.06);
+}
+
+.passport-product__image {
+  width: 124px;
+  aspect-ratio: 1 / 1;
+  border-radius: 14px;
+  background: #eeeae1;
+  object-fit: cover;
+}
+
+.passport-product__eyebrow,
+.journey-metrics__eyebrow {
+  margin: 0 0 6px;
+  color: #76889a;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+}
+
+.passport-product__identity h1 {
+  margin: 0;
+  font-family: inherit;
+  font-size: clamp(27px, 2.4vw, 39px);
+  font-weight: 750;
+  letter-spacing: -0.025em;
+}
+
+.passport-product__brand {
+  margin: 4px 0 5px;
+  color: #667386;
+  font-size: 16px;
+}
+
+.passport-product__description {
+  display: -webkit-box;
+  margin: 0 0 10px;
+  overflow: hidden;
+  color: #7b858f;
+  font-size: 11px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.passport-product__verified {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #2875a8;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* 아직 검증되지 않은 제품. 파란 "확인됨" 색을 그대로 쓰면 글자만 바뀌고 화면은
+   여전히 검증된 것처럼 읽힌다 — 색까지 눌러야 한눈에 구분된다. */
+.passport-product__verified.is-pending {
+  color: #8a8578;
+  font-weight: 500;
+}
+
+.passport-product__meta {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  align-self: stretch;
+  margin: 0;
+}
+
+.passport-product__meta div {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 clamp(18px, 2vw, 32px);
+  border-left: 1px solid #e5e2db;
+}
+
+.passport-product__meta dt {
+  color: #7e8792;
+  font-size: 12px;
+}
+
+.passport-product__meta dd {
+  margin: 0;
+  color: #27384e;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.passport-product__status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 172px;
+  padding: 11px 14px;
+  border-radius: 999px;
+  background: #edf6f1;
+  color: #27704e;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.passport__notice {
+  margin: 16px 0 0;
+  padding: 11px 16px;
+  border: 1px solid #ead5a7;
+  border-radius: 10px;
+  background: #fff8e8;
+  color: #765b20;
+  font-size: 13px;
+}
+
+.passport-empty {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 22px;
+  padding: 28px;
+  border: 1px solid #dce5e1;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.8);
+  color: #2f7155;
+}
+
+.passport-empty h2,
+.passport-empty p {
+  margin: 0;
+}
+
+.passport-empty h2 {
+  font-size: 18px;
+}
+
+.passport-empty p {
+  margin-top: 5px;
+  color: #68756f;
+  font-size: 13px;
+}
+
+.journey-explorer {
+  margin-top: 22px;
+}
+
+.journey-explorer__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 50px;
+}
+
+.journey-explorer__toolbar > p {
+  margin: 0;
+  color: #88919b;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.journey-view-toggle {
+  display: inline-grid;
+  grid-template-columns: 1fr 1fr;
+  overflow: hidden;
+  border: 1px solid #cbd3d9;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.journey-view-toggle button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 170px;
+  padding: 11px 18px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #41546a;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 180ms ease, color 180ms ease, box-shadow 180ms ease;
+}
+
+.journey-view-toggle button.is-active {
+  background: linear-gradient(135deg, #0e6099, #247daf);
+  box-shadow: 0 7px 18px rgba(20, 104, 158, 0.22);
+  color: white;
+}
+
+.journey-stepper {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  margin: 2px 0 15px;
+  padding: 0;
+  list-style: none;
+}
+
+.journey-stepper li {
+  position: relative;
+  min-width: 0;
+}
+
+.journey-stepper li:not(:last-child)::after {
+  position: absolute;
+  top: 45px;
+  right: -50%;
+  left: 50%;
+  z-index: 0;
+  height: 1px;
+  /* 연결선은 상태와 무관하게 늘 중립이라 --stage-color를 거치지 않는다. 중립을 흰색에
+     섞으면 같은 값의 배경(--paper)에 묻혀 선이 사라진다. */
+  background: repeating-linear-gradient(90deg, var(--neutral-line) 0 4px, transparent 4px 8px);
+  content: "";
+}
+
+.journey-stepper button {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-areas:
+    "number"
+    "icon"
+    "label"
+    "status";
+  justify-items: center;
+  width: 100%;
+  padding: 2px 8px 5px;
+  border: 0;
+  background: transparent;
+  color: #8d949b;
+  cursor: pointer;
+}
+
+.journey-stepper__number {
+  grid-area: number;
+  margin-bottom: 4px;
+  color: var(--stage-color);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.journey-stepper__icon {
+  display: grid;
+  grid-area: icon;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  /* 원 하나 + 얇은 테두리 하나. 예전에는 두꺼운 배경색 링(5px)과 box-shadow 링이 겹쳐
+     이중 원으로 보였다. 전역 box-sizing: border-box라 테두리를 줄여도 58px 외곽과
+     연결선 위치(li::after의 top: 45px)는 그대로다. */
+  border: 1px solid var(--neutral-line);
+  border-radius: 50%;
+  /* --paper로 주면 카드·페이지 배경과 같은 색이라 원이 사라진다. */
+  background: #fff;
+  color: var(--stage-color);
+  transition: transform 200ms ease, background 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
+}
+
+.journey-stepper button:hover .journey-stepper__icon,
+.journey-stepper button:focus-visible .journey-stepper__icon {
+  transform: translateY(-2px);
+  border-color: var(--neutral-soft);
+}
+
+.journey-stepper button.is-active {
+  color: var(--stage-color);
+}
+
+.journey-stepper button.is-active .journey-stepper__icon {
+  border-color: var(--stage-color);
+  background: var(--stage-color);
+  /* 링 + 글로우 두 겹이던 것을 그림자 하나로 줄인다. 선택된 단계를 가장 강하게 만드는
+     건 빛 번짐이 아니라 채워진 면과 흰 아이콘이다. */
+  box-shadow: 0 4px 14px rgb(9 46 70 / 14%);
+  color: white;
+}
+
+.journey-stepper__label {
+  grid-area: label;
+  margin-top: 6px;
+  color: #1f2f43;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.journey-stepper__status {
+  grid-area: status;
+  margin-top: 2px;
+  color: #8a939b;
+  font-size: 10px;
+}
+
+.journey-explorer__workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+.journey-canvas,
+.journey-detail {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(27, 60, 86, 0.1);
+  border-radius: 19px;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 18px 50px rgba(43, 55, 66, 0.065);
+}
+
+.journey-canvas {
+  position: relative;
+  padding: 16px;
+}
+
+.journey-canvas__heading {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-height: 42px;
+  padding: 4px 12px 12px;
+  border-bottom: 1px solid rgba(38, 56, 73, 0.08);
+}
+
+.journey-canvas__heading span {
+  color: #678298;
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.journey-canvas__heading strong {
+  color: #182b40;
+  font-family: inherit;
+  font-size: 20px;
+  font-weight: 750;
+}
+
+/*
+  두 뷰가 이 규칙 하나를 공유한다. 예전에는 Journey Map만 따로
+  `height: clamp(500px, 48vw, 650px)`를 썼는데, 두 뷰의 viewBox가 똑같이 1000×620이고
+  `preserveAspectRatio` 기본값이라 배율은 `min(박스폭/1000, 박스높이/620)`로 정해진다 —
+  박스 폭이 같으니 그려지는 배경 사각형 크기는 원래도 같았고, 다른 건 사각형 위아래에
+  남는 빈 띠(뷰포트에 따라 28~67px)뿐이었다. 그래서 뷰를 바꾸면 카드 높이가 최대
+  129px 달라지고 사각형이 그만큼 위아래로 튀었다. 높이를 지정하지 않으면 두 뷰 모두
+  viewBox 비율대로 높이를 잡아 빈 띠가 사라지고 전환할 때 아무것도 움직이지 않는다.
+  min-height는 좁은 데스크톱에서 캔버스가 납작해지는 걸 막는 하한이고, 두 뷰에 같은
+  값이라 띠가 생기더라도 대칭이고 서로 같다.
+*/
+.journey-canvas > svg {
+  display: block;
+  width: 100%;
+  min-height: 485px;
+  max-height: 610px;
+  font-family: inherit;
+}
+
+/* ── Journey Map: 좌표가 없어 그릴 게 없을 때의 안내 ── */
+.journey-map-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 485px;
+  border-radius: 12px;
+  background: #eef3f6;
+  color: #557184;
+  font-size: 13px;
+  text-align: center;
+  padding: 24px;
+}
+
+/* ── Journey Map: 실제 대한민국 시도 경계 지도 ── */
+.journey-map-backdrop > rect {
+  fill: #ddecf3;
+}
+
+.journey-map-backdrop__geo {
+  fill: #f6f2e9;
+  stroke: #fff;
+  stroke-width: 1.5;
+  outline: none;
+  filter: drop-shadow(0 5px 8px rgba(72, 91, 100, 0.12));
+}
+
+.journey-flow-backdrop > rect {
+  fill: #faf9f5;
+}
+
+.journey-canvas__edge {
+  color: var(--neutral-line);
+  opacity: 0.28;
+  transition: opacity 200ms ease;
+}
+
+.journey-canvas__edge.is-active {
+  color: var(--edge-color);
+  opacity: 1;
+}
+
+.journey-canvas__edge.is-selected {
+  opacity: 0.5;
+}
+
+.journey-canvas__edge.is-active.is-selected {
+  opacity: 1;
+}
+
+.journey-canvas__edge.is-dimmed {
+  opacity: 0.1;
+}
+
+.journey-canvas__edge-shadow,
+.journey-canvas__edge-line {
+  fill: none;
+  stroke-linecap: round;
+}
+
+.journey-canvas__edge-shadow {
+  stroke: rgba(255, 255, 255, 0.9);
+  stroke-width: 9;
+}
+
+.journey-canvas__edge-line {
+  stroke: currentcolor;
+  stroke-dasharray: 7 8;
+  stroke-width: 3;
+}
+
+.journey-canvas__edge.is-active .journey-canvas__edge-line {
+  animation: journey-dash 900ms ease-out both;
+  stroke-dasharray: 9 7;
+}
+
+.journey-canvas__traveler circle {
+  fill: white;
+  stroke: var(--edge-color);
+  stroke-width: 2;
+}
+
+.journey-canvas__traveler {
+  color: var(--edge-color);
+  filter: drop-shadow(0 4px 5px rgba(31, 49, 62, 0.2));
+}
+
+.journey-canvas__traveler svg {
+  fill: currentcolor;
+}
+
+.journey-canvas__route-label rect {
+  fill: white;
+  stroke: var(--edge-color);
+  stroke-width: 1.5;
+}
+
+.journey-canvas__route-label text {
+  fill: var(--edge-color);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+/* Keep captions readable while preserving the existing route emphasis. */
+.journey-canvas__edge { opacity: 1; --route-opacity: 0.28; }
+.journey-canvas__edge.is-selected { opacity: 1; --route-opacity: 0.5; }
+.journey-canvas__edge.is-active,
+.journey-canvas__edge.is-active.is-selected { opacity: 1; --route-opacity: 1; }
+.journey-canvas__edge.is-dimmed { opacity: 1; --route-opacity: 0.1; }
+.journey-canvas__edge > :not(.journey-canvas__route-label) { opacity: var(--route-opacity); }
+
+.journey-node {
+  cursor: pointer;
+  outline: none;
+  opacity: 1;
+  transition: opacity 180ms ease;
+}
+
+.journey-node.is-dimmed {
+  opacity: 0.28;
+}
+
+.journey-node__halo {
+  /* 선택한 지점의 범위를 강조한다. 지도 좌표는 마커 크기에 맞춰 옮기지 않는다. */
+  fill: color-mix(in srgb, var(--node-color) 10%, transparent);
+  opacity: 0;
+  transform: scale(0.72);
+  transition: opacity 180ms ease, transform 220ms ease;
+}
+
+.journey-node__body {
+  fill: #fff;
+  stroke: var(--neutral-line);
+  stroke-width: 1.5;
+  filter: drop-shadow(0 2px 4px rgba(31, 49, 62, 0.1));
+  transition: fill 180ms ease, stroke 180ms ease, transform 180ms ease;
+}
+
+/*
+  `is-current`는 "활성 단계의 노드"만이 아니라 그 단계 이동 간선에 걸린 노드까지
+  포함한다(JourneyExplorer의 connectedIds). 실제로 세어 보면 다섯 노드 중 넷까지
+  붙어서, 여기까지 전부 채우면 화면에 파란 덩어리가 넷이 되어 "선택된 하나가 가장
+  강하다"가 무너진다. 그래서 채우는 건 실제로 선택된 하나뿐이고 나머지는 파란 테두리로
+  한 단 낮춘다. 상태 판정 로직 자체는 그대로다.
+*/
+.journey-node.is-current .journey-node__body {
+  stroke: var(--node-color);
+}
+
+.journey-node.is-selected .journey-node__body {
+  fill: var(--node-color);
+  stroke: var(--node-color);
+}
+
+.journey-node:hover .journey-node__body,
+.journey-node:focus-visible .journey-node__body {
+  transform: scale(1.02);
+}
+
+.journey-node.is-selected .journey-node__halo {
+  opacity: 1;
+  transform: scale(1);
+  animation: journey-pulse 1.8s ease-in-out infinite;
+}
+
+/* 면이 흰색인 비활성 노드에 흰 아이콘을 그리면 아이콘이 통째로 사라진다 —
+   면이 채워지는 활성 상태에서만 흰색으로 뒤집는다. */
+.journey-node__icon {
+  color: var(--neutral-ink);
+  pointer-events: none;
+}
+
+.journey-node.is-current .journey-node__icon {
+  color: var(--node-color);
+}
+
+/* 면이 채워지는 건 선택된 하나뿐이라, 흰 아이콘으로 뒤집는 것도 여기뿐이다. */
+.journey-node.is-selected .journey-node__icon {
+  color: #fff;
+}
+
+.journey-node__stage-badge circle {
+  fill: white;
+  stroke: var(--node-color);
+  stroke-width: 1.5;
+}
+
+.journey-node__stage-badge text {
+  fill: var(--node-color);
+  font-size: 10px;
+  font-weight: 850;
+  pointer-events: none;
+}
+
+.journey-node__nearby-badge circle {
+  fill: #26384a;
+  stroke: white;
+  stroke-width: 1.5;
+}
+
+.journey-node__nearby-badge text {
+  fill: white;
+  font-size: 10px;
+  font-weight: 800;
+  pointer-events: none;
+}
+
+.journey-node__flow-label rect {
+  fill: rgba(255, 255, 255, 0.96);
+  stroke: #dfe4e7;
+}
+
+.journey-node__flow-label text {
+  fill: #26384a;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.journey-node__flow-label .journey-node__location {
+  fill: #7d8993;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.journey-location-choices {
+  margin: 10px 4px 0;
+  padding: 12px;
+  border: 1px solid #dce7ed;
+  border-radius: 12px;
+  background: #f7fafb;
+}
+
+.journey-location-choices > strong {
+  display: block;
+  margin-bottom: 9px;
+  color: #26384a;
+  font-size: 12px;
+}
+
+.journey-location-choices > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.journey-location-choices button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border: 1px solid #dce7ed;
+  border-radius: 8px;
+  background: white;
+  color: #26384a;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+}
+
+.journey-location-choices button.is-active {
+  border-color: var(--brand-blue);
+  color: var(--brand-blue);
+}
+
+.journey-location-choices button span:first-child {
+  font-weight: 750;
+}
+
+.journey-canvas__legend {
+  position: static;
+  width: fit-content;
+  margin: 8px 0 0 auto;
+  right: 28px;
+  bottom: 25px;
+  display: flex;
+  gap: 14px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #71808b;
+  font-size: 10px;
+}
+
+.journey-canvas__legend span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.journey-canvas__legend i {
+  display: block;
+  width: 17px;
+  border-top: 2px dashed var(--neutral-line);
+}
+
+/* 이 페이지에는 about.css가 로드되지 않아 #216a9f가 --brand-blue(#1e6098)와 나란히
+   놓이면 한 화면에 미묘하게 다른 파랑이 둘이 된다. */
+.journey-canvas__legend i.is-active {
+  border-color: var(--brand-blue);
+}
+
+.journey-detail {
+  display: flex;
+  flex-direction: column;
+  min-height: 520px;
+  padding: 21px;
+}
+
+.journey-detail__header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 13px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #e7e5df;
+}
+
+.journey-detail__icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  /* 상세 패널 헤더는 늘 선택된 단계다 — 스테퍼 활성 원과 같은 표현(채운 면 + 흰 아이콘). */
+  background: var(--stage-color);
+  color: #fff;
+}
+
+.journey-detail__header p,
+.journey-detail__header h2 {
+  margin: 0;
+}
+
+.journey-detail__header p {
+  color: var(--stage-color);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+
+.journey-detail__header h2 {
+  margin-top: 2px;
+  font-size: 25px;
+}
+
+.journey-detail__status {
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: #edf5f0;
+  color: #317152;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.journey-detail__status.is-pending {
+  background: #f0f1f2;
+  color: #818991;
+}
+
+.journey-detail__status.is-current {
+  background: #fff0e7;
+  color: #bf5c27;
+}
+
+.journey-detail__selector {
+  display: flex;
+  gap: 7px;
+  margin: 14px 0 2px;
+  padding-bottom: 4px;
+  overflow-x: auto;
+}
+
+.journey-detail__selector button {
+  flex: none;
+  max-width: 190px;
+  overflow: hidden;
+  padding: 9px 13px;
+  border: 1px solid #dce2e6;
+  border-radius: 999px;
+  background: white;
+  color: #5e6e7c;
+  cursor: pointer;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.journey-detail__selector button.is-active {
+  border-color: var(--stage-color);
+  background: color-mix(in srgb, var(--stage-color) 8%, white);
+  color: var(--stage-color);
+  font-weight: 700;
+}
+
+.journey-detail__body {
+  min-width: 0;
+  padding-top: 17px;
+}
+
+.journey-detail__company {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.journey-detail__company strong {
+  font-size: 19px;
+}
+
+.journey-detail__company span,
+.journey-detail__facts dt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #75828c;
+  font-size: 12px;
+}
+
+.journey-detail__facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.journey-detail__facts div {
+  padding: 11px;
+  border-radius: 10px;
+  background: #f5f6f5;
+}
+
+.journey-detail__facts dd {
+  margin: 7px 0 0;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.journey-detail__description {
+  margin: 0;
+  padding: 13px;
+  border-left: 3px solid var(--stage-color);
+  background: color-mix(in srgb, var(--stage-color) 5%, white);
+  color: #596a77;
+  font-size: 13px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+.journey-detail__section,
+.journey-detail__movements {
+  margin-top: 17px;
+}
+
+.journey-detail__section h3,
+.journey-detail__movements h3 {
+  margin: 0 0 12px;
+  color: #293c4f;
+  font-size: 15px;
+}
+
+.journey-detail__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.journey-detail__chips span {
+  padding: 6px 9px;
+  border-radius: 6px;
+  background: #eef2f3;
+  color: #526673;
+  font-size: 10px;
+}
+
+.journey-detail__materials,
+.journey-detail__movements ul,
+.journey-metrics ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.journey-detail__materials li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 3px 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid #eceae5;
+  font-size: 11px;
+}
+
+.journey-detail__materials li span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.journey-detail__materials li small {
+  grid-column: 1 / -1;
+  color: #89939b;
+}
+
+.journey-detail__proof-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 9px;
+  border: none;
+  border-radius: 8px;
+  background: #eef6f2;
+  color: #2d7655;
+  font-size: 10px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.journey-detail__proof-row:hover,
+.journey-detail__proof-row:focus-visible {
+  background: #e0efe7;
+}
+
+.journey-detail__proof-row + .journey-detail__proof-row {
+  margin-top: 6px;
+}
+
+.journey-detail__proof-more {
+  color: #526c62;
+  font-size: 9px;
+  text-decoration: underline;
+}
+
+.journey-proof-modal {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+}
+
+.journey-proof-modal > div {
+  display: grid;
+  gap: 2px;
+}
+
+.journey-proof-modal dt {
+  font-size: 11px;
+  color: #7a8a80;
+}
+
+.journey-proof-modal dd {
+  margin: 0;
+  font-size: 13px;
+  color: #1f2d27;
+  word-break: break-all;
+}
+
+.journey-proof-modal .on-chain-panel__hash {
+  overflow-wrap: anywhere;
+}
+
+.journey-detail__evidence p {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  padding: 9px;
+  border: 1px solid #e5e7e4;
+  border-radius: 8px;
+  color: #60707c;
+  font-size: 11px;
+}
+
+.journey-detail__movements.is-compact {
+  padding-top: 15px;
+  border-top: 1px solid #e7e5df;
+}
+
+.journey-detail__movements li {
+  padding: 14px 0;
+  border-bottom: 1px solid #eceae5;
+}
+
+.journey-detail__movements li div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.journey-detail__movements li div span,
+.journey-detail__movements li div strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.journey-detail__movements li small {
+  display: block;
+  margin-top: 6px;
+  color: #87929a;
+  font-size: 11px;
+}
+
+.journey-detail__empty {
+  margin: auto;
+  color: #7f8a93;
+  font-size: 12px;
+}
+
+.journey-metrics {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.journey-metrics > section {
+  min-height: 142px;
+  border: 1px solid rgba(27, 60, 86, 0.1);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 15px 42px rgba(43, 55, 66, 0.05);
+}
+
+.journey-metrics__composition {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 20px;
+  padding: 20px 25px;
+}
+
+.journey-donut {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+}
+
+.journey-donut::after {
+  position: absolute;
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  background: white;
+  content: "";
+}
+
+.journey-donut span {
+  position: relative;
+  z-index: 1;
+  color: #1d5e8b;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.journey-donut small {
+  font-size: 10px;
+}
+
+.journey-metrics h2,
+.journey-metrics p {
+  margin: 0;
+}
+
+.journey-metrics h2 {
+  font-size: 18px;
+}
+
+.journey-metrics__composition li {
+  display: flex;
+  justify-content: space-between;
+  max-width: 280px;
+  padding-top: 5px;
+  color: #607180;
+  font-size: 11px;
+}
+
+.journey-metrics__verification {
+  display: flex;
+  align-items: center;
+  gap: 17px;
+  padding: 25px;
+  color: #287153;
+}
+
+.journey-metrics__verification > svg {
+  flex: none;
+}
+
+.journey-metrics__verification p:last-child {
+  margin-top: 6px;
+  color: #6f7c78;
+  font-size: 11px;
+}
+
+@keyframes journey-dash {
+  from { stroke-dashoffset: 90; }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes journey-pulse {
+  0%, 100% { opacity: 0.45; transform: scale(0.88); }
+  50% { opacity: 0.9; transform: scale(1.08); }
+}
+
+@media (max-width: 1180px) {
+  .passport-product {
+    grid-template-columns: 110px minmax(220px, 1fr) minmax(380px, 1.4fr);
+  }
+
+  .passport-product__image {
+    width: 110px;
+  }
+
+  .passport-product__status {
+    grid-column: 2 / -1;
+    max-width: none;
+    justify-self: start;
+  }
+
+  .journey-explorer__workspace {
+    grid-template-columns: minmax(0, 1.8fr) minmax(320px, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .passport__content {
+    width: min(100% - 28px, 760px);
+  }
+
+  .passport-product {
+    grid-template-columns: 100px 1fr;
+  }
+
+  .passport-product__image {
+    width: 100px;
+  }
+
+  .passport-product__meta {
+    grid-column: 1 / -1;
+  }
+
+  .passport-product__meta div:first-child {
+    border-left: 0;
+  }
+
+  .passport-product__status {
+    grid-column: 1 / -1;
+  }
+
+  .journey-explorer__toolbar > p {
+    display: none;
+  }
+
+  .journey-view-toggle,
+  .journey-view-toggle button {
+    width: 100%;
+  }
+
+  .journey-view-toggle button {
+    min-width: 0;
+  }
+
+  .journey-stepper__label {
+    font-size: 11px;
+  }
+
+  .journey-stepper__status {
+    display: none;
+  }
+
+  .journey-explorer__workspace,
+  .journey-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .journey-detail {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .passport__content {
+    width: min(100% - 24px, 560px);
+    padding-top: 14px;
+  }
+
+  .passport-product {
+    grid-template-columns: 92px minmax(0, 1fr);
+    gap: 13px;
+    min-height: 0;
+    padding: 12px;
+    border-radius: 15px;
+  }
+
+  .passport-product__image {
+    width: 92px;
+    border-radius: 11px;
+  }
+
+  .passport-product__eyebrow {
+    margin-bottom: 3px;
+    font-size: 8px;
+  }
+
+  .passport-product__identity h1 {
+    font-family: inherit;
+    font-size: clamp(21px, 6.5vw, 28px);
+    font-weight: 750;
+  }
+
+  .passport-product__brand {
+    margin: 2px 0 5px;
+    font-size: 14px;
+  }
+
+  .passport-product__description {
+    margin-bottom: 7px;
+    font-size: 10px;
+    -webkit-line-clamp: 1;
+  }
+
+  .passport-product__verified {
+    font-size: 9px;
+  }
+
+  .passport-product__meta {
+    grid-column: 1 / -1;
+    grid-template-columns: 1fr 1fr 1fr;
+    border-top: 1px solid #ebe8e1;
+  }
+
+  .passport-product__meta div,
+  .passport-product__meta div:last-child {
+    grid-column: auto;
+    gap: 4px;
+    padding: 10px 8px 2px;
+    border-top: 0;
+    border-left: 1px solid #ebe8e1;
+  }
+
+  .passport-product__meta div:first-child {
+    border-left: 0;
+  }
+
+  .passport-product__meta dt {
+    font-size: 9px;
+  }
+
+  .passport-product__meta dd {
+    overflow: hidden;
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .passport-product__status {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+    justify-content: center;
+    max-width: none;
+    padding: 8px 10px;
+    font-size: 10px;
+  }
+
+  .journey-explorer--mobile {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+  .mobile-journey__intro {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 2px 3px;
+  }
+
+  .mobile-journey__intro p,
+  .mobile-journey__intro h2 {
+    margin: 0;
+  }
+
+  .mobile-journey__intro p {
+    color: #517894;
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+  }
+
+  .mobile-journey__intro h2 {
+    margin-top: 2px;
+    font-size: 21px;
+  }
+
+  .mobile-journey__intro > span {
+    padding: 6px 9px;
+    border-radius: 999px;
+    background: #eaf2f5;
+    color: #557184;
+    font-size: 9px;
+    font-weight: 650;
+  }
+
+  .journey-canvas--compact {
+    order: 1;
+    padding: 7px;
+    border-radius: 15px;
+  }
+
+  .journey-canvas--compact > svg {
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    aspect-ratio: 525 / 620;
+  }
+
+  .journey-canvas--compact .journey-map-empty {
+    width: 100%;
+    min-height: 0;
+    height: auto;
+    aspect-ratio: 0.9 / 1;
+  }
+
+  .journey-canvas--compact .journey-canvas__heading {
+    min-height: 37px;
+    padding: 5px 10px 10px;
+  }
+
+  .journey-canvas--compact .journey-canvas__heading span {
+    font-size: 10px;
+  }
+
+  .journey-canvas--compact .journey-canvas__heading strong {
+    font-size: 18px;
+  }
+
+  .journey-canvas--compact .journey-canvas__legend {
+    right: 15px;
+    bottom: 15px;
+    gap: 9px;
+    font-size: 8px;
+  }
+
+  .mobile-journey__stages {
+    order: 2;
+    padding: 17px 10px 14px;
+    border: 1px solid rgba(27, 60, 86, 0.1);
+    border-radius: 15px;
+    background: rgba(255, 255, 255, 0.86);
+    box-shadow: 0 12px 35px rgba(43, 55, 66, 0.05);
+  }
+
+  .mobile-journey__section-heading {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 15px;
+    padding: 0 5px 11px;
+  }
+
+  .mobile-journey__section-heading h2,
+  .mobile-journey__section-heading p {
+    margin: 0;
+  }
+
+  .mobile-journey__section-heading h2 {
+    flex: none;
+    font-size: 17px;
+  }
+
+  .mobile-journey__section-heading p {
+    color: #7c8993;
+    font-size: 9px;
+    line-height: 1.5;
+    text-align: right;
+  }
+
+  .journey-explorer--mobile .journey-stepper {
+    margin: 0;
+  }
+
+  .journey-explorer--mobile .journey-stepper li:not(:last-child)::after {
+    top: 31px;
+  }
+
+  .journey-explorer--mobile .journey-stepper button {
+    padding-inline: 2px;
+  }
+
+  .journey-explorer--mobile .journey-stepper__number {
+    display: none;
+  }
+
+  .journey-explorer--mobile .journey-stepper__icon {
+    width: 42px;
+    height: 42px;
+    border-width: 3px;
+  }
+
+  .journey-explorer--mobile .journey-stepper__label {
+    margin-top: 6px;
+    font-size: 9px;
+    line-height: 1.25;
+    word-break: keep-all;
+  }
+
+  .journey-explorer--mobile .journey-stepper__status {
+    display: none;
+  }
+
+  .journey-explorer--mobile > .journey-detail {
+    order: 3;
+    min-height: 0;
+    padding: 17px;
+    border-radius: 15px;
+    box-shadow: 0 12px 35px rgba(43, 55, 66, 0.05);
+  }
+
+  .journey-explorer--mobile .journey-detail__header {
+    grid-template-columns: auto 1fr auto;
+    padding-bottom: 14px;
+  }
+
+  .journey-explorer--mobile .journey-detail__icon {
+    width: 42px;
+    height: 42px;
+  }
+
+  .journey-explorer--mobile .journey-detail__header h2 {
+    font-size: 18px;
+  }
+
+  .journey-explorer--mobile .journey-detail__selector {
+    margin-top: 12px;
+    scrollbar-width: none;
+  }
+
+  .journey-explorer--mobile .journey-detail__selector::-webkit-scrollbar {
+    display: none;
+  }
+
+  .journey-explorer--mobile .journey-detail__facts {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .mobile-journey__summary {
+    order: 4;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 9px;
+  }
+
+  .mobile-journey__summary section {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+    padding: 13px;
+    border: 1px solid rgba(27, 60, 86, 0.1);
+    border-radius: 13px;
+    background: rgba(255, 255, 255, 0.82);
+    color: #317354;
+  }
+
+  .mobile-journey__summary section > svg {
+    flex: none;
+  }
+
+  .mobile-journey__summary section div {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .mobile-journey__summary span {
+    overflow: hidden;
+    color: #79847f;
+    font-size: 8px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-journey__summary strong {
+    margin-top: 2px;
+    color: #264f40;
+    font-size: 12px;
+  }
+}
+
+.journey-canvas--map .journey-node__stage-badge text { font-size: 8px; }
+.journey-route-list { margin: 8px 12px; color: #536a7a; font-size: 13px; }
+.journey-route-list summary { cursor: pointer; padding: 8px 0; }
+.journey-route-list p { margin: 6px 0; line-height: 1.6; }
+
+@media (max-width: 560px) {
+  .passport-brandbar {
+    min-height: 60px;
+    padding: 0 18px;
+  }
+
+  .passport-brandbar__logo {
+    font-size: 25px;
+  }
+
+  .passport-brandbar__message {
+    display: none;
+  }
+
+  .passport-product__meta dd {
+    font-size: 10px;
+  }
+
+  .journey-explorer--mobile .journey-detail__facts {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .journey-canvas__edge-line,
+  .journey-node__halo {
+    animation: none !important;
+    transition: none;
+  }
+}
+
+/* Consumer palette only: map geometry, marker sizing and workspace stay unchanged. */
+/*
+  따뜻한 중립 3색. 여정 화면에서 "지금 선택되지 않은 것"이 쓰는 색이고, landing.css가
+  주는 --brand-blue / --paper 계열을 대체하는 게 아니라 그 옆을 채운다 — 단계마다
+  다른 hue를 쓰던 자리를 이 중립 하나가 받는다. landing.css·about.css의 토큰 값은
+  다른 페이지가 함께 쓰므로 여기서 건드리지 않는다.
+*/
+.landing-page.passport {
+  --neutral-ink: #756f67;
+  --neutral-soft: #a79f93;
+  --neutral-line: #d8d2c8;
+  height: auto; min-height: 100vh; overflow: visible; color: var(--ink); background: var(--paper);
+}
+
+/*
+  단계 색은 단계가 아니라 **상태**가 정한다. 예전에는 JSX가 단계별 hue를 인라인
+  style로 --stage-color / --node-color / --edge-color에 주입했는데, 인라인이 CSS
+  규칙을 이기기 때문에 상태(활성·완료·비활성)로 색을 바꿀 방법이 없었고 다섯 단계가
+  각자 다른 hue를 흰색에 섞어 파스텔 무지개가 됐다. 주입을 걷어내고 같은 변수를
+  여기서 상태별로 정의한다 — 이 변수들을 읽는 기존 규칙 20여 개는 그대로 살아 있다.
+
+  --stage-color를 button이 아니라 li에 두는 이유는 단계 사이 점선 연결선
+  (.journey-stepper li::after)이 button 바깥이기 때문이다.
+*/
+.journey-stepper li { --stage-color: var(--neutral-ink); }
+.journey-stepper button.is-active { --stage-color: var(--brand-blue); }
+.journey-node { --node-color: var(--neutral-ink); }
+.journey-node.is-current,
+.journey-node.is-selected { --node-color: var(--brand-blue); }
+.journey-canvas__edge { --edge-color: var(--neutral-ink); }
+.journey-canvas__edge.is-active { --edge-color: var(--brand-blue); }
+/* 상세 패널은 언제나 "지금 선택된" 단계를 보여준다 — 비활성 상태가 없다. */
+.journey-detail { --stage-color: var(--brand-blue); }
+.passport button, .passport input, .passport select, .passport textarea { font-family: inherit; }
+.passport-brandbar { border-color: var(--line); background: var(--paper); backdrop-filter: none; }
+.passport-product, .passport .journey-canvas, .passport .journey-detail,
+.passport-empty, .passport .journey-metrics > section { border-color: var(--line); border-radius: 12px; background: var(--paper); box-shadow: none; }
+.passport-product__image { background: var(--paper-warm); }
+.passport-product__eyebrow, .passport .journey-metrics__eyebrow,
+.passport .journey-canvas__heading > span, .passport .journey-detail__header p { font-family: "Manrope", sans-serif; }
+.passport-product__eyebrow, .passport .journey-metrics__eyebrow,
+.passport-product__verified { color: var(--brand-blue); }
+/* 검증 전에는 "확인됨" 파랑을 쓰지 않는다 — 위 규칙보다 뒤에 와야 이긴다. */
+.passport .passport-product__verified.is-pending { color: var(--muted); }
+.passport-product__brand, .passport-product__description, .passport-product__meta dt,
+.passport .journey-detail__company span, .passport .journey-detail__facts dt,
+.passport .journey-detail__materials li small, .passport .journey-stepper__status,
+.passport .journey-canvas__legend { color: var(--muted); }
+.passport-product__meta dd, .passport .journey-stepper__label,
+.passport .journey-canvas__heading strong, .passport .journey-detail__section h3,
+.passport .journey-detail__movements h3 { color: var(--ink); }
+.passport-product__status, .passport .journey-detail__status { color: var(--brand-blue); background: var(--paper-warm); }
+.passport .journey-detail__status.is-pending { color: var(--muted); }
+.passport .journey-detail__status.is-current { color: var(--ink); background: color-mix(in srgb, var(--brand-orange) 20%, var(--paper)); }
+.passport .journey-view-toggle { border-color: var(--line); background: var(--paper); }
+.passport .journey-view-toggle button { color: var(--muted); }
+.passport .journey-view-toggle button.is-active { color: white; background: var(--brand-blue); box-shadow: none; }
+.passport .journey-view-toggle .journey-view-toggle__flow.is-active { color: var(--ink); background: var(--brand-orange); }
+.passport .journey-detail__facts div, .passport .journey-detail__chips span { background: var(--paper-warm); color: var(--ink); }
+.passport .journey-detail__selector button { background: var(--paper); }
+.passport .journey-detail__proof-row { color: var(--brand-blue); background: var(--paper-warm); }
+.passport .journey-detail__proof-row:hover { background: color-mix(in srgb, var(--brand-blue) 10%, var(--paper)); }
+.passport .journey-metrics__verification, .passport .journey-donut span { color: var(--brand-blue); }
+.passport .journey-metrics__composition li, .passport .journey-metrics__verification p:last-child { color: var(--muted); }
+.passport .journey-donut::after { background: var(--paper); }
+.passport .mobile-journey__stages, .passport .mobile-journey__summary section { border-color: var(--line); border-radius: 12px; background: var(--paper); box-shadow: none; }
+.passport .mobile-journey__intro p { color: var(--brand-blue); font-family: "Manrope", sans-serif; }
+.passport .mobile-journey__intro > span { color: var(--brand-blue); background: var(--paper-warm); }
+.passport .mobile-journey__summary section, .passport .mobile-journey__summary strong { color: var(--brand-blue); }
+.passport .mobile-journey__summary span, .passport .journey-route-list,
+.passport .journey-detail__description { color: var(--muted); }
+.passport__notice { border-color: var(--line); background: var(--paper-warm); color: var(--ink); }
+.passport .journey-map-backdrop > rect { fill: color-mix(in srgb, var(--brand-blue) 10%, var(--paper)); }
+.passport .journey-map-backdrop > path, .passport .journey-flow-backdrop > rect { fill: var(--paper-warm); }
+.passport .journey-node__flow-label text { fill: var(--ink); }
+.passport .journey-node__flow-label .journey-node__location { fill: var(--muted); }
+.passport-footer { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 28px; padding: 28px clamp(24px, 4vw, 68px); border-top: 1px solid var(--line); background: var(--paper-warm); font-size: 12px; }
+.passport-footer img { display: block; width: 120px; height: auto; }
+.passport-footer p { margin: 0; color: var(--muted); }
+.passport-footer > a:last-child { margin-left: auto; color: var(--brand-blue); text-decoration: none; }
+
+/* Product summary and shared Map/Flow detail readability. */
+.passport .passport-product > .passport-product__verified { grid-column: 3; grid-row: 1; justify-self: end; gap: 7px; font-size: 13px; }
+.passport .journey-detail__facts { gap: 0 20px; padding: 12px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.passport .journey-detail__facts div { padding: 0; border-radius: 0; background: transparent; }
+.passport .journey-detail__facts div + div { padding-left: 20px; border-left: 1px solid var(--line); }
+.passport .journey-detail__facts dd { margin-top: 6px; font-size: 14px; }
+.passport .passport-product { grid-template-columns: 112px minmax(0, 1fr) auto; gap: 16px 24px; padding: 20px; }
+.passport .passport-product__image { width: 112px; border-radius: 8px; }
+.passport .passport-product__identity h1 { font-size: clamp(23px, 2vw, 30px); line-height: 1.3; }
+.passport .passport-product__identity { align-self: center; }
+.passport .passport-product__identity .passport-product__eyebrow { margin-bottom: 14px; }
+.passport .passport-product__brand { margin: 12px 0 0; font-size: 14px; line-height: 1.5; }
+.passport .passport-product__verified { font-size: 12px; font-weight: 500; }
+.passport .passport-product__status { grid-column: 3; grid-row: 1; max-width: none; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: transparent; font-size: 12px; font-weight: 600; }
+.passport .passport-product__meta { grid-column: 1 / -1; grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr)); padding-top: 16px; border-top: 1px solid var(--line); }
+.passport .passport-product__meta div { justify-content: flex-start; gap: 6px; padding: 0 20px; border-color: var(--line); }
+.passport .passport-product__meta div:first-child { padding-left: 0; border-left: 0; }
+.passport .passport-product__meta dt { font-size: 12px; }
+.passport .passport-product__meta dd { font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.passport .journey-detail__section h3, .passport .journey-detail__movements h3 { font-size: 15px; margin-bottom: 10px; }
+.passport .journey-detail__materials li { padding: 12px 0; font-size: 14px; line-height: 1.5; }
+.passport .journey-detail__materials li small { padding-left: 23px; font-size: 12px; }
+.passport .journey-detail__materials li span > svg { flex: 0 0 17px; }
+.passport .journey-detail__proof-row { padding: 12px; border-radius: 8px; font-size: 13px; line-height: 1.5; }
+.passport .journey-detail__proof-row small { font-size: 12px; }
+.passport .journey-detail__chips span { font-size: 12px; }
+.passport .journey-detail__selector button { font-size: 13px; }
+.passport .journey-detail__selector button:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--stage-color); }
+@media (max-width: 600px) {
+  .passport .passport-product > .passport-product__verified { grid-column: 1 / -1; grid-row: auto; justify-self: start; font-size: 12px; }
+  .passport .journey-detail__facts { grid-template-columns: 1fr; gap: 10px; }
+  .passport .journey-detail__facts div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .passport .journey-detail__facts div + div { padding-left: 0; border-left: 0; }
+  .passport .journey-detail__facts dd { margin: 0; }
+  .passport .passport-product { grid-template-columns: 80px minmax(0, 1fr); gap: 14px; padding: 14px; }
+  .passport .passport-product__image { width: 80px; }
+  .passport .passport-product__identity h1 { font-size: 20px; }
+  .passport .passport-product__status { grid-column: 1 / -1; grid-row: auto; justify-self: start; }
+  .passport .passport-product__meta { grid-template-columns: minmax(0, 1.5fr) repeat(2, minmax(0, 1fr)); }
+  .passport .passport-product__meta div { padding: 0 8px; }
+  .passport .passport-product__meta dt { font-size: 10px; }
+  .passport .passport-product__meta dd { font-size: 11px; }
+}

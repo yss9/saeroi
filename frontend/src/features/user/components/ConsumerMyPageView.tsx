@@ -1,0 +1,133 @@
+import { PencilSimple } from '@phosphor-icons/react'
+import { Link } from 'react-router-dom'
+import { ErrorMessage, Loading } from '../../../components/common/index.ts'
+import type { ConsumerMyPageData } from '../types/consumerMyPage.types.ts'
+import { maskAddressDetail, maskAddressLine, maskEmail, maskName, maskPhone } from '../../../utils/mask.ts'
+import { ConsumerAccountLayout } from './ConsumerAccountLayout.tsx'
+import './consumer-mypage.css'
+
+export type ConsumerMyPageViewState =
+  | { status: 'loading' }
+  | { status: 'error'; error: unknown; onRetry?: () => void }
+  | { status: 'ready'; data: ConsumerMyPageData }
+
+export interface ConsumerMyPageViewProps {
+  state: ConsumerMyPageViewState
+  onSignOut?: () => void
+  signOutPending?: boolean
+  signOutError?: unknown
+}
+
+/**
+ * 마이페이지 홈.
+ *
+ * **내 프로필만 둔다.** 주문 목록도 주문 현황도 `/mypage/orders` 로 나갔다 — 주문이
+ * 늘어날수록 내 정보와 배송지처럼 짧고 자주 보는 것이 목록 아래로 밀려 내려간다.
+ */
+export function ConsumerMyPageView({
+  state,
+  onSignOut,
+  signOutPending,
+  signOutError,
+}: ConsumerMyPageViewProps) {
+  const profile = state.status === 'ready' ? state.data.profile : null
+
+  return (
+    <ConsumerAccountLayout
+      current="home"
+      profile={profile}
+      onSignOut={onSignOut}
+      signOutPending={signOutPending}
+      signOutError={signOutError}
+    >
+      {state.status === 'ready' ? (
+        <>
+          <ProfileCard data={state.data} />
+        </>
+      ) : (
+        <PageStatus state={state} />
+      )}
+    </ConsumerAccountLayout>
+  )
+}
+
+function PageStatus({ state }: { state: Exclude<ConsumerMyPageViewState, { status: 'ready' }> }) {
+  return (
+    <div className="consumer-mypage-status">
+      {state.status === 'loading' ? (
+        <Loading label="마이페이지 정보를 불러오는 중" variant="skeleton" rows={6} />
+      ) : (
+        <ErrorMessage error={state.error} onRetry={state.onRetry} />
+      )}
+    </div>
+  )
+}
+
+/**
+ * 내 프로필.
+ *
+ * **계정 정보와 기본 배송지를 한 장에 둔다.** 배송지만 덩그러니 있으면 이 화면이 무엇을
+ * 보여주는 곳인지 읽히지 않는다 — 배송지를 다루는 곳은 따로 있고(`/mypage/addresses`),
+ * 여기서의 질문은 "내 계정이 지금 어떤 상태인가" 다.
+ *
+ * **연락처는 계정 연락처다(2026-09-18 변경).** 처음엔 기본 배송지의 수령인 연락처를
+ * 보여줬는데, `/mypage/profile`에서 계정 연락처를 고쳐도 여기가 그대로라 "고쳤는데
+ * 안 바뀐다"로 보였다 — 같은 "연락처"라는 이름표를 달고 다른 값을 보여준 것이 문제였다.
+ * 배송지의 수령인 정보는 "기본 배송지" 칸이 이미 따로 보여준다.
+ *
+
+ * **여기서는 가려서 보여준다(2026-09-18).** 이 화면은 비밀번호 확인 없이 바로 보이는
+ * 자리라, 이름·이메일·연락처·배송지를 그대로 노출하면 화면을 지나가다 본 사람에게도
+ * 다 드러난다. 전체 값은 `/mypage/profile`(개인정보확인/수정)에서 비밀번호를 한 번 더
+ * 확인한 뒤에만 보여준다.
+ */
+function ProfileCard({ data }: { data: ConsumerMyPageData }) {
+  const address = data.defaultAddress
+
+  return (
+    <section className="consumer-mypage-card consumer-profile-card" aria-labelledby="profile-title">
+      <div className="consumer-section-heading">
+        <div>
+          <p className="consumer-section-heading__eyebrow">MY PROFILE</p>
+          <h2 id="profile-title">내 프로필</h2>
+        </div>
+        <Link className="consumer-text-link" to="/mypage/profile">
+          <PencilSimple aria-hidden="true" /> 수정
+        </Link>
+      </div>
+
+      <dl className="consumer-profile-card__fields">
+        <div>
+          <dt>이름</dt>
+          <dd>{maskName(data.profile.name)}</dd>
+        </div>
+        <div>
+          <dt>이메일</dt>
+          <dd>{maskEmail(data.profile.email)}</dd>
+        </div>
+        <div>
+          <dt>연락처</dt>
+          <dd>{data.profile.phone ? maskPhone(data.profile.phone) : <span className="consumer-profile-card__empty">등록된 연락처가 없습니다</span>}</dd>
+        </div>
+        <div>
+          <dt>기본 배송지</dt>
+          <dd>
+            {address ? (
+              <address>
+                <span>{maskName(address.recipientName)}</span>
+                <span>
+                  [{address.postalCode}] {maskAddressLine(address.addressLine1)}
+                </span>
+                {address.addressLine2 && <span>{maskAddressDetail(address.addressLine2)}</span>}
+              </address>
+            ) : (
+              <span className="consumer-profile-card__empty">
+                배송지를 등록해 주세요.
+              </span>
+            )}
+          </dd>
+        </div>
+      </dl>
+    </section>
+  )
+}

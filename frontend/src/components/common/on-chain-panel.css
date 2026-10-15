@@ -1,0 +1,107 @@
+/* 온체인 단계 패널. 오프체인 카드와 시각적으로 구분되어야 한다 —
+   두 기록은 서로 다른 시점에 확정되고 체인 쪽만 실패할 수 있기 때문이다. */
+.on-chain-panel {
+  border: 1px solid var(--color-border, #e2e1dc);
+  border-left: 3px solid var(--color-primary, #2f6f4f);
+  border-radius: 8px;
+  padding: 16px 18px;
+  margin-top: 16px;
+}
+
+.on-chain-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.on-chain-panel__header h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.on-chain-panel__badge {
+  font-size: 12px;
+  padding: 2px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--color-border, #e2e1dc);
+  color: var(--color-text-muted, #6b6862);
+  white-space: nowrap;
+}
+
+.on-chain-panel__badge.is-done {
+  border-color: var(--color-primary, #2f6f4f);
+  color: var(--color-primary, #2f6f4f);
+  font-weight: 600;
+}
+
+.on-chain-panel__lead {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--color-text-muted, #6b6862);
+}
+
+.on-chain-panel__details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px 16px;
+  margin: 0 0 14px;
+  padding: 12px;
+  border-radius: 6px;
+  background: var(--color-surface-muted, #f6f5f1);
+}
+
+.on-chain-panel__details div {
+  min-width: 0;
+}
+
+.on-chain-panel__details dt {
+  margin-bottom: 2px;
+  font-size: 11px;
+  color: var(--color-text-muted, #6b6862);
+}
+
+.on-chain-panel__details dd {
+  margin: 0;
+  overflow: hidden;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.on-chain-panel__blocked {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--color-text-muted, #6b6862);
+}
+
+/* 안내 문구 바로 아래에 둔다 — "전환해 주세요" 와 전환 수단이 떨어져 있으면
+   읽고도 무엇을 눌러야 하는지 다시 찾아야 한다. */
+.on-chain-panel__switch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0 0 12px;
+}
+
+.on-chain-panel__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.on-chain-panel__hint {
+  font-size: 13px;
+  color: var(--color-text-muted, #6b6862);
+}
+
+.on-chain-panel__hash {
+  margin: 10px 0 0;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: var(--color-text-muted, #6b6862);
+}

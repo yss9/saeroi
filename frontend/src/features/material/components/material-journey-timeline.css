@@ -1,0 +1,79 @@
+.material-journey-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.material-journey-timeline__entry {
+  display: grid;
+  grid-template-columns: 12px 1fr;
+  gap: 12px;
+  position: relative;
+  padding-bottom: 20px;
+}
+
+.material-journey-timeline li:last-child .material-journey-timeline__entry {
+  padding-bottom: 0;
+}
+
+.material-journey-timeline__marker {
+  width: 10px;
+  height: 10px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--ui-color-primary);
+}
+
+.material-journey-timeline li:not(:last-child) .material-journey-timeline__entry::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 15px;
+  bottom: -5px;
+  width: 2px;
+  background: var(--ui-color-bg);
+}
+
+.material-journey-timeline__body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 4px;
+}
+
+.material-journey-timeline__body header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.material-journey-timeline__stage {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--ui-color-primary-soft);
+  color: var(--ui-color-text);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.material-journey-timeline__body strong {
+  color: var(--ui-color-text);
+  font-size: 14px;
+}
+
+.material-journey-timeline__body time {
+  color: var(--ui-color-muted);
+  font-size: 12px;
+}
+
+.material-journey-timeline__actor,
+.material-journey-timeline__quantity,
+.material-journey-timeline__detail {
+  margin: 0;
+  color: var(--ui-color-muted);
+  font-size: 12px;
+}

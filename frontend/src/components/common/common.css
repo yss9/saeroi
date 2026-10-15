@@ -1,0 +1,553 @@
+/*
+ * 공통 컴포넌트 스타일.
+ *
+ * UI 라이브러리가 아직 확정되지 않았으므로 의도적으로 최소한만 둔다.
+ * 나중에 Tailwind / CSS Modules / 디자인 시스템 중 무엇으로 가더라도
+ * 이 파일 하나만 걷어내면 되도록, 여기 밖으로 ui-* 클래스를 흘리지 않는다.
+ *
+ * 색상은 아래 토큰만 쓰고 컴포넌트 안에서 직접 hex 를 쓰지 않는다.
+ */
+
+:root {
+  /* 와이어프레임(assets/saeroi-unified.css)의 팔레트를 정본으로 삼는다.
+     그 파일이 "unified" 라는 이름으로 가장 나중에 정리된 것이고, Stitch 페이지들이
+     각자 쓰던 Material 팔레트보다 이쪽이 팀의 결정에 가깝다. */
+  --ui-color-primary: #087f70;
+  --ui-color-primary-soft: #e8f5f2;
+  --ui-color-primary-contrast: #ffffff;
+  --ui-color-surface: #ffffff;
+  --ui-color-bg: #f6f8fb;
+  --ui-color-border: #d9e1e8;
+  --ui-color-border-strong: #b8c6d1;
+  --ui-color-text: #102238;
+  --ui-color-muted: #5f6f7d;
+  --ui-color-danger: #b42318;
+  --ui-color-warning: #b54708;
+  --ui-color-success: #027a48;
+  --ui-color-info: #175cd3;
+  --ui-radius: 12px;
+  --ui-radius-sm: 8px;
+  --ui-shadow: 0 1px 2px rgba(16, 34, 56, 0.05);
+  --ui-gap: 24px;
+
+  /* 내가 만든 컴포넌트들이 참조하는 이름. 별칭으로 두어 한 곳만 고치면 되게 한다 —
+     피처마다 자기 토큰(--bp-* · --pr-* · --auth-* …)을 따로 만들어 쓴 것이
+     화면이 제각각으로 보이는 원인이었다. */
+  --color-primary: var(--ui-color-primary);
+  --color-primary-soft: var(--ui-color-primary-soft);
+  --color-surface: var(--ui-color-surface);
+  --color-bg: var(--ui-color-bg);
+  --color-border: var(--ui-color-border);
+  --color-border-strong: var(--ui-color-border-strong);
+  --color-text: var(--ui-color-text);
+  --color-text-muted: var(--ui-color-muted);
+}
+
+/* ── Button ─────────────────────────────────────────── */
+.ui-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5em;
+  border: 1px solid transparent;
+  border-radius: var(--ui-radius);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ui-button:disabled { opacity: 0.55; cursor: not-allowed; }
+/* 링크를 버튼 모양으로 쓸 때. 내려받기처럼 브라우저가 직접 해야 하는 동작은 <a> 여야 한다 */
+a.ui-button { text-decoration: none; }
+.ui-button--sm { padding: 0.35em 0.8em; font-size: 0.875rem; }
+.ui-button--md { padding: 0.55em 1.1em; font-size: 1rem; }
+.ui-button--lg { padding: 0.75em 1.5em; font-size: 1.0625rem; }
+.ui-button--full { width: 100%; }
+.ui-button--primary { background: var(--ui-color-primary); color: var(--ui-color-primary-contrast); }
+.ui-button--secondary { background: transparent; color: var(--ui-color-text); border-color: var(--ui-color-border); }
+.ui-button--danger { background: var(--ui-color-danger); color: #fff; }
+
+.ui-button__spinner,
+.ui-loading__spinner {
+  width: 1em;
+  height: 1em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: ui-spin 0.7s linear infinite;
+}
+@keyframes ui-spin { to { transform: rotate(360deg); } }
+/* 애니메이션을 불편해하는 사용자를 존중한다 (WCAG 2.3.3). */
+@media (prefers-reduced-motion: reduce) {
+  .ui-button__spinner,
+  .ui-loading__spinner { animation: none; }
+}
+
+/* ── Field (Input / Select / QuantityInput / FileUploader) ── */
+.ui-field { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 1rem; }
+.ui-field__label { font-size: 0.875rem; font-weight: 600; }
+.ui-field__control {
+  padding: 0.55em 0.75em;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-color-surface);
+  font: inherit;
+  color: inherit;
+}
+.ui-field__control--error { border-color: var(--ui-color-danger); }
+.ui-field__error { margin: 0; font-size: 0.8125rem; color: var(--ui-color-danger); }
+.ui-field__hint { margin: 0; font-size: 0.8125rem; color: var(--ui-color-muted); }
+/* 거절 사유가 여러 가지면 alert 한 덩어리 안에 문단으로 들어온다. */
+.ui-field__error p { margin: 0; }
+
+/* ── FileUploader ── */
+.ui-uploader__drop {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  /* 점선은 "여기에 놓을 수 있다" 를 문구 없이도 알려준다. */
+  border: 1px dashed var(--ui-color-border);
+  border-radius: var(--ui-radius);
+}
+.ui-uploader__drop--active { border-color: var(--ui-color-primary); border-style: solid; }
+.ui-uploader__drop-hint { font-size: 0.8125rem; color: var(--ui-color-muted); }
+.ui-uploader__previews {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ui-uploader__previews li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  width: 6rem;
+  font-size: 0.75rem;
+  /* 파일 이름이 길어도 칸을 밀어내지 않게 줄바꿈한다. */
+  overflow-wrap: anywhere;
+}
+/* LocalFilePreview / 서버 증빙 미리보기 공통 칸. 이미지든 확장자 글자든 같은 크기다 —
+   섞여 있을 때 줄이 들쭉날쭉하지 않아야 목록으로 읽힌다. */
+.ui-file-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 6rem;
+  height: 6rem;
+  border-radius: var(--ui-radius);
+  background: var(--ui-color-surface);
+  object-fit: cover;
+}
+.ui-file-preview--none {
+  border: 1px solid var(--ui-color-border);
+  color: var(--ui-color-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+.ui-uploader__progress { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8125rem; }
+.ui-uploader__progress progress { flex: 1; }
+
+.ui-quantity { display: flex; align-items: center; gap: 0.5rem; }
+.ui-quantity .ui-field__control { flex: 1; }
+.ui-quantity__unit { color: var(--ui-color-muted); font-size: 0.9375rem; }
+
+/* ── Modal ──────────────────────────────────────────── */
+/*
+  **창은 위에서 시작한다.** `<dialog>` 의 기본 `margin: auto` 는 창을 화면 한가운데에
+  세우는데, 거래 상세처럼 내용이 길면 그 가운데 정렬 때문에 제목이 화면 위로 잘려 나가
+  스크롤을 올려야 무엇을 보고 있는지 알 수 있었다. 위를 고정하고 안에서 스크롤시킨다.
+*/
+.ui-modal {
+  border: none;
+  border-radius: var(--ui-radius);
+  padding: 0;
+  max-width: min(32rem, 92vw);
+  margin: 4vh auto auto;
+  max-height: 88vh;
+  overflow-y: auto;
+}
+.ui-modal::backdrop { background: rgb(0 0 0 / 0.4); }
+.ui-modal__panel { padding: 1.25rem; }
+.ui-modal__header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.ui-modal__heading { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.ui-modal__title { margin: 0; font-size: 1.125rem; color: #174b72; }
+/* 대상은 제목과 다른 색·크기로 한 줄 아래. 무엇을 하는 창인지가 먼저 읽힌다. */
+.ui-modal__subtitle { margin: 0; font-size: 0.9rem; font-weight: 600; color: #216a9f; }
+.ui-modal__close { background: none; border: none; font-size: 1.5rem; line-height: 1; cursor: pointer; }
+.ui-modal__body { margin: 1rem 0; }
+/*
+  팝업의 스크롤 막대를 감춘다 — 스크롤 자체는 그대로다.
+
+  창이 작아 보이는 폼(제품 등록·수정)에서 막대가 제목과 닫기 버튼 사이를 세로로 갈라
+  창이 잘린 것처럼 보였다. 내용이 더 있다는 신호는 창 아래로 이어지는 폼 자체가 준다.
+*/
+.ui-modal,
+.ui-modal__body {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.ui-modal::-webkit-scrollbar,
+.ui-modal__body::-webkit-scrollbar { width: 0; height: 0; }
+.ui-modal__footer { display: flex; justify-content: flex-end; gap: 0.5rem; }
+
+/* ── Loading / Empty / Error ────────────────────────── */
+.ui-loading { display: inline-flex; align-items: center; gap: 0.5rem; color: var(--ui-color-muted); }
+.ui-skeleton { display: flex; flex-direction: column; gap: 0.6rem; }
+.ui-skeleton__row {
+  height: 1rem;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #ece9e1 25%, #f6f4ef 37%, #ece9e1 63%);
+  background-size: 400% 100%;
+  animation: ui-shimmer 1.4s ease infinite;
+}
+@keyframes ui-shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+@media (prefers-reduced-motion: reduce) { .ui-skeleton__row { animation: none; } }
+
+.ui-empty { padding: 2.5rem 1rem; text-align: center; color: var(--ui-color-muted); }
+.ui-empty__title { margin: 0 0 0.35rem; font-weight: 600; color: var(--ui-color-text); }
+.ui-empty__description { margin: 0 0 1rem; font-size: 0.9375rem; }
+
+.ui-error {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--ui-color-danger);
+  border-radius: var(--ui-radius);
+  background: #fef3f2;
+}
+.ui-error__message { margin: 0; color: var(--ui-color-danger); }
+
+/* ── Badge ──────────────────────────────────────────── */
+.ui-badge {
+  display: inline-block;
+  padding: 0.15em 0.6em;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid currentColor;
+}
+.ui-badge--neutral { color: var(--ui-color-muted); }
+.ui-badge--info { color: var(--ui-color-info); }
+.ui-badge--success { color: var(--ui-color-success); }
+.ui-badge--warning { color: var(--ui-color-warning); }
+.ui-badge--danger { color: var(--ui-color-danger); }
+
+/* ── Wallet / Transaction ───────────────────────────── */
+.ui-wallet-chip {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.35em 0.8em;
+  border: 1px solid var(--ui-color-border);
+  border-radius: 999px;
+  background: var(--ui-color-surface);
+  font: inherit; font-size: 0.875rem;
+  cursor: pointer;
+}
+.ui-wallet-chip--warning { border-color: var(--ui-color-warning); color: var(--ui-color-warning); }
+.ui-wallet-chip__address { font-variant-numeric: tabular-nums; }
+.ui-wallet-chip__warning { font-size: 0.75rem; }
+
+.ui-tx {
+  display: flex; flex-direction: column; gap: 0.5rem;
+  padding: 1rem;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius);
+}
+.ui-tx__message { margin: 0; }
+/* 해시는 길다. 좁은 화면에서 레이아웃을 밀어내지 않게 잘라 준다. */
+.ui-tx__hash {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+  color: var(--ui-color-muted);
+}
+
+/* ── 페이지 골격 ─────────────────────────────────────────
+   지금까지 .page 가 marketplace.css 에만 있었다. 소재·거래 화면이 그 파일을
+   불러오지 않으면 여백도 폭도 없는 맨 화면이 됐다. 공통으로 올린다. */
+.page {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 28px var(--ui-gap) 72px;
+}
+
+.page > h1,
+.page__header h1 {
+  margin: 0 0 6px;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  color: var(--ui-color-text);
+}
+
+.page__header {
+  margin-bottom: var(--ui-gap);
+}
+
+.page__lead {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ui-color-muted);
+}
+
+/* 페이지 안의 구획. 제목 + 내용이 반복되는 모양을 한 번만 정의한다. */
+.page > section {
+  margin-top: var(--ui-gap);
+}
+
+.page > section > h2 {
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ui-color-muted);
+}
+
+/* ── 표 ─────────────────────────────────────────────────
+   보유 소재·거래 목록이 맨 <table> 이라 테두리도 정렬도 없었다. */
+.ui-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius);
+  box-shadow: var(--ui-shadow);
+  overflow: hidden;
+  font-size: 14px;
+}
+
+.ui-table th {
+  text-align: left;
+  padding: 10px 16px;
+  /* 페이지 배경(--ui-color-bg)과 같은 색을 쓰면 표 안인지 밖인지 구분이 안 된다.
+     한 단 진한 톤과 두꺼운 아래선으로 머리 행임을 분명히 한다. */
+  background: #eef2f7;
+  border-bottom: 2px solid var(--ui-color-border);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--ui-color-muted);
+  white-space: nowrap;
+}
+
+.ui-table td {
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--ui-color-border);
+  color: var(--ui-color-text);
+}
+
+.ui-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.ui-table tbody tr:hover {
+  background: var(--ui-color-bg);
+}
+
+/* 수량·금액은 자리를 맞춘다. 숫자가 흔들리면 크기 비교가 안 된다.
+
+   width: 1% 는 축소 요청이다 — 브라우저는 내용보다 좁게는 만들지 않으므로 결과적으로
+   "내용 폭" 이 된다. 이렇게 해야 남는 폭이 첫 칸(이름)으로 몰린다. 그러지 않으면 여섯
+   칸이 폭을 똑같이 나눠 가져 숫자 사이가 텅 비고, 머리글과 값이 멀어져 어느 칸인지
+   눈으로 잇기 어려워진다. */
+.ui-table td.is-numeric,
+.ui-table th.is-numeric {
+  width: 1%;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 짧은 칸(상태·시각)도 내용 폭으로 줄인다. */
+.ui-table td.is-tight,
+.ui-table th.is-tight {
+  width: 1%;
+  white-space: nowrap;
+}
+
+/* 표는 좁은 화면에서 자기 안에서만 스크롤한다 — 페이지가 가로로 밀리면 안 된다. */
+.ui-table-scroll {
+  overflow-x: auto;
+}
+
+/* ── 카드 ───────────────────────────────────────────────── */
+.ui-card {
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius);
+  box-shadow: var(--ui-shadow);
+  padding: 18px 20px;
+}
+
+/* 표의 caption 은 화면에서 감추고 스크린리더에만 남긴다 — 페이지 제목이 이미
+   같은 말을 하고 있어 두 번 보이면 군더더기다. */
+.ui-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── 보유 소재 카드 ─────────────────────────────────────── */
+.inventory-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.15rem;
+}
+
+/* 소재 · 종류 · 판매 가능량 · 상태만 보여준다. 보유/잠긴 수량 · 출처 · 생성 유형 ·
+   기준 시각은 카드를 눌러 들어가는 소재 상세에 있다 (InventoryList 주석 참고).
+   폭이 좁아지면 4 → 2 → 1 열로 줄어든다 — 카드 폭을 고정하면 좁은 화면에서 잘린다. */
+.inventory-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@media (max-width: 64rem) {
+  .inventory-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 30rem) {
+  .inventory-grid { grid-template-columns: 1fr; }
+}
+
+/* 이 카드만의 팔레트 — 나머지 화면(--ui-color-primary 등)에는 영향을 주지 않는다.
+   크림/오렌지/블루는 소재 등록·보유·판매(InventoryList, MaterialDetailPage,
+   SupplierMarketPage)에서만 함께 쓴다. */
+.inventory-card {
+  --inv-cream: #e5d7bd;
+  --inv-orange: #ff9b69;
+  --inv-blue: #216a9f;
+
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-color-surface);
+  box-shadow: var(--ui-shadow);
+  overflow: hidden;
+}
+/* 소진된 소재. 지울 수는 없다 — 이력이 남아 있고 추적에 쓰인다 — 대신 뒤로 물린다. */
+.inventory-card--used-up { background: var(--ui-color-bg); }
+.inventory-card--used-up .inventory-card__name { color: var(--ui-color-muted); }
+.inventory-card--used-up .inventory-card__available { color: var(--ui-color-muted); }
+
+.inventory-card:hover {
+  border-color: var(--inv-blue);
+}
+
+.inventory-card__link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.3rem;
+  padding: 0.9rem 1rem 1rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.inventory-card__name {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.inventory-card__type {
+  font-size: 13px;
+  color: var(--ui-color-muted);
+}
+
+/* 카드의 첫 줄. 가운데 정렬된 칸 안에서 상태 배지만 왼쪽에 붙는다. */
+.inventory-card__status {
+  display: flex;
+  width: 100%;
+  margin-bottom: 0.15rem;
+}
+
+/*
+ * 수량 세 층.
+ *
+ * 예전에는 "판매 가능" 한 줄뿐이라 그 숫자가 왜 그런지 알 수 없었다 — 30kg 을 갖고
+ * 있는데 12kg 만 보이면 나머지 18kg 이 어디 갔는지 화면 어디에도 없었다.
+ */
+.inventory-card__figures {
+  width: 100%;
+  margin-top: 0.35rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--ui-color-border);
+}
+
+.inventory-card__lead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.inventory-card__lead > span {
+  font-size: 12px;
+  color: var(--ui-color-muted);
+}
+
+/* 이 카드를 보는 이유가 되는 값. 판매 등록이 이 숫자로 막히거나 통과한다. */
+.inventory-card__available {
+  font-weight: 700;
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--inv-orange);
+}
+
+/* 보유 대비 쓸 수 있는 비율. 숫자 둘을 견주는 것보다 빨리 읽힌다. */
+.inventory-card__bar {
+  height: 5px;
+  margin-top: 0.4rem;
+  border-radius: 999px;
+  background: var(--ui-color-border);
+  overflow: hidden;
+}
+
+.inventory-card__bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--inv-orange);
+}
+
+.inventory-card__split {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0.35rem 0 0;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ui-color-muted);
+}
+
+.material-lineage__card--clickable {
+  cursor: pointer;
+}
+
+/* ── 페이지 이동 ─────────────────────────────────────── */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+.pagination__status {
+  font-size: 0.875rem;
+  color: var(--ui-color-muted);
+  /* 페이지를 넘길 때 숫자 폭이 달라져 버튼이 흔들리는 것을 막는다. */
+  font-variant-numeric: tabular-nums;
+}
+.pagination__total { color: var(--ui-color-muted); }
