@@ -1,0 +1,13 @@
+{
+  "network": "ssafy",
+  "chainId": 31221,
+  "materialToken": "0x8d0641f6cB792c70C03b0209f98C512b5e727BAa",
+  "marketplace": "0x9B87D1A716FDB12C15864998fc0DdA6dCAD1F9ae",
+  "processingRegistry": "0x439fbD4A53B8029c0af40382246B2050A010d2dc",
+  "productionRegistry": "0x810065F3f33ff5257A2e24326E9ADCc80192C9e5",
+  "predictionPoint": "0x2F97fd54774137fD54e076dE499238E1532a092c",
+  "predictionMarket": "0x549d1ff0312e9a603327bad75C9308809A9c1cf6",
+  "predictionPointInitialSupply": "1000000000000000000000000",
+  "deployer": "0x9612FAAf534894eDC310cc5FAee2Be000A14e0c7",
+  "deployedAt": "2026-10-02T08:41:41.715Z"
+}

@@ -1,0 +1,13 @@
+node_modules/
+artifacts/
+cache/
+typechain-types/
+dist/
+coverage/
+coverage.json
+.env
+deployments/*.local.json
+deployments/localhost.json
+scripts/roles.ssafy.json
+scripts/config/roles.*.json
+!scripts/config/roles.*.example.json
