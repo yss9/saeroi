@@ -1,6 +1,32 @@
-# 블록체인 기반 업사이클링 플랫폼
+# 새로이(SAEROI) · 블록체인 기반 업사이클링 플랫폼
 
 > 폐소재가 새로운 제품으로 재탄생하는 전 과정을 블록체인으로 기록하고, 누구나 QR 코드로 소재의 여정을 확인할 수 있는 순환 패션 플랫폼입니다.
+
+- 삼성청년 SW·AI아카데미(SSAFY) 15기 특화 프로젝트 · **우수상**
+- 기간 2026.08 ~ 2026.09 · 6인 팀
+
+### 이 저장소에 대해
+
+SSAFY GitLab에서 파트별 브랜치로 관리하던 코드를 폴더로 합쳤습니다. 각 폴더의 커밋 기록은 원래 브랜치의 기록을 그대로 옮긴 것입니다. 아래 본문에서 `backend/master` 같은 브랜치 이름은 같은 이름의 폴더를 가리킵니다.
+
+| 폴더 | 내용 | 원래 브랜치 |
+| --- | --- | --- |
+| [`backend/`](backend) | Spring Boot API, 거래·가공·생산 도메인, 브랜드 AI 어시스턴트 | `backend/master` |
+| [`frontend/`](frontend) | React 웹 — 쇼핑몰, 업무 공간, AI 어시스턴트, 지갑 서명 | `frontend/develop` |
+| [`blockchain/`](blockchain) | Solidity 컨트랙트와 배포 스크립트 (Hyperledger Besu) | `blockchain/master` |
+| [`ai/`](ai) | FastAPI 추론 서버 | `ai/master` |
+| [`deploy/`](deploy) | Docker Compose, Nginx, 인증서 등 배포 구성 | `deploy/master` |
+
+### 팀
+
+| 이름 | 주로 작업한 폴더 (커밋 기준) |
+| --- | --- |
+| 공병우 | `backend/`, `frontend/`, `deploy/`, `ai/` |
+| 구도연 | `backend/`, `frontend/` |
+| 서영석 | `backend/`, `frontend/` — Material–Brand 소재 거래, 브랜드 AI 어시스턴트 |
+| 유지호 | `blockchain/`, `ai/` |
+| 정송하 | `frontend/` |
+| 한동규 | `backend/`, `ai/` |
 
 ## 1. 프로젝트 소개
 
