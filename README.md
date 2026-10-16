@@ -195,12 +195,4 @@ saeroi/
 └── docs/         팀 설계 문서, README 이미지
 ```
 
-| 폴더 | 원래 브랜치 |
-| --- | --- |
-| [`backend/`](backend) | `backend/master` |
-| [`frontend/`](frontend) | `frontend/develop` |
-| [`blockchain/`](blockchain) | `blockchain/master` |
-| [`ai/`](ai) | `ai/master` |
-| [`deploy/`](deploy) | `deploy/master` |
-
-[docs/PROJECT_DESIGN.md](docs/PROJECT_DESIGN.md)는 팀이 개발 초기에 작성한 설계 문서입니다. 본문의 `backend/master` 같은 브랜치 이름은 같은 이름의 폴더를 가리키며, 일부 내용은 최종 구현과 다릅니다(예: Escrow 컨트랙트 없이 결제는 카카오페이와 DB에서 처리, 백엔드 빌드는 Maven).
+[docs/PROJECT_DESIGN.md](docs/PROJECT_DESIGN.md)는 팀이 개발 초기에 작성한 설계 문서이며, 일부 내용은 최종 구현과 다릅니다(예: Escrow 컨트랙트 없이 결제는 카카오페이와 DB에서 처리, 백엔드 빌드는 Maven).
