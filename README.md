@@ -13,8 +13,6 @@
 
 **링크** · [포트폴리오 상세](https://portfolio-sys13-9a4d.vercel.app/projects/saeroi) · [팀 설계 문서](docs/PROJECT_DESIGN.md) · [Git 컨벤션](GIT_CONVENTION.md)
 
-SSAFY GitLab에서 파트별 브랜치로 관리하던 코드를 폴더 단위로 합친 저장소입니다. 각 폴더의 커밋 기록은 원래 브랜치의 기록을 그대로 옮겼습니다.
-
 ## 주요 기능
 
 굵게 표시한 항목이 본인이 맡은 영역입니다. 나머지는 팀원들이 구현한 기능입니다.
