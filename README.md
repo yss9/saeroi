@@ -9,7 +9,7 @@
 
 | 기간 | 팀 구성 | 내 역할 | 수상 |
 | --- | --- | --- | --- |
-| 2026.08 ~ 2026.09 | 6인 팀 (SSAFY 15기 특화 프로젝트) | Material–Brand 소재 거래, 브랜드 AI 여정 어시스턴트 백엔드·프론트엔드 | 삼성청년 SW/AI 특화프로젝트 우수상 |
+| 2026.08 ~ 2026.09 | 6인 팀 (삼성청년 SW·AI 아카데미) | Material–Brand 소재 거래, 브랜드 AI 여정 어시스턴트 백엔드·프론트엔드 | 삼성청년 SW·AI 아카데미 프로젝트 우수상 |
 
 **링크** · [포트폴리오 상세](https://portfolio-sys13-9a4d.vercel.app/projects/saeroi) · [팀 설계 문서](docs/PROJECT_DESIGN.md) · [Git 컨벤션](GIT_CONVENTION.md)
 
@@ -34,7 +34,7 @@ SSAFY GitLab에서 파트별 브랜치로 관리하던 코드를 폴더 단위�
 
 ## 내가 맡은 부분
 
-커밋 작성자 `jrdtjr` / `서영석` 기준으로 `backend/`와 `frontend/`의 소재 거래·AI 어시스턴트 코드, `deploy/`의 에이전트 LLM 환경변수 설정을 맡았습니다.
+`backend/`와 `frontend/`의 소재 거래·AI 어시스턴트 코드와 `deploy/`의 에이전트 LLM 환경변수 설정을 맡았습니다.
 
 ### 1. Material–Brand 소재 거래 (공동 구현)
 
@@ -206,16 +206,3 @@ saeroi/
 | [`deploy/`](deploy) | `deploy/master` |
 
 [docs/PROJECT_DESIGN.md](docs/PROJECT_DESIGN.md)는 팀이 개발 초기에 작성한 설계 문서입니다. 본문의 `backend/master` 같은 브랜치 이름은 같은 이름의 폴더를 가리키며, 일부 내용은 최종 구현과 다릅니다(예: Escrow 컨트랙트 없이 결제는 카카오페이와 DB에서 처리, 백엔드 빌드는 Maven).
-
-## 팀
-
-| 이름 | 주로 작업한 폴더 (커밋 기준) |
-| --- | --- |
-| 공병우 | `deploy/`, `frontend/`, `backend/`, `ai/` |
-| 구도연 | `frontend/`, `backend/` |
-| 서영석 | `frontend/`, `backend/` — Material–Brand 소재 거래, 브랜드 AI 어시스턴트 |
-| 유지호 | `frontend/`, `blockchain/`, `backend/`, `ai/` |
-| 정송하 | `frontend/`, `backend/` |
-| 한동규 | `frontend/`, `backend/`, `ai/` |
-
-<sub>각 폴더의 원래 브랜치 기록에서 머지 커밋을 뺀 커밋이 5개 이상인 폴더를 커밋이 많은 순으로 적었습니다.</sub>
